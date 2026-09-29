@@ -500,11 +500,33 @@ static OSTask *sp_task;
 static int dp_frozen, dp_held;
 static u64 dp_held_ns;
 
+/* A graphics task started while the RDP is frozen waits for the thaw,
+   RSP half and all: on the hardware the RSP stalls once the RDP's command
+   buffer is full, so the task neither draws nor finishes early.  The
+   buffer it draws into is usually the one still on screen (the swap to
+   the other takes effect at the next retrace); drawing it at once showed
+   the new frame, then the old one, then the new one again. */
+static struct { u32 dl, size, ucode; } dp_pending[4];
+static int dp_npending;
+
+static void dp_run(u32 dl, u32 size, u32 ucode) {
+    int sync = host_gfx_task(dl, size, ucode);
+    u64 rdp = host_take_rdp_ns();
+    host_raise(OS_EVENT_SP);
+    if (sync)                           /* the RDP's full sync */
+        host_raise_at(OS_EVENT_DP, host_now_ns() + rdp);
+}
+
 void osDpSetStatus(u32 v) {
+    int k;
+
     if (v & DPC_SET_FREEZE)
         dp_frozen = 1;
     if (v & DPC_CLR_FREEZE) {
         dp_frozen = 0;
+        for (k = 0; k < dp_npending; k++)
+            dp_run(dp_pending[k].dl, dp_pending[k].size, dp_pending[k].ucode);
+        dp_npending = 0;
         if (dp_held) {
             dp_held = 0;
             host_raise_at(OS_EVENT_DP, host_now_ns() + dp_held_ns);
@@ -519,15 +541,22 @@ void osSpTaskLoad(OSTask *t) { sp_task = t; }
 void osSpTaskStartGo(OSTask *t) {
     host_cpu_sync();
     if (t->t.type == M_GFXTASK) {
-        int sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode);
-        u64 rdp = host_take_rdp_ns();
-        host_raise(OS_EVENT_SP);
-        if (sync) {                     /* the RDP's full sync */
-            if (dp_frozen) {
-                dp_held = 1;
-                dp_held_ns = rdp;
-            } else {
-                host_raise_at(OS_EVENT_DP, host_now_ns() + rdp);
+        if (dp_frozen && dp_npending < (int)(sizeof dp_pending / sizeof dp_pending[0])) {
+            dp_pending[dp_npending].dl = (u32)t->t.data_ptr;
+            dp_pending[dp_npending].size = t->t.data_size;
+            dp_pending[dp_npending].ucode = (u32)t->t.ucode;
+            dp_npending++;
+        } else {
+            int sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode);
+            u64 rdp = host_take_rdp_ns();
+            host_raise(OS_EVENT_SP);
+            if (sync) {                 /* the RDP's full sync */
+                if (dp_frozen) {
+                    dp_held = 1;
+                    dp_held_ns = rdp;
+                } else {
+                    host_raise_at(OS_EVENT_DP, host_now_ns() + rdp);
+                }
             }
         }
     } else {

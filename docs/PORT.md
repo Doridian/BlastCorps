@@ -151,7 +151,10 @@ How the game paces itself, and what the port does about each part:
   in `0xC9FD0FE79BFF80B0`; otherwise it holds the frame to the next
   retrace.  After a swap it freezes the RDP (`DPC_SET_FREEZE`) and thaws it
   at the retrace that shows the new frame.  The port keeps the freeze: a
-  full sync that comes while frozen is held until the thaw.  That is what
+  graphics task started while frozen runs at the thaw (drawn, then its
+  SP and DP events), as on the hardware, where the RSP stalls behind the
+  frozen RDP.  Drawing it at once drew into the buffer still on screen,
+  which showed the new frame, the old one, then the new one again.  That is what
   keeps the intro modes at one frame per retrace (they ran about 15 times
   too fast without it) and gameplay at two.
 - **The game's frame** waits for its task's done message
