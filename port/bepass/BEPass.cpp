@@ -35,6 +35,7 @@
  * IR's, without what is free or doesn't exist on the N64 (phis, casts,
  * constant address arithmetic, the byte swaps, debug intrinsics).
  */
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/CFG.h"
@@ -49,11 +50,77 @@
 #include "llvm/Plugins/PassPlugin.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
+#include <cstdlib>
 #include <vector>
 
 using namespace llvm;
 
 namespace {
+
+struct AccessHooks {
+    /* BEPASS_ACCESS=1 when compiling: every load and store of memory the
+       game's C does (as the source has it, before optimisation can merge
+       or split them; locals left out) calls __port_access(address,
+       size | store << 8, function, the bytes as an integer),
+       and memcpy/memset calls __port_access_copy/_set: the access-width
+       profiler (port/host/access.c, docs/PORT.md "Native-endian memory"). */
+    static void addAccessHooks(Module &m) {
+        LLVMContext &c = m.getContext();
+        Type *i32 = Type::getInt32Ty(c), *vd = Type::getVoidTy(c);
+        PointerType *ptr = PointerType::getUnqual(c);
+        Type *i64 = Type::getInt64Ty(c);
+        FunctionCallee acc = m.getOrInsertFunction("__port_access", FunctionType::get(vd, {ptr, i32, i32, i64}, false));
+        FunctionCallee cpy = m.getOrInsertFunction("__port_access_copy",
+                                                   FunctionType::get(vd, {ptr, ptr, i32, i32}, false));
+        FunctionCallee set = m.getOrInsertFunction("__port_access_set", FunctionType::get(vd, {ptr, i32, i32}, false));
+        const DataLayout &dl = m.getDataLayout();
+        for (Function &f : m) {
+            if (f.isDeclaration())
+                continue;
+            uint32_t h = 2166136261u;
+            for (char ch : f.getName())
+                h = (h ^ (uint8_t)ch) * 16777619u;
+            std::vector<Instruction *> work;
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb)
+                    if (isa<LoadInst>(i) || isa<StoreInst>(i) || isa<MemIntrinsic>(i))
+                        work.push_back(&i);
+            for (Instruction *i : work) {
+                IRBuilder<> b(i);
+                Value *site = b.getInt32(h);
+                if (auto *mi = dyn_cast<MemIntrinsic>(i)) {
+                    Value *n = b.CreateZExtOrTrunc(mi->getLength(), i32);
+                    if (auto *mt = dyn_cast<MemTransferInst>(mi))
+                        b.CreateCall(cpy, {mt->getRawDest(), mt->getRawSource(), n, site});
+                    else
+                        b.CreateCall(set, {mi->getRawDest(), n, site});
+                    continue;
+                }
+                Value *p = getLoadStorePointerOperand(i);
+                const Value *base = getUnderlyingObject(p);
+                if (isa<AllocaInst>(base))
+                    continue;
+                if (auto *g = dyn_cast<GlobalVariable>(base))
+                    if (g->getName().starts_with("__port_"))
+                        continue;
+                Value *v = isa<LoadInst>(i) ? i : cast<StoreInst>(i)->getValueOperand();
+                Type *t = v->getType();
+                unsigned size = dl.getTypeStoreSize(t);
+                if (size > 8 || t->isVectorTy() || t->isAggregateType())
+                    continue;
+                if (isa<LoadInst>(i))
+                    b.SetInsertPoint(i->getNextNode());
+                Value *raw = v;
+                if (t->isPointerTy())
+                    raw = b.CreatePtrToInt(raw, b.getIntNTy(size * 8));
+                else if (!t->isIntegerTy())
+                    raw = b.CreateBitCast(raw, b.getIntNTy(size * 8));
+                raw = b.CreateZExtOrTrunc(raw, i64);
+                b.CreateCall(acc, {p, b.getInt32(size | (isa<StoreInst>(i) ? 0x100 : 0)), site, raw});
+            }
+        }
+    }
+};
 
 struct BEPass : PassInfoMixin<BEPass> {
     static bool isRequired() { return true; }
@@ -224,7 +291,8 @@ struct BEPass : PassInfoMixin<BEPass> {
                 continue;
             /* no over-alignment (x86 wants arrays 16-aligned): the port
                places the game's variables at their N64 addresses */
-            g->setAlignment(dl.getABITypeAlign(g->getValueType()));
+            if (!g->getMetadata("port.align"))      /* port-ilp32 did it */
+                g->setAlignment(dl.getABITypeAlign(g->getValueType()));
             if (g->hasSection() && g->getSection().starts_with("llvm."))
                 continue;
             std::vector<std::pair<uint64_t, unsigned>> items;
@@ -280,16 +348,37 @@ struct BEPass : PassInfoMixin<BEPass> {
         }
     }
 
+    /* BEPASS_TRACE=1 when compiling: every function calls
+       __port_trace(hash of its name) on entry, for comparing two builds
+       call by call (port/host/runtime.c, PORT_TRACE) */
+    static void addTrace(Function &f, FunctionCallee trace) {
+        uint32_t h = 2166136261u;
+        for (char ch : f.getName())
+            h = (h ^ (uint8_t)ch) * 16777619u;
+        IRBuilder<> b(&*f.getEntryBlock().getFirstInsertionPt());
+        b.CreateCall(trace, {b.getInt32(h)});
+    }
+
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
         const DataLayout &dl = m.getDataLayout();
+        const char *tr = getenv("BEPASS_TRACE");
+        FunctionCallee trace;
+        if (tr && *tr == '1')
+            trace = m.getOrInsertFunction("__port_trace", FunctionType::get(Type::getVoidTy(m.getContext()),
+                                                                            {Type::getInt32Ty(m.getContext())}, false));
         FunctionCallee poll = m.getOrInsertFunction(
             "__port_poll", FunctionType::get(Type::getVoidTy(m.getContext()), false));
         for (Function &f : m)
             if (!f.isDeclaration()) {
                 runOnFunction(f, dl);
                 addPolls(f, poll);
+                if (trace)
+                    addTrace(f, trace);
             }
         fixGlobals(m, dl);
+        const char *acc = getenv("BEPASS_ACCESS");
+        if (acc && *acc == '1')
+            AccessHooks::addAccessHooks(m);
         return PreservedAnalyses::none();
     }
 };
@@ -300,6 +389,10 @@ struct ICount : PassInfoMixin<ICount> {
     static bool costs(const Instruction &i) {
         if (isa<PHINode>(i) || isa<CastInst>(i) || isa<DbgInfoIntrinsic>(i))
             return false;
+        if (auto *ci = dyn_cast<CallInst>(&i))      /* the profiler's hooks are free */
+            if (Function *f = ci->getCalledFunction())
+                if (f->getName().starts_with("__port_access"))
+                    return false;
         if (auto *ii = dyn_cast<IntrinsicInst>(&i)) {
             switch (ii->getIntrinsicID()) {
             case Intrinsic::bswap:
@@ -338,12 +431,17 @@ struct ICount : PassInfoMixin<ICount> {
         }
         return PreservedAnalyses::none();
     }
+
 };
 
 } // namespace
 
+/* ILP32.cpp: port-ilp32, for opt (the 64-bit build) */
+void portRegisterILP32(PassBuilder &pb);
+
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
     return {LLVM_PLUGIN_API_VERSION, "BEPass", "1", [](PassBuilder &pb) {
+                portRegisterILP32(pb);
                 pb.registerPipelineStartEPCallback(
                     [](ModulePassManager &mpm, OptimizationLevel) { mpm.addPass(BEPass()); });
                 pb.registerOptimizerLastEPCallback(

@@ -18,7 +18,16 @@ build/port/blastcorps baserom.us.v11.z64   # the user's own ROM
 It needs clang/LLVM with its development headers (BEPass is an LLVM
 plugin), a 32-bit (multilib) libc and SDL2, and Python 3; the OpenGL
 renderer also needs 32-bit libepoxy and an OpenGL 3.3 driver (without
-libepoxy only the software renderer is built).  Keys: arrows or
+libepoxy only the software renderer is built).  `-DPORT_64BIT=ON` builds
+a 64-bit program instead (x86-64 now, AArch64 in principle; see "The
+64-bit build"), which needs LLVM's `opt` and the ordinary 64-bit SDL2 and
+libepoxy rather than the multilib ones:
+
+```
+cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
+      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang -DPORT_64BIT=ON
+cmake --build build/port64
+```  Keys: arrows or
 WASD for the stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C
 buttons, TFGH = D-pad; an SDL game controller works too.  `--help` lists
 the options: `--headless`, `--deterministic` (virtual time: as fast as the
@@ -52,7 +61,9 @@ exactly, and adapts the host to that, rather than the other way round:
 
 - **32-bit addresses.**  The whole program is a 32-bit x86 program
   (`-m32 -malign-double`), so a pointer is 4 bytes and every struct has its
-  N64 layout.  The executable is linked at `0x80400000`.
+  N64 layout.  The executable is linked at `0x80400000`.  (The 64-bit build
+  keeps the layout and the addresses and changes only the code: see "The
+  64-bit build".)
 - **RDRAM at `0x80000000`.**  The first 4 MB of the address space is the
   image's `.rdram` section (`tools/gen_ld.py`), so a KSEG0 address *is* the
   host address.  The translated code's `rdram + (addr & 0x1FFFFFFF)` with
@@ -92,12 +103,10 @@ exactly, and adapts the host to that, rather than the other way round:
   host's `vsprintf`.
 - **Why this and not native pointers.**  It is the quickest way to run the
   code as it is: no data needs typing, the translated engine is used exactly
-  as tested, and the game's own assumptions about addresses hold.  The path
-  to a clean port stays open and is incremental: as structures get typed
-  (Phase 3) and assets get loaders that swap and widen them (Phase 4),
-  BEPass and `-m32` go away together; the translated code has a native-endian
-  mode (`RECOMP_NATIVE_ENDIAN`) for then, and every place the port depends
-  on the layout is a symbol or a documented fixed address.
+  as tested, and the game's own assumptions about addresses hold.  `-m32`
+  and BEPass turned out to be separable: the 64-bit build (below) drops
+  the first and keeps the second.  Native-endian memory is the harder
+  half and needs the data typed (see "Native-endian memory").
 
 BEPass also puts a call to `__port_poll()` on every loop back edge.  The
 game busy-waits on counters that another thread or an interrupt advances
@@ -105,6 +114,278 @@ game busy-waits on counters that another thread or an interrupt advances
 threads one at a time, and the poll is where it lets a due event in.  As an
 opaque call it also stops clang from hoisting the load out of the loop, as
 IDO never would.
+
+## The 64-bit build
+
+`-DPORT_64BIT=ON` makes the port an ordinary 64-bit program (x86-64; the
+same route works for AArch64) that keeps everything the memory model above
+depends on: RDRAM at `0x80000000`, every game variable at its N64 address,
+the N64's struct layouts, big-endian memory, the translated engine as
+tested.  Only the code changes.  The game's C (and `port/src`) is compiled
+for **i386's layout and 64-bit code**:
+
+1. clang compiles it for `i386-pc-linux-gnu -malign-double` to unoptimised
+   IR, so the frontend lays every type out as the N64 does (4-byte
+   pointers and `long`s, 8-byte aligned `u64`s and doubles);
+2. `opt -passes=port-ilp32` (`port/bepass/ILP32.cpp`, in BEPass's plugin)
+   rewrites the module for the 64-bit target without changing any layout;
+3. clang optimises it and generates 64-bit code, running BEPass as usual.
+
+`port/tools/ilp32cc.py` does the three steps as CMake's compiler launcher
+for the N64-side targets.  Everything else (the host side, the translated
+engine, the data files) is compiled natively; none of it depended on
+32-bit pointers, since the translated code and the host already handle game
+memory through 32-bit N64 addresses.
+
+What port-ilp32 does to the i386 module:
+
+- **Pointers are 8 bytes in registers and 4 in memory.**  A load of a
+  pointer is a 32-bit load and a zero extension, a store truncates, a
+  pointer in an initializer is a 32-bit relocation.  This is sound because
+  every address the game's C ever holds is below 4 GB: RDRAM, the image
+  (non-PIE, at `0x80400000`, linked with the PIE start files and
+  `--no-pie`, since the non-PIE `crtbegin.o` addresses its data with
+  sign-extended 32-bit immediates), and the fibers' host stacks at
+  `0x90000000`.  `-DPORT_ILP32_CHECK=ON` checks every pointer store for
+  that; 12,000 frames of the attract mode and 6,000 of each
+  `PORT_AUTOSTART` mode stored none above 4 GB.
+- **The layout is made explicit.**  GEPs become byte offsets computed by
+  the i386 layout, allocas and globals whose type holds a pointer become
+  packed structs of the same size with explicit padding, `byval`/`sret`
+  types become byte arrays; then the module gets the 64-bit triple and data
+  layout (`-port-ilp32-triple`), and loses the i386 target attributes.
+- **Pointer arithmetic wraps at 32 bits**, as on the N64.  The game relies
+  on it: libaudio's `alBnkfNew` relocates a bank's offsets with
+  `(u8 *)offset + (s32)base`, which on a 64-bit GEP sign-extends the
+  KSEG0 base and lands below zero.  A GEP by a variable (or large) offset
+  is computed on the 32-bit address; one by a small constant (a field)
+  stays a GEP, so it still folds into the access.
+- **Accesses outside the named variable** go through an integer, so LLVM
+  can't assume they don't alias the neighbour they really touch (the
+  decompiled C's `T x[1]` placeholders and `extern T x[]` read and write
+  past their end on purpose).  Variable offsets already do, by the rule
+  above; the constant ones are all on incomplete arrays (84 accesses in 11
+  files, `PORT_ILP32_STATS=2` lists them).
+- **K&R calls behave as on the N64.**  The decompiled C declares the same
+  function differently in different files, which on MIPS (and i386) is
+  harmless and on x86-64 isn't.  Three rules make it so again: pointer
+  arguments are re-zero-extended on entry (a caller may have passed an
+  `int`); a `u8`/`s8`/`u16`/`s16` result is returned extended to 32 bits
+  (`00000.c` declares `s32 func_8028653C(void)`, `41930.c` defines it
+  `u8`: x86-64 leaves the upper bits of `eax` undefined, the menu took the
+  wrong branch and the game crashed two screens later); a callee
+  re-extends its own narrow arguments, as IDO's code does.  A pointer
+  result is zero-extended at the call.
+- **No varargs definitions** (the `va_list` would be i386's): the pass
+  refuses them.  The game's own are empty; `sprintf` and the copies
+  (`bcopy`, `bzero`, `memcpy`, which call the host's with a `size_t`) are
+  host code in the 64-bit build (`port/host/libc64.c`).
+
+The glue changes for both builds: `gen_glue.py` passes integer arguments
+into native functions as `uintptr_t` (the 32-bit value zero-extended, so a
+pointer parameter isn't left with an undefined upper half) and returns
+integer results the same way, narrow ones extended as MIPS returns them.
+In the 32-bit build `uintptr_t` is `uint32_t`, and its runs are unchanged
+(all ten screenshots of the run below are identical to before).
+
+The fixed addresses stay as they are: `gen_ld.py` and `gen_syms.py` work
+unchanged on the 64-bit objects, and the link's check finds all 3,432
+symbols in RDRAM at their N64 addresses.
+
+**Result.**  `--headless --deterministic --renderer gl --frames 3000` with
+`PORT_AUTOSTART=1` plays the same sequence as the 32-bit build: the N64
+and Rare logos, the title, the name entry, the world map, Simian Acres and
+its pause menus.  The screenshots at 300 and 600 frames are identical;
+later ones are a few frames apart, because the C's instruction count (the
+timing model's ICount) is of x86-64 IR, not i386's; the pacing per mode is
+the same (2.00 retraces a frame in Simian Acres, 1.99-2.00 on the title).
+With the timing taken out of the comparison (see "Comparing builds") the
+two builds are identical: every screenshot of 3,000 frames, and RDRAM at
+every fifth controller read up to the 500th except the addresses of the
+port's own code and stacks.  The first difference, by the 505th, is a
+miscompile in the 32-bit build, not the 64-bit one: `2B3F0.c` stores
+`D_8036BBB0[n] = D_8036BBB0[n + 1] = i` into a `u16 D_8036BBB0[1]`, the
+N64 code stores both halves, the 64-bit build does, and the 32-bit build's
+clang drops the out-of-bounds one.  The next one is the same with
+`26570.c`'s `D_8036BB48[sp28]` (the 64-bit build writes the index, the
+32-bit one element 0), which puts a `#` into the text of an attract-mode
+panel.  4,500 deterministic frames take 2.3 s, against 2.6 s for the
+32-bit build.
+
+**AArch64.**  The whole N64 side (122 files) compiles for
+`aarch64-unknown-linux-gnu` through the same pass; the host code has no x86
+code left (`gfx.c`'s `-msse4.1` is x86-only now), but neither is linked or
+run here (no AArch64 sysroot).  Linux on AArch64 can link a non-PIE image
+at `0x80000000` (ADRP reaches ±4 GB).  macOS on arm64 can't (executables
+must be PIE); there the game's variables would have to move out of the
+image into the arena, which needs every one of them reached through a
+symbol the port can relocate.
+
+**Alternatives.**  Kept for the record, since each was a candidate:
+
+- clang's `__ptr32 __uptr` (`-fms-extensions`): it works on Linux, for
+  x86-64 and (clang 22) AArch64 alike (a struct `{int *__ptr32 __uptr p;
+  int x;}` is 8 bytes, `p` a zero-extended 32-bit load).  But every
+  pointer declaration in the game and its headers would need the
+  annotation (an empty macro for IDO), `long` would still be 8 bytes, and
+  an unannotated pointer would silently be 8.  It is the natural spelling
+  for the few shared fields that stage 3 keeps 32-bit.
+- A `PTR32(T)` type (a pointer for IDO, a 32-bit handle on the PC): the
+  same annotation everywhere, plus a conversion at every use.  Worth it
+  later only for the structs that stay shared with the asm or the ROM
+  (stage 3 below).
+- The x32 ABI: exactly this model, but it needs `CONFIG_X86_X32_ABI`
+  (off in most kernels) and x32 builds of SDL and the GL driver.
+- Native LP64 C: changes every struct with a pointer in it, which the
+  translated asm and the ROM's data read at N64 offsets.  That is stage 3,
+  after the types are known.
+- Narrowing pointers in native LP64 IR: needs the frontend's layout to be
+  the N64's to begin with, which is what the i386 frontend gives.
+
+## Comparing builds
+
+Two builds of the port can be compared run for run when the timing
+doesn't depend on the code: `--deterministic`, the same `--save` (or
+none), and `PORT_COUNT_PER_OP=0` (the CPU takes no time, so the C's and
+the asm's instruction counts don't move events).  Then:
+
+- `PORT_DUMP=N,...` in both and `port/tools/build_cmp.py rdram A B N...`
+  compares RDRAM at those controller reads, leaving out words that are
+  addresses in the port's image or on the host stacks in both;
+- a `-DPORT_TRACE_CALLS=ON` build calls `__port_trace` on every entry to a
+  function of the game's C; `PORT_TRACE=FILE,FROM,TO` writes them between
+  two controller reads, and `build_cmp.py trace A.bin B.bin EXE` shows
+  where two traces part.
+
+That is how the 32-bit build's miscompiles above were found (and the
+64-bit build's early bugs: the libaudio relocation, the narrow returns).
+The same method will check native-endian memory against the big-endian
+build, with RDRAM compared through the type map.
+
+## Native-endian memory
+
+BEPass costs little (a `movbe` or `bswap` per access), so big-endian
+memory isn't a speed problem.  It is what keeps the port from being
+ordinary C: host code has to read game memory byte by byte, the ROM's
+assets are untyped bytes, and native C can't share a struct with the
+game.  The plan, in stages, and what each needs:
+
+- **Word-swapped memory** (emulator style: 32-bit words native, bytes and
+  halves at `addr ^ 3` and `addr ^ 2`) needs no types, but every byte
+  and halfword access of the C would have to be rewritten and native C
+  still couldn't read a struct with small fields.  Rejected: no gain over
+  BEPass.
+- **Native scalars at the N64 offsets** is the target: every datum in
+  host order where it is, the layout unchanged.  Then only data produced
+  as untyped bytes need converting, once, where they're produced: PI DMA
+  from the ROM, the two decompressors' output (gzip's inflate, which
+  loads the code modules and the levels, and Rare's `func_802C41C0` in
+  hd_code 7F8B0), and the asm data files (`asm2x86.py` knows each
+  directive's width).  What stays wrong is every place that reads bytes at
+  another width than they were written at: those need fixing one by one.
+
+**The translated code** (`RECOMP_NATIVE_ENDIAN`) fits this model: bytes,
+halves and words are accessed at their own addresses, as the C does.  Its
+unaligned pairs were written for big-endian memory; they are mirrored now
+in that mode, so `lwl`/`lwr` loads the host-order word at an unaligned
+address and `swl`/`swr` stores one (checked against unaligned native
+accesses at every alignment).  That is right for both ways the game uses
+them: unaligned copies (`func_802AC7DC`, `func_802AC85C`, `func_802A75DC`,
+`func_802A768C`, `bzero`) and unaligned 32-bit offsets read out of level
+data (`func_802A3D54`, `func_802A3DF8`, `func_802A3F80`, `func_802A4464`),
+once those data are converted.  Doublewords stay two words, high word
+first, which is not what a host-order `u64` is (low word first on a
+little-endian host): any `u64` or double shared between the C and the asm
+needs one convention.  The differential test can't check this mode as it
+is, since unicorn runs a big-endian image; with a type map it can: convert
+each trial's memory to host order by the map before the translated run and
+back after, then compare as now.  So the map is the test's input too.
+
+**What has to be converted: the access-width profiler.**  A
+`-DPORT_ACCESS_PROFILE=ON` build (either width) records, for every byte of
+RDRAM and of the host stacks, who wrote it last (the C by function, the
+asm by instruction, DMA by ROM offset) and at what width, and counts every
+read at another width by reader and writer (`port/host/access.c`, fed by
+BEPass's `BEPASS_ACCESS` hooks, recomp.h's `RECOMP_ACCESS` and the host's
+`port_be16`/`port_be32`).  A read whose bytes are then stored again at the
+same width is a copy, which is fine in either order, and carries the
+source's writers along.  `PORT_ACCESS=FILE` writes the table;
+`port/tools/access_report.py FILE EXE` names it.  From the attract mode
+(12,000 frames) and Simian Acres (6,000, `PORT_AUTOSTART=2`):
+
+- ROM data DMA'd and read at 2 or 4 bytes: 760 (reader, segment, width)
+  rows in the attract mode, 340 in gameplay, over 110 ROM segments in
+  all.  Most are the uncompressed models and level
+  pieces (`chbar25`, `lagrage4`, `mostep1`, ...), read by the handwritten
+  engine and, as display lists and vertices, by the RSP; then the texture
+  table (`func_802A08E4`, `func_802A0B34`, `func_802A0CFC`, `func_802A1074`,
+  `func_802A11C4` read its records as words and halves), texture palettes
+  (`func_802A5958`-`func_802A5D34`, as halves), the sound banks and
+  sequence tables (libaudio's `alBnkfNew`/`alSeqFileNew`/`alCSeqNew`
+  read them in place), and `reflectlogo_dl`.
+- Decompressed data read at 2 or 4 bytes: 129 reader functions in
+  gameplay (100 of them handwritten), 184 in the attract mode (150).
+- Written at one width and read at another: 56 (writer, reader) function
+  pairs in gameplay, 71 in the attract mode.  The big ones are the RSP reading `Mtx` as halves after
+  `guMtxF2L` and friends wrote it as words (the renderer should read it as
+  words), and the handwritten engine building vertices by storing two
+  `s16`s packed in one word (`func_802ACA60`, `func_802ACC68`,
+  `func_802ACCCC`, `func_8029F4B8`-`func_8029F85C`, `func_8029E938`-
+  `func_8029EC68`) that the RSP and `func_802AA890`/`func_802AC8CC` read as
+  halves: in host order those stores need their halves swapped, per
+  instruction.  Then the game mode `D_80364A90` (a `u64` the port's own
+  `video.c` reads as two words) and a few asm/C locals.
+
+So the stages are:
+
+1. Loaders that convert what DMA and the decompressors produce, by type
+   (the inventory's `loads`), and the asm data files by directive; the
+   translated code in native mode, with the packed-store sites
+   (`packed`) translated as two halfword stores; the host's renderer and
+   audio reading native types (`Mtx` as words, `Vtx` fields, the audio
+   command list).  Checked against the big-endian build with
+   `build_cmp.py` through the type map.
+2. BEPass without the swaps (it keeps the loop polls and the instruction
+   count), with the C's punning sites fixed under `TARGET_PC`.
+3. Native LP64 structs where a struct's pointers are only the C's: those
+   the asm or the ROM data share keep 32-bit fields (`PTR32`), and the
+   `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
+   depends on them.
+
+**What the type inventory needs to give**, machine-readable (JSON, one
+file), for all of this:
+
+- `types`: every struct shared between the C, the asm and the ROM's data:
+  `size`, `align`, and `fields` as `{off, name, type, count}`, where
+  `type` is a scalar (`s8 u8 s16 u16 s32 u32 f32 s64 u64 f64`), another
+  type's name, `bytes` (endian-free: texels, strings, samples), `gfx` (a
+  display-list word pair), or one of the address kinds: `ptr` (an N64
+  address, with `to`), `romoff` (a ROM offset), `segptr` (a segmented
+  address), `offset` (relative to `base`, as the level data and libaudio's
+  banks hold them).  Unions list their members; unknown bytes are `bytes`
+  with a note.
+- `symbols`: `{name: {type, count}}` for every variable whose declared type
+  isn't its real one (the `T x[1]` placeholders above, the pools and
+  buffers), and for the asm data files' symbols where their directives
+  aren't the type (a `.word` that is two `s16`s).
+- `loads`: every place bytes arrive untyped: `{site, rom (segment or
+  offset), dst, type, count, via (dma, inflate, rare), reloc}`, `reloc`
+  saying which `offset`/`romoff` fields the game then turns into pointers
+  (and where).
+- `punning`: every datum read at two widths or as two types: `{where
+  (symbol or type.field), as: [types], sites: [function or asm
+  function+offset]}`, including `u64`/double shared between the C and the
+  asm (which half first).
+- `packed`: the asm stores (and loads) that move several smaller fields in
+  one register: `{site (func+offset), fields}`.
+- `asm_uses`: per type, the handwritten functions that read or write it
+  and at which field offsets; this decides what stays `PTR32` in stage 3.
+
+`access_report.py` gives the observed side of `loads`, `punning` and
+`packed` with the exact sites; the inventory is the complete, reasoned
+side, and each checks the other.  Stage 1 needs `types`, `symbols` and
+`loads` for the ROM segments above and `packed`; stage 2 needs
+`punning`; stage 3 needs `asm_uses` and the `ptr` fields.
 
 ## The platform layer
 
@@ -357,7 +638,12 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   evaluates with the old index.
 - `hd_code/168B0.c`: the same unsequenced copy.
 - `tools/recomp/runtime/recomp.h`: `dmult`/`dmultu` without `__int128` on a
-  32-bit host (checked against the `__int128` version).
+  32-bit host (checked against the `__int128` version); the
+  `RECOMP_ACCESS` hooks for the profiler and the mirrored unaligned pairs
+  of `RECOMP_NATIVE_ENDIAN`, both compiled out by default (the
+  differential test passes 688/688 after them).
+
+The 64-bit build needs no change in `blastcorps/src`.
 
 ## Status
 
@@ -387,9 +673,11 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
 - **Real call states** for the translated code's test.  Recording `ctx` and
   memory at each translated function's entry during play would replace the
   random registers, and reach the 30% of blocks the random states don't.
-- **Toward native code**: type the data (Phase 3), load assets through typed
-  swapping loaders (Phase 4), then drop BEPass and `-m32` together and
-  switch the translated code to `RECOMP_NATIVE_ENDIAN`.
+- **Toward native code**: the 64-bit build is done ("The 64-bit build");
+  native-endian memory and native pointers follow the stages in
+  "Native-endian memory", on the type inventory.  The 32-bit build still
+  has the out-of-bounds miscompiles the 64-bit one avoids; typing those
+  arrays fixes both.
 - **Readable C.** Replace translated functions with hand-written C one at a
   time. Each replacement can be checked with the same harness: point the
   test library at the new C instead of the generated file.

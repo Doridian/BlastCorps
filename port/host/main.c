@@ -92,6 +92,9 @@ void host_rom_read(uint32_t dst, uint32_t addr, uint32_t len) {
         host_log("pi: rom %06X -> %08X (%X)\n", addr, dst, len);
     for (uint32_t i = 0; i < len; i++)
         d[i] = addr + i < rom_size ? rom[addr + i] : 0;
+#ifdef PORT_ACCESS_PROFILE
+    port_access_dma(dst, addr, len);
+#endif
 }
 
 uint32_t host_rom_word(uint32_t addr) {
@@ -199,12 +202,15 @@ void __port_poll(void) {
         host_yield();
 }
 
+void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
+
 /* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read
    (compare with tools/recomp/test/snapshot.c, which counts the same way) */
 void host_controller_poll(void) {
     static unsigned polls;
     static const char *spec = (const char *)1;
     static FILE *pace;
+    port_trace_poll();
     if (spec == (const char *)1) {
         spec = getenv("PORT_DUMP");
         /* PORT_PACE=FILE: what port/tools/m64p_pace.c records in mupen64plus */

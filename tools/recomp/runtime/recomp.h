@@ -22,6 +22,9 @@
  *                          byte-exact big-endian image (see docs/PORT.md);
  *                          default is big-endian, which is what the test
  *                          uses and what the ROM's data looks like.
+ *   RECOMP_ACCESS          every load and store reports itself (address,
+ *                          width, the bytes, the instruction's address) to
+ *                          the port's access-width profiler (docs/PORT.md).
  *   RECOMP_QEMU_COMPAT     for the differential test only: where the
  *                          architecture leaves a result undefined and QEMU
  *                          (unicorn) differs from the VR4300, do what QEMU
@@ -274,9 +277,19 @@ static inline void recomp_ddivu(recomp_context *ctx, uint64_t a, uint64_t b) {
 
 /* ---- memory ----------------------------------------------------------- */
 
+#ifdef RECOMP_ACCESS
+/* the instruction about to access memory, then the access: width | 0x100
+   for a store, and the bytes in memory order (as a host integer) */
+void recomp_access_pc(uint32_t pc);
+void recomp_access(uint32_t addr, uint32_t width, uint64_t raw);
+#define RECOMP_ACC(a, w, raw) recomp_access((a), (w), (raw))
+#else
+#define RECOMP_ACC(a, w, raw) ((void)0)
+#endif
+
 /* Effective address check: a 64-bit address that is a valid sign-extended
    KSEG0 or KSEG1 address inside RDRAM, aligned to `align`. */
-static inline uint32_t recomp_ea(recomp_context *ctx, uint64_t ea, uint32_t align, uint32_t pc) {
+static inline uint32_t recomp_ea_check(recomp_context *ctx, uint64_t ea, uint32_t align, uint32_t pc) {
 #ifdef RECOMP_TEST
     if ((uint64_t)(int64_t)(int32_t)ea != ea || (uint32_t)ea - RDRAM_BASE >= 0x40000000u ||
         ((uint32_t)ea & 0x1FFFFFFFu) >= RDRAM_SIZE)
@@ -289,6 +302,15 @@ static inline uint32_t recomp_ea(recomp_context *ctx, uint64_t ea, uint32_t alig
     return (uint32_t)ea;
 }
 
+/* a load's address (`align` is its width, 1 for lwl/lwr) */
+static inline uint32_t recomp_ea(recomp_context *ctx, uint64_t ea, uint32_t align, uint32_t pc) {
+    uint32_t a = recomp_ea_check(ctx, ea, align, pc);
+#ifdef RECOMP_ACCESS
+    recomp_access_pc(pc);
+#endif
+    return a;
+}
+
 /* KSEG0 and KSEG1 both map RDRAM from physical 0 */
 /* stores: in the test build, also refuse the code pages (the harness
    write-protects them in unicorn too; see difftest.py) */
@@ -297,7 +319,10 @@ extern uint32_t recomp_ro_ranges[][2];
 extern unsigned recomp_num_ro_ranges;
 #endif
 static inline uint32_t recomp_ea_w(recomp_context *ctx, uint64_t ea, uint32_t align, uint32_t pc) {
-    uint32_t a = recomp_ea(ctx, ea, align, pc);
+    uint32_t a = recomp_ea_check(ctx, ea, align, pc);
+#ifdef RECOMP_ACCESS
+    recomp_access_pc(pc);
+#endif
 #ifdef RECOMP_TEST
     for (unsigned i = 0; i < recomp_num_ro_ranges; i++)
         if ((a & 0x1FFFFFFFu) - recomp_ro_ranges[i][0] < recomp_ro_ranges[i][1] - recomp_ro_ranges[i][0])
@@ -328,20 +353,29 @@ static inline uint32_t recomp_be32(uint32_t v) {
 #define recomp_be32(v) (v)
 #endif
 
-static inline uint8_t  mem_r8 (uint8_t *rdram, uint32_t a) { return *HOST(a); }
-static inline uint16_t mem_r16(uint8_t *rdram, uint32_t a) { uint16_t v; memcpy(&v, HOST(a), 2); return recomp_be16(v); }
-static inline uint32_t mem_r32(uint8_t *rdram, uint32_t a) { uint32_t v; memcpy(&v, HOST(a), 4); return recomp_be32(v); }
+static inline uint32_t mem_r32_(uint8_t *rdram, uint32_t a) { uint32_t v; memcpy(&v, HOST(a), 4); return recomp_be32(v); }
+static inline void mem_w32_(uint8_t *rdram, uint32_t a, uint32_t v) { v = recomp_be32(v); memcpy(HOST(a), &v, 4); }
+static inline uint8_t  mem_r8 (uint8_t *rdram, uint32_t a) { uint8_t v = *HOST(a); RECOMP_ACC(a, 1, v); return v; }
+static inline uint16_t mem_r16(uint8_t *rdram, uint32_t a) { uint16_t v; memcpy(&v, HOST(a), 2); RECOMP_ACC(a, 2, v); return recomp_be16(v); }
+static inline uint32_t mem_r32(uint8_t *rdram, uint32_t a) { uint32_t v; memcpy(&v, HOST(a), 4); RECOMP_ACC(a, 4, v); return recomp_be32(v); }
 /* doublewords are two words, high word first, in either memory mode */
 static inline uint64_t mem_r64(uint8_t *rdram, uint32_t a) {
-    return ((uint64_t)mem_r32(rdram, a) << 32) | mem_r32(rdram, a + 4);
+#ifdef RECOMP_ACCESS
+    { uint64_t raw; memcpy(&raw, HOST(a), 8); RECOMP_ACC(a, 8, raw); }
+#endif
+    return ((uint64_t)mem_r32_(rdram, a) << 32) | mem_r32_(rdram, a + 4);
 }
-static inline void mem_w8 (uint8_t *rdram, uint32_t a, uint8_t v)  { *HOST(a) = v; }
-static inline void mem_w16(uint8_t *rdram, uint32_t a, uint16_t v) { v = recomp_be16(v); memcpy(HOST(a), &v, 2); }
-static inline void mem_w32(uint8_t *rdram, uint32_t a, uint32_t v) { v = recomp_be32(v); memcpy(HOST(a), &v, 4); }
+static inline void mem_w8 (uint8_t *rdram, uint32_t a, uint8_t v)  { RECOMP_ACC(a, 0x101, v); *HOST(a) = v; }
+static inline void mem_w16(uint8_t *rdram, uint32_t a, uint16_t v) { v = recomp_be16(v); RECOMP_ACC(a, 0x102, v); memcpy(HOST(a), &v, 2); }
+static inline void mem_w32(uint8_t *rdram, uint32_t a, uint32_t v) { v = recomp_be32(v); RECOMP_ACC(a, 0x104, v); memcpy(HOST(a), &v, 4); }
 static inline void mem_w64(uint8_t *rdram, uint32_t a, uint64_t v) {
-    mem_w32(rdram, a, (uint32_t)(v >> 32)); mem_w32(rdram, a + 4, (uint32_t)v);
+    mem_w32_(rdram, a, (uint32_t)(v >> 32)); mem_w32_(rdram, a + 4, (uint32_t)v);
+#ifdef RECOMP_ACCESS
+    { uint64_t raw; memcpy(&raw, HOST(a), 8); RECOMP_ACC(a, 0x108, raw); }
+#endif
 }
 
+#ifndef RECOMP_NATIVE_ENDIAN
 /* lwl/lwr/swl/swr, big-endian semantics on the aligned word */
 static inline uint64_t mem_lwl(uint8_t *rdram, uint32_t a, uint64_t rt) {
     uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
@@ -363,6 +397,35 @@ static inline void mem_swr(uint8_t *rdram, uint32_t a, uint64_t rt) {
     uint32_t mask = 0xFFFFFFFFu << s;
     mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt << s));
 }
+#else
+/* Native-endian memory holds a word's bytes least significant first, so
+   the unaligned pairs are mirrored: `lwl rt, 0(x); lwr rt, 3(x)` loads the
+   host-order word at x (what an unaligned native u32 there, or four bytes
+   copied on with sw, need), and swl/swr store one the same way.  lwl
+   fills the register's low bytes from x to the end of its aligned word,
+   lwr the high bytes from the start of the word to x.  (Only little-endian
+   hosts: a big-endian one uses the other branch.) */
+static inline uint64_t mem_lwl(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
+    uint32_t keep = k ? (uint32_t)rt & ~(0xFFFFFFFFu >> k) : 0;
+    return S32((w >> k) | keep);
+}
+static inline uint64_t mem_lwr(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    uint32_t s = (3 - (a & 3)) * 8, w = mem_r32(rdram, a & ~3u);
+    uint32_t keep = s ? (uint32_t)rt & (0xFFFFFFFFu >> (32 - s)) : 0;
+    return S32((w << s) | keep);
+}
+static inline void mem_swl(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
+    uint32_t mask = 0xFFFFFFFFu << k;
+    mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt << k));
+}
+static inline void mem_swr(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    uint32_t s = (3 - (a & 3)) * 8, w = mem_r32(rdram, a & ~3u);
+    uint32_t mask = 0xFFFFFFFFu >> s;
+    mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt >> s));
+}
+#endif
 
 /* ---- COP1 (FR = 0) ---------------------------------------------------- */
 

@@ -46,13 +46,26 @@ static inline void *port_ptr(uint32_t addr) {
     return (void *)(uintptr_t)addr;
 }
 
+#ifdef PORT_ACCESS_PROFILE
+/* host/access.c: the access-width profiler */
+void port_access_host(const void *p, unsigned width);
+void port_access_dma(uint32_t dst, uint32_t rom, uint32_t len);
+void __port_access_copy(void *dst, const void *src, uint32_t n, uint32_t site);
+void __port_access_set(void *dst, uint32_t n, uint32_t site);
+#define PORT_ACCESS_HOST(p, w) port_access_host((p), (w))
+#else
+#define PORT_ACCESS_HOST(p, w) ((void)0)
+#endif
+
 /* big-endian accessors for host-side code touching game memory */
 static inline uint32_t port_be32(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
+    PORT_ACCESS_HOST(p, 4);
     return ((uint32_t)b[0] << 24) | ((uint32_t)b[1] << 16) | ((uint32_t)b[2] << 8) | b[3];
 }
 static inline uint16_t port_be16(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
+    PORT_ACCESS_HOST(p, 2);
     return (uint16_t)((b[0] << 8) | b[1]);
 }
 static inline void port_wbe32(void *p, uint32_t v) {

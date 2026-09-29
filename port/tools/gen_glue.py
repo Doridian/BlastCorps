@@ -13,7 +13,11 @@ Prototypes come from the C: the definition for a C function, the
 declarations for a translated one (the most common spelling where files
 disagree).  Only the o32 class of each argument matters (int, float,
 double, 64-bit int): integer arguments are passed as 32-bit words, which is
-what IDO puts in a register for any narrower type as well.  The live-in
+what IDO puts in a register for any narrower type as well.  Between native
+functions they are `uintptr_t` where the callee may take a pointer (the
+32-bit value, zero-extended: the same as uint32_t in the 32-bit build, a
+whole register in the 64-bit one, where a pointer argument must not have
+the upper half undefined) and are read as `uint32_t`.  The live-in
 registers of each translated function (liveness.py) are checked against
 the prototype: a float argument has to be read from f12/f14 when it comes
 first, and an int one from a0-a3.
@@ -81,10 +85,10 @@ def narrow_ctype(t):
     """C type to use in the wrapper for an integer return type."""
     t = " ".join(re.sub(r"\b(const|volatile|extern|static)\b", " ", t).split())
     if "*" in t:
-        return "uint32_t"
+        return "uintptr_t"
     return {"u8": "uint8_t", "s8": "int8_t", "u16": "uint16_t", "s16": "int16_t",
             "unsigned char": "uint8_t", "char": "int8_t", "signed char": "int8_t",
-            "unsigned short": "uint16_t", "short": "int16_t"}.get(t, "uint32_t")
+            "unsigned short": "uint16_t", "short": "int16_t"}.get(t, "uintptr_t")
 
 
 def split_params(p):
@@ -196,7 +200,7 @@ def signature(name, entry):
     # widest integer return type wins (over void, too)
     rets = {s[0] for s, _ in common}
     if len(rets) > 1:
-        widths = {r: (4 if narrow_ctype(r) in ("uint32_t",) else 2 if "16" in narrow_ctype(r) else 1)
+        widths = {r: (4 if narrow_ctype(r) in ("uintptr_t",) else 2 if "16" in narrow_ctype(r) else 1)
                   for r in rets if classify(r) == "I"}
         if widths:
             sig = (max(widths, key=lambda r: widths[r]), sig[1])
@@ -239,13 +243,16 @@ def gen_entry(name, sig, notes, live):
     placed, frame = slots(pcs)
     frame = (frame + 7) & ~7
     rty = "void" if rc == "V" else (narrow_ctype(ret) if rc == "I" else cty(rc))
+    # a narrow result is returned extended in a whole register, as MIPS
+    # returns it (the C that calls it may have declared an int)
+    fty = "uintptr_t" if rc == "I" else rty
     args = ", ".join(f"{cty(c)} p{k}" for k, c in enumerate(pcs)) or "void"
     if variadic:
         args += ", ..."
     lines = []
     for n in notes:
         lines.append(f"/* {name}: {n} */")
-    lines.append(f"{rty} {name}({args}) {{")
+    lines.append(f"{fty} {name}({args}) {{")
     lines.append("    recomp_context *ctx = port_ctx();")
     lines.append("    uint64_t sp = ctx->sp;")
     lines.append(f"    ctx->sp = sp - {frame};")
@@ -276,7 +283,8 @@ def gen_entry(name, sig, notes, live):
     lines.append(f"    recomp_{name}(RDRAM, ctx);")
     lines.append("    ctx->sp = sp;")
     if rc == "I":
-        lines.append(f"    return ({rty})ctx->v0;")
+        lines.append(f"    return ({rty})(uint32_t)ctx->v0;" if rty == "uintptr_t" else
+                     f"    return (uintptr_t)(uint32_t)({rty})ctx->v0;")
     elif rc == "F":
         lines.append("    return fpr_s(ctx, 0);")
     elif rc == "D":
@@ -299,6 +307,11 @@ def gen_entry(name, sig, notes, live):
     return lines, warn
 
 
+def pty(c):
+    """a native callee's parameter: an int may be a pointer"""
+    return "uintptr_t" if c == "I" else cty(c)
+
+
 def gen_extern(name, sig, is_lib):
     ret, params = sig
     rc = classify(ret) if not is_lib else ("V" if ret == "void" else "I")
@@ -306,7 +319,7 @@ def gen_extern(name, sig, is_lib):
     pcs = [("I" if is_lib else classify(p)) for p in params if p != "..."]
     placed, _ = slots(pcs)
     rty = "void" if rc == "V" else cty(rc)
-    decl_args = ", ".join(cty(c) for c in pcs) or "void"
+    decl_args = ", ".join(pty(c) for c in pcs) or "void"
     if variadic:
         decl_args += ", ..."
     lines = [f"extern {rty} {name}({decl_args});",
@@ -318,7 +331,7 @@ def gen_extern(name, sig, is_lib):
         elif loc[0] == "a":
             r = 4 + loc[1]
             if c == "I":
-                vals.append(f"(uint32_t)ctx->r[{r}]")
+                vals.append(f"(uintptr_t)(uint32_t)ctx->r[{r}]")
             elif c == "F":
                 vals.append(f"f32_of((uint32_t)ctx->r[{r}])")
             elif c == "D":
@@ -328,7 +341,7 @@ def gen_extern(name, sig, is_lib):
         else:
             a = f"(uint32_t)ctx->sp + {loc[1]}"
             if c == "I":
-                vals.append(f"mem_r32(rdram, {a})")
+                vals.append(f"(uintptr_t)mem_r32(rdram, {a})")
             elif c == "F":
                 vals.append(f"f32_of(mem_r32(rdram, {a}))")
             elif c == "D":
@@ -338,7 +351,7 @@ def gen_extern(name, sig, is_lib):
     if variadic:
         # the translated code only calls the game's (empty) debug printf
         for r in range(len(placed), 4):
-            vals.append(f"(uint32_t)ctx->r[{4 + r}]")
+            vals.append(f"(uintptr_t)(uint32_t)ctx->r[{4 + r}]")
     call = f"{name}({', '.join(vals)})"
     lines.append("    PORT_CALLEE_SAVE(ctx);")
     if rc == "V":

@@ -63,3 +63,41 @@ uint64_t recomp_mfc0(recomp_context *ctx, int reg) {
 void recomp_mtc0(recomp_context *ctx, int reg, uint64_t value) {
     (void)ctx; (void)reg; (void)value;
 }
+
+#ifdef PORT_64BIT
+/* port-ilp32 -port-ilp32-check (PORT_ILP32_CHECK): the game's C stored a
+   pointer that doesn't fit in its 32-bit field */
+void __port_bad_ptr(void *p) {
+    host_fatal("a pointer above 4 GB (%p) stored into game memory, from %p", p, __builtin_return_address(0));
+}
+#endif
+
+/* PORT_TRACE_CALLS builds (BEPASS_TRACE=1): the game's C calls this on every function entry
+   with a hash of the function's name.  PORT_TRACE=FILE,FROM,TO writes the
+   hashes (and a 0 at every controller read) from the FROMth controller
+   read to the TOth, for comparing two builds call by call. */
+static FILE *trace_f;
+static unsigned trace_poll, trace_from, trace_to = ~0u;
+
+void __port_trace(uint32_t id) {
+    static int init;
+    if (!init) {
+        init = 1;
+        const char *s = getenv("PORT_TRACE");
+        if (s) {
+            char name[512];
+            if (sscanf(s, "%511[^,],%u,%u", name, &trace_from, &trace_to) >= 1)
+                trace_f = fopen(name, "wb");
+        }
+    }
+    if (trace_f && trace_poll >= trace_from && trace_poll < trace_to)
+        fwrite(&id, 4, 1, trace_f);
+}
+
+void port_trace_poll(void) {
+    trace_poll++;
+    if (trace_f && trace_poll >= trace_from && trace_poll < trace_to) {
+        uint32_t z = 0;
+        fwrite(&z, 4, 1, trace_f);
+    }
+}

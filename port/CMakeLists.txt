@@ -5,11 +5,21 @@
 # then
 #   cmake -S port -B build/port && cmake --build build/port -j
 #
-# Everything the game runs is a 32-bit x86 program (-m32), so that a pointer
-# is an N64 address; the game's C is built by clang with BEPass, which keeps
-# its memory big-endian.
+# By default everything the game runs is a 32-bit x86 program (-m32), so
+# that a pointer is an N64 address; the game's C is built by clang with
+# BEPass, which keeps its memory big-endian.  -DPORT_64BIT=ON builds a
+# 64-bit program instead (x86-64 or AArch64): the game's C is compiled for
+# i386's layout and converted by port-ilp32 (bepass/ILP32.cpp,
+# tools/ilp32cc.py), everything else is native (docs/PORT.md, "The 64-bit
+# build").
 cmake_minimum_required(VERSION 3.20)
 project(blastcorps_pc C CXX ASM)
+option(PORT_64BIT "a 64-bit program (the game's C through port-ilp32)" OFF)
+option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in 32 bits" OFF)
+# diagnostics (docs/PORT.md, "Comparing builds"): a call trace of the
+# game's C (PORT_TRACE=FILE,FROM,TO), the access-width profiler (PORT_ACCESS=FILE)
+option(PORT_TRACE_CALLS "the game's C calls __port_trace on every function entry" OFF)
+option(PORT_ACCESS_PROFILE "record the width every byte of RDRAM is written and read at" OFF)
 
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
@@ -32,13 +42,46 @@ endforeach()
 find_program(LLVM_CONFIG llvm-config REQUIRED)
 execute_process(COMMAND ${LLVM_CONFIG} --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 separate_arguments(LLVM_CXXFLAGS)
-add_library(BEPass MODULE bepass/BEPass.cpp)
+add_library(BEPass MODULE bepass/BEPass.cpp bepass/ILP32.cpp)
 target_compile_options(BEPass PRIVATE ${LLVM_CXXFLAGS} -fno-rtti)
 set_target_properties(BEPass PROPERTIES PREFIX "lib" LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass.so)
 
 execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+# the N64 side's layout: i386 with 8-byte aligned doubles and long longs,
+# as MIPS o32 has them
 set(M32 -m32 -msse2 -mfpmath=sse -malign-double)
+if(PORT_64BIT)
+    execute_process(COMMAND ${CMAKE_C_COMPILER} -print-target-triple OUTPUT_VARIABLE PORT_TRIPLE OUTPUT_STRIP_TRAILING_WHITESPACE)
+    get_filename_component(LLVM_BINDIR_HINT ${LLVM_CONFIG} DIRECTORY)
+    find_program(LLVM_OPT opt HINTS ${LLVM_BINDIR_HINT} REQUIRED)
+    set(ILP32CC ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/ilp32cc.py --opt ${LLVM_OPT}
+        --plugin ${CMAKE_BINARY_DIR}/libBEPass.so --target ${PORT_TRIPLE})
+    if(PORT_ILP32_CHECK)
+        list(APPEND ILP32CC --check)
+    endif()
+    list(APPEND ILP32CC --)
+endif()
+# BEPass's diagnostics are switched on by the environment of the compiler
+set(N64_LAUNCHER)
+if(PORT_TRACE_CALLS)
+    list(APPEND N64_LAUNCHER BEPASS_TRACE=1)
+endif()
+if(PORT_ACCESS_PROFILE)
+    list(APPEND N64_LAUNCHER BEPASS_ACCESS=1)
+endif()
+if(N64_LAUNCHER)
+    list(PREPEND N64_LAUNCHER env)
+endif()
+if(PORT_64BIT)
+    list(PREPEND ILP32CC ${N64_LAUNCHER})
+    set(N64_LAUNCHER ${ILP32CC})
+    set(HOST_ARCH -fPIE)
+    list(APPEND M32 -fPIE)
+    message(STATUS "64-bit build for ${PORT_TRIPLE}")
+else()
+    set(HOST_ARCH ${M32})
+endif()
 
 # ---- the game's C -------------------------------------------------------------
 file(GLOB GAME_C ${BLAST}/src/hd_code/*.c ${BLAST}/src/hd_front_end/*.c)
@@ -67,6 +110,12 @@ set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${BLAST} ${BLAST}/include ${BLAST}/include/2.0I ${BLAST}/include/2.0I/PR)
 set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC VERSION_US_V11 _MIPS_SZLONG=32 _MIPS_SZINT=32)
+if(PORT_64BIT)
+    list(APPEND N64_DEFINES PORT_64BIT)
+endif()
+if(PORT_ACCESS_PROFILE)
+    list(APPEND N64_DEFINES PORT_ACCESS_PROFILE)
+endif()
 # The decompiled C is IDO's dialect: K&R definitions, implicit
 # declarations, prototypes that differ between files, pointers and ints
 # used interchangeably.  These flags make clang accept it and not optimise
@@ -98,6 +147,9 @@ target_compile_definitions(game_c PRIVATE ${N64_DEFINES})
 target_compile_options(game_c PRIVATE ${N64_FLAGS})
 add_dependencies(game_c BEPass)
 set_source_files_properties(${GAME_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+if(N64_LAUNCHER)
+    set_target_properties(game_c PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
+endif()
 
 # ---- the libultra replacement (N64 side, BEPass too) --------------------------
 file(GLOB PORT_N64_C ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
@@ -107,6 +159,9 @@ target_compile_definitions(port_n64 PRIVATE ${N64_DEFINES})
 target_compile_options(port_n64 PRIVATE ${N64_FLAGS} -Wno-implicit-function-declaration)
 add_dependencies(port_n64 BEPass)
 set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+if(N64_LAUNCHER)
+    set_target_properties(port_n64 PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
+endif()
 
 # ---- the game's data, big-endian ---------------------------------------------
 # (what the N64 build links: asm/data, which holds the handwritten objects'
@@ -139,7 +194,10 @@ endforeach()
 file(MAKE_DIRECTORY ${GEN}/data)
 set_source_files_properties(${DATA_X86} PROPERTIES LANGUAGE ASM GENERATED TRUE)
 add_library(game_data OBJECT ${DATA_X86})
-target_compile_options(game_data PRIVATE -m32 -Wno-unused-command-line-argument)
+if(NOT PORT_64BIT)
+    target_compile_options(game_data PRIVATE -m32)
+endif()
+target_compile_options(game_data PRIVATE -Wno-unused-command-line-argument)
 
 # ---- the translated handwritten engine (host side) ---------------------------
 file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
@@ -152,7 +210,7 @@ add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt
             ${RECOMP_GEN}/recomp_funcs.h ${RECOMP_GEN}/recomp_externs.h ${GAME_C})
 add_custom_target(recomp_headers DEPENDS ${GEN}/port_recomp_syms.h)
 
-set(HOST_FLAGS ${M32} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
+set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
 add_library(recomp OBJECT ${RECOMP_C} ${GEN}/entry.c ${GEN}/externs.c)
 target_include_directories(recomp PRIVATE ${ROOT}/tools/recomp/runtime ${RECOMP_GEN} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(recomp PRIVATE RECOMP_COUNT)
@@ -162,7 +220,9 @@ add_dependencies(recomp recomp_headers)
 
 # ---- host side -----------------------------------------------------------------
 find_package(PkgConfig REQUIRED)
-set(ENV{PKG_CONFIG_LIBDIR} "/usr/lib32/pkgconfig:/usr/share/pkgconfig")
+if(NOT PORT_64BIT)
+    set(ENV{PKG_CONFIG_LIBDIR} "/usr/lib32/pkgconfig:/usr/share/pkgconfig")
+endif()
 pkg_check_modules(SDL2 REQUIRED sdl2)
 # the OpenGL renderer (gfx_gl.c) is optional: without libepoxy, only the
 # software one is built
@@ -176,7 +236,11 @@ if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})
 endif()
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3;-msse4.1")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i.86|amd64|AMD64")
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3;-msse4.1")
+else()
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3")
+endif()
 
 # ---- link ----------------------------------------------------------------------
 # The port's image sits right above the 4 MB of RDRAM (port.h).
@@ -200,7 +264,21 @@ add_executable(blastcorps
     $<TARGET_OBJECTS:recomp> $<TARGET_OBJECTS:host>)
 set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C LINK_DEPENDS "${GEN}/port_syms.ld;${GEN}/port_rdram.ld")
 add_dependencies(blastcorps port_syms)
-target_link_options(blastcorps PRIVATE -m32 -no-pie -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
+if(PORT_ACCESS_PROFILE)
+    target_compile_definitions(host PRIVATE PORT_ACCESS_PROFILE)
+    target_compile_definitions(recomp PRIVATE PORT_ACCESS_PROFILE RECOMP_ACCESS)
+endif()
+if(PORT_64BIT)
+    target_compile_definitions(host PRIVATE PORT_64BIT)
+    target_compile_definitions(recomp PRIVATE PORT_64BIT)
+    # a position-dependent executable (the image is at fixed addresses), but
+    # with the PIE start files: the non-PIE crtbegin.o addresses its data
+    # with sign-extended 32-bit immediates, which can't reach 0x80400000
+    target_link_options(blastcorps PRIVATE -pie -Wl,--no-pie)
+else()
+    target_link_options(blastcorps PRIVATE -m32 -no-pie)
+endif()
+target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
     -Wl,${CMAKE_CURRENT_SOURCE_DIR}/port_fixed.ld)
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} m)
 

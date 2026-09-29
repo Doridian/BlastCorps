@@ -49,6 +49,9 @@ void __wrap_func_8028B3E0(void) {
         host_cpu_charge((FE_END - FE_START - len) / 4);     /* its bzero */
         memmove((void *)FE_DATA, fe_data, sizeof fe_data);
         memset((void *)FE_BSS, 0, FE_END - FE_BSS);
+#ifdef PORT_ACCESS_PROFILE
+        __port_access_set((void *)FE_DATA, FE_END - FE_DATA, 0);    /* the image's data again */
+#endif
         D_80370C50 = 1;
         func_801F57B0();
         if (host_verbose)
