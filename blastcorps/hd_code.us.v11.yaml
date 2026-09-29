@@ -104,7 +104,7 @@ segments:
     - [0x8A2E0, asm, hd_code/8A2E0] # handwritten
     - [0x8AEE0, asm, hd_code/8AEE0] # handwritten
     - [0x8DDB0, asm, hd_code/8DDB0] # handwritten
-    # data island; no code reaches it
+    # per-level tables the handwritten code reads (func_802A1EC8 in us.v11)
     - [0x8E910, bin, hd_code/8E910]
     - [0x8F860, c, hd_code/8F860]
     - [0x8FAF0, c, hd_code/8FAF0]

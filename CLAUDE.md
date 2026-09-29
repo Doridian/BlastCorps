@@ -132,7 +132,9 @@ Regions kept as `bin` because they are not r4300 code:
 - Six data islands inside each `hd_code` `.text`, listed with their offsets in
   `tools/regen_code_yaml.sh`: two u16 tables embedded in Rare's handwritten
   math routines, two pointer-bearing blobs around another block of handwritten
-  routines, one unreferenced blob, and the RSP microcode after libultra's
+  routines, a block of per-level tables the handwritten code reads (it looked
+  unreferenced: the only reference is a scheduled `lui`/`addiu` pair in
+  `func_802A1EC8`), and the RSP microcode after libultra's
   `ldiv`. Four are byte-identical across versions; the pointer-bearing two were
   bounded by following control flow from every call into them. Capstone decodes
   data as Octeon opcodes (`bbit0`, `synci`, `dlsa`) that `-march=vr4300`

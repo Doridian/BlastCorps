@@ -14,7 +14,8 @@
 #   2. a second u16 table, between two blocks of those routines
 #   3. data with code pointers, before a block of handwritten routines
 #   4. more such data, after it
-#   5. data no code reaches
+#   5. per-level tables {u32 n; n x {u32 key, u32 count, u8[16]}}, read by
+#      the handwritten code (func_802A1EC8, func_802BD064 in us.v11)
 #   6. RSP microcode, right after libultra's ldiv
 # 1, 2, 5 and 6 are byte-identical across versions; 3 and 4 hold pointers, so
 # their offsets come from where code stops reaching into them.
@@ -28,7 +29,7 @@ T1="u16 lookup table (sine) for the handwritten math routines around it"
 T2="second u16 lookup table of the handwritten math routines"
 D1="data with code pointers, ahead of a block of handwritten routines"
 D2="more data with code pointers, after that block"
-D3="data island; no code reaches it"
+D3="per-level tables the handwritten code reads (func_802A1EC8 in us.v11)"
 UC="RSP microcode; its entry sets sp=0x110 and jumps into IMEM"
 FE="RSP microcode (0xFB0 bytes, fits IMEM): sets sp=0x110 and loads from DMEM 0xFC4, so it is not r4300 code"
 FE_NOTE="hd_front_end_text is inflated to 0x801E7000 by func_8028B3E0 in hd_code"
