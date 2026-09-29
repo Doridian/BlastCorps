@@ -25,13 +25,16 @@
  *   OUTDIR/polls.csv   one line per controller read: poll, VI, retraces (the
  *                      scheduler's count), game frames, the mode, the pad as
  *                      the PIF returns it (buttons << 16 | x << 8 | y), the
- *                      graphics tasks run so far
+ *                      random number generator's state (D_8036B968, seeded
+ *                      from osGetCount), the player's position (D_803643E0)
  *   OUTDIR/modes.csv   one line per change of the mode (D_80364A90/94)
- *   OUTDIR/vis.csv     one line per VI (from the first controller read):
- *                      the scheduler's count before it, the reads and the
- *                      graphics tasks so far
+ *   OUTDIR/counter_reads.csv  (TAS_COUNTER_READS=1, us.v10) every read the
+ *                      game makes of the scheduler's retrace count or level
+ *                      timer (D_803156C4, D_803156C0), in order: the
+ *                      controller reads so far, the PC and the two values
  *   OUTDIR/eeprom.bin  the EEPROM at the end (from blank, as the movie is)
- *   OUTDIR/rdram.bin   RDRAM at the end, big-endian
+ *   OUTDIR/rdram.bin   RDRAM at the end, big-endian (TAS_DUMP=N,...: also
+ *                      rdram_N.bin as the Nth controller read starts)
  *
  *   cc -O1 -Wall -I<core>/src/api -rdynamic -o m64p_tas m64p_tas.c -ldl
  */
@@ -50,15 +53,34 @@
 #include <m64p_config.h>
 
 static uint32_t *pads;          /* per movie frame: buttons << 16 | x << 8 | y */
-static unsigned npads, vis, max_vis, polls, tasks;
-static FILE *polls_csv, *modes_csv, *vis_csv;
+static unsigned npads, vis, max_vis, polls;
+static FILE *polls_csv, *modes_csv;
 static m64p_plugin_type attaching;
 static unsigned char *rdram;
 static GFX_INFO gfx;
-/* where us.v11 has D_803156C4 (retraces), D_80358064 (game frames) and
-   D_80364A90 (the mode); us.v10 has all three 0xB0 lower */
-static uint32_t a_retraces = 0x803156C4, a_frames = 0x80358064, a_mode = 0x80364A90;
+/* where us.v11 has D_803156C4 (retraces), D_80358064 (game frames),
+   D_80364A90 (the mode), D_8036B968 (the random number generator's state)
+   and D_803643E0 (the player's position); us.v10 has them all 0xB0 lower */
+static uint32_t a_retraces = 0x803156C4, a_frames = 0x80358064, a_mode = 0x80364A90, a_rng = 0x8036B968,
+                a_pos = 0x803643E0;
 static uint64_t last_mode = ~0ull;
+static const char *dump_spec;   /* TAS_DUMP=N,...: RDRAM at those reads */
+static FILE *counter_csv;       /* TAS_COUNTER_READS=1: the game's reads of the retrace counts */
+static const char *outdir;
+
+static void dump_rdram(const char *name) {
+    char path[1024];
+    snprintf(path, sizeof path, "%s/%s", outdir, name);
+    FILE *r = fopen(path, "wb");
+    if (!r) { perror(path); exit(1); }
+    for (uint32_t a = 0; a < 0x400000; a += 4) {
+        uint32_t w;
+        memcpy(&w, rdram + a, 4);
+        w = w >> 24 | (w >> 8 & 0xFF00) | (w << 8 & 0xFF0000) | w << 24;
+        fwrite(&w, 4, 1, r);
+    }
+    fclose(r);
+}
 
 static m64p_error (*pCoreDoCommand)(m64p_command, int, void *);
 static void *(*pDebugMemGetPointer)(m64p_dbg_memptr_type);
@@ -130,7 +152,6 @@ static int dl_full_sync(uint32_t a) {
 }
 EXPORT int CALL InitiateGFX(GFX_INFO info) { gfx = info; return 1; }
 EXPORT void CALL ProcessDList(void) {
-    tasks++;
     /* the task's data_ptr (OSTask at DMEM 0xFC0) */
     if (dl_full_sync(((uint32_t *)(gfx.DMEM + 0xFC0))[12])) {
         *gfx.MI_INTR_REG |= 0x20;
@@ -150,9 +171,6 @@ EXPORT void CALL FBRead(unsigned int a) { (void)a; }
 EXPORT void CALL FBWrite(unsigned int a, unsigned int n) { (void)a; (void)n; }
 EXPORT void CALL FBGetFrameBufferInfo(void *p) { (void)p; }
 EXPORT void CALL UpdateScreen(void) {
-    /* before the scheduler counts this retrace */
-    if (rdram)
-        fprintf(vis_csv, "%u,%u,%u,%u\n", vis, rd32(a_retraces), polls, tasks);
     vis++;
     if (vis % 10000 == 0)
         fprintf(stderr, "vi %u, %u reads\n", vis, polls);
@@ -193,8 +211,19 @@ EXPORT void CALL GetKeys(int control, BUTTONS *keys) {
     if (!rdram)
         rdram = pDebugMemGetPointer(M64P_DBG_PTR_RDRAM);
     uint64_t mode = (uint64_t)rd32(a_mode) << 32 | rd32(a_mode + 4);
-    fprintf(polls_csv, "%u,%u,%u,%u,%016llX,%08X,%u\n", polls, vis, rd32(a_retraces), rd32(a_frames),
-            (unsigned long long)mode, pad, tasks);
+    fprintf(polls_csv, "%u,%u,%u,%u,%016llX,%08X,%08X,%08X,%08X,%08X\n", polls, vis, rd32(a_retraces),
+            rd32(a_frames), (unsigned long long)mode, pad, rd32(a_rng), rd32(a_pos), rd32(a_pos + 4),
+            rd32(a_pos + 8));
+    for (const char *p = dump_spec; p && *p;) {
+        char *end;
+        unsigned long n = strtoul(p, &end, 10);
+        if (n == polls) {
+            char name[64];
+            snprintf(name, sizeof name, "rdram_%u.bin", polls);
+            dump_rdram(name);
+        }
+        p = *end ? end + 1 : end;
+    }
     if (mode != last_mode) {
         fprintf(modes_csv, "%u,%u,%016llX\n", polls, vis, (unsigned long long)mode);
         last_mode = mode;
@@ -204,6 +233,39 @@ EXPORT void CALL ControllerCommand(int c, unsigned char *cmd) { (void)c; (void)c
 EXPORT void CALL ReadController(int c, unsigned char *cmd) { (void)c; (void)cmd; }
 EXPORT void CALL SDL_KeyDown(int k, int s) { (void)k; (void)s; }
 EXPORT void CALL SDL_KeyUp(int k, int s) { (void)k; (void)s; }
+
+/* ---- TAS_COUNTER_READS: a read breakpoint on the scheduler's counts ---------- */
+
+static m64p_error (*pDebugSetRunState)(int);
+static unsigned *(*pDebugGetCPUDataPtr)(m64p_dbg_cpu_data);
+static m64p_error (*pDebugStep)(void);
+static int (*pDebugBreakpointCommand)(m64p_dbg_bkp_command, unsigned int, void *);
+
+static void dbg_init(void) {
+    /* D_803156C0 (the level timer) and D_803156C4 (retraces) */
+    breakpoint b = { a_retraces - 4, a_retraces + 3, BPT_FLAG_ENABLED | BPT_FLAG_READ };
+    pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &b);
+    pDebugSetRunState(2);
+    pDebugStep();
+}
+
+/* The reads the port gives the movie's values (port_game.h): all but the
+   scheduler's (2C560.c's object) and the game's two waits on frameCount
+   (00000.c), by their us.v10 addresses. */
+static int game_read(uint32_t pc) {
+    return !(pc >= 0x80270D20 && pc < 0x80272000) && pc != 0x80244CD4 && pc != 0x80244CEC &&
+           pc != 0x80245E5C && pc != 0x80245E74;
+}
+
+/* a hit: the game read one of the two (which one, the log doesn't say:
+   the port takes the value it asks for) */
+static void dbg_update(int bpt) {
+    if (bpt >= 0 && rdram && game_read(*pDebugGetCPUDataPtr(M64P_CPU_PC)))
+        fprintf(counter_csv, "%u,%08X,%u,%u\n", polls, *pDebugGetCPUDataPtr(M64P_CPU_PC), rd32(a_retraces - 4),
+                rd32(a_retraces));
+    pDebugSetRunState(2);
+    pDebugStep();
+}
 
 /* ---- the log ------------------------------------------------------------------ */
 
@@ -267,18 +329,17 @@ int main(int argc, char **argv) {
         fprintf(stderr, "usage: %s CORE.so RSP.so DATADIR ROM INPUTLOG OUTDIR [VIS]\n", argv[0]);
         return 1;
     }
-    const char *outdir = argv[6];
+    outdir = argv[6];
+    dump_spec = getenv("TAS_DUMP");
     read_log(argv[5]);
     max_vis = argc > 7 ? (unsigned)strtoul(argv[7], NULL, 0) : npads + 2 + 600;
     fprintf(stderr, "movie: %u frames\n", npads);
 
     mkdir(outdir, 0755);
     polls_csv = out(outdir, "polls.csv", "w");
-    fprintf(polls_csv, "poll,vi,retraces,frames,mode,pad,tasks\n");
+    fprintf(polls_csv, "poll,vi,retraces,frames,mode,pad,rng,x,y,z\n");
     modes_csv = out(outdir, "modes.csv", "w");
     fprintf(modes_csv, "poll,vi,mode\n");
-    vis_csv = out(outdir, "vis.csv", "w");
-    fprintf(vis_csv, "vi,retraces,reads,tasks\n");
 
     FILE *f = fopen(argv[4], "rb");
     if (!f) { perror(argv[4]); return 1; }
@@ -290,7 +351,7 @@ int main(int argc, char **argv) {
     fclose(f);
     /* us.v10 (header version byte 0) */
     if (rom[0x3F] == 0 && !memcmp(rom + 0x3B, "NBCE", 4)) {
-        a_retraces -= 0xB0; a_frames -= 0xB0; a_mode -= 0xB0;
+        a_retraces -= 0xB0; a_frames -= 0xB0; a_mode -= 0xB0; a_rng -= 0xB0; a_pos -= 0xB0;
     }
 
     void *core = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
@@ -312,6 +373,17 @@ int main(int argc, char **argv) {
         int one = 1;
         pConfigSetParameter(sec, "DisableExtraMem", M64TYPE_INT, &one);
         pConfigSetParameter(sec, "R4300Emulator", M64TYPE_INT, &one);
+        if (getenv("TAS_COUNTER_READS") && a_retraces != 0x803156C4) {     /* us.v10 */
+            pConfigSetParameter(sec, "EnableDebugger", M64TYPE_INT, &one);
+            counter_csv = out(outdir, "counter_reads.csv", "w");
+            fprintf(counter_csv, "read,pc,timer,retraces\n");
+            pDebugGetCPUDataPtr = SYM(core, DebugGetCPUDataPtr);
+            pDebugSetRunState = SYM(core, DebugSetRunState);
+            pDebugStep = SYM(core, DebugStep);
+            pDebugBreakpointCommand = SYM(core, DebugBreakpointCommand);
+            m64p_error (*pDebugSetCallbacks)(void (*)(void), void (*)(int), void (*)(void)) = SYM(core, DebugSetCallbacks);
+            pDebugSetCallbacks(dbg_init, dbg_update, NULL);
+        }
     }
     if (pCoreDoCommand(M64CMD_ROM_OPEN, (int)size, rom) != M64ERR_SUCCESS)
         return 1;
@@ -342,19 +414,13 @@ int main(int argc, char **argv) {
     FILE *e = out(outdir, "eeprom.bin", "wb");
     fwrite(save, 1, 0x800, e);
     fclose(e);
-    if (rdram) {
-        FILE *r = out(outdir, "rdram.bin", "wb");
-        for (uint32_t a = 0; a < 0x400000; a += 4) {
-            uint32_t w = rd32(a);
-            w = w >> 24 | (w >> 8 & 0xFF00) | (w << 8 & 0xFF0000) | w << 24;
-            fwrite(&w, 4, 1, r);
-        }
-        fclose(r);
-    }
+    if (rdram)
+        dump_rdram("rdram.bin");
     pCoreDoCommand(M64CMD_ROM_CLOSE, 0, NULL);
     fclose(polls_csv);
     fclose(modes_csv);
-    fclose(vis_csv);
+    if (counter_csv)
+        fclose(counter_csv);
     fprintf(stderr, "%u VIs, %u controller reads\n", vis, polls);
     return 0;
 }

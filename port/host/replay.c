@@ -1,23 +1,45 @@
 /*
- * --replay FILE: play back what a movie gave the game in mupen64plus, read by
- * read (port/tools/tas.sh writes FILE as build/tas/run/polls.csv; docs/PORT.md,
+ * --replay FILE: play back a movie's input as mupen64plus gave it to the game
+ * (port/tools/tas.sh writes FILE as build/tas/run/polls.csv; docs/PORT.md,
  * "The TAS").
  *
  * FILE has a line per controller read: poll, VI, retraces (the scheduler's
- * count, D_803156C4, when the read started), game frames (D_80358064), the
- * mode (D_80364A90/94) and the pad (buttons << 16 | x << 8 | y).  The Nth
- * read gets the Nth pad.  The port's timing is a model, so its frames don't
- * lag where mupen64plus's do; left alone, the game would see other retrace
- * counts between reads and play differently.  So the retraces are replayed
- * too:
+ * count, D_803156C4, when the read started), game frames (D_80358064, from 0
+ * in each mode), the mode (D_80364A90/94) and the pad (buttons << 16 | x << 8
+ * | y).
  *
- *   - a read's SI completion is held until the scheduler has counted the
- *     log's retraces for that read;
- *   - a retrace is held back while the count is already there and the read
- *     hasn't come, and given at once when a read waits for one.
+ * The port's timing isn't mupen64plus's, so its reads don't fall where the
+ * log's do (the title, for one, fades out a frame earlier: func_80274BF0
+ * reads the count in the middle of a frame).  So the replay follows the
+ * port's frames rather than the log's reads:
  *
- * Each read then checks the game's frame count and mode against the log,
- * and the first difference is reported: where the replay went out of sync.
+ *   - A read gets the pad of the log's read at the same mode and frame: the
+ *     first such read after the last one matched (reads within a frame go in
+ *     order, and a mode the port leaves early skips the rest of it in the
+ *     log).  A read the log has no match for (the port stays in a mode
+ *     longer) gets no buttons.
+ *   - Each frame gets the retraces the log's frame has, counted from when
+ *     the port's read before it went through: a read's SI completion is
+ *     held until the scheduler has had them, and a retrace is held back
+ *     once the next read's are there (taking the next read to be the log's
+ *     next).  Within the frame the retraces come by the port's CPU model, so
+ *     the game reads the count mid-frame (the music's and the messages'
+ *     timing, func_8026BCE0) about where mupen64plus's did.  Where it waits
+ *     for a retrace the log's frame didn't have, one is given anyway, and
+ *     counted.
+ *   - The random number generator is seeded from osGetCount, the port's
+ *     clock and not the movie's: after a seeding, the next read sets the
+ *     generator's state to the log's for that read (if it has the column).
+ *     So does a read after the port spent a different number of frames in
+ *     a mode (a loading screen) than the movie did.
+ *   - cvt.w/round.w round halves up, as the movie's emulator does (the
+ *     hardware rounds them to even; the first level goes elsewhere at frame
+ *     370 with that).
+ *
+ * What says the replay still makes sense: the player's position at every
+ * matched read (if the log has it) against the log's, every read that finds no match
+ * (logged with the mode at each change), the log's reads skipped, the
+ * retraces given anyway, and in the end the save (port/tools/tas_check.py).
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,29 +53,119 @@
 #define port_be32(p) port_var32(p)
 #endif
 
-/* the scheduler's retrace count, the game's frame count and the mode */
-extern char D_803156C4[], D_80358064[], D_80364A90[];
+/* the scheduler's retrace count, the game's frame count, the mode and the
+   random number generator's state */
+extern char D_803156C4[], D_80358064[], D_80364A90[], D_8036B968[];
+/* the player's position */
+extern char D_803643E0[];
 
 typedef struct {
-    uint32_t retraces, frames, pad, tasks;
+    uint32_t retraces, frames, pad, rng;
+    int32_t pos[3];
     uint64_t mode;
 } Read;
 
 static Read *log_reads;
 static unsigned nreads;
-/* vis.csv, next to FILE: per retrace (the scheduler's count before it), the
-   reads and the graphics tasks mupen64plus had done when it came */
-typedef struct { uint32_t reads, tasks; int valid; } Anchor;
-static Anchor *anchors;
-static unsigned nanchors;
-static unsigned reads;          /* reads done */
-static int si_waiting;          /* a read's SI completion is held */
-static int diverged;
-static unsigned forced;         /* retraces given although the count was there */
+/* counter_reads.csv, next to FILE: the game's reads of the two counts, in
+   order, each with the log's reads so far and its PC, which n64_funcs.txt
+   (the port's build, from the version's ELFs) names the function of.
+   first_count[k] is the first after the log's read k+1 started (read 1 is
+   the log's first; the reads before it, at boot, aren't replayed),
+   first_count[nreads] the end. */
+typedef struct { uint32_t timer, retraces; int func; } Count;
+static Count *counts;
+static unsigned ncounts, *first_count;
+static unsigned next_count, end_count;  /* the current frame's */
+static unsigned counts_unlogged;        /* reads in a function the log's frame has none in */
+/* the functions: by address, and their names sorted */
+typedef struct { uint32_t addr; int name; } Func;
+static Func *funcs;
+static unsigned nfuncs;
+static char **names;
+static unsigned nnames;
+/* the reads in the current frame so far, per function */
+static struct { int func; unsigned n; } frame_reads[64];
+static unsigned nframe_reads;
+#define WINDOW 5000             /* how far ahead in the log a read is looked for */
+
+static unsigned reads;          /* the port's reads started */
+static int matched = -1;        /* the log's read the last match was */
+static const Read *cur_read;    /* the current read's match, or NULL */
+static int si_waiting;          /* its SI completion is held */
+static uint32_t base;           /* the retraces when the last read went through */
+static uint32_t target;         /* the retraces the held read waits for */
+static uint32_t next_target;    /* the next read's, as far as the log says */
+static int next_known;
+static uint64_t last_mode = ~0ull;
+static unsigned skipped, unmatched, forced;
 static int nogate;              /* PORT_REPLAY_NOGATE: the pads only, for comparison */
-static uint32_t tasks_at_read;  /* the port's graphics tasks when the last read started */
+static int has_rng;             /* the log has the generator's state */
+static int has_pos;             /* ... and the player's position */
+static unsigned pos_diffs;      /* reads where the position differs */
+static int seeded;              /* the game seeded it since the last read */
+static int gap;                 /* reads without a match since the last one */
+static unsigned seeds;
 
 int host_replay_active(void) { return log_reads != NULL; }
+
+static int cmp_str(const void *a, const void *b) { return strcmp(*(char *const *)a, *(char *const *)b); }
+
+/* n64_funcs.txt: "address t name" per function, by address */
+static void load_funcs(void) {
+    const char *p = getenv("PORT_N64_FUNCS");
+#ifdef PORT_N64_FUNCS
+    if (!p)
+        p = PORT_N64_FUNCS;
+#endif
+    FILE *f = p ? fopen(p, "r") : NULL;
+    if (!f)
+        host_fatal("replay: no function table (PORT_N64_FUNCS)");
+    char line[256], name[200];
+    unsigned cap = 0, addr;
+    char type;
+    while (fgets(line, sizeof line, f))
+        if (sscanf(line, "%x %c %199s", &addr, &type, name) == 3) {
+            if (nfuncs == cap) {
+                cap = cap ? cap * 2 : 8192;
+                funcs = realloc(funcs, cap * sizeof *funcs);
+                names = realloc(names, cap * sizeof *names);
+            }
+            names[nfuncs] = strdup(name);
+            funcs[nfuncs] = (Func){ addr, (int)nfuncs };
+            nfuncs++;
+        }
+    fclose(f);
+    /* names sorted, and each function's index into them */
+    char **sorted = malloc(nfuncs * sizeof *sorted);
+    memcpy(sorted, names, nfuncs * sizeof *sorted);
+    qsort(sorted, nfuncs, sizeof *sorted, cmp_str);
+    for (unsigned i = 0; i < nfuncs; i++) {
+        char **hit = bsearch(&names[i], sorted, nfuncs, sizeof *sorted, cmp_str);
+        funcs[i].name = (int)(hit - sorted);
+    }
+    free(names);
+    names = sorted;
+    nnames = nfuncs;
+}
+
+/* the function a PC is in (by the name's index) */
+static int func_at(uint32_t pc) {
+    unsigned lo = 0, hi = nfuncs;
+    while (hi - lo > 1) {
+        unsigned mid = (lo + hi) / 2;
+        if (funcs[mid].addr <= pc)
+            lo = mid;
+        else
+            hi = mid;
+    }
+    return nfuncs && funcs[lo].addr <= pc ? funcs[lo].name : -1;
+}
+
+static int func_named(const char *name) {
+    char **hit = nnames ? bsearch(&name, names, nnames, sizeof *names, cmp_str) : NULL;
+    return hit ? (int)(hit - names) : -1;
+}
 
 void host_replay_load(const char *path) {
     FILE *f = fopen(path, "r");
@@ -62,186 +174,261 @@ void host_replay_load(const char *path) {
     char line[256];
     unsigned cap = 0;
     while (fgets(line, sizeof line, f)) {
-        unsigned poll, vi, ret, frames, pad, tasks = 0;
+        unsigned poll, vi, ret, frames, pad, rng = 0, x = 0, y = 0, z = 0;
         unsigned long long mode;
-        if (sscanf(line, "%u,%u,%u,%u,%llx,%x,%u", &poll, &vi, &ret, &frames, &mode, &pad, &tasks) < 6)
+        int n = sscanf(line, "%u,%u,%u,%u,%llx,%x,%x,%x,%x,%x", &poll, &vi, &ret, &frames, &mode, &pad, &rng,
+                       &x, &y, &z);
+        if (n < 6)
             continue;           /* the header */
+        has_rng |= n >= 7;
+        has_pos |= n >= 10;
         if (poll != nreads + 1)
             host_fatal("%s: read %u out of order", path, poll);
         if (nreads == cap)
             log_reads = realloc(log_reads, (cap = cap ? cap * 2 : 65536) * sizeof *log_reads);
-        log_reads[nreads++] = (Read){ ret, frames, pad, tasks, mode };
+        log_reads[nreads++] = (Read){ ret, frames, pad, rng, { (int32_t)x, (int32_t)y, (int32_t)z }, mode };
     }
     fclose(f);
     if (!nreads)
         host_fatal("%s: no reads", path);
     nogate = getenv("PORT_REPLAY_NOGATE") != NULL;
 
-    char vpath[1024];
+    char cpath[1024];
     const char *slash = strrchr(path, '/');
-    snprintf(vpath, sizeof vpath, "%.*svis.csv", slash ? (int)(slash - path + 1) : 0, path);
-    if ((f = fopen(vpath, "r"))) {
+    snprintf(cpath, sizeof cpath, "%.*scounter_reads.csv", slash ? (int)(slash - path + 1) : 0, path);
+    if ((f = fopen(cpath, "r"))) {
+        load_funcs();
+        unsigned ccap = 0, last = 0;
+        first_count = calloc(nreads + 1, sizeof *first_count);
         while (fgets(line, sizeof line, f)) {
-            unsigned vi, ret, rd, tk;
-            if (sscanf(line, "%u,%u,%u,%u", &vi, &ret, &rd, &tk) != 4)
+            unsigned rd, pc, timer, ret;
+            if (sscanf(line, "%u,%x,%u,%u", &rd, &pc, &timer, &ret) != 4)
                 continue;
-            if (ret >= nanchors) {
-                unsigned n = ret + 1 > nanchors * 2 ? ret + 1 : nanchors * 2;
-                anchors = realloc(anchors, n * sizeof *anchors);
-                memset(anchors + nanchors, 0, (n - nanchors) * sizeof *anchors);
-                nanchors = n;
-            }
-            /* the last VI before the count moves on is the one that moves it */
-            anchors[ret] = (Anchor){ rd, tk, 1 };
+            if (rd < last || rd > nreads)
+                host_fatal("%s: read %u out of order", cpath, rd);
+            for (; last < rd; last++)
+                first_count[last] = ncounts;
+            if (ncounts == ccap)
+                counts = realloc(counts, (ccap = ccap ? ccap * 2 : 1 << 20) * sizeof *counts);
+            counts[ncounts++] = (Count){ timer, ret, func_at(pc) };
         }
+        for (; last <= nreads; last++)
+            first_count[last] = ncounts;
         fclose(f);
+        host_log("replay: %u reads of the counts from %s\n", ncounts, cpath);
     }
-    host_log("replay: %u reads from %s%s\n", nreads, path, anchors ? ", retraces anchored by vis.csv" : "");
+    /* the movie's emulator rounds cvt.w halves up (recomp.h), and the
+       movie depends on it (PORT_REPLAY_VR4300_ROUNDING=1: the hardware's) */
+    extern int recomp_round_half_up;
+    recomp_round_half_up = getenv("PORT_REPLAY_VR4300_ROUNDING") == NULL;
+    host_log("replay: %u reads from %s\n", nreads, path);
 }
-
-static uint32_t retraces(void) { return port_be32(D_803156C4); }
 
 static uint64_t mode_now(void) {
     return (uint64_t)port_be32(D_80364A90) << 32 | port_be32(D_80364A90 + 4);
 }
 
-static void check(const char *what, uint32_t got, uint32_t want) {
-    if (!diverged && got != want) {
-        diverged = 1;
-        host_log("replay: out of sync at read %u: %s %u, the log has %u (mode %016llX)\n", reads,
-                 what, got, want, (unsigned long long)mode_now());
+/* the log's retraces for its read k's frame */
+static uint32_t frame_retraces(unsigned k) {
+    return k == 0 ? log_reads[0].retraces : log_reads[k].retraces - log_reads[k - 1].retraces;
+}
+
+/* PORT_REPLAY_DUMP=N,...: RDRAM (big-endian, as m64p_tas's TAS_DUMP) to
+   rdram_N.bin as the read matching the log's Nth starts */
+static void dump(unsigned n) {
+    static const char *spec = (const char *)1;
+    if (spec == (const char *)1)
+        spec = getenv("PORT_REPLAY_DUMP");
+    for (const char *p = spec; p && *p;) {
+        char *end;
+        if (strtoul(p, &end, 10) == n) {
+            char path[64];
+            snprintf(path, sizeof path, "rdram_%u.bin", n);
+            FILE *f = fopen(path, "wb");
+            if (f) {
+                fwrite(port_ptr(0x80000000), 1, 0x400000, f);
+                fclose(f);
+            }
+        }
+        p = *end ? end + 1 : end;
     }
-}
-
-/* the log's read the game is in (started, SI completion held), or the next */
-static const Read *cur(void) {
-    unsigned k = si_waiting ? reads - 1 : reads;
-    return k < nreads ? &log_reads[k] : NULL;
-}
-
-/* by the retraces sent, not the count: the scheduler counts a retrace only
-   once it has run, and the loop could send another before that (it counts
-   every one, from the first) */
-static int target_reached(void) {
-    if (nogate)
-        return 1;
-    const Read *r = cur();
-    return !r || port_vi_sent() >= r->retraces;
 }
 
 /* osContStartReadData: the game starts a read.  mupen64plus takes the pad
    here, when the PIF runs the command (the game starts one read at boot
    that it never fetches), so this is what counts. */
 void host_replay_read_started(void) {
-    tasks_at_read = port_gfx_tasks();
+    uint64_t mode = mode_now();
+    uint32_t frames = port_be32(D_80358064);
+    int found = -1;
+
     reads++;
     si_waiting = 1;
-    if (reads <= nreads) {
-        const Read *r = &log_reads[reads - 1];
-        check("frame", port_be32(D_80358064), r->frames);
-        uint64_t m = mode_now();
-        if (!diverged && m != r->mode) {
-            diverged = 1;
-            host_log("replay: out of sync at read %u: mode %016llX, the log has %016llX\n", reads,
-                     (unsigned long long)m, (unsigned long long)r->mode);
+    for (unsigned k = matched + 1; k < nreads && k <= (unsigned)(matched + 1) + WINDOW; k++)
+        if (log_reads[k].mode == mode && log_reads[k].frames == frames) {
+            found = (int)k;
+            break;
+        }
+    if (mode != last_mode) {
+        if (host_verbose || found < 0)
+            host_log("replay: mode %016llX at read %u: the log's read %d%s\n", (unsigned long long)mode,
+                     reads, found + 1, found < 0 ? " (no match)" : "");
+        last_mode = mode;
+    }
+    if (found < 0) {
+        if (unmatched < 5 || host_verbose > 1)
+            host_log("replay: read %u (mode %016llX frame %u): no match after the log's read %d (mode %016llX "
+                     "frame %u)\n", reads, (unsigned long long)mode, frames, matched + 1,
+                     matched >= 0 ? (unsigned long long)log_reads[matched].mode : 0ull,
+                     matched >= 0 ? log_reads[matched].frames : 0);
+        unmatched++;
+        gap = 1;
+        cur_read = NULL;
+        next_count = end_count = 0;
+        target = port_vi_sent();        /* nothing to wait for */
+        return;
+    }
+    int prev = matched;
+    skipped += found - (matched + 1);
+    matched = found;
+    cur_read = &log_reads[found];
+    if (counts) {
+        /* the game's reads of the counts until the next read: the log's
+           while its read found+1 was the last */
+        next_count = first_count[found];
+        end_count = first_count[found + 1];
+        nframe_reads = 0;
+    }
+    /* the seed is the movie's clock: the state the log has at this read is
+       its seed, advanced as the same frame's calls advance the port's.
+       Likewise where the port spent a different number of frames in the
+       last mode than the movie (a loading screen: the port loads faster),
+       whose frames drew numbers too. */
+    if ((seeded || found > prev + 1 || gap) && has_rng && port_be32(D_8036B968) != cur_read->rng) {
+        port_wg32(D_8036B968, cur_read->rng);    /* a game variable: its own width */
+        seeds++;
+    }
+    seeded = 0;
+    gap = 0;
+    dump(found + 1);
+    /* the player where the movie had it (in a level: outside, it's what
+       the attract mode left) */
+    if (has_pos && (mode == 4 || mode == 0x4000)) {
+        int32_t p[3];
+        for (int i = 0; i < 3; i++)
+            p[i] = (int32_t)port_be32(D_803643E0 + 4 * i);
+        if (p[0] != cur_read->pos[0] || p[1] != cur_read->pos[1] || p[2] != cur_read->pos[2]) {
+            if (pos_diffs++ < 5 || host_verbose > 1)
+                host_log("replay: read %u (the log's %d, mode %016llX frame %u): the player at %d,%d,%d, "
+                         "the log has %d,%d,%d\n", reads, found + 1, (unsigned long long)mode, frames,
+                         p[0] >> 5, p[1] >> 5, p[2] >> 5, cur_read->pos[0] >> 5, cur_read->pos[1] >> 5,
+                         cur_read->pos[2] >> 5);
         }
     }
+    target = base + frame_retraces(found);
     if (reads % 10000 == 0 && host_verbose)
-        host_log("replay: read %u, mode %016llX\n", reads, (unsigned long long)mode_now());
+        host_log("replay: read %u, the log's %d, mode %016llX\n", reads, found + 1, (unsigned long long)mode);
 }
 
-/* the loop: the held SI completion, once the count is there; 1 if it was
-   given */
+/* The game's reads of D_803156C4 and D_803156C0 (port_game.h): in a matched
+   frame, what the movie's game read in the same function in that frame (the
+   n-th time for the n-th, or the last); the real ones otherwise.  (By
+   function, not by order in the frame: IDO and clang load a global a
+   different number of times; within a function and a frame the movie's
+   values nearly always agree.) */
+extern char D_803156C0[];
+unsigned int port_counter(int timer, const char *func) {
+    if (counts && cur_read) {
+        int id = func_named(func);
+        unsigned k, n = 0;
+        for (k = 0; k < nframe_reads && frame_reads[k].func != id; k++)
+            ;
+        if (k < nframe_reads)
+            n = frame_reads[k].n++;
+        else if (nframe_reads < sizeof frame_reads / sizeof frame_reads[0]) {
+            frame_reads[nframe_reads].func = id;
+            frame_reads[nframe_reads++].n = 1;
+        }
+        const Count *hit = NULL;
+        for (unsigned i = next_count; i < end_count; i++)
+            if (counts[i].func == id) {
+                hit = &counts[i];
+                if (n-- == 0)
+                    break;
+            }
+        if (hit)
+            return timer ? hit->timer : hit->retraces;
+        if (counts_unlogged++ < 5 || host_verbose > 1)
+            host_log("replay: the log's read %d: %s reads the %s, which the log's frame doesn't\n", matched + 1,
+                     func, timer ? "level timer" : "retrace count");
+    }
+    return port_be32(timer ? D_803156C0 : D_803156C4);
+}
+
+/* the game's osGetCount seeds (23C20.c, 20460.c, under TARGET_PC) */
+void port_replay_seeded(void) {
+    seeded = 1;
+}
+
+/* the loop: the held SI completion, once the retraces are there; 1 if it
+   was given */
 int host_replay_poll_si(void) {
-    if (!si_waiting || !target_reached())
+    /* by the retraces sent: the scheduler counts one only once it has run,
+       and it counts every one */
+    if (!si_waiting || (!nogate && port_vi_sent() < target))
         return 0;
-    if (reads <= nreads)
-        check("retrace", port_vi_sent(), log_reads[reads - 1].retraces);
     si_waiting = 0;
+    base = port_vi_sent();
+    next_known = cur_read && matched + 1 < (int)nreads;
+    if (next_known)
+        next_target = base + frame_retraces(matched + 1);
     port_replay_si_done();
     return 1;
-}
-
-/* the loop, at a retrace: 0 to hold it back */
-/* the next retrace's place in mupen64plus's run, by the graphics tasks run
-   before it (the two boots run the same ones): 0 if the port isn't there
-   yet, 1 if it is, 2 if it is past it, -1 if the log doesn't say */
-static int anchor_reached(void) {
-    uint32_t r = port_vi_sent();
-    if (r >= nanchors || !anchors[r].valid)
-        return -1;
-    uint32_t done = port_gfx_tasks();
-    if (done > anchors[r].tasks || reads > anchors[r].reads)
-        return 2;
-    return done == anchors[r].tasks;
 }
 
 /* the loop, at a retrace: 0 to hold it back */
 int host_replay_vi_ok(void) {
     if (nogate)
         return 1;
-    /* not past the count the log's next read has, and not before the
-       graphics tasks mupen64plus's had run */
-    return !target_reached() && anchor_reached() != 0;
+    if (si_waiting)
+        return port_vi_sent() < target;
+    return !next_known || port_vi_sent() < next_target;
 }
 
-/* the loop: 1 to give the retrace now rather than when the clock says: the
-   game is past where mupen64plus's was when it came, or just there and this
-   is the first retrace there (the ones after it, while the game waits or
-   spins on the count, come by the clock) */
-int host_replay_vi_now(void) {
-    /* (and once the scheduler has counted the last one: firing before it
-       ran would only fill its queue) */
-    if (nogate || retraces() != port_vi_sent() || target_reached())
-        return 0;
-    int a = anchor_reached();
-    uint32_t r = port_vi_sent();
-    return a == 2 || (a == 1 && (r == 0 || r - 1 >= nanchors || !anchors[r - 1].valid ||
-                                 anchors[r - 1].tasks != anchors[r].tasks));
-}
-
-/* PORT_REPLAY_VIS=FILE: the port's own vis.csv, to compare */
-void host_replay_vi_fired(void) {
-    static FILE *f;
-    static int opened;
-    if (!opened++) {
-        const char *p = getenv("PORT_REPLAY_VIS");
-        if (p && (f = fopen(p, "w")))
-            fprintf(f, "vi,retraces,reads,tasks,tasks_at_read\n");
-    }
-    if (f)
-        fprintf(f, "0,%u,%u,%u,%u\n", port_vi_sent(), reads, port_gfx_tasks(), tasks_at_read);
-}
-
-/* a retrace held back with nothing else to do: the game waits for one
-   that mupen64plus's didn't, so it is out of sync */
+/* a held retrace given anyway: the game waits for one the log's frame
+   didn't have */
 void host_replay_vi_forced(void) {
-    const Read *r = cur();
-    if (forced++ < 10)
-        host_log("replay: read %u waits for retrace %u, the log has %u\n", reads + !si_waiting,
-                 retraces() + 1, r ? r->retraces : 0);
+    if (forced++ < 10 || host_verbose)
+        host_log("replay: read %u (the log's %d) waits for a retrace the log doesn't have\n",
+                 reads + !si_waiting, matched + 1 + !si_waiting);
 }
 
 /* osContGetReadData: the pad of the last read started */
 void host_replay_pad(uint16_t *buttons, int *x, int *y) {
     *buttons = 0;
     *x = *y = 0;
-    if (reads == 0 || reads > nreads)
+    if (!cur_read)
         return;
-    const Read *r = &log_reads[reads - 1];
-    *buttons = (uint16_t)(r->pad >> 16);
-    *x = (int8_t)(r->pad >> 8);
-    *y = (int8_t)r->pad;
+    *buttons = (uint16_t)(cur_read->pad >> 16);
+    *x = (int8_t)(cur_read->pad >> 8);
+    *y = (int8_t)cur_read->pad;
 }
 
 /* past the end of the log, with time for the last save */
 int host_replay_done(void) {
-    return log_reads && reads >= nreads + 600;
+    static unsigned end;
+    if (!log_reads || matched + 1 < (int)nreads)
+        return 0;
+    if (!end)
+        end = reads;
+    return reads >= end + 600;
 }
 
 void host_replay_report(void) {
     if (!log_reads)
         return;
-    host_log("replay: %u of %u reads, %s, %u retraces forced\n", reads < nreads ? reads : nreads, nreads,
-             diverged ? "out of sync" : "in sync", forced);
+    host_log("replay: %u reads, %d of the log's %u matched (%u skipped), %u without a match, "
+             "%u retraces given anyway, %u random states set, the player elsewhere at %u, %u reads of the "
+             "counts the log doesn't have\n", reads, matched + 1 - (int)skipped, nreads, skipped, unmatched,
+             forced, seeds, pos_diffs, counts_unlogged);
 }

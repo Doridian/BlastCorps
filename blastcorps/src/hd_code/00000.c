@@ -10,6 +10,17 @@
 #include "game/level.h"
 #include "game/player.h"
 
+/* The game's reads of the scheduler's counts, apart from its two waits on
+   frameCount: the port's --replay gives these the movie's values
+   (port_game.h, docs/PORT.md "The TAS"). */
+#ifdef TARGET_PC
+#define SC_FRAMECOUNT D_803156C4
+#define SC_TIMER D_803156C0
+#else
+#define SC_FRAMECOUNT D_80315440.frameCount
+#define SC_TIMER D_80315440.unk280
+#endif
+
 typedef struct {
     /* 0x0 */ s32 unk0;
     /* 0x4 */ s16 unk4;
@@ -967,7 +978,7 @@ void func_80244930(void *arg0) {
                             }
                             D_802E8BD8 = !D_802E8BD4;
                             func_8029A7E4("Unpause at start = %d\n", D_802E8BD4);
-                            D_80364A58 = D_80315440.unk280;
+                            D_80364A58 = SC_TIMER;
                             D_80358064 = 0;
                             func_8025BB38();
                             func_8029A7E4("snew ip=%8d : tc=%5d : bd=%2d : cr=%2d : rt=%3d : coin=%1d : bdn=%1d\n",
@@ -1201,7 +1212,7 @@ void func_80244930(void *arg0) {
                         D_802F8BDC[6].unk18 = 0x17; D_802F8BDC[7].unk18 = 0x21;
                     }
                     D_80364A50 = 0;
-                    D_80364A54 = D_80315440.frameCount;
+                    D_80364A54 = SC_FRAMECOUNT;
                     func_80255DC8();
                     if (D_802E8F94[D_802E8BDC].unk0 == 1 && UNK_80364AF0_IN_RANGE(D_80364AE8, D_802E8BDC) &&
                         D_803643D5 == 0) {
@@ -1802,7 +1813,7 @@ void func_802475D8(void) {
             func_8024A348();
             func_8024ADD8();
         }
-        if (D_80364AA8 != 1 && D_80367C00 != 0 && D_80315440.unk280 - D_80364A58 > 90) {
+        if (D_80364AA8 != 1 && D_80367C00 != 0 && SC_TIMER - D_80364A58 > 90) {
             D_80367C00 = 0;
             func_802794A4();
         }
@@ -1811,7 +1822,7 @@ void func_802475D8(void) {
         (D_802E8BDC == 0x32 && D_8036EB98 != 0 &&
          !LEVEL_DONE_IN(D_80364AF0[D_80364AE8], 0x32))) {
         if (D_80364AA8 == 1 && D_80364A5C == 0) {
-            func_8029A7E4("TIME IN LEVEL=%d\n", D_80364A5C = D_80315440.unk280 - D_80364A58);
+            func_8029A7E4("TIME IN LEVEL=%d\n", D_80364A5C = SC_TIMER - D_80364A58);
         }
     }
     func_802A5510(D_80358074);
@@ -1923,7 +1934,7 @@ void func_802475D8(void) {
         }
     }
     sp5C = func_8024C404(sp5C, &D_803156F8[D_8035805C], &D_80358078);
-    if ((D_80364A90 & 0x440) && D_80315440.frameCount - D_80364A54 > 160 && D_80364A50 == 0) {
+    if ((D_80364A90 & 0x440) && SC_FRAMECOUNT - D_80364A54 > 160 && D_80364A50 == 0) {
         D_80364A50 = 1;
         if (D_8036BB1C == 1) {
             if (!LEVEL_DONE_IN(D_80364AF0[D_80364AE8], D_802E8BDC) ||
@@ -1933,7 +1944,7 @@ void func_802475D8(void) {
         }
     }
     if (D_80364A90 == 8 && func_802753C0() == 0 &&
-        (func_802D4E10(D_80367734) == 0 || D_80315440.frameCount - D_80367740 > 300)) {
+        (func_802D4E10(D_80367734) == 0 || SC_FRAMECOUNT - D_80367740 > 300)) {
         func_80275390(0x08000000);
     }
     if (D_802E8BDC == 0x31 && D_8036BB1C == 1) {

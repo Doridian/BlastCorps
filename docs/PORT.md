@@ -804,10 +804,9 @@ took to sync:
   some lists don't end in a full sync.  The CPU never reads the
   framebuffers, so the renderer's pixels don't matter.
 
-`build/tas/run/polls.csv` has the pad and the VI at every controller read
-(125,297 of them), with the scheduler's retrace count, the game's frame
-count, the mode and the graphics tasks run so far; `vis.csv` has, for every
-VI, the scheduler's count before it and the reads and graphics tasks so far.
+`build/tas/run/polls.csv` has, at every controller read (125,297 of them),
+the pad and the VI, the scheduler's retrace count, the game's frame count,
+the mode, the random number generator's state and the player's position.
 
 ### Replaying it on the port
 
@@ -819,37 +818,69 @@ Then
 
 ```
 build/port.us.v10/blastcorps --headless --replay build/tas/run/polls.csv --save run.eep baserom.us.v10.z64
-port/tools/tas_check.py run.eep
+port/tools/tas_check.py run.eep --platinum 57
 ```
 
-`--replay` (`port/host/replay.c`) implies `--deterministic` and turns the CPU
-model off (unless `PORT_COUNT_PER_OP` is set): the log paces the game, not
-the port's estimate of its CPU.  Each read gets its pad by number, counted
-where mupen64plus takes it (`osContStartReadData`: the game starts one read
-at boot that it never fetches).  The retraces are replayed too, since the
-game reads the scheduler's count in the middle of its frames (the fade out
-of the title, `func_80274BF0`, switches the mode when it reaches 255):
+`--replay` (`port/host/replay.c`, implies `--deterministic`) doesn't try to
+make the port time things as mupen64plus does; it follows the port's own
+frames and gives each the movie's input for that frame:
 
-- a read's SI completion is held until the scheduler has had the log's
-  retraces for it;
-- a VI is held while the count is already there, or while the port hasn't
-  run the graphics tasks mupen64plus had run before that VI (the two boots
-  run the same ones); it comes at once when the port is past that point, or
-  just at it and it is the first VI there, and otherwise by the clock (a
-  wait or a spin on the count);
-- a held VI is given anyway when nothing else can move the game on, or a
-  thread spins on the count, and that is reported as a forced retrace.
+- **Pads by frame.**  A read gets the pad of the log's read at the same mode
+  and frame (`D_80358064`), the first one after the last match.  The port
+  leaves the title a frame early (its fade, `func_80274BF0`, reads the
+  retrace count mid-frame), and matching by frame lines the next mode up
+  again at its frame 0.  A read with no match gets no buttons.
+- **Retraces by frame.**  Each frame gets the log's retraces for it,
+  counted from the read before: the read's SI completion waits for them, and
+  a VI is held once the next frame's are there.  Within the frame they come
+  by the CPU model.  A VI the game waits for that the log's frame doesn't
+  have is given anyway and counted.
+- **The game's reads of the count.**  The game reads the scheduler's retrace
+  count and level timer (`D_803156C4`, `D_803156C0`) in the middle of its
+  frames: the title's fade (`func_80274BF0`), the messages' and the music's
+  timing (`func_8026BCE0`), "TIME IN LEVEL".  mupen64plus's game often sees
+  one to three retraces past the read there.  So `m64p_tas`
+  (`TAS_COUNTER_READS=1`) logs every such read with its PC, through a read
+  breakpoint in the core's debugger (`counter_reads.csv`), and on the port
+  those reads are calls (`port_game.h`; `00000.c`'s `SC_FRAMECOUNT` and
+  `SC_TIMER` for its reads through the struct): in a matched frame they
+  return what the movie's game read in the same function in that frame.
+  By function, not by order, because IDO and clang load a global a different
+  number of times; within a function and a frame the movie's values agree
+  in all but 18 of 27,784 cases.  The scheduler and the game's two waits on
+  the count read the real one.
+- **The seed.**  The random number generator (`D_8036B968`) is seeded from
+  `osGetCount`, which is the port's clock: after a seeding (23C20.c,
+  20460.c call `port_replay_seeded` under `TARGET_PC`) the next read sets
+  it to the log's state.  So does a read after the port spent a different
+  number of frames in a mode than the movie (a level's loading intro: the
+  port loads faster).
+- **Rounding.**  `cvt.w`/`round.w` round halves up, as the movie's emulator
+  does (`recomp_round_half_up`, recomp.h); the VR4300 rounds them to even,
+  and with that the first level goes elsewhere at its frame 370.
+  `PORT_REPLAY_VR4300_ROUNDING=1` uses the hardware's.
 
-Each read checks the game's frame count, the mode and the retraces against
-the log and reports the first difference.  `PORT_REPLAY_VIS=FILE` writes the
-port's own `vis.csv` to compare; `PORT_REPLAY_NOGATE=1` replays the pads only.
+What says the replay still plays the movie: in a level, every read compares
+the player's position with the log's and reports the first few that differ;
+the mode changes with no match, the log's reads skipped and the retraces
+given anyway are reported at the end; and the save has the medals.
+`PORT_REPLAY_DUMP=N,...` writes RDRAM as the read matching the log's Nth
+starts (`rdram_N.bin`, big-endian), and `TAS_DUMP=N,...` makes `m64p_tas`
+write the same at its Nth read, to compare the two.
 
-Where it stands: the boot, both logos and the title are in sync, to read
-631 of 125,297 (about 17 seconds in).  There the port's frame needs one more
-retrace than mupen64plus's: in mupen64plus the frame's first graphics task
-runs before the read, on the port after it.  What's left is the order of
-events inside a frame: the SP and DP interrupts (mupen64plus raises them
-1000 counts after the task) and the RDP freeze against the VI.
+Where it stands: the boot, the menus and the first levels play as in the
+movie, with the player where the movie has it at every frame, up to about
+read 8,600 of 125,297 (five gold medals, level 10 next).  There, on the
+world map, the port leaves a level's results screen one frame early and
+the movie's next input lands elsewhere.  What decides it is the game asking
+whether the announcer's voice has finished (`func_802D4E10`, `17E10.c`):
+the audio thread's progress against the game's frames, which the replay
+doesn't reproduce yet.
+
+The TAS also found a port bug on the way: the game writes a digit into a
+string literal ("0 OF THE OTHERS", `53220.c`), which the port had in
+read-only memory; `gen_ld.py` now links the game's remaining `.rodata`
+writable, as the N64 has it.
 
 ## Status
 ## Status

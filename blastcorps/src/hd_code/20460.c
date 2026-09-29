@@ -261,6 +261,9 @@ void func_80264C20(s32 arg0) {
         D_80367D60[i].unk15 = 0;
     }
     D_8036B968 = osGetCount();
+#ifdef TARGET_PC
+    port_replay_seeded();
+#endif
     D_80368038 = 99999999;
     if (arg0 != 0) {
         D_8036EA70.cr = D_80368040;

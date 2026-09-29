@@ -793,6 +793,9 @@ s32 func_8026A828(s32 lo, s32 hi) {
 
 void func_8026A8BC(void) {
     D_8036B968 = osGetCount();
+#ifdef TARGET_PC
+    port_replay_seeded();
+#endif
 }
 
 s32 func_8026A8E0(s32 lo, s32 hi) {

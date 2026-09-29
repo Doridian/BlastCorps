@@ -531,6 +531,13 @@ static inline uint32_t recomp_cvt_s_d(uint64_t a) {
     return bits_of_f32((float)f64_of(a));
 }
 
+/* cvt.w/round.w under round-to-nearest: to even, as the VR4300 does, or,
+   with recomp_round_half_up set, halves up as mupen64plus's MSVC build does
+   (floor(x + 0.5), in double; what the TAS was made on, docs/PORT.md) */
+extern int recomp_round_half_up;
+static inline double recomp_rint(double x) { return recomp_round_half_up ? floor(x + 0.5) : nearbyint(x); }
+static inline float recomp_rintf(float x) { return recomp_round_half_up ? (float)floor(x + 0.5) : nearbyintf(x); }
+
 /* float -> integer; NaN and out-of-range give 2^31-1 / 2^63-1 as the VR4300
    does with the invalid-operation exception disabled.  `r` is the value
    already rounded to an integer by the instruction's rounding mode. */

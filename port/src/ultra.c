@@ -519,13 +519,8 @@ static u64 dp_held_ns;
 static struct { u32 dl, size, ucode; } dp_pending[4];
 static int dp_npending;
 
-static uint32_t gfx_tasks;      /* graphics tasks run, held or not (--replay) */
-uint32_t port_gfx_tasks(void) { return gfx_tasks; }
-
 static void dp_run(u32 dl, u32 size, u32 ucode) {
-    int sync;
-    gfx_tasks++;
-    sync = host_gfx_task(dl, size, ucode);
+    int sync = host_gfx_task(dl, size, ucode);
     u64 rdp = host_take_rdp_ns();
     host_raise(OS_EVENT_SP);
     if (sync)                           /* the RDP's full sync */
@@ -562,11 +557,8 @@ void osSpTaskStartGo(OSTask *t) {
             dp_pending[dp_npending].ucode = (u32)t->t.ucode;
             dp_npending++;
         } else {
-            int sync;
-            u64 rdp;
-            gfx_tasks++;
-            sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode);
-            rdp = host_take_rdp_ns();
+            int sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode);
+            u64 rdp = host_take_rdp_ns();
             host_raise(OS_EVENT_SP);
             if (sync) {                 /* the RDP's full sync */
                 if (dp_frozen) {

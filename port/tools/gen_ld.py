@@ -92,6 +92,13 @@ def script(out, objects):
         f.write("  /* the rest of the image follows its headers at 0x80400000 */\n")
         f.write("  . = 0x80410000;\n")
         f.write("}\nINSERT BEFORE .init;\n")
+        # what's left of the game's .rodata (string literals, constants the
+        # N64 doesn't name) goes with the data: on the N64 it's RAM like the
+        # rest, and the game writes into some ("0 OF THE OTHERS", 53220.c)
+        f.write("/* the game's other .rodata, writable as on the N64 */\n")
+        f.write("SECTIONS\n{\n")
+        f.write("  .n64_rodata : { *src/hd_code/*(.rodata .rodata.*) *src/hd_front_end/*(.rodata .rodata.*) }\n")
+        f.write("}\nINSERT AFTER .data;\n")
     print(f"gen_ld.py: {len(place)} sections placed")
 
 

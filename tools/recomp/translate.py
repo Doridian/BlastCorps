@@ -397,8 +397,8 @@ class FuncEmitter:
                 raise TranslateError(f"{i.op} at {ln.vram:08X}")
             f = "f" if fmt == "s" else ""
             # cvt uses the FCSR rounding mode; the game leaves it at
-            # round-to-nearest-even, which is the host's default too.
-            rnd = {"cvt": "nearbyint", "round": "nearbyint", "trunc": "trunc",
+            # round-to-nearest-even (recomp_rint, recomp.h).
+            rnd = {"cvt": "recomp_rint", "round": "recomp_rint", "trunc": "trunc",
                    "ceil": "ceil", "floor": "floor"}[kind] + f
             if to == "w":
                 return [f"ctx->f[{fd}] = recomp_f2w({rnd}({a}));"]

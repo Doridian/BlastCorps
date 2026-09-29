@@ -368,8 +368,6 @@ int main(int argc, char **argv) {
     const char *cpo = getenv("PORT_COUNT_PER_OP");
     if (cpo)
         host_ns_per_instr = atof(cpo) * 64.0 / 3;     /* not real time, or no one listening */
-    else if (host_replay_active())
-        host_ns_per_instr = 0;      /* --replay: the log's retraces pace the game, not its CPU */
     prctl(PR_SET_TIMERSLACK, 1);    /* wake on time: the pacing is in 50 us steps */
     clock_gettime(CLOCK_MONOTONIC, &t0);
     struct sigaction sa;
@@ -402,10 +400,6 @@ int main(int argc, char **argv) {
         /* --replay: a retrace waits while the count is where the log's next
            read has it (replay.c) */
         int vi_held = host_replay_active() && !host_replay_vi_ok() && !vi_force;
-        if (host_replay_active() && !vi_held && now < next_vi && host_replay_vi_now()) {
-            virtual_ns += next_vi - now;        /* (--replay is --deterministic) */
-            now = next_vi;
-        }
         if (now >= next_vi && !vi_held) {
             vi_force = 0;
             spins_held = 0;
@@ -415,8 +409,6 @@ int main(int argc, char **argv) {
             host_video_frame();
             if (host_quit_requested())
                 break;
-            if (host_replay_active())
-                host_replay_vi_fired();
             port_irq_vi();
             continue;
         }

@@ -211,7 +211,6 @@ int host_replay_active(void);
 void host_replay_read_started(void);
 void port_replay_si_done(void);     /* port/src: the held SI completion */
 uint32_t port_vi_sent(void);        /* port/src: retrace messages sent */
-uint32_t port_gfx_tasks(void);      /* port/src: graphics tasks run */
 
 /* EEPROM (4 Kbit) */
 void host_eeprom_read(int block, uint32_t dst);

@@ -26,6 +26,7 @@ static extern_cb_t extern_cb;
 static mfc0_cb_t mfc0_cb;
 static uint8_t *cur_rdram;
 uint32_t recomp_ro_ranges[4][2];
+int recomp_round_half_up;       /* recomp.h: the VR4300's rounding */
 unsigned recomp_num_ro_ranges;
 
 void recomp_trap(recomp_context *ctx, int kind, uint32_t pc, uint32_t code) {

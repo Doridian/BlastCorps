@@ -273,6 +273,16 @@ target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CUR
     ${CMAKE_CURRENT_SOURCE_DIR}/host ${SDL2_INCLUDE_DIRS})
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
 target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE})
+# --replay names the function behind each of the movie's reads of the
+# counts by its address (port/host/replay.c): the version's functions
+add_custom_command(OUTPUT ${GEN}/n64_funcs.txt
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py funcs ${GEN}/n64_funcs.txt
+    DEPENDS ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
+add_custom_target(n64_funcs DEPENDS ${GEN}/n64_funcs.txt)
+add_dependencies(host n64_funcs)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/replay.c PROPERTIES
+    COMPILE_DEFINITIONS "PORT_N64_FUNCS=\"${GEN}/n64_funcs.txt\"")
 if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})

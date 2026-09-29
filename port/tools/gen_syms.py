@@ -7,6 +7,10 @@
       of the translated code itself excepted; only funcs.c's table uses
       those, and the port doesn't build it).
 
+  gen_syms.py funcs OUT.txt
+      The version's functions, "address T name" by address: --replay names
+      the function behind each of the movie's reads of the counts with it.
+
   gen_syms.py script OUT.ld OBJECT...
       For the linker: every name the N64 link gets from a linker script
       (build/<module>.<version>.syms.ld, the ROM positions) that no object of
@@ -138,8 +142,25 @@ def script(out, objects):
             f.write(f"{name} = {rhs};\n")
 
 
+def funcs(out):
+    """The version's functions by address, for --replay (port/host/replay.c)."""
+    rows = []
+    for m in MODULES:
+        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
+        res = subprocess.run(["mips-linux-gnu-nm", "-n", elf], capture_output=True, text=True, check=True).stdout
+        for line in res.splitlines():
+            p = line.split()
+            if len(p) == 3 and p[1] in "tT":
+                rows.append((int(p[0], 16), p[2]))
+    with open(out, "w") as f:
+        for addr, name in sorted(rows):
+            f.write(f"{addr:08x} T {name}\n")
+
+
 def main():
-    if sys.argv[1] == "header":
+    if sys.argv[1] == "funcs":
+        funcs(sys.argv[2])
+    elif sys.argv[1] == "header":
         header(sys.argv[2])
     elif sys.argv[1] == "script":
         script(sys.argv[2], sys.argv[3:])

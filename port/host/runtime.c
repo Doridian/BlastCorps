@@ -66,6 +66,9 @@ void recomp_call_external(uint8_t *rdram, recomp_context *ctx, uint32_t addr) {
     host_fatal("unhandled call out of translated code to %08X", addr);
 }
 
+/* --replay's rounding (recomp.h) */
+int recomp_round_half_up;
+
 uint64_t recomp_mfc0(recomp_context *ctx, int reg) {
     (void)ctx;
     if (reg == 12)          /* Status: interrupts enabled, CU1 */

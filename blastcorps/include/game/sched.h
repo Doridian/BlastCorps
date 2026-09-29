@@ -81,8 +81,10 @@ OSMesgQueue *osScGetCmdQ(Sched *sc);
 
 /* Sched fields other files name by their own symbols (Sched.unk280 and
  * frameCount), and 2C560.c's osGetTime() at the last retrace. */
+#ifndef TARGET_PC   /* the port reads them through calls (port_game.h) */
 extern u32 D_803156C0;
 extern u32 D_803156C4;
+#endif
 extern OSTime D_8036BF38;
 
 #endif
