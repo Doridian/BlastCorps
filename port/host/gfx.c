@@ -7,7 +7,7 @@
  * included).  RDP side: TMEM loads (with the odd-row swizzle, as the RDP
  * does it, and RGBA32's split across the two halves), the tiles, texel
  * decoding, level of detail, and the state for the color combiner (both
- * cycles, all inputs but noise and keying), the blender and alpha compare.
+ * cycles, all inputs but keying), the blender and alpha compare.
  *
  * Each triangle or rectangle then goes to a back end (gfx.h): the OpenGL
  * one (gfx_gl.c) when it is enabled and owns the color image, or the
@@ -317,9 +317,13 @@ int gfx_uses_tex1(void) {
                   (w0 >> 5) & 15, (w1 >> 24) & 15, w0 & 31, (w1 >> 6) & 7 };
     int asel[] = { (w0 >> 12) & 7, (w1 >> 12) & 7, (w0 >> 9) & 7, (w1 >> 9) & 7,
                    (w1 >> 21) & 7, (w1 >> 3) & 7, (w1 >> 18) & 7, w1 & 7 };
-    for (int i = 0; i < 8; i++)
-        if (sel[i] == 2 || asel[i] == 2 || ((i & 3) == 2 && sel[i] == 9))
+    int two = gfx_cycles() == 2;
+    for (int i = 0; i < 8; i++) {
+        /* the second cycle of 2-cycle mode reads tile + 1 as TEXEL0 */
+        int t = two && i >= 4 ? 1 : 2;
+        if (sel[i] == t || asel[i] == t || ((i & 3) == 2 && sel[i] == t + 7))
             return 1;
+    }
     return 0;
 }
 
@@ -456,7 +460,7 @@ static uint8_t cc_idx[2][8];
 static int cc_cycles;
 static uint32_t cc_key0 = 1, cc_key1, cc_keyh;
 
-static int map_a(int s) { return s <= 5 ? s : s == 6 ? CC_ONE : CC_ZERO; }
+static int map_a(int s) { return s <= 5 ? s : s == 6 ? CC_ONE : s == 7 ? CC_NOISE : CC_ZERO; }
 static int map_b(int s) { return s <= 5 ? s : CC_ZERO; }
 static int map_c(int s) {
     static const uint8_t m[] = { CC_COMB, CC_T0, CC_T1, CC_PRIM, CC_SHADE, CC_ENV, CC_ZERO, CC_COMB_A, CC_T0_A,
@@ -485,6 +489,15 @@ void gfx_cc_decode(uint8_t idx[2][8]) {
         idx[c][6] = map_ac(sel[c][6]);
         idx[c][7] = map_aa(sel[c][7]);
     }
+    /* In the second cycle of 2-cycle mode the RDP's texel inputs move up
+       one: TEXEL0 is tile + 1's texel, and TEXEL1 is the next pixel's
+       tile texel (taken here as this pixel's).  The TVs' video relies on
+       it (TEXEL1 * SHADE in the second cycle). */
+    if (gfx_cycles() == 2)
+        for (int i = 0; i < 8; i++) {
+            uint8_t *k = &idx[1][i];
+            *k = *k == CC_T0 ? CC_T1 : *k == CC_T1 ? CC_T0 : *k == CC_T0_A ? CC_T1_A : *k == CC_T1_A ? CC_T0_A : *k;
+        }
 }
 
 static void cc_prepare(void) {
@@ -519,6 +532,11 @@ static void combine(const Inputs *in, float *out) {
     splat(t[CC_ENV_A], gs.env[3]);
     splat(t[CC_LOD], in->lod);
     splat(t[CC_PRIM_LOD], gs.prim_lod);
+    {
+        static uint32_t noise = 0x12345678;
+        noise ^= noise << 13; noise ^= noise >> 17; noise ^= noise << 5;
+        splat(t[CC_NOISE], (float)(noise >> 24));
+    }
     for (int c = 0; c < cc_cycles; c++) {
         const uint8_t *k = cc_idx[c];
         float r[4];

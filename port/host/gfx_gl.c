@@ -343,7 +343,7 @@ typedef struct {
     ProgKey key;
     GLuint prog;
     int blend;                  /* 0 none, 1 (ONE, SRC_ALPHA), 2 keep the destination */
-    GLint u_vp, u_zbias, u_prim, u_env, u_blend, u_fog, u_primlod, u_tA, u_tB, u_tul, u_levels, u_lodscale;
+    GLint u_vp, u_zbias, u_prim, u_env, u_blend, u_fog, u_primlod, u_seed, u_tA, u_tB, u_tul, u_levels, u_lodscale;
 } Prog;
 
 static Prog progs[1024];
@@ -376,7 +376,7 @@ static const char *fs_common =
     "uniform ivec4 u_tB[8];     /* cm s, cm t, clamp s, clamp t */\n"
     "uniform vec2 u_tul[8];\n"
     "uniform vec4 u_prim, u_env, u_blend, u_fog;\n"
-    "uniform float u_primlod, u_lodscale;\n"
+    "uniform float u_primlod, u_lodscale, u_seed;\n"
     "uniform int u_levels;\n"
     "int wrapc(int c, int cm, int mask, int size) {\n"
     "    if ((cm & 2) != 0 || mask == 0) { if (c < 0) c = 0; if (c > size) c = size; }\n"
@@ -425,14 +425,14 @@ static const char *cc_rgb(int k) {
     static const char *m[] = { "comb.rgb", "t0.rgb", "t1.rgb", "u_prim.rgb", "shade.rgb", "u_env.rgb",
                                "vec3(1.0)", "vec3(0.0)", "vec3(comb.a)", "vec3(t0.a)", "vec3(t1.a)",
                                "vec3(u_prim.a)", "vec3(shade.a)", "vec3(u_env.a)", "vec3(lodf)",
-                               "vec3(u_primlod)" };
+                               "vec3(u_primlod)", "vec3(noise)" };
     return m[k];
 }
 
 static const char *cc_a(int k) {
     static const char *m[] = { "comb.a", "t0.a", "t1.a", "u_prim.a", "shade.a", "u_env.a", "1.0", "0.0",
                                "comb.a", "t0.a", "t1.a", "u_prim.a", "shade.a", "u_env.a", "lodf",
-                               "u_primlod" };
+                               "u_primlod", "noise" };
     return m[k];
 }
 
@@ -491,6 +491,7 @@ static Prog *get_prog(const ProgKey *key) {
     cat("void main() {\n");
     cat("    vec4 shade = v_col, t0 = vec4(0.0), t1 = vec4(0.0), comb = vec4(0.0);\n");
     cat("    float lodf = 1.0;\n");
+    cat("    float noise = fract(sin(dot(floor(gl_FragCoord.xy) + u_seed, vec2(12.9898, 78.233))) * 43758.5453);\n");
     cat("    int s0 = 0, s1 = 1;\n");
     if (key->lod) {
         cat("    vec2 dx = dFdx(v_st), dy = dFdy(v_st);\n");
@@ -593,7 +594,7 @@ done:;
         glUniform1i(glGetUniformLocation(p->prog, name), i);
     }
 #define U(n) p->n = glGetUniformLocation(p->prog, #n)
-    U(u_vp); U(u_zbias); U(u_prim); U(u_env); U(u_blend); U(u_fog); U(u_primlod);
+    U(u_vp); U(u_zbias); U(u_prim); U(u_env); U(u_blend); U(u_fog); U(u_primlod); U(u_seed);
     U(u_tA); U(u_tB); U(u_tul); U(u_levels); U(u_lodscale);
 #undef U
     if (host_verbose > 1)
@@ -675,6 +676,7 @@ static void apply_and_draw(void) {
     glUniform4fv(p->u_blend, 1, d->blend);
     glUniform4fv(p->u_fog, 1, d->fog);
     glUniform1f(p->u_primlod, d->primlod);
+    glUniform1f(p->u_seed, (float)(frame_no % 997));
     glUniform1f(p->u_lodscale, scale);
     glUniform1i(p->u_levels, d->levels);
     if (d->ntex) {

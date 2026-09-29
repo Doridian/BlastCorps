@@ -313,9 +313,16 @@ in software.  In real time both hold 60 frames a second; the process's CPU
 use says little either way, since the game's threads spin on counters
 while they wait for the retrace.
 
+In 2-cycle mode the combiner's second cycle sees the texels shifted, as
+the RDP does: TEXEL0 is tile + 1's texel and TEXEL1 the next pixel's tile
+texel (this pixel's here).  The TVs' video (a 40x40 RGBA16 image the CPU
+decodes each frame, drawn with TEXEL1 * SHADE in the second cycle plus
+NOISE * PRIM_ALPHA static) depends on it; without it they showed tile 1.
+
 Not done: anti-aliasing (the coverage the blender uses on edges; rendering
 above 1x and scaling down is the substitute) and the VI's filters, dither,
-the combiner's noise and chroma key inputs, texgen from the look-at
+the combiner's chroma key (its noise input is a hash, not the RDP's
+generator), texgen from the look-at
 vectors (the port uses the modelview's axes), the far plane (depth is
 clamped instead), and triangle edges follow GL's and the software
 renderer's pixel-center rule rather than the RDP's.

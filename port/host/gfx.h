@@ -66,7 +66,7 @@ typedef struct {
 
 /* the combiner's inputs, as gfx_cc_decode() indexes them */
 enum { CC_COMB, CC_T0, CC_T1, CC_PRIM, CC_SHADE, CC_ENV, CC_ONE, CC_ZERO, CC_COMB_A, CC_T0_A,
-       CC_T1_A, CC_PRIM_A, CC_SHADE_A, CC_ENV_A, CC_LOD, CC_PRIM_LOD, CC_N };
+       CC_T1_A, CC_PRIM_A, CC_SHADE_A, CC_ENV_A, CC_LOD, CC_PRIM_LOD, CC_NOISE, CC_N };
 
 /* texture filtering: what the game asks for (N64 3-point when it sets
    G_TF_BILERP), forced point sampling, or 4-tap bilinear where the game
