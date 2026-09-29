@@ -1,0 +1,101 @@
+diff --git a/libmupen64plus/mupen64plus-core/src/api/api_export.ver b/libmupen64plus/mupen64plus-core/src/api/api_export.ver
+index c5b2ca705..6e161cf92 100644
+--- a/libmupen64plus/mupen64plus-core/src/api/api_export.ver
++++ b/libmupen64plus/mupen64plus-core/src/api/api_export.ver
+@@ -1,4 +1,7 @@
+ { global:
++init_saveram;
++load_saveram;
++save_saveram;
+ ConfigDeleteSection;
+ ConfigGetParamBool;
+ ConfigGetParameter;
+diff --git a/libmupen64plus/mupen64plus-core/src/api/vidext.c b/libmupen64plus/mupen64plus-core/src/api/vidext.c
+index 0e2359458..df3e38849 100644
+--- a/libmupen64plus/mupen64plus-core/src/api/vidext.c
++++ b/libmupen64plus/mupen64plus-core/src/api/vidext.c
+@@ -250,7 +250,7 @@ EXPORT m64p_error CALL VidExt_SetVideoMode(int Width, int Height, int BitsPerPix
+ 	if (SDL_GetWMInfo(&SysInfo))
+ 	{
+ 		// Hide the SDL window
+-		ShowWindow(SysInfo.window,0);
++		;
+ 	}
+ 
+     SDL_ShowCursor(SDL_DISABLE);
+diff --git a/libmupen64plus/mupen64plus-core/src/r4300/fpu.h b/libmupen64plus/mupen64plus-core/src/r4300/fpu.h
+index 8f4ddce8f..61c79f02f 100644
+--- a/libmupen64plus/mupen64plus-core/src/r4300/fpu.h
++++ b/libmupen64plus/mupen64plus-core/src/r4300/fpu.h
+@@ -42,6 +42,17 @@
+ #else
+   #define M64P_FPU_INLINE static inline
+   #include <fenv.h>
++  /* BizHawk builds with MSVC, which takes the definitions above over its
++     own: round half up, and trunc through int.  They round differently from
++     C99's, and a movie only syncs with them. */
++  static inline double msvc_round(double x) { return floor(x + 0.5); }
++  static inline float msvc_roundf(float x) { return (float) floor(x + 0.5); }
++  static inline double msvc_trunc(double x) { return (double) (int) x; }
++  static inline float msvc_truncf(float x) { return (float) (int) x; }
++  #define round msvc_round
++  #define roundf msvc_roundf
++  #define trunc msvc_trunc
++  #define truncf msvc_truncf
+ #endif
+ 
+ 
+diff --git a/libmupen64plus/mupen64plus-core/src/r4300/r4300.h b/libmupen64plus/mupen64plus-core/src/r4300/r4300.h
+index 154de76fa..066001fa2 100644
+--- a/libmupen64plus/mupen64plus-core/src/r4300/r4300.h
++++ b/libmupen64plus/mupen64plus-core/src/r4300/r4300.h
+@@ -22,8 +22,8 @@
+ #ifndef R4300_H
+ #define R4300_H
+ 
+-#define WIN32_LEAN_AND_MEAN
+-#include <Windows.h>
++
++
+ 
+ #include "recomp.h"
+ #include "memory/tlb.h"
+diff --git a/libmupen64plus/mupen64plus-core/src/r4300/x86_64/assemble.h b/libmupen64plus/mupen64plus-core/src/r4300/x86_64/assemble.h
+index 087646b25..d4a711308 100644
+--- a/libmupen64plus/mupen64plus-core/src/r4300/x86_64/assemble.h
++++ b/libmupen64plus/mupen64plus-core/src/r4300/x86_64/assemble.h
+@@ -1148,7 +1148,7 @@ static inline void fmul_preg64_qword(int reg64)
+    put8(0x08 + reg64);
+ }
+ 
+-static inline void fsqrt(void)
++static inline void x86_fsqrt(void)
+ {
+    put8(0xD9);
+    put8(0xFA);
+diff --git a/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_d.c b/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_d.c
+index 3d9653eed..10b2df6c7 100644
+--- a/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_d.c
++++ b/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_d.c
+@@ -112,7 +112,7 @@ void gensqrt_d(void)
+    gencheck_cop1_unusable();
+    mov_xreg64_m64rel(RAX, (unsigned long long *)(&reg_cop1_double[dst->f.cf.fs]));
+    fld_preg64_qword(RAX);
+-   fsqrt();
++   x86_fsqrt();
+    mov_xreg64_m64rel(RAX, (unsigned long long *)(&reg_cop1_double[dst->f.cf.fd]));
+    fstp_preg64_qword(RAX);
+ #endif
+diff --git a/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_s.c b/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_s.c
+index 0bf5598d4..5fd51961b 100644
+--- a/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_s.c
++++ b/libmupen64plus/mupen64plus-core/src/r4300/x86_64/gcop1_s.c
+@@ -113,7 +113,7 @@ void gensqrt_s(void)
+    gencheck_cop1_unusable();
+    mov_xreg64_m64rel(RAX, (unsigned long long *)(&reg_cop1_simple[dst->f.cf.fs]));
+    fld_preg64_dword(RAX);
+-   fsqrt();
++   x86_fsqrt();
+    mov_xreg64_m64rel(RAX, (unsigned long long *)(&reg_cop1_simple[dst->f.cf.fd]));
+    fstp_preg64_dword(RAX);
+ #endif

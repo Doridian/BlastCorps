@@ -645,6 +645,47 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
 
 The 64-bit build needs no change in `blastcorps/src`.
 
+## The TAS
+
+For a check that the game can still be beaten, there is a full-game movie:
+TASVideos submission #8170, WarHippy's "all platinum medals" (1:16:02,
+273,723 frames, BizHawk 2.7, us.v10, from power-on with a blank EEPROM).
+`port/tools/tas.sh` downloads it, plays it headless and reads the medals
+from the save the game wrote (`tas_check.py`): 57 platinum, the three
+slots that give no medal done, gameState 13, 360 units.  It takes about
+four minutes.
+
+It syncs only on the emulator it was made on, so the script builds that:
+BizHawk 2.7's mupen64plus core (2.0 from 2013, with BizHawk's changes) and
+its rsp-hle, for Linux, with `tas_bizhawk.patch` and `tas_bizhawk_compat.h`.  `m64p_tas.c` is the
+front end, and the core's input, audio and gfx plugin in one.  What it
+took to sync:
+
+- **The core.**  mupen64plus 2.6 doesn't: its VI period comes from the VI
+  clock, where 2.0's is `(V_SYNC + 1) * 1500` counts, about 3% apart, and
+  every lag frame moves.  2.6 also randomizes PI/SI interrupt timing unless
+  `RandomizeInterrupt` is off.
+- **The frames.**  A BizHawk frame is one VI, and BizHawk runs two at
+  power-on before the movie's first line (`N64.cs`), so line N is the pad
+  from VI N+2 to N+3.  The log's four `A Up/Down/Left/Right` columns push
+  the stick all the way (`N64Input.cs`).
+- **MSVC's rounding.**  BizHawk builds the core with MSVC, where `fpu.h`
+  defines `round` as `floor(x + 0.5)` and `trunc` through `int`.  With C99's
+  functions the movie drifts out after about nine minutes.
+- **No renderer.**  The gfx plugin draws nothing but sets the DP bit where a
+  renderer would, at the list's `G_RDPFULLSYNC` (walking the F3D lists).
+  Raising DP for every list wedges the scheduler after the Rare logo, since
+  some lists don't end in a full sync.  The CPU never reads the
+  framebuffers, so the renderer's pixels don't matter.
+
+`build/tas/run/polls.csv` has the pad and the VI at every controller read
+(125,297 of them), with the scheduler's retrace count, the game's frame
+count and the mode.  Playing the movie on the port needs the same thing
+from the other side: the port's timing is a model, so it has to be given
+each read's pad by read number, and each frame's retraces from this log,
+rather than the movie's frames.  The movie is us.v10, so it needs a
+us.v10 port build too.
+
 ## Status
 
 - Boots, runs every thread, and plays the Rare logo, the title screen and
