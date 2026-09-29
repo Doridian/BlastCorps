@@ -6,7 +6,6 @@
 #include "game/player.h"
 
 extern OSViMode D_80306E70[];
-extern s32 D_80358060;
 /*
  * This file's .bss.  The functions using these only match with them
  * defined here (a u64's halves share one lui).

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/yoshi.h"
@@ -11,11 +12,8 @@ typedef struct {
 } UnkStruct_8039C4B8;
 
 extern UnkStruct_8039C4B8 D_8039C4B8[];
-extern s8 D_802E8BD8;
-extern u8 D_80364A87;
 extern s32 D_80358064;
 extern char D_8036B9A8[][0x20];
-extern s32 D_803156C0;
 extern OSMesgQueue D_80219F50;
 
 void func_80255DC8(void);
@@ -45,8 +43,8 @@ u16 D_8036EB90;
 u8 D_8036EB92;
 u8 D_8036EB93;
 u8 D_8036EB94[4];
-s8 D_8036EB98;
-s8 D_8036EB99;
+u8 D_8036EB98;
+u8 D_8036EB99;
 u8 D_8036EB9C[4];
 
 void func_80285190(void) {

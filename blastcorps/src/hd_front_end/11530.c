@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/frame.h"
 #include "game/audio.h"
 #include "game/game.h"
@@ -139,17 +140,11 @@ Gfx *D_8021AB6C;
 extern f32 D_802E8C84[];
 extern s32 D_802FA264;
 extern OSMesgQueue D_80315180;
-extern u32 D_803156C4;
 extern FrameGame D_803156F8[];
-extern u16 *D_80358050[];
-extern u16 *D_80358058;
-extern s32 D_80358060;
-extern u8 *D_8035806C;
 extern s32 D_80358078;
 extern u16 D_8035807C;
 extern s32 D_80358080;
 extern s32 D_80358084;
-extern u8 D_80364A87;
 extern s16 D_8036BB1C;
 extern s8 D_80370C2C;
 extern s8 D_80370C2D;

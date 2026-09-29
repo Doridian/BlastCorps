@@ -5,21 +5,9 @@
 #include "game/level.h"
 #include "game/player.h"
 
-/* The first three fields of an OSContPad (D_80370C30 keeps a copy of one). */
-typedef struct {
-    /* 0x0 */ u16 unk0;
-    /* 0x2 */ s8 unk2;
-    /* 0x3 */ s8 unk3;
-} UnkStruct_80370C30;
 
-extern u8 D_8039C4B0;
 extern s32 D_80364BE0[][0x40];
-extern u32 D_80358060;
 extern s32 D_80358064;
-extern s8 D_80370C75;
-extern u8 D_803ED40A;
-extern s16 D_803F7C34;
-extern u8 D_803F7C3F;
 
 void func_8026AF6C(s32);
 void func_8029A7E4(char *, ...);
@@ -63,10 +51,10 @@ u8 D_80370C20;
 u8 D_80370C21;
 u8 D_80370C22;
 s8 D_80370C23;
-s8 D_80370C24;
+u8 D_80370C24;
 s8 D_80370C25;
 s8 D_80370C26;
-s8 D_80370C27;
+u8 D_80370C27;
 u16 D_80370C28;
 u16 D_80370C2A;
 s8 D_80370C2C;

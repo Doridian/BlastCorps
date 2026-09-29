@@ -1,4 +1,6 @@
 #include "common.h"
+#include "game/camera.h"
+#include "game/level.h"
 #include "game/frame.h"
 #include "game/game.h"
 
@@ -54,14 +56,11 @@ void func_80277EDC();
 extern FrameBuf D_02000000;
 extern u16 D_8035807C;
 extern u8 D_803643DB;
-extern s16 D_8036443E;
-extern s32 D_80364AA8;
 extern UnkStruct_8036C7A0 *D_8036C790;
 extern UnkStruct_8036C7A0 *D_8036C794;
 extern UnkStruct_8036C7A0 *D_8036C7A0[10];
 extern s32 D_8036C798;
 extern s32 D_8036C7C8;
-extern u8 D_8036EB98;
 extern u8 D_803F7808;
 extern u8 D_803F7809;
 extern u8 D_8036C7CC;

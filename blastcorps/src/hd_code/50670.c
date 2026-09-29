@@ -1,4 +1,7 @@
 #include "common.h"
+#include "game/sched.h"
+#include "game/level.h"
+#include "game/vehicle.h"
 #include "game/frame.h"
 #include "game/game.h"
 
@@ -34,16 +37,10 @@ s16 func_80295924(s16 arg0, s16 arg1, f32 arg2);
 extern void func_8029A7E4(char *, ...);
 extern s32 func_80286038(s32);
 
-extern s32 D_803156C0;
-extern u8 D_803643D4;
-extern s16 D_803ED390[3];
-extern void *D_803BDB00;
-extern void *D_803BDB04;
-extern void *D_803BDB08;
 extern u16 D_803C30A8[];
 
 /* .bss, 0x8039CA60-0x8039CA90 (tools/bss_c.py) */
-u8 D_8039CA60[1];
+u8 D_8039CA60;
 u8 D_8039CA61;
 u8 D_8039CA62;
 UnkStruct_8039CA68 *D_8039CA68[2];

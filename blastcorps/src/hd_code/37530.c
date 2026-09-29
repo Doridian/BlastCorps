@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/game.h"
 #include "game/frame.h"
 #include "game/level.h"
 #include "game/player.h"
@@ -44,7 +45,6 @@ void func_8027D5AC(void);
 s32 func_802AC4C4(s32, s32, s32, s32, s32, s32, s32, s32);
 
 extern FrameGame D_02000000;
-extern s32 D_80358060;
 
 /* .bss, 0x8036D3D0-0x8036DCA0 (tools/bss_c.py) */
 UnkStruct_8036D3D0 D_8036D3D0[80];

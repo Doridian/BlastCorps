@@ -11,12 +11,10 @@ typedef struct {
     /* 0x4 */ s8 unk4;
 } UnkStruct_80365588; /* size = 0x5 */
 
-extern u8 D_802E8BD8;
 extern u8 D_803643D6;
 extern u8 D_803643DB;
 extern u8 D_80364A50;
 extern s16 D_8036BB1C;
-extern u16 D_80370C30;
 extern s8 D_80370C32;
 extern s8 D_80370C33;
 
@@ -40,13 +38,12 @@ typedef struct {
 
 extern u8 D_006A9F10[];
 extern u8 D_006AD3F0[];
-extern u16 D_80366A04;
 
 void func_8028B4C4(u8 *, u8 *, s32 *, s32, s32, s32);
 void func_80257490(void *, s32);
 
 /* .bss, 0x80365580-0x803669C0 (tools/bss_c.py) */
-s8 D_80365580;
+u8 D_80365580;
 u8 D_80365581[1];
 u8 D_80365582[2];
 u8 D_80365584[4];
@@ -248,7 +245,7 @@ void func_8025BEF8(void) {
             }
         }
     } else {
-        D_80370C30 = (D_803669AC[D_80366994].unk0 << 8) + D_803669AC[D_80366994].unk1;
+        D_80370C30.unk0 = (D_803669AC[D_80366994].unk0 << 8) + D_803669AC[D_80366994].unk1;
         D_80370C32 = D_803669AC[D_80366994].unk3;
         D_80370C33 = D_803669AC[D_80366994].unk4;
         if (--D_803669A0 < 0) {
@@ -256,13 +253,13 @@ void func_8025BEF8(void) {
             D_803669A0 = D_803669AC[D_80366994].unk2;
         }
         if ((D_80364A90 & 0x100000000002) && (D_8036698C != 9)) {
-            if ((D_80370C30 & 0xC000) == 0x8000) {
-                D_80370C30 &= ~0x8000;
-                D_80370C30 |= 0x4000;
+            if ((D_80370C30.unk0 & 0xC000) == 0x8000) {
+                D_80370C30.unk0 &= ~0x8000;
+                D_80370C30.unk0 |= 0x4000;
             }
-            if ((D_80370C30 & 0xC000) == 0x4000) {
-                D_80370C30 &= ~0x4000;
-                D_80370C30 |= 0x8000;
+            if ((D_80370C30.unk0 & 0xC000) == 0x4000) {
+                D_80370C30.unk0 &= ~0x4000;
+                D_80370C30.unk0 |= 0x8000;
             }
         }
     }

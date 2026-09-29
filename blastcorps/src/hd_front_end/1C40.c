@@ -1,4 +1,6 @@
 #include "common.h"
+#include "game/frontend.h"
+#include "game/sched.h"
 #include "game/frame.h"
 #include "game/audio.h"
 #include "game/game.h"
@@ -140,7 +142,6 @@ s32 func_80276130(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u
 void func_8029A7E4(char *, ...);
 
 extern Lights2 D_80208470;
-extern char *D_802081C0[][2];
 extern u16 D_802082D8[];
 extern u16 D_802082E4[];
 extern u16 D_802082E8[];
@@ -227,16 +228,10 @@ extern u16 D_802E8C98[];
 extern char D_803046F8[];
 extern char D_80304710[];
 extern char D_80304730[];
-extern u32 D_803156C4;
 extern FrameBuf D_803156F8[];
-extern s8 D_803643D5;
-extern s8 D_80364A87;
-extern s32 D_80364AA8;
 extern u8 D_80365060[];
 extern s16 D_8036BB20;
 extern s8 D_80370C2C;
-extern u8 D_8039C538;
-extern u8 D_8039C540;
 
 void func_801E8C40(u8 arg0) {
     FrameBuf *sp34;

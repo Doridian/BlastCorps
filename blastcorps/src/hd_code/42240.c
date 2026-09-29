@@ -1,16 +1,11 @@
 #include "common.h"
+#include "game/vehicle.h"
 #include "game/game.h"
 
-extern s8 D_80364A68;
-extern s8 D_80364A6A;
-extern s8 D_80364A6C;
 extern s16 D_80367BD6;
-extern u8 D_803EE3B1;
 /* Segment 2 base, reached through a relocation, not a constant. */
 extern Mtx D_02000000[];
 
-extern s16 D_803F8B72;
-extern s16 D_803EDC00;
 
 void func_802A0CC8(s32, s32);
 void func_8026A378(s16, s32 *);

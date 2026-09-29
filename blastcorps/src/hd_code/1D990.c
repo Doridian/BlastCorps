@@ -1,4 +1,7 @@
 #include "common.h"
+#include "game/objects.h"
+#include "game/sched.h"
+#include "game/vehicle.h"
 #include "game/audio.h"
 #include "game/camera.h"
 #include "game/game.h"
@@ -14,24 +17,10 @@ typedef struct {
     /* 0x8 */ s16 unk8;
 } UnkStruct_802E8F68; /* size = 0xA */
 
-extern s32 D_803156C0;
 extern s32 D_80358064;
-extern s8 D_803643D9;
-extern s8 D_803643DA;
 extern s32 D_80364A58;
-extern s32 D_80364AA8;
-extern ALCSPlayer *D_80367734;
 extern u8 D_8036DCD4;
 extern u8 D_8036EB92;
-extern s32 D_803EF2EC;
-extern s32 D_803EF2F0;
-extern s32 D_803EF2F4;
-extern s32 D_803EFEB0;
-extern s32 D_803EFEB4;
-extern s32 D_803EFEB8;
-extern s32 D_803EFEBC;
-extern s8 D_803EFEC8;
-extern u8 D_803F7806;
 
 u8 func_8027EED8(s32, s32, s16 *);
 s32 func_8026394C();
@@ -81,7 +70,7 @@ u8 D_80367BFB;
 u16 D_80367BFC;
 u8 D_80367BFE;
 s8 D_80367BFF;
-s8 D_80367C00;
+u8 D_80367C00;
 u8 D_80367C01;
 LevelInfo *D_80367C04;
 char *D_80367C08;
@@ -414,13 +403,7 @@ void func_80262238(u8 arg0) {
 
 extern u8 D_006A32B0[];
 extern u8 D_006A8DA0[];
-extern s32 D_803156C4;
-extern s32 D_80364404;
-extern s32 D_80364408;
-extern s32 D_8036440C;
-extern s8 D_80364410;
 extern u8 D_80364424;
-extern s32 D_80364428;
 extern u16 D_8036442C;
 extern s32 D_80364430;
 extern char D_80367BB0[];
@@ -432,12 +415,9 @@ extern YoshiIcon *D_80367BD0;
 extern u8 D_80367BD4;
 extern s16 D_80367BD8;
 extern u8 *D_80367BE0[];
-extern s8 D_80367C00;
 extern u8 D_80367C01;
 extern char *D_80367C08;
 extern u16 *D_80367C0C;
-extern s32 D_803F7C10;
-extern s32 D_803F7C14;
 
 u8 func_8026FA38(char **, u16 **);
 s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
@@ -638,8 +618,6 @@ extern char D_80367BB0[];
 extern u16 D_80367BF4;
 extern u16 D_80367D08;
 extern s16 D_8036BB1A;
-extern s16 D_8036BB1C;
-extern u8 D_803BE738;
 
 void func_802609F0(void);
 void func_80260A10(void);
@@ -885,7 +863,6 @@ s32 func_8026394C(x, y, x0, y0, x1, y1)
     return 0;
 }
 
-extern s16 D_8036BB18;
 extern u8 D_80367BD5;
 extern s16 D_80367BD6;
 extern u8 D_80367BFB;

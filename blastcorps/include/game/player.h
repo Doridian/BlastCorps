@@ -131,4 +131,17 @@ SIZE_CHECK(EepromSave, 0x200);
 #define PAK_GAME_CODE 0x4E424345
 #endif
 
+/*
+ * The Controller Pak state, in 48D00.c's .bss though pfsHandler.c (E7B0.c)
+ * and hd.c use it: D_8039C4B4 receives pfsHandler's replies (osRecvMesg),
+ * D_8039C4B8 is a 0x40-byte block read from and written to the pak (a u64
+ * 0x1234567887654321 first when it's valid), D_8039C53C[4] the level each
+ * player still has to save, plus one.
+ */
+extern u8 D_8039C4B0;           /* 1 once pfsHandler.c has the pak */
+extern s32 D_8039C4B4;
+extern u8 D_8039C538;           /* inside the u8[0x44] at D_8039C4F8 */
+extern u8 D_8039C540;           /* a level to save, plus one (1C40.c) */
+extern u8 D_8039C541;
+
 #endif

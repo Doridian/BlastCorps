@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/frontend.h"
 #include "game/frame.h"
 #include "game/game.h"
 #include "game/level.h"
@@ -28,7 +29,6 @@ void func_80259DC8(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32,
                    s32, s32, s32);
 s32 func_8025B300(u8 *);
 
-extern u8 *D_802081C0[][2];
 extern u8 D_802082B8[];
 extern char *D_802084B0;
 extern char *D_802084B4;
@@ -46,9 +46,7 @@ extern s32 D_80215978;
 extern u8 D_80215980[];
 extern u8 D_80215998[];
 extern s16 D_802159B0;
-extern Mtx D_802182D0[];
 extern s32 D_802FA268;
-extern u32 D_80358060;
 extern u16 D_8035807C;
 
 void func_801ED790(void) {
@@ -153,13 +151,13 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
         func_80259CCC(arg1, D_802084B0, D_802084B8, 0, 0x9C, 0, 0x18, 0x1A, 0x1A, 1, 0, 0, 0, D_80215974 / 2);
         func_80259CCC(arg1, D_802084B4, D_802084BC, 0, 0x9D, 0, 0xCB, 0x16, 0x16, 1, 0, 0, 0, D_80215974 / 2);
         for (sp70 = 0, sp6C = 0; sp6C < D_802082B8[D_80215978]; sp70++) {
-            if ((D_80215980[sp70] = D_802081C0[D_80215978][0][sp70]) == ' ') {
+            if ((D_80215980[sp70] = ((u8 *)D_802081C0[D_80215978][0])[sp70]) == ' ') {
                 sp6C++;
             }
         }
         D_80215980[sp70 - 1] = 0;
-        for (sp6C = sp70; D_802081C0[D_80215978][0][sp70] != 0; sp70++) {
-            D_80215998[sp70 - sp6C] = D_802081C0[D_80215978][0][sp70];
+        for (sp6C = sp70; ((u8 *)D_802081C0[D_80215978][0])[sp70] != 0; sp70++) {
+            D_80215998[sp70 - sp6C] = ((u8 *)D_802081C0[D_80215978][0])[sp70];
         }
         D_80215998[sp70 - sp6C] = 0;
         if (func_8025B300(D_80215980) >= 14 || func_8025B300(D_80215998) >= 14) {

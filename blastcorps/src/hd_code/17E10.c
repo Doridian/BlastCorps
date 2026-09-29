@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/game.h"
 #include "game/audio.h"
 #include "game/level.h"
@@ -32,23 +33,16 @@ extern Mtx D_02000000[];
 extern u8 D_00487050[];
 extern u8 D_00489E70[];
 extern u8 D_0048F5A0[];
-extern s8 D_802E8BD8;
 extern u8 D_802E8BF0;
 extern u8 D_803643D6;
 extern u8 D_803643D7;
 extern u8 D_803643D8;
-extern s32 D_80364AA8;
-extern ALCSPlayer *D_80367734;
-extern u32 D_80367740;
 extern s16 D_8036BB18;
 extern s16 D_8036BB1A;
 extern s16 D_8036BB1C;
 extern Vtx D_802FA8B0[][4];
-extern u32 D_803156C4;
-extern u32 D_80358060;
 extern s16 D_8039CAA0;
 
-extern u32 D_802E8BEC;
 
 /* .bss, 0x80366A00-0x80366BD0 (tools/bss_c.py) */
 s16 D_80366A00;
@@ -61,7 +55,7 @@ s8 D_80366A11;
 u16 D_80366A12;
 s16 D_80366A14;
 s16 D_80366A16;
-s8 D_80366A18;
+u8 D_80366A18;
 u8 D_80366A19[1];
 u8 D_80366A1A[2];
 u8 D_80366A1C[4];

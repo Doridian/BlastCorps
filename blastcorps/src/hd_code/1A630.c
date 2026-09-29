@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/game.h"
 #include "game/audio.h"
 #include "game/level.h"
 #include "game/player.h"
@@ -30,7 +31,6 @@ u16 *D_80366C28;
 SndPlayer *D_802E8CEC = &D_80366BD0;
 s16 D_802E8CF0 = 0;
 
-extern u32 D_80358060;
 extern u16 *D_80366C28;
 
 void func_8025EDF0(SndConfig *c) {

@@ -1,4 +1,6 @@
 #include "common.h"
+#include "game/sched.h"
+#include "game/audio.h"
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
@@ -42,8 +44,6 @@ extern void func_8026A2E8(f32, f32 *);
 extern u8 func_8027EED8(s32, s32, s16 *);
 extern void func_802608C8(void *);
 
-extern u32 D_803156C4;
-extern void *D_8036DCD8;
 extern s16 D_8036E4C8;
 extern u8 D_8036E4CA;
 

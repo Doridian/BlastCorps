@@ -435,13 +435,15 @@ The game's structures have one definition each, in `blastcorps/include/game/`
 | `types.h`    | the conventions below: `ROMPTR()`, `RomAddr`, `AssetOffset`, `SegAddr`, `SIZE_CHECK` |
 | `game.h`     | the shared game state: game mode words, the heap pointer, the frame index, the player's position, the controller buttons, `frontEndPresent` |
 | `player.h`   | `PlayerInfo` (pfsHandler.c's `playerInfo`, `players[playerNumber]`), the medal values, the best times, `saveIt`, the EEPROM and Controller Pak layouts (`EepromSave`, `PAK_*`) |
-| `level.h`    | the level numbers (`LEVEL_*`, `DUMMY_LEVELS`), `LevelInfo` (the per-level table), `LevelHeader` (the level file, ROM data), `LevelRdu`/`Rdu`, `LevelStats`, the front end's per-level table |
-| `vehicle.h`  | `VEHICLE_*` (the object loader's types) and `Vehicle` (the level's vehicles) |
+| `level.h`    | the level numbers (`LEVEL_*`, `DUMMY_LEVELS`), `LevelInfo` (the per-level table), `LevelHeader` (the level file, ROM data), the level loader's run-time variables (grids, group tables, bounds), `LevelRdu`/`Rdu`, `LevelStats`, the front end's per-level table |
+| `vehicle.h`  | `VEHICLE_*` (the object loader's types), `Vehicle` (the level's vehicles), `VehicleModel` (a vehicle's model file), `VehicleState` and the vehicle modules (which handwritten object runs which vehicle, and their variables the C uses) |
+| `objects.h`  | the level objects: ammo boxes, TNT crates, blocks and holes, buildings, and the level file's records for them |
+| `model.h`    | `Model` (the model table's models, ROM data) |
 | `yoshi.h`    | the window system (yoshi.c): `YoshiWindow`, `YoshiEntry`, `YoshiIcon`, `ColorPair`, `yoshiState`/`currentYoshiWindow` |
 | `sched.h`    | the scheduler: `Sched`, `SchedTask`, `SchedClient`, its functions and messages |
 | `audio.h`    | the audio manager (`AMAudioMgr`, `AudioInfo`, `AMDMABuffer`, ...), the old-libaudio `SynConfig`/`SndBank`, the sound player |
 | `frame.h`    | the per-frame buffer's two layouts (`FrameBuf` for the front end, `FrameGame` for gameplay) |
-| `camera.h`   | the camera's shared variables |
+| `camera.h`   | the camera's variables (separate globals in hd.c) |
 | `frontend.h` | hd_front_end-only structures and its `gDPSetPrimColorB` |
 
 Conventions:
@@ -486,7 +488,20 @@ Conventions:
 Things the headers don't cover yet: the per-frame buffer is declared per
 file (the front end as `FrameBuf[]`, gameplay as `FrameGame[]`), since it is
 one buffer with two layouts; some files still see segment 2 as a plain
-`Mtx[]`; about 80 file-local struct types are used by one file only.
+`Mtx[]`; 55 file-local struct types are used by one file only.
+
+A global is declared once, in its owner's header; a file that needs the
+other signedness casts (`(s16)D_803BE714`), which IDO folds into the load.
+Most of the casts that unifying 50 of them called for turned out not to
+matter (drop each, rebuild, keep it only if the sha1 fails): two were
+left.  Two things didn't work: `(u8)x` of an `s8` global passed to a `u8`
+parameter loads it with `lb`, and `*(u8 *)&x` in hd.c moved hd.c's
+`.bss`; changing the defining file's type (a variable it only stores to)
+did.
+
+docs/TYPES.md has the structures of the gameplay state, and
+`include/game/inventory.json` (tools/inventory.py) the machine-readable
+inventory of every field that holds an address and every field's width.
 
 These are only guesses at meaning until they're in `symbols_known.txt`:
 

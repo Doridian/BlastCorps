@@ -28,7 +28,6 @@ s32 func_801F67E4(u8, u8, u8);
 s32 func_801F6AF4(u8, u64);
 s32 func_801F6CA4(u8, u8, u8);
 s32 func_801F6ED4(u8);
-extern s8 D_8039C4B0;
 extern s32 D_8036BF10;
 extern OSThread D_80310BD0;
 
@@ -36,7 +35,6 @@ extern s32 D_80370C00;
 extern OSMesgQueue D_80370BF8;
 extern OSPfs D_8039B630;
 extern s32 D_8039B698[];
-extern u8 D_8039C538;
 extern u32 D_8021A828;
 extern u8 D_8021A7E8[];
 
@@ -57,7 +55,6 @@ extern u8 D_8021A7D0[];
 extern u8 D_8021A8F0;
 extern u8 D_8039B6B0[];
 extern u8 D_8039C4B8[];
-extern s32 D_8039C4B4;
 extern s32 D_802FA264;
 extern u16 D_80301080[];
 void func_801F7410(u8 *);

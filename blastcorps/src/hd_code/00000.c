@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/objects.h"
 #include "game/frame.h"
 #include "game/audio.h"
 #include "game/camera.h"
@@ -75,8 +76,8 @@ Gfx *D_80358030[2];
 Gfx *D_80358038[2];
 Gfx *D_80358040[2];
 Gfx *D_80358048[2];
-u32 D_80358050[2];
-u32 D_80358058;
+u16 *D_80358050[2];
+u16 *D_80358058;
 u8 D_8035805C;
 u32 D_80358060;
 s32 D_80358064;
@@ -92,7 +93,7 @@ u8 D_80358088[0xc340];
 UnkStruct_803643C8 *D_803643C8;
 UnkStruct_803643C8 *D_803643CC;
 u8 D_803643D0[4];
-u8 D_803643D4[1];
+u8 D_803643D4;
 u8 D_803643D5;
 u8 D_803643D6;
 u8 D_803643D7;
@@ -257,8 +258,8 @@ Gfx *D_80358030[2];
 Gfx *D_80358038[2];
 Gfx *D_80358040[2];
 Gfx *D_80358048[2];
-u32 D_80358050[2];
-u32 D_80358058;
+u16 *D_80358050[2];
+u16 *D_80358058;
 u8 D_8035805C;
 u32 D_80358060;
 s32 D_80358064;
@@ -274,7 +275,7 @@ u8 D_80358088[0xc340];
 UnkStruct_803643C8 *D_803643C8;
 UnkStruct_803643C8 *D_803643CC;
 u8 D_803643D0[4];
-u8 D_803643D4[1];
+u8 D_803643D4;
 u8 D_803643D5;
 u8 D_803643D6;
 u8 D_803643D7;
@@ -458,21 +459,12 @@ extern u16 D_80304904[];
 extern u16 D_80304910[];
 extern u16 D_8030491C[];
 extern u16 D_80304938[];
-extern u8 D_80365580;
 extern s32 D_803669B4;
 extern u16 D_80366A12;
 extern s16 D_80367BD6;
-extern u8 D_80367BFF;
-extern s16 D_8036BB18;
-extern s16 D_8036BB1C;
 extern u64 *D_8036E694;
-extern u8 D_8036EB99;
 extern u8 D_80370C1E;
 extern u8 D_80370C21;
-extern u8 D_80370C24;
-extern u8 D_80370C27;
-extern u8 D_8039C4B0;
-extern u8 D_8039CA60;
 extern u8 D_8039CA61;
 extern u8 D_8039CA62;
 extern u8 D_8039CAA2;
@@ -480,24 +472,10 @@ extern u8 D_8039CAB7;
 extern u8 D_803A6B04;
 extern u8 D_803A7430;
 extern u8 D_803B9888;
-extern Gfx *D_803BE6E0;
-extern Gfx *D_803BE6E4;
-extern Gfx *D_803BE6E8;
-extern Gfx *D_803BE6EC;
 extern u8 D_803C5770[];
 extern u8 D_803C6370[];
 extern u8 D_803C6F70[];
 extern u8 D_803C7B70[];
-extern s8 D_803ED3F5;
-extern u8 D_803ED40D;
-extern s32 D_803ED808;
-extern s32 D_803ED80C;
-extern s32 D_803ED810;
-extern s16 D_803EF326;
-extern s32 D_803EF6DC;
-extern s32 D_803EF6E0;
-extern s32 D_803EF6E4;
-extern u8 D_803EF6FF;
 extern void *D_803F7820;
 extern void *D_803F7824;
 extern u8 D_803FF600[];
@@ -671,14 +649,10 @@ extern u16 D_803047B4[];
 extern u16 D_803047CC[];
 extern u16 D_803047DC[];
 extern u16 D_80367BF6;
-extern u64 D_8036BF38;
 extern u8 D_8036E68C[];
 extern u8 D_8036EB92;
-extern s32 D_8039C4B4;
 extern u8 D_8039C4B8[];
 extern u8 D_8039C4F8[];
-extern u8 D_8039C540;
-extern u8 D_8039C541;
 extern s16 D_8039CAA0;
 /* Defined here for the same reason as D_80364A90 above: their stores share one lui. */
 
@@ -1387,27 +1361,16 @@ void func_80244930(void *arg0) {
 extern u8 D_802F4870[];
 extern s32 D_802FA268;
 /* .bss, defined here so the osGetTime() store shares one lui (see D_80364A90). */
-extern s16 D_80366A04;
-extern u8 D_80366A18;
-extern s32 D_80367734;
-extern s32 D_80367740;
 extern u16 D_80367BC8;
-extern u8 D_80367C00;
 extern u16 D_8036BB16;
 extern s16 D_8036BB1A;
 extern f32 D_8036BB34;
 extern u8 D_8036EB93;
-extern u8 D_8036EB98;
 extern u8 D_80370C22;
 extern s32 D_80370C38;
 extern s16 D_8039CAA0;
 extern s8 D_803A7426;
-extern u8 D_803BE738;
-extern s8 D_803ED40C;
-extern s32 D_803EF6F0;
-extern s32 D_803EF6F8;
 extern s32 D_803F7688;
-extern s8 D_803F7806;
 void func_8024A348(void);
 void func_8024A92C(u32);
 void func_8024ADD8(void);
@@ -3522,33 +3485,22 @@ typedef struct {
 } UnkStruct_8036C794; /* size = 0x6 */
 
 extern UnkStruct_802F8BF4 D_802F8BF4[];
-extern s16 D_80366A04;
 extern u8 D_8036B8B0;
 extern s32 D_8036B8B4;
 extern s32 D_8036B8B8;
 extern s32 D_8036B8BC;
 extern u8 D_8036B965;
-extern u16 D_8036BBB0[];
 extern UnkStruct_8036C794 *D_8036C794;
 extern u8 D_80370C1C;
 extern u8 D_80370C1D;
 extern s8 D_80370C2D;
 extern u8 D_803A7424;
-extern s32 D_803EF2EC;
-extern s32 D_803EF2F4;
-extern s32 D_803EF314;
-extern s16 D_803EF328;
-extern s16 D_803EF32A;
 extern s32 D_803F7670;
 extern s32 D_803F7674;
 extern s32 D_803F7678;
 extern s16 D_803F767C;
 extern s16 D_803F767E;
 extern s16 D_803F7680;
-extern s32 D_803FCD48;
-extern s32 D_803FCD4C;
-extern s32 D_803FCD50;
-extern s16 D_803FCD68;
 f32 func_80254E54(f32, f32, f32, f32, f32, f32);
 void func_80255034(s32, f32, s32 *, s32 *);
 void func_80255190(void);
@@ -5275,7 +5227,6 @@ void func_80256A34(s32 arg0) {
 }
 #endif
 
-extern u8 D_803BE739;
 
 void func_80257234(void) {
     s32 sp14;

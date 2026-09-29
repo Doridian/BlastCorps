@@ -34,7 +34,7 @@ u32 D_802182C0;
 u32 D_802182C4;
 void *D_802182C8;
 void *D_802182CC;
-u8 D_802182D0[2][0x40];
+Mtx D_802182D0[2];
 UnkStruct_801F4E70 *D_80218350;
 u8 *D_80218358[2];
 Gfx *D_80218360[4];
@@ -77,7 +77,7 @@ Gfx *func_801F4FBC(u8 *arg0, Gfx *arg1) {
     Gfx *gfx = arg1;
 
     gSPSegment(gfx++, 6, D_802182CC);
-    gSPSegment(gfx++, 7, D_802182D0[D_8035805C]);
+    gSPSegment(gfx++, 7, &D_802182D0[D_8035805C]);
     gSPPerspNormalize(gfx++, D_8035807C);
     gSPLookAt(gfx++, arg0 + 0x3C00);
     gSPMatrix(gfx++, arg0 + 0x1240, G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);

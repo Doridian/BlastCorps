@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/level.h"
 #include "game/game.h"
 
 typedef struct {
@@ -10,9 +11,7 @@ typedef struct {
     /* 0x14 */ f32 unk14;
 } UnkStruct_8036CB60; /* size = 0x18 */
 
-extern s32 D_80358058;
 
-extern u8 D_80367C00;
 
 void func_80257490(s32, s32);
 void func_80284E54(Gfx *, s32, s32, s32, s32, s32);

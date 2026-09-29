@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/frame.h"
 #include "game/yoshi.h"
 #include "game/audio.h"
@@ -121,17 +122,11 @@ extern s32 D_802153EC;
 extern u32 D_802153F0[];
 extern f32 D_802FDAC0[];
 extern OSMesgQueue D_80315180;
-extern u32 D_803156C0;
 extern FrameBuf D_803156F8[];
-extern void *D_80358050[];
-extern void *D_80358058;
-extern u32 D_80358060;
-extern void *D_8035806C;
 extern s32 D_80358078;
 extern u16 D_8035807C;
 extern s32 D_80358080;
 extern s32 D_80358084;
-extern u8 D_803643D4;
 extern u64 D_80364A88;
 extern s8 D_80370C2C;
 extern s8 D_80370C2E;

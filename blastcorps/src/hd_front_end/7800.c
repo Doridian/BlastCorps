@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/frontend.h"
 #include "game/frame.h"
 #include "game/audio.h"
 #include "game/game.h"
@@ -26,18 +27,10 @@ extern Gfx D_01000010[];
 extern Gfx D_01000038[];
 extern char *D_802084D0[];
 extern u16 *D_802084E0[];
-extern Mtx D_802182D0[];
 extern s32 D_802FA268;
 extern FrameBuf D_803156F8[];
-extern void *D_80358050[];
-extern void *D_80358058;
-extern u32 D_80358060;
-extern void *D_8035806C;
 extern s32 D_80358078;
 extern u16 D_8035807C;
-extern u8 D_803643D4;
-extern u8 D_803643D5;
-extern s32 D_803649F0;
 extern char D_8036B980[];
 extern char D_8036B9A8[];
 

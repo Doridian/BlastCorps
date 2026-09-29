@@ -13,7 +13,6 @@ extern UnkStruct_8020D7E4 D_8020D7E4[];
 
 extern u8 D_80364B80[][0x100];
 extern u8 D_80364B81[][0x100];
-extern s32 D_80358060;
 
 void func_801ECC8C(void);
 void func_80200714(u8);
@@ -75,7 +74,6 @@ void func_802862DC(void) {
 }
 
 extern u8 D_80364AF8[][0x100];
-extern u8 D_803643D5;
 void func_8029A7E4(char *, ...);
 void func_802995F0(s32);
 void func_801F8354(u8);

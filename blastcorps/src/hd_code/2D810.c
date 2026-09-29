@@ -19,10 +19,6 @@ typedef struct {
     /* 0xB */ u8 unkB;
 } UnkStruct_802FA280; /* size = 0xC */
 
-extern u32 D_803BE718;
-extern u32 D_803BE71C;
-extern u16 D_803BE720;
-extern u16 D_803BE722;
 
 void func_802A0B00(u16, s32);
 

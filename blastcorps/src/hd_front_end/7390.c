@@ -17,8 +17,6 @@ extern Gfx D_01000010[];
 extern Gfx D_01000038[];
 extern OSMesgQueue D_80315180;
 extern FrameBuf D_803156F8[];
-extern void *D_80358050[];
-extern void *D_8035806C;
 extern s32 D_80358078;
 extern s32 D_80358080;
 extern s32 D_80358084;

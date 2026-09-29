@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/frame.h"
 #include "game/audio.h"
 #include "game/game.h"
@@ -58,33 +59,23 @@ s32 func_802753C0(void);
 void func_80261570(f32);
 void func_802995F0(s32);
 
-extern s16 D_8036BB1C;
 extern OSMesgQueue D_80219F50;
 extern u16 D_8036BB16;
-extern s16 D_8036BB18;
 extern s16 D_8036BB1A;
 extern s16 D_8036BB1E;
 extern s16 D_8036BB20;
 extern u8 D_80364AE9;
 extern u64 D_8021A830;
 extern u8 D_802154B0;
-extern u8 D_8039C541;
 extern OSMesgQueue D_80219EF8;
-extern s32 D_80364AA8;
-extern s8 D_8039CA60;
 extern s32 D_80358080;
 extern s32 D_80358084;
 extern s32 D_80358078;
-extern s32 D_80358060;
 extern FrameBuf D_803156F8[];
-extern u8 *D_8035806C;
-extern u16 *D_80358050[];
-extern u16 *D_80358058;
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
 extern s8 D_80364A71;
 extern s32 D_80364A64;
-extern u32 D_803156C4;
 extern OSMesgQueue D_80315180;
 extern u8 D_80365060[];
 

@@ -1,14 +1,11 @@
 #include "common.h"
+#include "game/camera.h"
+#include "game/vehicle.h"
 #include "game/audio.h"
 
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 
 extern f32 D_80364414;
-extern s16 D_8036443C;
-extern s16 D_803ED400;
-extern s16 D_803ED408;
-extern u8 D_803ED40A;
-extern s16 D_803F7C34;
 
 f32 sqrtf(f32);
 s32 func_802AD7D4(s32);

@@ -3,6 +3,8 @@
 #include "game/audio.h"
 #include "game/vehicle.h"
 #include "game/game.h"
+#include "game/level.h"
+#include "game/objects.h"
 
 typedef struct {
     /* 0x0 */ s16 unk0;
@@ -11,14 +13,6 @@ typedef struct {
     /* 0x8 */ s32 unk8;
 } UnkStruct_8036C8D0; /* size = 0xC */
 
-typedef struct {
-    /* 0x0 */ s16 unk0;
-    /* 0x2 */ u8 unk2;
-    /* 0x3 */ u8 unk3;
-    /* 0x4 */ u8 unk4;
-    /* 0x5 */ u8 unk5;
-    /* 0x6 */ u8 unk6;
-} UnkStruct_803BE6FC; /* size = 0x8 */
 
 /* .bss, 0x8036C8D0-0x8036CB60 (tools/bss_c.py) */
 UnkStruct_8036C8D0 D_8036C8D0[50];
@@ -129,9 +123,6 @@ extern s16 *D_8036CB40;
 extern s32 D_8036CB48[2];
 extern u8 D_8036CB50;
 extern u8 D_8036CB51;
-extern UnkStruct_803BE6FC *D_803BE6FC;
-extern UnkStruct_803BE6FC *D_803BE700;
-extern s32 D_803EF6E4;
 
 void func_802775C0(void) {
     D_8036CB34 = 0;
@@ -145,7 +136,7 @@ void func_802775C0(void) {
 
 void func_80277620(s32 arg0) {
     u8 found;
-    UnkStruct_803BE6FC *p;
+    LevelUnk58 *p;
     s16 z;
 
     found = FALSE;
@@ -336,7 +327,6 @@ s32 func_80277E08(void) {
     return 1;
 }
 
-extern s32 D_80364AA8;
 extern u8 D_8036CB44;
 
 void func_80277EDC(arg0, arg1, arg2, arg3)

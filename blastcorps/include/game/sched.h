@@ -79,4 +79,10 @@ OSMesgQueue *osScGetCmdQ(Sched *sc);
 #define SCHED_MSG_PRENMI 0x29D
 #define SCHED_MSG_FAULT 0x2A0
 
+/* Sched fields other files name by their own symbols (Sched.unk280 and
+ * frameCount), and 2C560.c's osGetTime() at the last retrace. */
+extern u32 D_803156C0;
+extern u32 D_803156C4;
+extern OSTime D_8036BF38;
+
 #endif

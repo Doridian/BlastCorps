@@ -4,9 +4,7 @@
 #include "game/level.h"
 #include "game/player.h"
 
-extern s32 D_802E8BEC;
 extern u8 D_802E8BF0;
-extern u8 D_803643D4;
 /*
  * This file's .bss.  Defined here, a u64's two halves share one lui.
  */

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/game.h"
 #include "game/audio.h"
 #include "game/level.h"
@@ -13,7 +14,6 @@ typedef struct {
     /* 0x1F0 */ u8 unk1F0;
 } UnkStruct_80366C30; /* size = 0x1F4 */
 
-extern s32 D_803156C4;
 
 void func_8028B4C4(s32, u8 *, s32 *, s32, s32, s32);
 void func_8029A7E4(char *, ...);

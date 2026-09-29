@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
@@ -28,8 +29,6 @@ f32 D_802FA930 = 8.0f;
 
 void func_80275270(u64 arg0, f32 arg2);
 
-extern s32 D_80358060;
-extern u32 D_803156C4;
 u16 func_8026B10C(void);
 void func_8026AF6C(u16);
 

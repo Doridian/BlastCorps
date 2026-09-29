@@ -154,4 +154,25 @@ extern s16 D_8036BB18;
 #define YOSHI_OFF 1
 #define NO_YOSHI_WINDOW -1
 
+
+/* Shared by yoshi.c (26570.c) and the object after it (2B3F0.c). */
+typedef struct UnkStruct_8026F644 {
+    /* 0x00 */ u8 pad0[2];
+    /* 0x02 */ u16 unk2;
+} UnkStruct_8026F644;
+SIZE_CHECK(UnkStruct_8026F644, 4);
+
+typedef struct UnkStruct_802F9934 {
+    /* 0x00 */ u8 unk0;
+    /* 0x01 */ char unk1[0xF];
+    /* 0x10 */ u16 *unk10;       /* u16 text */
+} UnkStruct_802F9934;
+SIZE_CHECK(UnkStruct_802F9934, 0x14);
+
+typedef struct UnkStruct_802F48D0 {
+    /* 0x00 */ u8 unk0;
+    /* 0x02 */ s16 unk2[16];
+} UnkStruct_802F48D0;
+SIZE_CHECK(UnkStruct_802F48D0, 0x22);
+
 #endif

@@ -9,21 +9,8 @@
 #include "game/player.h"
 
 /* Element type of the arrays D_8036BB10 points at. */
-typedef struct {
-    /* 0x00 */ u8 pad0[2];
-    /* 0x02 */ u16 unk2;
-} UnkStruct_8026F644;
 
-typedef struct {
-    /* 0x00 */ u8 unk0;
-    /* 0x01 */ char unk1[0xF];
-    /* 0x10 */ u16 *unk10;
-} UnkStruct_802F9934; /* size = 0x14 */
 
-typedef struct {
-    /* 0x00 */ u8 unk0;
-    /* 0x02 */ s16 unk2[16];
-} UnkStruct_802F48D0; /* size = 0x22 */
 
 extern f32 D_80364414;
 extern u16 D_802E8C8C[];
@@ -31,13 +18,8 @@ extern u16 D_802E8C90[];
 extern u16 D_802E8C94[];
 extern u16 D_802E8C98[];
 extern u16 D_802E8C9C[];
-extern u32 D_803156C4;
 extern u16 D_803C30A8[];
-extern u32 D_80364AA8;
 extern s32 D_803F7684;
-extern s32 D_803BE70C;
-extern s32 D_803BE710;
-extern s16 D_803BE714;
 extern u8 D_802F499A[];
 
 void func_8026AF6C(u16 arg0);
@@ -61,7 +43,7 @@ s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
  * the start of the .rodata.
  */
 
-/* .bss, 0x8036B980-0x8036BB50 (tools/bss_c.py) */
+/* .bss, 0x8036B980-0x8036BBB0 (tools/bss_c.py) */
 char D_8036B980[0x28];
 char D_8036B9A8[0x20];
 char D_8036B9C8[0x20];
@@ -100,8 +82,7 @@ u16 D_8036BB3C;
 u16 D_8036BB3E;
 u32 D_8036BB40;
 s32 D_8036BB44;
-u16 D_8036BB48[1];
-u8 D_8036BB4A[2];
+u16 D_8036BB48[0x34];         /* func_8026F004 copies a window's whole text here */
 
 extern u16 D_80301098[];
 extern u16 D_803010A0[];
@@ -1656,16 +1637,16 @@ void func_8026B118(arg0)
 }
 
 void func_8026B8F8(void) {
-    if (D_80364AA8 & 0x20) {
+    if ((u32)D_80364AA8 & 0x20) {
         D_8020C070[FE_ENTRY(23)].flags |= 0x400;
         D_8020C070[FE_ENTRY(26)].flags |= 0x400;
         D_802F5804[YOSHI_ENTRY(27)].flags |= 0x400;
         D_802F5804[YOSHI_ENTRY(28)].flags |= 0x400;
         D_8020C070[FE_ENTRY(23)].unk14 = D_8020C070[FE_ENTRY(26)].unk14 = D_802F5804[YOSHI_ENTRY(27)].unk14 = D_802F5804[YOSHI_ENTRY(28)].unk14 = func_8026FA38(NULL, NULL);
         if (D_80364A98 == 0x40) {
-            func_8026BA7C(&D_802F8BDC[D_802F4870[func_8026F92C(D_80364AA8)]]);
+            func_8026BA7C(&D_802F8BDC[D_802F4870[func_8026F92C((u32)D_80364AA8)]]);
         } else {
-            func_8026BA7C(&D_802F8BDC[D_802F4868[func_8026F92C(D_80364AA8)]]);
+            func_8026BA7C(&D_802F8BDC[D_802F4868[func_8026F92C((u32)D_80364AA8)]]);
         }
     }
 }
@@ -1726,7 +1707,6 @@ void func_8026BBD0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
 }
 
 extern u8 D_802E8BD4;
-extern u8 D_802E8BD8;
 extern u8 D_803643D6;
 extern u8 D_803643DB;
 extern u8 D_8036BA48[];

@@ -1,4 +1,6 @@
 #include "common.h"
+#include "game/camera.h"
+#include "game/vehicle.h"
 #include "game/frame.h"
 #include "game/level.h"
 #include "game/game.h"
@@ -46,14 +48,6 @@ void func_8026AD30(s32);
 
 extern s32 osViClock;
 extern u16 D_803C30A8[];
-extern s16 D_8036443C;
-extern s16 D_8036443E;
-extern s32 D_8036B968;
-extern s32 D_803EF308;
-extern s32 D_803EF30C;
-extern u8 D_803EF32C;
-extern s32 D_803EF6DC;
-extern s32 D_803EF6E4;
 
 /* .bss, 0x80367D60-0x80368050 (tools/bss_c.py) */
 UnkStruct_80367D60 D_80367D60[20];
@@ -541,9 +535,6 @@ void func_80265B7C(s32 arg0) {
 
 void func_80260AB8(SndState *state, s16 type, s32 param);
 
-extern u8 D_803EF32D;
-extern s32 D_803EF2EC;
-extern s32 D_803EF2F4;
 
 void func_80265E48(void) {
     s32 i;
@@ -634,10 +625,6 @@ void func_802661EC(void) {
 /* The segment 2 buffer as this function uses it. */
 extern FrameGame D_02000000;
 extern f32 D_80364414;
-extern s32 D_803EF310;
-extern s32 D_803EF314;
-extern s32 D_803EF318;
-extern u8 D_803EF32E;
 
 s32 func_80267614(UnkStruct_80267614 *arg0);
 void func_8026A5CC(u64 *dst, u64 *src, s32 size);

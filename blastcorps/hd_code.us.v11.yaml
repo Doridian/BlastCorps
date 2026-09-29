@@ -419,7 +419,7 @@ bss:
   - [0x80368050, .bss, hd_code/22EE0]
   - [0x8036B8B0, .bss, hd_code/23C20]
   - [0x8036B980, .bss, hd_code/26570]
-  - [0x8036BB50, .bss, hd_code/2B3F0]
+  - [0x8036BBB0, .bss, hd_code/2B3F0]
   - [0x8036BEF0, .bss, hd_code/2C560]
   - [0x8036BFC0, .bss, hd_code/2D810]
   - [0x8036BFE0, .bss, hd_code/2E490]

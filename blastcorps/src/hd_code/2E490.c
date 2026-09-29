@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/sched.h"
 #include "game/game.h"
 
 /*
@@ -19,7 +20,6 @@
         gImmp1(pkt, G_RDPHALF_CONT, (_SHIFTL((dsdx), 16, 16) | _SHIFTL((dtdy), 0, 16))); \
     }
 
-extern u32 D_803156C4;
 extern u8 D_803B9888;
 
 void func_80257490(s32 *, s32);

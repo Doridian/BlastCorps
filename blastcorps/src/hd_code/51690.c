@@ -3,7 +3,6 @@
 
 extern u8 D_006A8DA0[];
 extern u8 D_006A9F10[];
-extern u16 D_80370C30;
 extern s8 D_80370C32;
 extern s8 D_80370C33;
 
@@ -48,20 +47,20 @@ Gfx *func_80295EFC(s32 arg0, Gfx *arg1, s16 arg2, s16 arg3, u8 arg4) {
     gDPSetCombineLERP(gfx++, 0, 0, 0, TEXEL0, TEXEL0, 0, PRIMITIVE, 0, 0, 0, 0, TEXEL0, TEXEL0, 0, PRIMITIVE, 0);
     gDPSetPrimColor(gfx++, 0, 0, 0, 0, 0, arg4);
     gfx = func_8029700C(gfx, arg2, arg3);
-    if (D_80370C30 & 0x30) {
+    if (D_80370C30.unk0 & 0x30) {
         gDPLoadTextureBlock(gfx++, D_8039CA98, G_IM_FMT_RGBA, G_IM_SIZ_16b, 32, 6, 0,
                             G_TX_MIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_CLAMP, 5, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
-        if (D_80370C30 & 0x10) {
+        if (D_80370C30.unk0 & 0x10) {
             gSPScisTextureRectangle(gfx++, (arg2 + 48) << 2, (arg3 + 8) << 2, (arg2 + 79) << 2, (arg3 + 13) << 2,
                                     G_TX_RENDERTILE, 0, 0, 1 << 10, 1 << 10);
         }
-        if (D_80370C30 & 0x20) {
+        if (D_80370C30.unk0 & 0x20) {
             gSPScisTextureRectangle(gfx++, arg2 << 2, (arg3 + 8) << 2, (arg2 + 31) << 2, (arg3 + 13) << 2,
                                     G_TX_RENDERTILE, 32 << 5, 0, 1 << 10, 1 << 10);
         }
     }
-    if (D_80370C30 & 0x2000) {
+    if (D_80370C30.unk0 & 0x2000) {
         gDPLoadTextureBlock(gfx++, D_8039CA9C, G_IM_FMT_RGBA, G_IM_SIZ_16b, 24, 24, 0,
                             G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                             G_TX_NOLOD, G_TX_NOLOD);
@@ -80,7 +79,7 @@ Gfx *func_80295EFC(s32 arg0, Gfx *arg1, s16 arg2, s16 arg3, u8 arg4) {
         u16 sp6A;
 
         sp6F = 1;
-        if (D_80370C30 & (1 << sp118)) {
+        if (D_80370C30.unk0 & (1 << sp118)) {
             gDPPipeSync(gfx++);
             switch (1 << sp118) {
                 case 0x8000:

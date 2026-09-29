@@ -1,4 +1,5 @@
 #include "common.h"
+#include "game/game.h"
 #include "game/yoshi.h"
 
 typedef struct {
@@ -8,9 +9,7 @@ typedef struct {
     /* 0x06 */ char unk6[0x2A];
 } UnkStruct_80304A90; /* size = 0x30 */
 
-extern u32 D_80358060;
 extern u8 D_803643D6;
-extern s16 D_8036BB1C;
 
 /* The credits. */
 UnkStruct_80304A90 D_80304A90[] = {

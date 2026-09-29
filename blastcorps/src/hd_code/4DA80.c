@@ -1,4 +1,6 @@
 #include "common.h"
+#include "game/game.h"
+#include "game/level.h"
 #include "game/frame.h"
 #include "game/audio.h"
 
@@ -43,15 +45,9 @@ extern FrameGame D_02000000;
 extern void func_802AC61C(s32, s32, s32, u8, s32);
 extern void *func_80260650(SndBank *, s16, void *);
 
-extern u8 D_802E8BE4;
 extern s32 D_802E8BE8;
-extern u8 D_803643D9;
 extern s16 D_803A7410;
 extern s16 D_803A7412;
-extern s32 D_803BE70C;
-extern s32 D_803BE710;
-extern u16 D_803BE714;
-extern u16 D_803BE716;
 extern u8 D_803F932D;
 
 /* .bss, 0x8039C960-0x8039CA10 (tools/bss_c.py) */

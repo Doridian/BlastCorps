@@ -202,12 +202,58 @@ typedef struct LevelHeader {
     /* 0x70 */ AssetOffset playerCollisionXZ;
     /* 0x74 */ AssetOffset unk74;
     /* 0x78 */ AssetOffset displayLists[10]; /* into the display data after the header */
-    /* 0xA0 */ AssetOffset unkA0[10];
+    /* 0xA0 */ AssetOffset unkA0[9];
+    /* 0xC4 */ u32 unkC4;             /* not an offset: 0 in chimp (tools/assetlib/level.py keeps it as a value) */
 } LevelHeader;
 SIZE_CHECK(LevelHeader, 0xC8);
 
 /* The current level's file, at the bottom of the level's heap allocations. */
 extern LevelHeader *D_80358074;
+
+/*
+ * What the level loader (func_802A1674 and its helpers, hd_code 5CB60,
+ * handwritten) keeps about the loaded level: separate variables in 5CB60's
+ * .bss, each addressed by its own symbol.  Pointers into the level file
+ * are the file's address plus a LevelHeader offset.  The level is split
+ * into grids of cells in x and z (three: the objects', the terrain's and
+ * the collision's), each given by a cell size (<< 5) and a count.
+ */
+extern void *D_803BDAF0;        /* D_803BD310: 0xFC-byte records (the walls, LevelHeader.unk64) */
+extern s16 *D_803BDAF4;         /* LevelHeader.collisionFixes: triangles of 9 s16 and a pad */
+extern s16 *D_803BDAF8;         /* ... and its end */
+extern void *D_803BDAFC;        /* a model func_802A32CC loaded for the missile carrier (func_802A3198) */
+extern void *D_803BDB00;        /* a heap block: segment 7 while 50670.c draws */
+extern void *D_803BDB04;        /* that model + its unk14: segment 6 */
+extern void *D_803BDB08;        /* that model + its unk24: a display list */
+extern void *D_803BDB10[102];   /* LevelHeader.terrain: one pointer per group (func_802A4464) */
+extern void *D_803BDCA8[102];   /* LevelHeader.collisionXZ: one per group (func_802A3D54) */
+extern void *D_803BDE40[102];   /* LevelHeader.playerCollisionXZ (func_802A3DF8) */
+extern Gfx *D_803BE6E0;         /* level display lists (LevelHeader.displayLists) hd.c draws */
+extern Gfx *D_803BE6E4;
+extern Gfx *D_803BE6E8;
+extern Gfx *D_803BE6EC;
+extern u32 *D_803BE6F0;         /* the model table (DMA'd, func_802A2BB0) */
+extern s32 D_803BE6F4;          /* func_802A1674's second argument */
+extern struct LevelUnk58 *D_803BE6FC; /* LevelHeader.unk58 (game/objects.h) ... */
+extern struct LevelUnk58 *D_803BE700; /* ... to LevelHeader.buildings */
+extern s32 D_803BE70C;          /* the object grid (the RDUs' Rdu.cell): cell width in x, << 5 */
+extern s32 D_803BE710;          /* ... in z */
+extern u16 D_803BE714;          /* ... cells in x (LevelHeader.unk0[0]) */
+extern u16 D_803BE716;          /* ... in z */
+extern u32 D_803BE718;          /* the terrain grid: cell width in x, << 5 (LevelHeader.unkC) */
+extern u32 D_803BE71C;
+extern u16 D_803BE720;          /* ... cells (LevelHeader.unk8) */
+extern u16 D_803BE722;
+extern s32 D_803BE724;          /* the collision grid: cell width << 5 (LevelHeader.unk14) */
+extern s32 D_803BE728;
+extern s16 D_803BE72C;          /* ... cells (LevelHeader.unk10) */
+extern s16 D_803BE72E;
+extern s16 D_803BE730;          /* LevelBounds.x1 (func_802A2D68) */
+extern s16 D_803BE732;          /* LevelBounds.x2 */
+extern s16 D_803BE734;          /* LevelBounds.z1 */
+extern s16 D_803BE736;          /* LevelBounds.z2 */
+extern u8 D_803BE738;
+extern u8 D_803BE739;           /* LevelHeader.unk1C */
 
 /*
  * Objects the level file places.  The records are read straight out of the
@@ -264,7 +310,14 @@ extern LevelStats D_8036EA80;
 extern LevelStats D_8036EA90;
 
 extern Rdu *D_8036BED8;
+extern u16 D_8036BBB0[0x192];   /* 2B3F0.c's: the RDUs in the order collected (indices into D_8036BED8) */
 extern u16 D_8036EB90;
 extern u16 D_8036EA7C;
+
+/* 409D0.c's (stats_perm.c's) and 1D990.c's flags. */
+extern u8 D_8036EB98;
+extern u8 D_8036EB99;
+extern s8 D_80367BFF;
+extern u8 D_80367C00;
 
 #endif

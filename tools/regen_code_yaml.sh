@@ -109,11 +109,13 @@ port() {  # version hd_code-layout hd_front_end-layout [module:option ...] [verm
 # the heap starts (00000 points D_8035806C there); the boot code clears on up
 # to 0x80400000, whose last two words hold hd_front_end's ROM range.
 # 0x2B3F0 and 0x4B450 start objects (after yoshi.c and 48D00): eu pads the
-# .text before each to 16.  0x2B3F0's .bss starts with 0x60 bytes nothing
-# refers to, after yoshi.c's last variable.
+# .text before each to 16.  0x2B3F0's .bss starts at 0x8036BBB0: the 0x60
+# bytes before it, which nothing names, are the rest of yoshi.c's last
+# variable, D_8036BB48, the u16 text buffer func_8026F004 copies whole
+# window texts into.
 hd_code us.v11 0xA4410 0xCAEA0 0x68810 0x690C0 0x7D9D0 0x800DC 0x8E910 0xA0C30 0xC33D0 0xC9BD0 \
     --data-split BAF70 --data-split C2FA0:97BB0 --data-split C33C0:9FE20 \
-    --split 2B3F0 --split 4B450 --bss-split 8036BB50:2B3F0 \
+    --split 2B3F0 --split 4B450 --bss-split 8036BBB0:2B3F0 \
     --bin "0x91D50:40:0x40 zero bytes after createmesgqueue.o; no C object ends like that" \
     --bss 8030F660:803FF600
 # us.v11 also splits .data/.rodata: .rodata starts at "SELECT VEHICLE!",

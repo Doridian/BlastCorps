@@ -41,7 +41,6 @@ extern s32 D_80370C00;
 extern OSMesgQueue D_80370BF8;
 extern OSPfs D_8039B630;
 extern s32 D_8039B698[];
-extern s8 D_8039C538;
 extern OSPfsState D_80218B20[];
 extern s32 D_80218D28;
 
@@ -64,7 +63,6 @@ extern u8 D_8020BEE0[];
 extern char D_8020F268[];
 extern char D_8020F270[];
 extern char D_8020F2C8[];
-extern s32 D_8039C4B4;
 extern s32 D_802FA264;
 extern s32 D_80218EF0;
 extern u8 D_802189C0[][0x11];

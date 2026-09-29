@@ -262,19 +262,40 @@ Mostly done alongside Phase 2, but it's its own effort.
       (`game.h`). The scheduler, the level results and the best times are
       typed in `.bss` too, where they had been separate variables or byte
       arrays, and the per-frame buffer's byte offsets are fields.
-- [ ] Structs for the level's objects at run time (buildings, the carrier,
-      the vehicles' state beyond position and type), the camera's state
-      (still separate variables in hd.c), and the rest of the front end.
-      `docs/blast_corps_levels.txt` and `docs/blast_corps_vehicles.txt` are
-      the starting points; most of this code is in the handwritten engine.
+- [x] The gameplay state (docs/TYPES.md): `tools/fieldscan.py` follows
+      every load and store of the C and the handwritten asm through
+      registers, stack slots, calls and returns, and resolves the engine's
+      register arguments to what they point at; that gave the vehicle
+      modules and their shared `VehicleState` (hd_code 62740's `$gp`), the
+      vehicle model record and file, the buildings and their models, and
+      confirmed the level header's offsets.  The level objects the C runs
+      (ammo boxes, TNT crates, blocks and holes) share one header
+      (`objects.h`) and their `.bss` are typed arrays; the level loader's
+      and the camera's variables are declared once (they are separate
+      globals: nothing reaches them through a pointer); 50 of the 58
+      globals declared with different types have one declaration (the rest
+      are deliberate views, listed in the inventory).  yoshi.c's text
+      buffer `D_8036BB48` is `u16[0x34]`, so 2B3F0's `.bss` starts 0x60
+      bytes later than it was split.
+- [x] The memory inventory for the port: `include/game/inventory.json`
+      (`tools/inventory.py`): every structure's layout, the variables whose
+      declared type isn't theirs, every ROM load, width punning, packed
+      word accesses in the asm, which asm touches which type, and every
+      field that holds an address, ROM offset, segment address or asset
+      offset (static analysis, relocations, RDRAM snapshots).
+- [ ] Still untyped (docs/TYPES.md, "Still unknown"): the vehicle modules'
+      own variables past the state, terrain/collision/texture-cache state
+      (5FD50, 60D50, 60F60), 679E0, the communication point, the carrier's
+      path, the front end's structures, and nearly all field names.
 - [x] Name functions from evidence only (strings, asserts, known source, call
       graph), and write down the evidence in `symbols_known.txt`, as for gzip.
       The scheduler's functions are named after SGI's sched.c; gen_symbols.py
       now also gives other modules the hand-identified names they call.
 - [x] Mark every field that holds a pointer or a ROM offset in data loaded from
-      ROM (`ROMPTR`, `AssetOffset`, `RomAddr` in `types.h`): so far the level
-      header's offsets and the sound bank's pointers. The port has to widen
-      or rebase exactly those fields; more will come with Phase 4's assets.
+      ROM (`ROMPTR`, `AssetOffset`, `RomAddr` in `types.h`): the level
+      header's offsets, the vehicle and model files' offset tables, the
+      sound bank's pointers. The port has to widen or rebase exactly those
+      fields; `inventory.json` lists them with the rest.
 - [ ] Rename the `D_` symbols the headers identify (`playerNumber`, `levelno`,
       `saveIt`, `frontEndPresent`, ...). They keep their address names for
       now; the port refers to some of them by name.

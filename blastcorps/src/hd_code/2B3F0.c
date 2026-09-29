@@ -15,21 +15,8 @@
 #include "game/player.h"
 
 /* Element type of the arrays D_8036BB10 points at. */
-typedef struct {
-    /* 0x00 */ u8 pad0[2];
-    /* 0x02 */ u16 unk2;
-} UnkStruct_8026F644;
 
-typedef struct {
-    /* 0x00 */ u8 unk0;
-    /* 0x01 */ char unk1[0xF];
-    /* 0x10 */ u16 *unk10;
-} UnkStruct_802F9934; /* size = 0x14 */
 
-typedef struct {
-    /* 0x00 */ u8 unk0;
-    /* 0x02 */ s16 unk2[16];
-} UnkStruct_802F48D0; /* size = 0x22 */
 
 extern f32 D_80364414;
 extern u16 D_802E8C8C[];
@@ -37,13 +24,8 @@ extern u16 D_802E8C90[];
 extern u16 D_802E8C94[];
 extern u16 D_802E8C98[];
 extern u16 D_802E8C9C[];
-extern u32 D_803156C4;
 extern u16 D_803C30A8[];
-extern u32 D_80364AA8;
 extern s32 D_803F7684;
-extern s32 D_803BE70C;
-extern s32 D_803BE710;
-extern s16 D_803BE714;
 extern u8 D_802F499A[];
 
 void func_8026AF6C(u16 arg0);
@@ -67,12 +49,8 @@ s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
  * the start of the .rodata.
  */
 
-/* .bss, 0x8036BB50-0x8036BEF0 (tools/bss_c.py) */
-u8 D_8036BB50[0x60];
-u16 D_8036BBB0[1];
-u8 D_8036BBB2[2];
-u8 D_8036BBB4[4];
-u8 D_8036BBB8[0x31C];
+/* .bss, 0x8036BBB0-0x8036BEF0 (tools/bss_c.py) */
+u16 D_8036BBB0[0x192];         /* the RDUs in the order they were collected (D_8036BED8 indices) */
 s32 D_8036BED4;
 Rdu *D_8036BED8;
 f32 D_8036BEDC;
@@ -123,7 +101,7 @@ void func_8026FBB0(LevelRdu *arg0, LevelRdu *arg1) {
         D_8036BED8[D_8036EB90].y = arg0->y;
         D_8036BED8[D_8036EB90].z = arg0->z;
         D_8036BED8[D_8036EB90].collected = 0;
-        D_8036BED8[D_8036EB90].cell = (arg0->z / (D_803BE710 >> 5)) * D_803BE714 + arg0->x / (D_803BE70C >> 5);
+        D_8036BED8[D_8036EB90].cell = (arg0->z / (D_803BE710 >> 5)) * (s16)D_803BE714 + arg0->x / (D_803BE70C >> 5);
         func_8026A5CC((u64 *) D_8036BED8[D_8036EB90].vtx[0], (u64 *) D_802F99C0, 0x40);
         func_8026A5CC((u64 *) D_8036BED8[D_8036EB90].vtx[1], (u64 *) D_802F99C0, 0x40);
         D_8036EB90++;
@@ -151,7 +129,7 @@ void func_8026FEC4(void) {
     u8 sp2A;
 
     sp2A = 0;
-    sp2B = (D_803643E8 / D_803BE710) * D_803BE714 + D_803643E0 / D_803BE70C;
+    sp2B = (D_803643E8 / D_803BE710) * (s16)D_803BE714 + D_803643E0 / D_803BE70C;
     for (i = 0; i < D_8036EB90; i++) {
         if (D_8036BED8[i].cell == sp2B && D_8036BED8[i].collected == 0) {
             sp2C = func_8026A6F0(D_803643E0 >> 5, D_803643E4 >> 5, D_803643E8 >> 5, D_8036BED8[i].x,

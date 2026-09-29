@@ -2,6 +2,7 @@
 #include "game/frame.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/objects.h"
 
 extern s32 D_803EBBF8;
 
@@ -158,24 +159,6 @@ void func_80258544(void *image, s32 x, s32 y, s32 z, f32 dist, Gfx *dl, void *se
     func_80284E54(D_803650B0, gfx - D_803650B0, 1, 0, 0x61F, 0);
 }
 
-/* 0xFC-byte records, D_803F4030 up to D_803F7654. */
-typedef struct {
-    /* 0x00 */ u8 pad0[0x10];
-    /* 0x10 */ s32 unk10;
-    /* 0x14 */ s32 unk14;
-    /* 0x18 */ s32 unk18;
-    /* 0x1C */ u8 pad1C[0x14];
-    /* 0x30 */ s32 unk30;
-    /* 0x34 */ u8 pad34[0x10];
-    /* 0x44 */ s32 unk44;
-    /* 0x48 */ u8 pad48[0xA2];
-    /* 0xEA */ u8 unkEA;
-    /* 0xEB */ u8 padEB[0x11];
-} UnkStruct_803F4030; /* size = 0xFC */
-
-/* The per-frame buffer (UnkStruct_02000000 in 00000.c); only the part used here. */
-extern UnkStruct_803F4030 D_803F4030[];
-extern UnkStruct_803F4030 *D_803F7654;
 extern FrameGame D_02000000;
 extern u8 *D_80365330;
 
@@ -206,13 +189,13 @@ void func_80258B78(Gfx **arg0, FrameGame *arg1) {
                 case 0xBA:
                 case 0xBB:
                 case 0xBC:
-            sp68 = 60 - (D_803F4030[sp70].unk14 - D_803F4030[sp70].unk44) / 800;
+            sp68 = 60 - (D_803F4030[sp70].y - D_803F4030[sp70].unk44) / 800;
             if (sp68 < 0) {
                 sp68 = 0;
             }
-            sp66 = D_803F4030[sp70].unk10 >> 5;
+            sp66 = D_803F4030[sp70].x >> 5;
             sp64 = D_803F4030[sp70].unk44 >> 5;
-            sp62 = D_803F4030[sp70].unk18 >> 5;
+            sp62 = D_803F4030[sp70].z >> 5;
             arg1->unk1900[0x200 + sp6C].v.ob[0] = sp66 - sp68;
             arg1->unk1900[0x200 + sp6C].v.ob[1] = sp64;
             arg1->unk1900[0x200 + sp6C].v.ob[2] = sp62 - sp68;

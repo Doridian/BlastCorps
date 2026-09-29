@@ -163,4 +163,10 @@ typedef struct SndStateLists {
 #define NUM_DMA_MESSAGES 0x48
 #endif
 
+extern SndState *D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */
+
+/* 1C460.c's: the sequence player and the frame count (D_803156C4) it last started at. */
+extern ALCSPlayer *D_80367734;
+extern s32 D_80367740;
+
 #endif
