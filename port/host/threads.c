@@ -73,6 +73,14 @@ static void fiber_main(void) {
     host_fatal("dead thread resumed");
 }
 
+/* whether a thread is blocked waiting on `wait_key` (host_block's key) */
+int host_blocked_on(uint32_t wait_key) {
+    for (int i = 0; i < PORT_MAX_THREADS; i++)
+        if (threads[i].state == T_WAITING && threads[i].wait_key == wait_key)
+            return 1;
+    return 0;
+}
+
 void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t mips_sp, int pri) {
     HThread *t = find(key);
     if (!t || key == 0) {

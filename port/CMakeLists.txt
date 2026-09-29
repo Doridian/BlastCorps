@@ -329,7 +329,7 @@ if(PORT_64BIT)
 else()
     target_link_options(blastcorps PRIVATE -m32 -no-pie)
 endif()
-target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
+target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,--wrap=func_802D4E10 -Wl,--wrap=alCSeqGetLoc -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
     -Wl,${GEN}/port_fixed.ld)
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} m)
 

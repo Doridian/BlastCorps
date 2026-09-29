@@ -30,6 +30,12 @@ void port_replay_seeded(void);
    struct.  sched.h leaves out its declarations for the port. */
 unsigned int port_counter(int timer, const char *func);
 #define D_803156C4 port_counter(0, __func__)
+/* whether the frame reads the pad (45BB0.c): `free`, or with --replay, what
+   the movie's frame did */
+int port_pad_read_due(int free);
+/* the pak/EEPROM thread starts a command (E7B0.c): with --replay, it waits
+   for the frame the movie's thread did (port/src/replay_hooks.c) */
+void port_replay_save_started(void);
 #define D_803156C0 port_counter(1, __func__)
 
 #endif

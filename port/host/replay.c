@@ -41,6 +41,7 @@
  * (logged with the mode at each change), the log's reads skipped, the
  * retraces given anyway, and in the end the save (port/tools/tas_check.py).
  */
+#include <elf.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,6 +85,21 @@ static Func *funcs;
 static unsigned nfuncs;
 static char **names;
 static unsigned nnames;
+/* audio_reads.csv, next to FILE: what alCSPGetState and alCSeqGetLoc told
+   the movie's game (replay_audio.c), by the calling function; first_audio
+   as first_count */
+typedef struct { int kind, func; int32_t value; } Audio;
+static Audio *audio;
+static unsigned naudio, *first_audio;
+static unsigned next_audio, end_audio;
+static unsigned audio_unlogged;
+/* save_starts.csv, next to FILE: the log's read each time the pak/EEPROM
+   thread started a command */
+static unsigned *save_starts, nsave_starts, saves;
+static int save_waiting;
+static unsigned saves_early;
+static struct { int kind, func; unsigned n; } frame_audio[32];
+static unsigned nframe_audio;
 /* the reads in the current frame so far, per function */
 static struct { int func; unsigned n; } frame_reads[64];
 static unsigned nframe_reads;
@@ -93,6 +109,7 @@ static unsigned reads;          /* the port's reads started */
 static int matched = -1;        /* the log's read the last match was */
 static const Read *cur_read;    /* the current read's match, or NULL */
 static int si_waiting;          /* its SI completion is held */
+static int si_started;          /* a read started that the game hasn't fetched */
 static uint32_t base;           /* the retraces when the last read went through */
 static uint32_t target;         /* the retraces the held read waits for */
 static uint32_t next_target;    /* the next read's, as far as the log says */
@@ -217,6 +234,43 @@ void host_replay_load(const char *path) {
         fclose(f);
         host_log("replay: %u reads of the counts from %s\n", ncounts, cpath);
     }
+    snprintf(cpath, sizeof cpath, "%.*saudio_reads.csv", slash ? (int)(slash - path + 1) : 0, path);
+    if ((f = fopen(cpath, "r"))) {
+        if (!nfuncs)
+            load_funcs();
+        unsigned acap = 0, last = 0;
+        first_audio = calloc(nreads + 1, sizeof *first_audio);
+        while (fgets(line, sizeof line, f)) {
+            unsigned rd, caller;
+            int kind, value;
+            if (sscanf(line, "%u,%x,%d,%d", &rd, &caller, &kind, &value) != 4)
+                continue;
+            if (rd < last || rd > nreads)
+                host_fatal("%s: read %u out of order", cpath, rd);
+            for (; last < rd; last++)
+                first_audio[last] = naudio;
+            if (naudio == acap)
+                audio = realloc(audio, (acap = acap ? acap * 2 : 4096) * sizeof *audio);
+            /* the return address is one past the call's delay slot: in the caller */
+            audio[naudio++] = (Audio){ kind, func_at(caller - 8), value };
+        }
+        for (; last <= nreads; last++)
+            first_audio[last] = naudio;
+        fclose(f);
+        host_log("replay: %u of the audio thread's answers from %s\n", naudio, cpath);
+    }
+    snprintf(cpath, sizeof cpath, "%.*ssave_starts.csv", slash ? (int)(slash - path + 1) : 0, path);
+    if ((f = fopen(cpath, "r"))) {
+        unsigned scap = 0, rd;
+        while (fgets(line, sizeof line, f))
+            if (sscanf(line, "%u", &rd) == 1) {
+                if (nsave_starts == scap)
+                    save_starts = realloc(save_starts, (scap = scap ? scap * 2 : 256) * sizeof *save_starts);
+                save_starts[nsave_starts++] = rd;
+            }
+        fclose(f);
+        host_log("replay: %u of the save thread's commands from %s\n", nsave_starts, cpath);
+    }
     /* the movie's emulator rounds cvt.w halves up (recomp.h), and the
        movie depends on it (PORT_REPLAY_VR4300_ROUNDING=1: the hardware's) */
     extern int recomp_round_half_up;
@@ -258,6 +312,7 @@ static void dump(unsigned n) {
    here, when the PIF runs the command (the game starts one read at boot
    that it never fetches), so this is what counts. */
 void host_replay_read_started(void) {
+    si_started = 1;
     uint64_t mode = mode_now();
     uint32_t frames = port_be32(D_80358064);
     int found = -1;
@@ -269,6 +324,20 @@ void host_replay_read_started(void) {
             found = (int)k;
             break;
         }
+    {
+        /* PORT_REPLAY_TRACE=FROM,TO: every read in that range */
+        static int init;
+        static unsigned from, to;
+        if (!init++) {
+            const char *t = getenv("PORT_REPLAY_TRACE");
+            if (t)
+                sscanf(t, "%u,%u", &from, &to);
+        }
+        if (reads >= from && reads <= to)
+            host_log("replay: read %u: mode %016llX frame %u retraces %u, the log's read %d (pad %08X)\n", reads,
+                     (unsigned long long)mode, frames, port_be32(D_803156C4), found + 1,
+                     found >= 0 ? log_reads[found].pad : 0);
+    }
     if (mode != last_mode) {
         if (host_verbose || found < 0)
             host_log("replay: mode %016llX at read %u: the log's read %d%s\n", (unsigned long long)mode,
@@ -298,6 +367,11 @@ void host_replay_read_started(void) {
         next_count = first_count[found];
         end_count = first_count[found + 1];
         nframe_reads = 0;
+    }
+    if (audio) {
+        next_audio = first_audio[found];
+        end_audio = first_audio[found + 1];
+        nframe_audio = 0;
     }
     /* the seed is the movie's clock: the state the log has at this read is
        its seed, advanced as the same frame's calls advance the port's.
@@ -365,6 +439,188 @@ unsigned int port_counter(int timer, const char *func) {
     return port_be32(timer ? D_803156C0 : D_803156C4);
 }
 
+/* The port's own functions by address (its symbol table, from
+   /proc/self/exe): the audio queries name their caller by its return
+   address. */
+typedef struct { uint64_t addr, size; const char *name; } HostFunc;
+static HostFunc *hfuncs;
+static unsigned nhfuncs;
+
+static int cmp_hfunc(const void *a, const void *b) {
+    uint64_t x = ((const HostFunc *)a)->addr, y = ((const HostFunc *)b)->addr;
+    return x < y ? -1 : x > y;
+}
+
+static void load_host_funcs(void) {
+    FILE *f = fopen("/proc/self/exe", "rb");
+    if (!f)
+        return;
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *img = malloc(size);
+    if (fread(img, 1, size, f) != (size_t)size) {
+        fclose(f);
+        return;
+    }
+    fclose(f);
+    int wide = img[EI_CLASS] == ELFCLASS64;
+#define FIELD(T32, T64, p, m) (wide ? ((T64 *)(p))->m : ((T32 *)(p))->m)
+    uint64_t shoff = FIELD(Elf32_Ehdr, Elf64_Ehdr, img, e_shoff);
+    unsigned shnum = FIELD(Elf32_Ehdr, Elf64_Ehdr, img, e_shnum);
+    unsigned shentsize = FIELD(Elf32_Ehdr, Elf64_Ehdr, img, e_shentsize);
+    unsigned cap = 0;
+    for (unsigned i = 0; i < shnum; i++) {
+        unsigned char *sh = img + shoff + (uint64_t)i * shentsize;
+        if (FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_type) != SHT_SYMTAB)
+            continue;
+        unsigned char *strsh = img + shoff + (uint64_t)FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_link) * shentsize;
+        const char *strtab = (const char *)img + FIELD(Elf32_Shdr, Elf64_Shdr, strsh, sh_offset);
+        uint64_t off = FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_offset), n = FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_size);
+        uint64_t ent = FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_entsize);
+        for (uint64_t k = 0; k + ent <= n; k += ent) {
+            unsigned char *sym = img + off + k;
+            unsigned info = FIELD(Elf32_Sym, Elf64_Sym, sym, st_info);
+            if ((info & 0xF) != STT_FUNC)
+                continue;
+            if (nhfuncs == cap)
+                hfuncs = realloc(hfuncs, (cap = cap ? cap * 2 : 8192) * sizeof *hfuncs);
+            hfuncs[nhfuncs++] = (HostFunc){ FIELD(Elf32_Sym, Elf64_Sym, sym, st_value),
+                                            FIELD(Elf32_Sym, Elf64_Sym, sym, st_size),
+                                            strtab + FIELD(Elf32_Sym, Elf64_Sym, sym, st_name) };
+        }
+    }
+#undef FIELD
+    qsort(hfuncs, nhfuncs, sizeof *hfuncs, cmp_hfunc);
+}
+
+static const char *host_func_name(uint64_t addr) {
+    if (!hfuncs)
+        load_host_funcs();
+    unsigned lo = 0, hi = nhfuncs;
+    while (hi - lo > 1) {
+        unsigned mid = (lo + hi) / 2;
+        if (hfuncs[mid].addr <= addr)
+            lo = mid;
+        else
+            hi = mid;
+    }
+    return nhfuncs && hfuncs[lo].addr <= addr && addr < hfuncs[lo].addr + hfuncs[lo].size ? hfuncs[lo].name : "?";
+}
+
+/* alCSPGetState and alCSeqGetLoc (replay_audio.c): in a matched frame, what
+   they told the movie's game in the same calling function in that frame (the
+   n-th time for the n-th, or the last); the real answer otherwise. */
+int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
+    if (!audio || !cur_read)
+        return real;
+    const char *name = host_func_name(caller);
+    int id = func_named(name);
+    unsigned k, n = 0;
+    for (k = 0; k < nframe_audio && !(frame_audio[k].func == id && frame_audio[k].kind == kind); k++)
+        ;
+    if (k < nframe_audio)
+        n = frame_audio[k].n++;
+    else if (nframe_audio < sizeof frame_audio / sizeof frame_audio[0]) {
+        frame_audio[nframe_audio].kind = kind;
+        frame_audio[nframe_audio].func = id;
+        frame_audio[nframe_audio++].n = 1;
+    }
+    const Audio *hit = NULL;
+    for (unsigned i = next_audio; i < end_audio; i++)
+        if (audio[i].kind == kind && audio[i].func == id) {
+            hit = &audio[i];
+            if (n-- == 0)
+                break;
+        }
+    if (hit) {
+        if (hit->value != real && host_verbose > 1)
+            host_log("replay: the log's read %d: %s's %s is %d, the port's %d\n", matched + 1, name,
+                     kind ? "lastTicks" : "player state", hit->value, real);
+        return hit->value;
+    }
+    if (audio_unlogged++ < 5 || host_verbose > 1)
+        host_log("replay: the log's read %d: %s asks for the %s, which the log's frame doesn't\n", matched + 1,
+                 name, kind ? "sequence's lastTicks" : "player's state");
+    return real;
+}
+
+/* 45BB0.c: whether this frame reads the pad.  The game skips the read while
+   the save thread has the SI (D_8039C4B0), which is that thread's timing;
+   with --replay the frame reads if the movie's did (a read with this mode
+   and frame after the last match), and fetches what it started. */
+int port_pad_read_due(int free) {
+    if (!log_reads || nogate)
+        return free;
+    if (si_started)
+        return 1;
+    uint64_t mode = mode_now();
+    uint32_t frames = port_be32(D_80358064);
+    for (unsigned k = matched + 1; k < nreads && k <= (unsigned)(matched + 1) + WINDOW; k++)
+        if (log_reads[k].mode == mode && log_reads[k].frames == frames)
+            return 1;
+    if (matched + 1 >= (int)nreads)
+        return free;                                /* past the log: as the game says */
+    static unsigned skips;
+    static int skips_at = -2;
+    if (skips_at != matched) {
+        skips_at = matched;
+        skips = 0;
+    }
+    if (skips++ < 3 || host_verbose > 1)
+        host_log("replay: no read in mode %016llX frame %u (the log's next: mode %016llX frame %u)\n",
+                 (unsigned long long)mode, frames, (unsigned long long)log_reads[matched + 1].mode,
+                 log_reads[matched + 1].frames);
+    return 0;
+}
+
+/* The pak/EEPROM thread took its next command (replay_hooks.c): it goes on
+   once the port has started the read after the one the movie's thread took
+   it after, so that what it changes shows from the same frame.  (The
+   thread spins on the scheduler before it takes one, 00000.c's saves
+   waiting a varying number of frames.) */
+int host_replay_save_due(int sync) {
+    if (!log_reads || nogate || !save_starts)
+        return 1;
+    if (!save_waiting) {
+        save_waiting = 1;
+        saves++;
+        if (host_verbose > 1 || getenv("PORT_REPLAY_SAVES"))
+            host_log("replay: save command %u at the log's read %d (sync %d), the movie's after read %u\n", saves,
+                     matched + 1, sync, saves <= nsave_starts ? save_starts[saves - 1] : 0);
+    }
+    /* not while a read's SI completion is held: the SI is busy then, and
+       the thread would take the game's completion (func_8028A42C) */
+    if (si_waiting)
+        return 0;
+    if (sync) {             /* the game waits for its reply: now */
+        save_waiting = 0;
+        return 1;
+    }
+    if (saves > nsave_starts || matched + 1 > (int)save_starts[saves - 1] || matched + 1 >= (int)nreads) {
+        save_waiting = 0;
+        return 1;
+    }
+    /* the game may wait for it without blocking on the reply (polling a
+       flag): if no read comes in 100 ms (the calls are a millisecond
+       apart), it goes on anyway, and that is counted */
+    static int wait_read = -2;
+    static unsigned waited;
+    if (wait_read != matched) {
+        wait_read = matched;
+        waited = 0;
+    }
+    if (++waited >= 100) {
+        if (saves_early++ < 5 || host_verbose)
+            host_log("replay: the save thread's command %u goes on at the log's read %d, the movie's took it "
+                     "after read %u\n", saves, matched + 1, save_starts[saves - 1]);
+        save_waiting = 0;
+        waited = 0;
+        return 1;
+    }
+    return 0;
+}
+
 /* the game's osGetCount seeds (23C20.c, 20460.c, under TARGET_PC) */
 void port_replay_seeded(void) {
     seeded = 1;
@@ -398,6 +654,17 @@ int host_replay_vi_ok(void) {
 /* a held retrace given anyway: the game waits for one the log's frame
    didn't have */
 void host_replay_vi_forced(void) {
+    static int at = -2;
+    static unsigned n;
+    if (at != matched) {
+        at = matched;
+        n = 0;
+    }
+    if (++n == 50) {
+        host_log("replay: 50 retraces given at the log's read %d; threads (save thread %s):\n", matched + 1,
+                 save_waiting ? "held" : "not held");
+        host_threads_dump();
+    }
     if (forced++ < 10 || host_verbose)
         host_log("replay: read %u (the log's %d) waits for a retrace the log doesn't have\n",
                  reads + !si_waiting, matched + 1 + !si_waiting);
@@ -405,6 +672,7 @@ void host_replay_vi_forced(void) {
 
 /* osContGetReadData: the pad of the last read started */
 void host_replay_pad(uint16_t *buttons, int *x, int *y) {
+    si_started = 0;
     *buttons = 0;
     *x = *y = 0;
     if (!cur_read)
@@ -429,6 +697,8 @@ void host_replay_report(void) {
         return;
     host_log("replay: %u reads, %d of the log's %u matched (%u skipped), %u without a match, "
              "%u retraces given anyway, %u random states set, the player elsewhere at %u, %u reads of the "
-             "counts the log doesn't have\n", reads, matched + 1 - (int)skipped, nreads, skipped, unmatched,
-             forced, seeds, pos_diffs, counts_unlogged);
+             "counts and %u audio answers the log doesn't have, %u save commands let go early\n", reads,
+             matched + 1 - (int)skipped, nreads, skipped, unmatched, forced, seeds, pos_diffs, counts_unlogged,
+             audio_unlogged, saves_early);
 }
+

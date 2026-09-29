@@ -849,6 +849,25 @@ frames and gives each the movie's input for that frame:
   number of times; within a function and a frame the movie's values agree
   in all but 18 of 27,784 cases.  The scheduler and the game's two waits on
   the count read the real one.
+- **The audio thread's answers.**  The music manager and the ends of the
+  results screens wait on the sequence player (`alCSPGetState`,
+  `func_802D4E10`) and the sequence's position (`alCSeqGetLoc`'s
+  `lastTicks`), which the audio thread moves on at its own pace.
+  `m64p_tas` logs every call with its caller (exec breakpoints,
+  `audio_reads.csv`); on the port the link wraps both
+  (`port/src/replay_hooks.c`) and gives the caller the movie's answer for
+  that function and frame, naming it by its return address in the port's
+  own symbol table.  The sound itself may drift; the game logic doesn't.
+- **The save thread.**  The pak/EEPROM thread (E7B0.c) changes the save
+  record the game plays on (the map picks the next level from it), and it
+  spins on the scheduler before it takes a command, so it gets to one a
+  varying number of frames after the game sent it.  `m64p_tas` logs the
+  read at which each command started (`save_starts.csv`); on the port the
+  thread waits until the read after that one, unless the game waits for
+  its reply (then it runs at once, as it did in the movie).  While it has
+  the SI, the game skips the frame's pad read (45BB0.c, `D_8039C4B0`), so
+  whether a frame reads the pad follows the movie too
+  (`port_pad_read_due`).
 - **The seed.**  The random number generator (`D_8036B968`) is seeded from
   `osGetCount`, which is the port's clock: after a seeding (23C20.c,
   20460.c call `port_replay_seeded` under `TARGET_PC`) the next read sets
@@ -868,14 +887,19 @@ given anyway are reported at the end; and the save has the medals.
 starts (`rdram_N.bin`, big-endian), and `TAS_DUMP=N,...` makes `m64p_tas`
 write the same at its Nth read, to compare the two.
 
-Where it stands: the boot, the menus and the first levels play as in the
-movie, with the player where the movie has it at every frame, up to about
-read 8,600 of 125,297 (five gold medals, level 10 next).  There, on the
-world map, the port leaves a level's results screen one frame early and
-the movie's next input lands elsewhere.  What decides it is the game asking
-whether the announcer's voice has finished (`func_802D4E10`, `17E10.c`):
-the audio thread's progress against the game's frames, which the replay
-doesn't reproduce yet.
+Where it stands: every read through the first levels matches the movie's
+read for read (the same mode and frame at the same read number), with the
+player where the movie has it, up to read 8,589 of 125,297 (five gold
+medals, level 10 next).  There, on the world map, the movie's stick moves
+the cursor to level 34 and A selects it; on the port the cursor's target
+(`func_801FA180`, from the paths `func_801FA74C` draws) stays on the
+level it is on, and A selects that one.  The difference starts with a path
+reveal the movie's map plays and the port's doesn't: in the movie a sound
+starts for it (`D_8021AB38`), on the port it doesn't, although the reveal's
+inputs (the save record, the counts, the matrices) agree; the sound
+effect player's state is the next thing to replay.
+`PORT_REPLAY_TRACE=FROM,TO` logs every read in that range; after 50
+retraces given at one read the replay dumps the threads.
 
 The TAS also found a port bug on the way: the game writes a digit into a
 string literal ("0 OF THE OTHERS", `53220.c`), which the port had in

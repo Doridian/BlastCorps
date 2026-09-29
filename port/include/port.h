@@ -211,6 +211,15 @@ int host_replay_active(void);
 void host_replay_read_started(void);
 void port_replay_si_done(void);     /* port/src: the held SI completion */
 uint32_t port_vi_sent(void);        /* port/src: retrace messages sent */
+/* the audio thread's state as the game asks for it (port/src/replay_audio.c):
+   kind 0 the sequence player's state, 1 the sequence's lastTicks; `caller`
+   the return address into the game */
+int32_t host_replay_audio(int kind, int32_t real, uint64_t caller);
+/* whether the pak/EEPROM thread may go on with the command it took (`sync`:
+   the game waits for its reply) */
+int host_replay_save_due(int sync);
+/* whether a thread waits in host_block on this key (threads.c) */
+int host_blocked_on(uint32_t wait_key);
 
 /* EEPROM (4 Kbit) */
 void host_eeprom_read(int block, uint32_t dst);

@@ -32,6 +32,12 @@
  *                      game makes of the scheduler's retrace count or level
  *                      timer (D_803156C4, D_803156C0), in order: the
  *                      controller reads so far, the PC and the two values
+ *   OUTDIR/audio_reads.csv  (the same) every call of alCSPGetState and
+ *                      alCSeqGetLoc: the controller reads so far, the
+ *                      caller's return address, 0 with the player's state
+ *                      or 1 with the sequence's lastTicks
+ *   OUTDIR/save_starts.csv  (the same) the controller reads so far each
+ *                      time the pak/EEPROM thread starts a command
  *   OUTDIR/eeprom.bin  the EEPROM at the end (from blank, as the movie is)
  *   OUTDIR/rdram.bin   RDRAM at the end, big-endian (TAS_DUMP=N,...: also
  *                      rdram_N.bin as the Nth controller read starts)
@@ -66,6 +72,8 @@ static uint32_t a_retraces = 0x803156C4, a_frames = 0x80358064, a_mode = 0x80364
 static uint64_t last_mode = ~0ull;
 static const char *dump_spec;   /* TAS_DUMP=N,...: RDRAM at those reads */
 static FILE *counter_csv;       /* TAS_COUNTER_READS=1: the game's reads of the retrace counts */
+static FILE *audio_csv;         /* ... and what the audio thread's state told it */
+static FILE *save_csv;          /* ... and when the save thread starts a command */
 static const char *outdir;
 
 static void dump_rdram(const char *name) {
@@ -241,10 +249,26 @@ static unsigned *(*pDebugGetCPUDataPtr)(m64p_dbg_cpu_data);
 static m64p_error (*pDebugStep)(void);
 static int (*pDebugBreakpointCommand)(m64p_dbg_bkp_command, unsigned int, void *);
 
+/* us.v10's alCSPGetState (func_802D4E10) and alCSeqGetLoc: what the game
+   learns of the audio thread's progress (ALCSPlayer.state at 0x2C,
+   ALCSeq.lastTicks at 0xC) */
+#define V10_CSP_GET_STATE 0x802D4D60
+#define V10_CSEQ_GET_LOC 0x802D7640
+/* us.v10's pak/EEPROM thread (hd_front_end E7B0.c's func_801F58E8), where it
+   sets D_8039C4B0 for a command it received */
+#define V10_SAVE_START 0x801F1088
+static int bpt_state = -1, bpt_loc = -1, bpt_save = -1;
+
 static void dbg_init(void) {
     /* D_803156C0 (the level timer) and D_803156C4 (retraces) */
     breakpoint b = { a_retraces - 4, a_retraces + 3, BPT_FLAG_ENABLED | BPT_FLAG_READ };
+    breakpoint s = { V10_CSP_GET_STATE, V10_CSP_GET_STATE, BPT_FLAG_ENABLED | BPT_FLAG_EXEC };
+    breakpoint l = { V10_CSEQ_GET_LOC, V10_CSEQ_GET_LOC, BPT_FLAG_ENABLED | BPT_FLAG_EXEC };
     pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &b);
+    bpt_state = pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &s);
+    bpt_loc = pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &l);
+    breakpoint v = { V10_SAVE_START, V10_SAVE_START, BPT_FLAG_ENABLED | BPT_FLAG_EXEC };
+    bpt_save = pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &v);
     pDebugSetRunState(2);
     pDebugStep();
 }
@@ -260,7 +284,17 @@ static int game_read(uint32_t pc) {
 /* a hit: the game read one of the two (which one, the log doesn't say:
    the port takes the value it asks for) */
 static void dbg_update(int bpt) {
-    if (bpt >= 0 && rdram && game_read(*pDebugGetCPUDataPtr(M64P_CPU_PC)))
+    if (rdram && bpt >= 0 && bpt == bpt_save) {
+        fprintf(save_csv, "%u\n", polls);
+    } else if (rdram && (bpt == bpt_state || bpt == bpt_loc) && bpt >= 0) {
+        /* at the entry: the caller's return address, and the value */
+        long long *reg = (long long *)pDebugGetCPUDataPtr(M64P_CPU_REG_REG);
+        uint32_t a0 = (uint32_t)reg[4], ra = (uint32_t)reg[31];
+        if (bpt == bpt_state)
+            fprintf(audio_csv, "%u,%08X,0,%d\n", polls, ra, (int32_t)rd32(a0 + 0x2C));
+        else
+            fprintf(audio_csv, "%u,%08X,1,%d\n", polls, ra, (int32_t)rd32(a0 + 0xC));
+    } else if (bpt >= 0 && rdram && game_read(*pDebugGetCPUDataPtr(M64P_CPU_PC)))
         fprintf(counter_csv, "%u,%08X,%u,%u\n", polls, *pDebugGetCPUDataPtr(M64P_CPU_PC), rd32(a_retraces - 4),
                 rd32(a_retraces));
     pDebugSetRunState(2);
@@ -377,6 +411,10 @@ int main(int argc, char **argv) {
             pConfigSetParameter(sec, "EnableDebugger", M64TYPE_INT, &one);
             counter_csv = out(outdir, "counter_reads.csv", "w");
             fprintf(counter_csv, "read,pc,timer,retraces\n");
+            audio_csv = out(outdir, "audio_reads.csv", "w");
+            fprintf(audio_csv, "read,caller,kind,value\n");
+            save_csv = out(outdir, "save_starts.csv", "w");
+            fprintf(save_csv, "read\n");
             pDebugGetCPUDataPtr = SYM(core, DebugGetCPUDataPtr);
             pDebugSetRunState = SYM(core, DebugSetRunState);
             pDebugStep = SYM(core, DebugStep);
@@ -421,6 +459,10 @@ int main(int argc, char **argv) {
     fclose(modes_csv);
     if (counter_csv)
         fclose(counter_csv);
+    if (audio_csv)
+        fclose(audio_csv);
+    if (save_csv)
+        fclose(save_csv);
     fprintf(stderr, "%u VIs, %u controller reads\n", vis, polls);
     return 0;
 }

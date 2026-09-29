@@ -193,6 +193,9 @@ void func_801F58E8(void) {
         sp30 = ((u32)sp3C >> 24) & 0xFF;
         D_8020C014[0] = sp32 + 0x11;
         D_8039C4B0 = 1;
+#ifdef TARGET_PC
+        port_replay_save_started();     /* --replay: when the movie's thread got to it */
+#endif
         func_8028A42C();
         func_801EE390();
         D_80218D24 = 0;

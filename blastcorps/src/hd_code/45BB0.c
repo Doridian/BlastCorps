@@ -81,8 +81,17 @@ u8 func_8028A370(void) {
     return sp1B;
 }
 
+/* Whether the SI is free for the pad (D_8039C4B0: the pak/EEPROM thread has
+   it).  The port's --replay decides it by the movie instead, which is the
+   save thread's timing (port_game.h). */
+#ifdef TARGET_PC
+#define PAD_SI_FREE() port_pad_read_due(D_8039C4B0 == 0)
+#else
+#define PAD_SI_FREE() (D_8039C4B0 == 0)
+#endif
+
 void func_8028A3E4(void) {
-    if (D_8039C4B0 == 0) {
+    if (PAD_SI_FREE()) {
         func_8028A42C();
         osContStartReadData(&D_80370BF8);
         D_80370C10 = 1;
@@ -103,7 +112,7 @@ void func_8028A470(void) {
 
     sp44 = &D_80370BD8;
     if (D_80358064 != 0) {
-        if (D_8039C4B0 == 0 && D_80370C10 != 0) {
+        if (PAD_SI_FREE() && D_80370C10 != 0) {
             osRecvMesg(&D_80370BF8, NULL, OS_MESG_BLOCK);
             osContGetReadData(sp44);
             if (sp44->errno != 0) {
