@@ -52,20 +52,30 @@ void port_access_host(const void *p, unsigned width);
 void port_access_dma(uint32_t dst, uint32_t rom, uint32_t len);
 void __port_access_copy(void *dst, const void *src, uint32_t n, uint32_t site);
 void __port_access_set(void *dst, uint32_t n, uint32_t site);
+void port_access_bytes(const void *p, uint32_t n);
+void port_access_dump_widths(unsigned n);
 #define PORT_ACCESS_HOST(p, w) port_access_host((p), (w))
+#define PORT_ACCESS_BYTES(p, n) port_access_bytes((p), (n))
 #else
 #define PORT_ACCESS_HOST(p, w) ((void)0)
+#define PORT_ACCESS_BYTES(p, n) ((void)0)
 #endif
 
 /* big-endian accessors for host-side code touching game memory */
+/* (the profiler: in native memory these read bytes) */
+#ifdef PORT_NATIVE_ENDIAN
+#define PORT_ACCESS_BE(p, w) PORT_ACCESS_BYTES((p), (w))
+#else
+#define PORT_ACCESS_BE(p, w) PORT_ACCESS_HOST((p), (w))
+#endif
 static inline uint32_t port_be32(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
-    PORT_ACCESS_HOST(p, 4);
+    PORT_ACCESS_BE(p, 4);
     return ((uint32_t)b[0] << 24) | ((uint32_t)b[1] << 16) | ((uint32_t)b[2] << 8) | b[3];
 }
 static inline uint16_t port_be16(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
-    PORT_ACCESS_HOST(p, 2);
+    PORT_ACCESS_BE(p, 2);
     return (uint16_t)((b[0] << 8) | b[1]);
 }
 static inline void port_wbe32(void *p, uint32_t v) {
@@ -77,6 +87,57 @@ static inline void port_wbe16(void *p, uint16_t v) {
     b[0] = v >> 8; b[1] = v;
 }
 
+/* A scalar of game memory at its own width: big-endian in the default
+   build, host order in the native-endian one (PORT_NATIVE_ENDIAN, docs/
+   PORT.md "Native-endian memory").  A 64-bit scalar is two of these words,
+   the high one first, in both.  port_be* stay big-endian: they are for
+   what is bytes in either build (the ROM file, texels, framebuffers, the
+   audio microcode's DMEM and what it saves). */
+#ifdef PORT_NATIVE_ENDIAN
+static inline uint32_t port_g32(const void *p) {
+    uint32_t v;
+    PORT_ACCESS_HOST(p, 4);
+    __builtin_memcpy(&v, p, 4);
+    return v;
+}
+static inline uint16_t port_g16(const void *p) {
+    uint16_t v;
+    PORT_ACCESS_HOST(p, 2);
+    __builtin_memcpy(&v, p, 2);
+    return v;
+}
+static inline void port_wg32(void *p, uint32_t v) { __builtin_memcpy(p, &v, 4); }
+static inline void port_wg16(void *p, uint16_t v) { __builtin_memcpy(p, &v, 2); }
+/* element k of a halfword pair array held as words (an Mtx's s16 halves:
+   element 2n is word n's high half) */
+static inline uint16_t port_g16_of32(const void *p, int k) {
+    return (uint16_t)(port_g32((const uint8_t *)p + 4 * (k >> 1)) >> ((k & 1) ? 0 : 16));
+}
+#else
+#define port_g32 port_be32
+#define port_g16 port_be16
+#define port_wg32 port_wbe32
+#define port_wg16 port_wbe16
+static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((const uint8_t *)p + 2 * k); }
+#endif
+
+/* For host code that reads game variables with port_be32 and writes the
+   pad with port_wbe16 (main.c, video.c): in the native-endian build
+   those files map them here, which reads RDRAM at its own width and
+   anything else (the ROM file) big-endian as before. */
+#ifdef PORT_NATIVE_ENDIAN
+static inline int port_in_rdram(const void *p) {
+    return (uintptr_t)p - PORT_RDRAM_BASE < PORT_RDRAM_SIZE;
+}
+static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
+static inline void port_wvar16(void *p, uint16_t v) {
+    if (port_in_rdram(p) || (uintptr_t)p - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
+        port_wg16(p, v);
+    else
+        port_wbe16(p, v);
+}
+#endif
+
 /* ---- host services (port/host) ----------------------------------------- */
 
 void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
@@ -87,6 +148,14 @@ extern int host_verbose;
 uint32_t host_rom_size(void);
 void host_rom_read(uint32_t dst, uint32_t rom, uint32_t len);
 uint32_t host_rom_word(uint32_t rom);
+/* the loaders (host/native.c): untyped bytes from the ROM arrived */
+void host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t len);
+void host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t len);
+void host_loaded_dma(uint32_t dst, uint32_t rom, uint32_t len);
+void host_layout_to_be(uint32_t addr, uint32_t n, const char *layout, int to_bytes);
+void host_layout_to_be_n(uint32_t addr, uint32_t stride, uint32_t count, uint32_t n, const char *layout);
+/* the save's bytes between game memory and the N64's order (native.c) */
+void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused);
 
 /* 46.875 MHz CPU count since boot */
 uint64_t host_ticks(void);

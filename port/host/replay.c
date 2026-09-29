@@ -26,6 +26,11 @@
 #include "port.h"
 #include "host.h"
 
+#ifdef PORT_NATIVE_ENDIAN
+/* game variables are read with port_be32 below: at their own width (port.h) */
+#define port_be32(p) port_var32(p)
+#endif
+
 /* the scheduler's retrace count, the game's frame count and the mode */
 extern char D_803156C4[], D_80358064[], D_80364A90[];
 

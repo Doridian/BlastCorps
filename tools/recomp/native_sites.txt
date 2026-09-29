@@ -1,0 +1,77 @@
+# Native-endian memory (RECOMP_NATIVE_ENDIAN, docs/PORT.md "Native-endian
+# memory"): the handwritten code's loads and stores that move data at
+# another width than its type's, and what the translator does with each in
+# that build (translate.py: h2, be, x1, x2, x3).  The big-endian build and
+# the differential test are unchanged by it.  Found by the access-width
+# profiler (a PORT_ACCESS_PROFILE native build: every read at a width
+# other than the one the bytes were written or converted at) and the type
+# inventory's `packed` list.
+
+# Rare's texture decoders (hd_code 60F60; tools/assetlib/blast.py): the
+# compressed stream is big-endian u16 codes, the colour LUTs (type-0
+# entries, copied raw) big-endian u16s, and the texels they write are what
+# the RDP reads, bytes in the N64's order, in either build.  The
+# back-references (lhu/sh, lw/sw) copy texels and are left as they are.
+func_802A5958+0x28 be   # lh code
+func_802A5A2C+0x28 be
+func_802A5AE0+0x28 be
+func_802A5AE0+0x48 be   # sh: an RGBA16 texel
+func_802A5B90+0x28 be
+func_802A5B90+0x64 be   # sw: an RGBA32 texel
+func_802A5C5C+0x28 be
+func_802A5C5C+0x44 be   # lhu: the LUT
+func_802A5C5C+0x58 be   # sh: texel
+func_802A5C5C+0x64 be   # lhu: the LUT
+func_802A5C5C+0x7C be   # sh: texel
+func_802A5D34+0x28 be
+func_802A5D34+0x44 be   # lhu: the LUT
+func_802A5D34+0x74 be   # sw: texel
+
+# The Mtx: sixteen words, each two s16 halves (integer parts, then
+# fractions), as libultra's guMtxF2L and Rare's builders (func_802ACA60,
+# func_802ACC68, func_802ACCCC, func_8029F4B8 ...) write them and the
+# renderer reads them: element 2n is word n's high half.  The routines that
+# work on single elements reach them at the halfword's address ^ 2.
+func_802AA890 x2        # the matrix product (40 lhu, 2 sh; lw/sw copy words)
+func_802AC8CC x2        # reorders a matrix's halves in place
+
+# A model's 0x38-byte records (Model.unk30/unk34) and their copies in
+# D_803F3968[30] (func_802C04F0): the s32 at 0x2C, which func_802A68D4
+# compares as a word, the rest of hd_code 77E20 reaches by its halves
+# the effect records (D_803F3968, 0x38 bytes: u32 x 11, u16 0x2C, u16 0x2E,
+# bytes; a model's 0x30/0x34 records, port/host/native.c): 0x2E is read as a u16
+# (func_802C0574+0x2FC) but cleared a byte at a time, its high byte
+func_802BF978+0x170 x1  # sb 0x2e (D_803F3FF8, the record being made)
+func_802BFDAC+0xD4 x1
+func_802CF3E0+0x114 x1
+
+# the effects' chance tables (D_80306344, D_80306350, D_803063D4), kept
+# big-endian (tools/inventory.py ASM_DATA_BE): a walk that runs off their end
+# reads D_803063E0's byte pairs as a record
+func_802BF978+0xE0 be   # lhu 0
+func_802BF978+0x10C be  # lw 4
+func_802BF978+0x114 be  # lw 8
+func_802BF978+0x178 be  # lhu 2
+func_802BFDAC+0x6C be
+func_802BFDAC+0xA4 be
+func_802BFDAC+0xAC be
+func_802BFDAC+0xEC be
+
+# func_8029F85C: a part's two matrices set to the identity, by halves (sw of zero words
+# left as they are)
+func_8029F85C+0xB8 x2
+func_8029F85C+0xBC x2
+func_8029F85C+0xC4 x2
+func_8029F85C+0xC8 x2
+func_8029F85C+0xD4 x2
+func_8029F85C+0xD8 x2
+func_8029F85C+0xE0 x2
+func_8029F85C+0xE4 x2
+func_8029F85C+0x108 x2
+func_8029F85C+0x10C x2
+func_8029F85C+0x114 x2
+func_8029F85C+0x118 x2
+func_8029F85C+0x124 x2
+func_8029F85C+0x128 x2
+func_8029F85C+0x130 x2
+func_8029F85C+0x134 x2

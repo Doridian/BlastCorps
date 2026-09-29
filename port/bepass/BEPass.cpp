@@ -24,6 +24,15 @@
  * the poll is where it lets time pass.  Being an opaque call, it also
  * makes such a loop reload what it waits on, as IDO's code did.
  *
+ * BEPASS_NATIVE=1 when compiling (the native-endian build, PORT_NATIVE_ENDIAN;
+ * docs/PORT.md "Native-endian memory"): memory is in host order, so nothing
+ * is swapped but the 64-bit scalars (u64, s64, double), whose two 32-bit
+ * halves are exchanged: in memory they are two host-order words, the high
+ * one first, as the translated asm's ld/sd/ldc1/sdc1 and every piece of code
+ * that reads one half of a u64 as a word (the game mode D_80364A90) have
+ * them.  Only their initializers need fixing then (__bepass_fixup_rot64).
+ * The polls and the instruction count are the same in both modes.
+ *
  * The pass runs at the start of the pipeline, before anything can combine
  * or reorder accesses; later passes see explicit bswaps and optimise them
  * (a swapped store to a local followed by a swapped load folds away).
@@ -61,7 +70,8 @@ struct AccessHooks {
     /* BEPASS_ACCESS=1 when compiling: every load and store of memory the
        game's C does (as the source has it, before optimisation can merge
        or split them; locals left out) calls __port_access(address,
-       size | store << 8, function, the bytes as an integer),
+       size | store << 8 | big-endian << 9, function, the bytes as an
+       integer),
        and memcpy/memset calls __port_access_copy/_set: the access-width
        profiler (port/host/access.c, docs/PORT.md "Native-endian memory"). */
     static void addAccessHooks(Module &m) {
@@ -69,7 +79,10 @@ struct AccessHooks {
         Type *i32 = Type::getInt32Ty(c), *vd = Type::getVoidTy(c);
         PointerType *ptr = PointerType::getUnqual(c);
         Type *i64 = Type::getInt64Ty(c);
-        FunctionCallee acc = m.getOrInsertFunction("__port_access", FunctionType::get(vd, {ptr, i32, i32, i64}, false));
+        /* the bytes as two i32s: a 64-bit build would otherwise materialize
+           a 32-bit value like OS_K0_TO_PHYSICAL(&var) as a RIP-relative
+           lea of var - 0x80000000, which can't reach */
+        FunctionCallee acc = m.getOrInsertFunction("__port_access", FunctionType::get(vd, {ptr, i32, i32, i32, i32}, false));
         FunctionCallee cpy = m.getOrInsertFunction("__port_access_copy",
                                                    FunctionType::get(vd, {ptr, ptr, i32, i32}, false));
         FunctionCallee set = m.getOrInsertFunction("__port_access_set", FunctionType::get(vd, {ptr, i32, i32}, false));
@@ -108,6 +121,13 @@ struct AccessHooks {
                 unsigned size = dl.getTypeStoreSize(t);
                 if (size > 8 || t->isVectorTy() || t->isAggregateType())
                     continue;
+                /* a load only swapped, or a store of a swapped value: data
+                   the source keeps in the N64's byte order (0x200: bytes) */
+                auto isBswap = [](const Value *x) {
+                    auto *ii = dyn_cast<IntrinsicInst>(x);
+                    return ii && ii->getIntrinsicID() == Intrinsic::bswap;
+                };
+                bool be = isa<StoreInst>(i) ? isBswap(v) : (v->hasOneUse() && isBswap(*v->user_begin()));
                 if (isa<LoadInst>(i))
                     b.SetInsertPoint(i->getNextNode());
                 Value *raw = v;
@@ -115,8 +135,17 @@ struct AccessHooks {
                     raw = b.CreatePtrToInt(raw, b.getIntNTy(size * 8));
                 else if (!t->isIntegerTy())
                     raw = b.CreateBitCast(raw, b.getIntNTy(size * 8));
-                raw = b.CreateZExtOrTrunc(raw, i64);
-                b.CreateCall(acc, {p, b.getInt32(size | (isa<StoreInst>(i) ? 0x100 : 0)), site, raw});
+                Value *lo, *hi;
+                if (size > 4) {
+                    raw = b.CreateZExtOrTrunc(raw, i64);
+                    lo = b.CreateTrunc(raw, i32);
+                    hi = b.CreateTrunc(b.CreateLShr(raw, 32), i32);
+                } else {
+                    lo = b.CreateZExtOrTrunc(raw, i32);
+                    hi = b.getInt32(0);
+                }
+                b.CreateCall(acc, {p, b.getInt32(size | (isa<StoreInst>(i) ? 0x100 : 0) | (be ? 0x200 : 0)), site,
+                                   lo, hi});
             }
         }
     }
@@ -125,22 +154,32 @@ struct AccessHooks {
 struct BEPass : PassInfoMixin<BEPass> {
     static bool isRequired() { return true; }
 
+    /* BEPASS_NATIVE=1: host-order memory, 64-bit scalars as two words */
+    static bool native;
+
     /* integer type of the same size, or null if nothing to swap */
     static IntegerType *swapType(Type *t, const DataLayout &dl, LLVMContext &c) {
+        IntegerType *it = nullptr;
         if (t->isIntegerTy()) {
             unsigned bits = t->getIntegerBitWidth();
             if (bits <= 8)
                 return nullptr;
-            return cast<IntegerType>(t);
-        }
-        if (t->isFloatTy() || t->isDoubleTy() || t->isPointerTy() || t->isHalfTy())
-            return IntegerType::get(c, dl.getTypeSizeInBits(t));
-        return nullptr;
+            it = cast<IntegerType>(t);
+        } else if (t->isFloatTy() || t->isDoubleTy() || t->isPointerTy() || t->isHalfTy())
+            it = IntegerType::get(c, dl.getTypeSizeInBits(t));
+        if (it && native && it->getBitWidth() != 64)
+            return nullptr;
+        return it;
     }
 
     static Value *bswap(IRBuilder<> &b, Value *v) {
         IntegerType *t = cast<IntegerType>(v->getType());
         unsigned bits = t->getBitWidth();
+        if (native) {       /* exchange the words: its own inverse */
+            if (bits != 64)
+                report_fatal_error("BEPass: native mode swaps only 64-bit scalars");
+            return b.CreateIntrinsic(Intrinsic::fshl, {t}, {v, v, b.getInt64(32)});
+        }
         if (bits % 8)
             report_fatal_error("BEPass: swap of a non-byte-sized integer");
         unsigned wide = (bits + 15) / 16 * 16;
@@ -235,9 +274,16 @@ struct BEPass : PassInfoMixin<BEPass> {
         return changed;
     }
 
-    /* (offset, size) of each multi-byte scalar inside an initializer */
+    /* (offset, size) of each scalar inside an initializer that `mode` wants:
+       0 every multi-byte one (big-endian memory's swaps), 1 the 64-bit ones
+       (native memory's word exchange), 2 all, bytes too (the profiler's
+       map of the C's initialized data) */
+    static bool wanted(unsigned sz, int mode) {
+        return mode == 2 ? sz >= 1 : mode == 1 ? sz == 8 : sz > 1;
+    }
+
     static void collect(Constant *k, uint64_t off, const DataLayout &dl,
-                        std::vector<std::pair<uint64_t, unsigned>> &out) {
+                        std::vector<std::pair<uint64_t, unsigned>> &out, int mode) {
         Type *t = k->getType();
         if (isa<ConstantAggregateZero>(k) || isa<UndefValue>(k))
             return;
@@ -245,7 +291,7 @@ struct BEPass : PassInfoMixin<BEPass> {
             Type *et = cds->getElementType();
             unsigned es = dl.getTypeAllocSize(et);
             unsigned sz = dl.getTypeStoreSize(et);
-            if (sz <= 1)
+            if (!wanted(sz, mode))
                 return;
             for (unsigned n = 0; n < cds->getNumElements(); n++)
                 out.push_back({off + (uint64_t)n * es, sz});
@@ -254,13 +300,13 @@ struct BEPass : PassInfoMixin<BEPass> {
         if (auto *ca = dyn_cast<ConstantArray>(k)) {
             uint64_t es = dl.getTypeAllocSize(ca->getType()->getElementType());
             for (unsigned n = 0; n < ca->getNumOperands(); n++)
-                collect(ca->getOperand(n), off + n * es, dl, out);
+                collect(ca->getOperand(n), off + n * es, dl, out, mode);
             return;
         }
         if (auto *cs = dyn_cast<ConstantStruct>(k)) {
             const StructLayout *sl = dl.getStructLayout(cs->getType());
             for (unsigned n = 0; n < cs->getNumOperands(); n++)
-                collect(cs->getOperand(n), off + sl->getElementOffset(n), dl, out);
+                collect(cs->getOperand(n), off + sl->getElementOffset(n), dl, out, mode);
             return;
         }
         if (auto *cv = dyn_cast<ConstantVector>(k)) {
@@ -269,20 +315,38 @@ struct BEPass : PassInfoMixin<BEPass> {
         }
         if (t->isIntegerTy() || t->isFloatingPointTy() || t->isPointerTy()) {
             unsigned sz = dl.getTypeStoreSize(t);
-            if (sz > 1)
+            if (wanted(sz, mode))
                 out.push_back({off, sz});
             return;
         }
         report_fatal_error("BEPass: unhandled initializer");
     }
 
-    void fixGlobals(Module &m, const DataLayout &dl) {
-        LLVMContext &c = m.getContext();
+    /* runs of equally sized, contiguous scalars: {address, count, size} */
+    static void addRuns(const std::vector<std::pair<uint64_t, unsigned>> &items, GlobalVariable *g,
+                        LLVMContext &c, StructType *ent, std::vector<Constant *> &table) {
         Type *i32 = Type::getInt32Ty(c);
         Type *i8 = Type::getInt8Ty(c);
+        size_t n = 0;
+        while (n < items.size()) {
+            size_t e = n + 1;
+            while (e < items.size() && items[e].second == items[n].second &&
+                   items[e].first == items[e - 1].first + items[n].second)
+                e++;
+            Constant *addr = ConstantExpr::getGetElementPtr(
+                i8, g, ConstantInt::get(Type::getInt64Ty(c), items[n].first));
+            table.push_back(ConstantStruct::get(
+                ent, {addr, ConstantInt::get(i32, e - n), ConstantInt::get(i32, items[n].second)}));
+            n = e;
+        }
+    }
+
+    void fixGlobals(Module &m, const DataLayout &dl, bool widths) {
+        LLVMContext &c = m.getContext();
+        Type *i32 = Type::getInt32Ty(c);
         PointerType *ptr = PointerType::getUnqual(c);
         StructType *ent = StructType::get(c, {ptr, i32, i32});
-        std::vector<Constant *> table;
+        std::vector<Constant *> table, wtable;
         std::vector<GlobalVariable *> gvs;
         for (GlobalVariable &g : m.globals())
             gvs.push_back(&g);
@@ -296,23 +360,30 @@ struct BEPass : PassInfoMixin<BEPass> {
             if (g->hasSection() && g->getSection().starts_with("llvm."))
                 continue;
             std::vector<std::pair<uint64_t, unsigned>> items;
-            collect(g->getInitializer(), 0, dl, items);
+            if (widths) {
+                std::vector<std::pair<uint64_t, unsigned>> all;
+                collect(g->getInitializer(), 0, dl, all, 2);
+                addRuns(all, g, c, ent, wtable);
+            }
+            collect(g->getInitializer(), 0, dl, items, 0);
             if (items.empty())
                 continue;
-            g->setConstant(false);
-            /* runs of equally sized, contiguous scalars */
-            size_t n = 0;
-            while (n < items.size()) {
-                size_t e = n + 1;
-                while (e < items.size() && items[e].second == items[n].second &&
-                       items[e].first == items[e - 1].first + items[n].second)
-                    e++;
-                Constant *addr = ConstantExpr::getGetElementPtr(
-                    i8, g, ConstantInt::get(Type::getInt64Ty(c), items[n].first));
-                table.push_back(ConstantStruct::get(
-                    ent, {addr, ConstantInt::get(i32, e - n), ConstantInt::get(i32, items[n].second)}));
-                n = e;
+            g->setConstant(false);          /* its multi-byte scalars are read from memory */
+            if (native) {
+                items.clear();
+                collect(g->getInitializer(), 0, dl, items, 1);
             }
+            addRuns(items, g, c, ent, table);
+        }
+        if (widths && !wtable.empty()) {
+            /* PORT_ACCESS_PROFILE (BEPASS_ACCESS=1), native memory: every
+               scalar of the C's initialized data by width, which the
+               profiler seeds its map of RDRAM with */
+            ArrayType *at = ArrayType::get(ent, wtable.size());
+            auto *wg = new GlobalVariable(m, at, true, GlobalValue::PrivateLinkage,
+                                          ConstantArray::get(at, wtable), "__bepass_widths");
+            wg->setSection("port_cwidths");
+            appendToCompilerUsed(m, {wg});
         }
         if (table.empty())
             return;
@@ -320,7 +391,7 @@ struct BEPass : PassInfoMixin<BEPass> {
         auto *tg = new GlobalVariable(m, at, true, GlobalValue::PrivateLinkage,
                                       ConstantArray::get(at, table), "__bepass_table");
         FunctionType *fixty = FunctionType::get(Type::getVoidTy(c), {ptr, i32}, false);
-        FunctionCallee fix = m.getOrInsertFunction("__bepass_fixup", fixty);
+        FunctionCallee fix = m.getOrInsertFunction(native ? "__bepass_fixup_rot64" : "__bepass_fixup", fixty);
         Function *ctor = Function::Create(FunctionType::get(Type::getVoidTy(c), false),
                                           GlobalValue::InternalLinkage, "__bepass_ctor", &m);
         IRBuilder<> b(BasicBlock::Create(c, "entry", ctor));
@@ -361,6 +432,8 @@ struct BEPass : PassInfoMixin<BEPass> {
 
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
         const DataLayout &dl = m.getDataLayout();
+        const char *nat = getenv("BEPASS_NATIVE");
+        native = nat && *nat == '1';
         const char *tr = getenv("BEPASS_TRACE");
         FunctionCallee trace;
         if (tr && *tr == '1')
@@ -375,13 +448,16 @@ struct BEPass : PassInfoMixin<BEPass> {
                 if (trace)
                     addTrace(f, trace);
             }
-        fixGlobals(m, dl);
         const char *acc = getenv("BEPASS_ACCESS");
-        if (acc && *acc == '1')
+        bool access = acc && *acc == '1';
+        fixGlobals(m, dl, access && native);
+        if (access)
             AccessHooks::addAccessHooks(m);
         return PreservedAnalyses::none();
     }
 };
+
+bool BEPass::native = false;
 
 struct ICount : PassInfoMixin<ICount> {
     static bool isRequired() { return true; }
@@ -396,6 +472,7 @@ struct ICount : PassInfoMixin<ICount> {
         if (auto *ii = dyn_cast<IntrinsicInst>(&i)) {
             switch (ii->getIntrinsicID()) {
             case Intrinsic::bswap:
+            case Intrinsic::fshl:       /* BEPASS_NATIVE's word exchange */
             case Intrinsic::lifetime_start:
             case Intrinsic::lifetime_end:
             case Intrinsic::assume:

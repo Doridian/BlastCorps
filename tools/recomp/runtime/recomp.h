@@ -287,6 +287,28 @@ void recomp_access(uint32_t addr, uint32_t width, uint64_t raw);
 #define RECOMP_ACC(a, w, raw) ((void)0)
 #endif
 
+/* Native-endian memory's listed sites (tools/recomp/native_sites.txt): a
+   word that is two halves, a big-endian datum, a part of a wider field.
+   The identity in big-endian memory.  RECOMP_SITE tells the profiler. */
+#ifdef RECOMP_NATIVE_ENDIAN
+#define NE_ROT16(v) ((uint32_t)(v) >> 16 | (uint32_t)(v) << 16)
+#define NE_BS32(v) __builtin_bswap32((uint32_t)(v))
+#define NE_BS16(v) __builtin_bswap16((uint16_t)(v))
+#define NE_XOR(a, k) ((a) ^ (k))
+#else
+#define NE_ROT16(v) ((uint32_t)(v))
+#define NE_BS32(v) ((uint32_t)(v))
+#define NE_BS16(v) ((uint16_t)(v))
+#define NE_XOR(a, k) (a)
+#endif
+enum { NE_H2 = 1, NE_BE, NE_X1, NE_X2, NE_X3, NE_UNALIGNED };
+#ifdef RECOMP_ACCESS
+void recomp_access_site(int kind);
+#define RECOMP_SITE(k) recomp_access_site(k)
+#else
+#define RECOMP_SITE(k) ((void)0)
+#endif
+
 /* Effective address check: a 64-bit address that is a valid sign-extended
    KSEG0 or KSEG1 address inside RDRAM, aligned to `align`. */
 static inline uint32_t recomp_ea_check(recomp_context *ctx, uint64_t ea, uint32_t align, uint32_t pc) {
@@ -296,6 +318,15 @@ static inline uint32_t recomp_ea_check(recomp_context *ctx, uint64_t ea, uint32_
         recomp_trap(ctx, RECOMP_TRAP_ADDRESS, pc, (uint32_t)ea);
     if ((uint32_t)ea & (align - 1))
         recomp_trap(ctx, RECOMP_TRAP_ALIGN, pc, (uint32_t)ea);
+#elif defined(RECOMP_EA_GUARD)
+    /* the port's diagnostic (PORT_EA_GUARD): only what the port maps (RDRAM,
+       the hardware registers, the fibers' stacks) */
+    {
+        uint32_t p = (uint32_t)ea & 0x1FFFFFFFu;
+        if (!(p < RDRAM_SIZE || p - 0x04000000u < 0x00900000u || p - 0x10000000u < 0x01000000u))
+            recomp_trap(ctx, RECOMP_TRAP_ADDRESS, pc, (uint32_t)ea);
+    }
+    (void)align;
 #else
     (void)ctx; (void)align; (void)pc;
 #endif
@@ -378,24 +409,28 @@ static inline void mem_w64(uint8_t *rdram, uint32_t a, uint64_t v) {
 #ifndef RECOMP_NATIVE_ENDIAN
 /* lwl/lwr/swl/swr, big-endian semantics on the aligned word */
 static inline uint64_t mem_lwl(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t keep = k ? ((uint32_t)rt & ((1u << k) - 1)) : 0;
     return S32((w << k) | keep);
 }
 static inline uint64_t mem_lwr(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t s = (3 - (a & 3)) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t mask = 0xFFFFFFFFu >> s;
     return S32(((uint32_t)rt & ~mask) | (w >> s));
 }
 static inline void mem_swl(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t mask = 0xFFFFFFFFu >> k;
-    mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt >> k));
+    RECOMP_SITE(NE_UNALIGNED); mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt >> k));
 }
 static inline void mem_swr(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t s = (3 - (a & 3)) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t mask = 0xFFFFFFFFu << s;
-    mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt << s));
+    RECOMP_SITE(NE_UNALIGNED); mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt << s));
 }
 #else
 /* Native-endian memory holds a word's bytes least significant first, so
@@ -406,24 +441,28 @@ static inline void mem_swr(uint8_t *rdram, uint32_t a, uint64_t rt) {
    lwr the high bytes from the start of the word to x.  (Only little-endian
    hosts: a big-endian one uses the other branch.) */
 static inline uint64_t mem_lwl(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t keep = k ? (uint32_t)rt & ~(0xFFFFFFFFu >> k) : 0;
     return S32((w >> k) | keep);
 }
 static inline uint64_t mem_lwr(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t s = (3 - (a & 3)) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t keep = s ? (uint32_t)rt & (0xFFFFFFFFu >> (32 - s)) : 0;
     return S32((w << s) | keep);
 }
 static inline void mem_swl(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t k = (a & 3) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t mask = 0xFFFFFFFFu << k;
-    mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt << k));
+    RECOMP_SITE(NE_UNALIGNED); mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt << k));
 }
 static inline void mem_swr(uint8_t *rdram, uint32_t a, uint64_t rt) {
+    RECOMP_SITE(NE_UNALIGNED);
     uint32_t s = (3 - (a & 3)) * 8, w = mem_r32(rdram, a & ~3u);
     uint32_t mask = 0xFFFFFFFFu >> s;
-    mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt >> s));
+    RECOMP_SITE(NE_UNALIGNED); mem_w32(rdram, a & ~3u, (w & ~mask) | ((uint32_t)rt >> s));
 }
 #endif
 

@@ -48,6 +48,44 @@ def sym(name):
     return f"SYM({name})"
 
 
+# Native-endian memory (RECOMP_NATIVE_ENDIAN; docs/PORT.md "Native-endian
+# memory"): the accesses that move data at another width than it has.
+# native_sites.txt lists them by function and offset, with a kind:
+#   h2   a word that is two 16-bit fields (lw/sw/lwc1-free): halves exchanged
+#   be   a big-endian datum (texels, what the RDP reads as bytes): the
+#        access byte-reversed; `func be` alone covers every access of the
+#        function that isn't through $sp
+#   x2 x1 x3   a halfword (x2) or byte (x1, x3: into a halfword, a word) of
+#        a wider field: the address XORed, as a little-endian host has it
+# In the big-endian build (the default, and the differential test) the
+# macros are the identity, so the translation is the same for both.
+SITES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "native_sites.txt")
+SITE_KINDS = ("h2", "be", "x1", "x2", "x3")
+
+
+def load_sites():
+    sites, whole = {}, {}
+    if not os.path.exists(SITES_FILE):
+        return sites, whole
+    for n, line in enumerate(open(SITES_FILE), 1):
+        line = line.split("#", 1)[0].split()
+        if not line:
+            continue
+        if len(line) != 2 or line[1] not in SITE_KINDS:
+            raise TranslateError(f"{SITES_FILE}:{n}: expected FUNC[+0xOFF] KIND")
+        where, kind = line
+        if "+" in where:
+            fn, off = where.split("+")
+            sites[(fn, int(off, 16))] = kind
+        else:
+            whole[where] = kind
+    return sites, whole
+
+
+NATIVE_SITES, NATIVE_FUNCS = load_sites()
+USED_SITES = set()
+
+
 class FuncEmitter:
     def __init__(self, group, funcs_by_name, externs, cov, blocks):
         self.blocks = blocks            # (id, function, [ops]) per block
@@ -78,6 +116,72 @@ class FuncEmitter:
         if ln.lo is None and i.imm == 0:
             return f"(uint64_t){base}"
         return f"((uint64_t){base} + {off})"
+
+    def site_kind(self, ln):
+        """native_sites.txt's kind for a load or store, or None"""
+        i = ln.insn
+        if i.op not in ("lb", "lbu", "lh", "lhu", "lw", "lwu", "sb", "sh", "sw", "lwc1", "swc1"):
+            return None
+        fn = next(f for f in self.group if f.vram <= ln.vram < f.end())
+        key = (fn.name, ln.vram - fn.vram)
+        if key in NATIVE_SITES:
+            USED_SITES.add(key)
+            return NATIVE_SITES[key]
+        if fn.name in NATIVE_FUNCS and GPR_NAMES[i.rs] != "sp":
+            # a whole function's kind applies to the accesses it fits:
+            # halves for x2, bytes for x1/x3, words for h2, 2 and 4 for be
+            kind = NATIVE_FUNCS[fn.name]
+            width = {"lb": 1, "lbu": 1, "sb": 1, "lh": 2, "lhu": 2, "sh": 2}.get(i.op, 4)
+            fits = {"x2": (2,), "x1": (1,), "x3": (1,), "h2": (4,), "be": (2, 4)}[kind]
+            if width not in fits or i.op in ("lwc1", "swc1"):
+                return None
+            USED_SITES.add((fn.name, None))
+            return kind
+        return None
+
+    def native_site(self, ln, kind, ea, rt, pc):
+        i = ln.insn
+        op = i.op
+        width = {"lb": 1, "lbu": 1, "sb": 1, "lh": 2, "lhu": 2, "sh": 2}.get(op, 4)
+        store = op in ("sb", "sh", "sw", "swc1")
+        if kind in ("x1", "x2", "x3"):
+            if (kind == "x2") != (width == 2) or width == 4:
+                raise TranslateError(f"{kind} on {op} at {ln.vram:08X}")
+            k = kind[1]
+        elif kind == "h2" and width != 4 or kind == "be" and width == 1:
+            if kind == "be" and width == 1:
+                return self.insn_plain(ln)
+            raise TranslateError(f"{kind} on {op} at {ln.vram:08X}")
+        conv = {"h2": "NE_ROT16", "be": "NE_BS32" if width == 4 else "NE_BS16"}.get(kind)
+        a = f"recomp_ea{'_w' if store else ''}(ctx, {ea}, {width}, {pc})"
+        if kind[0] == "x":
+            a = f"NE_XOR({a}, {k})"
+        site = f"RECOMP_SITE({'NE_' + kind.upper()});"
+        if store:
+            val = {"sb": f"(uint8_t){rt}", "sh": f"(uint16_t){rt}", "sw": f"(uint32_t){rt}",
+                   "swc1": f"ctx->f[{i.ft}]"}[op]
+            if conv:
+                val = f"{conv}({val})"
+            fn = {1: "mem_w8", 2: "mem_w16", 4: "mem_w32"}[width]
+            return [f"{{ uint32_t a = {a}; {site} {fn}(rdram, a, {val}); }}"]
+        fn = {1: "mem_r8", 2: "mem_r16", 4: "mem_r32"}[width]
+        v = f"{fn}(rdram, a)"
+        if conv:
+            v = f"{conv}({v})"
+        expr = {"lb": f"S32((int8_t){v})", "lbu": f"(uint64_t){v}", "lh": f"S32((int16_t){v})",
+                "lhu": f"(uint64_t)(uint16_t){v}", "lw": f"S32({v})", "lwu": f"(uint64_t)(uint32_t){v}"}.get(op)
+        if op == "lwc1":
+            return [f"{{ uint32_t a = {a}; {site} ctx->f[{i.ft}] = {v}; }}"]
+        return [f"{{ uint32_t a = {a}; {site} {W(i.rt, expr)} }}"]
+
+    def insn_plain(self, ln):
+        global NATIVE_FUNCS
+        saved = NATIVE_FUNCS
+        NATIVE_FUNCS = {}
+        try:
+            return self.insn(ln)
+        finally:
+            NATIVE_FUNCS = saved
 
     # --- one instruction (not a branch/jump) -------------------------------
     def insn(self, ln):
@@ -158,6 +262,9 @@ class FuncEmitter:
             return [f"ctx->lo = {rs};"]
         # loads / stores
         ea = self.ea(ln)
+        kind = self.site_kind(ln)
+        if kind:
+            return self.native_site(ln, kind, ea, rt, pc)
         loads = {
             "lb": (1, "S32((int8_t)mem_r8(rdram, a))"),
             "lbu": (1, "(uint64_t)mem_r8(rdram, a)"),
@@ -563,6 +670,11 @@ def main():
             f.write(text)
         us = used_syms.setdefault(o.module, set())
         us.update(re.findall(r"SYM\(([A-Za-z0-9_]+)\)", text))
+
+    unused = [k for k in NATIVE_SITES if k not in USED_SITES] + \
+        [k for k in NATIVE_FUNCS if (k, None) not in USED_SITES]
+    if unused:
+        raise TranslateError(f"native_sites.txt: no such load or store: {unused}")
 
     allf = sorted(funcs.values(), key=lambda fn: (fn.obj.module, fn.vram))
     with open(os.path.join(args.outdir, "recomp_funcs.h"), "w") as f:

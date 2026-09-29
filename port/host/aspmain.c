@@ -68,10 +68,12 @@ static uint8_t *ram(uint32_t so) {
     uint32_t a = segments[(so >> 24) & 0xF] + (so & 0xFFFFFF);
     return port_ptr(PORT_RDRAM_BASE | (a & (PORT_RDRAM_SIZE - 1)));
 }
-static int16_t ram16(const uint8_t *p, int i) { return (int16_t)port_be16(p + 2 * i); }
-static void wram16(uint8_t *p, int i, int16_t v) { port_wbe16(p + 2 * i, (uint16_t)v); }
-static int32_t ram32(const uint8_t *p, int i) { return (int32_t)port_be32(p + 4 * i); }
-static void wram32(uint8_t *p, int i, int32_t v) { port_wbe32(p + 4 * i, (uint32_t)v); }
+/* game memory at its own widths (the codebooks, the loop state, the state
+   the microcode keeps between frames, which only it reads) */
+static int16_t ram16(const uint8_t *p, int i) { return (int16_t)port_g16(p + 2 * i); }
+static void wram16(uint8_t *p, int i, int16_t v) { port_wg16(p + 2 * i, (uint16_t)v); }
+static int32_t ram32(const uint8_t *p, int i) { return (int32_t)port_g32(p + 4 * i); }
+static void wram32(uint8_t *p, int i, int32_t v) { port_wg32(p + 4 * i, (uint32_t)v); }
 
 /* ---- the decoder: 9-byte frames of 16 samples, a 2nd-order predictor --- */
 
@@ -244,7 +246,7 @@ void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data)
     const uint8_t *cmd = port_ptr(data_ptr);
     resample_lut = (const uint8_t *)port_ptr(ucode_data) + 0xD0;
     for (uint32_t off = 0; off + 8 <= data_size; off += 8) {
-        uint32_t w0 = port_be32(cmd + off), w1 = port_be32(cmd + off + 4);
+        uint32_t w0 = port_g32(cmd + off), w1 = port_g32(cmd + off + 4);
         int op = w0 >> 24, flags = (w0 >> 16) & 0xFF;
         switch (op) {
         case A_SPNOOP:

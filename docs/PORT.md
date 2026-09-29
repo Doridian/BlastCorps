@@ -259,8 +259,22 @@ the asm's instruction counts don't move events).  Then:
 
 That is how the 32-bit build's miscompiles above were found (and the
 64-bit build's early bugs: the libaudio relocation, the narrow returns).
-The same method will check native-endian memory against the big-endian
-build, with RDRAM compared through the type map.
+Against a native-endian build ("Native-endian memory"):
+
+- `build_cmp.py rdram --native BE NATIVE N...` compares RDRAM through the
+  byte orders a word can have; when the native run is a
+  `-DPORT_ACCESS_PROFILE=ON` build's, each dump comes with the width every
+  byte was last written or converted at (`rdram_N.widths`) and the compare
+  is exact, byte by byte;
+- a `-DPORT_TRACE_ASM=ON` build (the translated code built with
+  `RECOMP_TRACE`) writes, for `PORT_ITRACE=FILE,FROM,TO`, every translated
+  instruction's address and the registers before it, and `build_cmp.py
+  itrace A.bin B.bin` finds the first instruction whose registers differ
+  but for byte order (a word copy of halves or bytes, which native memory
+  holds in its own order).  The registers hold the same values in both
+  builds, so that instruction is the one after the load that read
+  something typed wrongly.  (Much slower; one or two controller reads at
+  a time.)
 
 ## Native-endian memory
 
@@ -351,6 +365,114 @@ So the stages are:
    the asm or the ROM data share keep 32-bit fields (`PTR32`), and the
    `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
    depends on them.
+
+### The native-endian build
+
+Stages 1 and 2 are done for us.v11: `-DPORT_NATIVE_ENDIAN=ON` (with either
+`PORT_64BIT`) builds the port with every datum in host order at its N64
+offset.  The big-endian build stays the default and is unchanged by it.
+
+**Conventions.**  Scalars are host-order where the N64 has them.  A 64-bit
+scalar (`u64`, `s64`, `double`) is two host-order words, the high one
+first: that is what the asm's `ld`/`sd` and the FPU's register pairs see,
+so the C (BEPass rotates its 64-bit loads and stores by 32 bits) and the
+asm share `D_80364A90`, `D_803649D8` and the rest without a case each.  An
+`Mtx` is sixteen host-order words (element 2n the high half of word n), a
+`Vtx` its fields, a display list pairs of words.  What only the RDP, the
+RSP's DMA or the audio reads as bytes stays in the N64's byte order:
+texels, palettes, framebuffers, samples, the microcode's data.
+
+**BEPass** (`BEPASS_NATIVE=1`) swaps nothing but those 64-bit halves, and
+keeps the loop polls and the instruction count, so both builds keep the
+same time and can be compared run for run.  The N64 side is built without
+the vectorizers there (`ilp32cc.py`): they raise globals' alignment, which
+would move them off their N64 addresses.
+
+**What arrives as bytes is converted by type where it arrives**
+(`port/host/native.c`; `port/src/loads.c` wraps the decompressors' entry
+points, `host_rom_read` reports every PI DMA; `port/tools/gen_romtab.py`
+names the ROM's segments from the link map):
+
+- the vehicles (19 sections: parts, their matrices and triangles, the
+  animation tables), the models (header, vertices, triangles, animated
+  textures, the effect records at 0x30/0x34, the damage states), the
+  levels (header, vertices and every section the game reads at a width:
+  ammo, TNT, RDUs, bounds, buildings, animated textures, the groups of
+  terrain triangles, blocks, holes, train stops, 0x74, 0xA0..0xC0), their
+  display lists, the attract recordings, the sound banks and sequences,
+  `static_data`, the texture and model tables;
+- the fields the handwritten code reads as big-endian byte pairs (the
+  vehicles, the carrier, the buildings' first bytes, collision triangles)
+  stay bytes;
+- the save: the EEPROM file keeps the N64's bytes (`host_save_order`
+  converts each block in and out), and `__osContDataCrc` is taken of them.
+
+**The asm data files** (`asm2x86.py --native`) are typed by the inventory
+(`blastcorps/include/game/inventory.json`, `symbols`): header types, and
+for the handwritten objects' own data the widths their code reads it at
+(`tools/inventory.py` from fieldscan's events), with `bytes` for text (C
+strings; 0xFF-terminated text, `func_802BEEF0`), for the targets of byte
+pointer tables (`D_80306270`), and for tables kept big-endian because a
+walk runs off their end into byte data (`D_80306344`, `D_80306350`,
+`D_803063D4`, `ASM_DATA_BE`).  An array of unknown length (`D_8020C070[]`)
+runs to its file's end, over the labels splat made inside it.  The data
+islands in hd_code's `.text` are laid out by their readers
+(`7D9D0`, `800DC`, `8E910`'s per-level tables); the rest stays as its
+directives say.
+
+**The translated code** (`RECOMP_NATIVE_ENDIAN`) takes, from
+`tools/recomp/native_sites.txt`, the instructions that move data at
+another width than its type: `be` (the texture decoders' streams, LUTs and
+texels; the chance tables), `x1`/`x2`/`x3` (a byte or half inside a wider
+field: the matrix routines, the effect records' 0x2E), `h2` (a word that
+is two halves).
+
+**The C** needed three changes of its own: `func_80200714` (hd_front_end
+196F0.c) tints big-endian texels, through `IMG_RD`/`IMG_WR` under
+`TARGET_PC && PORT_NATIVE_ENDIAN`; the textures the C declares as `u16` or
+`Vtx` arrays are put back into the N64's order at boot, and
+`YoshiIcon.unk6` (declared bytes, read as `u16`s) into host order
+(`port_native_fixups`, `port/src/loads.c`).  The host reads game variables
+through `port_var32` and the renderer and audio through `port_g16`/
+`port_g32`/`port_g16_of32` (`port.h`), which are the big-endian accessors
+in the default build.
+
+`-DPORT_EA_GUARD=ON` makes the translated code trap on any address the
+port doesn't map (a pointer read from mistyped data shows up there, at the
+instruction, rather than as a crash somewhere later).
+
+**How it was checked**, against the big-endian build with
+`PORT_COUNT_PER_OP=0 --deterministic`, 64-bit:
+
+- call traces (`PORT_TRACE_CALLS`) identical: attract mode, 12,000 frames
+  (23,199,462 calls); `PORT_AUTOSTART=1` and `=2`, 6,000 frames
+  (7,841,424 and 7,901,391);
+- `--renderer gl --scale 1` screenshots every 300 frames (40, 20 and 20)
+  and `--wav` byte for byte identical, and the saves; the 32-bit native
+  build the same as the 32-bit big-endian one;
+- RDRAM by type at controller reads 2,000 and 5,000 of the attract mode and
+  1,000 and 2,500 of each autostart: no word differs at its width but the
+  game thread's N64 stack (registers spilled by the texture decoders,
+  which hold word copies of texels), and one heap halfword that
+  `func_80278E3C` rewrites by mistake (it passes `D_80358070`'s value to
+  `func_80257490`, which rounds the stale word there up: the N64 does it
+  too, in its byte order);
+- the profiler's table for all three runs holds only rows known to be
+  harmless: the RSP reading stale heap through segment 9, `D_803ED3B8`'s
+  bytes compared with a -1 sentinel as a word, `func_8026A5CC`'s `u64`
+  copy, `osContGetQuery`'s stale display-list words;
+- the translated code's differential test passes 688/688.
+
+Speed is the same: 6,000 frames take 3.94 s of user time native against
+3.96 s big-endian (attract mode), 4.53 s against 4.44 s in Simian Acres,
+and 4.27/4.28 s and 4.95/5.21 s in the 32-bit builds; the frame is the
+renderer's more than the game's.
+
+What's left: the inventory, the site table and the island layouts are
+us.v11's (the other versions build big-endian only); levels and vehicles
+the three runs don't reach are typed from the code but untested; and the
+profiler still leaves out the C's byte reads of wider data (its byte
+copies, often into locals it can't see).
 
 **What the type inventory needs to give**, machine-readable (JSON, one
 file), for all of this:
@@ -637,6 +759,10 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   returns that.  Two string copies whose unsequenced `a[i] = b[i++]` IDO
   evaluates with the old index.
 - `hd_code/168B0.c`: the same unsequenced copy.
+- `hd_front_end/196F0.c`: `func_80200714`'s texel reads and writes go
+  through `IMG_RD`/`IMG_WR`, byte-swapping only in the native-endian build
+  (`TARGET_PC && PORT_NATIVE_ENDIAN`; plain accesses otherwise, so IDO's
+  output is unchanged).
 - `tools/recomp/runtime/recomp.h`: `dmult`/`dmultu` without `__int128` on a
   32-bit host (checked against the `__int128` version); the
   `RECOMP_ACCESS` hooks for the profiler and the mirrored unaligned pairs
@@ -754,9 +880,9 @@ events inside a frame: the SP and DP interrupts (mupen64plus raises them
 - **Real call states** for the translated code's test.  Recording `ctx` and
   memory at each translated function's entry during play would replace the
   random registers, and reach the 30% of blocks the random states don't.
-- **Toward native code**: the 64-bit build is done ("The 64-bit build");
-  native-endian memory and native pointers follow the stages in
-  "Native-endian memory", on the type inventory.  The 32-bit build still
+- **Toward native code**: the 64-bit build is done ("The 64-bit build"),
+  and native-endian memory for us.v11 ("The native-endian build"); native
+  pointers are stage 3 of "Native-endian memory", on the type inventory.  The 32-bit build still
   has the out-of-bounds miscompiles the 64-bit one avoids; typing those
   arrays fixes both.
 - **Readable C.** Replace translated functions with hand-written C one at a

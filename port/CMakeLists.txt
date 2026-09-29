@@ -34,6 +34,10 @@ option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in
 # game's C (PORT_TRACE=FILE,FROM,TO), the access-width profiler (PORT_ACCESS=FILE)
 option(PORT_TRACE_CALLS "the game's C calls __port_trace on every function entry" OFF)
 option(PORT_ACCESS_PROFILE "record the width every byte of RDRAM is written and read at" OFF)
+# native-endian memory (docs/PORT.md, "Native-endian memory"): every datum in
+# host order where the N64 has it, the ROM's data converted by type as it
+# is loaded; BEPass then swaps nothing but the words of 64-bit scalars
+option(PORT_NATIVE_ENDIAN "game memory in host byte order instead of the N64's" OFF)
 
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
@@ -93,6 +97,9 @@ endif()
 if(PORT_ACCESS_PROFILE)
     list(APPEND N64_LAUNCHER BEPASS_ACCESS=1)
 endif()
+if(PORT_NATIVE_ENDIAN)
+    list(APPEND N64_LAUNCHER BEPASS_NATIVE=1)
+endif()
 if(N64_LAUNCHER)
     list(PREPEND N64_LAUNCHER env)
 endif()
@@ -138,6 +145,12 @@ if(PORT_64BIT)
 endif()
 if(PORT_ACCESS_PROFILE)
     list(APPEND N64_DEFINES PORT_ACCESS_PROFILE)
+endif()
+if(PORT_NATIVE_ENDIAN)
+    list(APPEND N64_DEFINES PORT_NATIVE_ENDIAN)
+    # without the byte swaps clang vectorizes the game's float arrays and
+    # raises their alignment, which would move them off their N64 addresses
+    list(APPEND M32 -fno-vectorize -fno-slp-vectorize)
 endif()
 # The decompiled C is IDO's dialect: K&R definitions, implicit
 # declarations, prototypes that differ between files, pointers and ints
@@ -195,6 +208,10 @@ list(REMOVE_ITEM DATA_S ${BLAST}/asm/data/hd_code/972A0.rodata.s)
 set(DATA_BIN hd_code/68810 hd_code/690C0 hd_code/8E910 hd_code/91D50 hd_code/A0C30
              hd_code/C9BD0 hd_code/CA3D0 hd_code/CA6A0 hd_front_end/20090 hd_front_end/29690)
 set(DATA_X86)
+set(ASM2X86_FLAGS)
+if(PORT_NATIVE_ENDIAN)
+    set(ASM2X86_FLAGS --native)     # host order, by the directives and the type inventory
+endif()
 foreach(s ${DATA_S})
     file(RELATIVE_PATH rel ${BLAST}/asm ${s})
     string(REPLACE "/" "_" out ${rel})
@@ -203,14 +220,14 @@ foreach(s ${DATA_S})
         set(label ${CMAKE_MATCH_1}_${CMAKE_MATCH_2}_bin)
     endif()
     add_custom_command(OUTPUT ${GEN}/data/${out}
-        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${GEN}/data/${out} ${s} ${label}
-        DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} ${GEN}/data/${out} ${s} ${label}
+        DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${BLAST}/include/game/inventory.json)
     list(APPEND DATA_X86 ${GEN}/data/${out})
 endforeach()
 foreach(b ${DATA_BIN})
     string(REPLACE "/" "_" label ${b})
     add_custom_command(OUTPUT ${GEN}/data/${label}.bin.s
-        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${GEN}/data/${label}.bin.s ${BLAST}/assets/${b}.bin ${label}_bin
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} ${GEN}/data/${label}.bin.s ${BLAST}/assets/${b}.bin ${label}_bin
         DEPENDS ${BLAST}/assets/${b}.bin ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
     list(APPEND DATA_X86 ${GEN}/data/${label}.bin.s)
 endforeach()
@@ -305,6 +322,38 @@ endif()
 target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
     -Wl,${GEN}/port_fixed.ld)
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} m)
+
+# ---- the loaders (host/native.c, src/loads.c) ---------------------------------
+# the decompressors' entry points are wrapped, so every load is seen; the
+# ROM's segments come from the top-level link map
+add_custom_command(OUTPUT ${GEN}/romtab.h
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_romtab.py ${GEN}/romtab.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_romtab.py ${ROOT}/build/blastcorps.${PORT_VERSION}.map
+            ${BLAST}/include/game/inventory.json)
+add_custom_target(romtab DEPENDS ${GEN}/romtab.h)
+add_dependencies(host romtab)
+target_include_directories(host PRIVATE ${GEN})
+target_link_options(blastcorps PRIVATE -Wl,--wrap=func_8025C230 -Wl,--wrap=func_8028B4C4 -Wl,--wrap=__osContDataCrc)
+
+# ---- diagnostics: the translated code traps on an address the port doesn't map
+option(PORT_EA_GUARD "the translated code checks every address it accesses" OFF)
+if(PORT_EA_GUARD)
+    target_compile_definitions(recomp PRIVATE RECOMP_EA_GUARD)
+endif()
+
+# ---- diagnostics: the translated code traced instruction by instruction
+option(PORT_TRACE_ASM "PORT_ITRACE=FILE,FROM,TO: the translated code's instructions and registers" OFF)
+if(PORT_TRACE_ASM)
+    target_compile_definitions(recomp PRIVATE RECOMP_TRACE)
+    target_compile_definitions(host PRIVATE PORT_TRACE_ASM)
+endif()
+
+# ---- native-endian memory: the rest of the port follows --------------------
+if(PORT_NATIVE_ENDIAN)
+    target_compile_definitions(host PRIVATE PORT_NATIVE_ENDIAN)
+    target_compile_definitions(recomp PRIVATE PORT_NATIVE_ENDIAN RECOMP_NATIVE_ENDIAN)
+    message(STATUS "native-endian memory")
+endif()
 
 # every game variable where the N64 has it?
 add_custom_command(TARGET blastcorps POST_BUILD

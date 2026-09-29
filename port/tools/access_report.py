@@ -100,7 +100,9 @@ def lookup(table, a):
 
 
 def main():
-    rows = list(open(sys.argv[1]))[1:]
+    lines = list(open(sys.argv[1]))[1:]
+    assets = {int(l.split("\t")[1]): l.split("\t")[2].strip() for l in lines if l.startswith("#asset")}
+    rows = [l for l in lines if not l.startswith("#")]
     cn = c_names(sys.argv[2])
     funcs, data = n64_syms()
     segs = rom_segments()
@@ -116,6 +118,12 @@ def main():
         if kind == "dma":
             seg = lookup(segs, s)
             return f"ROM {seg}" if seg else f"ROM {s:06X}"
+        if kind == "conv":          # native-endian loads: asset << 20 | offset, or the address
+            if s < 0x80000000 and (s >> 20) in assets:
+                return f"load {assets[s >> 20]}+0x{s & 0xFFFFF:X}"
+            return f"load {lookup(data, s) or hex(s)}"
+        if kind == "img":
+            return f"data {lookup(data, s) or hex(s)}"
         return f"{kind} {s:08X}"
 
     rom = collections.defaultdict(lambda: [0, set(), 0xFFFFFFFF, 0])

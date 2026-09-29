@@ -12,6 +12,13 @@
 
 #include "host.h"
 
+#ifdef PORT_NATIVE_ENDIAN
+/* game variables are read with port_be32 (and the pad written with
+   port_wbe16) below: at their own width in RDRAM (port.h) */
+#define port_be32(p) port_var32(p)
+#define port_wbe16(p, v) port_wvar16((p), (v))
+#endif
+
 int host_max_frames;
 const char *host_screenshot_prefix;
 int host_headless;
@@ -258,8 +265,10 @@ static void eeprom_load(void) {
 
 void host_eeprom_read(int block, uint32_t dst) {
     eeprom_load();
-    if (block >= 0 && block < 64)
+    if (block >= 0 && block < 64) {
         memcpy(port_ptr(dst), eeprom + block * 8, 8);
+        host_save_order(port_ptr(dst), block * 8, 8, 0);    /* the file keeps the N64's bytes */
+    }
 }
 
 void host_eeprom_write(int block, uint32_t src) {
@@ -267,6 +276,7 @@ void host_eeprom_write(int block, uint32_t src) {
     if (block < 0 || block >= 64)
         return;
     memcpy(eeprom + block * 8, port_ptr(src), 8);
+    host_save_order(eeprom + block * 8, block * 8, 8, 0);
     FILE *f = fopen(host_save_path, "wb");
     if (f) {
         fwrite(eeprom, 1, sizeof eeprom, f);

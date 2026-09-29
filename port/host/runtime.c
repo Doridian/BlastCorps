@@ -4,6 +4,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "host.h"
 
@@ -28,6 +29,20 @@ void __bepass_fixup(const struct bepass_entry *e, uint32_t n) {
     for (uint32_t i = 0; i < n; i++)
         for (uint32_t k = 0; k < e[i].count; k++)
             swap_bytes(e[i].p + k * e[i].size, e[i].size);
+}
+
+/* BEPass in native mode (PORT_NATIVE_ENDIAN): the 64-bit scalars in C
+   initializers, whose words go high one first */
+void __bepass_fixup_rot64(const struct bepass_entry *e, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++)
+        for (uint32_t k = 0; k < e[i].count; k++) {
+            uint32_t w[2];
+            memcpy(w, e[i].p + k * 8, 8);
+            uint32_t t = w[0];
+            w[0] = w[1];
+            w[1] = t;
+            memcpy(e[i].p + k * 8, w, 8);
+        }
 }
 
 /* asm2x86.py: symbolic .words in the game's data, in host order until now */
@@ -93,6 +108,42 @@ void __port_trace(uint32_t id) {
     if (trace_f && trace_poll >= trace_from && trace_poll < trace_to)
         fwrite(&id, 4, 1, trace_f);
 }
+
+#ifdef PORT_TRACE_ASM
+/* PORT_TRACE_ASM builds (the translated code built with RECOMP_TRACE): before
+   every instruction, PORT_ITRACE=FILE,FROM,TO writes its address and the
+   registers' low words (and lo), between the FROMth and the TOth controller
+   read.  The registers hold the same values in the big-endian and the
+   native-endian build but where a word copy moves data that isn't a word,
+   so two traces part at the instruction after the one that went wrong
+   (build_cmp.py itrace).  Addresses in the port's image and on the host
+   stacks, which differ between builds, count as one value. */
+void recomp_trace(recomp_context *ctx, uint32_t pc) {
+    static FILE *f;
+    static int init;
+    static unsigned from, to;
+    if (!init) {
+        init = 1;
+        const char *s = getenv("PORT_ITRACE");
+        char name[512];
+        to = ~0u;
+        if (s && sscanf(s, "%511[^,],%u,%u", name, &from, &to) >= 1)
+            f = fopen(name, "wb");
+    }
+    if (!f || trace_poll < from || trace_poll >= to)
+        return;
+    uint32_t rec[33];
+    rec[0] = pc;
+    for (int i = 1; i < 32; i++) {
+        uint32_t v = (uint32_t)ctx->r[i];
+        if ((v >= 0x80400000u && v < 0x81000000u) || (v >= 0x90000000u && v < 0x91000000u))
+            v = 1;
+        rec[i] = v;
+    }
+    rec[32] = (uint32_t)ctx->lo;
+    fwrite(rec, sizeof rec, 1, f);
+}
+#endif
 
 void port_trace_poll(void) {
     trace_poll++;

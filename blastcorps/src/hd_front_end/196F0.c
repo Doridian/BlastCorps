@@ -26,7 +26,18 @@ void func_802006F0(void) {
 /*
  * Loads one of three RGBA16 images into D_80358070 and tints it for arg0:
  * 3/7/9 and 2/6/8 shift the colours, the rest keep them.
+ *
+ * The texels are the RDP's, big-endian, which the native-endian PC port
+ * keeps in memory as bytes (docs/PORT.md): there IMG reads and writes them
+ * byte-swapped.  Everywhere else it is the plain access.
  */
+#if defined(TARGET_PC) && defined(PORT_NATIVE_ENDIAN)
+#define IMG_RD(p) ((u16)__builtin_bswap16(*(p)))
+#define IMG_WR(p, v) (*(p) = __builtin_bswap16(v))
+#else
+#define IMG_RD(p) (*(p))
+#define IMG_WR(p, v) (*(p) = (v))
+#endif
 void func_80200714(u8 arg0) {
     u8 *romStart;
     u8 *romEnd;
@@ -66,9 +77,9 @@ void func_80200714(u8 arg0) {
     func_8028B4C4(romStart, D_80358070, &size, 0xD, 0, 2);
     img = (u16 *)D_80358070;
     for (i = 0; i < size >> 1; i++) {
-        r = img[i] >> 11;
-        g = (img[i] >> 6) & 0x1F;
-        b = (img[i] >> 1) & 0x1F;
+        r = IMG_RD(&img[i]) >> 11;
+        g = (IMG_RD(&img[i]) >> 6) & 0x1F;
+        b = (IMG_RD(&img[i]) >> 1) & 0x1F;
         switch (arg0) {
             case 3:
             case 7:
@@ -94,7 +105,7 @@ void func_80200714(u8 arg0) {
                 b = (f32)t * 0.8125;
                 break;
         }
-        img[i] = (r << 11) | (g << 6) | (b << 1) | 1;
+        IMG_WR(&img[i], (r << 11) | (g << 6) | (b << 1) | 1);
     }
     D_80358070 += size;
 }

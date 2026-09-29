@@ -75,8 +75,8 @@ static void load_mtx(float m[4][4], uint32_t addr) {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++) {
             int k = i * 4 + j;
-            int16_t hi = (int16_t)port_be16(p + 2 * k);
-            uint16_t lo = port_be16(p + 32 + 2 * k);
+            int16_t hi = (int16_t)port_g16_of32(p, k);             /* Mtx: words */
+            uint16_t lo = port_g16_of32(p + 32, k);
             m[i][j] = (float)(((int32_t)hi << 16) | lo) / 65536.0f;
         }
 }
@@ -128,12 +128,12 @@ static void do_vtx(uint32_t w0, uint32_t w1) {
     }
     for (int i = 0; i < n && v0 + i < 16; i++, p += 16) {
         Vtx4 *v = &gs.v[v0 + i];
-        float x = (int16_t)port_be16(p), y = (int16_t)port_be16(p + 2), z = (int16_t)port_be16(p + 4);
+        float x = (int16_t)port_g16(p), y = (int16_t)port_g16(p + 2), z = (int16_t)port_g16(p + 4);
         v->x = x * gs.mvp[0][0] + y * gs.mvp[1][0] + z * gs.mvp[2][0] + gs.mvp[3][0];
         v->y = x * gs.mvp[0][1] + y * gs.mvp[1][1] + z * gs.mvp[2][1] + gs.mvp[3][1];
         v->z = x * gs.mvp[0][2] + y * gs.mvp[1][2] + z * gs.mvp[2][2] + gs.mvp[3][2];
         v->w = x * gs.mvp[0][3] + y * gs.mvp[1][3] + z * gs.mvp[2][3] + gs.mvp[3][3];
-        float s = (int16_t)port_be16(p + 8), t = (int16_t)port_be16(p + 10);
+        float s = (int16_t)port_g16(p + 8), t = (int16_t)port_g16(p + 10);
         if (gs.geom & 0x20000) {
             float nx = (int8_t)p[12], ny = (int8_t)p[13], nz = (int8_t)p[14];
             float len = sqrtf(nx * nx + ny * ny + nz * nz);
@@ -219,6 +219,7 @@ static void load_block(uint32_t w0, uint32_t w1) {
     const uint8_t *p = port_ptr(src);
     if (bytes > 4096)
         bytes = 4096;
+    PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
     /* the RDP counts rows by adding dxt for every 8-byte word */
     if (gs.timg_siz == 3) {
         for (uint32_t i = 0; i < bytes; i += 4)
@@ -241,6 +242,7 @@ static void load_tile(uint32_t w0, uint32_t w1) {
         const uint8_t *p = port_ptr(gs.timg_addr + ((uint32_t)y * gs.timg_w + uls) * bpt2 / 2);
         int odd = (y - ult) & 1;
         uint32_t dst = t->tmem * 8 + (uint32_t)(y - ult) * t->line * 8;
+        PORT_ACCESS_BYTES(p, rowbytes < 4096 ? rowbytes : 4096);
         if (gs.timg_siz == 3) {
             for (uint32_t i = 0; i < rowbytes && i / 2 < 2048; i += 4)
                 tmem_put(dst + i / 2, odd, p + i, 3);
@@ -258,6 +260,7 @@ static void load_tlut(uint32_t w0, uint32_t w1) {
     int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
     const uint8_t *p = port_ptr(gs.timg_addr + (uint32_t)uls * 2);
     uint32_t dst = t->tmem * 8;
+    PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
     for (int i = 0; i <= lrs - uls && dst + 2 * i + 1 < 4096; i++) {
         gfx_tmem[dst + 2 * i] = p[2 * i];
         gfx_tmem[dst + 2 * i + 1] = p[2 * i + 1];
@@ -925,7 +928,7 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
 static void run(uint32_t dl, int depth) {
     for (int n = 0; n < 1000000; n++, dl += 8) {
         const uint8_t *p = port_ptr(dl);
-        uint32_t w0 = port_be32(p), w1 = port_be32(p + 4);
+        uint32_t w0 = port_g32(p), w1 = port_g32(p + 4);
         uint8_t op = w0 >> 24;
         host_gfx_stats[op]++;
         switch (op) {
@@ -935,8 +938,8 @@ static void run(uint32_t dl, int depth) {
             const uint8_t *m = port_ptr(seg_to_k0(w1));
             if (idx == 0x80) {                                  /* viewport */
                 for (int i = 0; i < 3; i++) {
-                    gs.vp_scale[i] = (int16_t)port_be16(m + 2 * i) / 4.0f;
-                    gs.vp_trans[i] = (int16_t)port_be16(m + 8 + 2 * i) / 4.0f;
+                    gs.vp_scale[i] = (int16_t)port_g16(m + 2 * i) / 4.0f;
+                    gs.vp_trans[i] = (int16_t)port_g16(m + 8 + 2 * i) / 4.0f;
                 }
             } else if (idx == 0x82 || idx == 0x84) {            /* look-at y, x */
                 for (int j = 0; j < 3; j++)
@@ -1003,7 +1006,7 @@ static void run(uint32_t dl, int depth) {
             break;
         case 0xE4: case 0xE5: {                                 /* texture rectangle */
             const uint8_t *q = port_ptr(dl + 8);
-            uint32_t h2 = port_be32(q + 4), hc = port_be32(q + 12);
+            uint32_t h2 = port_g32(q + 4), hc = port_g32(q + 12);
             tex_rect(w0, w1, h2, hc, op == 0xE5);
             dl += 16;
             break;

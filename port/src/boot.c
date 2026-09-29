@@ -20,7 +20,12 @@ static void boot_entry(void *arg) {
 
 void port_overlay_init(void);
 
+void port_native_fixups(void);
+
 void port_boot(void) {
+#ifdef PORT_NATIVE_ENDIAN
+    port_native_fixups();
+#endif
     port_overlay_init();
     osCreateThread(&boot_thread, 0, boot_entry, NULL, &boot_stack[0x400], 127);
     osStartThread(&boot_thread);

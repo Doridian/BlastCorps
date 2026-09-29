@@ -359,6 +359,19 @@ def c_placeholders():
     return out
 
 
+def data_to_end(owned, name):
+    """the bytes from a data file's label to the file's end"""
+    f = owned.get(name, "")
+    if not f.endswith((".data.s", ".rodata.s")):
+        return 0
+    n, on = 0, False
+    for lab, (b, refs) in asm_data_contents({name: f}).items():
+        on = on or lab == name
+        if on:
+            n += len(b)
+    return n
+
+
 def build_symbols(T, prog, res, types):
     ext = header_externs(T)
     owned = asm_owned(prog)
@@ -373,6 +386,12 @@ def build_symbols(T, prog, res, types):
         if dims and count == 0 and ty in types:
             addr = prog.named.get(name)
             count = prog.var_size(addr) // types[ty]["size"] if addr else 0
+            # an array of unknown length in a data file: to the file's end,
+            # over the labels splat made inside it (D_8020C070's entries
+            # are reached through several, yoshi.h)
+            ext_n = data_to_end(owned, name) // types[ty]["size"]
+            if ext_n > count:
+                count = ext_n
         e = {"type": ty, "count": count if dims else 1, "declared": h, "storage": owned[name]}
         if to:
             e["to"] = to
@@ -393,6 +412,184 @@ def build_symbols(T, prog, res, types):
     # fixed memory the game uses outside the modules' sections
     out.update(FIXED)
     return out
+
+
+# The handwritten objects' data the analysis doesn't reach field by field
+# (read through an index it can't follow), as the port's access-width
+# profiler (port/host/access.c) found them read: {symbol: (record fields
+# [(offset, type)], record size, evidence)}
+ASM_DATA_LAYOUTS = {
+    "D_80305B90": ([(0, "s16"), (2, "s16"), (4, "s16")], 6,
+                   "func_802A56C4: lh 0, 2, 4 of record i * j (hd_code 60D50)"),
+    "D_80305E38": ([(k, "s16") for k in range(0, 12, 2)], 24,
+                   "func_802C0E8C reads s16 0..0xA (hd_code 77E20)"),
+}
+
+# data kept in the N64's byte order, whatever its fields: the code that
+# reads it at a width is listed in tools/recomp/native_sites.txt (`be`)
+ASM_DATA_BE = {
+    # 12-byte records {u16 threshold, value; u32 lo, hi}, walked (lhu 0)
+    # until a random number is below the threshold: at 100 the walk runs off
+    # the end into D_803063E0, which the same function reads as byte pairs,
+    # and takes its bytes for a record.  Kept big-endian so that both reads
+    # see what the N64 does.
+    "D_80306344": "func_802BF978 (lhu 0, 2; lw 4, 8): records running into D_803063E0",
+    "D_80306350": "func_802BF978, as D_80306344",
+    "D_803063D4": "func_802BFDAC, as D_80306344",
+}
+
+
+# data the code reaches through a pointer table, where fieldscan can't
+# follow: {table: why}; every symbol the table points at is bytes
+ASM_DATA_BYTE_TABLES = {
+    "D_80306270": "func_802C0574 reads *D_80306270[i] with lbu 0 and lbu 1 + k (hd_code 77E20)",
+}
+
+
+def asm_data_contents(owned):
+    """{label: (bytes, [labels its .words point at])} of the asm data files,
+    as far as the directives are numbers"""
+    out, files = {}, sorted(set(owned.values()))
+    size = {".word": 4, ".short": 2, ".half": 2, ".byte": 1}
+    for f in files:
+        lab = None
+        for line in open(os.path.join(BLAST, f)):
+            m = re.match(r"\s*(?:dlabel|glabel)\s+(\w+)", line)
+            if m:
+                lab = m.group(1)
+                out[lab] = (bytearray(), [])
+                continue
+            m = re.match(r"\s*(\.\w+)\s+(.*)", line)
+            if not lab or not m or m.group(1) not in size:
+                continue
+            for v in m.group(2).split(","):
+                v = v.strip()
+                try:
+                    n = int(v, 0)
+                except ValueError:
+                    out[lab][1].append(v)
+                    n = 0
+                out[lab][0].extend((n & (1 << 8 * size[m.group(1)]) - 1).to_bytes(size[m.group(1)], "big"))
+    return out
+
+
+def text_kind(b):
+    """what makes these bytes text, or None: a C string (printable ASCII,
+    a NUL, zeros), or the game's 0xFF-terminated text (bytes below 0x80,
+    0xFF, then zeros: read with lb until negative, func_802BEEF0)"""
+    n = b.find(0xFF)
+    if n >= 0 and len(b) >= n + 2 and all(c < 0x80 for c in b[:n]) and not any(b[n + 1:]):
+        return "a 0xFF-terminated text (func_802BEEF0 reads it with lb until negative)" if n else \
+            "an empty 0xFF-terminated text"
+    n = b.find(0)
+    if n >= 2 and all(0x20 <= c < 0x7F or c == 0x0A for c in b[:n]) and not any(b[n:]):
+        return "a C string"
+    return None
+
+
+def build_asm_data_types(prog, an, res, elem, symbols, types):
+    """The handwritten objects' data files (asm/data: splat wrote their
+    contents as .word, .half, .byte by guesswork) typed by how the code
+    reaches them, for every symbol the headers don't type: each field at
+    the width the code accesses it with (tools/fieldscan.py's view, copy
+    loops left out), bytes where nothing reads more than one.  Where a field
+    is read at two widths, the one used most wins and the type says so.
+    The native-endian port converts these files by it (port/tools/
+    asm2x86.py --native)."""
+    owned = asm_owned(prog)
+    widths = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+    floats = defaultdict(set)
+    # (accesses in loops that step 1, 2 or 4 bytes count too: here they are
+    # walks through the records of a table, which is read-only data)
+    for (r, fo), kind, w, store, fn, pc, asm in event_fields(prog, an, res, elem, strided=True):
+        if not isinstance(r, str) or r not in owned or r in symbols:
+            continue
+        widths[r][fo][w] += 1
+        if kind != "int":
+            floats[r].add(fo)
+    out_types, out_syms = {}, {}
+    for name, (flds, esize, why) in ASM_DATA_LAYOUTS.items():
+        addr = prog.named.get(name)
+        if addr is None or name not in owned:
+            continue
+        size = prog.var_size(addr)
+        out_types["asm_" + name] = {"size": esize, "align": 4, "header": "(tools/inventory.py ASM_DATA_LAYOUTS)",
+                                    "fields": [{"off": o, "name": "unk%X" % o, "type": t, "count": 1} for o, t in flds],
+                                    "note": why}
+        out_syms[name] = {"type": "asm_" + name, "count": (size + esize - 1) // esize, "storage": owned[name],
+                          "derived": "the port's access-width profiler"}
+    # bytes by what they hold or how a table reaches them, where no code
+    # reads them at a width
+    contents = asm_data_contents(owned)
+    byte_syms = dict(ASM_DATA_BE)
+    for tab, why in ASM_DATA_BYTE_TABLES.items():
+        for t in contents.get(tab, (b"", []))[1]:
+            byte_syms[t] = why
+    for name, (b, refs) in contents.items():
+        if name not in symbols and name not in widths and not refs and name not in byte_syms:
+            k = text_kind(bytes(b))
+            if k:
+                byte_syms[name] = k
+    for name, why in sorted(byte_syms.items()):
+        if name in owned and name not in symbols and prog.named.get(name) is not None:
+            out_syms[name] = {"type": "bytes", "count": prog.var_size(prog.named[name]), "storage": owned[name],
+                              "derived": why}
+    for name in sorted(widths):
+        if name in out_syms:
+            continue
+        addr = prog.named.get(name)
+        if addr is None:
+            continue
+        size = prog.var_size(addr)
+        e = elem.get(name) or 0
+        if not size:
+            continue
+        esize = e if e and e <= size else size     # (a last record may be cut short)
+        fields, end, puns = [], 0, []
+        for off in sorted(widths[name]):
+            if off >= esize:
+                continue
+            ws = widths[name][off]
+            w = max(ws, key=lambda k: (ws[k], k))
+            if len(ws) > 1:
+                puns.append("+0x%X as %s" % (off, "/".join(str(k) for k in sorted(ws))))
+            if off < end or off % min(w, 4) or off + w > esize:
+                continue
+            t = {1: "u8", 2: "u16", 4: "f32" if off in floats[name] else "u32",
+                 8: "f64" if off in floats[name] else "u64"}[w]
+            fields.append({"off": off, "name": "unk%X" % off, "type": t, "count": 1})
+            end = off + w
+        if all(f["type"] == "u8" for f in fields):
+            # read only as bytes: bytes, whatever the directives say
+            out_syms[name] = {"type": "bytes", "count": size, "storage": owned[name],
+                              "derived": "the handwritten code's accesses (tools/fieldscan.py): bytes only"}
+            continue
+        # no stride found, but fields packed from the start (bytes too): a
+        # list the code walks with a pointer (fieldscan sees its first
+        # record only), so the record repeats over the symbol
+        note = None
+        seen = {}
+        for off in sorted(widths[name]):
+            ws = widths[name][off]
+            seen[off] = max(ws, key=lambda k: (ws[k], k))
+        extent, k = 0, 0
+        while k in seen:
+            k += seen[k]
+        extent = k
+        if not e and esize == size and 0 < extent < size and extent >= max(seen) + 1:
+            esize = extent
+            fields = [f for f in fields if f["off"] < esize]
+            note = "a list walked with a pointer: the first record's fields, repeated"
+        tname = "asm_" + name
+        ty = {"size": esize, "align": 4, "fields": fields, "header": "(tools/fieldscan.py)"}
+        if puns:
+            ty["note"] = "read at two widths: " + ", ".join(puns)
+        if note:
+            ty["note"] = (ty["note"] + "; " if "note" in ty else "") + note
+        out_types[tname] = ty
+        out_syms[name] = {"type": tname, "count": (size + esize - 1) // esize, "storage": owned[name],
+                          "derived": "the handwritten code's accesses (tools/fieldscan.py)"}
+    return out_types, out_syms
 
 
 FIXED = {
@@ -516,7 +713,7 @@ def describe(prog, res, v):
 
 # ---------------------------------------------------------------- punning
 
-def event_fields(prog, an, res, elem):
+def event_fields(prog, an, res, elem, strided=False):
     """Every access that isn't part of a copy loop (stride 1, 2 or 4), as
     (key, kind, width, store, function, pc, asm): key is a fields.tsv
     (region, offset) with the offset folded by the region's element."""
@@ -529,7 +726,7 @@ def event_fields(prog, an, res, elem):
             continue
         fi = finfo[f]
         for c in ([loc] if loc[0] == "G" else res.canon(loc)):
-            if c[-1] in (1, 2, 4):
+            if c[-1] in (1, 2, 4) and not strided:
                 continue
             key = F.region_key(prog, c)
             if key is None:
@@ -813,6 +1010,9 @@ def main():
         "packed": build_packed(prog, an, res, elem),
     }
     inv["asm_uses"], inv["pointers"] = build_asm_uses_and_pointers(prog, an, res, regions, elem, kinds, T, types)
+    atypes, asyms = build_asm_data_types(prog, an, res, elem, inv["symbols"], types)
+    types.update(atypes)
+    inv["symbols"].update(asyms)
     text = json.dumps(inv, indent=1, sort_keys=False) + "\n"
     if args.check:
         old = open(args.out).read() if os.path.exists(args.out) else ""

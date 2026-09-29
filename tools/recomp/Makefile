@@ -33,7 +33,7 @@ TOOLS   := $(wildcard $(HERE)/*.py)
 
 all: $(GEN)/.stamp
 
-$(GEN)/.stamp: $(ASM) $(ELFS) $(TOOLS)
+$(GEN)/.stamp: $(ASM) $(ELFS) $(TOOLS) $(HERE)/native_sites.txt
 	rm -rf $(GEN)
 	$(PYTHON) $(HERE)/translate.py --version $(VERSION) $(GEN)
 	touch $@

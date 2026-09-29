@@ -32,6 +32,13 @@
 #define ROM_REVISION 1
 #endif
 
+#ifdef PORT_NATIVE_ENDIAN
+/* game variables are read with port_be32 (and the pad written with
+   port_wbe16) below: at their own width in RDRAM (port.h) */
+#define port_be32(p) port_var32(p)
+#define port_wbe16(p, v) port_wvar16((p), (v))
+#endif
+
 int host_verbose;
 static uint8_t *rom;
 static uint32_t rom_size;
@@ -104,6 +111,7 @@ void host_rom_read(uint32_t dst, uint32_t addr, uint32_t len) {
 #ifdef PORT_ACCESS_PROFILE
     port_access_dma(dst, addr, len);
 #endif
+    host_loaded_dma(dst, addr, len);
 }
 
 uint32_t host_rom_word(uint32_t addr) {
@@ -253,6 +261,9 @@ void host_controller_poll(void) {
                 fwrite((void *)(uintptr_t)PORT_RDRAM_BASE, 1, PORT_RDRAM_SIZE, f);
                 fclose(f);
                 host_log("dumped %s\n", path);
+#ifdef PORT_ACCESS_PROFILE
+                port_access_dump_widths(n);     /* rdram_N.widths, for build_cmp.py */
+#endif
             }
         }
         if (*p == ',')
