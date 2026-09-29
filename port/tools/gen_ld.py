@@ -27,6 +27,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLAST = os.path.join(ROOT, "blastcorps")
+# the version of the stage-2 build the port is made from (CMake sets it)
+VERSION = os.environ.get("PORT_VERSION", "us.v11")
 RDRAM = 0x80000000
 RDRAM_END = 0x80400000
 
@@ -34,7 +36,7 @@ RDRAM_END = 0x80400000
 def n64_symbols():
     addrs = {}
     for m in ("hd_code", "hd_front_end"):
-        elf = os.path.join(BLAST, "build", f"{m}.us.v11.elf")
+        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
         out = subprocess.run(["mips-linux-gnu-nm", elf], capture_output=True, text=True, check=True).stdout
         for line in out.splitlines():
             p = line.split()

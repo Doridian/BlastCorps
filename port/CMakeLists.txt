@@ -1,7 +1,8 @@
-# The PC port of Blast Corps (us.v11).  See docs/PORT.md.
+# The PC port of Blast Corps.  See docs/PORT.md.
 #
-# Needs a built us.v11 stage 2 and the translated engine:
-#   make VERSION=us.v11 -C blastcorps && make -C tools/recomp
+# Needs a built stage 2 and the translated engine of PORT_VERSION (default
+# us.v11; us.v10 builds too):
+#   make VERSION=us.v11 -C blastcorps && make -C tools/recomp VERSION=us.v11
 # then
 #   cmake -S port -B build/port && cmake --build build/port -j
 #
@@ -14,6 +15,19 @@
 # build").
 cmake_minimum_required(VERSION 3.20)
 project(blastcorps_pc C CXX ASM)
+set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11 or us.v10")
+set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10)
+if(NOT PORT_VERSION MATCHES "^us\\.v1[01]$")
+    message(FATAL_ERROR "PORT_VERSION is us.v11 or us.v10, not ${PORT_VERSION}")
+endif()
+string(TOUPPER "VERSION_${PORT_VERSION}" PORT_VERSION_DEFINE)
+string(REPLACE "." "_" PORT_VERSION_DEFINE ${PORT_VERSION_DEFINE})
+# the end of hd_code's .bss, where the heap starts (port_fixed.ld.in)
+if(PORT_VERSION STREQUAL "us.v10")
+    set(PORT_HEAP_START 0x803FF550)
+else()
+    set(PORT_HEAP_START 0x803FF600)
+endif()
 option(PORT_64BIT "a 64-bit program (the game's C through port-ilp32)" OFF)
 option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in 32 bits" OFF)
 # diagnostics (docs/PORT.md, "Comparing builds"): a call trace of the
@@ -30,13 +44,22 @@ set(BLAST ${ROOT}/blastcorps)
 set(RECOMP_GEN ${BLAST}/build/recomp/src)
 set(GEN ${CMAKE_CURRENT_BINARY_DIR}/gen)
 file(MAKE_DIRECTORY ${GEN})
+configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# the generators read the stage-2 build of PORT_VERSION
+set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} ${Python3_EXECUTABLE})
 
-foreach(f ${BLAST}/build/hd_code.us.v11.elf ${RECOMP_GEN}/recomp_funcs.h)
+foreach(f ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${RECOMP_GEN}/recomp_funcs.h)
     if(NOT EXISTS ${f})
-        message(FATAL_ERROR "${f} is missing: build blastcorps (us.v11) and tools/recomp first")
+        message(FATAL_ERROR "${f} is missing: build blastcorps (${PORT_VERSION}) and tools/recomp first")
     endif()
 endforeach()
+# blastcorps/asm and the translated engine hold one version at a time
+file(READ ${BLAST}/.version STAGE2_VERSION)
+string(STRIP "${STAGE2_VERSION}" STAGE2_VERSION)
+if(NOT STAGE2_VERSION STREQUAL PORT_VERSION)
+    message(FATAL_ERROR "blastcorps/ is extracted for ${STAGE2_VERSION}, not ${PORT_VERSION}")
+endif()
 
 # ---- BEPass (a host LLVM plugin, 64-bit) ------------------------------------
 find_program(LLVM_CONFIG llvm-config REQUIRED)
@@ -109,7 +132,7 @@ endforeach()
 set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${BLAST} ${BLAST}/include ${BLAST}/include/2.0I ${BLAST}/include/2.0I/PR)
-set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC VERSION_US_V11 _MIPS_SZLONG=32 _MIPS_SZINT=32)
+set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
 if(PORT_64BIT)
     list(APPEND N64_DEFINES PORT_64BIT)
 endif()
@@ -180,14 +203,14 @@ foreach(s ${DATA_S})
         set(label ${CMAKE_MATCH_1}_${CMAKE_MATCH_2}_bin)
     endif()
     add_custom_command(OUTPUT ${GEN}/data/${out}
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${GEN}/data/${out} ${s} ${label}
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${GEN}/data/${out} ${s} ${label}
         DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
     list(APPEND DATA_X86 ${GEN}/data/${out})
 endforeach()
 foreach(b ${DATA_BIN})
     string(REPLACE "/" "_" label ${b})
     add_custom_command(OUTPUT ${GEN}/data/${label}.bin.s
-        COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${GEN}/data/${label}.bin.s ${BLAST}/assets/${b}.bin ${label}_bin
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${GEN}/data/${label}.bin.s ${BLAST}/assets/${b}.bin ${label}_bin
         DEPENDS ${BLAST}/assets/${b}.bin ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
     list(APPEND DATA_X86 ${GEN}/data/${label}.bin.s)
 endforeach()
@@ -202,10 +225,10 @@ target_compile_options(game_data PRIVATE -Wno-unused-command-line-argument)
 # ---- the translated handwritten engine (host side) ---------------------------
 file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
 add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h)
 add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN}
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/liveness.py
             ${RECOMP_GEN}/recomp_funcs.h ${RECOMP_GEN}/recomp_externs.h ${GAME_C})
 add_custom_target(recomp_headers DEPENDS ${GEN}/port_recomp_syms.h)
@@ -232,6 +255,7 @@ add_library(host OBJECT ${HOST_C})
 target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/host ${SDL2_INCLUDE_DIRS})
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
+target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE})
 if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})
@@ -245,14 +269,14 @@ endif()
 # ---- link ----------------------------------------------------------------------
 # The port's image sits right above the 4 MB of RDRAM (port.h).
 add_custom_command(OUTPUT ${GEN}/port_syms.ld
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py script ${GEN}/port_syms.ld
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py script ${GEN}/port_syms.ld
             "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" "$<TARGET_OBJECTS:game_data>"
             "$<TARGET_OBJECTS:recomp>" "$<TARGET_OBJECTS:host>"
     DEPENDS game_c port_n64 game_data recomp host $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:game_data>
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py
     COMMAND_EXPAND_LISTS)
 add_custom_command(OUTPUT ${GEN}/port_rdram.ld
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py script ${GEN}/port_rdram.ld
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py script ${GEN}/port_rdram.ld
             "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:game_data>"
     DEPENDS game_c game_data $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:game_data>
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py
@@ -279,9 +303,9 @@ else()
     target_link_options(blastcorps PRIVATE -m32 -no-pie)
 endif()
 target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
-    -Wl,${CMAKE_CURRENT_SOURCE_DIR}/port_fixed.ld)
+    -Wl,${GEN}/port_fixed.ld)
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} m)
 
 # every game variable where the N64 has it?
 add_custom_command(TARGET blastcorps POST_BUILD
-    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py check $<TARGET_FILE:blastcorps>)
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py check $<TARGET_FILE:blastcorps>)

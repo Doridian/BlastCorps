@@ -24,8 +24,12 @@
  *
  *   OUTDIR/polls.csv   one line per controller read: poll, VI, retraces (the
  *                      scheduler's count), game frames, the mode, the pad as
- *                      the PIF returns it (buttons << 16 | x << 8 | y)
+ *                      the PIF returns it (buttons << 16 | x << 8 | y), the
+ *                      graphics tasks run so far
  *   OUTDIR/modes.csv   one line per change of the mode (D_80364A90/94)
+ *   OUTDIR/vis.csv     one line per VI (from the first controller read):
+ *                      the scheduler's count before it, the reads and the
+ *                      graphics tasks so far
  *   OUTDIR/eeprom.bin  the EEPROM at the end (from blank, as the movie is)
  *   OUTDIR/rdram.bin   RDRAM at the end, big-endian
  *
@@ -46,8 +50,8 @@
 #include <m64p_config.h>
 
 static uint32_t *pads;          /* per movie frame: buttons << 16 | x << 8 | y */
-static unsigned npads, vis, max_vis, polls;
-static FILE *polls_csv, *modes_csv;
+static unsigned npads, vis, max_vis, polls, tasks;
+static FILE *polls_csv, *modes_csv, *vis_csv;
 static m64p_plugin_type attaching;
 static unsigned char *rdram;
 static GFX_INFO gfx;
@@ -126,6 +130,7 @@ static int dl_full_sync(uint32_t a) {
 }
 EXPORT int CALL InitiateGFX(GFX_INFO info) { gfx = info; return 1; }
 EXPORT void CALL ProcessDList(void) {
+    tasks++;
     /* the task's data_ptr (OSTask at DMEM 0xFC0) */
     if (dl_full_sync(((uint32_t *)(gfx.DMEM + 0xFC0))[12])) {
         *gfx.MI_INTR_REG |= 0x20;
@@ -145,6 +150,9 @@ EXPORT void CALL FBRead(unsigned int a) { (void)a; }
 EXPORT void CALL FBWrite(unsigned int a, unsigned int n) { (void)a; (void)n; }
 EXPORT void CALL FBGetFrameBufferInfo(void *p) { (void)p; }
 EXPORT void CALL UpdateScreen(void) {
+    /* before the scheduler counts this retrace */
+    if (rdram)
+        fprintf(vis_csv, "%u,%u,%u,%u\n", vis, rd32(a_retraces), polls, tasks);
     vis++;
     if (vis % 10000 == 0)
         fprintf(stderr, "vi %u, %u reads\n", vis, polls);
@@ -185,8 +193,8 @@ EXPORT void CALL GetKeys(int control, BUTTONS *keys) {
     if (!rdram)
         rdram = pDebugMemGetPointer(M64P_DBG_PTR_RDRAM);
     uint64_t mode = (uint64_t)rd32(a_mode) << 32 | rd32(a_mode + 4);
-    fprintf(polls_csv, "%u,%u,%u,%u,%016llX,%08X\n", polls, vis, rd32(a_retraces), rd32(a_frames),
-            (unsigned long long)mode, pad);
+    fprintf(polls_csv, "%u,%u,%u,%u,%016llX,%08X,%u\n", polls, vis, rd32(a_retraces), rd32(a_frames),
+            (unsigned long long)mode, pad, tasks);
     if (mode != last_mode) {
         fprintf(modes_csv, "%u,%u,%016llX\n", polls, vis, (unsigned long long)mode);
         last_mode = mode;
@@ -266,9 +274,11 @@ int main(int argc, char **argv) {
 
     mkdir(outdir, 0755);
     polls_csv = out(outdir, "polls.csv", "w");
-    fprintf(polls_csv, "poll,vi,retraces,frames,mode,pad\n");
+    fprintf(polls_csv, "poll,vi,retraces,frames,mode,pad,tasks\n");
     modes_csv = out(outdir, "modes.csv", "w");
     fprintf(modes_csv, "poll,vi,mode\n");
+    vis_csv = out(outdir, "vis.csv", "w");
+    fprintf(vis_csv, "vi,retraces,reads,tasks\n");
 
     FILE *f = fopen(argv[4], "rb");
     if (!f) { perror(argv[4]); return 1; }
@@ -344,6 +354,7 @@ int main(int argc, char **argv) {
     pCoreDoCommand(M64CMD_ROM_CLOSE, 0, NULL);
     fclose(polls_csv);
     fclose(modes_csv);
+    fclose(vis_csv);
     fprintf(stderr, "%u VIs, %u controller reads\n", vis, polls);
     return 0;
 }

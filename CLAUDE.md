@@ -58,6 +58,10 @@ cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPIL
 cmake --build build/port && build/port/blastcorps baserom.us.v11.z64
 ```
 
+`-DPORT_VERSION=us.v10` builds the us.v10 port instead (in its own build
+directory, from a us.v10 stage 2 and `make -C tools/recomp VERSION=us.v10`),
+which is what the TAS replays on (docs/PORT.md, "The TAS").
+
 Port-only source changes in `src/` go under `#ifdef TARGET_PC`.
 
 ## Assets

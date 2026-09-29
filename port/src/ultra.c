@@ -369,9 +369,14 @@ void osContGetQuery(OSContStatus *status) {
 }
 
 s32 osContStartReadData(OSMesgQueue *mq) {
-    si_done(mq);
+    if (host_replay_active())
+        host_replay_read_started();     /* port_replay_si_done, when it's time */
+    else
+        si_done(mq);
     return 0;
 }
+
+void port_replay_si_done(void) { port_irq_event(OS_EVENT_SI); }
 
 void osContGetReadData(OSContPad *pad) {
     int i;
@@ -448,6 +453,7 @@ s32 osViClock = VI_NTSC_CLOCK;
 static OSMesgQueue *vi_mq;
 static OSMesg vi_msg;
 static u32 vi_count, vi_retrace;
+static u32 vi_sent;             /* retrace messages sent: the scheduler's count, once it has run */
 static void *vi_cur_fb, *vi_next_fb;
 static OSViMode *vi_mode;
 static int vi_black;
@@ -461,6 +467,7 @@ void osViSetEvent(OSMesgQueue *mq, OSMesg msg, u32 retraceCount) {
     vi_msg = msg;
     vi_retrace = retraceCount;
     vi_count = 0;
+    vi_sent = 0;                /* the new client counts from here */
     if (host_verbose)
         host_log("osViSetEvent(%08X, %X, %u)\n", (unsigned)mq, (unsigned)msg, (unsigned)retraceCount);
 }
@@ -483,9 +490,12 @@ void port_irq_vi(void) {
                             vi_mode != NULL ? (int)(vi_mode->comRegs.width) : 320);
     if (vi_mq != NULL && vi_retrace != 0 && ++vi_count >= vi_retrace) {
         vi_count = 0;
-        osSendMesg(vi_mq, vi_msg, OS_MESG_NOBLOCK);
+        if (osSendMesg(vi_mq, vi_msg, OS_MESG_NOBLOCK) == 0)
+            vi_sent++;
     }
 }
+
+uint32_t port_vi_sent(void) { return vi_sent; }
 
 /* ---- SP/DP ---------------------------------------------------------------------------- */
 
@@ -509,8 +519,13 @@ static u64 dp_held_ns;
 static struct { u32 dl, size, ucode; } dp_pending[4];
 static int dp_npending;
 
+static uint32_t gfx_tasks;      /* graphics tasks run, held or not (--replay) */
+uint32_t port_gfx_tasks(void) { return gfx_tasks; }
+
 static void dp_run(u32 dl, u32 size, u32 ucode) {
-    int sync = host_gfx_task(dl, size, ucode);
+    int sync;
+    gfx_tasks++;
+    sync = host_gfx_task(dl, size, ucode);
     u64 rdp = host_take_rdp_ns();
     host_raise(OS_EVENT_SP);
     if (sync)                           /* the RDP's full sync */
@@ -547,8 +562,11 @@ void osSpTaskStartGo(OSTask *t) {
             dp_pending[dp_npending].ucode = (u32)t->t.ucode;
             dp_npending++;
         } else {
-            int sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode);
-            u64 rdp = host_take_rdp_ns();
+            int sync;
+            u64 rdp;
+            gfx_tasks++;
+            sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode);
+            rdp = host_take_rdp_ns();
             host_raise(OS_EVENT_SP);
             if (sync) {                 /* the RDP's full sync */
                 if (dp_frozen) {

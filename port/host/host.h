@@ -29,6 +29,18 @@ void host_video_init(void);
 void host_video_frame(void);
 void host_video_shutdown(void);
 
+/* replay.c: --replay */
+int host_replay_active(void);
+void host_replay_load(const char *path);
+int host_replay_poll_si(void);
+int host_replay_vi_ok(void);
+int host_replay_vi_now(void);
+void host_replay_vi_forced(void);
+void host_replay_vi_fired(void);
+void host_replay_pad(uint16_t *buttons, int *x, int *y);
+int host_replay_done(void);
+void host_replay_report(void);
+
 /* the renderer: 0 software (gfx.c), 1 OpenGL (gfx_gl.c); -1 until chosen
    (OpenGL with a window, software headless) */
 extern int host_renderer;

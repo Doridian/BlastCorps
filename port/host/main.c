@@ -23,6 +23,15 @@
 #include "port.h"
 #include "host.h"
 
+/* the version this port is built from (CMake's PORT_VERSION) */
+#ifdef VERSION_US_V10
+#define ROM_DEFAULT "baserom.us.v10.z64"
+#define ROM_REVISION 0
+#else
+#define ROM_DEFAULT "baserom.us.v11.z64"
+#define ROM_REVISION 1
+#endif
+
 int host_verbose;
 static uint8_t *rom;
 static uint32_t rom_size;
@@ -79,8 +88,8 @@ static void load_rom(const char *path) {
     } else if (magic != 0x80371240u) {
         host_fatal("%s is not an N64 ROM", path);
     }
-    if (memcmp(rom + 0x3B, "NBCE", 4) != 0 || rom[0x3F] != 1)
-        host_log("warning: %s doesn't look like Blast Corps (USA) v1.1; expect trouble\n", path);
+    if (memcmp(rom + 0x3B, "NBCE", 4) != 0 || rom[0x3F] != ROM_REVISION)
+        host_log("warning: %s doesn't look like Blast Corps (USA) v1.%d; expect trouble\n", path, ROM_REVISION);
 }
 
 uint32_t host_rom_size(void) { return rom_size; }
@@ -191,6 +200,11 @@ static void deliver_pending(void) {
    way when the next event is due. */
 static uint64_t next_event_ns;
 
+/* --replay: the loop holds a retrace back (replay.c), and how often a
+   thread spun while it did */
+static int replay_vi_held;
+static unsigned spins_held;
+
 void __port_poll(void) {
     static unsigned n;
     if (++n & 63)
@@ -198,11 +212,15 @@ void __port_poll(void) {
     host_cpu_sync();                /* spinning takes time too */
     if (deterministic && host_ns_per_instr <= 0)
         virtual_ns += 2000;
-    if (npending || now_ns() >= next_event_ns)
+    if (replay_vi_held)
+        spins_held++;
+    if (npending || now_ns() >= next_event_ns || replay_vi_held)
         host_yield();
 }
 
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
+/* the scheduler's retrace count, the game's frame count and the mode */
+extern char D_803156C4[], D_80358064[], D_80364A90[];
 
 /* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read
    (compare with tools/recomp/test/snapshot.c, which counts the same way) */
@@ -220,9 +238,9 @@ void host_controller_poll(void) {
     }
     polls++;
     if (pace)
-        fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(port_ptr(0x803156C4)),
-                port_be32(port_ptr(0x80358064)), port_be32(port_ptr(0x80364A90)),
-                port_be32(port_ptr(0x80364A94)), (unsigned long long)host_audio_samples());
+        fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(D_803156C4),
+                port_be32(D_80358064), port_be32(D_80364A90),
+                port_be32(D_80364A90 + 4), (unsigned long long)host_audio_samples());
     if (!spec)
         return;
     for (const char *p = spec; *p;) {
@@ -267,10 +285,11 @@ extern void port_fixups(void);
 static void usage(const char *argv0) {
     fprintf(stderr,
             "usage: %s [options] [ROM]\n"
-            "  ROM                  defaults to baserom.us.v11.z64\n"
+            "  ROM                  defaults to " ROM_DEFAULT "\n"
             "  -v                   log threads, events and tasks (twice: more)\n"
             "  --headless           no window (SDL's offscreen driver)\n"
             "  --deterministic      virtual time: as fast as possible, the same every run\n"
+            "  --replay FILE        play a movie's reads (m64p_tas's polls.csv; implies --deterministic)\n"
             "  --frames N           quit after N retraces\n"
             "  --screenshot PREFIX  save the last frame as PREFIXnnnnn.bmp\n"
             "                       (PORT_SHOT_EVERY=N: every N frames too)\n"
@@ -290,7 +309,7 @@ static void usage(const char *argv0) {
 }
 
 int main(int argc, char **argv) {
-    const char *rom_path = "baserom.us.v11.z64";
+    const char *rom_path = ROM_DEFAULT;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v"))
             host_verbose++;
@@ -306,6 +325,10 @@ int main(int argc, char **argv) {
             host_audio_enabled = 0;
         else if (!strcmp(argv[i], "--deterministic"))
             deterministic = 1;
+        else if (!strcmp(argv[i], "--replay") && i + 1 < argc) {
+            host_replay_load(argv[++i]);
+            deterministic = 1;
+        }
         else if (!strcmp(argv[i], "--headless"))
             host_headless = 1;
         else if (!strcmp(argv[i], "--renderer") && i + 1 < argc) {
@@ -334,6 +357,8 @@ int main(int argc, char **argv) {
     const char *cpo = getenv("PORT_COUNT_PER_OP");
     if (cpo)
         host_ns_per_instr = atof(cpo) * 64.0 / 3;     /* not real time, or no one listening */
+    else if (host_replay_active())
+        host_ns_per_instr = 0;      /* --replay: the log's retraces pace the game, not its CPU */
     prctl(PR_SET_TIMERSLACK, 1);    /* wake on time: the pacing is in 50 us steps */
     clock_gettime(CLOCK_MONOTONIC, &t0);
     struct sigaction sa;
@@ -357,21 +382,47 @@ int main(int argc, char **argv) {
     /* the loop: deliver what's due, run threads until all wait, sleep */
     const uint64_t vi_period = 1000000000ull / 60;
     uint64_t next_vi = now_ns() + vi_period;
+    int vi_force = 0;
     for (;;) {
         deliver_pending();
+        if (host_replay_poll_si())
+            continue;
         uint64_t now = now_ns();
-        if (now >= next_vi) {
+        /* --replay: a retrace waits while the count is where the log's next
+           read has it (replay.c) */
+        int vi_held = host_replay_active() && !host_replay_vi_ok() && !vi_force;
+        if (host_replay_active() && !vi_held && now < next_vi && host_replay_vi_now()) {
+            virtual_ns += next_vi - now;        /* (--replay is --deterministic) */
+            now = next_vi;
+        }
+        if (now >= next_vi && !vi_held) {
+            vi_force = 0;
+            spins_held = 0;
             next_vi += vi_period;
             if (now > next_vi + 4 * vi_period)      /* fell behind: don't catch up */
                 next_vi = now + vi_period;
             host_video_frame();
             if (host_quit_requested())
                 break;
+            if (host_replay_active())
+                host_replay_vi_fired();
             port_irq_vi();
             continue;
         }
         uint64_t deadline = port_irq_timers(host_ticks());
-        uint64_t wake = next_vi;
+        /* a held retrace is given anyway when the game can't go on without
+           one: nothing to run and nothing due (below), or a thread spinning
+           on the count (__port_poll yields to the loop while one is held) */
+        replay_vi_held = vi_held;
+        if (!vi_held)
+            spins_held = 0;
+        if (vi_held && spins_held >= 4096) {
+            host_replay_vi_forced();
+            next_vi = now;
+            vi_force = 1;
+            continue;
+        }
+        uint64_t wake = vi_held ? ~0ull : next_vi;
         /* (rounded up: at deadline * 64 / 3 the counter may not be there yet) */
         if (deadline != ~0ull && (deadline * 64 + 2) / 3 < wake)
             wake = (deadline * 64 + 2) / 3;
@@ -386,6 +437,12 @@ int main(int argc, char **argv) {
         if (host_run_one())
             continue;
         now = now_ns();
+        if (vi_held && wake == ~0ull) {
+            host_replay_vi_forced();
+            next_vi = now;
+            vi_force = 1;
+            continue;
+        }
         if (deterministic) {
             if (wake > virtual_ns)
                 virtual_ns = wake;
@@ -400,6 +457,7 @@ int main(int argc, char **argv) {
         extern void host_gfx_dump_stats(void);
         host_gfx_dump_stats();
     }
+    host_replay_report();
     host_audio_shutdown();
     host_video_shutdown();
     return 0;

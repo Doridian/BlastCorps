@@ -136,6 +136,13 @@ void host_vi_set_framebuffer(uint32_t fb, int width);
 void host_input(int pad, uint16_t *buttons, int8_t *x, int8_t *y);
 int host_quit_requested(void);
 void host_controller_poll(void);
+/* --replay (port/host/replay.c): a read's SI completion waits for the
+   log's retraces */
+int host_replay_active(void);
+void host_replay_read_started(void);
+void port_replay_si_done(void);     /* port/src: the held SI completion */
+uint32_t port_vi_sent(void);        /* port/src: retrace messages sent */
+uint32_t port_gfx_tasks(void);      /* port/src: graphics tasks run */
 
 /* EEPROM (4 Kbit) */
 void host_eeprom_read(int block, uint32_t dst);

@@ -1,6 +1,7 @@
 # Mechanical translation of the handwritten asm to C, and its differential
-# test.  Needs a built us.v11 stage 2 (`make -C blastcorps`): the translator
-# reads blastcorps/asm/ and the linked ELFs, the test the linked images.
+# test.  Needs a built stage 2 of VERSION (`make VERSION=... -C blastcorps`,
+# default us.v11): the translator reads blastcorps/asm/ and the linked ELFs,
+# the test the linked images.
 #
 #   make -C tools/recomp               translate into blastcorps/build/recomp/src
 #   make -C tools/recomp port          ... and compile it as the port would
@@ -15,6 +16,7 @@ PYTHON  ?= python3
 CC      ?= cc
 JOBS    ?= $(shell nproc)
 TRIALS  ?= 48
+VERSION ?= us.v11
 
 OUT     := $(ROOT)/blastcorps/build/recomp
 GEN     := $(OUT)/src
@@ -26,14 +28,14 @@ CFLAGS  := -O1 -fPIC -ffp-contract=off -fno-strict-aliasing -Wall -Wno-unused-la
 TESTFLAGS := -DRECOMP_TEST -DRECOMP_QEMU_COMPAT
 
 ASM     := $(wildcard $(ROOT)/blastcorps/asm/hd_code/*.s $(ROOT)/blastcorps/asm/hd_front_end/*.s)
-ELFS    := $(ROOT)/blastcorps/build/hd_code.us.v11.elf $(ROOT)/blastcorps/build/hd_front_end.us.v11.elf
+ELFS    := $(ROOT)/blastcorps/build/hd_code.$(VERSION).elf $(ROOT)/blastcorps/build/hd_front_end.$(VERSION).elf
 TOOLS   := $(wildcard $(HERE)/*.py)
 
 all: $(GEN)/.stamp
 
 $(GEN)/.stamp: $(ASM) $(ELFS) $(TOOLS)
 	rm -rf $(GEN)
-	$(PYTHON) $(HERE)/translate.py $(GEN)
+	$(PYTHON) $(HERE)/translate.py --version $(VERSION) $(GEN)
 	touch $@
 
 # compile every generated file plus `extra` with `flags` into `lib`

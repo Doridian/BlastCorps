@@ -10,7 +10,8 @@
 # tas_bizhawk.patch (MSVC's round/trunc, which the movie depends on, and the
 # saveram exports) and tas_bizhawk_compat.h (Windows stubs).  Then m64p_tas
 # plays the movie (or its first VIS VIs) into build/tas/run/: polls.csv has
-# the pad and the VI at every controller read, eeprom.bin the save, which
+# the pad and the VI at every controller read and vis.csv where every VI
+# came (the port's --replay reads both), eeprom.bin the save, which
 # tas_check.py reads the medals from.  See docs/PORT.md, "The TAS".
 #
 # Needs baserom.us.v10.z64 (the movie's ROM), git, curl, SDL 1.2 (or

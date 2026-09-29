@@ -9,7 +9,7 @@
 
   gen_syms.py script OUT.ld OBJECT...
       For the linker: every name the N64 link gets from a linker script
-      (build/<module>.us.v11.syms.ld, the ROM positions) that no object of
+      (build/<module>.<version>.syms.ld, the ROM positions) that no object of
       the port defines.  Names inside another variable or a data island
       stay relative to it (`D_X = base + off`); fixed addresses (the
       libultra globals at 0x80000300, hardware registers, RDRAM buffers)
@@ -26,6 +26,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLAST = os.path.join(ROOT, "blastcorps")
+# the version of the stage-2 build the port is made from (CMake sets it)
+VERSION = os.environ.get("PORT_VERSION", "us.v11")
 GEN = os.path.join(BLAST, "build", "recomp", "src")
 MODULES = ("hd_code", "hd_front_end")
 
@@ -54,7 +56,7 @@ def header(out):
 def n64_addresses():
     addrs = {}
     for m in MODULES + ("init",):
-        elf = os.path.join(BLAST, "build", f"{m}.us.v11.elf")
+        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
         out = subprocess.run(["mips-linux-gnu-nm", elf], capture_output=True, text=True, check=True).stdout
         for line in out.splitlines():
             p = line.split()
@@ -76,8 +78,8 @@ def script(out, objects):
     n64 = n64_addresses()
     assigns = {}
     order = []
-    srcs = [os.path.join(BLAST, "build", f"{m}.us.v11.syms.ld") for m in MODULES]
-    srcs.append(os.path.join(BLAST, "build", "rom_fixed.us.v11.ld"))
+    srcs = [os.path.join(BLAST, "build", f"{m}.{VERSION}.syms.ld") for m in MODULES]
+    srcs.append(os.path.join(BLAST, "build", f"rom_fixed.{VERSION}.ld"))
     for src in srcs:
         for line in open(src):
             m = ASSIGN_RE.match(line)
@@ -87,7 +89,7 @@ def script(out, objects):
             if name in defined or name in assigns:
                 continue
             if name == "D_803FF600":
-                continue        # port_fixed.ld
+                continue        # port_fixed.ld.in
             if comment:
                 c = REL_COMMENT_RE.match(comment)
                 if c:

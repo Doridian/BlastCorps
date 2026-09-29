@@ -145,7 +145,7 @@ done:
         quit = 1;
 }
 
-int host_quit_requested(void) { return quit; }
+int host_quit_requested(void) { return quit || host_replay_done(); }
 
 /* N64 buttons */
 enum {
@@ -153,6 +153,9 @@ enum {
     B_DL = 0x0200, B_DR = 0x0100, B_L = 0x0020, B_R = 0x0010, B_CU = 0x0008, B_CD = 0x0004,
     B_CL = 0x0002, B_CR = 0x0001,
 };
+
+/* the scheduler's retrace count and the mode, where the version has them */
+extern char D_803156C4[], D_80364A90[];
 
 static uint16_t scripted_buttons(int *sy) {
     /* PORT_AUTOSTART=1: tap Start/A now and then, to get past the title;
@@ -164,14 +167,14 @@ static uint16_t scripted_buttons(int *sy) {
         return 0;
     if (*s == '2') {
         static int in_level;
-        if (port_be32(port_ptr(0x80364A90)) == 0 && port_be32(port_ptr(0x80364A94)) == 4)
+        if (port_be32(D_80364A90) == 0 && port_be32(D_80364A90 + 4) == 4)
             in_level = 1;
         if (in_level) {
             *sy = 80;
             return 0;
         }
     }
-    int f = (*s == '2' ? (int)port_be32(port_ptr(0x803156C4)) : frame) % 120;
+    int f = (*s == '2' ? (int)port_be32(D_803156C4) : frame) % 120;
     if (f < 4)
         return B_START;
     if (f >= 60 && f < 64)
@@ -182,7 +185,9 @@ static uint16_t scripted_buttons(int *sy) {
 void host_input(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     uint16_t b = 0;
     int sx = 0, sy = 0;
-    if (n == 0) {
+    if (n == 0 && host_replay_active()) {
+        host_replay_pad(&b, &sx, &sy);
+    } else if (n == 0) {
         const Uint8 *k = SDL_GetKeyboardState(NULL);
         if (k[SDL_SCANCODE_X]) b |= B_A;
         if (k[SDL_SCANCODE_C]) b |= B_B;

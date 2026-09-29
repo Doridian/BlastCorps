@@ -22,8 +22,13 @@
 #include "port.h"
 
 #define FE_START 0x801E7000     /* the overlay area */
-#define FE_DATA 0x80208040      /* .hd_front_end_data */
-#define FE_BSS 0x80210E90       /* .hd_front_end_bss */
+#ifdef VERSION_US_V10
+#define FE_DATA 0x80208010      /* .hd_front_end_data */
+#define FE_BSS 0x80210E60       /* .hd_front_end_bss */
+#else
+#define FE_DATA 0x80208040
+#define FE_BSS 0x80210E90
+#endif
 #define FE_END 0x8021ED00       /* init's .text: the end of the area */
 
 extern u8 D_80370C50;           /* "front end loaded" */

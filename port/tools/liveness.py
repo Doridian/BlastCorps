@@ -18,6 +18,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
+# the version of the stage-2 build the port is made from (CMake sets it)
+VERSION = os.environ.get("PORT_VERSION", "us.v11")
 sys.path.insert(0, os.path.join(ROOT, "tools", "recomp"))
 
 from config import translated_objects  # noqa: E402
@@ -125,7 +127,7 @@ def effects(i):
     return u, d
 
 
-def load_functions(version="us.v11"):
+def load_functions(version=VERSION):
     funcs = {}
     for module, name, path in translated_objects(version):
         o = parse_file(path, module, name)

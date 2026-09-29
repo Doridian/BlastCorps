@@ -31,6 +31,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLAST = os.path.join(ROOT, "blastcorps")
+# the version of the stage-2 build the port is made from (CMake sets it)
+VERSION = os.environ.get("PORT_VERSION", "us.v11")
 
 
 # writers whose output is ROM data: gzip's inflate (the code modules, the
@@ -57,7 +59,7 @@ def c_names(exe):
 def n64_syms():
     funcs, data = [], []
     for m in ("hd_code", "hd_front_end", "init"):
-        elf = os.path.join(BLAST, "build", f"{m}.us.v11.elf")
+        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
         out = subprocess.run(["mips-linux-gnu-nm", "-n", elf], capture_output=True, text=True).stdout
         for line in out.splitlines():
             p = line.split()
@@ -74,7 +76,7 @@ def n64_syms():
 
 def rom_segments():
     segs = []
-    mp = os.path.join(ROOT, "build", "blastcorps.us.v11.map")
+    mp = os.path.join(ROOT, "build", f"blastcorps.{VERSION}.map")
     for line in open(mp):
         m = re.match(r"\s+0x([0-9a-f]+)\s+(\w+)_ROM_START = ", line)
         if m:

@@ -680,12 +680,52 @@ took to sync:
 
 `build/tas/run/polls.csv` has the pad and the VI at every controller read
 (125,297 of them), with the scheduler's retrace count, the game's frame
-count and the mode.  Playing the movie on the port needs the same thing
-from the other side: the port's timing is a model, so it has to be given
-each read's pad by read number, and each frame's retraces from this log,
-rather than the movie's frames.  The movie is us.v10, so it needs a
-us.v10 port build too.
+count, the mode and the graphics tasks run so far; `vis.csv` has, for every
+VI, the scheduler's count before it and the reads and graphics tasks so far.
 
+### Replaying it on the port
+
+The movie is us.v10, so this needs a us.v10 port: extract and build stage
+2 for us.v10, `make -C tools/recomp VERSION=us.v10`, then configure with
+`-DPORT_VERSION=us.v10` (its own build directory; `blastcorps/` and the
+translated engine hold one version at a time, and CMake refuses a mismatch).
+Then
+
+```
+build/port.us.v10/blastcorps --headless --replay build/tas/run/polls.csv --save run.eep baserom.us.v10.z64
+port/tools/tas_check.py run.eep
+```
+
+`--replay` (`port/host/replay.c`) implies `--deterministic` and turns the CPU
+model off (unless `PORT_COUNT_PER_OP` is set): the log paces the game, not
+the port's estimate of its CPU.  Each read gets its pad by number, counted
+where mupen64plus takes it (`osContStartReadData`: the game starts one read
+at boot that it never fetches).  The retraces are replayed too, since the
+game reads the scheduler's count in the middle of its frames (the fade out
+of the title, `func_80274BF0`, switches the mode when it reaches 255):
+
+- a read's SI completion is held until the scheduler has had the log's
+  retraces for it;
+- a VI is held while the count is already there, or while the port hasn't
+  run the graphics tasks mupen64plus had run before that VI (the two boots
+  run the same ones); it comes at once when the port is past that point, or
+  just at it and it is the first VI there, and otherwise by the clock (a
+  wait or a spin on the count);
+- a held VI is given anyway when nothing else can move the game on, or a
+  thread spins on the count, and that is reported as a forced retrace.
+
+Each read checks the game's frame count, the mode and the retraces against
+the log and reports the first difference.  `PORT_REPLAY_VIS=FILE` writes the
+port's own `vis.csv` to compare; `PORT_REPLAY_NOGATE=1` replays the pads only.
+
+Where it stands: the boot, both logos and the title are in sync, to read
+631 of 125,297 (about 17 seconds in).  There the port's frame needs one more
+retrace than mupen64plus's: in mupen64plus the frame's first graphics task
+runs before the read, on the port after it.  What's left is the order of
+events inside a frame: the SP and DP interrupts (mupen64plus raises them
+1000 counts after the task) and the RDP freeze against the VI.
+
+## Status
 ## Status
 
 - Boots, runs every thread, and plays the Rare logo, the title screen and
