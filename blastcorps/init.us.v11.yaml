@@ -8,7 +8,7 @@ options:
   symbol_addrs_path: symbol_addrs.init.us.v11.txt
   undefined_funcs_auto_path: undefined_funcs_auto.init.us.v11.txt
   undefined_syms_auto_path: undefined_syms_auto.init.us.v11.txt
-  src_path: src.us.v11
+  src_path: src
 segments:
   - name:  init
     type:  code

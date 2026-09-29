@@ -8,35 +8,66 @@ options:
   symbol_addrs_path: symbol_addrs.init.us.v10.txt
   undefined_funcs_auto_path: undefined_funcs_auto.init.us.v10.txt
   undefined_syms_auto_path: undefined_syms_auto.init.us.v10.txt
-  src_path: src.us.v10
+  src_path: src
 segments:
   - name:  init
     type:  code
     vram:  0x8021ED00
     start: 0x00000000
     subsegments:
-    - [0x0000, c, init/0000]
-    - [0x0050, c, init/0050]
-    - [0x1660, c, init/1660]
+    # asm: handwritten, in the game or in libultra's own .s files.  These get
+    # no C in the matching build; a PC port replaces them.
+    - [0x0000, asm, init/0000] # entry: clears .bss, sets sp, jumps to func_80220730
+    - [0x0050, c, init/0050]   # gzip inflate.c
+    - [0x1660, c, init/1660]   # gzip unzip driver, gzip.c get_method, bits.c, util.c
     - [0x1A00, c, init/1A00]
-    - [0x1A30, c, init/1A30]
+    - [0x1A30, asm, init/1A30] # boot: loads and inflates hd_code, jumps to it
+    - [0x1EA0, asm, init/1EA0] # bzero
     - [0x1F40, c, init/1F40]
-    - [0x2260, c, init/2260]
-    - [0x2280, c, init/2280]
-    - [0x2330, c, init/2330]
-    - [0x2C20, c, init/2C20]
-    - [0x2CA0, c, init/2CA0]
+    - [0x2260, asm, init/2260] # __osSetSR, __osGetSR
+    - [0x2280, asm, init/2280] # __osSetFpcCsr
+    - [0x2290, c, init/2290]
+    - [0x2330, asm, init/2330] # exceptasm.s, osWritebackDCache
+    - [0x2C20, asm, init/2C20] # osInvalICache
+    - [0x2CA0, asm, init/2CA0] # osMapTLBRdb
     - [0x2D00, c, init/2D00]
-    - [0x2D60, c, init/2D60]
+    - [0x2D60, c, init/2D60]   # ll.c, built -mips3
+    - [0x3020, bin, init/3020] # 0x40 zero bytes after ll.o; hd_code's copy has none
     - [0x3060, c, init/3060]
     - [0x30E0, c, init/30E0]
-    - [0x3110, c, init/3110]
-    - [0x3590, c, init/3590]
+    - [0x3110, c, init/3110]   # kdebugserver.c
+    - [0x3590, c, init/3590]   # thread.c
+    - [0x35D0, c, init/35D0]   # syncputchars.c
     - [0x3700, c, init/3700]
-    - [0x3770, c, init/3770]
-    - [0x38D0, c, init/38D0]
-    - [0x3990, c, init/3990]
+    - [0x3770, asm, init/3770] # osSetIntMask
+    - [0x37D0, c, init/37D0]
+    - [0x38D0, asm, init/38D0] # __osProbeTLB
+    - [0x3990, asm, init/3990] # __osGetCause
     - [0x39A0, c, init/39A0]
-    - [0x3A00, c, init/3A00]
-    - [0x3A40, bin, init/3A40] # .data?
+    - [0x3A00, asm, init/3A00] # __osDisableInt, __osRestoreInt
+    # .data, then .rodata, of each object in link order.  .bss follows, in
+    # the top-level bss: list.
+    - [0x3A40, .data, init/0050]
+    - [0x3B40, .data, init/1660]
+    - [0x3B50, data, init/1A30]
+    - [0x3B60, .data, init/1F40]
+    - [0x3B70, data, init/2330]
+    - [0x3B90, .data, init/3110]
+    - [0x3BA0, .data, init/3590]
+    - [0x3BC0, .data, init/35D0]
+    - [0x3BD0, .rodata, init/1660]
+    - [0x3C10, rodata, init/2330]
+    - [0x3C60, rodata, init/3770]
   - [0x3CE0]
+
+# .bss of each object in link order, by vram (see tools/modmap.py).  splat
+# doesn't read this; tools/split.py writes the asm objects' .bss and adds it
+# to the linker script.  It is 0x23A0 bytes, which the entry point clears.
+bss:
+  - [0x802229E0, .bss, init/0050] # inflate.c: huft_heap, bb, bk, hufts
+  - [0x802229F0, .bss, init/1660] # gzip.c: inbuf .. outcnt
+  - [0x80222A30, bss, init/1A30] # the boot stack (0x2000 bytes; sp starts at its top), then two words
+  - [0x80224A40, .bss, init/1F40] # initialize.c: __osFinalrom
+  - [0x80224A50, .bss, init/3110] # kdebugserver.c: debugBuffer, __osThreadSave
+  - [0x80224D00, .bss, init/3700] # seteventmesg.c: __osEventStateTab
+  - [0x80224D80] # end

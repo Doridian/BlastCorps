@@ -8,7 +8,7 @@ options:
   symbol_addrs_path: symbol_addrs.hd_front_end.jp.txt
   undefined_funcs_auto_path: undefined_funcs_auto.hd_front_end.jp.txt
   undefined_syms_auto_path: undefined_syms_auto.hd_front_end.jp.txt
-  src_path: src.jp
+  src_path: src
 segments:
   # hd_front_end_text is inflated to 0x801E7000 by func_8028B3E0 in hd_code
   - name:  hd_front_end
@@ -19,36 +19,86 @@ segments:
     subsegments:
     - [0x00000, c, hd_front_end/00000]
     - [0x1C40, c, hd_front_end/1C40]
-    - [0x6870, c, hd_front_end/6870]
-    - [0x7200, c, hd_front_end/7200]
-    - [0x7670, c, hd_front_end/7670]
-    - [0x8230, c, hd_front_end/8230]
-    - [0x9420, c, hd_front_end/9420]
-    - [0xDD20, c, hd_front_end/DD20]
-    - [0xE660, c, hd_front_end/E660]
-    - [0x10700, c, hd_front_end/10700]
-    - [0x113E0, c, hd_front_end/113E0]
-    - [0x178E0, c, hd_front_end/178E0]
-    - [0x19640, c, hd_front_end/19640]
-    - [0x1A190, c, hd_front_end/1A190]
-    - [0x1ADD0, c, hd_front_end/1ADD0]
-    - [0x1B050, asm, hd_front_end/1B050] # handwritten
-    - [0x1B680, c, hd_front_end/1B680]
-    - [0x1B7D0, c, hd_front_end/1B7D0]
-    - [0x1B840, c, hd_front_end/1B840]
-    - [0x1CC10, c, hd_front_end/1CC10]
-    - [0x1D220, c, hd_front_end/1D220]
-    - [0x1D360, c, hd_front_end/1D360]
-    - [0x1D4A0, c, hd_front_end/1D4A0]
-    - [0x1D660, c, hd_front_end/1D660]
-    - [0x1DB60, c, hd_front_end/1DB60]
-    - [0x1E340, c, hd_front_end/1E340]
-    - [0x1F510, c, hd_front_end/1F510]
-    - [0x1F8C0, c, hd_front_end/1F8C0]
-    - [0x1FC70, c, hd_front_end/1FC70]
+    - [0x6870, c, hd_front_end/6790]
+    - [0x7200, c, hd_front_end/7390]
+    - [0x7670, c, hd_front_end/7800]
+    - [0x8230, c, hd_front_end/8380]
+    - [0x9420, c, hd_front_end/9570]
+    - [0xC300, c, hd_front_end/C450]
+    - [0xDD20, c, hd_front_end/DE70]
+    - [0xE660, c, hd_front_end/E7B0]
+    - [0x10700, c, hd_front_end/10850]
+    - [0x113E0, c, hd_front_end/11530]
+    - [0x178E0, c, hd_front_end/17990]
+    - [0x19640, c, hd_front_end/196F0]
+    - [0x1A190, c, hd_front_end/1A240]
+    - [0x1ADD0, c, hd_front_end/1AE80]
+    - [0x1B050, asm, hd_front_end/1B100] # handwritten
+    - [0x1B680, c, hd_front_end/1B730]
+    - [0x1B7D0, c, hd_front_end/1B880]
+    - [0x1B840, c, hd_front_end/1B8F0]
+    - [0x1CC10, c, hd_front_end/1CCC0]
+    - [0x1D220, c, hd_front_end/1D2D0]
+    - [0x1D360, c, hd_front_end/1D410]
+    - [0x1D4A0, c, hd_front_end/1D550]
+    - [0x1D660, c, hd_front_end/1D710]
+    - [0x1DB60, c, hd_front_end/1DC10]
+    - [0x1E340, c, hd_front_end/1E3F0]
+    - [0x1F510, c, hd_front_end/1F5C0]
+    - [0x1F8C0, c, hd_front_end/1F970]
+    - [0x1FC70, c, hd_front_end/1FD20]
     # RSP microcode (0xFB0 bytes, fits IMEM): sets sp=0x110 and loads from
     # DMEM 0xFC4, so it is not r4300 code
-    - [0x1FFE0, bin, hd_front_end/1FFE0]
+    - [0x1FFE0, bin, hd_front_end/20090]
     - [0x20F90, linker, data]
-    - [0x20F90, bin, hd_front_end/hd_front_end_data] # .data
+    # .data, then .rodata, of each object in link order (see split_data in tools/gen_code_yaml.py)
+    - [0x20F90, .data, hd_front_end/00000]
+    - [0x21110, .data, hd_front_end/1C40]
+    - [0x21480, .data, hd_front_end/6790]
+    - [0x214A0, .data, hd_front_end/7800]
+    - [0x214C0, .data, hd_front_end/9570]
+    - [0x24D00, .data, hd_front_end/C450]
+    - [0x24EB0, .data, hd_front_end/E7B0]
+    - [0x25000, data, hd_front_end/25070]
+    - [0x26600, .data, hd_front_end/10850]
+    - [0x26610, .data, hd_front_end/11530]
+    - [0x271E0, .data, hd_front_end/1A240]
+    - [0x27240, .rodata, hd_front_end/00000]
+    - [0x272D0, .rodata, hd_front_end/1C40]
+    - [0x27AC0, .rodata, hd_front_end/6790]
+    - [0x27B30, .rodata, hd_front_end/7800]
+    - [0x27D30, .rodata, hd_front_end/8380]
+    - [0x27D40, .rodata, hd_front_end/9570]
+    - [0x27E10, .rodata, hd_front_end/C450]
+    - [0x27E30, .rodata, hd_front_end/E7B0]
+    - [0x281B0, rodata, hd_front_end/28480]
+    - [0x28B90, .rodata, hd_front_end/10850]
+    - [0x28BF0, .rodata, hd_front_end/11530]
+    - [0x291C0, .rodata, hd_front_end/17990]
+    - [0x29290, .rodata, hd_front_end/196F0]
+    - [0x292E0, .rodata, hd_front_end/1AE80]
+    # RSP microcode data (DMEM image) for the microcode at the end of .text
+    - [0x29300, bin, hd_front_end/29690]
   - [0x29B00] # EOF
+
+# .bss of each object in link order (see split_bss in tools/gen_code_yaml.py),
+# by vram.  splat doesn't read this; tools/split.py writes the asm objects'
+# .bss and adds it to the linker script.
+bss:
+  - [0x80210B00, .bss, hd_front_end/00000]
+  - [0x802150B0, .bss, hd_front_end/1C40]
+  - [0x802155D0, .bss, hd_front_end/6790]
+  - [0x80215630, .bss, hd_front_end/7390]
+  - [0x80215640, .bss, hd_front_end/8380]
+  - [0x80215660, .bss, hd_front_end/9570]
+  - [0x80217300, .bss, hd_front_end/C450]
+  - [0x80217F30, .bss, hd_front_end/DE70]
+  - [0x802183B0, .bss, hd_front_end/E7B0]
+  - [0x80219F40, .bss, hd_front_end/10850]
+  - [0x8021A7B0, .bss, hd_front_end/11530]
+  - [0x8021AAE0, .bss, hd_front_end/17990]
+  - [0x8021AAF0, .bss, hd_front_end/196F0]
+  - [0x8021AB00, .bss, hd_front_end/1A240]
+  - [0x8021AB20, .bss, hd_front_end/1DC10]
+  - [0x8021AB60, .bss, hd_front_end/1F5C0]
+  - [0x8021ABA0] # end

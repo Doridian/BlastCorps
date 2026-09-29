@@ -34,12 +34,14 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import modmap  # noqa: E402
+import vermap  # noqa: E402
 
 CC = str(HERE / "ido5.3_recomp" / "cc")
 CFLAGS = ["-c", "-G", "0", "-Xfullwarn", "-Xcpluscomm", "-signed", "-nostdinc", "-non_shared",
           "-Wab,-r4300_mul", "-D_LANGUAGE_C", "-D_FINALROM", "-woff", "649,838",
           "-I", ".", "-I", "include", "-I", "include/2.0I", "-I", "include/2.0I/PR",
           "-mips2", "-o32", "-O1"]
+VERSION_FLAGS = ["-DVERSION_US_V11"]  # main() sets the version's
 
 
 def ido_align(size):
@@ -104,7 +106,7 @@ def sizes(c_path, decls):
         text += f"unsigned int __bss_c_size_{i} = {expr};\n"
     probe.write_text(text)
     obj = probe.with_suffix(".o")
-    r = subprocess.run([CC, *CFLAGS, "-o", str(obj), str(probe)], capture_output=True, text=True)
+    r = subprocess.run([CC, *CFLAGS, *VERSION_FLAGS, "-o", str(obj), str(probe)], capture_output=True, text=True)
     if r.returncode:
         sys.exit(f"probe compile failed:\n{r.stderr}")
     data = subprocess.run(["mips-linux-gnu-objcopy", "-O", "binary", "--only-section", ".data", str(obj), "/dev/stdout"],
@@ -134,8 +136,11 @@ def pieces(addr, size):
 def preprocess(c_path):
     r = subprocess.run(["cpp", "-P", "-undef", "-nostdinc", "-I", ".", "-I", "include", "-I", "include/2.0I",
                         "-I", "include/2.0I/PR", "-D_LANGUAGE_C", "-D_FINALROM", "-D_MIPS_SZLONG=32",
-                        "-D_MIPS_SZINT=32", "-D__sgi", str(c_path)], capture_output=True, text=True)
+                        "-D_MIPS_SZINT=32", "-D__sgi", *VERSION_FLAGS, str(c_path)], capture_output=True, text=True)
     return r.stdout
+
+
+VM = vermap.VerMap("us.v11")  # the version's names (tools/vermap.py)
 
 
 def plan(ref, start, end, decls, size_of):
@@ -146,7 +151,7 @@ def plan(ref, start, end, decls, size_of):
 
     def pad(a, n, name=None):
         for i, (pa, pn) in enumerate(pieces(a, n)):
-            nm = name if (i == 0 and name) else f"D_{pa:08X}"
+            nm = name if (i == 0 and name) else VM.name("D", pa, True)
             out.append((pa, nm, f"u8 {nm}[{pn}];" if pn < 10 else f"u8 {nm}[0x{pn:X}];"))
 
     def align_up(a, n):
@@ -203,10 +208,13 @@ def main():
     mod = modmap.Module(f"{args.module}.{args.version}.yaml")
     start, end, kind = block(mod, args.object)
     ref = reference(mod, args.object, start, kind)
-    c_path = Path(f"src.{args.version}") / args.module / f"{args.object}.c"
+    global VM
+    VM = vermap.load(args.version, Path("."))
+    VERSION_FLAGS[:] = ["-DVERSION_" + args.version.upper().replace(".", "_")]
+    c_path = Path("src") / args.module / f"{args.object}.c"
 
     if args.check:
-        obj = Path("build") / f"src.{args.version}" / args.module / f"{args.object}.c.o"
+        obj = Path("build") / "src" / args.module / f"{args.object}.c.o"
         out = subprocess.run(["mips-linux-gnu-readelf", "-sSW", str(obj)], capture_output=True, text=True).stdout
         idx = re.search(r"\[\s*(\d+)\] \.bss\s", out)
         have = {}

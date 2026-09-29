@@ -6,6 +6,8 @@ disassembles the same range out of both binaries, and prints a unified diff.
 Exits 0 when the bytes are identical.
 
     tools/fdiff.py init inflate_codes [--version us.v11] [--make]
+
+The version defaults to the one blastcorps/ is extracted for.
 """
 
 import argparse
@@ -58,7 +60,8 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("module")
     ap.add_argument("function")
-    ap.add_argument("--version", default="us.v11")
+    extracted = STAGE2 / ".version"
+    ap.add_argument("--version", default=extracted.read_text().strip() if extracted.exists() else "us.v11")
     ap.add_argument("--make", action="store_true",
                     help="rebuild the module first (ignoring the sha1 check)")
     args = ap.parse_args()
@@ -71,8 +74,8 @@ def main() -> None:
     # A failed link leaves the previous binary in place, which would diff
     # clean against code that no longer builds.
     image = STAGE2 / "build" / f"{name}.bin"
-    inputs = [*(STAGE2 / "build").glob(f"src.{args.version}/{args.module}/*.o"),
-              *(STAGE2 / f"src.{args.version}" / args.module).glob("*.c"),
+    inputs = [*(STAGE2 / "build").glob(f"src/{args.module}/*.o"),
+              *(STAGE2 / "src" / args.module).glob("*.c"),
               *(STAGE2 / "include").rglob("*.h")]
     if any(f.stat().st_mtime > image.stat().st_mtime for f in inputs):
         sys.exit(f"{image} is older than its sources; the last build failed")

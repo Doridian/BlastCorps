@@ -6,19 +6,23 @@ function is right. The port then needs three more things: C that doesn't depend
 on addresses, data with real types, and a platform layer to stand in for
 libultra and the RCP.
 
-`us.v11` is the reference version. The other three stay matching, but new work
-lands in `us.v11` first.
+`us.v11` is the reference version. The other three build from the same C
+(`#if`'d where they differ, see CLAUDE.md "Versions"); new work lands in
+`us.v11` first and then has to match the others too.
 
 ## Where things stand
 
-| module         | IDO-compiled code | handwritten asm | in C (2026-09-28) |
-| ---            | ---:              | ---:            | ---:              |
-| `init`         | ~10 KB            | ~4 KB           | 100%              |
-| `hd_code`      | ~420 KB           | ~220 KB         | 99.9% (2 left)    |
-| `hd_front_end` | ~130 KB           | ~2 KB           | 100%              |
+| module         | IDO-compiled code | handwritten asm | us.v11 (2026-09-28) | us.v10 | jp     | eu     |
+| ---            | ---:              | ---:            | ---:                | ---:   | ---:   | ---:   |
+| `init`         | ~10 KB            | ~4 KB           | 100%                | 100%   | 100%   | 100%   |
+| `hd_code`      | ~420 KB           | ~220 KB         | 99.9% (2 left)      | 99.9%  | 94.0%  | 73.2%  |
+| `hd_front_end` | ~130 KB           | ~2 KB           | 100%                | 100%   | 92.5%  | 29.8%  |
 
-Run `tools/progress.py` for current numbers. Its percentages are of the
-IDO-compiled code only.
+Run `tools/progress.py --version <v>` (after building that version) for
+current numbers. Its percentages are of the IDO-compiled code only. What
+isn't C in jp and eu is the functions they have differently (jp's Japanese
+text, eu's three languages and PAL timings), as `GLOBAL_ASM` for that
+version, and eu's objects with multilingual data, all asm there.
 
 What's known that affects the port:
 
@@ -41,10 +45,10 @@ What's known that affects the port:
   emits it as `asm`. It can't be decompiled to matching C; for the port it has
   to be rewritten or mechanically translated (see Phase 5). The game's
   simulation (vehicles, collision, destruction) is likely in it.
-- **us.v11's `.data`, `.rodata` and `.bss` are per object**, every C file
-  defines its own (typed: structs, `Vtx`, display lists as GBI macros), and
-  every address is a symbol: the build can move (`SHIFT=1`). The other
-  versions still have one opaque data `bin` per module and no `.bss` layout.
+- **`.data`, `.rodata` and `.bss` are per object**, every C file defines its
+  own (typed: structs, `Vtx`, display lists as GBI macros), and every address
+  is a symbol: the build can move (`SHIFT=1`, tried with us.v11). The other
+  versions' layouts are us.v11's moved through `tools/vermap.py`.
 
 ## Phase 0: workflow
 
@@ -111,11 +115,12 @@ change size (a "shiftable" build), which is how we test it.
       `0x8020C070`, `.rodata` `0x8020F480`). 9570.c is two files, split at `0xC450`
       (`missed_boundaries()` finds it; 9570's `.rodata` ends in padding at
       `0x8020F088`). Every C file owns its `.rodata` and `.data`.
-- [ ] `hd_code` for us.v10/jp/eu and `hd_front_end` us.v10/jp/eu: same thing. Needs each
-      version's `.rodata` start and microcode-data offset for
-      `regen_code_yaml.sh` (the last `.data` is reverb.c's `L_INC`,
-      `{0x10, 0x10, 0x20}`, the microcode data three DMEM images of
-      0x800/0x2D0/0x800 bytes).
+- [x] `hd_code` and `hd_front_end` for us.v10/jp/eu: same thing, from
+      us.v11's configs (`gen_code_yaml.py --like`, CLAUDE.md "Versions").
+      Each C file owns its data there too; jp's and eu's differences are
+      `#if`'d in the definitions (jp's entry tables lack some entries, eu's
+      credits have three more lines, its audio heap is smaller, ...), and
+      eu's objects with text in three languages are asm there.
 - [x] `hd_code` `.bss` (`0x8030F660`-`0x803FF600`, 77 objects) and
       `hd_front_end`'s (`0x80210E90`-`0x8021AC30`, 16), laid out by
       `gen_code_yaml.py --bss` like `.data`. The boot code clears from the end
@@ -220,6 +225,16 @@ Matching C for every non-handwritten function, in this order:
    splat split), leaves first. Generate context with m2c and grind the
    stragglers with the permuter.
 4. **`hd_front_end`**, the menus and front end.
+
+5. **The other versions**, from the same C. Done for everything that
+   matches: us.v10 is us.v11's C with a handful of `#if`s (00000's and
+   10850's v1.1 fixes); jp's 19 functions with Japanese text handling and
+   eu's ~40 changed functions are that version's `GLOBAL_ASM`, and eu's
+   hd_code 1C460, 1D990, 26570, 30C70, 45BB0, 53220 and hd_front_end 00000,
+   1C40, 6790, 7800, E7B0, 196F0, 1A240, 11530 are all asm there: their
+   `.data`/`.rodata` hold eu's text in three languages (German strings, and
+   tables of three text pointers where the US versions have one), which
+   needs writing as eu's own data before their C can build eu.
 
 Rules for the C, so it ports cleanly later:
 

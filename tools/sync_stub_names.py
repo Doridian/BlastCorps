@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Rename GLOBAL_ASM entries in the src.<version> stubs after new names land.
+"""Rename GLOBAL_ASM entries in the C files after new names land.
 
 Splat only writes a function's .s when the existing stub already names it, so
 a function that gains a name in symbol_addrs (func_80220C40 becoming
 osInitialize) would keep pointing at the old, stale func_80220C40.s.  This
-rewrites each `func_XXXXXXXX` GLOBAL_ASM line to the name symbol_addrs now
-gives that address.  Re-extract afterwards (with asm/ removed, so the stale
-files go too).
+rewrites each `func_XXXXXXXX` GLOBAL_ASM line to the name us.v11's
+symbol_addrs now gives that address (the names are us.v11's in every
+version, tools/vermap.py).  Re-extract afterwards (with asm/ removed, so the
+stale files go too).
 
-    tools/sync_stub_names.py [version ...]      # default: all four
+    tools/sync_stub_names.py
 """
 import re
 import sys
@@ -31,9 +32,9 @@ def names(module, version):
 
 
 def main():
-    for version in sys.argv[1:] or VERSIONS:
+    for version in ["us.v11"]:
         tables = {}
-        for c in sorted((CODE / f"src.{version}").glob("*/*.c")):
+        for c in sorted((CODE / "src").glob("*/*.c")):
             text = c.read_text()
 
             def rename(m):

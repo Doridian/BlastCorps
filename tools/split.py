@@ -19,6 +19,9 @@ The submodule's splat is old; these patch it rather than fork it:
 - Aligned data that splat would print as bytes or halfwords (because code
   reads it with lbu or lh) is printed as words when it holds a pointer to a
   symbol, so the pointer is a relocation too.
+- Outside us.v11, splat's default names are us.v11's for the same thing
+  (tools/vermap.py): `D_X` is what us.v11 has at X, and something us.v11
+  doesn't have keeps its own address with the version appended.
 - After splat: tools/postsplit.py symbolizes the lui pairs splat left as
   numbers, writes the .bss of each object and adds it to the linker script.
 - A `.rodata` subsegment (owned by the C file of the same name) is handed to
@@ -67,7 +70,12 @@ def group_scan(self, rom_bytes):
         for sub in datas:
             for i in range(sub.rom_start, sub.rom_end - 3, 4):
                 bits = int.from_bytes(rom_bytes[i : i + 4], "big")
-                if any(d.contains_vram(bits) for d in datas):
+                owner = next((d for d in datas if d.contains_vram(bits)), None)
+                if owner is not None and owner.type.startswith("."):
+                    # in a C file's data: the C defines it, or (a field) the
+                    # link makes it relative, so it goes on the undefined list
+                    self.get_symbol(bits, create=True, reference=True, local_only=True)
+                elif owner is not None:
                     self.get_symbol(bits, create=True, define=True, local_only=True)
                 elif sub.type in ("data", "rodata") and postsplit.movable(MODULES, bits):
                     self.get_symbol(bits, create=True, reference=True)
@@ -245,8 +253,10 @@ def migrate_rodata(self):
         ent = moved.setdefault(path, {"rdata": [], "late": [], "align": None})
         sect = "late" if late else "rdata"
         if late and ent["align"] is None:
-            sym = self.get_most_parent().get_symbol(int(name[-8:], 16)) if re.search(r"[0-9A-F]{8}$", name) else None
-            addr = sym.vram_start if sym else int(name[-8:], 16)
+            addr = VERMAP.original(name)
+            if addr is None:
+                addr = next(s.vram_start for ss in self.get_most_parent().seg_symbols.values()
+                            for s in ss if s.name == name)
             ent["align"] = 8 if addr % 8 == 0 else 4
         ent[sect].append(f"glabel {name}\n{body}\n")
 
@@ -281,6 +291,26 @@ import postsplit  # noqa: E402
 CONFIG_PATH = sys.argv[1]
 CONFIG = yaml.safe_load(Path(CONFIG_PATH).read_text())
 MODULES = modmap.modules(postsplit.version_of(CONFIG), Path(CONFIG_PATH).parent)
+
+# Names: in versions other than us.v11, what splat and postsplit call a
+# thing is us.v11's name for it (tools/vermap.py), so that one C source
+# builds every version.
+import vermap  # noqa: E402
+from util import symbols as _symbols  # noqa: E402
+
+VERMAP = vermap.load(postsplit.version_of(CONFIG), Path(CONFIG_PATH).parent)
+_default_name = _symbols.Symbol.default_name.fget
+
+
+def default_name(self):
+    if VERMAP.identity or self.in_overlay:
+        return _default_name(self)
+    prefix = "func" if self.type == "func" else "jtbl" if self.type == "jtbl" else "D"
+    return VERMAP.name(prefix, self.vram_start, postsplit.movable(MODULES, self.vram_start))
+
+
+_symbols.Symbol.default_name = property(default_name)
+postsplit.VERMAP = VERMAP
 
 sys.argv[0] = os.path.join(SPLAT, "split.py")
 runpy.run_path(sys.argv[0], run_name="__main__")

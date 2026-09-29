@@ -48,4 +48,20 @@
  * list points at is KSEG0. */
 #define STATIC_K0_TO_PHYS(x) ((u32)(x) - K0BASE)
 
+/*
+ * The versions: the Makefile defines one of VERSION_US_V10, VERSION_US_V11,
+ * VERSION_JP and VERSION_EU (the PC port builds us.v11).  Code that differs
+ * is #if'd on them where it is.
+ *
+ * LINE_EU(us, eu): an assert's line number, which eu's source has elsewhere.
+ */
+#if !defined(VERSION_US_V10) && !defined(VERSION_JP) && !defined(VERSION_EU) && !defined(VERSION_US_V11)
+#define VERSION_US_V11
+#endif
+#ifdef VERSION_EU
+#define LINE_EU(us, eu) (eu)
+#else
+#define LINE_EU(us, eu) (us)
+#endif
+
 #endif

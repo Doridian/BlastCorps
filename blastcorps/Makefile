@@ -1,11 +1,18 @@
-VERSION  := us.v10
+VERSION  := us.v11
 
 BUILD_DIR = build
 
 TOOLS_DIR := ../tools
 ASM_PROCESSOR_DIR := $(TOOLS_DIR)/asm-processor
 
-SRC_DIR = src.$(VERSION)
+# One source tree for every version.  The objects are us.v11's, named by
+# their us.v11 offsets, and each version's config lists the ones it has
+# (tools/gen_code_yaml.py --like).  C that differs between versions is
+# #if'd on VERSION_US_V10, VERSION_US_V11, VERSION_JP or VERSION_EU.
+SRC_DIR = src
+VERSION_DEFINE := VERSION_$(subst .,_,$(shell echo $(VERSION) | tr a-z A-Z))
+# the C files of a module: its config's `c` subsegments
+c_files = $(shell sed -n 's/^ *- \[0x[0-9A-Fa-f]*, c, \([^]]*\)\].*/$(SRC_DIR)\/\1.c/p' $(1).$(VERSION).yaml 2>/dev/null)
 
 # gzip mtimes, taken from each ROM's own gzip headers.  They are part of the
 # compressed stream, so getting one wrong makes the rebuilt section differ from
@@ -41,7 +48,7 @@ INIT_SRC_DIR   = $(SRC_DIR)/init
 INIT_SRC_DIRS  = $(INIT_SRC_DIR)
 
 INIT_S_FILES   = $(foreach dir,$(INIT_ASM_DIRS),$(wildcard $(dir)/*.s))
-INIT_C_FILES   = $(foreach dir,$(INIT_SRC_DIRS),$(wildcard $(dir)/*.c))
+INIT_C_FILES   = $(call c_files,init)
 INIT_BIN_FILES = $(foreach dir,$(INIT_BIN_DIRS),$(wildcard $(dir)/*.bin))
 
 INIT_O_FILES := $(foreach file,$(INIT_S_FILES),$(BUILD_DIR)/$(file).o) \
@@ -55,7 +62,7 @@ HD_CODE_SRC_DIR   = $(SRC_DIR)/hd_code
 HD_CODE_SRC_DIRS  = $(HD_CODE_SRC_DIR)
 
 HD_CODE_S_FILES   = $(foreach dir,$(HD_CODE_ASM_DIRS),$(wildcard $(dir)/*.s))
-HD_CODE_C_FILES   = $(foreach dir,$(HD_CODE_SRC_DIRS),$(wildcard $(dir)/*.c))
+HD_CODE_C_FILES   = $(call c_files,hd_code)
 HD_CODE_BIN_FILES = $(foreach dir,$(HD_CODE_BIN_DIRS),$(wildcard $(dir)/*.bin))
 
 HD_CODE_O_FILES := $(foreach file,$(HD_CODE_S_FILES),$(BUILD_DIR)/$(file).o) \
@@ -69,24 +76,12 @@ HD_FRONT_END_SRC_DIR   = $(SRC_DIR)/hd_front_end
 HD_FRONT_END_SRC_DIRS  = $(HD_FRONT_END_SRC_DIR)
 
 HD_FRONT_END_S_FILES   = $(foreach dir,$(HD_FRONT_END_ASM_DIRS),$(wildcard $(dir)/*.s))
-HD_FRONT_END_C_FILES   = $(foreach dir,$(HD_FRONT_END_SRC_DIRS),$(wildcard $(dir)/*.c))
+HD_FRONT_END_C_FILES   = $(call c_files,hd_front_end)
 HD_FRONT_END_BIN_FILES = $(foreach dir,$(HD_FRONT_END_BIN_DIRS),$(wildcard $(dir)/*.bin))
 
 HD_FRONT_END_O_FILES := $(foreach file,$(HD_FRONT_END_S_FILES),$(BUILD_DIR)/$(file).o) \
                         $(foreach file,$(HD_FRONT_END_C_FILES),$(BUILD_DIR)/$(file).o) \
                         $(foreach file,$(HD_FRONT_END_BIN_FILES),$(BUILD_DIR)/$(file).o)
-
-
-# Files requiring pre/post-processing
-GREP    = grep -rl
-GLOBAL_ASM_INIT_C_FILES := $(shell $(GREP) GLOBAL_ASM $(INIT_SRC_DIR) </dev/null 2>/dev/null)
-GLOBAL_ASM_INIT_O_FILES := $(foreach file,$(GLOBAL_ASM_INIT_C_FILES),$(BUILD_DIR)/$(file).o)
-
-GLOBAL_ASM_HD_CODE_C_FILES := $(shell $(GREP) GLOBAL_ASM $(HD_CODE_SRC_DIR) </dev/null 2>/dev/null)
-GLOBAL_ASM_HD_CODE_O_FILES := $(foreach file,$(GLOBAL_ASM_HD_CODE_C_FILES),$(BUILD_DIR)/$(file).o)
-
-GLOBAL_ASM_HD_FRONT_END_C_FILES := $(shell $(GREP) GLOBAL_ASM $(HD_FRONT_END_SRC_DIR) </dev/null 2>/dev/null)
-GLOBAL_ASM_HD_FRONT_END_O_FILES := $(foreach file,$(GLOBAL_ASM_HD_FRONT_END_C_FILES),$(BUILD_DIR)/$(file).o)
 
 
 # Tooling
@@ -115,7 +110,7 @@ INCLUDE_CFLAGS := -I . -I include -I include/2.0I -I include/2.0I/PR
 ASFLAGS = -EB -mtune=vr4300 -march=vr4300 -mabi=32 -I include --no-pad-sections
 
 CFLAGS := -G 0 -Xfullwarn -Xcpluscomm -signed -nostdinc -non_shared -Wab,-r4300_mul
-CFLAGS += -D_LANGUAGE_C -D_FINALROM
+CFLAGS += -D_LANGUAGE_C -D_FINALROM -D$(VERSION_DEFINE)
 # ignore compiler warnings about anonymous structs
 CFLAGS += -woff 649,838
 CFLAGS += $(INCLUDE_CFLAGS)
@@ -165,17 +160,17 @@ HD_FRONT_END_LDFLAGS = $(SHIFT_LDFLAGS) --emit-relocs -T $(HD_FRONT_END_LD_SCRIP
 ### Optimisation Overrides
 
 # Files not built at the default -O1 (libultra's gu and audio code, for
-# example), as paths under $(SRC_DIR).
-O2_C_FILES.us.v11 :=
-O3_C_FILES.us.v11 := hd_code/90760.c hd_code/90800.c hd_code/909C0.c hd_code/90E40.c hd_code/91050.c hd_code/912C0.c hd_code/91360.c hd_code/91830.c hd_code/92130.c hd_code/92350.c hd_code/923B0.c hd_code/926F0.c hd_code/927B0.c hd_code/92800.c hd_code/92A30.c hd_code/92AD0.c hd_code/92B60.c hd_code/92BF0.c hd_code/92C80.c hd_code/92D20.c hd_code/92DA0.c hd_code/92F00.c hd_code/92F30.c hd_code/939F0.c hd_code/93A30.c hd_code/93AA0.c hd_code/93B50.c hd_code/93B60.c hd_code/93BA0.c hd_code/93DF0.c hd_code/95020.c hd_code/95070.c hd_code/950E0.c hd_code/95460.c hd_code/96800.c hd_code/97140.c hd_code/99580.c hd_code/99620.c hd_code/996A0.c hd_code/996B0.c hd_code/9AFF0.c hd_code/9B470.c hd_code/9BBF0.c hd_code/9BC90.c hd_code/9BDE0.c hd_code/9C930.c hd_code/9CC30.c hd_code/9D810.c hd_code/9D920.c hd_code/9F7D0.c hd_code/9FDF0.c hd_code/9FE00.c hd_code/9FE20.c hd_code/A0AA0.c
-$(foreach f,$(O2_C_FILES.$(VERSION)),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): OPT_FLAGS := -O2
-$(foreach f,$(O3_C_FILES.$(VERSION)),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): OPT_FLAGS := -O3
+# example), as paths under $(SRC_DIR).  The same in every version.
+O2_C_FILES :=
+O3_C_FILES := hd_code/90760.c hd_code/90800.c hd_code/909C0.c hd_code/90E40.c hd_code/91050.c hd_code/912C0.c hd_code/91360.c hd_code/91830.c hd_code/92130.c hd_code/92350.c hd_code/923B0.c hd_code/926F0.c hd_code/927B0.c hd_code/92800.c hd_code/92A30.c hd_code/92AD0.c hd_code/92B60.c hd_code/92BF0.c hd_code/92C80.c hd_code/92D20.c hd_code/92DA0.c hd_code/92F00.c hd_code/92F30.c hd_code/939F0.c hd_code/93A30.c hd_code/93AA0.c hd_code/93B50.c hd_code/93B60.c hd_code/93BA0.c hd_code/93DF0.c hd_code/95020.c hd_code/95070.c hd_code/950E0.c hd_code/95460.c hd_code/96800.c hd_code/97140.c hd_code/99580.c hd_code/99620.c hd_code/996A0.c hd_code/996B0.c hd_code/9AFF0.c hd_code/9B470.c hd_code/9BBF0.c hd_code/9BC90.c hd_code/9BDE0.c hd_code/9C930.c hd_code/9CC30.c hd_code/9D810.c hd_code/9D920.c hd_code/9F7D0.c hd_code/9FDF0.c hd_code/9FE00.c hd_code/9FE20.c hd_code/A0AA0.c
+$(foreach f,$(O2_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): OPT_FLAGS := -O2
+$(foreach f,$(O3_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): OPT_FLAGS := -O3
 
 # libultra's ll.c (the long long helpers) is built -mips3 -32, as in the SDK.
-MIPS3_C_FILES.us.v11 := init/2D60.c hd_code/90390.c hd_code/95C40.c
+MIPS3_C_FILES := init/2D60.c hd_code/90390.c hd_code/95C40.c
 # ld won't mix it with the -mips2 objects, so it's relabelled mips2 after.
-$(foreach f,$(MIPS3_C_FILES.$(VERSION)),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): MIPSISET := -mips3 -32
-$(foreach f,$(MIPS3_C_FILES.$(VERSION)),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): POSTCC := $(PYTHON) $(TOOLS_DIR)/elf_mips2.py
+$(foreach f,$(MIPS3_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): MIPSISET := -mips3 -32
+$(foreach f,$(MIPS3_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): POSTCC := $(PYTHON) $(TOOLS_DIR)/elf_mips2.py
 
 
 ### Targets
@@ -318,41 +313,37 @@ $(BUILD_DIR)/hd_front_end.$(VERSION).elf: $(HD_FRONT_END_O_FILES) $(BUILD_DIR)/h
 # Each prerequisite also gets an empty rule (as with -MP), so one that goes
 # away, like a .s renamed by re-extracting, doesn't stop the build.
 define write_deps
-	@{ $(CPP) -MM -MP -MT $@ $(INCLUDE_CFLAGS) -D_LANGUAGE_C -D_FINALROM $< 2>/dev/null || echo "$@: $<"; \
+	@{ $(CPP) -MM -MP -MT $@ $(INCLUDE_CFLAGS) -D_LANGUAGE_C -D_FINALROM -D$(VERSION_DEFINE) $< 2>/dev/null || echo "$@: $<"; \
 	   { grep -o 'GLOBAL_ASM("[^"]*")' $< || true; } | sed 's/GLOBAL_ASM("\(.*\)")/$(subst /,\/,$@): \1\n\1:/'; } > $(@:.o=.d)
 endef
 
+# A C file goes through tools/version_ifs.py first, which decides its
+# VERSION_* conditionals (asm-processor would otherwise open the .s of every
+# version's GLOBAL_ASM).  If a GLOBAL_ASM is left, asm-processor builds it;
+# else IDO compiles the file as it is.  PERMUTER=1 (tools/permute.sh) shows
+# the plain command.
 ifndef PERMUTER
-$(GLOBAL_ASM_INIT_O_FILES): $(BUILD_DIR)/%.c.o: %.c
-	$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $< > $(BUILD_DIR)/$<
-	$(CC) -c -32 $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $(BUILD_DIR)/$<
-	$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $< --post-process $@ \
-		--assembler "$(AS) $(ASFLAGS)" --asm-prelude $(ASM_PROCESSOR_DIR)/prelude.s
+$(BUILD_DIR)/%.c.o: %.c
+	@mkdir -p $(@D)
+	@$(PYTHON) $(TOOLS_DIR)/version_ifs.py $(VERSION_DEFINE) $< -o $(BUILD_DIR)/$*.ver.c
+	@if grep -q GLOBAL_ASM $(BUILD_DIR)/$*.ver.c; then \
+		echo "asm-processor $<"; \
+		$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $(BUILD_DIR)/$*.ver.c > $(BUILD_DIR)/$< && \
+		$(CC) -c -32 $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $(BUILD_DIR)/$< && \
+		$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $(BUILD_DIR)/$*.ver.c --post-process $@ \
+			--assembler "$(AS) $(ASFLAGS)" --asm-prelude $(ASM_PROCESSOR_DIR)/prelude.s; \
+	else \
+		echo "$(CC) -c $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $<"; \
+		$(CC) -c $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $<; \
+	fi
 	$(if $(POSTCC),$(POSTCC) $@)
 	$(write_deps)
-
-$(GLOBAL_ASM_HD_CODE_O_FILES): $(BUILD_DIR)/%.c.o: %.c
-	$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $< > $(BUILD_DIR)/$<
-	$(CC) -c -32 $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $(BUILD_DIR)/$<
-	$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $< --post-process $@ \
-		--assembler "$(AS) $(ASFLAGS)" --asm-prelude $(ASM_PROCESSOR_DIR)/prelude.s
-	$(if $(POSTCC),$(POSTCC) $@)
-	$(write_deps)
-
-$(GLOBAL_ASM_HD_FRONT_END_O_FILES): $(BUILD_DIR)/%.c.o: %.c
-	$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $< > $(BUILD_DIR)/$<
-	$(CC) -c -32 $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $(BUILD_DIR)/$<
-	$(PYTHON) $(ASM_PROCESSOR_DIR)/asm_processor.py $(OPT_FLAGS) $< --post-process $@ \
-		--assembler "$(AS) $(ASFLAGS)" --asm-prelude $(ASM_PROCESSOR_DIR)/prelude.s
-	$(if $(POSTCC),$(POSTCC) $@)
-	$(write_deps)
-endif
-
-# non asm-processor recipe
+else
 $(BUILD_DIR)/%.c.o: %.c
 	$(CC) -c $(CFLAGS) $(OPT_FLAGS) $(MIPSISET) -o $@ $<
 	$(if $(POSTCC),$(POSTCC) $@)
 	$(write_deps)
+endif
 
 $(BUILD_DIR)/%.s.o: %.s
 	$(AS) $(ASFLAGS) -o $@ $<

@@ -33,7 +33,7 @@ sys.path.insert(0, HERE)
 
 import liveness  # noqa: E402
 
-C_DIRS = [os.path.join(BLAST, "src.us.v11", m) for m in ("hd_code", "hd_front_end")]
+C_DIRS = [os.path.join(BLAST, "src", m) for m in ("hd_code", "hd_front_end")]
 EXTRA_C = [os.path.join(BLAST, "src", f) for f in ("gzip_inflate.inc.c", "gzip_unzip.inc.c")]
 HEADERS = [os.path.join(BLAST, "include")]
 

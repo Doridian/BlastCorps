@@ -42,7 +42,18 @@ config written to <module>.<version>.yaml and reading back what it found:
    the existing config gives to a C file (`.data`/`.rodata`) keeps that type
    when it is regenerated at the same offset.
 
+7. Another version's config (--like us.v11): the reference config with
+   every offset moved to where tools/vermap.py puts it in this version
+   (like_config).  Objects, their names and kinds (`c`, `.data`, ...)
+   and the comments stay the reference's, so each version's objects are
+   the same C files; the order follows this version's addresses (an
+   object can sit elsewhere in its link order).  --at places a start the
+   map can't, --split adds an object only this version has, --asm-block
+   and --asm-object give this version asm where the C can't build it.
+
 Usage:
+  gen_code_yaml.py <module> <version> --like us.v11 --data <off> --end <off>
+                   [--at <name>:<kind>:<off>] ... [--split <off>] ...
   gen_code_yaml.py <module> <version> --vram 0x... --data <off> --end <off>
                    [--bin off:len:note] ... [--c] [--symbols <path>] [--split <off>] ...
                    [--rodata <off> [--tail off:len:note] ... [--data-split off[:obj]] ...
@@ -558,7 +569,7 @@ class Module:
             *([f"  symbol_addrs_path: {a.symbols}"] if a.symbols else []),
             f"  undefined_funcs_auto_path: undefined_funcs_auto.{self.mod}.{self.ver}.txt",
             f"  undefined_syms_auto_path: undefined_syms_auto.{self.mod}.{self.ver}.txt",
-            f"  src_path: src.{self.ver}",
+            "  src_path: src",
             "segments:",
         ]
         if a.note:
@@ -720,13 +731,217 @@ def split_code_data(m, starts):
             print(f"splitting at 0x{s:X}: its .rodata starts a new object", file=sys.stderr)
         starts = sorted(set(starts) | missed)
 
+SUB_RE = re.compile(r"^(\s+- \[)0x([0-9A-Fa-f]+)(, (\.?\w+)(?:, (\S+?))?\])(.*)$")
+
+
+def like_config(args):
+    """Pass 7: this version's config from the reference's (see the top)."""
+    sys.path.insert(0, str(HERE))
+    import vermap
+    vm = vermap.load(args.version)
+    ref = Path(f"{args.module}.{args.like}.yaml").read_text().splitlines()
+    vram = int(re.search(r"vram:\s*(0x[0-9A-Fa-f]+)", "\n".join(ref))[1], 16)
+    blob = Path(f"{args.module}.{args.version}.bin").read_bytes()
+    at = {}
+    for spec in args.at:
+        name, kind, off = spec.split(":")
+        at[(name, kind)] = int(off, 16)
+    tagv = vermap.tag(args.version)
+
+    # which part of the file each line is in, and the entries
+    head, body, part = [], [], "head"
+    for line in ref:
+        if part == "head" and SUB_RE.match(line):
+            part = "text"
+        if part == "text" and re.match(r"^\s+- \[0x[0-9A-Fa-f]+, linker", line):
+            body.append(("linker", line))
+            part = "data"
+            continue
+        if part in ("text", "data") and re.match(r"^  - \[0x[0-9A-Fa-f]+\]", line):
+            body.append(("eof", line))
+            part = "tail"
+            continue
+        if part == "tail" and line == "bss:":
+            body.append(("bsshead", line))
+            part = "bss"
+            continue
+        if part == "head":
+            head.append(line)
+        else:
+            body.append((part, line))
+
+    for i, line in enumerate(head):
+        head[i] = line.replace(f".{args.like}", f".{args.version}")
+        if line.startswith("  src_path:"):
+            head[i] = "  src_path: src"
+
+    # ref offsets, to know where each entry ends
+    def entries(part):
+        out = []
+        for k, (p, line) in enumerate(body):
+            m = SUB_RE.match(line)
+            if p == part and m:
+                out.append((k, int(m.group(2), 16), m.group(4), m.group(5)))
+        return out
+
+    starts = {}  # body index -> new start (module offset, or vram for .bss)
+    problems = []
+
+    def place(part, base):
+        """Each entry's start: where the map puts it; else right after the
+        entry before it in this version's link order, if that one kept its
+        size (its last word the map has is where its start says); else its
+        first mapped word, less its offset.  Objects start 16-aligned."""
+        es = entries(part)
+        size = {k: (es[n + 1][1] if n + 1 < len(es) else None) for n, (k, _, _, _) in enumerate(es)}
+        size = {k: (v - off if v is not None else None) for (k, off, _, _), v in zip(es, size.values())}
+        rebase = base if part != "bss" else 0
+        # this version's link order: by where each object's code went
+        # (a data-only object stays after the entry before it)
+        textpos = {name: starts[k] for k, _, _, name in entries("text") if k in starts and name}
+        order, last = [], -1
+        for n, e in enumerate(es):
+            pos = textpos.get(e[3], None) if e[2].lstrip(".") != "bin" else None
+            if pos is None:
+                pos = last + 0.5 if part != "text" else last
+            else:
+                last = pos
+            order.append((pos if part != "text" else n, n))
+        order.sort()
+        prev_of = {}
+        seen = {}
+        for _, n in order:
+            kind = es[n][2].lstrip(".")
+            prev_of[n] = seen.get(kind if part != "text" else "text")
+            seen[kind if part != "text" else "text"] = n
+        for _, n in order:
+            k, off, kind, name = es[n]
+            key = (name.split("/")[-1] if name else None,
+                   "text" if part == "text" else "bss" if part == "bss" else kind.lstrip("."))
+            if key in at:
+                starts[k] = at[key]
+                continue
+            a = base + off
+            t = vm.to_target(a)
+            if t is not None and a % 16 == 0 and t % 16:
+                t = None  # an object starts 16-aligned: that's something else
+            p = prev_of[n]
+            if t is None and p is not None and es[p][0] in starts and size[es[p][0]] is not None:
+                pk, poff = es[p][0], es[p][1]
+                pa, pt = base + poff, starts[pk] + rebase
+                b = next((b for b in range(pa + size[pk] - 4, pa, -4) if vm.to_target(b) is not None), None)
+                if b is not None and vm.to_target(b) - b == pt - pa:
+                    t = pt + size[pk]
+            if t is None:
+                stop = a + (size[k] if size[k] is not None else 0x40)
+                b = next((b for b in range(a, min(stop, a + 0x400), 4) if vm.to_target(b) is not None), None)
+                if b is not None:
+                    t = vm.to_target(b) - (b - a)
+                    if a % 16 == 0:
+                        t &= ~15
+            if t is not None and part == "text" and t < base:
+                t = base  # the first function changed: the module's start
+            if t is None:
+                problems.append(f"{kind.lstrip('.')} {name or kind} at 0x{off:X}: not in the map")
+                continue
+            starts[k] = t - rebase
+
+    place("text", vram)
+    place("data", vram)
+    place("bss", 0)
+    if problems:
+        sys.exit("\n".join(problems) + "\n(--at <name>:<text|data|rodata|bss>:<offset> places one)")
+
+    # blocks the C doesn't own in this version: `.data` becomes `data`
+    asm_blocks = {tuple(spec.split(":")) for spec in args.asm_block}
+
+    asm_objects = set(args.asm_object)
+
+    def asm_kind(rest, name):
+        m = re.match(r"^, \.(data|rodata|bss), ", rest)
+        obj = name.split("/")[-1] if name else None
+        if m and name and ((obj, m.group(1)) in asm_blocks or obj in asm_objects):
+            return rest.replace(f", .{m.group(1)}, ", f", {m.group(1)}, ", 1)
+        if obj in asm_objects and rest.startswith(", c, "):
+            return rest.replace(", c, ", ", asm, ", 1)
+        return rest
+
+    # extra objects this version has
+    extra = []
+    for off in args.split:
+        extra.append(off)
+
+    def emit(part):
+        items = []
+        pending = []
+        for k, (p, line) in enumerate(body):
+            if p != part:
+                continue
+            m = SUB_RE.match(line)
+            if not m:
+                pending.append(line)
+                continue
+            new = starts[k]
+            fmt = f"{new:0{len(m.group(2))}X}"  # as wide as the reference's
+            items.append((new, pending + [f"{m.group(1)}0x{fmt}{asm_kind(m.group(3), m.group(5))}{m.group(6)}"],
+                          m.group(4)))
+            pending = []
+        if part == "text":
+            for off in extra:
+                name = f"{off:X}_{tagv}"
+                kind = next(kd for o, _, kd in sorted(items, reverse=True) if o <= off)
+                items.append((off, [f"    - [0x{off:X}, {kind}, {args.module}/{name}] # only in {args.version}"],
+                              kind))
+        items.sort(key=lambda x: x[0])
+        # an object with nothing left of it (two starts in one place)
+        out = []
+        for n, (o, lines, kind) in enumerate(items):
+            if n + 1 < len(items) and items[n + 1][0] == o:
+                print(f"{args.module}.{args.version}: dropping an empty entry: {lines[-1].strip()}",
+                      file=sys.stderr)
+                continue
+            out += lines
+        return out + pending
+
+    lines = list(head)
+    lines += emit("text")
+    for p, line in body:
+        if p == "linker":
+            lines.append(re.sub(r"0x[0-9A-Fa-f]+", f"0x{args.data:X}", line, count=1))
+    lines += emit("data")
+    for p, line in body:
+        if p == "eof":
+            lines.append(re.sub(r"0x[0-9A-Fa-f]+", f"0x{args.end:X}", line, count=1))
+    lines += [line for p, line in body if p == "tail"]
+    for p, line in body:
+        if p == "bsshead":
+            lines.append(line)
+    bss = [(k, line) for k, (p, line) in enumerate(body) if p == "bss"]
+    if bss:
+        items = []
+        for k, line in bss:
+            m = SUB_RE.match(line)
+            if m and m.group(4) and k in starts:
+                items.append((starts[k], f"{m.group(1)}0x{starts[k]:X}{asm_kind(m.group(3), m.group(5))}{m.group(6)}"))
+            elif re.match(r"^  - \[0x[0-9A-Fa-f]+\]", line):
+                off = int(re.search(r"0x([0-9A-Fa-f]+)", line)[1], 16)
+                t = vm.to_target(off)
+                if t is None:
+                    sys.exit(f"{args.module}.{args.version}: .bss end 0x{off:X} is not in the map")
+                end_line = re.sub(r"0x[0-9A-Fa-f]+", f"0x{t:X}", line, count=1)
+        items.sort()
+        lines += [x for _, x in items] + [end_line]
+    Path(f"{args.module}.{args.version}.yaml").write_text("\n".join(lines) + "\n")
+    print(f"{args.module}.{args.version}.yaml: from {args.module}.{args.like}.yaml")
+
+
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("module")
     ap.add_argument("version")
     hexarg = lambda s: int(s, 16)
-    ap.add_argument("--vram", required=True, type=hexarg)
+    ap.add_argument("--vram", type=hexarg)
     ap.add_argument("--data", required=True, type=hexarg, help="offset where .data starts")
     ap.add_argument("--end", required=True, type=hexarg)
     ap.add_argument("--bin", action="append", default=[], metavar="OFF:LEN:NOTE",
@@ -744,11 +959,25 @@ def main():
                     help="start of a block in .data/.rodata that no reference shows: "
                     "object OBJ's (moving its block if the references put it elsewhere), "
                     "or a data-only object's")
+    ap.add_argument("--bss-split", action="append", default=[], metavar="VRAM:OBJ",
+                    help="where object OBJ's .bss starts, if no reference shows it")
     ap.add_argument("--join", action="append", default=[], type=hexarg,
                     help="a boundary found in .rodata that the config leaves unsplit")
     ap.add_argument("--bss", metavar="VRAM:END", type=lambda s: tuple(int(x, 16) for x in s.split(":")),
                     help="the module's .bss (vram range); lays it out per object (needs --rodata)")
+    ap.add_argument("--like", metavar="VERSION",
+                    help="port VERSION's config to this one through tools/vermap.py")
+    ap.add_argument("--asm-block", action="append", default=[], metavar="NAME:KIND",
+                    help="(--like) this object's data, rodata or bss is asm in this version, "
+                    "not the C file's")
+    ap.add_argument("--asm-object", action="append", default=[], metavar="NAME",
+                    help="(--like) the whole object is asm in this version: its C doesn't build it")
+    ap.add_argument("--at", action="append", default=[], metavar="NAME:KIND:OFF",
+                    help="(--like) where an object's text/data/rodata/bss starts, if the map can't say")
     args = ap.parse_args()
+    if args.like:
+        like_config(args)
+        return
 
     m = Module(args)
     # Data the C owns already (.data/.rodata subsegments), by (offset, kind, name).
@@ -787,8 +1016,12 @@ def main():
                      "# by vram.  splat doesn't read this; tools/split.py writes the asm objects'",
                      "# .bss and adds it to the linker script.",
                      "bss:"]
-        for vram, name in split_bss(names, refs, pairs, layout, m.full, m.vram,
-                                    m.data, args.rodata, lo, hi):
+        blocks = split_bss(names, refs, pairs, layout, m.full, m.vram, m.data, args.rodata, lo, hi)
+        for spec in args.bss_split:
+            # the object's block starts here, wherever the references put it
+            at, _, obj = spec.partition(":")
+            blocks = sorted([b for b in blocks if b[1] != obj] + [(int(at, 16), obj)])
+        for vram, name in blocks:
             kind = ".bss" if (vram, "bss", f"{m.mod}/{name}") in owned else "bss"
             bss_lines.append(f"  - [0x{vram:X}, {kind}, {m.mod}/{name}]")
         bss_lines.append(f"  - [0x{hi:X}] # end")

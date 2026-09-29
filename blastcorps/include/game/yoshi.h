@@ -28,6 +28,10 @@ typedef struct YoshiEntry {
     /* 0x08 */ u16 unk8;
     /* 0x0A */ u8 padA[2];
     /* 0x0C */ char *text;        /* "SELECT OPTION", "MORE", ... */
+#ifdef VERSION_EU
+    /* 0x10 */ char *text2;       /* eu: the German text ("OPTIONEN", "WEITER", ...) */
+    /* 0x14 */ char *text3;       /* eu: NULL in the tables */
+#endif
     /* 0x10 */ u16 *unk10;        /* yoshi.c's tables: the text in the 0x0FFE-terminated u16 encoding
                                      (A44D0, BC8E0); the front end also stores char strings here */
     /* 0x14 */ u8 unk14;          /* the YoshiIcon it shows */
@@ -37,7 +41,11 @@ typedef struct YoshiEntry {
     /* 0x19 */ u8 unk19;
     /* 0x1A */ u8 unk1A;          /* that icon's handle (func_80272C5C) */
 } YoshiEntry;
+#ifdef VERSION_EU
+SIZE_CHECK(YoshiEntry, 0x24);     /* eu: the offsets from unk10 on are 8 more */
+#else
 SIZE_CHECK(YoshiEntry, 0x1C);
+#endif
 
 typedef struct YoshiWindow {
     /* 0x00 */ u16 unk0;          /* bit flags */
@@ -99,15 +107,43 @@ SIZE_CHECK(ColorPair, 8);
  * of YoshiEntry seen from their text field. */
 typedef struct UnkStruct_8020C488 {
     /* 0x00 */ char *text;
-    /* 0x04 */ u8 unk4[0x18];
+    /* 0x04 */ u8 unk4[sizeof(YoshiEntry) - 4];
 } UnkStruct_8020C488;
-SIZE_CHECK(UnkStruct_8020C488, 0x1C);
+SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
 
 extern YoshiWindow D_802F8BDC[0x6C];
 extern ColorPair D_802F47B0[0x17];
 extern UnkStruct_8020C488 D_8020C488[];
 extern YoshiIcon D_802F49F4[0x4B];
-extern YoshiEntry D_802F5804[0x1DA];
+/*
+ * The entry tables differ in jp and eu: jp lacks some of the US versions'
+ * entries, eu has more, so the ones after those sit elsewhere.
+ * YOSHI_ENTRY(n) and FE_ENTRY(n) turn the US versions' index into the
+ * version's.
+ *
+ * D_802F5804 lacks entries 298-300, 375-377 and 468-473 in jp; eu adds
+ * three before 184, one before 189 and three before 190.
+ * D_8020C070 lacks 84-85, 111-113, 169-174, 199 and 202-203 in jp.
+ */
+#if defined(VERSION_EU)
+#define YOSHI_ENTRY(n) ((n) + 3 * ((n) >= 184) + ((n) >= 189) + 3 * ((n) >= 190))
+#define FE_ENTRY(n) (n)
+#elif defined(VERSION_JP)
+#define YOSHI_ENTRY(n) ((n) - 3 * ((n) >= 301) - 3 * ((n) >= 378) - 6 * ((n) >= 474))
+#define FE_ENTRY(n) ((n) - 2 * ((n) >= 86) - 3 * ((n) >= 114) - 6 * ((n) >= 175) - ((n) >= 200) \
+                     - 2 * ((n) >= 204))
+#else
+#define YOSHI_ENTRY(n) (n)
+#define FE_ENTRY(n) (n)
+#endif
+#define YOSHI_ENTRIES YOSHI_ENTRY(0x1DA)
+
+/* The number of entries of a window over [first, first + n) in the English
+ * versions' table, in the version's. */
+#define YOSHI_COUNT(first, n) (YOSHI_ENTRY((first) + (n)) - YOSHI_ENTRY(first))
+#define FE_COUNT(first, n) (FE_ENTRY((first) + (n)) - FE_ENTRY(first))
+
+extern YoshiEntry D_802F5804[YOSHI_ENTRIES];
 extern YoshiEntry D_8020C070[];
 extern YoshiEntry *D_8036BB10;
 extern YoshiEntry *D_8036BB24;

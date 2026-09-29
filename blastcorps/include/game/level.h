@@ -108,6 +108,13 @@ typedef struct LevelInfo {
 } LevelInfo;
 SIZE_CHECK(LevelInfo, 0x44);
 
+/* A level's medalTimes[0] in D_802E8F94: jp has its own for most levels. */
+#ifdef VERSION_JP
+#define MEDAL_TIME0(us, jp) (jp)
+#else
+#define MEDAL_TIME0(us, jp) (us)
+#endif
+
 /* The levels that aren't played: stats.c's assert "!DUMMY_LEVELS(levelno)"
  * tests these three. */
 #define DUMMY_LEVELS(l) ((l) == LEVEL_END_SEQUENCE || (l) == LEVEL_CMO_INTRO || (l) == LEVEL_SHUTTLE_ISLAND)

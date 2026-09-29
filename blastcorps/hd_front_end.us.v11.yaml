@@ -8,7 +8,7 @@ options:
   symbol_addrs_path: symbol_addrs.hd_front_end.us.v11.txt
   undefined_funcs_auto_path: undefined_funcs_auto.hd_front_end.us.v11.txt
   undefined_syms_auto_path: undefined_syms_auto.hd_front_end.us.v11.txt
-  src_path: src.us.v11
+  src_path: src
 segments:
   # hd_front_end_text is inflated to 0x801E7000 by func_8028B3E0 in hd_code
   - name:  hd_front_end
@@ -22,6 +22,7 @@ segments:
     - [0x6790, c, hd_front_end/6790]
     - [0x7390, c, hd_front_end/7390]
     - [0x7800, c, hd_front_end/7800]
+    - [0x8380, c, hd_front_end/8380]
     - [0x9570, c, hd_front_end/9570]
     - [0xC450, c, hd_front_end/C450]
     - [0xDE70, c, hd_front_end/DE70]
@@ -66,6 +67,7 @@ segments:
     - [0x274D0, .rodata, hd_front_end/1C40]
     - [0x27D40, .rodata, hd_front_end/6790]
     - [0x27DB0, .rodata, hd_front_end/7800]
+    - [0x27FB0, .rodata, hd_front_end/8380]
     - [0x27FC0, .rodata, hd_front_end/9570]
     - [0x28090, .rodata, hd_front_end/C450]
     - [0x280B0, .rodata, hd_front_end/E7B0]
@@ -87,8 +89,8 @@ bss:
   - [0x80215440, .bss, hd_front_end/1C40]
   - [0x80215960, .bss, hd_front_end/6790]
   - [0x802159C0, .bss, hd_front_end/7390]
-  - [0x802159D0, .bss, hd_front_end/7800]
-  - [0x80215A70, .bss, hd_front_end/9570]
+  - [0x802159D0, .bss, hd_front_end/8380]
+  - [0x802159F0, .bss, hd_front_end/9570]
   - [0x80217690, .bss, hd_front_end/C450]
   - [0x802182C0, .bss, hd_front_end/DE70]
   - [0x80218740, .bss, hd_front_end/E7B0]

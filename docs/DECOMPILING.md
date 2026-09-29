@@ -98,7 +98,7 @@ All of this is IDO 5.3 at `-O1` unless it says otherwise.
 
 ## Data
 
-hd_code's and hd_front_end's (us.v11) `.data`/`.rodata` are split per object. A C file whose subsegment is `.rodata` in the yaml owns its `.rodata`:
+hd_code's and hd_front_end's `.data`/`.rodata` are split per object. A C file whose subsegment is `.rodata` in the yaml owns its `.rodata`:
 
 - Write strings, float/double literals and `switch`es in C. The GLOBAL_ASM
   functions still in the file get their share put into their `.s` as
@@ -119,10 +119,11 @@ hd_code's and hd_front_end's (us.v11) `.data`/`.rodata` are split per object. A 
   `const char D_X[] = "...";` at the point in the file where they fall
   (const globals are early `.rodata`, in source order with the strings).
   Unreferenced zero bytes among the early `.rodata` can be emulated the same
-  way (`const char D_8020EFA4[12]` in hd_front_end/7800.c). A zero slot in
+  way, but first suspect an object boundary: the 12 bytes 7800.c had that
+  way were the padding before 8380.c's, which jp showed. A zero slot in
   the late part is usually the padding before another object's `.rodata`
   (hd_front_end/9570.c's at `0x8020F088` was: C450.c starts there).
-- `.data`: every C file (us.v11) owns its own; see below. A local
+- `.data`: every C file owns its own; see below. A local
   initialized aggregate (`char *sp24[] = {...}`) is `.data` too, with its
   strings at that point in `.rodata`.
 - A global defined in the same file is addressed differently from an extern
@@ -169,7 +170,7 @@ extracted; `--ref` takes a saved `.data.s` to redo one). What mattered:
   another file's variable, hd_code's text tables that hd_front_end points
   to) needs a line in `undefined_syms`.
 
-`.bss` (us.v11) is per object as well; every C file defines its block's
+`.bss` is per object as well; every C file defines its block's
 variables, the handwritten objects get a `.bss.s`. What mattered:
 
 - IDO puts uninitialized globals in `.bss`, not COMMON, in the order it
@@ -379,6 +380,49 @@ What worked on the last three:
   libultra gu, so it's `-O3` (guRotate matches only there), and an `-O3`
   file can't keep a `GLOBAL_ASM`, so guRotate waits for it.
 
+
+## Versions
+
+The same C builds us.v10, us.v11, jp and eu (CLAUDE.md "Versions" has the
+scheme and the tools). What mattered getting them to match:
+
+- Build the version, then `tools/vdiff.py <v>`. A function that differs
+  there by a constant or two is usually one idea: a text or table index
+  (`YOSHI_ENTRY`, `FE_ENTRY` in `yoshi.h`: jp's entry tables lack entries,
+  eu's have more), an assert's `__LINE__` (`LINE_EU`, or a file's own macro
+  as 10850.c's `BESTTIMES_LINE`), a PAL timing (eu counts 50 frames a
+  second: 17E10's `{25, 67}` for `{30, 80}`), a size (`AUDIO_HEAP_SIZE`,
+  `NUM_DMA_MESSAGES` in `audio.h`, `PAK_GAME_CODE` in `player.h`). Where
+  several functions share one, a macro in the header reads better than
+  `#if`s at every use.
+- Field offsets that differ everywhere mean a struct is laid out
+  differently: eu's `YoshiEntry` and `UnkStruct_8020D810` carry two more
+  text pointers (German and a third language). An `#ifdef` in the header
+  fixes every function that only differs by it at once.
+- us.v10 is us.v11 before a few fixes: us.v11's hd_front_end 00000.c keeps
+  `D_803643D4` in `D_802153E8` when its menu opens and puts it back when
+  it's left with 0x4000 (B), and 10850.c counts its player list itself
+  (`LIST_COUNT`); statement order around such a change moved too
+  (`tools/permute.sh` works for any version with `VERSION=`).
+- A function the version has differently and nothing simple explains is
+  its `GLOBAL_ASM` (`tools/version_asm.py`); its `.rodata` goes into its .s
+  as usual. Its local initialized aggregates are `.data`, which
+  asm-processor doesn't move: write the function in C for that version, or
+  define the aggregate (45BB0's `func_8028B240` is C in jp for that).
+- Data and `.bss` differences: `tools/bss_c.py`/`data_c.py <module>
+  <object> --version <v>` write the version's definitions (with the
+  version's names), to put next to us.v11's under `#ifdef`. Only lines
+  that differ need it (1D990's jp `.bss` has one more array); where a
+  version orders a whole block differently (eu's hd.c `.bss`), a second
+  block is clearer. Check each variable the map names: the code that
+  matches is the evidence (vdiff reports where it disagrees with the map,
+  and the `--pair` that fixes it).
+- A version can show object boundaries us.v11 hides: jp and eu pad `.text`
+  to 16 before `func_801EF380`, `func_8026FBB0` and `func_8028FC10` (us.v11
+  needs no padding there), so those start objects (8380.c, 2B3F0.c,
+  4B450.c); their data blocks were at the ends of the previous object's.
+  Likewise us.v10 links 9570 after 17990, which showed that the 0x80 bytes
+  before 9570's `.bss` are 9570's, not 7800's.
 
 ## Shared types (include/game/)
 

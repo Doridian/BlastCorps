@@ -25,8 +25,10 @@ ROM.  Here each one becomes:
   function there moves), and anything marked
   `/* fixed */` in the hand-written file.
 
-An original address is known for a name that ends in it (`D_802E8BD0`,
-`func_80244930`) and for the names in symbol_addrs.<module>.<version>.txt.
+An original address is known for the names in
+symbol_addrs.<module>.<version>.txt and for a name that ends in one
+(`D_802E8BD0`, `func_80244930`): in us.v11 that address, in another version
+wherever tools/vermap.py puts it (`D_80301234_jp` is jp's own address).
 
 --check compares a linked ELF against the original addresses: in a build
 that isn't shifted, every name must be where it was.
@@ -41,6 +43,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import modmap  # noqa: E402
+import vermap  # noqa: E402
 
 ASSIGN = re.compile(r"^\s*([\w.$]+)\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*;(.*)$")
 SUFFIX = re.compile(r"_([0-9A-F]{8})$")
@@ -83,11 +86,18 @@ def symbol_addrs(mod, ver):
     return out
 
 
+VERMAP = None  # set in main(): names outside us.v11 are us.v11's (tools/vermap.py)
+
+
 def original(name, known):
+    if name in known:
+        return known[name]
+    if VERMAP is not None and not VERMAP.identity:
+        return VERMAP.original(name)
     m = SUFFIX.search(name)
     if m:
         return int(m.group(1), 16)
-    return known.get(name)
+    return None
 
 
 def bin_symbols(mod):
@@ -168,6 +178,8 @@ def main():
     ap.add_argument("--check", metavar="ELF")
     args = ap.parse_args()
 
+    global VERMAP
+    VERMAP = vermap.load(args.version, Path("."))
     mods = modmap.modules(args.version)
     mod = mods[args.module]
     ver = args.version

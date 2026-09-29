@@ -89,7 +89,7 @@ def main():
     module, name = sys.argv[1:3]
     version = sys.argv[3] if len(sys.argv) > 3 else "us.v11"
     mem = image((ROOT / "asm" / "data" / module / f"{name}.rodata.s").read_text())
-    c_path = ROOT / f"src.{version}" / module / f"{name}.c"
+    c_path = ROOT / "src" / module / f"{name}.c"
     src = c_path.read_text()
 
     externs = {m.group(2): m.group(1) for m in re.finditer(

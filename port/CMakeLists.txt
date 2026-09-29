@@ -41,7 +41,7 @@ execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE 
 set(M32 -m32 -msse2 -mfpmath=sse -malign-double)
 
 # ---- the game's C -------------------------------------------------------------
-file(GLOB GAME_C ${BLAST}/src.us.v11/hd_code/*.c ${BLAST}/src.us.v11/hd_front_end/*.c)
+file(GLOB GAME_C ${BLAST}/src/hd_code/*.c ${BLAST}/src/hd_front_end/*.c)
 
 # libultra's OS and I/O (the stubs that include only src/libultra/os and
 # io, plus libc's printf and string functions): port/src replaces them.
@@ -60,13 +60,13 @@ set(REPLACED
     hd_front_end/1DC10 hd_front_end/1E3F0 hd_front_end/1F5C0 hd_front_end/1F970
     hd_front_end/1FD20)
 foreach(r ${REPLACED})
-    list(REMOVE_ITEM GAME_C ${BLAST}/src.us.v11/${r}.c)
+    list(REMOVE_ITEM GAME_C ${BLAST}/src/${r}.c)
 endforeach()
 
 set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${BLAST} ${BLAST}/include ${BLAST}/include/2.0I ${BLAST}/include/2.0I/PR)
-set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC _MIPS_SZLONG=32 _MIPS_SZINT=32)
+set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC VERSION_US_V11 _MIPS_SZLONG=32 _MIPS_SZINT=32)
 # The decompiled C is IDO's dialect: K&R definitions, implicit
 # declarations, prototypes that differ between files, pointers and ints
 # used interchangeably.  These flags make clang accept it and not optimise

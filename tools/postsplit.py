@@ -25,6 +25,10 @@ from pathlib import Path
 from util import options, symbols
 
 import modmap
+import vermap
+
+# set by tools/split.py: the version's map to us.v11's names
+VERMAP = vermap.VerMap("us.v11")
 
 LINE_RE = re.compile(r"^(/\* [0-9A-F]+ ([0-9A-F]{8}) [0-9A-F]{8} \*/\s+)(\S+)(\s*)(.*)$")
 NUM = r"-?(?:0x[0-9A-Fa-f]+|\d+)"
@@ -61,7 +65,8 @@ def rom_starts(ver):
 class Symbols:
     """splat's symbols by address, plus the ones made here."""
 
-    def __init__(self, hand=None):
+    def __init__(self, hand=None, mods=None):
+        self.movable = (lambda a: movable(mods, a)) if mods else (lambda a: False)
         self.by_addr = {}
         for s in symbols.all_symbols:
             cur = self.by_addr.get(s.vram_start)
@@ -86,7 +91,7 @@ class Symbols:
         if addr in self.hand:
             return self.hand[addr]
         if addr in self.new or make:
-            return self.new.setdefault(addr, f"D_{addr:08X}")
+            return self.new.setdefault(addr, VERMAP.name("D", addr, addr < 0x01000000 or self.movable(addr)))
         return None
 
     def undefined(self):
@@ -368,13 +373,31 @@ def rewrite_undefined(path, mods, drop, add):
     other.write_text("".join(f"{n} = 0x{a:X};\n" for n, a in sorted(local, key=lambda x: x[1])))
 
 
+def asm_uses(asm, mod, mods, skip):
+    """{name: addr} of the module's symbols the asm uses and no asm defines:
+    fields inside a C file's data, which splat doesn't list (a version's
+    GLOBAL_ASM reaching into the C's .data)."""
+    text = "\n".join(p.read_text() for p in sorted(asm.rglob("*.s")))
+    defined = set(re.findall(r"^\s*(?:glabel|dlabel)\s+(\w+)", text, re.M))
+    used = set(re.findall(r"%(?:hi|lo)\((\w+)\)", text)) | set(re.findall(r"\.word\s+(\w+)", text))
+    addr = {}
+    for s in symbols.all_symbols:
+        addr.setdefault(s.name, s.vram_start)
+    out = {}
+    for n in sorted(used - defined - skip):
+        a = addr.get(n)
+        if a is not None and mod.contains(a) and movable(mods, a):
+            out[n] = a
+    return out
+
+
 def run(config_path, cfg):
     ver = version_of(cfg)
     base = Path(options.get_base_path())
     mods = modmap.modules(ver, base)
     mod = modmap.Module(config_path)
     mods[mod.name] = mod
-    syms = Symbols(base / f"undefined_syms.{mod.name}.{ver}.txt")
+    syms = Symbols(base / f"undefined_syms.{mod.name}.{ver}.txt", mods)
     asm = Path(options.get_asm_path())
     paths = sorted((asm / mod.name).glob("*.s")) + sorted((asm / "nonmatchings" / mod.name).rglob("*.s"))
     changed, leftover = symbolize_pairs(paths, mods, rom_starts(ver), syms)
@@ -388,4 +411,5 @@ def run(config_path, cfg):
     ends = sorted(n for a, ns in syms.names().items() if mod.bss and a == mod.bss_end for n in ns)
     patch_ld(mod, options.get_ld_script_path(), ends, replace)
     add = {n: a for n, a in syms.undefined().items() if n not in defined and n not in ends}
+    add.update(asm_uses(asm, mod, mods, defined | set(ends) | set(add)))
     rewrite_undefined(options.get_undefined_syms_auto_path(), mods, defined | set(ends), add)

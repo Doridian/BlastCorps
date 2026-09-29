@@ -41,7 +41,11 @@ unions) and pads the section to 16, so a label at an address that isn't
 doesn't account for become padding arrays.
 
 --check compiles nothing: it compares the object the last build made
-(build/src.<version>/<module>/<object>.c.o) with the block.
+(build/src/<module>/<object>.c.o) with the block.
+
+For a version other than us.v11, names are us.v11's (tools/vermap.py): a
+variable no label names is D_<its us.v11 address>, or D_<address>_<version>
+if us.v11 doesn't have it.
 """
 import argparse
 import codecs
@@ -60,6 +64,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "mips_to_c"))
 import bss_c  # noqa: E402
 import modmap  # noqa: E402
+import vermap  # noqa: E402
 
 try:
     from pycparser import c_ast, c_generator, c_parser
@@ -415,9 +420,9 @@ class Gen:
             return self.inner[sym][0]
         if sym is None:
             v = int.from_bytes(self.blob[off:off + 4], "big")
-            if v and f"D_{v:08X}" in self.t.vars:
+            if v and VM.name("D", v, True) in self.t.vars:
                 # a fixed address the file names (undefined_syms)
-                sym = f"D_{v:08X}"
+                sym = VM.name("D", v, True)
                 return sym if sym in self.arrays else f"&{sym}"
             if v:
                 raise ValueError(f"pointer 0x{v:08X} at +0x{off:X} has no symbol")
@@ -663,6 +668,9 @@ def plan(labels, syms, blob, types, decls, asm_text, used):
     return out, inner
 
 
+VM = vermap.VerMap("us.v11")
+
+
 def render(entries, types, blob, syms, block_vram, labels=(), version="us.v11", literals=None):
     arrays = set()
     for name, t in types.vars.items():
@@ -711,19 +719,19 @@ def render(entries, types, blob, syms, block_vram, labels=(), version="us.v11", 
         for off, name, (typ, ptr, dims), node, count in entries:
             size = types.size(node) if count is None else count * types.size(types.resolve(node).type)
             if off <= o < off + size:
-                name = f"D_{block_vram + off:08X}" if name is None or name.endswith("@") else name
+                name = VM.name("D", block_vram + off, True) if name is None or name.endswith("@") else name
                 p = g.path(node, o - off) if count is None else g.path(
                     c_ast.ArrayDecl(types.resolve(node).type, c_ast.Constant("int", str(count)), []), o - off)
                 if p is not None:
                     return f"&{name}{p}" if p or not dims else name
                 return f"(u8 *){name if dims else '&' + name} + 0x{o - off:X}"
-        name = f"D_{a:08X}"
+        name = VM.name("D", a, True)
         need.add(name)
         return name if name in arrays or name not in types.vars else f"&{name}"
     g.phys_name = phys_name
     lines = []
     for off, name, (typ, ptr, dims), node, count in entries:
-        name = f"D_{block_vram + off:08X}" if name is None or name.endswith("@") else name
+        name = VM.name("D", block_vram + off, True) if name is None or name.endswith("@") else name
         init = g.value(node, off, count)
         lines.append(f"{typ} {ptr}{name}{dims} = {init};")
     return lines, need, g.ptypes, g.used_literals
@@ -780,10 +788,13 @@ def main():
     vram = int(re.search(r"vram:\s+(0x[0-9A-Fa-f]+)", Path(cfg).read_text()).group(1), 16)
     blob = Path(f"{args.module}.{args.version}.bin").read_bytes()[start:end]
     asm = Path(args.ref) if args.ref else Path("asm") / "data" / args.module / f"{args.object}.data.s"
-    c_path = Path(f"src.{args.version}") / args.module / f"{args.object}.c"
+    global VM
+    VM = vermap.load(args.version, Path("."))
+    bss_c.VERSION_FLAGS[:] = ["-DVERSION_" + args.version.upper().replace(".", "_")]
+    c_path = Path("src") / args.module / f"{args.object}.c"
 
     if args.check:
-        obj = Path("build") / f"src.{args.version}" / args.module / f"{args.object}.c.o"
+        obj = Path("build") / "src" / args.module / f"{args.object}.c.o"
         data = subprocess.run(["mips-linux-gnu-objcopy", "-O", "binary", "--only-section", ".data", str(obj),
                                "/dev/stdout"], capture_output=True).stdout
         rel = subprocess.run(["mips-linux-gnu-readelf", "-rW", str(obj)], capture_output=True, text=True).stdout
@@ -823,7 +834,7 @@ def main():
     # what uses each name: every module's asm and C, and the hand-written
     # symbol files (a label nobody uses doesn't start a variable)
     uses = collections.Counter()
-    for p in [*Path("asm").rglob("*.s"), *Path(f"src.{args.version}").rglob("*.c"),
+    for p in [*Path("asm").rglob("*.s"), *Path("src").rglob("*.c"),
               *Path(".").glob(f"undefined_syms.*.{args.version}.txt")]:
         if p == asm:
             continue
@@ -832,9 +843,12 @@ def main():
     used = {n for n, c in self_uses.items() if uses[n] or c > 1}
     # names the C uses for addresses in the block that splat never labelled
     have = {n for _, n in labels}
-    for p in Path(f"src.{args.version}").rglob("*.c"):
+    for p in Path("src").rglob("*.c"):
         for n in set(re.findall(r"\bD_([0-9A-F]{8})\b", p.read_text())):
-            a = int(n, 16) - vram - start
+            a = VM.original(f"D_{n}")
+            if a is None:
+                continue
+            a -= vram + start
             if 0 <= a < end - start and f"D_{n}" not in have:
                 labels.append((a, f"D_{n}"))
                 have.add(f"D_{n}")

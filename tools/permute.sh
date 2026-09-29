@@ -16,7 +16,8 @@
 #
 #   .env/bin/python tools/decomp-permuter/permuter.py -j32 permuter/nonmatchings/<function>
 #
-# VERSION selects the version (default us.v11).  The asm must be extracted.
+# VERSION selects the version (default: the one blastcorps/ is extracted
+# for, else us.v11).  The asm must be extracted.
 set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 usage="usage: $0 <module> <function> [draft.c] [-- import.py args]"
@@ -26,7 +27,7 @@ shift 2
 DRAFT=
 if [ $# -gt 0 ] && [ "$1" != "--" ]; then DRAFT=$(realpath "$1"); shift; fi
 [ "${1:-}" = "--" ] && shift
-VERSION=${VERSION:-us.v11}
+VERSION=${VERSION:-$(cat "$ROOT/blastcorps/.version" 2>/dev/null || echo us.v11)}
 S2=$ROOT/blastcorps
 PY=$ROOT/.env/bin/python
 PERMUTER=$ROOT/tools/decomp-permuter
@@ -35,7 +36,7 @@ OUT=$ROOT/permuter
 ASM=$(find "$S2/asm/nonmatchings/$MOD" -name "$FN.s" 2>/dev/null | head -1 || true)
 [ -n "$ASM" ] || { echo "no $FN.s under blastcorps/asm/nonmatchings/$MOD (not GLOBAL_ASM, or not extracted)" >&2; exit 1; }
 OBJ=$(basename "$(dirname "$ASM")")
-CFILE=src.$VERSION/$MOD/$OBJ.c
+CFILE=src/$MOD/$OBJ.c
 [ -f "$S2/$CFILE" ] || { echo "no $CFILE" >&2; exit 1; }
 
 # The compile command make would run for this file, without asm-processor
@@ -67,7 +68,8 @@ WORK=$S2/build/permuter
 mkdir -p "$WORK" "$OUT"
 
 # The C file with the draft in place of the function's GLOBAL_ASM.  Other
-# GLOBAL_ASM lines are dropped (the permuter only compiles this function).
+# GLOBAL_ASM lines are dropped (the permuter only compiles this function),
+# after tools/version_ifs.py has picked the version's code.
 BODY=$WORK/$FN.draft.c
 if [ -n "$DRAFT" ]; then
     cp "$DRAFT" "$BODY"
@@ -75,7 +77,10 @@ else
     "$ROOT/tools/m2c.sh" "$MOD" "$FN" > "$BODY"
 fi
 TMPC=$WORK/$OBJ.$FN.c
-"$PY" - "$S2/$CFILE" "$BODY" "$FN" "$TMPC" <<'PYEOF'
+VERC=$WORK/$OBJ.$FN.ver.c
+MACRO=VERSION_$(echo "$VERSION" | tr a-z. A-Z_)
+"$PY" "$ROOT/tools/version_ifs.py" "$MACRO" "$S2/$CFILE" -o "$VERC"
+"$PY" - "$VERC" "$BODY" "$FN" "$TMPC" <<'PYEOF'
 import re, sys
 src, body, fn, out = sys.argv[1:]
 body = open(body).read()

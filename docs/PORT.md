@@ -123,7 +123,7 @@ IDO never would.
   file, the controller from SDL, EEPROM to a file, no Controller Pak, VI
   swap, SP tasks, the RDP's freeze bit, AI (`port/host/audio.c`).  The
   waits libultra itself does are kept: `osContInit`'s half second after
-  power-on, `osEepromLongWrite`'s 12 ms per block.  The stubs of `src.us.v11` that include only
+  power-on, `osEepromLongWrite`'s 12 ms per block.  The stubs of `src/` that include only
   libultra's os/io (and libc's printf and string functions) aren't built;
   gu, libaudio and the rest of libc are.  hd_code's entry point
   (`func_802447C0`) runs on a boot thread (`port/src/boot.c`).

@@ -8,7 +8,7 @@ options:
   symbol_addrs_path: symbol_addrs.hd_code.us.v11.txt
   undefined_funcs_auto_path: undefined_funcs_auto.hd_code.us.v11.txt
   undefined_syms_auto_path: undefined_syms_auto.hd_code.us.v11.txt
-  src_path: src.us.v11
+  src_path: src
 segments:
   - name:  hd_code
     type:  code
@@ -31,6 +31,7 @@ segments:
     - [0x22EE0, c, hd_code/22EE0]
     - [0x23C20, c, hd_code/23C20]
     - [0x26570, c, hd_code/26570]
+    - [0x2B3F0, c, hd_code/2B3F0]
     - [0x2C560, c, hd_code/2C560]
     - [0x2D810, c, hd_code/2D810]
     - [0x2E490, c, hd_code/2E490]
@@ -51,6 +52,7 @@ segments:
     - [0x46F60, c, hd_code/46F60]
     - [0x479D0, c, hd_code/479D0]
     - [0x48D00, c, hd_code/48D00]
+    - [0x4B450, c, hd_code/4B450]
     - [0x4B5E0, c, hd_code/4B5E0]
     - [0x4DA80, c, hd_code/4DA80]
     - [0x4EBE0, c, hd_code/4EBE0]
@@ -246,6 +248,7 @@ segments:
     - [0xAF450, .data, hd_code/23C20]
     - [0xAFF00, data, hd_code/AFF00]
     - [0xAFFF0, .data, hd_code/26570]
+    - [0xB5200, .data, hd_code/2B3F0]
     - [0xB5AB0, .data, hd_code/2C560]
     - [0xB5AC0, .data, hd_code/2D810]
     - [0xB60F0, .data, hd_code/30430]
@@ -261,6 +264,7 @@ segments:
     - [0xB9370, .data, hd_code/46C20]
     - [0xB9380, .data, hd_code/479D0]
     - [0xB93B0, .data, hd_code/48D00]
+    - [0xB9410, .data, hd_code/4B450]
     - [0xB9420, .data, hd_code/4B5E0]
     - [0xB9C00, .data, hd_code/4DA80]
     - [0xBA1C0, .data, hd_code/4EBE0]
@@ -327,6 +331,7 @@ segments:
     - [0xC4F40, .rodata, hd_code/22EE0]
     - [0xC5070, .rodata, hd_code/23C20]
     - [0xC5210, .rodata, hd_code/26570]
+    - [0xC7800, .rodata, hd_code/2B3F0]
     - [0xC7860, .rodata, hd_code/2C560]
     - [0xC7D10, .rodata, hd_code/2D810]
     - [0xC7D30, .rodata, hd_code/30430]
@@ -414,6 +419,7 @@ bss:
   - [0x80368050, .bss, hd_code/22EE0]
   - [0x8036B8B0, .bss, hd_code/23C20]
   - [0x8036B980, .bss, hd_code/26570]
+  - [0x8036BB50, .bss, hd_code/2B3F0]
   - [0x8036BEF0, .bss, hd_code/2C560]
   - [0x8036BFC0, .bss, hd_code/2D810]
   - [0x8036BFE0, .bss, hd_code/2E490]

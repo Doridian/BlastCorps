@@ -139,8 +139,10 @@ python3 tools/gen_build_yaml.py baserom.jp.z64 jp > blastcorps.jp.yaml
 tools/regen_code_yaml.sh
 ```
 
-`regen_code_yaml.sh` runs `gen_code_yaml.py` for hd_code and hd_front_end in
-every version and needs all their decompressed module binaries in `blastcorps/`.
+`regen_code_yaml.sh` runs `gen_code_yaml.py` for hd_code and hd_front_end of
+us.v11, and ports those configs (and init's) to the other versions through
+`tools/vermap.py`; it needs all their decompressed module binaries in
+`blastcorps/`.
 It records where the data islands inside `.text` sit in each version.  Pass
 `--c` and set `SYMS=1` to get the configs as committed (see below).
 
@@ -148,8 +150,10 @@ It records where the data islands inside `.text` sit in each version.  Pass
 
 Every function is its own file.  Stage 2 extraction writes
 `blastcorps/asm/nonmatchings/<module>/<file>/<function>.s`, and
-`blastcorps/src.<VERSION>/<module>/<file>.c` pulls each one in with
+`blastcorps/src/<module>/<file>.c` pulls each one in with
 `#pragma GLOBAL_ASM`; decompiling a function means replacing its pragma with C.
+The same C files build all four versions (named after us.v11's objects), with
+`#if VERSION_*` where a version differs.
 Splat only creates those `.c` files when they are missing and never rewrites
 them, so if the function boundaries change, delete the untouched stubs and
 extract again.  The only code not in this form is the handwritten math code

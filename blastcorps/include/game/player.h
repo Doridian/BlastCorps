@@ -68,7 +68,11 @@ extern u8 D_80364AEA;
  */
 extern u16 D_80364EF0[4][16];
 extern u16 D_80364F70[0x78];
+#ifdef VERSION_EU
+extern u8 D_802E8C44[0x10]; /* eu has two words after the first 16 */
+#else
 extern u8 D_802E8C44[0x1C];
+#endif
 
 /*
  * saveIt[playerNumber] (hd_code 48D00.c's .bss): levelno + 1 of the level
@@ -85,9 +89,9 @@ extern u8 D_802E8BF8;
 
 /*
  * The save layout.  The game saves to the 4 Kbit EEPROM when there is no
- * Controller Pak (D_802E8BF8), and else to a pak file (company 0x3031 "01",
- * game 0x4E424345 "NBCE", name "BLASTCORPS GAME", PFS_FILE_SIZE bytes, one
- * per player).
+ * Controller Pak (D_802E8BF8), and else to a pak file (PAK_COMPANY_CODE,
+ * PAK_GAME_CODE, name "BLASTCORPS GAME", PFS_FILE_SIZE bytes, one per
+ * player).
  *
  * EEPROM (512 bytes, blocks of 8):
  */
@@ -117,5 +121,14 @@ SIZE_CHECK(EepromSave, 0x200);
 #define PAK_TIMES_OFFSET 0x100
 #define PAK_LEVEL_DATA_OFFSET 0x880
 #define PAK_SEMAPHORE_OFFSET 0xDE0
+
+/* The pak file's company and game codes: "01" and the cartridge's code,
+ * "NBCE" in the US and EU versions, "NBCJ" in jp. */
+#define PAK_COMPANY_CODE 0x3031
+#ifdef VERSION_JP
+#define PAK_GAME_CODE 0x4E42434A
+#else
+#define PAK_GAME_CODE 0x4E424345
+#endif
 
 #endif

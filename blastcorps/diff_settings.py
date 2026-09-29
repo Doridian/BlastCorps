@@ -14,5 +14,5 @@ def apply(config, args):
     config["baseimg"] = f"{name}.bin"
     config["myimg"] = f"build/{name}.bin"
     config["mapfile"] = f"build/{name}.map"
-    config["source_directories"] = [f"src.{args.game_version}", "include"]
+    config["source_directories"] = ["src", "include"]
     config["makeflags"] = [f"VERSION={args.game_version}"]

@@ -152,4 +152,15 @@ typedef struct SndStateLists {
     /* 0x8 */ SndState *freeList;
 } SndStateLists;
 
+/* The audio heap (D_80370C80, 46F60.c's; 1C460's alHeapInit) and the
+ * number of audio DMA buffers and messages (22EE0.c): eu's PAL frames are
+ * longer and take more DMAs, and its heap is smaller. */
+#ifdef VERSION_EU
+#define AUDIO_HEAP_SIZE 0x24540
+#define NUM_DMA_MESSAGES 0x5C
+#else
+#define AUDIO_HEAP_SIZE 0x2A280
+#define NUM_DMA_MESSAGES 0x48
+#endif
+
 #endif
