@@ -1038,8 +1038,8 @@ through `fiber_enter`, which `alloca`s down to 64 KB below the top of the
 stack first; RDRAM is then identical between the two, word for word, at
 every dump compared.  (The same run also showed that the LP64 build's
 pixels depend on the executable's layout: two LP64 builds whose host code
-differs draw that portrait differently, from pointers into the image that
-the game stores in RDRAM.  Compare LP64 runs with one executable.)
+differs draw that portrait differently, presumably from the pointers into
+the image the game stores in RDRAM.  Compare LP64 runs with one executable.)
 
 **How it was checked**, us.v10, one executable each, `PORT_THREADS=ucontext`
 against `=pthread`, `PORT_COUNT_PER_OP=0 --deterministic --renderer sw`,
@@ -1131,7 +1131,15 @@ gives each global a section of its own there, named as `-fdata-sections`
 would (the x86-64 build is byte for byte what it was).  It builds, passes
 `gen_ld.py check` (3,419 symbols, 0 misplaced) and runs under
 `qemu-aarch64` (headless, `--renderer sw`): 4,000 frames of
-`PORT_AUTOSTART=2` in about 7 minutes.
+`PORT_AUTOSTART=2` in about 7 minutes, the same on both thread backends,
+and against the x86-64 build the save, `--wav` and 15 of the 16
+screenshots identical.  The 16th is the hint box's portrait static at
+frame 1500 again.  The only differences in RDRAM before it are host
+addresses the game stores (pointers into the image, in tables at
+`0x80209DF4`, `0x802F5760`-`0x802F8B1C` and more in us.v10), which move
+with the executable's layout, between architectures as between two LP64
+builds, so the static presumably samples memory that holds some (not
+tracked down further).  Removing the fixed addresses will move them too.
 
 ## Timing
 
