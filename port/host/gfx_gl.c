@@ -533,6 +533,20 @@ typedef struct {
 
 static Prog progs[1024];
 static int nprogs;
+static int16_t prog_hash[2048];         /* index + 1, open addressing by the key's hash */
+
+static unsigned prog_slot(const ProgKey *key) {
+    uint32_t h = key->cc0 * 0x9E3779B1u ^ key->cc1 * 0x85EBCA77u ^ key->om_l * 0xC2B2AE3Du;
+    h ^= (uint32_t)(key->cyc | key->textured << 4 | key->tex1 << 8 | key->lod << 12 | key->filt << 16 |
+                    key->kind << 20 | key->quant << 24) * 0x27D4EB2Fu;
+    return (h ^ h >> 15) & 2047;
+}
+
+/* the programs the game uses, compiled ahead (gfx_gl_present) */
+static const ProgKey prog_table[] = {
+#include "gfx_gl_progs.h"
+};
+static unsigned prog_ahead;
 
 static const char *vs_src =
     GLSL_VERSION
@@ -663,12 +677,14 @@ static const char *bl_alpha(int sel) {
 }
 
 static Prog *get_prog(const ProgKey *key) {
-    for (int i = 0; i < nprogs; i++)
-        if (!memcmp(&progs[i].key, key, sizeof *key))
-            return &progs[i];
+    unsigned h = prog_slot(key);
+    for (; prog_hash[h]; h = (h + 1) & 2047)
+        if (!memcmp(&progs[prog_hash[h] - 1].key, key, sizeof *key))
+            return &progs[prog_hash[h] - 1];
     if (nprogs == 1024)
         host_fatal("gl: too many shader programs");
     Prog *p = &progs[nprogs++];
+    prog_hash[h] = (int16_t)nprogs;
     host_perf_push(PERF_SHADER);
     memset(p, 0, sizeof *p);
     p->key = *key;
@@ -703,13 +719,17 @@ static Prog *get_prog(const ProgKey *key) {
         goto done;
     }
     {
-        uint32_t w0 = gs.cc0, w1 = gs.cc1;
+        /* (the decoding reads the cycle type too: the key's, not the RDP's now,
+           when a program is made ahead) */
+        uint32_t w0 = gs.cc0, w1 = gs.cc1, oh = gs.om_h;
         gs.cc0 = key->cc0;
         gs.cc1 = key->cc1;
+        gs.om_h = (gs.om_h & ~(3u << 20)) | (uint32_t)key->cyc << 20;
         uint8_t idx[2][8];
         gfx_cc_decode(idx);
         gs.cc0 = w0;
         gs.cc1 = w1;
+        gs.om_h = oh;
         int ncyc = key->cyc == 1 ? 2 : 1;
         for (int c = 0; c < ncyc; c++) {
             const uint8_t *k = idx[c];
@@ -786,6 +806,17 @@ done:;
 #undef U
     if (host_verbose > 1)
         host_log("gl: program %d: cc %06X %08X om_l %08X cyc %d\n", nprogs, key->cc0, key->cc1, key->om_l, key->cyc);
+    /* PORT_GL_PROGS=FILE: each new program's key, for gfx_gl_progs.h */
+    static FILE *keys = (FILE *)1;
+    if (keys == (FILE *)1) {
+        const char *e = getenv("PORT_GL_PROGS");
+        keys = e ? fopen(e, "a") : NULL;
+    }
+    if (keys) {
+        fprintf(keys, "0x%06X, 0x%08X, 0x%08X, %d, %d, %d, %d, %d, %d\n", key->cc0, key->cc1, key->om_l, key->cyc,
+                key->textured, key->tex1, key->lod, key->filt, key->kind);
+        fflush(keys);
+    }
     host_perf_pop();
     return p;
 }
@@ -1264,12 +1295,72 @@ static void save_bmp(const char *path, const uint8_t *rgba, int w, int h) {
     fclose(f);
 }
 
+/* PORT_ADAPT=1 (the page's default): the internal resolution follows the
+   GPU.  A fence after each picture tells whether the GPU has finished the
+   picture before last by the time the next is presented; when it hasn't in
+   a quarter of the retraces of a two-second window, the scale goes down by
+   one (as far as 1), and after a minute of none it may go up again, as far
+   as the window's or --scale's. */
+static int adapt = -1, adapt_cap = 16, adapt_n, adapt_late, adapt_quiet;
+static double adapt_down_at = -1e9;
+static GLsync fences[2];
+
+static int adapt_scale(int want) {
+    if (adapt < 0) {
+        const char *e = getenv("PORT_ADAPT");
+#ifdef __EMSCRIPTEN__
+        adapt = !e || (*e && *e != '0');
+#else
+        adapt = e && *e && *e != '0';
+#endif
+    }
+    if (!adapt)
+        return want;
+    if (adapt_cap > want)
+        adapt_cap = want;
+    if (fences[0]) {                        /* the picture before last */
+        GLenum r = glClientWaitSync(fences[0], 0, 0);
+        adapt_late += r == GL_TIMEOUT_EXPIRED;
+        glDeleteSync(fences[0]);
+    }
+    fences[0] = fences[1];
+    fences[1] = NULL;
+    if (++adapt_n == 120) {
+        double now = host_perf_now();
+        if (adapt_late * 4 > adapt_n && adapt_cap > 1) {
+            adapt_cap--;
+            adapt_down_at = now;
+            host_log("gl: the GPU is behind (%d of %d retraces): scale %d\n", adapt_late, adapt_n, adapt_cap);
+        } else if (adapt_late == 0 && now - adapt_down_at > 60000 && ++adapt_quiet >= 30 && adapt_cap < want) {
+            adapt_cap++;
+            adapt_quiet = 0;
+            host_log("gl: the GPU keeps up: scale %d\n", adapt_cap);
+        }
+        if (adapt_late)
+            adapt_quiet = 0;
+        adapt_n = adapt_late = 0;
+    }
+    return adapt_cap < want ? adapt_cap : want;
+}
+
 void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
     frame_no++;
     GLC_DIRTY();
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
-    set_geometry(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH, gfx_aspect_of(dw, dh));
+    set_geometry(adapt_scale(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH), gfx_aspect_of(dw, dh));
+    /* the game's shader programs, a few a retrace (at most 4 ms of them,
+       at least one) until all are there: compiling one when it is first
+       drawn with stalls that frame, by tens of milliseconds in a browser
+       (with the default --filter: the table's filter is its) */
+    if (prog_ahead < sizeof prog_table / sizeof prog_table[0] && gfx_filter == 0) {
+        double t0 = host_perf_now();
+        do {
+            ProgKey k = prog_table[prog_ahead++];
+            k.quant = quantize;
+            get_prog(&k);
+        } while (prog_ahead < sizeof prog_table / sizeof prog_table[0] && host_perf_now() - t0 < 4.0);
+    }
     Target *t = vi_fb && vi_width == TW ? find_target(vi_fb) : NULL;
     if (vi_fb && !t) {
         upload_rdram(&view, vi_fb, vi_width > 0 && vi_width <= 640 ? vi_width : TW);
@@ -1305,6 +1396,8 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
         free(buf);
     }
     SDL_GL_SwapWindow(win);
+    if (adapt > 0)
+        fences[1] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     if (host_verbose && frame_no % 300 == 0)
         host_log("gl: %llu draws, %llu vertices, %llu textures decoded (%llu hits), %d programs\n", st_draws,
                  st_verts, st_tex_decoded, st_tex_hits, nprogs);
