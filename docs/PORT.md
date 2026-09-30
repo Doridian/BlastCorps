@@ -996,8 +996,8 @@ The call repair found a bug of the 32-bit builds: `func_80264BA4` is
 defined `u8` (1D990.c) and declared `s32` in four other files, and i386
 leaves the upper bytes of `eax` as they were, so the map's `!= 3`
 compared garbage (IDO's `v0` has a `u8` zero-extended; the 64-bit builds
-widen narrow results, port-ilp32).  Those declarations are `u8` under
-`TARGET_PC` now, so the default 32-bit builds are right too, and the
+widen narrow results, port-ilp32).  Those declarations are `u8` now
+(the ROMs don't change: IDO's caller doesn't look at the upper bits), so the default 32-bit builds are right too, and the
 32-bit native-endian movable build plays as the one without (before, the
 two had parted, on different garbage).  The 32-bit big-endian build's
 TAS gains by it: 57 platinum and all reads matched as before, but no
