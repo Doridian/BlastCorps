@@ -137,3 +137,15 @@ func_8029DA90+0x84 x2   # lhu 2
 # (a record with 0xC5 set holds byte pairs instead, stored as halves and
 # read as bytes by func_8029DB7C)
 func_802A3F80+0x124 be  # sh
+
+# jp's IDO asm (its GLOBAL_ASM, tools/recomp/config.py), at jp's offsets:
+# the third field names the version.  func_8026BCE0 (the menus) takes the
+# low byte of the s16 D_8036BB0C (the fade, 0 to 0xFF) as the byte at its
+# address + 1 (D_8036BB0D), where us.v11's C stores the s16 into a u8.
+func_8026BCE0+0x1A4 x1 jp   # lbu D_8036BB0D
+func_8026BCE0+0x1F8 x1 jp   # lbu D_8036BB0D
+# func_802BA3E8_jp (Rare's, only jp has it) looks the level up in
+# D_8030606E_jp, (level, value) byte pairs that the asm data declares as
+# halves (asm2x86.py converts them as such)
+func_802BA3E8_jp+0x24 x1 jp  # lb: the level
+func_802BA3E8_jp+0x38 x1 jp  # lbu -1: its value

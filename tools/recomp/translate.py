@@ -64,7 +64,9 @@ SITES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "native_si
 SITE_KINDS = ("h2", "be", "x1", "x2", "x3")
 
 
-def load_sites():
+def load_sites(version="us.v11"):
+    """a line with a third field (versions, comma-separated) is only those
+    versions' (a version's own IDO asm, at its offsets)"""
     sites, whole = {}, {}
     if not os.path.exists(SITES_FILE):
         return sites, whole
@@ -72,9 +74,11 @@ def load_sites():
         line = line.split("#", 1)[0].split()
         if not line:
             continue
-        if len(line) != 2 or line[1] not in SITE_KINDS:
-            raise TranslateError(f"{SITES_FILE}:{n}: expected FUNC[+0xOFF] KIND")
-        where, kind = line
+        if len(line) not in (2, 3) or line[1] not in SITE_KINDS:
+            raise TranslateError(f"{SITES_FILE}:{n}: expected FUNC[+0xOFF] KIND [VERSION,...]")
+        if len(line) == 3 and version not in line[2].split(","):
+            continue
+        where, kind = line[:2]
         if "+" in where:
             fn, off = where.split("+")
             sites[(fn, int(off, 16))] = kind
@@ -690,6 +694,8 @@ def main():
     ap.add_argument("--version", default="us.v11")
     args = ap.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
+    global NATIVE_SITES, NATIVE_FUNCS
+    NATIVE_SITES, NATIVE_FUNCS = load_sites(args.version)
 
     objs = [parse_file(path, module, name)
             for module, name, path in translated_objects(args.version)]
