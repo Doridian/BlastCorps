@@ -52,8 +52,9 @@ be compared should each start from the same one, or none),
 window's height, so resizing the window changes it) and
 `--filter n64|bilinear|point` (textures: the N64's 3-point filter where
 the game asks for bilinear filtering, which is the default, a 4-tap
-bilinear one, or point sampling throughout), `--interpolate` (OpenGL:
-60 frames a second where the game draws 30, see "Frame rate"), `--aspect
+bilinear one, or point sampling throughout), `--interpolate` (60 frames a
+second where the game draws 30, and `--display-hz N|auto` for faster
+displays, see "Frame rate"), `--aspect
 W:H`, `--widescreen` (16:9) and `--aspect window` (see "Widescreen"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
@@ -333,9 +334,10 @@ BUILD` also with another build's last results.  Within the build, where
 the executable is the same, `=3` again must give the same:
 
 - with the other thread backend (`PORT_THREADS`): every hash;
-- with `--widescreen`, with `--renderer gl --scale 1`, and with
-  `--renderer gl --interpolate --widescreen` (SDL's offscreen driver; left
-  out without libepoxy): the save and the sound.
+- with `--widescreen`, with `--interpolate --widescreen`, with
+  `--renderer gl --scale 1`, and with `--renderer gl --interpolate
+  --widescreen` (SDL's offscreen driver; the OpenGL ones left out without
+  libepoxy): the save and the sound.
 
 What's exact: with the timing taken out, every variant plays the same game,
 so the save and the sound are the same in all of them, and so are the
@@ -1890,18 +1892,22 @@ wasn't kept.
 ### `--interpolate`: in-between frames
 
 The logic runs as before, and the renderer makes the extra frames
-(`port/host/gfx.c`, "in-between frames"; `gfx_gl.c`, the twins):
+(`port/host/gfx.c`, "in-between frames"; `gfx_gl.c`, the twins), with
+either renderer:
 
-- **Two passes.**  Where the game holds its frames (the mode is outside
+- **More passes.**  Where the game holds its frames (the mode is outside
   the swap's mask, `host_frame_held`), each graphics task's display list
-  runs twice, back to back, while RDRAM is as the task found it.  The
-  first pass is the real one.  The second draws into a *twin* of each GPU
-  target, which has its own depth buffer.  The RSP/RDP state (and TMEM)
-  before the second pass is what the first started from, and after it,
-  what the first ended with.  The second pass draws nothing the software
-  rasterizer owns (the 8-bit render-to-texture images and the RDRAM
-  z-image stay the first pass's), skips the read-backs, and charges no
-  RDP time.
+  runs once more for each in-between image, back to back, while RDRAM is
+  as the task found it.  The first pass is the real one.  In-between pass
+  k draws into *twin* k of each framebuffer, which has its own depth
+  buffer: with OpenGL a twin of the GPU target, with the software
+  renderer a host-side buffer (as wide as the widescreen frame) with a
+  z-buffer of its own, so that RDRAM stays the first pass's.  The RSP/RDP
+  state (and TMEM, and the combiner's noise) before each in-between pass
+  is what the first started from, and after them, what the first ended
+  with.  The in-between passes draw nothing but the twins (the 8-bit
+  render-to-texture images and the RDRAM z-image stay the first pass's),
+  skip the read-backs, and charge no RDP time.
 - **Blending vertices.**  The first pass records where each vertex load
   (`G_VTX`) put its vertices in clip space.  The second pass moves each
   vertex halfway from where the previous frame put the same vertex.  For
@@ -1916,18 +1922,46 @@ The logic runs as before, and the renderer makes the extra frames
   pair up.  A load whose vertices moved by more than a quarter of their
   distance from the eye (in clip space) is taken for different vertices
   (an object that appeared, or a camera cut), and all of it is drawn where
-  the frame has it.
+  the frame has it.  Twin k of K is at t = (k + 1) / (K + 1) between the
+  two frames.
+- **Blending rectangles.**  Texture and fill rectangles (text, the HUD's
+  pieces, menus, the title's logo) are paired the same way, by what they
+  draw instead of an address: a texture rectangle by its texture image,
+  tile, texture coordinates, steps and size, a fill by its colors and
+  modes (a fill into the z image, a clear, is left alone), and by how many
+  of the same came before it in the frame.  The in-between passes move the
+  four corners, unless one moved by more than 64 pixels.  Their texture
+  coordinates stay the frame's: a rectangle whose texture coordinates
+  changed (a counter's digit) is another rectangle and isn't paired.
+- **How many.**  A frame's twins are chosen as its first task runs, from
+  how long it will be on screen, D retraces, taken as the shorter of the
+  last two frames' holds (2 to 4): D - 1 twins at 60 Hz, D * N / 60 - 1
+  with `--display-hz N` (at most 7; 3 with the software renderer, which
+  draws the frame again for each, `PORT_INTERP_MAX` to change).  A frame
+  held three retraces is then shown at 1/3, 2/3 and itself, one held two
+  at 1/2 and itself.  The shorter hold, because a frame held longer than
+  its twins were made for shows itself for the rest (the motion pauses a
+  retrace), while one held shorter never gets to itself (the motion jumps
+  by a third).
 - **Showing it.**  When the VI moves to another buffer
   (`host_gfx_frame_shown`), the frame in it is complete: the next frame's
-  tasks wait for the RDP's thaw, which comes after.  Its twin is then
-  marked ready if every task of the frame had its second pass.  The hook
+  tasks wait for the RDP's thaw, which comes after.  Its twins are then
+  marked ready if every task of the frame had its passes.  The hook
   is on the host side on purpose.  A call in `osViSwapBuffer` would be
   counted as the game's CPU time (BEPass's ICount), and that alone moved
   the TAS replay's timing a little (76 retraces given anyway instead of 80,
-  with the option off).  The first retrace that shows the frame shows the twin instead,
-  and the second shows the frame.  The frame is therefore on screen one
-  retrace later than before, and in-between images take the retraces a
-  frame used to repeat on.
+  with the option off).  The retraces that show the frame show its twins
+  in turn and then the frame (`gfx_interp_image`, for both renderers).
+  The frame is therefore on screen one retrace later than before, and
+  in-between images take the retraces a frame used to repeat on.
+- **Faster displays** (`--display-hz N`, or `auto` for the display's
+  rate).  With N above 60 the loop presents between the retraces too, on
+  a display clock of its own (host time, a tick every 1/N second; a tick
+  within half a period of a retrace is that retrace's present), and each
+  present shows the twin for its phase in the frame
+  (`gfx_interp_image_at`).  Not with `--deterministic`, whose clock isn't
+  the host's.  The swaps aren't synchronized to the display (the swap
+  interval stays 0, as the loop paces itself), so a present can tear.
 - **The game sees none of it.**  With `--interpolate` the game's memory is
   identical: RDRAM dumps (`PORT_DUMP`) at the 1,200th and 1,500th
   controller reads (in Simian Acres, `PORT_AUTOSTART=3`, OpenGL,
@@ -1955,39 +1989,46 @@ retrace 3,000 (the attract, the menus, Simian Acres):
   in-between frame at the frame's first retrace.  Of each pair of
   retraces, the second matches a run without the option exactly.
 
+The software renderer gives the same: its in-between images are its
+twins, and every second image of steady driving is exactly its run
+without the option's.  Its cost is the frame drawn again: the quick
+suite's `PORT_AUTOSTART=3` run (3,000 retraces, `--widescreen` too) takes
+40 s against 18 s.
+
 **The TAS** (us.v10, 32-bit build, `--headless --replay`) with
 `--renderer gl --scale 1 --interpolate` gives the same replay report
 (all 125,297 of the log's reads matched, none skipped) and a byte-identical
-save as `--renderer gl` without it: 57 platinum.  Over its 275,446
-retraces it showed 125,325 new frames of the game's and 120,490 in-between
-ones, and blended 91% of the vertex loads.  With the option off, the
-default software renderer's replay is exactly what it was before the
-option existed: a byte-identical log and save.
+save as `--renderer gl` without it: 57 platinum.  With the rectangles and
+the holds' twins, and `--widescreen` too: all 125,297 matched, none
+skipped, no mode forced, the reference save; over its 275,482 retraces it
+showed 125,338 new frames of the game's and 126,742 in-between images,
+blended 91% of the vertex loads and moved 6,938 of 1,042,139 rectangles
+(5 moved too far).  114,536 frames had one twin, 5,418 two and 462
+three; 6,525 frames were held longer than their twins were made for and
+1,084 shorter.  With the option off, the default software renderer's
+replay is exactly what it was before the option existed: a
+byte-identical log and save.
 
 What it doesn't do:
 
-- **Only OpenGL**: the software renderer draws into RDRAM, which the second
-  pass mustn't touch, so `--interpolate` is ignored with `--renderer sw`
-  (and says so).
-- **Rectangles aren't interpolated.**  Texture and fill rectangles (text
-  and other 2D pieces) move at the game's rate.  So do
-  texture animations (the TVs, texture coordinates rewritten with
-  `G_MW_POINTS`) and the soft shadows' render-to-texture images, whose
-  images are the frame's (their geometry is blended).
-- **A fixed halfway point.**  Frames that take three retraces or more
-  (lag, the world map) show one in-between image and then the frame for
-  the rest.  The front end's one-retrace modes need none and get none.
+- **Texture animations and scrolls** move at the game's rate: the TVs'
+  pictures, texture coordinates rewritten each frame (with `G_MW_POINTS`
+  or in the vertices) and tiles moved over their texture.  A change of
+  texture coordinates can't be told apart from a flip to another cell of
+  a texture (or a scroll wrapping round), and blending one would show
+  texels from between two cells.  So do the soft shadows'
+  render-to-texture images, whose images are the frame's (their geometry
+  is blended).
+- **A guessed hold.**  The twins are made before the frame's hold is
+  known (it ends when the next frame is drawn).  A frame held longer
+  than the guess pauses a retrace, one held shorter jumps; the front
+  end's one-retrace modes need none and get none.
 - **Mispairings.**  When objects that share vertex data appear or
   disappear, the count of earlier loads from an address shifts, and
   instances can pair with each other.  If they are near each other, the
   distance test lets them through, and for one image an instance sits
-  between two places.
-
-Beyond 60 (a 120 or 144 Hz display) takes two changes.  The first is k-1
-second passes at t = i/k, each into its own twin, which multiplies the GPU
-work.  The second is presents between retraces: at present the loop
-presents at the VI (`host_video_frame`), and it would need a display clock
-of its own, as the audio has in SDL.  Neither is done.
+  between two places.  Rectangles can mispair the same way (the same
+  glyph twice in a line of text that changes).
 
 ## Widescreen
 
@@ -2392,8 +2433,9 @@ writable, as the N64 has it.
   bulldozer, the carrier, the pause menu).
 - Pacing matches mupen64plus to a few percent in every mode measured
   ("Timing"), and the music and sound effects play ("Audio").
-- `--interpolate` shows gameplay at 60 frames a second (OpenGL; "Frame
-  rate"), without changing what the game does.
+- `--interpolate` shows gameplay at 60 frames a second, or at a faster
+  display's rate (`--display-hz`), with either renderer ("Frame rate"),
+  without changing what the game does.
 - Known problems: the CPU's time is a model (instruction counts, a scale for
   the C, fixed costs for libultra), and the reference is mupen64plus, not
   the hardware: its CPU is CountPerOp = 2, its RDP instant.  The loading
@@ -2410,8 +2452,6 @@ writable, as the N64 has it.
 - **Timing.**  A better RDP estimate would let `PORT_RDP_SCALE` default to
   1; the C's instruction scale could come from IDO's actual code size per
   function instead of one number.
-- **More than 60 frames a second** for faster displays: more in-between
-  passes and presents between retraces ("Frame rate").
 - **Real call states** for the translated code's test.  Recording `ctx` and
   memory at each translated function's entry during play would replace the
   random registers, and reach the 30% of blocks the random states don't.
