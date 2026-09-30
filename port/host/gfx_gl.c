@@ -668,6 +668,7 @@ static Prog *get_prog(const ProgKey *key) {
     if (nprogs == 1024)
         host_fatal("gl: too many shader programs");
     Prog *p = &progs[nprogs++];
+    host_perf_push(PERF_SHADER);
     memset(p, 0, sizeof *p);
     p->key = *key;
     sb_len = 0;
@@ -784,6 +785,7 @@ done:;
 #undef U
     if (host_verbose > 1)
         host_log("gl: program %d: cc %06X %08X om_l %08X cyc %d\n", nprogs, key->cc0, key->cc1, key->om_l, key->cyc);
+    host_perf_pop();
     return p;
 }
 

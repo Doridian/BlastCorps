@@ -35,7 +35,7 @@ static double sleep_want, sleep_over, sleep_over_max;
 static int nsleeps;
 static unsigned long long img0, nframes, last_frame;
 static double t_win;
-static const char *names[PERF_NCAT] = { "loop", "game", "gfx", "gfx2", "audio", "present", "idle" };
+static const char *names[PERF_NCAT] = { "loop", "game", "gfx", "gfx2", "audio", "present", "idle", "shaders" };
 
 double host_perf_now(void) {
 #ifdef __EMSCRIPTEN__
@@ -146,9 +146,6 @@ void host_perf_vi(double late_ms, unsigned long long images, unsigned long long 
     if (frames > last_frame && frames - last_frame < 16)
         nframes += frames - last_frame;
     last_frame = frames;
-#ifdef PORT_WASM_WEB
-    EM_ASM({ Module.images = $0; }, (double)images);     /* for a page that watches what it shows */
-#endif
     work[nsamp] = (float)w;
     late[nsamp] = (float)late_ms;
     if (w > 1000.0 / 60)
@@ -163,4 +160,16 @@ void host_perf_vi(double late_ms, unsigned long long images, unsigned long long 
     }
     if (nsamp == window_n)
         report(images);
+}
+
+/* after presenting: a page that watches what reaches the screen gets the
+   time of each new picture (Module.shown, which it empties) */
+void host_perf_presented(unsigned long long images) {
+    static unsigned long long last;
+    if (!host_perf_on || images == last)
+        return;
+    last = images;
+#ifdef PORT_WASM_WEB
+    EM_ASM({ (Module.shown = Module.shown || []).push(performance.now()); });
+#endif
 }

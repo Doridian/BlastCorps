@@ -613,6 +613,25 @@ static inline void tmem_put(uint32_t a, int odd, const uint8_t *px, int siz) {
 
 static int bytes_per_texel_x2(int siz) { return siz == 0 ? 1 : siz == 1 ? 2 : siz == 2 ? 4 : 8; }
 
+/* n bytes (not 32-bit texels) into TMEM at a, a word at a time where they
+   are whole words: tmem_put's layout, without its cost per byte (the
+   loads run for every texture, twice with --interpolate) */
+static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
+    uint32_t i = 0;
+    if (!(a & 7))
+        for (; i + 8 <= n && a + i + 8 <= 4096; i += 8) {
+            uint8_t *d = gfx_tmem + a + i;
+            if (odd) {
+                memcpy(d, px + i + 4, 4);
+                memcpy(d + 4, px + i, 4);
+            } else {
+                memcpy(d, px + i, 8);
+            }
+        }
+    for (; i < n; i++)
+        tmem_put(a + i, odd, px + i, 0);
+}
+
 static void load_block(uint32_t w0, uint32_t w1) {
     Tile *t = &gs.tile[(w1 >> 24) & 7];
     int uls = (w0 >> 12) & 0xFFF, ult = w0 & 0xFFF, lrs = (w1 >> 12) & 0xFFF, dxt = w1 & 0xFFF;
@@ -629,8 +648,9 @@ static void load_block(uint32_t w0, uint32_t w1) {
         for (uint32_t i = 0; i < bytes; i += 4)
             tmem_put(dst + i / 2, ((i / 8) * (uint32_t)dxt >> 11) & 1, p + i, 3);
     } else {
-        for (uint32_t i = 0; i < bytes; i++)
-            tmem_put(dst + i, ((i / 8) * (uint32_t)dxt >> 11) & 1, p + i, 0);
+        /* (the row, and so the swap, changes only between words) */
+        for (uint32_t i = 0; i < bytes; i += 8)
+            tmem_put_bytes(dst + i, ((i / 8) * (uint32_t)dxt >> 11) & 1, p + i, bytes - i < 8 ? bytes - i : 8);
     }
     gs.tmem_gen++;
 }
@@ -651,8 +671,7 @@ static void load_tile(uint32_t w0, uint32_t w1) {
             for (uint32_t i = 0; i < rowbytes && i / 2 < 2048; i += 4)
                 tmem_put(dst + i / 2, odd, p + i, 3);
         } else {
-            for (uint32_t i = 0; i < rowbytes && i < 4096; i++)
-                tmem_put(dst + i, odd, p + i, 0);
+            tmem_put_bytes(dst, odd, p, rowbytes < 4096 ? rowbytes : 4096);
         }
     }
     gs.tmem_gen++;
@@ -1265,14 +1284,24 @@ static void tri(int i0, int i1, int i2, int flag) {
     }
     if (rsp_only)
         return;
-    Vtx4 p0[3] = { *a, *b, *c }, p1[9], p2[9];
-    int n = clip_poly(p0, 3, p1, 0);
-    n = clip_poly(p1, n, p2, 1);
-    if (n < 3)
-        return;
     GfxVtx s[9];
-    for (int i = 0; i < n; i++)
-        to_screen(&p2[i], &s[i]);
+    int n;
+    if (a->w - 1e-3f >= 0 && b->w - 1e-3f >= 0 && c->w - 1e-3f >= 0 &&
+        a->z + a->w >= 0 && b->z + b->w >= 0 && c->z + c->w >= 0) {
+        /* inside both planes: what clip_poly would give back */
+        n = 3;
+        to_screen(a, &s[0]);
+        to_screen(b, &s[1]);
+        to_screen(c, &s[2]);
+    } else {
+        Vtx4 p0[3] = { *a, *b, *c }, p1[9], p2[9];
+        n = clip_poly(p0, 3, p1, 0);
+        n = clip_poly(p1, n, p2, 1);
+        if (n < 3)
+            return;
+        for (int i = 0; i < n; i++)
+            to_screen(&p2[i], &s[i]);
+    }
     charge_poly(s, n);
     int gl = gl_target();
     if (gfx_wide_off && (gl || cur_wfb))

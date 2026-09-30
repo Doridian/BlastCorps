@@ -196,6 +196,7 @@ static void count_image(int twin) {
         gfx_st_images++;
     last_fb = vi_fb;
     last_twin = twin;
+    host_perf_presented(gfx_st_images);
 }
 
 void host_video_frame(void) {

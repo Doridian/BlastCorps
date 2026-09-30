@@ -354,9 +354,9 @@ EM_ASYNC_JS(void, yield_now, (void), {
         Module.yieldChannel.port2.postMessage(0);
     });
 });
-#endif
 
-static double last_yield_ms;
+static double last_yield_ms;     /* when the page last had its turn */
+#endif
 
 /* PORT_PACED: long stretches of work give the page its turn now and then */
 static void paced_breathe(void) {
