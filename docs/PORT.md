@@ -1434,9 +1434,14 @@ The logic runs as before, and the renderer makes the extra frames
   distance from the eye (in clip space) is taken for different vertices
   (an object that appeared, or a camera cut), and all of it is drawn where
   the frame has it.
-- **Showing it.**  At the swap (`osViSwapBuffer`, `host_vi_swap`) the
-  frame's twin is marked ready if every task of the frame had its second
-  pass.  The first retrace that shows the frame shows the twin instead,
+- **Showing it.**  When the VI moves to another buffer
+  (`host_gfx_frame_shown`), the frame in it is complete: the next frame's
+  tasks wait for the RDP's thaw, which comes after.  Its twin is then
+  marked ready if every task of the frame had its second pass.  The hook
+  is on the host side on purpose.  A call in `osViSwapBuffer` would be
+  counted as the game's CPU time (BEPass's ICount), and that alone moved
+  the TAS replay's timing a little (76 retraces given anyway instead of 80,
+  with the option off).  The first retrace that shows the frame shows the twin instead,
   and the second shows the frame.  The frame is therefore on screen one
   retrace later than before, and in-between images take the retraces a
   frame used to repeat on.
@@ -1453,11 +1458,12 @@ retrace 3,000 (the attract, the menus, Simian Acres):
 - **Images.**  Over retraces 1,600-2,700 (the level's drop-in and
   driving), 944 of 1,100 retraces showed a new image, 51.5 a second.
   Without the option it is 474, 25.9 a second.  In steady driving
-  (retraces 2,400-2,420) every retrace is new: 60 a second, against 30.
+  (retraces 2,400-3,000) every retrace is new, 60 a second against 30,
+  and every second one is exactly the run without the option's.
   The report at exit counts them: "3000 retraces presented: 1639 showed a
-  new frame of the game's, 869 an in-between one".
-- **Matching.**  Of 645,027 vertex loads in the second passes, 97.5% were
-  blended with the previous frame's, 2.4% had no match there, and 0.15%
+  new frame of the game's, 865 an in-between one".
+- **Matching.**  Of 647,016 vertex loads in the second passes, 96.2% were
+  blended with the previous frame's, 3.6% had no match there, and 0.18%
   of the vertices were in loads that moved too far.
 - **Host cost.**  Each graphics task costs twice the GPU work: 0.86 ms
   of host time a task against 0.45 ms (4x, a Radeon RX 7900 XTX, about
@@ -1469,11 +1475,11 @@ retrace 3,000 (the attract, the menus, Simian Acres):
 **The TAS** (us.v10, 32-bit build, `--headless --replay`) with
 `--renderer gl --scale 1 --interpolate` gives the same replay report
 (all 125,297 of the log's reads matched, none skipped) and a byte-identical
-save as `--renderer gl` without it: 57 platinum.  Over its 275,443
-retraces it showed 125,322 new frames of the game's and 120,614 in-between
-ones, and blended 92% of the vertex loads.  (The software
-and OpenGL renderers were already a little apart there: 80 retraces given
-anyway against 76, which the option doesn't change.)
+save as `--renderer gl` without it: 57 platinum.  Over its 275,446
+retraces it showed 125,325 new frames of the game's and 120,490 in-between
+ones, and blended 91% of the vertex loads.  With the option off, the
+default software renderer's replay is exactly what it was before the
+option existed: a byte-identical log and save.
 
 What it doesn't do:
 
