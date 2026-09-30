@@ -1756,6 +1756,31 @@ interface between them.
   `PORT_GL_READBACK=1` also copies the framebuffers to RDRAM after every
   task, for code that reads them with the CPU.  A framebuffer the GPU never
   drew is shown from RDRAM.
+- **The terrain's visibility test** (`func_8024B8F4`, and
+  `func_802A467C` in hd_code 5FD50, while a level is set up: in
+  `PORT_AUTOSTART=1`, 87 tasks between retraces 558 and 1,201) sends
+  the RSP one box of 12 triangles per terrain cell, split in four while
+  it's visible.  It runs a second Fast3D 2.0D (`D_802E77B0`) that writes
+  the RDP's commands to an output buffer (`D_803BEB80`) instead of
+  handing them to the RDP, and its SchedTask asks for the RSP only
+  (flags 1, the frames' are 3).  The CPU then reads the buffer's first
+  word: 0xE8000000 (the list's closing tile sync) means every triangle
+  was rejected.  So `ultra.c` tells the front end that task's commands
+  go to memory, and nothing of it is drawn.  The commands aren't
+  written either.  The movie's emulator (mupen64plus's rsp-hle, which
+  hands every graphics task to its graphics plugin) doesn't write them,
+  so the game there finds the buffer as it was (zeros) and takes every
+  cell as visible, and so does the port.  (The RSP would reject 26 of
+  the 87 boxes; writing its answer changes the attract mode's save and
+  `PORT_AUTOSTART=1`'s sound, though no screenshot: the game's timing
+  moves.)
+  The box is on the C's stack, which the RSP addresses as physical
+  `0x10xxxxxx` on the fibers' host stacks (at `0x90000000`): the front
+  end and the audio HLE keep bit 28 of a segmented address and of a
+  segment's base, which the RSP's 24 bits would drop (they read, and the
+  front end drew, whatever RDRAM held at `0x800EFCC0`: a dark sliver on
+  the title's road, frames 848 to 857).  The movable builds' stacks are
+  in the arena (`0x80C00000` and up), which fits.
 
 Comparing the two (`--deterministic`, `PORT_SHOT_EVERY=150`, 1x, the attract
 mode and 4,500 frames of `PORT_AUTOSTART=1` into Simian Acres): 0.01-0.02%

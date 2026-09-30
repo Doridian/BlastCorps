@@ -162,9 +162,20 @@ int host_gfx_stats[256];
 static unsigned long long st_tris, st_raster, st_tested, st_drawn;
 static double st_cover;         /* pixels covered, as the geometry says: the RDP's work */
 
+/* A segmented address is a segment (bits 24..27) and a 24-bit offset, and
+   the RSP ignores the top nibble.  But the game's C keeps its locals on the
+   fibers' host stacks at 0x90000000 (port.h), whose physical addresses
+   (K0_TO_PHYS, osVirtualToPhysical) are 0x10xxxxxx: bit 28 is the only
+   thing telling them from RDRAM, so it stays, here and in a segment's base.
+   (func_8024B8F4's visibility test loads its box from its stack; without
+   the bit its vertices were read from RDRAM at 0x800EFCC0, whatever the
+   build had there, and drawn.)  Any other top nibble (a KSEG0 or KSEG1
+   address used as a physical one) masks away as before.  The movable
+   builds' stacks are in the arena, at physical 0x00C00000 and up, which
+   fits in 24 bits. */
 static uint32_t seg_to_k0(uint32_t a) {
     uint32_t seg = (a >> 24) & 0x0F;
-    return 0x80000000u | ((gs.seg[seg] + (a & 0x00FFFFFFu)) & 0x1FFFFFFFu);
+    return 0x80000000u | ((gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
 }
 
 static void mtx_mul(float r[4][4], float a[4][4], float b[4][4]) {
@@ -1082,6 +1093,14 @@ static void wide_2d(GfxVtx *s, int n) {
     }
 }
 
+/* A task whose microcode writes the RDP's commands to memory instead of
+   handing them to the RDP (ultra.c, host_gfx_task's rdp): nothing is drawn.
+   Nor are the commands written: the RSP the TAS was made with (mupen64plus's
+   rsp-hle, which hands every graphics task to the graphics plugin) doesn't
+   write them either, and the game's timing depends on what it finds there
+   (docs/PORT.md, "Graphics"). */
+static int rsp_only;
+
 static void tri(int i0, int i1, int i2, int flag) {
     st_tris++;
     Vtx4 *a = &gs.v[i0 & 15], *b = &gs.v[i1 & 15], *c = &gs.v[i2 & 15];
@@ -1106,6 +1125,8 @@ static void tri(int i0, int i1, int i2, int flag) {
         if ((gs.geom & 0x1000) && cross > 0)
             return;
     }
+    if (rsp_only)
+        return;
     Vtx4 p0[3] = { *a, *b, *c }, p1[9], p2[9];
     int n = clip_poly(p0, 3, p1, 0);
     n = clip_poly(p1, n, p2, 1);
@@ -1282,6 +1303,11 @@ static void run(uint32_t dl, int depth) {
         uint8_t op = w0 >> 24;
         if (!ipass)
             host_gfx_stats[op]++;
+        if (rsp_only && op >= 0xE4) {                           /* the RDP's: written, not run */
+            if (op == 0xE4 || op == 0xE5)
+                dl += 16;                                       /* and its two halves */
+            continue;
+        }
         switch (op) {
         case 0x01: do_mtx(w0, w1); break;                       /* G_MTX */
         case 0x03: {                                            /* G_MOVEMEM */
@@ -1334,7 +1360,7 @@ static void run(uint32_t dl, int depth) {
         case 0xBC: {                                            /* G_MOVEWORD */
             int idx = w0 & 0xFF, off = (w0 >> 8) & 0xFFFF;
             if (idx == 0x06)
-                gs.seg[(off / 4) & 15] = w1 & 0x00FFFFFFu;
+                gs.seg[(off / 4) & 15] = w1 & 0x1FFFFFFFu;  /* see seg_to_k0 */
             else if (idx == 0x02)
                 gs.nlights = (int)((w1 - 0x80000000u) / 32) - 1;
             else if (idx == 0x08) {                             /* G_MW_FOG */
@@ -1430,9 +1456,10 @@ static double now_ms(void) {
     return t.tv_sec * 1e3 + t.tv_nsec / 1e6;
 }
 
-static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
+static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     (void)ucode;
     gfx_tasks++;
+    rsp_only = !rdp;
     memset(gs.seg, 0, sizeof gs.seg);
     gs.sync = 0;
     gs.mv_top = 0;
@@ -1503,14 +1530,14 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
 }
 
 /* on the loop's OS thread, which has the GL context (fiber.h) */
-struct gfx_call { uint32_t dl, size, ucode; int sync; };
+struct gfx_call { uint32_t dl, size, ucode; int rdp, sync; };
 static void gfx_task_call(void *p) {
     struct gfx_call *c = p;
-    c->sync = gfx_task(c->dl, c->size, c->ucode);
+    c->sync = gfx_task(c->dl, c->size, c->ucode, c->rdp);
 }
 
-int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
-    struct gfx_call c = { dl, size, ucode, 0 };
+int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
+    struct gfx_call c = { dl, size, ucode, rdp, 0 };
     fiber_call_on_loop(gfx_task_call, &c);
     return c.sync;
 }

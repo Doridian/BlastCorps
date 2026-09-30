@@ -234,8 +234,9 @@ uint64_t host_now_ns(void);
 uint64_t host_take_rdp_ns(void);    /* the RDP time of the last graphics task */
 
 /* RSP/RDP */
-/* runs a graphics task; 1 if its display list ended in a full sync */
-int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode);
+/* runs a graphics task; 1 if its display list ended in a full sync.  rdp
+   0: the microcode writes the RDP's commands to memory, nothing is drawn */
+int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp);
 void host_vi_set_framebuffer(uint32_t fb, int width);
 
 /* input: N64 button bits and stick (written big-endian: the pointers are

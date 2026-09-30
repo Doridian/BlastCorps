@@ -63,9 +63,10 @@ static inline void st(uint32_t a, int16_t v) {
     dmem[(a + 1) & 0xFFF] = (uint8_t)v;
 }
 
-/* RDRAM, through the segment table */
+/* RDRAM, through the segment table (bit 28, a host stack's, kept as in
+   gfx.c's seg_to_k0) */
 static uint8_t *ram(uint32_t so) {
-    uint32_t a = segments[(so >> 24) & 0xF] + (so & 0xFFFFFF);
+    uint32_t a = segments[(so >> 24) & 0xF] + (so & 0xFFFFFF) + (so & 0xF0000000u);
     return port_ptr(PORT_RDRAM_BASE | (a & 0x1FFFFFFFu));      /* KSEG0, as gfx.c's */
 }
 /* game memory at its own widths (the codebooks, the loop state, the state
@@ -281,7 +282,7 @@ void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data)
             break;
         }
         case A_SEGMENT:
-            segments[(w1 >> 24) & 0xF] = w1 & 0xFFFFFF;
+            segments[(w1 >> 24) & 0xF] = w1 & 0x1FFFFFFF;
             break;
         case A_SETBUFF:
             if (flags & F_AUX) {
