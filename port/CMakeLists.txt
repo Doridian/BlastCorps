@@ -337,22 +337,22 @@ file(GLOB HOST_C ${CMAKE_CURRENT_SOURCE_DIR}/host/*.c)
 add_library(host OBJECT ${HOST_C})
 # the game's threads' context switch (host/fiber.h): ucontext on the one OS
 # thread, or a host thread each, one running at a time.  ucontext is the
-# cheaper switch; macOS has deprecated it and WebAssembly has none.
+# cheaper switch; macOS has deprecated it and WebAssembly has none.  Where
+# both are built the environment's PORT_THREADS picks one at startup.
 if(APPLE OR EMSCRIPTEN)
     set(PORT_THREADS_DEFAULT pthread)
 else()
     set(PORT_THREADS_DEFAULT ucontext)
+    target_compile_definitions(host PRIVATE PORT_HAVE_UCONTEXT)
 endif()
-set(PORT_THREADS ${PORT_THREADS_DEFAULT} CACHE STRING "the game's threads: ucontext or pthread")
+set(PORT_THREADS ${PORT_THREADS_DEFAULT} CACHE STRING "the game's threads by default: ucontext or pthread")
 set_property(CACHE PORT_THREADS PROPERTY STRINGS ucontext pthread)
+find_package(Threads REQUIRED)
+target_compile_definitions(host PRIVATE PORT_HAVE_PTHREAD)
 if(PORT_THREADS STREQUAL "pthread")
-    target_compile_definitions(host PRIVATE PORT_THREADS_PTHREAD)
-    find_package(Threads REQUIRED)
-    set(PORT_THREAD_LIBS Threads::Threads)
-elseif(PORT_THREADS STREQUAL "ucontext")
-    target_compile_definitions(host PRIVATE PORT_THREADS_UCONTEXT)
-else()
-    message(FATAL_ERROR "PORT_THREADS is ucontext or pthread, not ${PORT_THREADS}")
+    target_compile_definitions(host PRIVATE PORT_THREADS_DEFAULT_PTHREAD)
+elseif(NOT PORT_THREADS STREQUAL "ucontext" OR APPLE OR EMSCRIPTEN)
+    message(FATAL_ERROR "PORT_THREADS is ucontext (not on macOS or emscripten) or pthread, not ${PORT_THREADS}")
 endif()
 message(STATUS "game threads: ${PORT_THREADS}")
 target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -417,7 +417,7 @@ else()
 endif()
 target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,--wrap=func_802D4E10 -Wl,--wrap=alCSeqGetLoc -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
     -Wl,${GEN}/port_fixed.ld)
-target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} ${PORT_THREAD_LIBS} m)
+target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} Threads::Threads m)
 
 # ---- the loaders (host/native.c, src/loads.c) ---------------------------------
 # the decompressors' entry points are wrapped, so every load is seen; the

@@ -7,13 +7,16 @@
  * can return to its caller (a browser's frame callback) between any two
  * fiber_run()s.
  *
- * Backends (CMake's PORT_THREADS):
+ * Backends:
  *   ucontext  makecontext/swapcontext on the one OS thread (Linux's default)
  *   pthread   an OS thread per fiber, exactly one of them (or the loop)
  *             running at a time, handed the CPU with a mutex and condition
  *             variables (macOS, and emscripten with pthreads)
- * Both run the same code in the same order, so a deterministic run is the
- * same on either (docs/PORT.md, "The platform layer").
+ * CMake's PORT_THREADS picks the default; where both are built (Linux)
+ * the environment's PORT_THREADS=ucontext|pthread picks one at startup, so
+ * the same executable runs either.  Both run the same code in the same
+ * order, so a deterministic run is the same on either (docs/PORT.md,
+ * "Threads without ucontext").
  */
 #ifndef FIBER_H
 #define FIBER_H
@@ -24,6 +27,8 @@ typedef struct HostFiber HostFiber;
 
 /* on the loop's thread, before any other call */
 void fiber_init(void);
+/* the backend chosen: "ucontext" or "pthread" */
+const char *fiber_backend(void);
 /* a fiber that will run fn(arg) on `stack` (size bytes, owned by the
    caller) from its first fiber_run; stack may be NULL for the backend's
    own (pthread only: the ucontext backend needs one) */
@@ -40,5 +45,21 @@ void fiber_free(HostFiber *f);
 /* run fn(arg) on the loop's OS thread and return: for what is tied to it
    (the GL context, SDL's window).  A plain call in the ucontext backend. */
 void fiber_call_on_loop(void (*fn)(void *), void *arg);
+
+/* a backend's entry points (fiber.c dispatches to one) */
+typedef struct {
+    const char *name;
+    void (*init)(void);
+    HostFiber *(*create)(void (*fn)(void *), void *arg, void *stack, size_t size);
+    void (*run)(HostFiber *f);
+    void (*yield)(HostFiber *self);
+    void (*exit)(HostFiber *self) __attribute__((noreturn));
+    void (*free)(HostFiber *f);
+    void (*call_on_loop)(void (*fn)(void *), void *arg);
+} FiberOps;
+extern const FiberOps fiber_ucontext_ops, fiber_pthread_ops;
+/* a backend's start of a fiber: fn(arg), from the same stack address in
+   every backend (fiber.c) */
+void fiber_enter(void (*fn)(void *), void *arg, void *stack, size_t size);
 
 #endif

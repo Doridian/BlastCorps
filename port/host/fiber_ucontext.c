@@ -3,7 +3,7 @@
  * Linux, where it is the cheapest switch).  macOS has deprecated ucontext
  * and WebAssembly has none: those take fiber_pthread.c.
  */
-#ifdef PORT_THREADS_UCONTEXT
+#ifdef PORT_HAVE_UCONTEXT
 #include <stdlib.h>
 #include <ucontext.h>
 
@@ -19,15 +19,15 @@ struct HostFiber {
 static ucontext_t loop_uc;
 static HostFiber *running;
 
-void fiber_init(void) { }
+static void f_init(void) { }
 
 static void trampoline(void) {
     HostFiber *f = running;
-    f->fn(f->arg);
+    fiber_enter(f->fn, f->arg, f->uc.uc_stack.ss_sp, f->uc.uc_stack.ss_size);
     host_fatal("fiber returned");
 }
 
-HostFiber *fiber_create(void (*fn)(void *), void *arg, void *stack, size_t size) {
+static HostFiber *f_create(void (*fn)(void *), void *arg, void *stack, size_t size) {
     HostFiber *f = calloc(1, sizeof *f);
     if (!f || !stack)
         host_fatal("fiber_create: no memory or no stack");
@@ -41,20 +41,24 @@ HostFiber *fiber_create(void (*fn)(void *), void *arg, void *stack, size_t size)
     return f;
 }
 
-void fiber_run(HostFiber *f) {
+static void f_run(HostFiber *f) {
     running = f;
     swapcontext(&loop_uc, &f->uc);
     running = NULL;
 }
 
-void fiber_yield(HostFiber *self) { swapcontext(&self->uc, &loop_uc); }
+static void f_yield(HostFiber *self) { swapcontext(&self->uc, &loop_uc); }
 
-void fiber_exit(HostFiber *self) {
+static __attribute__((noreturn)) void f_exit(HostFiber *self) {
     swapcontext(&self->uc, &loop_uc);
     host_fatal("exited fiber resumed");
 }
 
-void fiber_free(HostFiber *f) { free(f); }
+static void f_free(HostFiber *f) { free(f); }
 
-void fiber_call_on_loop(void (*fn)(void *), void *arg) { fn(arg); }
+static void f_call_on_loop(void (*fn)(void *), void *arg) { fn(arg); }
+
+const FiberOps fiber_ucontext_ops = {
+    "ucontext", f_init, f_create, f_run, f_yield, f_exit, f_free, f_call_on_loop,
+};
 #endif

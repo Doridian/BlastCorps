@@ -17,7 +17,7 @@
  * pthread_cond_wait, which is allowed but spins a core: see docs/PORT.md,
  * "Threads without ucontext".)
  */
-#ifdef PORT_THREADS_PTHREAD
+#ifdef PORT_HAVE_PTHREAD
 #include <pthread.h>
 #include <setjmp.h>
 #include <signal.h>
@@ -48,7 +48,7 @@ static void *call_arg;
 static pthread_t loop_thread;
 static _Thread_local HostFiber *self_fiber;
 
-void fiber_init(void) { loop_thread = pthread_self(); }
+static void f_init(void) { loop_thread = pthread_self(); }
 
 /* with mu held: wait until the baton is f's (1) or f is to end (0) */
 static int wait_go(HostFiber *f) {
@@ -78,7 +78,7 @@ static void *start(void *p) {
     int run = wait_go(f);
     pthread_mutex_unlock(&mu);
     if (run && !setjmp(f->out)) {
-        f->fn(f->arg);
+        fiber_enter(f->fn, f->arg, f->stack, f->size);
         host_fatal("fiber returned");
     }
     if (ss.ss_sp) {
@@ -89,7 +89,7 @@ static void *start(void *p) {
     return NULL;
 }
 
-HostFiber *fiber_create(void (*fn)(void *), void *arg, void *stack, size_t size) {
+static HostFiber *f_create(void (*fn)(void *), void *arg, void *stack, size_t size) {
     HostFiber *f = calloc(1, sizeof *f);
     if (!f)
         host_fatal("fiber_create: no memory");
@@ -101,7 +101,7 @@ HostFiber *fiber_create(void (*fn)(void *), void *arg, void *stack, size_t size)
     return f;
 }
 
-void fiber_run(HostFiber *f) {
+static void f_run(HostFiber *f) {
     pthread_mutex_lock(&mu);
     if (!f->started) {
         pthread_attr_t a;
@@ -136,7 +136,7 @@ void fiber_run(HostFiber *f) {
     pthread_mutex_unlock(&mu);
 }
 
-void fiber_yield(HostFiber *self) {
+static void f_yield(HostFiber *self) {
     pthread_mutex_lock(&mu);
     give_loop();
     int run = wait_go(self);
@@ -145,14 +145,14 @@ void fiber_yield(HostFiber *self) {
         longjmp(self->out, 1);
 }
 
-void fiber_exit(HostFiber *self) {
+static __attribute__((noreturn)) void f_exit(HostFiber *self) {
     pthread_mutex_lock(&mu);
     give_loop();
     pthread_mutex_unlock(&mu);
     longjmp(self->out, 1);
 }
 
-void fiber_free(HostFiber *f) {
+static void f_free(HostFiber *f) {
     if (f->started) {
         pthread_mutex_lock(&mu);
         f->kill = 1;
@@ -164,7 +164,7 @@ void fiber_free(HostFiber *f) {
     free(f);
 }
 
-void fiber_call_on_loop(void (*fn)(void *), void *arg) {
+static void f_call_on_loop(void (*fn)(void *), void *arg) {
     HostFiber *self = self_fiber;
     if (!self || pthread_equal(pthread_self(), loop_thread)) {
         fn(arg);
@@ -179,4 +179,8 @@ void fiber_call_on_loop(void (*fn)(void *), void *arg) {
     self->go = 0;
     pthread_mutex_unlock(&mu);
 }
+
+const FiberOps fiber_pthread_ops = {
+    "pthread", f_init, f_create, f_run, f_yield, f_exit, f_free, f_call_on_loop,
+};
 #endif
