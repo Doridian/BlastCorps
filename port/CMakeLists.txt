@@ -150,12 +150,13 @@ endif()
 if(PORT_LP64)
     list(APPEND N64_LAUNCHER BEPASS_LP64=1)
 endif()
-# the functions the link wraps (the replay's hooks, the overlay, the loaders)
+# the functions the link wraps (the replay's hooks, the overlay, the loaders);
+# the glue calls them by their __wrap_ names itself (gen_glue.py)
 set(PORT_WRAPS func_8028B3E0 func_802D4E10 alCSeqGetLoc func_8025C230 func_8028B4C4 __osContDataCrc)
+string(REPLACE ";" "," PORT_WRAPS_LIST "${PORT_WRAPS}")
 if(PORT_MOVABLE)
     # the N64 side is linked into one module (the arena link, below), so
     # --wrap is done per file by the plugin
-    string(REPLACE ";" "," PORT_WRAPS_LIST "${PORT_WRAPS}")
     list(APPEND N64_LAUNCHER BEPASS_WRAP=${PORT_WRAPS_LIST})
 endif()
 if(N64_LAUNCHER)
@@ -338,7 +339,7 @@ add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h)
 add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt
-    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN}
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN} --wrap ${PORT_WRAPS_LIST}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/liveness.py
             ${RECOMP_GEN}/recomp_funcs.h ${RECOMP_GEN}/recomp_externs.h ${GAME_C})
 add_custom_target(recomp_headers DEPENDS ${GEN}/port_recomp_syms.h)
@@ -543,11 +544,13 @@ endif()
 if(NOT PORT_MOVABLE)
     target_link_options(blastcorps PRIVATE -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld -Wl,${GEN}/port_fixed.ld)
 endif()
-# (in the movable build the N64 side's own calls are wrapped already, but
-# the glue's aren't: externs.c calls the inflate)
-foreach(w ${PORT_WRAPS})
-    target_link_options(blastcorps PRIVATE -Wl,--wrap=${w})
-endforeach()
+# (the movable build has no --wrap, which ld64 doesn't know: port-wrap did
+# the N64 side's calls, and the glue calls the __wrap_s itself)
+if(NOT PORT_MOVABLE)
+    foreach(w ${PORT_WRAPS})
+        target_link_options(blastcorps PRIVATE -Wl,--wrap=${w})
+    endforeach()
+endif()
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} Threads::Threads m)
 
 # ---- the loaders (host/native.c, src/loads.c) ---------------------------------
