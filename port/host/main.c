@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/personality.h>
 #include <sys/prctl.h>
 #include <time.h>
 #include <unistd.h>
@@ -62,9 +63,25 @@ void host_fatal(const char *fmt, ...) {
     exit(1);
 }
 
+/* The kernel puts the brk heap at a random place above the image: up to
+   32 MB above it for a 32-bit program, but up to 1 GB for a 64-bit one, and
+   so, now and then, inside one of the windows below (the heap is there by
+   main(), from what the libraries allocated first).  Then the port runs
+   itself again without the randomization, which puts the heap right above
+   the image.  (Once the windows are mapped, the heap can't grow into them:
+   malloc goes to mmap instead.) */
+static char **main_argv;
+
 static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
     void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE | MAP_NORESERVE, -1, 0);
+    if (p == MAP_FAILED && errno == EEXIST && !(personality(0xFFFFFFFF) & ADDR_NO_RANDOMIZE)) {
+        if (host_verbose)
+            host_log("%s at %08X taken (the heap?): running again without address randomization\n", what, addr);
+        personality(personality(0xFFFFFFFF) | ADDR_NO_RANDOMIZE);
+        execv("/proc/self/exe", main_argv);
+        errno = EEXIST;
+    }
     if (p == MAP_FAILED || p != (void *)(uintptr_t)addr)
         host_fatal("can't map %s at %08X: %s", what, addr, strerror(errno));
 }
@@ -323,6 +340,7 @@ static void usage(const char *argv0) {
 
 int main(int argc, char **argv) {
     const char *rom_path = ROM_DEFAULT;
+    main_argv = argv;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v"))
             host_verbose++;
