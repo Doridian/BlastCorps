@@ -1657,6 +1657,13 @@ page's size.
   earlier, where the countdown's branch first went the other way.)
   The declaration is fixed now (the ROMs don't change), and port-arena
   gives any such result the callee's extension, as the N64 had it.
+- The locals' stack costs the page nothing: `web_perf.mjs` (headless
+  Chromium, SwiftShader, into Simian Acres with the sound running) against
+  main's build just before it, the game's mean per retrace in the level
+  was 0.49-0.65 ms against 0.58-0.70 at 1x and 1.5-2.2 against 2.1-2.7 at
+  4x CPU throttling, the work per retrace at 1x median 1.8 ms against 1.9.
+  (At 4x `PORT_ADAPT` gave up the in-between pictures in one build and not
+  in the other, on when its trial fell in the level's loading.)
 - In headless chromium (Playwright's `playwright-core` with the system
   chromium, WebGL 2 through SwiftShader): the page loads, takes the ROM
   from the file picker or `?rom=`, plays the logos, the title, the name
