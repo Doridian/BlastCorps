@@ -319,10 +319,12 @@ static void conv_model(void) {
         o += 0x10 + 4 * (n ? n - 1 : 0);
     }
     o = offs[7]; e = offs[8]; if (e > o) recs(o, e, "hhhbb");               /* 0x2C..0x30 */
-    /* 0x30..0x38: the effect records func_802BF978 copies into D_803F3968:
-       s32 x 11, u16 0x2C and 0x2E (func_802C0574: lhu, sh), then bytes */
-    o = offs[8]; e = offs[9]; if (e > o) recs(o, e, "wwwwwwwwwwwhhbbbbbbbb");
-    o = offs[9]; e = offs[10]; if (e > o) recs(o, e, "wwwwwwwwwwwhhbbbbbbbb");
+    /* 0x30..0x38: the effect records func_802C04F0 copies into D_803F3968:
+       s32 x 11, u16 0x2C and 0x2E, then bytes, kept as fourteen words (the
+       handwritten code reaches the halves and bytes at the address ^ 2 and
+       ^ 3, tools/recomp/native_sites.txt) */
+    o = offs[8]; e = offs[9]; if (e > o) recs(o, e, "wwwwwwwwwwwwww");
+    o = offs[9]; e = offs[10]; if (e > o) recs(o, e, "wwwwwwwwwwwwww");
     /* 0x38..0x3C: the damage states (func_802BD1F8, func_802C09B8): {u32 n;
        n x {u16 index; u8, u8}; u32 [4] (display list offsets)} */
     o = offs[10]; e = offs[11];

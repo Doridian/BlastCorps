@@ -365,6 +365,9 @@ static void dump(unsigned n) {
             if (f) {
                 fwrite(port_ptr(0x80000000), 1, 0x400000, f);
                 fclose(f);
+#ifdef PORT_ACCESS_PROFILE
+                port_access_dump_widths(n);     /* rdram_N.widths, for build_cmp.py */
+#endif
             }
         }
         p = *end ? end + 1 : end;

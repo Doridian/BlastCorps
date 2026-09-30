@@ -553,14 +553,31 @@ walk runs off their end into byte data (`D_80306344`, `D_80306350`,
 runs to its file's end, over the labels splat made inside it.  The data
 islands in hd_code's `.text` are laid out by their readers
 (`7D9D0`, `800DC`, `8E910`'s per-level tables); the rest stays as its
-directives say.
+directives say.  A record type fieldscan found repeats up to the next
+label and no further (`D_80305D74`'s 21st record would otherwise take
+`D_80305DF0`'s 0xFF terminator as the high byte of a `u16`).
 
 **The translated code** (`RECOMP_NATIVE_ENDIAN`) takes, from
 `tools/recomp/native_sites.txt`, the instructions that move data at
 another width than its type: `be` (the texture decoders' streams, LUTs and
 texels; the chance tables), `x1`/`x2`/`x3` (a byte or half inside a wider
-field: the matrix routines, the effect records' 0x2E), `h2` (a word that
+field: the matrix routines, the effect records' halves and bytes, the
+bytes of words the N64 reads at the word's address), `h2` (a word that
 is two halves).
+
+Some data is a word in one place and smaller fields in another because
+the handwritten code stores words over it: those are kept as host-order
+words, and the smaller accesses go to the address ^ 2 or ^ 3, so that
+every access sees what it sees on the N64.  The effect records (a
+model's 0x30/0x34 records, `D_803F3FF8`, `D_803F3968[30]`) are fourteen
+words: the list at `D_803F3910` (ten pairs of words, `func_802BEA30`)
+runs over its end into `D_803F3968[0]`, and the effect code then reads
+the halves and bytes of what it stored.  The same goes for the count
+and flag at 0xF8/0xF9 of the walls (`D_803BD310`, 0xFC-byte records; a
+record's 61st wall is stored over them), the level `D_802E8BDC` that
+`func_802AF4BC` reads with `lbu` (its high byte: 0 on the N64) and
+`D_803649E8`, which `func_802BC5E0` sets with `sb` and the C reads as
+an `s32`.
 
 **The C** needed three changes of its own: `func_80200714` (hd_front_end
 196F0.c) tints big-endian texels, through `IMG_RD`/`IMG_WR` under
@@ -580,8 +597,11 @@ instruction, rather than as a crash somewhere later).
 `PORT_COUNT_PER_OP=0 --deterministic`, 64-bit:
 
 - call traces (`PORT_TRACE_CALLS`) identical: attract mode, 12,000 frames
-  (23,199,462 calls); `PORT_AUTOSTART=1` and `=2`, 6,000 frames
-  (7,841,424 and 7,901,391);
+  (23,216,880 calls); `PORT_AUTOSTART=1` and `=2`, 6,000 frames
+  (7,845,941 and 7,905,194);
+- the TAS (us.v10), replayed with `PORT_COUNT_PER_OP=0`: the same log, the
+  same pace (`PORT_PACE`: the retraces, frame, mode and audio samples at
+  every controller poll) and the same save, all 125,897 reads;
 - `--renderer gl --scale 1` screenshots every 300 frames (40, 20 and 20)
   and `--wav` byte for byte identical, and the saves; the 32-bit native
   build the same as the 32-bit big-endian one;
@@ -592,10 +612,14 @@ instruction, rather than as a crash somewhere later).
   `func_80278E3C` rewrites by mistake (it passes `D_80358070`'s value to
   `func_80257490`, which rounds the stale word there up: the N64 does it
   too, in its byte order);
-- the profiler's table for all three runs holds only rows known to be
-  harmless: the RSP reading stale heap through segment 9, `D_803ED3B8`'s
-  bytes compared with a -1 sentinel as a word, `func_8026A5CC`'s `u64`
-  copy, `osContGetQuery`'s stale display-list words;
+- the profiler's table for all three runs and the TAS holds only rows
+  known to be harmless: the RSP reading stale heap through segment 9,
+  `D_803ED3B8`'s bytes compared with a -1 sentinel as a word (and those
+  words spilled to the N64 stack and loaded back), `func_8026A5CC`'s `u64`
+  copy, `osContGetQuery`'s stale display-list words, the C's byte reads that
+  clang merges into a halfword (`func_8026BCE0`'s of texels, at odd
+  addresses too), and the host stack's locals the C writes without the
+  profiler seeing it (`guNormalize`'s arguments);
 - the translated code's differential test passes 688/688.
 
 Speed is the same: 6,000 frames take 3.94 s of user time native against
@@ -609,9 +633,20 @@ in both, and every site's instruction is): 57 platinum medals, with the
 checkpoints restored by type.  It found two tables of texture ids the C
 declared as bytes (`D_802E8BF4`, `D_802E8CB0`, now the `u16`s they are,
 which the N64 build doesn't see) and a port bug of every build (the polls
-ignored `osSetIntMask`, "The platform layer").  It isn't exact yet: from
-the movie's read 35,680 the player drifts by a unit and the checkpoints
-put the port back at the next mode change.
+ignored `osSetIntMask`, "The platform layer").  It plays it as exactly as
+the big-endian build: all of the movie's reads matched, none skipped, the
+player where the movie has it at every read.  Getting there took the
+train stops' `u32` that `func_8029DA90` reads as two halves (`x2`; read
+as a host-order word, the stop's range was wrong, and from the movie's
+read 35,680 the player drifted), their byte pairs stored as halves and
+read as bytes (`be`), the words stored over smaller fields above (with
+`D_803F3968[0]` misread, the effect the N64 starts in it wasn't, nor did
+it take its random numbers), and the asm data's `D_80305DF0`.  The two
+builds' CPU models count the C differently (the IR is optimised with and
+without the byte swaps), so with the default `PORT_COUNT_PER_OP` their
+timing differs a little (more retraces given anyway, no mode switch the
+movie's rather than the port's); with `PORT_COUNT_PER_OP=0` they are the
+same run.
 
 What's left: jp and eu build no port yet (their functions still in asm);
 levels and vehicles the runs don't reach are typed from the code but
@@ -2104,8 +2139,14 @@ the player's position with the log's and reports the first few that differ;
 the mode changes with no match, the log's reads skipped and the retraces
 given anyway are reported at the end; and the save has the medals.
 `PORT_REPLAY_DUMP=N,...` writes RDRAM as the read matching the log's Nth
-starts (`rdram_N.bin`, big-endian), and `TAS_DUMP=N,...` makes `m64p_tas`
-write the same at its Nth read, to compare the two.
+starts (`rdram_N.bin`, in the build's byte order, with `rdram_N.widths` in
+a `PORT_ACCESS_PROFILE` build), and `TAS_DUMP=N,...` makes `m64p_tas`
+write the same at its Nth read, to compare the two.  Two builds of the
+port replay the movie in step with `PORT_COUNT_PER_OP=0` (the reads and
+retraces are the log's either way), so `PORT_DUMP`, `PORT_TRACE` and
+`PORT_ITRACE` compare them as in "Comparing builds"; those count the
+port's controller polls, about a hundred fewer than the log's reads by
+the levels (`PORT_PACE` lists the polls with their modes).
 
 Where it stands: the port beats the game with the movie's input, 57
 platinum medals like the movie, in about 20 minutes (`port/tools/tas_port.sh`

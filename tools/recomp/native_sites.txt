@@ -35,15 +35,55 @@ func_802A5D34+0x74 be   # sw: texel
 func_802AA890 x2        # the matrix product (40 lhu, 2 sh; lw/sw copy words)
 func_802AC8CC x2        # reorders a matrix's halves in place
 
-# A model's 0x38-byte records (Model.unk30/unk34) and their copies in
-# D_803F3968[30] (func_802C04F0): the s32 at 0x2C, which func_802A68D4
-# compares as a word, the rest of hd_code 77E20 reaches by its halves
-# the effect records (D_803F3968, 0x38 bytes: u32 x 11, u16 0x2C, u16 0x2E,
-# bytes; a model's 0x30/0x34 records, port/host/native.c): 0x2E is read as a u16
-# (func_802C0574+0x2FC) but cleared a byte at a time, its high byte
-func_802BF978+0x170 x1  # sb 0x2e (D_803F3FF8, the record being made)
-func_802BFDAC+0xD4 x1
-func_802CF3E0+0x114 x1
+# A model's 0x38-byte effect records (Model.unk30/unk34, port/host/native.c)
+# and their copies in D_803F3968[30] and D_803F3FF8, the record being made
+# (func_802C04F0 copies them by words): fourteen host-order words, as the
+# N64's word accesses see them, whose halves (u16 0x2C, 0x2E) and bytes
+# (0x30..0x37, the high byte of 0x2E) are reached at the address ^ 2 and ^ 3.
+# That way a word stored over them is read back as the N64 reads it: the
+# list at D_803F3910 (ten pairs of words, func_802BEA30) runs over
+# D_803F3960 into D_803F3968[0] when it is full, and the effect code then
+# reads 0x2C, 0x34... of what it stored.  func_802A68D4 compares 0x2C as a
+# word.
+func_802A23E0+0x40 x3   # lbu 0x31 (a model's records, remapped at load)
+func_802A23E0+0x54 x3   # sb 0x31
+func_802BF898+0x40 x3   # lbu 0x34
+func_802BF898+0x4C x3   # lbu 0x32
+func_802BF898+0x58 x3   # lbu 0x33
+func_802BF898+0xA8 x3   # sb 0x34
+func_802BFBF4+0x64 x3   # lbu 0x31
+func_802BFD1C+0x4C x3   # lbu 0x32
+func_802BF978+0x168 x2  # sh 0x2c (D_803F3FF8)
+func_802BF978+0x16C x2  # sh 0x2c
+func_802BF978+0x170 x3  # sb 0x2e: 0x2E's high byte only
+func_802BF978+0x174 x3  # sb 0x30
+func_802BF978+0x17C x3  # sb 0x34
+func_802BF978+0x180 x3  # sb 0x35
+func_802BF978+0x188 x3  # sb 0x31
+func_802BFDAC+0xD0 x2   # sh 0x2c (D_803F3FF8)
+func_802BFDAC+0xD4 x3   # sb 0x2e
+func_802BFDAC+0xD8 x3   # sb 0x30
+func_802BFDAC+0xF0 x3   # sb 0x34
+func_802BFDAC+0xF4 x3   # sb 0x35
+func_802BFDAC+0xFC x3   # sb 0x31
+func_802CF3E0+0xE0 x2   # sh 0x2c (D_803F3FF8)
+func_802CF3E0+0x114 x3  # sb 0x2e
+func_802CF3E0+0x118 x3  # sb 0x30
+func_802CF3E0+0x11C x3  # sb 0x31
+func_802CF3E0+0x120 x3  # sb 0x34
+func_802CF3E0+0x128 x3  # sb 0x35
+func_802C049C+0x2C x3   # sb 0x34 (D_803F3968[])
+func_802C04F0+0x2C x3   # lbu 0x34
+func_802C0574+0x3C x3   # lbu 0x34
+func_802C0574+0x4C x2   # lhu 0x2c
+func_802C0574+0x60 x2   # sh 0x2c
+func_802C0574+0x64 x3   # lbu 0x31
+func_802C0574+0xB4 x3   # lbu 0x31
+func_802C0574+0xFC x3   # lbu 0x35
+func_802C0574+0x26C x3  # lbu 0x31
+func_802C0574+0x2F8 x3  # sb 0x34
+func_802C0574+0x2FC x2  # lhu 0x2e
+func_802C0574+0x310 x3  # lbu 0x30
 
 # the effects' chance tables (D_80306344, D_80306350, D_803063D4), kept
 # big-endian (tools/inventory.py ASM_DATA_BE): a walk that runs off their end
@@ -75,3 +115,25 @@ func_8029F85C+0x124 x2
 func_8029F85C+0x128 x2
 func_8029F85C+0x130 x2
 func_8029F85C+0x134 x2
+
+# Bytes of wider data the handwritten code reaches at the N64's byte
+# address, the TAS found (docs/PORT.md, "The TAS"): what the N64 gets there
+# is a byte of the big-endian word, its high byte at the word's address.
+func_802AF4BC+0x3DC x3  # lbu of the level, D_802E8BDC (an s32): always 0 on the N64
+func_802BC5E0+0xDC x3   # sb 1 into D_803649E8 (an s32 the C reads)
+# the walls (D_803BD310, 0xFC-byte records, func_802A3E9C): the count at
+# 0xF8 and the byte at 0xF9 are the high bytes of a word, for the record
+# whose 61st wall is stored over them
+func_802A3E9C+0x4C x3   # sb 0xf9
+func_802A3E9C+0x88 x3   # sb 0xf8
+func_8029BB28+0x20 x3   # lbu 0xf8
+func_8029BB28+0xA0 x3   # lbu 0xf9
+func_8029BB28+0x168 x3  # lbu 0xf8
+# the train stops (D_803BC1D0, 0xDC bytes): func_802A3F80 copies the
+# level's u32 after a stop's 0x18-byte records (lwl/lwr, sw), which
+# func_8029DA90 reads as two halves
+func_8029DA90+0x80 x2   # lhu 0
+func_8029DA90+0x84 x2   # lhu 2
+# (a record with 0xC5 set holds byte pairs instead, stored as halves and
+# read as bytes by func_8029DB7C)
+func_802A3F80+0x124 be  # sh

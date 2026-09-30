@@ -283,7 +283,10 @@ def symbol_widths(src):
             continue
         size = inv["types"][sym["type"]]["size"] if sym["type"] in inv["types"] else SCALAR[sym["type"]]
         count = sym.get("count", 1)
-        out[name] = (size * count, [(k * size + o, w) for k in range(count) for o, w in ws])
+        # (fieldscan's records repeat up to the next symbol, the last one
+        # possibly cut short: they stop at the next label, emit's `clip`)
+        clip = "fieldscan" in sym.get("derived", "")
+        out[name] = (size * count, [(k * size + o, w) for k in range(count) for o, w in ws], clip)
     return out
 
 
@@ -344,10 +347,15 @@ class Native:
                         item[1][k][1:3] = [w, j == 0]
         # (smallest first: an array typed over labels splat made inside it,
         # D_8020C070's, has the last word)
-        for name, (size, ws) in sorted(self.overrides.items(), key=lambda kv: (kv[1][0], kv[0])):
+        for name, (size, ws, clip) in sorted(self.overrides.items(), key=lambda kv: (kv[1][0], kv[0])):
             if name not in self.labels:
                 continue
             base = self.labels[name]
+            if clip:
+                # D_80305D74's 21st record would take D_80305DF0's first
+                # two bytes, an 0xFF-terminated text, as a u16
+                size = min([size] + [p - base for p in self.labels.values() if p > base])
+                ws = [(o, w) for o, w in ws if o + w <= size]
             # its fields at their widths; the rest of its .words are bytes
             # (splat writes .word for whatever it knows nothing about, where
             # its .half and .byte come from what it was told), its .halfs,
