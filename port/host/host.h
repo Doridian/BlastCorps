@@ -19,6 +19,7 @@ enum { PERF_LOOP, PERF_GAME, PERF_GFX, PERF_GFX2, PERF_AUDIO, PERF_PRESENT, PERF
 extern int host_perf_on;
 extern int host_paced;                      /* main.c: PORT_PACED, virtual time between retraces */
 extern unsigned host_paced_resyncs;         /* ... and how often it fell behind */
+extern int host_interp_suspended;           /* main.c: the host is behind: no in-between pictures */
 void host_perf_init(void);
 double host_perf_now(void);                 /* ms */
 void host_perf_push(int cat);               /* time from here on is cat's ... */

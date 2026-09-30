@@ -409,6 +409,47 @@ static void paced_wait(uint64_t v, uint64_t period) {
     virtual_ns = v;
 }
 
+/* PORT_ADAPT=1 (the page's default; gfx_gl.c follows the GPU with the
+   resolution): when more than 5% of the retraces of a two-second window
+   came over 2 ms late, the host isn't keeping up, and the in-between
+   pictures of --interpolate go first (they cost as much as the frames'
+   own): gfx.c skips them for a while, 20 s at first and twice as long each
+   time they had to go again within 30 s of coming back (up to 10 min).
+   The game never waits for them either way. */
+int host_interp_suspended;
+static int adapt_on = -1;
+
+static void lag_account(double late_ms) {
+    static int n, late;
+    static double hold = 20000, since, resumed = -1e9;
+    if (adapt_on < 0) {
+        const char *e = getenv("PORT_ADAPT");
+#ifdef PORT_WASM_WEB
+        adapt_on = !e || (*e && *e != '0');
+#else
+        adapt_on = e && *e && *e != '0';
+#endif
+    }
+    if (!adapt_on || !gfx_interp || deterministic)
+        return;
+    late += late_ms > 2.0;
+    if (++n < 120)
+        return;
+    double now = real_ms();
+    if (!host_interp_suspended && late * 20 > n) {
+        if (now - resumed < 30000 && hold < 600000)
+            hold *= 2;
+        host_interp_suspended = 1;
+        since = now;
+        host_log("pacing: %d of %d retraces late: no in-between pictures for %.0f s\n", late, n, hold / 1e3);
+    } else if (host_interp_suspended && late == 0 && now - since > hold) {
+        host_interp_suspended = 0;
+        resumed = now;
+        host_log("pacing: in-between pictures again\n");
+    }
+    n = late = 0;
+}
+
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
 /* the scheduler's retrace count, the game's frame count and the mode */
 extern char D_803156C4[], D_80358064[], D_80364A90[];
@@ -650,9 +691,10 @@ int main(int argc, char **argv) {
            read has it (replay.c) */
         int vi_held = host_replay_active() && !host_replay_vi_ok() && !vi_force;
         if (now >= next_vi && !vi_held) {
+            double late_ms = host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6;
             if (host_perf_on)
-                host_perf_vi(host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6,
-                             gfx_st_images, port_be32(D_80358064));
+                host_perf_vi(late_ms, gfx_st_images, port_be32(D_80358064));
+            lag_account(late_ms);
             vi_force = 0;
             spins_held = 0;
             next_vi += vi_period;

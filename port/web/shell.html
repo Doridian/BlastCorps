@@ -106,9 +106,17 @@
     var q = new URLSearchParams(location.search);
     if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));
     /* a window (and so a picture) as many times 320x240 as the page has
-       room for: the canvas keeps the size SDL gives it */
-    if (args.indexOf('--scale') < 0)
-      args.push('--scale', String(Math.max(2, Math.min(6, Math.round(room() * (devicePixelRatio || 1) / 240)))));
+       room for (the canvas keeps the size SDL gives it), but not more than
+       about 1.3 million pixels (each drawn twice with --interpolate): a
+       high-DPI laptop's integrated GPU otherwise draws 4 million, and the
+       browser scales the picture up as well as the GPU would.  The port
+       lowers it further if the GPU can't keep up (PORT_ADAPT). */
+    if (args.indexOf('--scale') < 0) {
+      var cols = args.indexOf('--aspect') >= 0 ? 568 : args.indexOf('--widescreen') >= 0 ? 426 : 320;
+      var s = Math.max(2, Math.min(6, Math.round(room() * (devicePixelRatio || 1) / 240)));
+      s = Math.max(1, Math.min(s, Math.floor(Math.sqrt(1.3e6 / (cols * 240)))));
+      args.push('--scale', String(s));
+    }
     args.push(ROM);
     status('Running. Click the picture for the keyboard.');
     Module.canvas.focus();

@@ -1779,7 +1779,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
             ifr[0] = calloc(1, sizeof *ifr[0]);
             ifr[1] = calloc(1, sizeof *ifr[1]);
         }
-        between = host_frame_held();
+        between = host_frame_held() && !host_interp_suspended;
         if (!between)
             iframe_partial = 1;
         else if (frame_k < 0)
