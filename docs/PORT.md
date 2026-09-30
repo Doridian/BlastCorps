@@ -1563,7 +1563,9 @@ two color framebuffers, which the OpenGL renderer never writes anyway.
 With `--widescreen` the TAS still beats the game (OpenGL, with and
 without `--interpolate`: all 125,297 reads matched, none skipped, 57
 platinum, the same report and save as without widescreen; also with the
-software renderer at 21:9, 32-bit and LP64).  `PORT_COUNT_PER_OP=0
+software renderer at 21:9).  The LP64 build's replay, which drifts on its
+own (3,993 of the log's reads skipped), gives the same report and save
+with widescreen as without, either renderer.  `PORT_COUNT_PER_OP=0
 --deterministic` runs (the TAS's first 30,000 frames, `PORT_AUTOSTART=1`,
 and `PORT_AUTOSTART=3` with `--interpolate`) write the same save and
 sound with and without it, 32-bit and LP64, and the same RDRAM outside
