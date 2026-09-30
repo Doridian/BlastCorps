@@ -16,10 +16,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
-#include <sys/personality.h>
-#include <sys/prctl.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __linux__
+#include <sys/personality.h>
+#include <sys/prctl.h>
+#endif
+#ifndef MAP_NORESERVE
+#define MAP_NORESERVE 0
+#endif
 
 #include "port.h"
 #include "fiber.h"
@@ -83,8 +88,20 @@ void host_fatal(const char *fmt, ...) {
 static char **main_argv;
 
 static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
+#ifdef MAP_FIXED_NOREPLACE
     void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE | MAP_NORESERVE, -1, 0);
+#else
+    /* elsewhere the address is only a hint: whatever is there stays */
+    void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
+                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
+    if (p != MAP_FAILED && p != (void *)(uintptr_t)addr) {
+        munmap(p, size);
+        p = MAP_FAILED;
+        errno = EEXIST;
+    }
+#endif
+#ifdef __linux__
     if (p == MAP_FAILED && errno == EEXIST && !(personality(0xFFFFFFFF) & ADDR_NO_RANDOMIZE)) {
         if (host_verbose)
             host_log("%s at %08X taken (the heap?): running again without address randomization\n", what, addr);
@@ -92,6 +109,7 @@ static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
         execv("/proc/self/exe", main_argv);
         errno = EEXIST;
     }
+#endif
     if (p == MAP_FAILED || p != (void *)(uintptr_t)addr)
         host_fatal("can't map %s at %08X: %s", what, addr, strerror(errno));
 }
@@ -307,7 +325,9 @@ void host_controller_poll(void) {
     }
 }
 
-/* on a crash, RDRAM goes to rdram_crash.bin (PORT_DUMP set) for comparing */
+/* on a crash, RDRAM goes to rdram_crash.bin (PORT_DUMP set) for comparing
+   (POSIX signals; emscripten has none to catch) */
+#ifndef __EMSCRIPTEN__
 static void on_crash(int sig, siginfo_t *si, void *uc) {
     (void)uc;
     fprintf(stderr, "crash: signal %d at address %p\n", sig, si->si_addr);
@@ -321,6 +341,7 @@ static void on_crash(int sig, siginfo_t *si, void *uc) {
     signal(sig, SIG_DFL);
     raise(sig);
 }
+#endif
 
 /* ---- main ------------------------------------------------------------------ */
 
@@ -404,8 +425,11 @@ int main(int argc, char **argv) {
     const char *cpo = getenv("PORT_COUNT_PER_OP");
     if (cpo)
         host_ns_per_instr = atof(cpo) * 64.0 / 3;     /* not real time, or no one listening */
+#ifdef __linux__
     prctl(PR_SET_TIMERSLACK, 1);    /* wake on time: the pacing is in 50 us steps */
+#endif
     clock_gettime(CLOCK_MONOTONIC, &t0);
+#ifndef __EMSCRIPTEN__
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_sigaction = on_crash;
@@ -415,6 +439,7 @@ int main(int argc, char **argv) {
     static char altstack[65536];
     stack_t ss = { .ss_sp = altstack, .ss_size = sizeof altstack };
     sigaltstack(&ss, NULL);
+#endif
     /* RDRAM itself is the image's .rdram section (tools/gen_ld.py) */
     map_fixed(PORT_HWREG_BASE, PORT_HWREG_SIZE, "hardware registers");
     map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");

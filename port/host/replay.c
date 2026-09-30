@@ -41,7 +41,11 @@
  * (logged with the mode at each change), the log's reads skipped, the
  * retraces given anyway, and in the end the save (port/tools/tas_check.py).
  */
+#ifdef __linux__
 #include <elf.h>
+#else
+#include <dlfcn.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -503,7 +507,10 @@ unsigned int port_counter(int timer, const char *func) {
 
 /* The port's own functions by address (its symbol table, from
    /proc/self/exe): the audio queries name their caller by its return
-   address. */
+   address.  Elsewhere dladdr, which sees the exported symbols only (on
+   macOS every global of the executable); WebAssembly has no return
+   addresses to go by (docs/PORT.md, "Threads without ucontext"). */
+#ifdef __linux__
 typedef struct { uint64_t addr, size; const char *name; } HostFunc;
 static HostFunc *hfuncs;
 static unsigned nhfuncs;
@@ -569,6 +576,14 @@ static const char *host_func_name(uint64_t addr) {
     }
     return nhfuncs && hfuncs[lo].addr <= addr && addr < hfuncs[lo].addr + hfuncs[lo].size ? hfuncs[lo].name : "?";
 }
+#else
+static const char *host_func_name(uint64_t addr) {
+    Dl_info di;
+    if (dladdr((void *)(uintptr_t)addr, &di) && di.dli_sname)
+        return di.dli_sname;
+    return "?";
+}
+#endif
 
 /* alCSPGetState and alCSeqGetLoc (replay_audio.c): in a matched frame, what
    they told the movie's game in the same calling function in that frame (the
