@@ -37,7 +37,18 @@
 #ifdef PORT_HAVE_GL
 
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+/* WebGL 2: OpenGL ES 3.0, GLSL ES 3.00 */
+#include <GLES3/gl3.h>
+#define GLSL_VERSION "#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n"
+#define glClearDepth glClearDepthf
+#ifndef GL_DEPTH_CLAMP
+#define GL_DEPTH_CLAMP 0x864F   /* EXT_depth_clamp, where the browser has it */
+#endif
+#else
 #include <epoxy/gl.h>
+#define GLSL_VERSION "#version 330 core\n"
+#endif
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -414,7 +425,7 @@ static Prog progs[1024];
 static int nprogs;
 
 static const char *vs_src =
-    "#version 330 core\n"
+    GLSL_VERSION
     "layout(location = 0) in vec4 a_pos;\n"
     "layout(location = 1) in vec2 a_st;\n"
     "layout(location = 2) in vec4 a_col;\n"
@@ -431,7 +442,7 @@ static const char *vs_src =
     "}\n";
 
 static const char *fs_common =
-    "#version 330 core\n"
+    GLSL_VERSION
     "in vec4 v_col;\n"
     "in vec2 v_st;\n"
     "out vec4 o_col;\n"
@@ -1011,12 +1022,18 @@ void gfx_gl_interp_swap(uint32_t fb, int ready) {
 /* ---- window, presentation --------------------------------------------------------- */
 
 unsigned gfx_gl_window_flags(void) {
+#ifdef __EMSCRIPTEN__
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #ifdef __APPLE__
     /* macOS has a core profile only forward-compatible (4.1, for 3.3) */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+#endif
 #endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
@@ -1031,7 +1048,9 @@ int gfx_gl_init(SDL_Window *w) {
         return 0;
     }
     SDL_GL_MakeCurrent(win, ctx);
+#ifndef __EMSCRIPTEN__      /* (there the page shows what was drawn when the loop yields) */
     SDL_GL_SetSwapInterval(0);      /* the host loop paces the frames */
+#endif
     host_log("gl: %s, %s\n", (const char *)glGetString(GL_RENDERER), (const char *)glGetString(GL_VERSION));
     const char *e = getenv("PORT_GL_READBACK");
     readback_all = e && *e && *e != '0';

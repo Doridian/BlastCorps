@@ -275,6 +275,26 @@ void __port_poll(void) {
         host_yield();
 }
 
+#ifdef PORT_HAVE_ASYNCIFY
+#include <emscripten.h>
+/* The page's one thread is the loop's (fiber_asyncify.c): it gets it back
+   (emscripten_sleep: Asyncify unwinds the loop, the browser shows the
+   frame and takes input, a timeout rewinds it) in place of the loop's
+   sleeps, and after a retrace when it hasn't for 12 ms, so a busy game
+   doesn't hold the page. */
+static void yield_to_page(uint64_t ns) {
+    static double last;
+    double t = emscripten_get_now();
+    if (ns >= 1000000)
+        emscripten_sleep((unsigned)(ns / 1000000));
+    else if (t - last >= 12.0)
+        emscripten_sleep(0);
+    else
+        return;
+    last = emscripten_get_now();
+}
+#endif
+
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
 /* the scheduler's retrace count, the game's frame count and the mode */
 extern char D_803156C4[], D_80358064[], D_80364A90[];
@@ -497,6 +517,9 @@ int main(int argc, char **argv) {
             if (now > next_vi + 4 * vi_period)      /* fell behind: don't catch up */
                 next_vi = now + vi_period;
             host_video_frame();
+#ifdef PORT_HAVE_ASYNCIFY
+            yield_to_page(0);
+#endif
             if (host_quit_requested())
                 break;
             port_irq_vi();
@@ -542,8 +565,12 @@ int main(int argc, char **argv) {
             continue;
         }
         if (wake > now + 50000) {
+#ifdef PORT_HAVE_ASYNCIFY
+            yield_to_page(wake - now);
+#else
             struct timespec ts = { (time_t)((wake - now) / 1000000000ull), (long)((wake - now) % 1000000000ull) };
             nanosleep(&ts, NULL);
+#endif
         }
     }
     if (host_verbose) {

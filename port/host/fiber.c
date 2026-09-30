@@ -11,6 +11,10 @@
 static const FiberOps *ops;
 
 void fiber_init(void) {
+#if defined(PORT_HAVE_ASYNCIFY)
+    /* (the only backend there: no threads, no ucontext) */
+    ops = &fiber_asyncify_ops;
+#else
 #if defined(PORT_THREADS_DEFAULT_PTHREAD) || !defined(PORT_HAVE_UCONTEXT)
     ops = &fiber_pthread_ops;
 #else
@@ -34,6 +38,7 @@ void fiber_init(void) {
 #endif
             );
     }
+#endif
     if (host_verbose)
         host_log("threads: %s\n", ops->name);
     ops->init();

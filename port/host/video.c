@@ -6,6 +6,9 @@
  * RDP would.  With the OpenGL one, gfx_gl.c presents the GPU's copy of it.
  */
 #include <SDL.h>
+#ifdef PORT_WASM_WEB
+#include <emscripten.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -382,5 +385,9 @@ void host_eeprom_write(int block, uint32_t src) {
         fwrite(eeprom, 1, sizeof eeprom, f);
         fclose(f);
     }
+#ifdef PORT_WASM_WEB
+    /* the page's IndexedDB copy of the file (port/web/shell.html) */
+    EM_ASM(if (Module.syncSave) Module.syncSave(););
+#endif
 }
 

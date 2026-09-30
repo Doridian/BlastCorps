@@ -1,0 +1,122 @@
+<!doctype html>
+<!--
+  The WebAssembly port's page (emcc --shell-file; docs/PORT.md, "WebAssembly").
+  The ROM is the player's own: picked once, it is kept in IndexedDB with the
+  save (IDBFS at /save), and main() runs once it is there.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blast Corps</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --bg: #111; --fg: #ddd; --dim: #888; --accent: #e8b030; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
+               font: 14px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; }
+  #stage { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  /* (sized by fit() below, as wide as the game draws) */
+  canvas { background: #000; outline: none; }
+  #panel { padding: 0.6em 16px; text-align: center; }
+  #panel label { margin: 0 0.6em; white-space: nowrap; }
+  button, .file { background: var(--accent); color: #111; border: 0; border-radius: 4px;
+                  padding: 0.4em 1em; font: inherit; cursor: pointer; }
+  .file input { display: none; }
+  #status { color: var(--dim); margin-top: 0.3em; min-height: 1.4em; }
+  #keys { color: var(--dim); font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
+<div id="panel">
+  <div id="start">
+    <label class="file">Choose ROM (.z64/.v64/.n64)<input type="file" id="rom" accept=".z64,.v64,.n64,.rom,.bin"></label>
+    <button id="play" hidden>Play</button>
+    <label><input type="checkbox" id="widescreen"> widescreen</label>
+    <label><input type="checkbox" id="interp"> 60 fps (--interpolate)</label>
+  </div>
+  <div id="status">Loading...</div>
+  <div id="keys">Arrows/WASD stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C buttons, TFGH = D-pad; a gamepad works too.</div>
+</div>
+<script>
+  var statusEl = document.getElementById('status');
+  function status(s) { statusEl.textContent = s; }
+  var ROM = '/save/rom.z64', SAVE = '/save/blastcorps.eep';
+  var ready = false, started = false, syncTimer = 0;
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    print: function (s) { console.log(s); },
+    printErr: function (s) { console.warn(s); if (/^fatal/.test(s)) status(s); },
+    setStatus: function (s) { if (!started && s) status(s); },
+    /* the environment from the address too (read at startup) */
+    preRun: [function () {
+      var e = new URLSearchParams(location.search).get('env');
+      if (e) e.split(',').forEach(function (kv) {
+        var i = kv.indexOf('=');
+        if (i > 0) Module.ENV[kv.slice(0, i)] = kv.slice(i + 1);
+      });
+    }],
+    onRuntimeInitialized: function () {
+      FS.mkdir('/save');
+      FS.mount(IDBFS, {}, '/save');
+      FS.syncfs(true, function (err) {
+        if (err) console.warn('IndexedDB:', err);
+        ready = true;
+        var have = false;
+        try { have = FS.stat(ROM).size > 0; } catch (e) {}
+        document.getElementById('play').hidden = !have;
+        status(have ? 'The ROM from last time is ready.' : 'Choose your Blast Corps ROM (it stays in this browser).');
+      });
+    },
+    /* the game wrote its EEPROM (port/host/video.c): to IndexedDB, once the burst is over */
+    syncSave: function () {
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(function () {
+        FS.syncfs(false, function (err) { if (err) console.warn('saving:', err); });
+      }, 500);
+    },
+  };
+  function start() {
+    if (started || !ready) return;
+    started = true;
+    document.getElementById('start').hidden = true;
+    var args = ['--save', SAVE];
+    if (document.getElementById('widescreen').checked) {
+      args.push('--widescreen');
+    }
+    if (document.getElementById('interp').checked) args.push('--interpolate');
+    /* more from the address: ?args=--aspect%20window&env=PORT_AUTOSTART=1 */
+    var q = new URLSearchParams(location.search);
+    if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));
+    args.push(ROM);
+    status('Running. Click the picture for the keyboard.');
+    Module.canvas.focus();
+    Module.callMain(args);
+  }
+  document.getElementById('play').onclick = start;
+  document.getElementById('rom').onchange = function (e) {
+    var f = e.target.files[0];
+    if (!f || !ready) return;
+    status('Reading ' + f.name + '...');
+    f.arrayBuffer().then(function (buf) {
+      FS.writeFile(ROM, new Uint8Array(buf));
+      FS.syncfs(false, function () { start(); });
+    });
+  };
+  Module.canvas.addEventListener('click', function () { Module.canvas.focus(); });
+  /* the picture as big as the page has room for, in the canvas's own shape
+     (SDL sets its size, and its style, when it makes the window) */
+  function fit() {
+    var c = Module.canvas, ar = c.width && c.height ? c.width / c.height : 4 / 3;
+    var w = Math.min(innerWidth, (innerHeight - document.getElementById('panel').offsetHeight - 8) * ar);
+    c.style.setProperty('width', Math.floor(w) + 'px', 'important');
+    c.style.setProperty('height', Math.floor(w / ar) + 'px', 'important');
+  }
+  addEventListener('resize', fit);
+  setInterval(fit, 500);
+  fit();
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>
