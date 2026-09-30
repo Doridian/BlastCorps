@@ -22,7 +22,13 @@ void func_80260B40(s32, s32);
 void func_802609F0(void);
 void func_80260A10(void);
 void func_80260A30(s32);
+#ifdef TARGET_PC
+/* 1D990.c defines it u8: IDO's v0 has it zero-extended, i386's eax
+   doesn't, and the port's 32-bit build compared its upper bytes too */
+u8 func_80264BA4(u8);
+#else
 s32 func_80264BA4(s32);
+#endif
 void func_802D76C0(ALCSPlayer *);
 void func_802D81B0(ALCSPlayer *, ALCSeq *);
 void func_802D81F0(ALCSPlayer *);

@@ -31,7 +31,11 @@
  *     that no host address is left in game memory;
  *   - names the caller of the replay's hooks (port_replay_set_caller), for
  *     the replay (port/host/replay.c), which on the other builds finds it
- *     by its return address.
+ *     by its return address;
+ *   - makes every direct call with its callee's type (callFix, first): the
+ *     decompiled C's K&R declarations disagree between files, which
+ *     WebAssembly can't call at all and i386 gets wrong for narrow
+ *     results.
  *
  * Also here: port-wrap (below), per file.
  */
@@ -736,6 +740,88 @@ struct Arena : PassInfoMixin<Arena> {
         }
     }
 
+    /* ---- calls ------------------------------------------------------- */
+
+    /* a value as the N64's registers would carry it into a slot of type
+       `to`: integers truncated or extended (sext by the caller's say),
+       pointers and integers through their bits, a float and an integer of
+       one size through their bits; anything else is lost (poison) */
+    Value *conv(IRBuilder<> &b, Value *v, Type *to, bool sext) {
+        Type *from = v->getType();
+        if (from == to)
+            return v;
+        auto bitsOf = [&](Type *t) -> unsigned {
+            if (t->isPointerTy())
+                return DL->getPointerSizeInBits(t->getPointerAddressSpace());
+            return t->getPrimitiveSizeInBits();
+        };
+        unsigned fb = bitsOf(from), tb = bitsOf(to);
+        if (!fb || !tb || from->isStructTy() || to->isStructTy() || from->isVectorTy() || to->isVectorTy()) {
+            unfixable++;
+            return PoisonValue::get(to);
+        }
+        Value *i = v;
+        if (from->isPointerTy())
+            i = b.CreatePtrToInt(v, b.getIntNTy(fb));
+        else if (from->isFloatingPointTy())
+            i = b.CreateBitCast(v, b.getIntNTy(fb));
+        i = sext ? b.CreateSExtOrTrunc(i, b.getIntNTy(tb)) : b.CreateZExtOrTrunc(i, b.getIntNTy(tb));
+        if (to->isPointerTy())
+            return b.CreateIntToPtr(i, to);
+        if (to->isFloatingPointTy())
+            return b.CreateBitCast(i, to);
+        return i;
+    }
+
+    unsigned fixedCalls = 0, unfixable = 0, voidResults = 0;
+
+    void callFix() {
+        std::vector<CallInst *> work;
+        for (Function &f : *M)
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb)
+                    if (auto *ci = dyn_cast<CallInst>(&i))
+                        if (auto *callee = dyn_cast<Function>(ci->getCalledOperand()))
+                            if (!callee->isIntrinsic() && ci->getFunctionType() != callee->getFunctionType())
+                                work.push_back(ci);
+        for (CallInst *ci : work) {
+            auto *callee = cast<Function>(ci->getCalledOperand());
+            FunctionType *ft = callee->getFunctionType();
+            IRBuilder<> b(ci);
+            std::vector<Value *> args;
+            for (unsigned a = 0; a < ft->getNumParams(); a++) {
+                Type *pt = ft->getParamType(a);
+                if (a < ci->arg_size())
+                    args.push_back(conv(b, ci->getArgOperand(a), pt, ci->paramHasAttr(a, Attribute::SExt)));
+                else
+                    args.push_back(Constant::getNullValue(pt));      /* a register the caller didn't set */
+            }
+            /* a variadic callee takes the rest as they are (34430.c
+               declares func_8029A7E4 with four parameters) */
+            if (ft->isVarArg())
+                for (unsigned a = ft->getNumParams(); a < ci->arg_size(); a++)
+                    args.push_back(ci->getArgOperand(a));
+            CallInst *n = b.CreateCall(ft, callee, args);
+            n->setCallingConv(callee->getCallingConv());
+            n->setAttributes(callee->getAttributes());
+            n->setTailCallKind(ci->getTailCallKind() == CallInst::TCK_MustTail ? CallInst::TCK_None
+                                                                               : ci->getTailCallKind());
+            n->setDebugLoc(ci->getDebugLoc());
+            if (!ci->getType()->isVoidTy() && !ci->use_empty()) {
+                Value *r;
+                if (ft->getReturnType()->isVoidTy()) {
+                    r = Constant::getNullValue(ci->getType());      /* v0 as the callee left it */
+                    voidResults++;
+                } else {
+                    r = conv(b, n, ci->getType(), callee->getAttributes().hasRetAttr(Attribute::SExt));
+                }
+                ci->replaceAllUsesWith(r);
+            }
+            ci->eraseFromParent();
+            fixedCalls++;
+        }
+    }
+
     /* no more __bepass_fixup: the image has the build's byte order */
     void dropFixups() {
         GlobalVariable *ctors = M->getGlobalVariable("llvm.global_ctors");
@@ -790,6 +876,7 @@ struct Arena : PassInfoMixin<Arena> {
         DL = &m.getDataLayout();
         IP = IntegerType::get(*C, DL->getPointerSizeInBits(0));
         readSyms();
+        callFix();
         dropFixups();
         functions();
         layout();
@@ -809,7 +896,9 @@ struct Arena : PassInfoMixin<Arena> {
             errs() << "port-arena: " << placed.size() << " variables, data to " << format_hex(extraEnd, 8) << ", "
                    << relocs.size() << " relocations; " << rewritten << " accesses (" << hostArgs
                    << " host arguments), " << escaped << " escaping locals; " << fns.size()
-                   << " functions as values, " << indirect << " calls through one\n";
+                   << " functions as values, " << indirect << " calls through one; " << fixedCalls
+                   << " calls made with their callee's type (" << voidResults << " void results used, "
+                   << unfixable << " arguments lost)\n";
         return PreservedAnalyses::none();
     }
 };

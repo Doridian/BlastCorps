@@ -7,7 +7,13 @@
 
 f32 sqrtf(f32);
 s32 func_801FE760(s32);
+#ifdef TARGET_PC
+/* 1D990.c defines it u8: IDO's v0 has it zero-extended, i386's eax
+   doesn't, and the port's 32-bit build compared its upper bytes too */
+u8 func_80264BA4(u8);
+#else
 s32 func_80264BA4(s32);
+#endif
 void func_801FD484(f32 *, f32 *, f32 *, f32 *, f32 *, f32);
 void func_802595E0(void *, s32, s32, void *);
 void func_801F374C(UnkStruct_8020BD30 *);
