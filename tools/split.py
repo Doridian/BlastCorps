@@ -312,6 +312,15 @@ def default_name(self):
 _symbols.Symbol.default_name = property(default_name)
 postsplit.VERMAP = VERMAP
 
+# splat writes undefined_funcs_auto/undefined_syms_auto only when they
+# would be non-empty, which leaves a stale one from an earlier split in
+# place, or none at all in a fresh clone (init has no undefined functions,
+# and the build depends on the file).  Start them empty.
+_base = Path(CONFIG_PATH).parent / CONFIG["options"].get("base_path", ".")
+for key in ("undefined_funcs_auto_path", "undefined_syms_auto_path"):
+    if CONFIG["options"].get(key):
+        (_base / CONFIG["options"][key]).write_text("")
+
 sys.argv[0] = os.path.join(SPLAT, "split.py")
 runpy.run_path(sys.argv[0], run_name="__main__")
 if any(s.get("type") == "code" for s in CONFIG["segments"] if isinstance(s, dict)):
