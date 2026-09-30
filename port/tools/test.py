@@ -76,7 +76,16 @@ SCENARIOS = {
     "auto3.gl": ("3", 3000, ["--renderer", "gl", "--scale", "1"], {}, "auto3", "game"),
     "auto3.gl.interp": ("3", 3000, ["--renderer", "gl", "--scale", "1", "--interpolate", "--widescreen"],
                         {}, "auto3", "game"),
+    # the attract mode's story and several of its demo levels (about 70s):
+    # the coverage of a version the movie isn't
+    "attract.long": ("0", 12000, [], {}, None, None),
 }
+# scenarios only some versions run (the others run all of SCENARIOS)
+SCENARIO_VERSIONS = {"attract.long": ("us.v11", "jp")}
+
+
+def scenarios_for(version):
+    return [n for n in SCENARIOS if version in SCENARIO_VERSIONS.get(n, (version,))]
 
 REPORT = re.compile(r"replay: (\d+) reads, (-?\d+) of the log's (\d+) matched \((\d+) skipped\), "
                     r"(\d+) without a match, (\d+) retraces given anyway, .* (\d+) save commands let go "
@@ -264,7 +273,8 @@ def quick_run(build, jobs, scenarios):
         return name, rc, t
 
     with cf.ThreadPoolExecutor(jobs) as ex:
-        for name, rc, t in ex.map(one, scenarios):
+        # the longest first, so the others run beside it
+        for name, rc, t in ex.map(one, sorted(scenarios, key=lambda n: -SCENARIOS[n][1])):
             d = os.path.join(out, name)
             times[name] = t
             if rc != 0:
@@ -290,7 +300,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
     if not os.access(build.exe, os.X_OK):
         say("FAIL", build.name, "not built")
         return 1
-    names = [n for n, s in SCENARIOS.items() if build.gl or "gl" not in n.split(".")]
+    names = [n for n in scenarios_for(build.version) if build.gl or "gl" not in n.split(".")]
     if build.threads == "pthread":      # the default is the base run then
         names.remove("auto3.pthread")
     else:
@@ -583,11 +593,12 @@ def table(builds, refs):
     ref = refs.get("quick", {}).get(version)
     against = "the references" if ref else got[0][0].variant
     ref = ref or got[0][1]
-    names = [n for n in SCENARIOS if SCENARIOS[n][4] is None]
+    names = [n for n in scenarios_for(version) if SCENARIOS[n][4] is None]
     lay = refs.get("layout", {}).get(version, {})
     print(f"== against {against}: = identical, ~ but for layout-dependent screenshots, "
           f"k but for known failures, x differs")
-    print("   " + "".ljust(8) + " ".join(n.ljust(8) for n in names))
+    w = [max(8, len(n)) for n in names]
+    print("   " + "".ljust(8) + " ".join(n.ljust(x) for n, x in zip(names, w)))
     for b, r in got:
         cells = []
         for n in names:
@@ -599,7 +610,7 @@ def table(builds, refs):
             kn, _ = known_for(refs, b, n)
             cells.append("=" if not keys else "~" if not rest else
                          "k" if all(val(kn, k) == val(r[n], k) for k in rest) else "x")
-        print("   " + b.variant.ljust(8) + " ".join(c.ljust(8) for c in cells))
+        print("   " + b.variant.ljust(8) + " ".join(c.ljust(x) for c, x in zip(cells, w)))
 
 
 def detail(builds):
