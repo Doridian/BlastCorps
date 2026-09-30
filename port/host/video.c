@@ -64,6 +64,10 @@ void host_video_init(void) {
         host_fatal("SDL_CreateWindow: %s", SDL_GetError());
     if (host_renderer == 1 && !gfx_gl_init(win))
         host_renderer = 0;
+    if (gfx_interp && host_renderer != 1) {
+        host_log("--interpolate needs the OpenGL renderer; not interpolating\n");
+        gfx_interp = 0;
+    }
     if (host_renderer == 1)
         goto pads;
     ren = SDL_CreateRenderer(win, -1, 0);
@@ -117,7 +121,9 @@ void host_video_frame(void) {
     }
     const char *every = getenv("PORT_SHOT_EVERY");
     int ev = every ? atoi(every) : 0;
-    int shot = host_screenshot_prefix && ((host_max_frames && frame == host_max_frames) || (ev > 0 && frame % ev == 0));
+    const char *from = getenv("PORT_SHOT_FROM");         /* ... from the Nth on */
+    int shot = host_screenshot_prefix && ((host_max_frames && frame == host_max_frames) ||
+                                          (ev > 0 && frame % ev == 0 && (!from || frame >= atoi(from))));
     char path[512];
     if (shot)
         snprintf(path, sizeof path, "%s%05d.bmp", host_screenshot_prefix, frame);
@@ -169,24 +175,37 @@ extern char D_803156C4[], D_80364A90[];
 #define D_80364A90 PORT_VAR(D_80364A90)
 #endif
 
+/* The scheduler (2C560.c's __scHandleRDP) swaps as soon as a frame is
+   drawn in the modes of this mask; in every other mode it holds a frame
+   until a retrace has gone by since the last swap showed, so that each
+   frame is on screen for two retraces at least. */
+int host_frame_held(void) {
+    uint64_t mode = (uint64_t)port_be32(D_80364A90) << 32 | port_be32(D_80364A90 + 4);
+    return !(mode & 0xC9FD0FE79BFF80B0ull);
+}
+
 static uint16_t scripted_buttons(int *sy) {
     /* PORT_AUTOSTART=1: tap Start/A now and then, to get past the title;
        =2: the same by the game's own retrace count (the scheduler's,
        D_803156C4), and once in the level (D_80364A90 == 4) drive forward
-       instead, which is what port/tools/m64p_pace.c's "play" does */
+       instead, which is what port/tools/m64p_pace.c's "play" does; =3: as
+       2, and in the level tap A too, which clears the hint panels and so
+       keeps the vehicle moving */
     const char *s = getenv("PORT_AUTOSTART");
     if (!s || !*s || *s == '0')
         return 0;
-    if (*s == '2') {
+    if (*s == '2' || *s == '3') {
         static int in_level;
         if (port_be32(D_80364A90) == 0 && port_be32(D_80364A90 + 4) == 4)
             in_level = 1;
         if (in_level) {
             *sy = 80;
+            if (*s == '3' && (int)port_be32(D_803156C4) % 120 < 4)
+                return B_A;
             return 0;
         }
     }
-    int f = (*s == '2' ? (int)port_be32(D_803156C4) : frame) % 120;
+    int f = (*s >= '2' ? (int)port_be32(D_803156C4) : frame) % 120;
     if (f < 4)
         return B_START;
     if (f >= 60 && f < 64)

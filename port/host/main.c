@@ -366,6 +366,8 @@ static void usage(const char *argv0) {
             "  --scale N            gl: internal resolution 320x240 times N (default: the\n"
             "                       window's)\n"
             "  --filter F           textures: n64 (3-point, default), bilinear or point\n"
+            "  --interpolate        gl: 60 frames a second where the game draws 30, by\n"
+            "                       showing a frame between each two (the game is unchanged)\n"
             "  --wav PATH           write the sound to a WAV file too\n"
             "  --no-audio           no sound (--headless and --deterministic imply it)\n"
             "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
@@ -409,6 +411,8 @@ int main(int argc, char **argv) {
             gfx_filter = !strcmp(argv[i], "n64") ? 0 : !strcmp(argv[i], "point") ? 1
                        : !strcmp(argv[i], "bilinear") ? 2 : (usage(argv[0]), 0);
         }
+        else if (!strcmp(argv[i], "--interpolate"))
+            gfx_interp = 1;
         else if (argv[i][0] == '-')
             usage(argv[0]);
         else
@@ -526,6 +530,7 @@ int main(int argc, char **argv) {
         host_gfx_dump_stats();
     }
     host_replay_report();
+    host_gfx_interp_report();
     host_audio_shutdown();
     host_video_shutdown();
     return 0;

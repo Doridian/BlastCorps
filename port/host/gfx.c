@@ -47,6 +47,8 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1) { (void)x0; (void)y0; (void)x
 void gfx_gl_task_begin(void) {}
 void gfx_gl_task_end(void) {}
 void gfx_gl_texture_source(uint32_t addr) { (void)addr; }
+void gfx_gl_interp(int on) { (void)on; }
+void gfx_gl_interp_swap(uint32_t fb, int ready) { (void)fb; (void)ready; }
 int gfx_gl_scale;
 unsigned gfx_gl_window_flags(void) { return 0; }
 int gfx_gl_init(struct SDL_Window *win) { (void)win; return 0; }
@@ -104,6 +106,168 @@ static void do_mtx(uint32_t w0, uint32_t w1) {
             mtx_mul(gs.mv[gs.mv_top], m, gs.mv[gs.mv_top]);
     }
     gs.mvp_dirty = 1;
+}
+
+/* ---- in-between frames (--interpolate; docs/PORT.md, "Frame rate") -------------------------
+ *
+ * Where the game holds each frame for two retraces (gameplay), every
+ * graphics task runs twice: once as always, and once more into the GPU
+ * targets' twins with each vertex's clip-space position halfway between
+ * where the previous frame put the same vertex and where this one does.
+ * That is the matrices interpolated (a vertex's clip position is linear in
+ * its MVP) for model data that stays put, and it also follows vertices the
+ * CPU writes each frame.  The first retrace of a frame then shows the twin
+ * and the second the frame itself.  A vertex is "the same" by the address
+ * it was loaded from (inside the double-buffered per-frame buffer, the
+ * offset from its start, segment 2) and how many loads from that address
+ * came before it in the frame.  The second pass reads the display list as
+ * the first left RDRAM, draws nothing the software rasterizer owns, and
+ * leaves the RSP/RDP state as the first pass left it: the game sees nothing.
+ */
+int gfx_interp;                 /* --interpolate */
+static int ipass;               /* running the in-between pass */
+static int itrack;              /* this task's vertex loads are recorded */
+static int iframe_partial;      /* a task of this frame had no in-between pass */
+static float interp_t = 0.5f;
+
+#define IHASH (1 << 16)
+typedef struct {
+    uint32_t addr, occ;
+    int n;
+    float p[16][4];
+} ILoad;
+typedef struct {
+    ILoad *l;
+    int n, cap;
+    int32_t hash[IHASH];                    /* index + 1 */
+    struct { uint32_t addr, cnt; } occ[IHASH];
+} IFrame;
+static IFrame *ifr[2];
+static int icur;
+static int *tkeys, tk_n, tk_cap, tk_i;      /* this task's loads, in order */
+/* vertex loads, loads blended, vertices, vertices blended, vertices of loads
+   that moved too far, in-between passes, frames with one, loads with no match */
+unsigned long long gfx_st_interp[8];
+unsigned long long gfx_st_shown[3];         /* gfx.h */
+
+static inline uint32_t ihash(uint32_t a, uint32_t b) {
+    uint32_t h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u) * 0x85EBCA77u;
+    return (h ^ (h >> 15)) & (IHASH - 1);
+}
+
+static void iframe_reset(IFrame *f) {
+    f->n = 0;
+    memset(f->hash, 0, sizeof f->hash);
+    memset(f->occ, 0, sizeof f->occ);
+}
+
+static ILoad *ilookup(IFrame *f, uint32_t addr, uint32_t occ) {
+    for (uint32_t h = ihash(addr, occ);; h = (h + 1) & (IHASH - 1)) {
+        int32_t k = f->hash[h];
+        if (!k)
+            return NULL;
+        ILoad *l = &f->l[k - 1];
+        if (l->addr == addr && l->occ == occ)
+            return l;
+    }
+}
+
+/* the address a vertex load is known by: inside the frame buffer the game
+   is building (segment 2), the offset into it, so that the two buffers'
+   loads pair up */
+static uint32_t ikey(uint32_t w1) {
+    uint32_t a = seg_to_k0(w1);
+    if (gs.seg[2]) {
+        uint32_t fb = seg_to_k0(0x02000000u);
+        if (a >= fb && a < fb + 0x21498u)
+            return 0x02000000u | (a - fb);
+    }
+    return a;
+}
+
+static void tk_push(int k) {
+    if (tk_n == tk_cap) {
+        tk_cap = tk_cap ? tk_cap * 2 : 4096;
+        tkeys = realloc(tkeys, (size_t)tk_cap * sizeof *tkeys);
+    }
+    tkeys[tk_n++] = k;
+}
+
+/* the first pass: remember where this load's vertices went */
+static void irecord(uint32_t w1, int v0, int n) {
+    IFrame *f = ifr[icur];
+    uint32_t addr = ikey(w1), h = ihash(addr, 0xFFFFFFFFu);
+    while (f->occ[h].cnt && f->occ[h].addr != addr)
+        h = (h + 1) & (IHASH - 1);
+    uint32_t occ = f->occ[h].cnt;
+    if (f->n >= IHASH / 2) {                /* full: not interpolated */
+        tk_push(-1);
+        return;
+    }
+    f->occ[h].addr = addr;
+    f->occ[h].cnt = occ + 1;
+    if (f->n == f->cap) {
+        f->cap = f->cap ? f->cap * 2 : 4096;
+        f->l = realloc(f->l, (size_t)f->cap * sizeof *f->l);
+    }
+    ILoad *l = &f->l[f->n];
+    l->addr = addr;
+    l->occ = occ;
+    l->n = n;
+    for (int i = 0; i < n; i++) {
+        l->p[i][0] = gs.v[v0 + i].x;
+        l->p[i][1] = gs.v[v0 + i].y;
+        l->p[i][2] = gs.v[v0 + i].z;
+        l->p[i][3] = gs.v[v0 + i].w;
+    }
+    uint32_t hh = ihash(addr, occ);
+    while (f->hash[hh])
+        hh = (hh + 1) & (IHASH - 1);
+    f->hash[hh] = ++f->n;
+    tk_push(f->n - 1);
+}
+
+/* the second pass: the same load, between the previous frame's and this one's */
+static void iblend(int v0, int n) {
+    if (tk_i >= tk_n)
+        return;
+    int k = tkeys[tk_i++];
+    gfx_st_interp[0]++;
+    if (k < 0)
+        return;
+    const ILoad *c = &ifr[icur]->l[k];
+    const ILoad *p = ilookup(ifr[icur ^ 1], c->addr, c->occ);
+    gfx_st_interp[2] += n;
+    if (!p || p->n < n) {
+        gfx_st_interp[7]++;
+        return;
+    }
+    /* a load whose vertices moved by more than a quarter of their distance
+       from the eye (in clip space, where that is |(x, y, z, w)|) is taken
+       for other vertices than the previous frame's (or a camera cut): all
+       of it is drawn where this frame has it, so that its triangles hold
+       together */
+    for (int i = 0; i < n; i++) {
+        const Vtx4 *v = &gs.v[v0 + i];
+        const float *q = p->p[i];
+        float dx = v->x - q[0], dy = v->y - q[1], dz = v->z - q[2], dw = v->w - q[3];
+        float nc = v->x * v->x + v->y * v->y + v->z * v->z + v->w * v->w;
+        float np = q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3];
+        if (dx * dx + dy * dy + dz * dz + dw * dw > 0.0625f * (nc > np ? nc : np)) {
+            gfx_st_interp[4] += n;
+            return;
+        }
+    }
+    gfx_st_interp[1]++;
+    for (int i = 0; i < n; i++) {
+        Vtx4 *v = &gs.v[v0 + i];
+        const float *q = p->p[i];
+        v->x = q[0] + (v->x - q[0]) * interp_t;
+        v->y = q[1] + (v->y - q[1]) * interp_t;
+        v->z = q[2] + (v->z - q[2]) * interp_t;
+        v->w = q[3] + (v->w - q[3]) * interp_t;
+    }
+    gfx_st_interp[3] += n;
 }
 
 static void do_vtx(uint32_t w0, uint32_t w1) {
@@ -169,6 +333,13 @@ static void do_vtx(uint32_t w0, uint32_t w1) {
         }
         v->s = s * gs.tex_s / 32.0f;
         v->t = t * gs.tex_t / 32.0f;
+    }
+    if (itrack) {
+        int m = n < 16 - v0 ? n : 16 - v0;
+        if (ipass)
+            iblend(v0, m);
+        else
+            irecord(w1, v0, m);
     }
 }
 
@@ -813,6 +984,8 @@ static void tri(int i0, int i1, int i2, int flag) {
         gfx_gl_tri(s, n, fl);
         return;
     }
+    if (ipass)                          /* RDRAM is the first pass's */
+        return;
     SV sv[9];
     for (int i = 0; i < n; i++)
         to_sv(&s[i], &sv[i]);
@@ -834,6 +1007,13 @@ static void fill_rect(uint32_t w0, uint32_t w1) {
     if (lrx <= ulx || lry <= uly)
         return;
     st_cover += (double)(lrx - ulx) * (lry - uly) * (cyc == 3 ? 0.25 : 1);
+    if (ipass) {                        /* the twins' only; RDRAM is the first pass's */
+        if (gs.cimg_addr == gs.zimg_addr && zbuf_ok())
+            gfx_gl_zclear(ulx, uly, lrx, lry);
+        else if (gl_target())
+            gfx_gl_fill_rect(ulx, uly, lrx, lry);
+        return;
+    }
     if (gs.cimg_addr == gs.zimg_addr && zbuf_ok()) {  /* clearing the z-buffer */
         for (int y = uly; y < lry; y++)
             for (int x = ulx; x < lrx; x++)
@@ -892,6 +1072,8 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
         gfx_gl_tex_rect(x0, y0, x1, y1, tile, sa, ta, dsdx, dtdy, flip);
         return;
     }
+    if (ipass)
+        return;
     int filt = gfx_filter_mode();
     int ta = tile, tb = tile + 1;
     float lodfrac = 255;
@@ -931,7 +1113,8 @@ static void run(uint32_t dl, int depth) {
         const uint8_t *p = port_ptr(dl);
         uint32_t w0 = port_g32(p), w1 = port_g32(p + 4);
         uint8_t op = w0 >> 24;
-        host_gfx_stats[op]++;
+        if (!ipass)
+            host_gfx_stats[op]++;
         switch (op) {
         case 0x01: do_mtx(w0, w1); break;                       /* G_MTX */
         case 0x03: {                                            /* G_MOVEMEM */
@@ -1050,7 +1233,7 @@ static void run(uint32_t dl, int depth) {
             gs.timg_fmt = (w0 >> 21) & 7; gs.timg_siz = (w0 >> 19) & 3;
             gs.timg_w = (w0 & 0xFFF) + 1;
             gs.timg_addr = seg_to_k0(w1);
-            if (gfx_gl_enabled)
+            if (gfx_gl_enabled && !ipass)
                 gfx_gl_texture_source(gs.timg_addr);
             break;
         case 0xFE: gs.zimg_addr = seg_to_k0(w1); break;
@@ -1089,16 +1272,60 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
         gs.sc_y1 = 240;
     }
     double t0 = now_ms();
+    /* --interpolate: record the vertex loads always (the next frame may want
+       them), run the in-between pass where the game holds frames */
+    int between = 0;
+    static GfxState s0;
+    static uint8_t tmem0[4096];
+    itrack = gfx_interp && gfx_gl_enabled;
+    if (itrack) {
+        if (!ifr[0]) {
+            ifr[0] = calloc(1, sizeof *ifr[0]);
+            ifr[1] = calloc(1, sizeof *ifr[1]);
+        }
+        between = host_frame_held();
+        if (!between)
+            iframe_partial = 1;
+        tk_n = 0;
+        if (between) {
+            s0 = gs;
+            memcpy(tmem0, gfx_tmem, sizeof tmem0);
+        }
+    }
     if (gfx_gl_enabled)
         gfx_gl_task_begin();
     double cover = st_cover;
     run(dl, 0);
     if (gfx_gl_enabled)
         gfx_gl_task_end();
+    double covered = st_cover - cover;
+    if (between) {
+        static GfxState s1;
+        static uint8_t tmem1[4096];
+        unsigned long long st[4] = { st_tris, st_raster, st_tested, st_drawn };
+        s1 = gs;
+        memcpy(tmem1, gfx_tmem, sizeof tmem1);
+        gs = s0;
+        memcpy(gfx_tmem, tmem0, sizeof tmem0);
+        ipass = 1;
+        tk_i = 0;
+        gfx_gl_interp(1);
+        gfx_gl_task_begin();
+        run(dl, 0);
+        gfx_gl_task_end();
+        gfx_gl_interp(0);
+        ipass = 0;
+        gfx_st_interp[5]++;
+        gs = s1;
+        memcpy(gfx_tmem, tmem1, sizeof tmem1);
+        st_cover = cover + covered;
+        st_tris = st[0]; st_raster = st[1]; st_tested = st[2]; st_drawn = st[3];
+    }
+    itrack = 0;
     gfx_host_ms += now_ms() - t0;
     /* --deterministic: the RDP's time, roughly (a pixel per 2 cycles), from
        the geometry, so that both renderers see the same timeline */
-    host_charge(500000 + (uint64_t)((st_cover - cover) * 30));
+    host_charge(500000 + (uint64_t)(covered * 30));
     if (host_verbose && (gfx_tasks < 5 || gfx_tasks % 300 == 0))
         host_log("gfx task %d: dl %08X size %X%s\n", gfx_tasks, dl, size, gs.sync ? " (full sync)" : "");
     return gs.sync;
@@ -1115,6 +1342,30 @@ int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
     struct gfx_call c = { dl, size, ucode, 0 };
     fiber_call_on_loop(gfx_task_call, &c);
     return c.sync;
+}
+
+/* osViSwapBuffer: the frame drawn into fb is complete.  Its in-between
+   frame is shown first if every task of it had its pass. */
+void host_vi_swap(uint32_t fb) {
+    if (!gfx_interp || !gfx_gl_enabled || !ifr[0])
+        return;
+    gfx_gl_interp_swap(fb, !iframe_partial);
+    if (!iframe_partial)
+        gfx_st_interp[6]++;
+    iframe_partial = 0;
+    icur ^= 1;
+    iframe_reset(ifr[icur]);
+}
+
+void host_gfx_interp_report(void) {
+    if (!gfx_interp)
+        return;
+    unsigned long long *s = gfx_st_interp;
+    host_log("interpolate: %llu in-between passes for %llu frames; of %llu vertex loads, %llu blended with the "
+             "previous frame's, %llu without a match there, %llu vertices (of %llu) in loads that moved too far\n",
+             s[5], s[6], s[0], s[1], s[7], s[4], s[2]);
+    host_log("interpolate: %llu retraces presented: %llu showed a new frame of the game's, %llu an "
+             "in-between one\n", gfx_st_shown[0], gfx_st_shown[1], gfx_st_shown[2]);
 }
 
 void host_gfx_dump_stats(void) {

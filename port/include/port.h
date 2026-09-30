@@ -211,6 +211,7 @@ uint64_t host_take_rdp_ns(void);    /* the RDP time of the last graphics task */
 /* runs a graphics task; 1 if its display list ended in a full sync */
 int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode);
 void host_vi_set_framebuffer(uint32_t fb, int width);
+void host_vi_swap(uint32_t fb);     /* osViSwapBuffer: the frame in fb is done */
 
 /* input: N64 button bits and stick (written big-endian: the pointers are
    the N64 side's) */

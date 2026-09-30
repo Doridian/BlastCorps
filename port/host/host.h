@@ -28,6 +28,7 @@ extern const char *host_save_path;
 void host_video_init(void);
 void host_video_frame(void);
 void host_video_shutdown(void);
+int host_frame_held(void);          /* the game's mode holds each frame for two retraces */
 
 /* replay.c: --replay */
 int host_replay_active(void);
@@ -44,6 +45,8 @@ void host_replay_report(void);
 extern int host_renderer;
 extern int gfx_filter;              /* GFX_FILTER_* (gfx.h) */
 extern int gfx_gl_scale;            /* internal resolution factor, 0: the window's */
+extern int gfx_interp;              /* --interpolate: in-between frames (gfx.c) */
+void host_gfx_interp_report(void);
 struct SDL_Window;
 unsigned gfx_gl_window_flags(void);
 int gfx_gl_init(struct SDL_Window *win);

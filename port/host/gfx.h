@@ -97,5 +97,10 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1);
 void gfx_gl_task_begin(void);
 void gfx_gl_task_end(void);
 void gfx_gl_texture_source(uint32_t addr);      /* SETTIMG: read back a GPU target? */
+/* --interpolate (gfx.c): draw into the targets' twins (1) or the targets (0);
+   the frame in fb is complete, and its twin holds its in-between frame */
+void gfx_gl_interp(int on);
+void gfx_gl_interp_swap(uint32_t fb, int ready);
+extern unsigned long long gfx_st_shown[3];     /* presents, new frames among them, in-between ones */
 
 #endif
