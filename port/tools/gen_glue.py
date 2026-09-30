@@ -348,6 +348,10 @@ def gen_extern(name, sig, is_lib, wraps=()):
     pcs = [("I" if is_lib else classify(p)) for p in params if p != "..."]
     placed, _ = slots(pcs)
     rty = "void" if rc == "V" else cty(rc)
+    if rc == "I" and not is_lib and narrow_ctype(ret) != "uintptr_t":
+        # a u8/s16... result by its own type: i386 leaves the rest of eax
+        # as it was, where IDO's v0 has it extended
+        rty = narrow_ctype(ret)
     decl_args = ", ".join(pty(c) for c in pcs) or "void"
     if variadic:
         decl_args += ", ..."
