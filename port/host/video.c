@@ -12,6 +12,7 @@
 
 #include "fiber.h"
 #include "host.h"
+#include "gfx.h"
 
 #ifdef PORT_NATIVE_ENDIAN
 /* game variables are read with port_be32 (and the pad written with
@@ -34,6 +35,15 @@ static int vi_width = 320;
 static int frame;
 static int quit;
 static uint32_t pixels[640 * 480];
+static int tex_w = 320;         /* the software renderer's frame: 320, or wider (widescreen) */
+
+/* the software renderer's widescreen: from the window, or --aspect */
+static void sw_wide(void) {
+    int w = 0, h = 0;
+    if (win)
+        SDL_GetWindowSize(win, &w, &h);
+    gfx_set_wide(gfx_wide_off_for(gfx_aspect_of(w, h)));
+}
 
 void host_vi_set_framebuffer(uint32_t fb, int width) {
     /* a retrace that shows another buffer: the frame in it is complete (the
@@ -65,6 +75,8 @@ void host_video_init(void) {
         ww = 320 * gfx_gl_scale;
         wh = 240 * gfx_gl_scale;
     }
+    if (gfx_aspect > 0)                             /* widescreen: a window that wide */
+        ww = (int)(wh * gfx_aspect_of(0, 0) + 0.5f);
     win = SDL_CreateWindow("Blast Corps", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh,
                            SDL_WINDOW_RESIZABLE | (host_renderer == 1 ? gfx_gl_window_flags() : 0));
     if (!win)
@@ -83,6 +95,7 @@ void host_video_init(void) {
     if (!ren)
         host_fatal("SDL_CreateRenderer: %s", SDL_GetError());
     tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 320, 240);
+    sw_wide();
 pads:
     for (int i = 0; i < SDL_NumJoysticks(); i++)
         if (SDL_IsGameController(i) && (pad = SDL_GameControllerOpen(i)))
@@ -140,10 +153,36 @@ void host_video_frame(void) {
             host_log("saved %s\n", path);
         goto done;
     }
-    /* the VI framebuffer, RGBA5551 big-endian (black while the VI is) */
-    if (!vi_fb)
+    /* widescreen: the frame the software renderer drew wide, or RDRAM's in
+       the middle of one */
+    sw_wide();
+    int fw = 320 + 2 * gfx_wide_off, ww;
+    const uint16_t *wide = vi_fb ? gfx_sw_wide_frame(vi_fb, &ww) : NULL;
+    if (fw != tex_w) {
+        SDL_DestroyTexture(tex);
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, fw, 240);
+        tex_w = fw;
+        SDL_RenderSetLogicalSize(ren, fw > 320 ? fw : 0, fw > 320 ? 240 : 0);
+    }
+    if (fw > 320) {
         memset(pixels, 0, sizeof pixels);
-    if (vi_fb) {
+        const uint8_t *src = vi_fb && !wide ? port_ptr(vi_fb) : NULL;
+        for (int y = 0; (wide || src) && y < 240; y++)
+            for (int x = 0; x < fw; x++) {
+                uint16_t c;
+                if (wide)
+                    c = ww == fw ? wide[y * fw + x] : 0;
+                else if (x >= gfx_wide_off && x < gfx_wide_off + 320)
+                    c = port_be16(src + 2 * (y * vi_width + x - gfx_wide_off));
+                else
+                    continue;
+                uint32_t r = (c >> 11) & 31, g = (c >> 6) & 31, b = (c >> 1) & 31;
+                pixels[y * fw + x] = 0xFF000000u | (r << 19 | (r >> 2) << 16) | (g << 11 | (g >> 2) << 8) |
+                                     (b << 3 | b >> 2);
+            }
+    } else if (!vi_fb) {
+        memset(pixels, 0, sizeof pixels);
+    } else {
         const uint8_t *src = port_ptr(vi_fb);
         for (int y = 0; y < 240; y++)
             for (int x = 0; x < 320; x++) {
@@ -153,12 +192,12 @@ void host_video_frame(void) {
                                       (b << 3 | b >> 2);
             }
     }
-    SDL_UpdateTexture(tex, NULL, pixels, 320 * 4);
+    SDL_UpdateTexture(tex, NULL, pixels, fw * 4);
     SDL_RenderClear(ren);
     SDL_RenderCopy(ren, tex, NULL, NULL);
     SDL_RenderPresent(ren);
     if (shot) {
-        save_bmp(path, 320, 240);
+        save_bmp(path, fw, 240);
         host_log("saved %s\n", path);
     }
 done:

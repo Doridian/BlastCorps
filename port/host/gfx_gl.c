@@ -53,6 +53,10 @@ int gfx_gl_scale;               /* internal resolution: 320x240 times this; 0: f
 static SDL_Window *win;
 static SDL_GLContext ctx;
 static int scale = 1;           /* current */
+/* widescreen (gfx.h): the targets are TW + 2 * gfx_wide_off N64 pixels
+   across, 240 high, the game's 320 columns in the middle */
+#define wide_off gfx_wide_off
+static int tw_px = 320, th_px = 240; /* the targets, in pixels */
 static int readback_all;
 static int quantize;            /* PORT_GL_QUANT=1: 5-bit output, as the RDRAM framebuffer has */
 static uint32_t frame_no;
@@ -83,7 +87,7 @@ static Target view;             /* RDRAM shown as it is */
 
 static void target_storage(Target *t) {
     glBindTexture(GL_TEXTURE_2D, t->tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TW * scale, TH * scale, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tw_px, th_px, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, t->fbo);
@@ -94,7 +98,10 @@ static void target_storage(Target *t) {
         host_fatal("gl: framebuffer incomplete");
 }
 
-/* RDRAM's RGBA5551 image at addr into t, scaled */
+/* an N64 x (the game's 320 columns) to a target's pixel column */
+static int px_x(int x) { return (x + wide_off) * scale; }
+
+/* RDRAM's RGBA5551 image at addr into t, scaled, in the middle of a wide target */
 static uint32_t upload_buf[TW * TH];
 static void upload_rdram(Target *t, uint32_t addr, int width) {
     const uint8_t *src = port_ptr(addr);
@@ -120,21 +127,25 @@ static void upload_rdram(Target *t, uint32_t addr, int width) {
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, t->fbo);
     glDisable(GL_SCISSOR_TEST);
     glColorMask(1, 1, 1, 1);
-    glBlitFramebuffer(0, 0, TW, TH, 0, 0, TW * scale, TH * scale, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    if (wide_off > 0) {
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
+    glBlitFramebuffer(0, 0, TW, TH, px_x(0), 0, px_x(TW), th_px, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
 static void twin_storage(Target *t) {
     if (!idepth_rb) {
         glGenRenderbuffers(1, &idepth_rb);
         glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, TW * scale, TH * scale);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
     }
     if (!t->ifbo) {
         glGenFramebuffers(1, &t->ifbo);
         glGenTextures(1, &t->itex);
     }
     glBindTexture(GL_TEXTURE_2D, t->itex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, TW * scale, TH * scale, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tw_px, th_px, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glBindFramebuffer(GL_FRAMEBUFFER, t->ifbo);
@@ -187,20 +198,25 @@ static Target *get_target(uint32_t addr) {
     return t;
 }
 
-static void set_scale(int s) {
+/* the internal resolution: 240 * s lines, and aspect (gfx_aspect_of) wide */
+static void set_geometry(int s, float aspect) {
     if (s < 1) s = 1;
     if (s > 16) s = 16;
-    if (s == scale && depth_rb)
+    int off = gfx_wide_off_for(aspect), npx = (TW + 2 * off) * s;
+    if (s == scale && npx == tw_px && depth_rb)
         return;
-    int old = scale;
+    int old_w = tw_px, old_h = th_px;
     if (!depth_rb)
         glGenRenderbuffers(1, &depth_rb);
     scale = s;
+    gfx_set_wide(off);
+    tw_px = npx;
+    th_px = TH * s;
     glBindRenderbuffer(GL_RENDERBUFFER, depth_rb);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, TW * scale, TH * scale);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
     if (idepth_rb) {                                /* the twins start over */
         glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, TW * scale, TH * scale);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
         for (int i = 0; i < ntargets; i++)
             if (targets[i].ifbo)
                 twin_storage(&targets[i]);
@@ -221,7 +237,7 @@ static void set_scale(int s) {
         glBindFramebuffer(GL_READ_FRAMEBUFFER, ofbo);
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, t->fbo);
         glDisable(GL_SCISSOR_TEST);
-        glBlitFramebuffer(0, 0, TW * old, TH * old, 0, 0, TW * scale, TH * scale, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        glBlitFramebuffer(0, 0, old_w, old_h, 0, 0, tw_px, th_px, GL_COLOR_BUFFER_BIT, GL_LINEAR);
         glDeleteFramebuffers(1, &ofbo);
         glDeleteTextures(1, &otex);
     }
@@ -231,20 +247,20 @@ static void set_scale(int s) {
     if (ntargets) {
         glClear(GL_DEPTH_BUFFER_BIT);
     }
-    host_log("gl: internal resolution %dx%d\n", TW * scale, TH * scale);
+    host_log("gl: internal resolution %dx%d\n", tw_px, th_px);
 }
 
 /* a target's pixels back into RDRAM as RGBA5551 (point-sampled down) */
 static uint8_t *rb_buf;
 static void read_back(Target *t) {
-    int w = TW * scale, h = TH * scale;
+    int w = tw_px, h = th_px;
     rb_buf = realloc(rb_buf, (size_t)w * h * 4);
     glBindFramebuffer(GL_READ_FRAMEBUFFER, t->fbo);
     glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rb_buf);
     uint8_t *dst = port_ptr(t->addr);
     for (int y = 0; y < TH; y++)
         for (int x = 0; x < TW; x++) {
-            const uint8_t *p = rb_buf + 4 * ((size_t)(h - 1 - y * scale - scale / 2) * w + x * scale + scale / 2);
+            const uint8_t *p = rb_buf + 4 * ((size_t)(h - 1 - y * scale - scale / 2) * w + px_x(x) + scale / 2);
             port_wbe16(dst + 2 * (y * TW + x), (uint16_t)((p[0] >> 3) << 11 | (p[1] >> 3) << 6 | (p[2] >> 3) << 1 | 1));
         }
     t->dirty = 0;
@@ -695,9 +711,9 @@ static void apply_and_draw(void) {
     const DrawState *d = &ds_batch;
     Prog *p = d->prog;
     glBindFramebuffer(GL_FRAMEBUFFER, target_fbo(d->target));
-    glViewport(0, 0, TW * scale, TH * scale);
+    glViewport(0, 0, tw_px, th_px);
     glEnable(GL_SCISSOR_TEST);
-    glScissor(d->sc[0] * scale, (TH - d->sc[3]) * scale, (d->sc[2] - d->sc[0]) * scale, (d->sc[3] - d->sc[1]) * scale);
+    glScissor(d->sc[0], (TH - d->sc[3]) * scale, d->sc[2] - d->sc[0], (d->sc[3] - d->sc[1]) * scale);
     glColorMask(1, 1, 1, 0);
     if (d->depth) {
         glEnable(GL_DEPTH_TEST);
@@ -717,7 +733,7 @@ static void apply_and_draw(void) {
         glDisable(GL_BLEND);
     }
     glUseProgram(p->prog);
-    glUniform2f(p->u_vp, TW, TH);
+    glUniform2f(p->u_vp, TW + 2 * wide_off, TH);
     glUniform1f(p->u_zbias, d->zbias);
     glUniform4fv(p->u_prim, 1, d->prim);
     glUniform4fv(p->u_env, 1, d->env);
@@ -800,7 +816,11 @@ static int build_state(int kind, int tile) {
         d.depth = zcmp | zupd << 1;
         d.zbias = ((gs.om_l >> 10) & 3) == 3 ? 0.0005f : 0;
     }
-    d.sc[0] = gs.sc_x0; d.sc[1] = gs.sc_y0; d.sc[2] = gs.sc_x1; d.sc[3] = gs.sc_y1;
+    /* the scissor in target pixels across (a full-width one covers the
+       wide target), lines down */
+    int sx0, sx1;
+    gfx_wide_span(gs.sc_x0, gs.sc_x1, &sx0, &sx1);
+    d.sc[0] = px_x(sx0); d.sc[1] = gs.sc_y0; d.sc[2] = px_x(sx1); d.sc[3] = gs.sc_y1;
     for (int i = 0; i < 4; i++) {
         d.prim[i] = gs.prim[i] / 255.0f;
         d.env[i] = gs.env[i] / 255.0f;
@@ -867,6 +887,7 @@ void gfx_gl_tri(const GfxVtx *s, int n, const float *flat) {
         const GfxVtx *p[3] = { &s[0], &s[i], &s[i + 1] };
         for (int j = 0; j < 3; j++, v++) {
             memcpy(v, p[j], sizeof *v);
+            v->x += wide_off;
             if (flat) {
                 v->r = flat[0]; v->g = flat[1]; v->b = flat[2]; v->a = flat[3];
             }
@@ -877,6 +898,8 @@ void gfx_gl_tri(const GfxVtx *s, int n, const float *flat) {
 static void quad(float x0, float y0, float x1, float y1, float s00, float t00, float s10, float t10,
                  float s01, float t01, float s11, float t11, const float *col) {
     GLVtx *v = push(6);
+    x0 += wide_off;
+    x1 += wide_off;
     GLVtx c[4] = {
         { x0, y0, 0, 1, s00, t00, col[0], col[1], col[2], col[3] },
         { x1, y0, 0, 1, s10, t10, col[0], col[1], col[2], col[3] },
@@ -924,7 +947,7 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1) {
         return;
     glBindFramebuffer(GL_FRAMEBUFFER, target_fbo(t));
     glEnable(GL_SCISSOR_TEST);
-    glScissor(x0 * scale, (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
+    glScissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
     glDepthMask(GL_TRUE);
     glClearDepth(1.0);
     glClear(GL_DEPTH_BUFFER_BIT);
@@ -1010,7 +1033,7 @@ int gfx_gl_init(SDL_Window *w) {
     glEnable(GL_DEPTH_CLAMP);
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
-    set_scale(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH);
+    set_geometry(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH, gfx_aspect_of(dw, dh));
     glGenFramebuffers(1, &view.fbo);
     glGenTextures(1, &view.tex);
     target_storage(&view);
@@ -1042,11 +1065,7 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot) {
     frame_no++;
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
-    if (!gfx_gl_scale) {
-        int s = (dh + TH / 2) / TH;
-        if (s != scale)
-            set_scale(s);
-    }
+    set_geometry(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH, gfx_aspect_of(dw, dh));
     Target *t = vi_fb && vi_width == TW ? find_target(vi_fb) : NULL;
     if (vi_fb && !t) {
         upload_rdram(&view, vi_fb, vi_width > 0 && vi_width <= 640 ? vi_width : TW);
@@ -1072,16 +1091,16 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot) {
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
     if (t) {
-        /* 4:3, as large as fits */
-        int w = dw, h = dw * 3 / 4;
-        if (h > dh) { h = dh; w = dh * 4 / 3; }
+        /* the target's aspect (4:3, or wider), as large as fits */
+        int w = dw, h = (int)((int64_t)dw * th_px / tw_px);
+        if (h > dh) { h = dh; w = (int)((int64_t)dh * tw_px / th_px); }
         int x = (dw - w) / 2, y = (dh - h) / 2;
         glBindFramebuffer(GL_READ_FRAMEBUFFER, src);
-        glBlitFramebuffer(0, 0, TW * scale, TH * scale, x, y, x + w, y + h, GL_COLOR_BUFFER_BIT,
-                          w == TW * scale && h == TH * scale ? GL_NEAREST : GL_LINEAR);
+        glBlitFramebuffer(0, 0, tw_px, th_px, x, y, x + w, y + h, GL_COLOR_BUFFER_BIT,
+                          w == tw_px && h == th_px ? GL_NEAREST : GL_LINEAR);
     }
     if (shot) {
-        int w = TW * scale, h = TH * scale;
+        int w = tw_px, h = th_px;
         uint8_t *buf = calloc((size_t)w * h, 4);
         if (t) {
             glBindFramebuffer(GL_READ_FRAMEBUFFER, src);

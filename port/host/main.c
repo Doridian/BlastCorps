@@ -368,6 +368,9 @@ static void usage(const char *argv0) {
             "  --filter F           textures: n64 (3-point, default), bilinear or point\n"
             "  --interpolate        gl: 60 frames a second where the game draws 30, by\n"
             "                       showing a frame between each two (the game is unchanged)\n"
+            "  --aspect W:H         widescreen: show the 3D world W:H wide (e.g. 16:9; 4:3,\n"
+            "                       the default, is the N64's), or 'window' to follow it\n"
+            "  --widescreen         --aspect 16:9\n"
             "  --wav PATH           write the sound to a WAV file too\n"
             "  --no-audio           no sound (--headless and --deterministic imply it)\n"
             "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
@@ -413,7 +416,20 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(argv[i], "--interpolate"))
             gfx_interp = 1;
-        else if (argv[i][0] == '-')
+        else if (!strcmp(argv[i], "--widescreen"))
+            gfx_aspect = 16.0f / 9;
+        else if (!strcmp(argv[i], "--aspect") && i + 1 < argc) {
+            const char *a = argv[++i];
+            double w, h;
+            if (!strcmp(a, "window"))
+                gfx_aspect = GFX_ASPECT_WINDOW;
+            else if (sscanf(a, "%lf:%lf", &w, &h) == 2 && w > 0 && h > 0)
+                gfx_aspect = (float)(w / h);
+            else if (sscanf(a, "%lf", &w) == 1 && w > 0)
+                gfx_aspect = (float)w;
+            else
+                usage(argv[0]);
+        } else if (argv[i][0] == '-')
             usage(argv[0]);
         else
             rom_path = argv[i];

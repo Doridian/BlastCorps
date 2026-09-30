@@ -34,6 +34,22 @@ typedef __typeof__(gs.v[0]) Vtx4;
 GfxState gs;
 uint8_t gfx_tmem[4096];
 int gfx_filter;
+float gfx_aspect;
+int gfx_wide_off;
+
+/* the aspect to render at: gfx_aspect, or the window's, from 4:3 (the
+   game's own) up to 32:9 */
+float gfx_aspect_of(int w, int h) {
+    float a = gfx_aspect == GFX_ASPECT_WINDOW ? (h > 0 ? (float)w / h : 0) : gfx_aspect;
+    if (a <= 4.0f / 3 + 1e-3f)
+        return 4.0f / 3;
+    return a > 32.0f / 9 ? 32.0f / 9 : a;
+}
+
+int gfx_wide_off_for(float aspect) {
+    int off = (int)lroundf((240 * aspect - 320) / 2);
+    return off < 0 ? 0 : off;
+}
 #ifndef PORT_HAVE_GL
 int gfx_gl_enabled;
 int gfx_gl_owns_target(void) { return 0; }
@@ -56,6 +72,70 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot) { (void)vi_f
 #endif
 
 static float zbuf[640 * 480];
+static int zb_w = 320, zb_off;  /* the z-buffer's row length, and where x 0 is in it */
+
+/* ---- widescreen, software renderer: the framebuffers drawn wide, on the host ---- */
+
+typedef struct {
+    uint32_t addr;
+    int w;                      /* 320 + 2 * gfx_wide_off */
+    uint16_t *px;               /* RGBA5551, host order */
+} WideFb;
+
+static WideFb wfb[4];
+static int nwfb;
+static WideFb *cur_wfb;         /* the color image's, when it is one */
+
+/* a 320-wide 16-bit color image: a framebuffer, or the z image */
+static int wide_cimg(void) { return gfx_wide_off && gs.cimg_siz == 2 && gs.cimg_w == 320; }
+
+static WideFb *get_wfb(uint32_t addr) {
+    for (int i = 0; i < nwfb; i++)
+        if (wfb[i].addr == addr)
+            return &wfb[i];
+    if (nwfb == 4) {                                /* recycle the oldest */
+        free(wfb[0].px);
+        memmove(wfb, wfb + 1, 3 * sizeof wfb[0]);
+        nwfb--;
+    }
+    WideFb *f = &wfb[nwfb++];
+    f->addr = addr;
+    f->w = 320 + 2 * gfx_wide_off;
+    f->px = calloc((size_t)f->w * 240, 2);
+    const uint8_t *src = port_ptr(addr);             /* what was there, in the middle */
+    for (int y = 0; y < 240; y++)
+        for (int x = 0; x < 320; x++)
+            f->px[y * f->w + gfx_wide_off + x] = port_be16(src + 2 * (y * 320 + x));
+    return f;
+}
+
+/* after the color or z image changes */
+static void sw_target(void) {
+    int wide = wide_cimg();
+    zb_w = wide ? 320 + 2 * gfx_wide_off : gs.cimg_w;
+    zb_off = wide ? gfx_wide_off : 0;
+    cur_wfb = wide && !gfx_gl_enabled && gs.cimg_addr != gs.zimg_addr ? get_wfb(gs.cimg_addr) : NULL;
+}
+
+void gfx_set_wide(int off) {
+    if (off == gfx_wide_off)
+        return;
+    gfx_wide_off = off;
+    for (int i = 0; i < nwfb; i++)
+        free(wfb[i].px);
+    nwfb = 0;
+    cur_wfb = NULL;
+    sw_target();
+}
+
+const uint16_t *gfx_sw_wide_frame(uint32_t addr, int *w) {
+    for (int i = 0; i < nwfb; i++)
+        if (wfb[i].addr == addr) {
+            *w = wfb[i].w;
+            return wfb[i].px;
+        }
+    return NULL;
+}
 int host_gfx_stats[256];
 static unsigned long long st_tris, st_raster, st_tested, st_drawn;
 static double st_cover;         /* pixels covered, as the geometry says: the RDP's work */
@@ -726,7 +806,11 @@ static void combine(const Inputs *in, float *out) {
 
 static void read_pixel(int x, int y, float *c) {
     uint8_t *p = port_ptr(gs.cimg_addr);
-    if (gs.cimg_siz == 1) {
+    if (cur_wfb) {
+        uint8_t o[4];
+        rgba16(cur_wfb->px[y * cur_wfb->w + x + gfx_wide_off], o);
+        c[0] = o[0]; c[1] = o[1]; c[2] = o[2]; c[3] = 255;
+    } else if (gs.cimg_siz == 1) {
         c[0] = c[1] = c[2] = c[3] = p[y * gs.cimg_w + x];
     } else if (gs.cimg_siz == 3) {
         uint8_t *q = p + 4 * (y * gs.cimg_w + x);
@@ -747,7 +831,10 @@ static void write_pixel(int x, int y, const float *c) {
         q[0] = c[0]; q[1] = c[1]; q[2] = c[2]; q[3] = c[3];
     } else {
         uint16_t v = (uint16_t)(((int)c[0] >> 3) << 11 | ((int)c[1] >> 3) << 6 | ((int)c[2] >> 3) << 1 | 1);
-        port_wbe16(p + 2 * (y * gs.cimg_w + x), v);
+        if (cur_wfb)
+            cur_wfb->px[y * cur_wfb->w + x + gfx_wide_off] = v;
+        else
+            port_wbe16(p + 2 * (y * gs.cimg_w + x), v);
     }
 }
 
@@ -800,9 +887,12 @@ static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) 
     float minx = fminf(v0->x, fminf(v1->x, v2->x)), maxx = fmaxf(v0->x, fmaxf(v1->x, v2->x));
     float miny = fminf(v0->y, fminf(v1->y, v2->y)), maxy = fmaxf(v0->y, fmaxf(v1->y, v2->y));
     int x0 = (int)floorf(minx), x1 = (int)ceilf(maxx), y0 = (int)floorf(miny), y1 = (int)ceilf(maxy);
-    if (x0 < gs.sc_x0) x0 = gs.sc_x0;
+    int sx0 = gs.sc_x0, sx1 = gs.sc_x1;
+    if (cur_wfb)
+        gfx_wide_span(gs.sc_x0, gs.sc_x1, &sx0, &sx1);
+    if (x0 < sx0) x0 = sx0;
     if (y0 < gs.sc_y0) y0 = gs.sc_y0;
-    if (x1 > gs.sc_x1) x1 = gs.sc_x1;
+    if (x1 > sx1) x1 = sx1;
     if (y1 > gs.sc_y1) y1 = gs.sc_y1;
     float area = (v1->x - v0->x) * (v2->y - v0->y) - (v1->y - v0->y) * (v2->x - v0->x);
     if (fabsf(area) < 1e-6f)
@@ -835,7 +925,7 @@ static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) 
                 continue;
             st_drawn++;
             float z = w0 * v0->z + w1 * v1->z + w2 * v2->z;
-            int zi = y * gs.cimg_w + x;
+            int zi = y * zb_w + x + zb_off;
             if (zcmp) {
                 if (decal ? z > zbuf[zi] + 0.0005f : z > zbuf[zi])
                     continue;
@@ -947,6 +1037,22 @@ static void charge_poly(const GfxVtx *s, int n) {
     st_cover += fminf(fabsf(area) * 0.5f, (x1 - x0) * (y1 - y0));
 }
 
+/* widescreen: a 2D polygon (w 1 throughout: an orthographic projection)
+   that reaches an edge of the game's frame is stretched to the edge of the
+   wide one (the sky's gradient behind the levels, full-screen overlays);
+   the rest of the 2D stays in the middle */
+static void wide_2d(GfxVtx *s, int n) {
+    for (int i = 0; i < n; i++)
+        if (fabsf(s[i].w - 1) >= 1e-4f)
+            return;
+    for (int i = 0; i < n; i++) {
+        if (s[i].x <= 0)
+            s[i].x = -gfx_wide_off;
+        else if (s[i].x >= 319)
+            s[i].x = 320 + gfx_wide_off;
+    }
+}
+
 static void tri(int i0, int i1, int i2, int flag) {
     st_tris++;
     Vtx4 *a = &gs.v[i0 & 15], *b = &gs.v[i1 & 15], *c = &gs.v[i2 & 15];
@@ -980,7 +1086,10 @@ static void tri(int i0, int i1, int i2, int flag) {
     for (int i = 0; i < n; i++)
         to_screen(&p2[i], &s[i]);
     charge_poly(s, n);
-    if (gl_target()) {
+    int gl = gl_target();
+    if (gfx_wide_off && (gl || cur_wfb))
+        wide_2d(s, n);
+    if (gl) {
         gfx_gl_tri(s, n, fl);
         return;
     }
@@ -1007,22 +1116,29 @@ static void fill_rect(uint32_t w0, uint32_t w1) {
     if (lrx <= ulx || lry <= uly)
         return;
     st_cover += (double)(lrx - ulx) * (lry - uly) * (cyc == 3 ? 0.25 : 1);
+    int wx0 = ulx, wx1 = lrx;                       /* widescreen: a full-width fill covers the wide frame */
+    if (wide_cimg())
+        gfx_wide_span(ulx, lrx, &wx0, &wx1);
     if (ipass) {                        /* the twins' only; RDRAM is the first pass's */
         if (gs.cimg_addr == gs.zimg_addr && zbuf_ok())
-            gfx_gl_zclear(ulx, uly, lrx, lry);
+            gfx_gl_zclear(wx0, uly, wx1, lry);
         else if (gl_target())
-            gfx_gl_fill_rect(ulx, uly, lrx, lry);
+            gfx_gl_fill_rect(wx0, uly, wx1, lry);
         return;
     }
     if (gs.cimg_addr == gs.zimg_addr && zbuf_ok()) {  /* clearing the z-buffer */
         for (int y = uly; y < lry; y++)
-            for (int x = ulx; x < lrx; x++)
-                zbuf[y * gs.cimg_w + x] = 1.0f;
+            for (int x = wx0; x < wx1; x++)
+                zbuf[y * zb_w + x + zb_off] = 1.0f;
         if (gfx_gl_enabled)
-            gfx_gl_zclear(ulx, uly, lrx, lry);
+            gfx_gl_zclear(wx0, uly, wx1, lry);
     } else if (gl_target()) {
-        gfx_gl_fill_rect(ulx, uly, lrx, lry);
+        gfx_gl_fill_rect(wx0, uly, wx1, lry);
         return;
+    }
+    if (cur_wfb) {
+        ulx = wx0;
+        lrx = wx1;
     }
     uint8_t *p = port_ptr(gs.cimg_addr);
     for (int y = uly; y < lry; y++)
@@ -1032,6 +1148,8 @@ static void fill_rect(uint32_t w0, uint32_t w1) {
                     p[y * gs.cimg_w + x] = gs.fill >> (24 - 8 * (x & 3));
                 else if (gs.cimg_siz == 3)
                     port_wbe32(p + 4 * (y * gs.cimg_w + x), gs.fill);
+                else if (cur_wfb)
+                    cur_wfb->px[y * cur_wfb->w + x + gfx_wide_off] = (x & 1) ? gs.fill & 0xFFFF : gs.fill >> 16;
                 else
                     port_wbe16(p + 2 * (y * gs.cimg_w + x), (x & 1) ? gs.fill & 0xFFFF : gs.fill >> 16);
             } else {
@@ -1236,11 +1354,12 @@ static void run(uint32_t dl, int depth) {
             if (gfx_gl_enabled && !ipass)
                 gfx_gl_texture_source(gs.timg_addr);
             break;
-        case 0xFE: gs.zimg_addr = seg_to_k0(w1); break;
+        case 0xFE: gs.zimg_addr = seg_to_k0(w1); sw_target(); break;
         case 0xFF:                                              /* G_SETCIMG */
             gs.cimg_siz = (w0 >> 19) & 3;
             gs.cimg_w = (w0 & 0xFFF) + 1;
             gs.cimg_addr = seg_to_k0(w1);
+            sw_target();
             if (getenv("PORT_GFXLOG"))
                 host_log("cimg %08X w %d siz %d (w1 %08X)\n", gs.cimg_addr, gs.cimg_w, gs.cimg_siz, w1);
             break;
@@ -1272,6 +1391,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
         gs.sc_y1 = 240;
     }
     double t0 = now_ms();
+    sw_target();
     /* --interpolate: record the vertex loads always (the next frame may want
        them), run the in-between pass where the game holds frames */
     int between = 0;

@@ -74,6 +74,28 @@ enum { CC_COMB, CC_T0, CC_T1, CC_PRIM, CC_SHADE, CC_ENV, CC_ONE, CC_ZERO, CC_COM
 enum { GFX_FILTER_N64, GFX_FILTER_POINT, GFX_FILTER_BILINEAR };
 extern int gfx_filter;
 
+/* widescreen: gfx_aspect (host.h) is the display's aspect, width / height.
+   The game still draws its 320x240 frame; the renderer's frame is
+   gfx_wide_off columns wider on each side, with the game's in the middle,
+   and shows the 3D world there too (docs/PORT.md, "Widescreen").  Only
+   the 320-wide 16-bit color images (the framebuffers) and the z-buffer
+   are widened. */
+extern int gfx_wide_off;                        /* 0: 4:3 */
+float gfx_aspect_of(int w, int h);              /* the aspect to render at, for a w x h window */
+int gfx_wide_off_for(float aspect);             /* the columns added on each side */
+void gfx_set_wide(int off);                     /* the presenter's: from the next draw on */
+/* x0..x1 of a scissor or a fill in the game's columns: one that covers all
+   320 of them covers the wide frame.  The game's 1-cycle fills stop at
+   319, one short. */
+static inline void gfx_wide_span(int x0, int x1, int *a, int *b) {
+    int full = gfx_wide_off > 0 && x0 <= 0 && x1 >= 319;
+    *a = full ? -gfx_wide_off : x0;
+    *b = full ? 320 + gfx_wide_off : x1;
+}
+/* the software renderer's wide framebuffer at addr (RGBA5551, host order,
+   *w pixels across, 240 lines), or NULL: what video.c shows */
+const uint16_t *gfx_sw_wide_frame(uint32_t addr, int *w);
+
 /* shared helpers (gfx.c) */
 void gfx_cc_decode(uint8_t idx[2][8]);          /* [cycle][a b c d  Aa Ab Ac Ad] */
 int gfx_cycles(void);                           /* 1 or 2 (fill and copy: 1) */
