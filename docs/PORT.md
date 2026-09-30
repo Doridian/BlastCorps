@@ -2109,7 +2109,8 @@ either.  `--aspect window` changes nothing until the window is made wider
 than 4:3 (the default window is 640x480), and then shows what the window
 has room for.  Against `--interpolate` by default: a retrace (17 ms) more
 latency, the rare mispaired instance or rectangle for one image, and with
-the software renderer twice the drawing (the WebAssembly page's default).
+the software renderer (headless and where OpenGL is missing) twice the
+drawing.
 
 None of this reaches the game: the display lists are the game's, the
 RDP's time comes from the 4:3 geometry, and RDRAM is the same but for the
