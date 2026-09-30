@@ -78,6 +78,9 @@ static cl::opt<bool> X86FpToInt("port-arena-x86-fptoint",
 static cl::opt<std::string> Retarget("port-arena-triple",
                                      cl::desc("the module's target from here on (WebAssembly: the N64 side is i386's)"));
 static cl::opt<std::string> RetargetLayout("port-arena-datalayout", cl::desc("... and its data layout"));
+static cl::opt<std::string> FnValues("port-arena-fn-values",
+                                     cl::desc("functions the translated code takes as values (gen_glue.py's "
+                                              "fn_values.txt: one name a line)"));
 static cl::opt<std::string> SymsHeader("port-arena-header",
                                        cl::desc("where the moved variables went, as a header (SYM_, PORT_N64_)"));
 
@@ -688,8 +691,28 @@ struct Arena : PassInfoMixin<Arena> {
         return cb && cb->isCallee(&u);
     }
 
+    /* the functions the translated code takes the address of (a lui/addiu
+       pair: jp's func_801F57B0 starts the pak thread at func_801F58E8), which
+       the C then calls through: they are values too, though no use in the
+       module says so */
+    std::set<std::string> fnValues;
+
+    void readFnValues() {
+        if (FnValues.empty())
+            return;
+        auto buf = MemoryBuffer::getFile(FnValues);
+        if (!buf)
+            fail("can't read " + FnValues);
+        SmallVector<StringRef, 0> lines;
+        (*buf)->getBuffer().split(lines, '\n', -1, false);
+        for (StringRef l : lines)
+            if (!l.trim().empty())
+                fnValues.insert(l.trim().str());
+    }
+
     void functions() {
         uint64_t next = FN_BASE;
+        readFnValues();
         std::vector<Function *> taken;
         for (Function &f : *M) {
             if (f.isIntrinsic())
@@ -703,7 +726,7 @@ struct Arena : PassInfoMixin<Arena> {
                         fail(f.getName() + " is both a value and in " + g->getName());
                 value = true;
             }
-            if (value)
+            if (value || fnValues.count(f.getName().str()))
                 taken.push_back(&f);
         }
         for (Function *f : taken) {

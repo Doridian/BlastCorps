@@ -426,7 +426,7 @@ file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
 add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h)
-add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt
+add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt ${GEN}/fn_values.txt
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN} --wrap ${PORT_WRAPS_LIST}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/liveness.py
             ${RECOMP_GEN}/recomp_funcs.h ${RECOMP_GEN}/recomp_externs.h ${GAME_C})
@@ -579,7 +579,8 @@ if(PORT_MOVABLE)
         list(APPEND DATA_LL ${GEN}/data_ll/${d})
     endforeach()
     file(MAKE_DIRECTORY ${GEN}/data_ll)
-    set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt -port-arena-header=${GEN}/arena_syms.h)
+    set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt -port-arena-header=${GEN}/arena_syms.h
+        -port-arena-fn-values=${GEN}/fn_values.txt)
     if(PORT_NATIVE_ENDIAN)
         list(APPEND ARENA_FLAGS -port-arena-native)
     endif()
@@ -593,6 +594,7 @@ if(PORT_MOVABLE)
         COMMAND ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
         DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
+                ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
     set(N64_OBJECTS ${GEN}/n64.o)
