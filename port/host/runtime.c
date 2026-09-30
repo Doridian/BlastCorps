@@ -142,6 +142,28 @@ void *port_fn(uint32_t addr) {
     return __port_fns[lo].fn;
 }
 
+/* -port-arena-typed-calls (WebAssembly): the function at addr as the type
+   the call has, its thunk if that isn't its own (bepass/Arena.cpp);
+   sorted by address, then type */
+struct port_fn_typed_entry { uint32_t addr, type; void *fn; };
+extern const struct port_fn_typed_entry __port_fns_typed[];
+extern const uint32_t __port_fns_typed_n;
+
+void *port_fn_typed(uint32_t addr, uint32_t type) {
+    uint32_t lo = 0, hi = __port_fns_typed_n;
+    while (lo < hi) {
+        uint32_t mid = (lo + hi) / 2;
+        const struct port_fn_typed_entry *e = &__port_fns_typed[mid];
+        if (e->addr < addr || (e->addr == addr && e->type < type))
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    if (lo == __port_fns_typed_n || __port_fns_typed[lo].addr != addr || __port_fns_typed[lo].type != type)
+        host_fatal("a call through %08X (type %u), which is no function's", addr, type);
+    return __port_fns_typed[lo].fn;
+}
+
 /* port-arena: a local whose address escapes, on a stack that isn't in the
    arena (not a fiber's) */
 void port_arena_bad_local(uintptr_t p) {

@@ -70,6 +70,8 @@ using namespace llvm;
 static cl::opt<std::string> SymsFile("port-arena-syms", cl::desc("gen_syms.py table: name address kind"));
 static cl::opt<std::string> HostNames("port-arena-host", cl::desc("N64-side variables the host names (comma list)"));
 static cl::opt<bool> Native("port-arena-native", cl::desc("the native-endian build's byte order"));
+static cl::opt<bool> TypedCalls("port-arena-typed-calls",
+                                cl::desc("a call through a value goes to a thunk of the call's type (WebAssembly)"));
 static cl::opt<std::string> SymsHeader("port-arena-header",
                                        cl::desc("where the moved variables went, as a header (SYM_, PORT_N64_)"));
 
@@ -737,28 +739,104 @@ struct Arena : PassInfoMixin<Arena> {
         PointerType *ptr = PointerType::get(*C, 0);
         Type *i32 = Type::getInt32Ty(*C);
         FunctionCallee lookup = M->getOrInsertFunction("port_fn", FunctionType::get(ptr, {i32}, false));
+        FunctionCallee typed = M->getOrInsertFunction("port_fn_typed", FunctionType::get(ptr, {i32, i32}, false));
         for (CallBase *cb : cs) {
             IRBuilder<> b(cb);
             Value *v = cb->getCalledOperand();
             if (v->getType()->getPointerAddressSpace())
                 v = b.CreateAddrSpaceCast(v, ptr);
             Value *a = b.CreateTrunc(b.CreatePtrToInt(v, IP), i32);
-            cb->setCalledOperand(b.CreateCall(lookup, {a}));
+            if (TypedCalls)
+                cb->setCalledOperand(
+                    b.CreateCall(typed, {a, ConstantInt::get(i32, sigIndex.at(cb->getFunctionType()))}));
+            else
+                cb->setCalledOperand(b.CreateCall(lookup, {a}));
             indirect++;
         }
+    }
+
+    /* -port-arena-typed-calls: WebAssembly can't call a function through
+       another type than its own, and the decompiled C calls through values
+       of other types than the callees' (a thread entry defined without its
+       argument, a handler's K&R declaration).  So each function used as a
+       value gets a thunk for every type it is called through, which calls
+       it as callFix makes a direct call; port_fn_typed(address, type) picks
+       it.  Type 0 is the host's, void(ptr) (a thread's entry, threads.c):
+       port_fn's table has those. */
+    std::vector<FunctionType *> sigs;
+    std::map<FunctionType *, unsigned> sigIndex;
+    unsigned thunks = 0;
+
+    unsigned sigOf(FunctionType *t) {
+        auto it = sigIndex.find(t);
+        if (it != sigIndex.end())
+            return it->second;
+        sigIndex[t] = sigs.size();
+        sigs.push_back(t);
+        return sigs.size() - 1;
+    }
+
+    void collectSigs() {
+        sigOf(FunctionType::get(Type::getVoidTy(*C), {PointerType::get(*C, 0)}, false));
+        for (Function &f : *M)
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb)
+                    if (auto *cb = dyn_cast<CallBase>(&i))
+                        if (!cb->isInlineAsm() && !isa<Function>(cb->getCalledOperand()->stripPointerCasts()))
+                            sigOf(cb->getFunctionType());
+    }
+
+    Function *thunk(Function *f, unsigned s) {
+        FunctionType *t = sigs[s], *ft = f->getFunctionType();
+        if (t == ft)
+            return f;
+        Function *th = Function::Create(t, GlobalValue::InternalLinkage, f->getName() + ".as" + Twine(s), M);
+        IRBuilder<> b(BasicBlock::Create(*C, "", th));
+        std::vector<Value *> args;
+        for (unsigned a = 0; a < ft->getNumParams(); a++)
+            args.push_back(a < t->getNumParams() ? conv(b, th->getArg(a), ft->getParamType(a), false)
+                                                 : Constant::getNullValue(ft->getParamType(a)));
+        if (ft->isVarArg())
+            for (unsigned a = ft->getNumParams(); a < t->getNumParams(); a++)
+                args.push_back(th->getArg(a));
+        CallInst *n = b.CreateCall(ft, f, args);
+        n->setCallingConv(f->getCallingConv());
+        n->setAttributes(f->getAttributes());
+        if (t->getReturnType()->isVoidTy())
+            b.CreateRetVoid();
+        else if (ft->getReturnType()->isVoidTy())
+            b.CreateRet(Constant::getNullValue(t->getReturnType()));
+        else
+            b.CreateRet(conv(b, n, t->getReturnType(), f->getAttributes().hasRetAttr(Attribute::SExt)));
+        thunks++;
+        return th;
     }
 
     void writeFns() {
         Type *i32 = Type::getInt32Ty(*C);
         PointerType *ptr = PointerType::get(*C, 0);
         StructType *st = StructType::get(*C, {i32, ptr});
-        std::vector<Constant *> rows;
-        for (auto &f : fns)
-            rows.push_back(ConstantStruct::get(st, {ConstantInt::get(i32, f.first), f.second}));
+        StructType *tst = StructType::get(*C, {i32, i32, ptr});
+        std::vector<Constant *> rows, trows;
+        if (TypedCalls)
+            collectSigs();
+        for (auto &f : fns) {
+            Constant *a = ConstantInt::get(i32, f.first);
+            rows.push_back(ConstantStruct::get(st, {a, TypedCalls ? thunk(f.second, 0) : f.second}));
+            if (TypedCalls)
+                for (unsigned s = 0; s < sigs.size(); s++)
+                    trows.push_back(ConstantStruct::get(tst, {a, ConstantInt::get(i32, s), thunk(f.second, s)}));
+        }
         ArrayType *at = ArrayType::get(st, rows.size());
         new GlobalVariable(*M, at, true, GlobalValue::ExternalLinkage, ConstantArray::get(at, rows), "__port_fns");
         new GlobalVariable(*M, i32, true, GlobalValue::ExternalLinkage, ConstantInt::get(i32, rows.size()),
                            "__port_fns_n");
+        /* (sorted by address, then type, as fns is) */
+        ArrayType *tat = ArrayType::get(tst, trows.size());
+        new GlobalVariable(*M, tat, true, GlobalValue::ExternalLinkage, ConstantArray::get(tat, trows),
+                           "__port_fns_typed");
+        new GlobalVariable(*M, i32, true, GlobalValue::ExternalLinkage, ConstantInt::get(i32, trows.size()),
+                           "__port_fns_typed_n");
     }
 
     /* the replay's hooks (port/src/replay_hooks.c) are told who called */
@@ -946,7 +1024,8 @@ struct Arena : PassInfoMixin<Arena> {
                    << format_hex(extraEnd, 8) << ", "
                    << relocs.size() << " relocations; " << rewritten << " accesses (" << hostArgs
                    << " host arguments), " << escaped << " escaping locals; " << fns.size()
-                   << " functions as values, " << indirect << " calls through one; " << fixedCalls
+                   << " functions as values, " << indirect << " calls through one (" << sigs.size()
+                   << " types, " << thunks << " thunks); " << fixedCalls
                    << " calls made with their callee's type (" << voidResults << " void results used, "
                    << unfixable << " arguments lost)\n";
         return PreservedAnalyses::none();
