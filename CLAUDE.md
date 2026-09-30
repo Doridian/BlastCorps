@@ -67,7 +67,10 @@ throughout); jp's remaining `GLOBAL_ASM` functions are translated by
 
 `-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
 64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with
-`port/tools/build_cmp.py` and `layout_cmp.py`.
+`port/tools/build_cmp.py` and `layout_cmp.py`.  `-DPORT_MOVABLE=ON` (with
+any of them) moves RDRAM off `0x80000000`, the first step toward game
+memory at any base for macOS and WebAssembly (docs/PORT.md, "Movable
+memory").
 
 Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A pointer
 the handwritten code, the asm data or the ROM's data share with the C is
