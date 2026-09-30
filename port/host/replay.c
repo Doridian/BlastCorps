@@ -783,7 +783,7 @@ int host_replay_save_due(int sync) {
        receive; this one, waking every millisecond, can. */
     if (si_waiting)
         return 0;
-    if (host_receiving((uint32_t)(uintptr_t)D_80370BF8)) {
+    if (host_receiving(PORT_ADDR(D_80370BF8))) {
         if (saves_held_si++ < 5 || host_verbose)
             host_log("replay: the save thread's command %u waits for the game's pad read (the log's read %d)\n",
                      saves, matched + 1);

@@ -19,7 +19,7 @@
 #include "port.h"
 
 typedef unsigned int port_size_t;
-#ifndef PORT_64BIT
+#if !defined(PORT_64BIT) && !defined(PORT_MOVABLE)
 extern int vsprintf(char *, const char *, va_list);
 extern void *memmove(void *, const void *, port_size_t);
 extern void *memset(void *, int, port_size_t);

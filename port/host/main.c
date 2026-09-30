@@ -347,7 +347,7 @@ static void on_crash(int sig, siginfo_t *si, void *uc) {
 
 extern void port_boot(void);
 extern void port_fixups(void);
-extern void port_move_rdram(void);   /* runtime.c, PORT_MOVABLE */
+extern void port_arena_init(void);   /* runtime.c, PORT_MOVABLE */
 
 static void usage(const char *argv0) {
     fprintf(stderr,
@@ -467,9 +467,10 @@ int main(int argc, char **argv) {
 #endif
     fiber_init();
     load_rom(rom_path);
-    port_fixups();
 #ifdef PORT_MOVABLE
-    port_move_rdram();
+    port_arena_init();
+#else
+    port_fixups();
 #endif
     host_video_init();
 

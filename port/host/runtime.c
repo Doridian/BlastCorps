@@ -67,15 +67,23 @@ void *host_thread_stack(int idx, uint32_t *size) {
 #ifdef PORT_MOVABLE
 #include <sys/mman.h>
 
-uint8_t *port_arena = (uint8_t *)(uintptr_t)PORT_RDRAM_BASE;
+uint8_t *port_arena;
 
-/* RDRAM moves from the image's .rdram section to memory of the host's
-   choosing, at an offset into its page (PORT_ARENA_OFFSET, default 0x5670)
-   so that nothing can rely on its alignment beyond 16 bytes; the old
-   place is then made inaccessible, so anything that still reaches RDRAM
-   at 0x80000000 faults there.  The fibers' stacks are in the same
-   reservation, where their N64 addresses (PORT_STACK_BASE) put them. */
-void port_move_rdram(void) {
+/* what the arena link (bepass/Arena.cpp) wrote: the initial contents, in
+   runs, and the words it left to startup (a function's address, the host's
+   data) */
+struct arena_run { uint32_t off, len; const uint8_t *data; };
+struct arena_reloc { uint32_t off, width; const uint8_t *target; int64_t addend; };
+extern const struct arena_run __port_arena_runs[];
+extern const uint32_t __port_arena_runs_n;
+extern const struct arena_reloc __port_arena_relocs[];
+extern const uint32_t __port_arena_relocs_n;
+extern const uint32_t __port_arena_data_end;
+
+/* The arena: memory of the host's choosing, at an offset into its page
+   (PORT_ARENA_OFFSET, default 0x5670) so that nothing can rely on its
+   alignment beyond 16 bytes, filled as the arena link says. */
+void port_arena_init(void) {
     const char *o = getenv("PORT_ARENA_OFFSET");
     uintptr_t off = o ? strtoul(o, NULL, 0) : 0x5670;
     size_t len = PORT_ARENA_SIZE + ((off + 0xFFFF) & ~(uintptr_t)0xFFFF);
@@ -83,12 +91,34 @@ void port_move_rdram(void) {
     if (m == MAP_FAILED)
         host_fatal("can't map the arena");
     uint8_t *a = m + off;
-    memcpy(a, (void *)(uintptr_t)PORT_RDRAM_BASE, PORT_ARENA_SPAN);
-    if (mprotect((void *)(uintptr_t)PORT_RDRAM_BASE, PORT_ARENA_SPAN, PROT_NONE))
-        host_fatal("can't protect the old RDRAM");
+    if (__port_arena_data_end > PORT_ARENA_STACKS)
+        host_fatal("the arena's data runs into its stacks");
+    for (uint32_t i = 0; i < __port_arena_runs_n; i++)
+        memcpy(a + __port_arena_runs[i].off, __port_arena_runs[i].data, __port_arena_runs[i].len);
+    for (uint32_t i = 0; i < __port_arena_relocs_n; i++) {
+        const struct arena_reloc *r = &__port_arena_relocs[i];
+        uint64_t v = (uint64_t)(uintptr_t)r->target + (uint64_t)r->addend;
+        if (r->width == 4) {
+            if (v >> 32)
+                host_fatal("a 32-bit word of the arena can't hold %p", (void *)r->target);
+#ifdef PORT_NATIVE_ENDIAN
+            port_wg32(a + r->off, (uint32_t)v);
+#else
+            port_wbe32(a + r->off, (uint32_t)v);
+#endif
+        } else {
+            host_fatal("a %u-byte word in the arena's relocations", r->width);
+        }
+    }
     port_arena = a;
     if (host_verbose)
-        host_log("RDRAM moved to %p\n", (void *)a);
+        host_log("the arena at %p (%u relocations)\n", (void *)a, __port_arena_relocs_n);
+}
+
+/* port-arena: a local whose address escapes, on a stack that isn't in the
+   arena (not a fiber's) */
+void port_arena_bad_local(uintptr_t p) {
+    host_fatal("a local of the game's C off the arena's stacks, at %p", (void *)p);
 }
 #endif
 

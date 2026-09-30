@@ -6,7 +6,7 @@
  * sprintf's arguments arrive by the host's varargs convention, which is
  * what the converted callers use.
  */
-#ifdef PORT_64BIT
+#if defined(PORT_64BIT) || defined(PORT_MOVABLE)     /* (the movable build: host code in either width) */
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>

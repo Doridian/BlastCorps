@@ -9,7 +9,11 @@
 /* The translated code reaches memory as rdram + (addr & 0x1FFFFFFF); with
    RDRAM mapped at 0x80000000 and everything else in the KSEG0 window that
    is the address itself. */
+#ifdef PORT_MOVABLE
+#define RDRAM port_arena          /* (the movable build: the arena, port_arena.h) */
+#else
 #define RDRAM ((uint8_t *)(uintptr_t)PORT_RDRAM_BASE)
+#endif
 
 recomp_context *port_ctx(void);
 

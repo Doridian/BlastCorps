@@ -37,7 +37,11 @@ extern "C" {
 #define PORT_HWREG_SIZE 0x00900000u
 /* fiber stacks for the game's threads, inside the KSEG0 window so that the
    address of a local means the same thing to the translated code */
+#ifdef PORT_MOVABLE
+#define PORT_STACK_BASE (0x80000000u | PORT_ARENA_STACKS)   /* in the arena */
+#else
 #define PORT_STACK_BASE 0x90000000u
+#endif
 #define PORT_STACK_SIZE 0x00100000u
 #define PORT_MAX_THREADS 16
 /* thread idx's host stack (runtime.c): at PORT_STACK_BASE, which in the
@@ -50,7 +54,15 @@ static inline void *port_ptr(uint32_t addr) {
     return port_host(addr);
 }
 /* a game variable the host names (extern char D_X[]): where it is */
+#ifdef PORT_MOVABLE
+/* (the game's variables aren't symbols of the host's link: by their N64
+   addresses, gen_syms.py table's header) */
+#define PORT_VAR(sym) ((char *)port_ptr(PORT_N64_##sym))
+#define PORT_ADDR(sym) PORT_N64_##sym
+#else
 #define PORT_VAR(sym) ((char *)port_ptr((uint32_t)(uintptr_t)(sym)))
+#define PORT_ADDR(sym) ((uint32_t)(uintptr_t)(sym))
+#endif
 
 #ifdef PORT_ACCESS_PROFILE
 /* host/access.c: the access-width profiler */
@@ -138,9 +150,7 @@ static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((c
 extern char _end[];
 static inline int port_in_rdram(const void *p) {
 #ifdef PORT_MOVABLE
-    if ((uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SIZE &&
-        port_arena_moved((uint32_t)((uintptr_t)p - (uintptr_t)port_arena)))
-        return 1;
+    return (uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SIZE;
 #endif
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }

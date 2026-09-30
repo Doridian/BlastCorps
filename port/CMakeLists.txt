@@ -42,6 +42,9 @@ option(PORT_MOVABLE "game memory at a base the host chooses, not at 0x80000000" 
 if(PORT_MOVABLE AND PORT_ACCESS_PROFILE)
     message(FATAL_ERROR "PORT_MOVABLE and PORT_ACCESS_PROFILE don't go together (yet)")
 endif()
+if(PORT_MOVABLE AND PORT_LP64)
+    message(FATAL_ERROR "PORT_MOVABLE doesn't take PORT_LP64 yet (its variables that grew)")
+endif()
 if(PORT_LP64)
     set(PORT_64BIT ON CACHE BOOL "" FORCE)
     set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
@@ -345,9 +348,13 @@ set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
 add_library(recomp OBJECT ${RECOMP_C} ${GEN}/entry.c ${GEN}/externs.c)
 target_include_directories(recomp PRIVATE ${ROOT}/tools/recomp/runtime ${RECOMP_GEN} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(recomp PRIVATE RECOMP_COUNT)
-target_compile_options(recomp PRIVATE ${HOST_FLAGS} -O1 -Wno-unused-label -Wno-unused-variable
-    -include ${GEN}/port_recomp_syms.h)
-add_dependencies(recomp recomp_headers)
+target_compile_options(recomp PRIVATE ${HOST_FLAGS} -O1 -Wno-unused-label -Wno-unused-variable)
+if(NOT PORT_MOVABLE)
+    # SYM() is where the port's link put a name; in the movable build it is
+    # the N64 address, syms_<module>.h's own default
+    target_compile_options(recomp PRIVATE "SHELL:-include ${GEN}/port_recomp_syms.h")
+    add_dependencies(recomp recomp_headers)
+endif()
 
 # ---- host side -----------------------------------------------------------------
 find_package(PkgConfig REQUIRED)
@@ -422,11 +429,27 @@ if(PORT_MOVABLE)
     else()
         set(LLC_RELOC -relocation-model=static)
     endif()
+    # the data files as IR (tools/asm2ll.py), from what asm2x86.py made
+    set(DATA_LL)
+    foreach(s ${DATA_X86})
+        get_filename_component(n ${s} NAME_WE)
+        get_filename_component(d ${s} NAME)
+        string(REGEX REPLACE "\\.s$" ".ll" d ${d})
+        add_custom_command(OUTPUT ${GEN}/data_ll/${d}
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2ll.py ${GEN}/data_ll/${d} ${s} ${GEN}/n64_syms.txt
+            DEPENDS ${s} ${GEN}/n64_syms.txt ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2ll.py)
+        list(APPEND DATA_LL ${GEN}/data_ll/${d})
+    endforeach()
+    file(MAKE_DIRECTORY ${GEN}/data_ll)
+    set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt)
+    if(PORT_NATIVE_ENDIAN)
+        list(APPEND ARENA_FLAGS -port-arena-native)
+    endif()
     add_custom_command(OUTPUT ${GEN}/n64.o
-        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>"
-        COMMAND ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
+        COMMAND ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
-        DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass
+        DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o)
     set(N64_OBJECTS ${GEN}/n64.o)
@@ -455,15 +478,19 @@ add_custom_command(OUTPUT ${GEN}/port_rdram.ld
     COMMAND_EXPAND_LISTS)
 add_custom_target(port_syms DEPENDS ${GEN}/port_syms.ld ${GEN}/port_rdram.ld)
 
-add_executable(blastcorps
-    ${N64_OBJECTS} $<TARGET_OBJECTS:game_data>
-    $<TARGET_OBJECTS:recomp> $<TARGET_OBJECTS:host>)
 if(PORT_MOVABLE)
+    # the data are in the arena link, and nothing is placed by a script
+    add_executable(blastcorps ${N64_OBJECTS} $<TARGET_OBJECTS:recomp> $<TARGET_OBJECTS:host>)
     set_source_files_properties(${GEN}/n64.o PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
     add_dependencies(blastcorps n64_link)
+    set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C)
+else()
+    add_executable(blastcorps
+        ${N64_OBJECTS} $<TARGET_OBJECTS:game_data>
+        $<TARGET_OBJECTS:recomp> $<TARGET_OBJECTS:host>)
+    set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C LINK_DEPENDS "${GEN}/port_syms.ld;${GEN}/port_rdram.ld")
+    add_dependencies(blastcorps port_syms)
 endif()
-set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C LINK_DEPENDS "${GEN}/port_syms.ld;${GEN}/port_rdram.ld")
-add_dependencies(blastcorps port_syms)
 if(PORT_ACCESS_PROFILE)
     target_compile_definitions(host PRIVATE PORT_ACCESS_PROFILE)
     target_compile_definitions(recomp PRIVATE PORT_ACCESS_PROFILE RECOMP_ACCESS)
@@ -478,8 +505,10 @@ if(PORT_64BIT)
 else()
     target_link_options(blastcorps PRIVATE -m32 -no-pie)
 endif()
-target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
-    -Wl,${GEN}/port_fixed.ld)
+target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000)
+if(NOT PORT_MOVABLE)
+    target_link_options(blastcorps PRIVATE -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld -Wl,${GEN}/port_fixed.ld)
+endif()
 # (in the movable build the N64 side's own calls are wrapped already, but
 # the glue's aren't: externs.c calls the inflate)
 foreach(w ${PORT_WRAPS})
@@ -522,9 +551,18 @@ if(PORT_MOVABLE)
     target_compile_definitions(host PRIVATE PORT_MOVABLE)
     target_compile_definitions(recomp PRIVATE PORT_MOVABLE)
     target_compile_options(recomp PRIVATE "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/include/port_arena.h")
+    # the names of the version's N64 link (port-arena, asm2ll.py) and their
+    # addresses for the host's code (PORT_VAR)
+    add_custom_command(OUTPUT ${GEN}/n64_syms.txt ${GEN}/n64_syms.h
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py table ${GEN}/n64_syms.txt
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${BLAST}/build/hd_code.${PORT_VERSION}.elf
+                ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf ${BLAST}/build/init.${PORT_VERSION}.elf)
+    add_custom_target(n64_syms DEPENDS ${GEN}/n64_syms.txt ${GEN}/n64_syms.h)
+    add_dependencies(host n64_syms)
+    target_compile_options(host PRIVATE "SHELL:-include ${GEN}/n64_syms.h")
     message(STATUS "movable memory")
+else()
+    # every game variable where the N64 has it?
+    add_custom_command(TARGET blastcorps POST_BUILD
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py check $<TARGET_FILE:blastcorps>)
 endif()
-
-# every game variable where the N64 has it?
-add_custom_command(TARGET blastcorps POST_BUILD
-    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py check $<TARGET_FILE:blastcorps>)
