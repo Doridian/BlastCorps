@@ -1733,6 +1733,8 @@ static double now_ms(void) {
    the holds of the last two frames (the shorter: a frame held longer than
    its twins were made for shows the frame for the rest, which looks better
    than one held shorter, which never gets to it) */
+static int twins_used;          /* the last frame's choice */
+
 static int twins_max(void) {
     static int max = -1;
     if (max < 0) {
@@ -1751,7 +1753,12 @@ static void choose_twins(void) {
     int k = (int)lround((double)d * hz / 60) - 1;
     frame_d = d;
     frame_k = k < 1 ? 1 : k > twins_max() ? twins_max() : k;
+    if (frame_k > host_interp_limit)        /* the host can't keep up (main.c) */
+        frame_k = host_interp_limit;
+    twins_used = frame_k;
 }
+
+int gfx_interp_twins_used(void) { return twins_used; }
 
 static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     (void)ucode;
@@ -1779,7 +1786,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
             ifr[0] = calloc(1, sizeof *ifr[0]);
             ifr[1] = calloc(1, sizeof *ifr[1]);
         }
-        between = host_frame_held() && !host_interp_suspended;
+        between = host_frame_held() && host_interp_limit > 0;
         if (!between)
             iframe_partial = 1;
         else if (frame_k < 0)

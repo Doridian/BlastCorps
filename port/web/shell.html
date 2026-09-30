@@ -117,6 +117,10 @@
       s = Math.max(1, Math.min(s, Math.floor(Math.sqrt(1.3e6 / (cols * 240)))));
       args.push('--scale', String(s));
     }
+    /* --display-hz auto: the display's rate, as the animation frames have it
+       (measured before starting: SDL can't tell in a browser) */
+    var dh = args.indexOf('--display-hz');
+    if (dh >= 0 && args[dh + 1] === 'auto' && displayHz) args[dh + 1] = String(displayHz);
     args.push(ROM);
     status('Running. Click the picture for the keyboard.');
     Module.canvas.focus();
@@ -124,6 +128,19 @@
     fit();
   }
   document.getElementById('play').onclick = start;
+  /* the display's rate: the median of 60 animation frames' spacing */
+  var displayHz = 0;
+  (function () {
+    var t = [], last = 0;
+    function f(ts) {
+      if (last) t.push(ts - last);
+      last = ts;
+      if (t.length < 60) { requestAnimationFrame(f); return; }
+      t.sort(function (a, b) { return a - b; });
+      displayHz = Math.round(1000 / t[30]);
+    }
+    requestAnimationFrame(f);
+  })();
   document.getElementById('rom').onchange = function (e) {
     var f = e.target.files[0];
     if (!f || !ready) return;

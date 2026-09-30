@@ -371,12 +371,13 @@ static void paced_breathe(void) {
 #endif
 }
 
-/* PORT_PACED: the retrace at virtual v is next: wait for real time (and the
-   display) to get there */
-static void paced_wait(uint64_t v, uint64_t period) {
+/* PORT_PACED: the retrace (or with --display-hz, the display's tick: lock
+   0) at virtual v is next: wait for real time (and the display) to get
+   there */
+static void paced_wait(uint64_t v, uint64_t period, int lock) {
     const double pms = period / 1e6;
     double deadline = v / 1e6 + real_off_ms, t = real_ms();
-    if (t > deadline + 4 * pms) {                   /* fell behind: don't catch up */
+    if (lock && t > deadline + 4 * pms) {           /* fell behind: don't catch up */
         real_off_ms = t - v / 1e6;
         host_paced_resyncs++;
         deadline = t;
@@ -389,7 +390,7 @@ static void paced_wait(uint64_t v, uint64_t period) {
         double at = wait_display(base + deadline, early) - base;
         /* follow the display: retraces drift towards the frames that show
            them, a little at a time (a 59.94 Hz display, or one at 120) */
-        double err = at - deadline, adj = err * 0.05;
+        double err = at - deadline, adj = lock ? err * 0.05 : 0;
         if (adj > 0.2) adj = 0.2;
         if (adj < -0.2) adj = -0.2;
         real_off_ms += adj;
@@ -411,13 +412,16 @@ static void paced_wait(uint64_t v, uint64_t period) {
 
 /* PORT_ADAPT=1 (the page's default; gfx_gl.c follows the GPU with the
    resolution): when more than 5% of the retraces of a two-second window
-   came over 2 ms late, the host isn't keeping up, and the in-between
-   pictures of --interpolate go first (they cost as much as the frames'
-   own): gfx.c skips them for a while, 20 s at first and twice as long each
-   time they had to go again within 30 s of coming back (up to 10 min).
-   Late retraces while the GPU is behind don't count: those are the
-   resolution's to fix.  The game never waits for them either way. */
-int host_interp_suspended;
+   came over 2 ms late, the host isn't keeping up, and --interpolate's
+   in-between images go first (each costs about what the frame's own pass
+   does): half of them at a time (7, 3, 1, then none: the frame shown for
+   all its retraces), and after a while without late retraces twice as
+   many again.  A step down holds for 20 s at first, twice as long each
+   time it had to be taken again within 30 s of the step back up (up to
+   10 min).  Late retraces while the GPU is behind don't count: those are
+   the resolution's to fix.  The game never waits for the images either
+   way. */
+int host_interp_limit = 99;         /* in-between images a frame, at most (gfx.c) */
 static int adapt_on = -1;
 #ifdef PORT_HAVE_GL
 int gfx_gl_gpu_behind(void);
@@ -427,7 +431,7 @@ static int gfx_gl_gpu_behind(void) { return 0; }
 
 static void lag_account(double late_ms) {
     static int n, late;
-    static double hold = 20000, since, resumed = -1e9;
+    static double hold = 20000, since, raised = -1e9;
     if (adapt_on < 0) {
         const char *e = getenv("PORT_ADAPT");
 #ifdef PORT_WASM_WEB
@@ -442,16 +446,22 @@ static void lag_account(double late_ms) {
     if (++n < 120)
         return;
     double now = real_ms();
-    if (!host_interp_suspended && late * 20 > n) {
-        if (now - resumed < 30000 && hold < 600000)
+    int used = gfx_interp_twins_used();
+    if (used > host_interp_limit)
+        used = host_interp_limit;
+    if (late * 20 > n && used > 0) {
+        if (now - raised < 30000 && hold < 600000)
             hold *= 2;
-        host_interp_suspended = 1;
+        host_interp_limit = used / 2;
         since = now;
-        host_log("pacing: %d of %d retraces late: no in-between pictures for %.0f s\n", late, n, hold / 1e3);
-    } else if (host_interp_suspended && late == 0 && now - since > hold) {
-        host_interp_suspended = 0;
-        resumed = now;
-        host_log("pacing: in-between pictures again\n");
+        host_log("pacing: %d of %d retraces late: at most %d in-between images a frame for %.0f s\n", late, n,
+                 host_interp_limit, hold / 1e3);
+    } else if (host_interp_limit < 99 && late == 0 && now - since > hold) {
+        host_interp_limit = host_interp_limit ? host_interp_limit * 2 + 1 : 1;
+        if (host_interp_limit >= 7)
+            host_interp_limit = 99;
+        raised = since = now;
+        host_log("pacing: at most %d in-between images a frame again\n", host_interp_limit);
     }
     n = late = 0;
 }
@@ -782,12 +792,14 @@ int main(int argc, char **argv) {
             continue;
         }
         if (host_paced) {
-            if (wake < next_vi) {
+            if (wake >= next_vi)
+                paced_wait(next_vi, vi_period, 1);
+            else if (wake == next_disp)             /* --display-hz: a present between retraces, in real time */
+                paced_wait(next_disp, disp_period, 0);
+            else {
                 if (wake > virtual_ns)
                     virtual_ns = wake;
                 paced_breathe();
-            } else {
-                paced_wait(next_vi, vi_period);
             }
             continue;
         }

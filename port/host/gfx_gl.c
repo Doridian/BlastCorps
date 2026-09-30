@@ -937,6 +937,8 @@ static void apply_and_draw(const DrawState *d, int first, int count) {
         p->u.ntex = d->ntex;
     }
     p->uv = 1;
+    if (ipass_gl)                       /* (again: making the twin, target_fbo above, starts it over) */
+        d->target->idrawn |= 1u << (ipass_gl - 1);
     for (int i = 0; i < d->ntex; i++)
         c_tex(i, d->tex[i]);
     glDrawArrays(GL_TRIANGLES, first, count);
