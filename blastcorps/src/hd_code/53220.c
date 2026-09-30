@@ -5,8 +5,8 @@
 #include "game/player.h"
 
 typedef struct {
-    /* 0x0 */ u8 *unk0;
-    /* 0x4 */ u16 *unk4;
+    /* 0x0 */ u8 *PTR32 unk0;         /* (PTR32: jp's func_802979E0, still asm, reads them) */
+    /* 0x4 */ u16 *PTR32 unk4;
 } UnkStruct_802FF188; /* size = 0x8 */
 
 extern u8 D_80364B80[][0x100];

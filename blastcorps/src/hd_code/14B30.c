@@ -19,7 +19,7 @@ void func_80259824(Gfx **arg0, s32 arg1);
 
 /* .bss, 0x80365340-0x80365360 (tools/bss_c.py) */
 UnkStruct_80365340 *D_80365340;
-Vtx *D_80365348[2];
+Vtx *PTR32 D_80365348[2];     /* (PTR32: jp's func_80259EC4, still asm, reads them) */
 s32 D_80365350;
 
 /* .data, 0x802E8C70-0x802E8C80 (tools/data_c.py) */

@@ -9,7 +9,7 @@
 #include "game/player.h"
 
 typedef struct {
-    /* 0x00 */ char *unk0[4];
+    /* 0x00 */ char *PTR32 unk0[4];   /* (PTR32: jp's func_801E8EB8, still asm, reads them) */
 } UnkStruct_80208358; /* size = 0x10 */
 
 typedef struct {
@@ -152,7 +152,7 @@ extern u8 D_80208314[];
 extern u32 D_80208350[];
 extern UnkStruct_80208358 D_80208358;
 extern UnkStruct_80208358 D_80208368;
-extern char *D_80208378[];
+extern char *PTR32 D_80208378[];     /* (PTR32: jp's func_801E8EB8 reads it too) */
 extern Vtx D_80208380[];
 extern Gfx D_80208400[];
 extern Lights2 D_80208448;
@@ -374,7 +374,7 @@ UnkStruct_80208358 D_80208358 = { { (char *)D_8020E770, (char *)D_8020E82C, (cha
 UnkStruct_80208358 D_80208368 = { { D_803043B8, D_80304474, D_80304544, D_80304614 } };
 #ifdef VERSION_JP
 /* jp's are u16 text (0x0FFE-terminated), as are its own below */
-char *D_80208378[2] = { (char *)D_80301044, (char *)D_803043AC };
+char *PTR32 D_80208378[2] = { (char *)D_80301044, (char *)D_803043AC };
 u16 D_802082D0_jp[10] = { 0x1002, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x1002, 0x1003, 0xFFE };
 u16 D_802082E4_jp[10] = { 0x1003, 0x1002, 0x1002, 0x1004, 0x1002, 0x3C, 0x3C, 0x1002, 0xFFE };
 u16 D_802082F8_jp[10] = { 0x1003, 0x1002, 0x1002, 0x1004, 0x1002, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
@@ -385,7 +385,7 @@ u16 D_80208330_jp[8] = { 4, 0x1002, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
 u16 D_80208340_jp[4] = { 0x1002, 3, 0xFFE };
 u16 D_80208348_jp[8] = { 0x1002, 0x3C, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
 #else
-char *D_80208378[2] = { (char *)D_8020E764, (char *)D_8020E768 };
+char *PTR32 D_80208378[2] = { (char *)D_8020E764, (char *)D_8020E768 };
 #endif
 extern Vtx D_80208380[8];
 #ifdef ASSET_INIT
