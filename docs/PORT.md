@@ -2005,7 +2005,9 @@ showed 125,338 new frames of the game's and 126,742 in-between images,
 blended 91% of the vertex loads and moved 6,938 of 1,042,139 rectangles
 (5 moved too far).  114,536 frames had one twin, 5,418 two and 462
 three; 6,525 frames were held longer than their twins were made for and
-1,084 shorter.  With the option off, the default software renderer's
+1,084 shorter.  The software renderer's replay with `--interpolate
+--widescreen` is the same: every read matched, the reference save, the
+same counts.  With the option off, the default software renderer's
 replay is exactly what it was before the option existed: a
 byte-identical log and save.
 
