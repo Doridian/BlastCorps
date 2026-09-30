@@ -23,7 +23,7 @@ import sys
 STAGE3_PREFIXES = ("-O", "-g", "-fdata-sections", "-ffunction-sections", "-ffp-contract", "-fpass-plugin",
                    "-fno-builtin", "-fPIE", "-fPIC", "-fpie", "-fpic", "-fno-pic", "-fno-pie",
                    "-fno-omit-frame-pointer", "-fomit-frame-pointer", "-fsanitize",
-                   "-fno-vectorize", "-fno-slp-vectorize")
+                   "-fno-vectorize", "-fno-slp-vectorize", "-emit-llvm")
 
 
 def main():

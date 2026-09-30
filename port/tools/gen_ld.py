@@ -128,7 +128,10 @@ def script(out, objects):
         # rest, and the game writes into some ("0 OF THE OTHERS", 53220.c)
         f.write("/* the game's other .rodata, writable as on the N64 */\n")
         f.write("SECTIONS\n{\n")
-        f.write("  .n64_rodata : { *src/hd_code/*(.rodata .rodata.*) *src/hd_front_end/*(.rodata .rodata.*) }\n")
+        # (the movable build's arena link has the N64 side in one object)
+        merged = "".join(f" *gen/{os.path.basename(o)}(.rodata .rodata.*)" for o in objs if o.endswith("/n64.o"))
+        f.write("  .n64_rodata : { *src/hd_code/*(.rodata .rodata.*) *src/hd_front_end/*(.rodata .rodata.*)"
+                + merged + " }\n")
         f.write("}\nINSERT AFTER .data;\n")
     print(f"gen_ld.py: {len(place)} sections placed" + (f", {len(moved)} moved (bigger than on the N64)" if LP64 else ""))
 

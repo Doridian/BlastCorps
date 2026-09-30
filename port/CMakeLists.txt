@@ -150,8 +150,13 @@ endif()
 if(PORT_LP64)
     list(APPEND N64_LAUNCHER BEPASS_LP64=1)
 endif()
+# the functions the link wraps (the replay's hooks, the overlay, the loaders)
+set(PORT_WRAPS func_8028B3E0 func_802D4E10 alCSeqGetLoc func_8025C230 func_8028B4C4 __osContDataCrc)
 if(PORT_MOVABLE)
-    list(APPEND N64_LAUNCHER BEPASS_ARENA=1)
+    # the N64 side is linked into one module (the arena link, below), so
+    # --wrap is done per file by the plugin
+    string(REPLACE ";" "," PORT_WRAPS_LIST "${PORT_WRAPS}")
+    list(APPEND N64_LAUNCHER BEPASS_WRAP=${PORT_WRAPS_LIST})
 endif()
 if(N64_LAUNCHER)
     list(PREPEND N64_LAUNCHER env)
@@ -239,6 +244,9 @@ set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fno-strict-aliasing -fwrapv -fno-delete-
     -Wno-implicit-const-int-float-conversion -Wno-pointer-bool-conversion
     -Wno-string-plus-int -Wno-null-pointer-arithmetic -Wno-gnu-folding-constant
     -Wno-macro-redefined)
+if(PORT_MOVABLE)
+    list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link
+endif()
 
 add_library(game_c OBJECT ${GAME_C})
 target_compile_options(game_c PRIVATE -fdata-sections)
@@ -260,7 +268,12 @@ target_compile_options(port_n64 PRIVATE ${N64_FLAGS} -Wno-implicit-function-decl
 target_compile_definitions(port_n64 PRIVATE PORT_FE_DATA=${PORT_FE_DATA} PORT_FE_BSS=${PORT_FE_BSS})
 add_dependencies(port_n64 BEPass)
 set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
-if(N64_LAUNCHER)
+if(PORT_MOVABLE)
+    # (the port's own data: not at N64 addresses, as in the other builds)
+    set(PORT_N64_LAUNCHER ${N64_LAUNCHER})
+    list(INSERT PORT_N64_LAUNCHER 1 BEPASS_PORT_SRC=1)
+    set_target_properties(port_n64 PROPERTIES C_COMPILER_LAUNCHER "${PORT_N64_LAUNCHER}")
+elseif(N64_LAUNCHER)
     set_target_properties(port_n64 PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
 
@@ -395,26 +408,60 @@ else()
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3")
 endif()
 
+# ---- the arena link (PORT_MOVABLE) -------------------------------------------
+# The N64 side's bitcode as one module, through port-arena (bepass/Arena.cpp,
+# docs/PORT.md "Movable memory"), to one object.  Otherwise the objects as
+# they are.
+if(PORT_MOVABLE)
+    get_filename_component(LLVM_BINDIR_HINT ${LLVM_CONFIG} DIRECTORY)
+    find_program(LLVM_OPT opt HINTS ${LLVM_BINDIR_HINT} REQUIRED)
+    find_program(LLVM_LINK llvm-link HINTS ${LLVM_BINDIR_HINT} REQUIRED)
+    find_program(LLVM_LLC llc HINTS ${LLVM_BINDIR_HINT} REQUIRED)
+    if(PORT_64BIT)
+        set(LLC_RELOC -relocation-model=pic)
+    else()
+        set(LLC_RELOC -relocation-model=static)
+    endif()
+    add_custom_command(OUTPUT ${GEN}/n64.o
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>"
+        COMMAND ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
+        COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
+        DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass
+        COMMAND_EXPAND_LISTS)
+    add_custom_target(n64_link DEPENDS ${GEN}/n64.o)
+    set(N64_OBJECTS ${GEN}/n64.o)
+    set(GAME_OBJECTS ${GEN}/n64.o)
+    set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)
+else()
+    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64>)
+    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c>)
+    set(N64_OBJECTS_DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c>)
+endif()
+
 # ---- link ----------------------------------------------------------------------
 # The port's image sits right above the 4 MB of RDRAM (port.h).
 add_custom_command(OUTPUT ${GEN}/port_syms.ld
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py script ${GEN}/port_syms.ld
-            "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" "$<TARGET_OBJECTS:game_data>"
+            "${N64_OBJECTS}" "$<TARGET_OBJECTS:game_data>"
             "$<TARGET_OBJECTS:recomp>" "$<TARGET_OBJECTS:host>"
-    DEPENDS game_c port_n64 game_data recomp host $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:game_data>
+    DEPENDS ${N64_OBJECTS_DEPENDS} game_data recomp host $<TARGET_OBJECTS:game_data>
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py
     COMMAND_EXPAND_LISTS)
 add_custom_command(OUTPUT ${GEN}/port_rdram.ld
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py script ${GEN}/port_rdram.ld
-            "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:game_data>"
-    DEPENDS game_c game_data $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:game_data>
+            "${GAME_OBJECTS}" "$<TARGET_OBJECTS:game_data>"
+    DEPENDS ${N64_OBJECTS_DEPENDS} game_data $<TARGET_OBJECTS:game_data>
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py
     COMMAND_EXPAND_LISTS)
 add_custom_target(port_syms DEPENDS ${GEN}/port_syms.ld ${GEN}/port_rdram.ld)
 
 add_executable(blastcorps
-    $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> $<TARGET_OBJECTS:game_data>
+    ${N64_OBJECTS} $<TARGET_OBJECTS:game_data>
     $<TARGET_OBJECTS:recomp> $<TARGET_OBJECTS:host>)
+if(PORT_MOVABLE)
+    set_source_files_properties(${GEN}/n64.o PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+    add_dependencies(blastcorps n64_link)
+endif()
 set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C LINK_DEPENDS "${GEN}/port_syms.ld;${GEN}/port_rdram.ld")
 add_dependencies(blastcorps port_syms)
 if(PORT_ACCESS_PROFILE)
@@ -431,8 +478,13 @@ if(PORT_64BIT)
 else()
     target_link_options(blastcorps PRIVATE -m32 -no-pie)
 endif()
-target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,--wrap=func_8028B3E0 -Wl,--wrap=func_802D4E10 -Wl,--wrap=alCSeqGetLoc -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
+target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000 -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld
     -Wl,${GEN}/port_fixed.ld)
+# (in the movable build the N64 side's own calls are wrapped already, but
+# the glue's aren't: externs.c calls the inflate)
+foreach(w ${PORT_WRAPS})
+    target_link_options(blastcorps PRIVATE -Wl,--wrap=${w})
+endforeach()
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} Threads::Threads m)
 
 # ---- the loaders (host/native.c, src/loads.c) ---------------------------------
@@ -445,7 +497,6 @@ add_custom_command(OUTPUT ${GEN}/romtab.h
 add_custom_target(romtab DEPENDS ${GEN}/romtab.h)
 add_dependencies(host romtab)
 target_include_directories(host PRIVATE ${GEN})
-target_link_options(blastcorps PRIVATE -Wl,--wrap=func_8025C230 -Wl,--wrap=func_8028B4C4 -Wl,--wrap=__osContDataCrc)
 
 # ---- diagnostics: the translated code traps on an address the port doesn't map
 option(PORT_EA_GUARD "the translated code checks every address it accesses" OFF)

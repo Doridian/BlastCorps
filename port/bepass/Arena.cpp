@@ -51,6 +51,8 @@ static const uint64_t STACKS = 0x10000000u, STACKS_SPAN = 0x01000000u;
 struct Arena : PassInfoMixin<Arena> {
     static bool isRequired() { return true; }
 
+    bool force = false;         /* opt -passes=port-arena: the whole program */
+
     Module *M = nullptr;
     GlobalVariable *base = nullptr;
     unsigned rewritten = 0, hostArgs = 0;
@@ -185,7 +187,8 @@ struct Arena : PassInfoMixin<Arena> {
                     if (isa<IntrinsicInst>(cb) || cb->isInlineAsm())
                         continue;
                     Function *callee = cb->getCalledFunction();
-                    if (!callee || !callee->isDeclaration() || !hostCallee(callee->getName()))
+                    if (!callee || !callee->isDeclaration() || !hostCallee(callee->getName()) ||
+                        callee->isIntrinsic())
                         continue;
                     for (unsigned a = 0; a < cb->arg_size(); a++)
                         if (cb->getArgOperand(a)->getType()->isPointerTy() && !cb->paramHasAttr(a, Attribute::ByVal)) {
@@ -248,7 +251,7 @@ struct Arena : PassInfoMixin<Arena> {
 
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
         const char *on = getenv("BEPASS_ARENA");
-        if (!on || *on != '1')
+        if (!force && (!on || *on != '1'))
             return PreservedAnalyses::all();
         M = &m;
         PointerType *ptr = PointerType::get(m.getContext(), 0);
@@ -266,9 +269,64 @@ struct Arena : PassInfoMixin<Arena> {
     }
 };
 
+/* --wrap, as GNU ld does it, per file (BEPASS_WRAP=a,b,...): in a file that
+   calls X without defining it the calls go to __wrap_X, and __real_X is X.
+   The arena link (PORT_MOVABLE) puts the N64 side into one module, where
+   the linker's --wrap would no longer see the calls. */
+struct Wrap : PassInfoMixin<Wrap> {
+    static bool isRequired() { return true; }
+
+    PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
+        /* BEPASS_PORT_SRC=1 (port/src): the port's own data, placed by the
+           host linker whatever its name (gen_ld.py places only the game's) */
+        const char *ps = getenv("BEPASS_PORT_SRC");
+        if (ps && *ps == '1')
+            for (GlobalVariable &g : m.globals())
+                if (g.hasInitializer() && !g.hasSection() && !g.getName().starts_with("llvm."))
+                    g.setSection((g.getInitializer()->isNullValue() ? ".bss.port." : ".data.port.") +
+                                 g.getName().str());
+        const char *list = getenv("BEPASS_WRAP");
+        if (!list || !*list)
+            return PreservedAnalyses::all();
+        SmallVector<StringRef, 8> names;
+        StringRef(list).split(names, ',', -1, false);
+        for (StringRef n : names) {
+            Function *f = m.getFunction(n);
+            if (f && f->isDeclaration()) {
+                std::string w = ("__wrap_" + n).str();
+                if (Function *wf = m.getFunction(w)) {
+                    f->replaceAllUsesWith(wf);
+                    f->eraseFromParent();
+                } else {
+                    f->setName(w);
+                }
+            }
+            if (Function *r = m.getFunction(("__real_" + n).str())) {
+                if (Function *real = m.getFunction(n)) {
+                    r->replaceAllUsesWith(real);
+                    r->eraseFromParent();
+                } else {
+                    r->setName(n);
+                }
+            }
+        }
+        return PreservedAnalyses::none();
+    }
+};
+
 } // namespace
 
 void portRegisterArena(PassBuilder &pb) {
+    pb.registerPipelineStartEPCallback([](ModulePassManager &mpm, OptimizationLevel) { mpm.addPass(Wrap()); });
+    pb.registerPipelineParsingCallback([](StringRef name, ModulePassManager &mpm,
+                                          ArrayRef<PassBuilder::PipelineElement>) {
+        if (name != "port-arena")
+            return false;
+        Arena a;
+        a.force = true;
+        mpm.addPass(std::move(a));
+        return true;
+    });
     pb.registerOptimizerLastEPCallback(
         [](ModulePassManager &mpm, OptimizationLevel, ThinOrFullLTOPhase) { mpm.addPass(Arena()); });
 }
