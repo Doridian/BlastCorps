@@ -30,7 +30,8 @@ memory in host order ("The native-endian build"), and `-DPORT_LP64=ON`
 (both of those and more) compiles the game's C as an ordinary LP64 program
 ("The LP64 build"); `-DPORT_MOVABLE=ON`, with any of them, puts game
 memory wherever the host allocates it and links an ordinary PIE
-("Movable memory"):
+("Movable memory"), which is the build for macOS (untested there: "Other
+hosts", "macOS", and `port/tools/macos_build.sh`):
 
 ```
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
@@ -242,7 +243,8 @@ run here (no AArch64 sysroot).  Linux on AArch64 can link a non-PIE image
 at `0x80000000` (ADRP reaches ±4 GB).  macOS on arm64 can't (executables
 must be PIE); there the game's variables would have to move out of the
 image into the arena, which needs every one of them reached through a
-symbol the port can relocate.
+symbol the port can relocate.  (That is the movable build, "Movable
+memory"; macOS takes it: "Other hosts", "macOS".)
 
 **Alternatives.**  Kept for the record, since each was a candidate:
 
@@ -953,9 +955,16 @@ make one object.  port-arena, over the whole program:
   N64's addresses).
 
 port-wrap, per file (`BEPASS_WRAP`), does the link's `--wrap` for the N64
-side, which is one object now; the link keeps `--wrap` for the glue's own
-calls (`externs.c` calls the inflate).  `port/src`'s data gets sections
-of its own (`BEPASS_PORT_SRC`), which is how the pass knows it.
+side, which is one object now, and the glue calls the `__wrap_`s itself
+(`gen_glue.py --wrap`, CMake's `PORT_WRAPS`: `externs.c` calls the
+inflate), so the movable build links without `--wrap` (ld64 has none; the
+other builds keep it for the N64 side's objects).  `port/src`'s data gets
+sections of its own (`BEPASS_PORT_SRC`), which is how the pass knows it;
+the pass drops every such section (and the asm data's `port.asmdata`) as it
+places the variables, so none reaches `llc`, where Mach-O would want
+`__DATA,__name`.  The asm data's `.ll` files carry the N64 side's triple and
+data layout (CMake asks clang for them with the N64 side's flags), so
+`llvm-link` links them without a warning.
 `PORT_ARENA_STATS=1` makes `opt` print the counts, `PORT_ARENA_MAP=FILE`
 write where each variable went.
 
@@ -1009,18 +1018,8 @@ glue's prototypes against the host's definitions for wasm-ld (the pass
 fixes the N64 side's calls to the glue by the declaration it has, which
 wasm-ld will check against `entry.c`'s).
 
-Then, for **macOS** (arm64, the movable 64-bit build first): CMake for
-Darwin (Homebrew's SDL2 and libepoxy, `-fPIE`), no `-Wl,--wrap` (the
-glue calls the `__wrap_`s itself: `gen_glue.py` knows the list), the
-Linux calls behind `#ifdef __linux__` (`prctl`, `personality`,
-`MAP_FIXED_NOREPLACE`, `/proc/self/exe`, all outside the movable build's
-paths already but for `prctl`), `ucontext` with `_XOPEN_SOURCE` (or the
-pthread backend), no `__start_`/`__stop_` section symbols (`runtime.c`'s
-`port_bswap32`, compiled out in the movable build), and the N64 side's
-triple `arm64-apple-macos` through port-ilp32; the `.ll` data files take
-the module's triple from llvm-link.  Worth checking there: that
-`llc` for Mach-O keeps a variable's `section` names (`.data.port.*`),
-which the pass only reads.
+For **macOS** (arm64) the movable build is all there is; what it took and
+how it was checked without a Mac is under "Other hosts", "macOS".
 
 And for **WebAssembly** (emscripten): step 6 first; the N64 side through
 the system clang and the plugin for `wasm32-unknown-emscripten` (emsdk's
@@ -1189,24 +1188,22 @@ What wasn't portable in the host code, and what became of it:
   `/proc/self/exe`, for a brk heap in the fixed windows) and
   `prctl(PR_SET_TIMERSLACK)` are Linux-only and guarded by `__linux__`;
   `MAP_FIXED_NOREPLACE` is used where it exists, and elsewhere the fixed
-  map is a hint that has to be taken (or the port stops).  The crash
+  map is a hint that has to be taken (or the port stops); the movable
+  build maps nothing fixed and has none of it.  The crash
   handler (`sigaction`, `sigaltstack`, per thread in the pthread backend)
   is POSIX, left out under emscripten.
 - `replay.c` reads its own ELF symbol table from `/proc/self/exe` for the
-  audio answers; elsewhere it asks `dladdr`, which sees exported symbols
-  (on macOS every global of the executable, which the game's functions
-  are).
+  audio answers; elsewhere it would ask `dladdr`.  The movable build does
+  neither: the arena link names the callers (`port_replay_set_caller`).
 - `ucontext` is only used where `swapcontext` links (not macOS, emscripten
   or musl), and the instruction count `__port_icount` is a plain global the
   translated code and BEPass add to: nothing x86-specific (no inline asm,
   `rdtsc` or intrinsics in the host code; `gfx.c` gets `-msse4.1` only on
   x86).
-- Still in the way on macOS, and not in the host code: the fixed map
-  itself (arm64 macOS reserves the low 4 GB as `__PAGEZERO`, and won't map
-  RDRAM at `0x80000000`), the link (GNU ld's `-Ttext-segment`, linker
-  scripts with `INSERT`, `--wrap`, `__start_`/`__stop_` section symbols:
-  ld64 has none of those) and ELF section names in `gen_ld.py`.  That is the
-  fixed-address work ("What's left for the port").
+- What the fixed builds need of the link can't be had on macOS (arm64
+  macOS reserves the low 4 GB as `__PAGEZERO`, and ld64 has no
+  `-Ttext-segment`, linker scripts, `--wrap` or `__start_`/`__stop_`
+  section symbols); the movable build needs none of it ("macOS", below).
 
 Checked: every file in `port/host/` compiles for `aarch64-linux-musl`
 (musl's headers: no ucontext, no glibc extensions), also with `__linux__`
@@ -1235,6 +1232,95 @@ addresses the game stores (pointers into the image, in tables at
 with the executable's layout, between architectures as between two LP64
 builds, so the static presumably samples memory that holds some (not
 tracked down further).  Removing the fixed addresses will move them too.
+
+The movable LP64 build (`-DPORT_LP64=ON -DPORT_MOVABLE=ON`) cross-builds
+the same way and runs under `qemu-aarch64`: 3,000 frames of
+`PORT_AUTOSTART=2` with the save, `--wav` and all 12 screenshots identical
+to the x86-64 build's, on either thread backend (no host addresses in game
+memory there, so the portrait static is the same too), with and without
+`-fsigned-char`.  The N64 side has that flag now: the game is built with
+IDO's `-signed`, which is x86's default for plain `char` (and Apple's
+arm64 one) but not AArch64 Linux's, where the LP64 build's code changed
+with it (the 64-bit build compiles its stage 1 for i386, and x86-64's code
+is byte for byte the same).
+
+### macOS
+
+**Untested**: prepared for macOS on Apple silicon (arm64) and checked from
+Linux as far as that goes (below), but not built or run on a Mac yet.
+
+macOS takes the movable 64-bit build, LP64 first (`-DPORT_LP64=ON
+-DPORT_MOVABLE=ON`; `-DPORT_64BIT=ON -DPORT_MOVABLE=ON` goes too, and CMake
+refuses the fixed-address builds there).  With Homebrew:
+
+```
+brew install llvm sdl2 libepoxy pkgconf cmake ninja python
+port/tools/macos_build.sh build/port-macos -DPORT_VERSION=us.v10
+```
+
+which is CMake with `$(brew --prefix llvm)/bin/clang` (and `clang++`) as the
+compilers and the two options.  What the build does differently there:
+
+- **LLVM.**  Apple's clang loads no pass plugins and ships no LLVM headers
+  (CMake stops on `AppleClang`), so the compilers are Homebrew's LLVM, and
+  `llvm-config`, `opt`, `llc` and `llvm-link` are looked for next to the
+  compiler first (Homebrew's LLVM is keg-only, not on `PATH`).  BEPass is
+  a bundle linked with `-undefined dynamic_lookup`: LLVM's symbols are
+  those of the clang or opt that loads it.
+- **The N64 side** is compiled for the compiler's own triple
+  (`arm64-apple-macosx...`; `-nostdinc`, so no SDK is involved), through the
+  arena link, and `llc` makes a Mach-O object of it.  Nothing in that
+  module has a section name left, and every name is an IR name, which
+  Mach-O prefixes with `_` for host and N64 side alike; the glue's
+  `__asm__` names (`gen_glue.py`, for the libultra calls of jp's
+  `GLOBAL_ASM`) take `__USER_LABEL_PREFIX__`.  No `--wrap`, no
+  `__start_`/`__stop_` symbols, no `-pie` (every arm64 executable is one).
+- **Threads**: the pthread backend (ucontext is deprecated there, and not
+  looked for), which hands `pthread_attr_setstack` the whole pages inside a
+  fiber's arena stack: macOS takes nothing else, and the arena sits at
+  `PORT_ARENA_OFFSET` into its page (`fiber_enter` still starts the frames
+  `FIBER_TOP_GAP` below the stack's own top, so the runs are the same;
+  Linux does it the same way, identical runs on both backends).
+- **OpenGL**: macOS's core profile is 4.1 and only forward-compatible,
+  which `gfx_gl.c` asks for there; the renderer needs 3.3 (GLSL `330
+  core`, nothing newer), through libepoxy.
+- **The N64 link's ELFs** are read with `llvm-nm`/`llvm-readelf` where
+  there are no MIPS binutils (`N64_NM`, `PORT_N64_NM` for `gen_syms.py` and
+  `tools/recomp`): the same names and addresses.  The stage-2 build itself
+  still needs the MIPS binutils and the Linux IDO recompilation, so the
+  simplest is to make it (and `make -C tools/recomp`) on Linux and copy
+  `blastcorps/build`, `asm`, `assets`, `.version` and
+  `build/blastcorps.<version>.map`.
+
+**How it was checked from Linux.**  `port/tools/cross-macos-check.cmake`
+configures the port for `arm64-apple-macos11` (CMake's Darwin branches,
+`APPLE`), with musl's aarch64 headers standing in for the SDK's libc and
+stand-ins for the two SDK headers SDL2 includes (`port/tools/macos-check/`),
+SDL2's and libepoxy's headers through `PKG_CONFIG_LIBDIR`, and the host's
+BEPass (`PORT_BEPASS_PLUGIN`; the file's comment has the commands);
+building its `n64_link`, `host` and `recomp` targets compiles everything,
+the N64 side to a Mach-O arm64 `n64.o`.  `port/tools/macos_check.sh`
+links the objects with `ld64.lld` (`-undefined dynamic_lookup`, there
+being no libraries) and lists what is left undefined that libSystem, SDL2
+or libepoxy wouldn't give: nothing, in the LP64 and the 64-bit build (158
+names: libc, pthreads, SDL, epoxy's GL, `___stack_chk_*`, `bzero`, which
+LLVM makes of `memset` on Darwin, `sqrtf`).
+
+On Linux the same changes leave the builds as they were: the movable
+64-bit build (no `--wrap` now, no section symbols) plays the TAS to the
+same save and the same replay log, line for line, as before them (57
+platinum, all 125,297 reads matched, no mode forced), the LP64 movable one
+gives its report as before (57 platinum; 3,993 reads skipped, 11 modes
+forced, "The movable build"), and the default 32-bit build its 57
+platinum with every read matched and no mode forced; the x86 objects'
+code is byte for byte what it was.
+
+What only a Mac can tell: whether Homebrew's clang loads the bundle (and
+`opt` does), the SDK's headers against the host code (only musl's were
+tried, and `__linux__` undefined), the link with ld64 against the real
+libraries, the pthread backend with 16 KB pages, SDL's window and GL
+context on the main thread (the loop is on it, the game's threads call
+over through `fiber_call_on_loop`), and then the TAS.
 
 ## Timing
 

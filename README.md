@@ -38,7 +38,8 @@ through a mechanical translation to C; it needs your own copy of the ROM
 the steps are: set up the tools, build the decompilation once, then the port.
 [docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
 built and tested on; the 64-bit build also cross-compiles for AArch64 Linux
-(`port/tools/cross-aarch64.cmake`, PORT.md "Other hosts").
+(`port/tools/cross-aarch64.cmake`, PORT.md "Other hosts"), and macOS on
+Apple silicon is prepared but untested ([macOS](#macos) below).
 
 ## Requirements
 
@@ -124,6 +125,40 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--widescreen`, `--aspect W:H` / `window` | show the 3D world 16:9, W:H (up to 32:9) or as wide as the window (default: the N64's 4:3); the 2D stays 4:3 in the middle |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
+
+## macOS
+
+**Untested**: the build is prepared for macOS on Apple silicon and checked
+from Linux as far as that goes (docs/PORT.md, "macOS"), but no one has run
+it on a Mac yet.  Reports welcome.
+
+macOS takes the movable LP64 build (`-DPORT_LP64=ON -DPORT_MOVABLE=ON`),
+built with Homebrew's LLVM: Apple's clang can't load the port's LLVM plugin.
+
+```
+brew install llvm sdl2 libepoxy pkgconf cmake ninja python
+port/tools/macos_build.sh build/port-macos -DPORT_VERSION=us.v11
+build/port-macos/blastcorps baserom.us.v11.z64
+```
+
+`macos_build.sh` runs CMake with `$(brew --prefix llvm)/bin/clang` as the
+compiler; the same by hand is
+
+```
+LLVM=$(brew --prefix llvm)
+cmake -S port -B build/port-macos -G Ninja -DCMAKE_C_COMPILER=$LLVM/bin/clang \
+      -DCMAKE_CXX_COMPILER=$LLVM/bin/clang++ -DCMAKE_ASM_COMPILER=$LLVM/bin/clang \
+      -DPORT_LP64=ON -DPORT_MOVABLE=ON
+cmake --build build/port-macos
+```
+
+The port is built from the decompilation's stage 2 and the translated
+engine, and those need the `mips-linux-gnu-` binutils and the IDO
+recompilation this repo has for Linux.  The simplest is to run the steps up
+to `make -C tools/recomp` on Linux (or in a Linux container) and copy
+`blastcorps/build`, `blastcorps/asm`, `blastcorps/assets`,
+`blastcorps/.version` and `build/blastcorps.<version>.map` over; the port's
+own build reads the N64 ELFs with `llvm-nm` when there is no MIPS `nm`.
 
 # Build
 
