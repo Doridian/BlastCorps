@@ -72,8 +72,6 @@ static void fiber_main(void *p) {
     fiber_exit(t->fiber);
 }
 
-/* the host stack of thread slot idx: in the KSEG0 window (port.h) */
-static void *host_stack(int idx) { return (void *)(uintptr_t)(PORT_STACK_BASE + idx * PORT_STACK_SIZE); }
 
 /* whether another thread than the running one is in osRecvMesg on this
    key: blocked, woken and not yet run, or preempted at the call's entry
@@ -115,7 +113,9 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
     t->entry = entry;
     t->arg = arg;
     t->ctx.sp = (uint64_t)(int64_t)(int32_t)mips_sp;
-    t->fiber = fiber_create(fiber_main, t, host_stack(idx), PORT_STACK_SIZE);
+    uint32_t stack_size;
+    void *stack = host_thread_stack(idx, &stack_size);
+    t->fiber = fiber_create(fiber_main, t, stack, stack_size);
     if (host_verbose)
         host_log("thread %08X created, pri %d, entry %p\n", key, pri, (void *)entry);
 }

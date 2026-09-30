@@ -40,6 +40,9 @@ extern "C" {
 #define PORT_STACK_BASE 0x90000000u
 #define PORT_STACK_SIZE 0x00100000u
 #define PORT_MAX_THREADS 16
+/* thread idx's host stack (runtime.c): at PORT_STACK_BASE, which in the
+   movable build is in the arena */
+void *host_thread_stack(int idx, uint32_t *size);
 
 static inline void *port_ptr(uint32_t addr) {
     if (addr - 0xA0000000u < 0x20000000u)
@@ -135,14 +138,15 @@ static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((c
 extern char _end[];
 static inline int port_in_rdram(const void *p) {
 #ifdef PORT_MOVABLE
-    if ((uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SPAN)
+    if ((uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SIZE &&
+        port_arena_moved((uint32_t)((uintptr_t)p - (uintptr_t)port_arena)))
         return 1;
 #endif
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
 static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
 static inline void port_wvar16(void *p, uint16_t v) {
-    if (port_in_rdram(p) || (uintptr_t)p - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
+    if (port_in_rdram(p) || port_n64(p) - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
         port_wg16(p, v);
     else
         port_wbe16(p, v);

@@ -7,15 +7,18 @@
  * intrinsics, and the pointer arguments of calls into the host, which
  * dereferences them natively) goes to
  *
- *     p ^ 0x80000000 < PORT_ARENA_SPAN ? port_arena + (p ^ 0x80000000) : p
+ *     moved(p ^ 0x80000000) ? port_arena + (p ^ 0x80000000) : p
  *
- * so an address in the moved range is found in the host's arena, and
- * anything else (the image, the fibers' stacks, the host's own memory) is
- * left where it is.  port_arena starts out as 0x80000000 itself (so the
+ * so an address in the moved ranges (RDRAM, the fibers' stacks: port_arena.h)
+ * is found in the host's arena, and anything else (the image, the host's
+ * own memory) is left where it is.  port_arena starts out as 0x80000000 itself (so the
  * static constructors that run before main see the image's memory), and
  * main moves the range and repoints it.
  *
- * Accesses to allocas are left alone: a local is on a host stack.
+ * A local whose address escapes (to a call, into memory, into an integer)
+ * is given its N64 address, which a fiber's stack in the arena has; one
+ * that doesn't escape is accessed as it is.  A local on another stack (the
+ * main loop's) keeps its host address, which the map leaves alone.
  *
  * Run at the end of the optimisation pipeline, after ICount, so the
  * instruction counts (and with them the timing) are those of the build
@@ -43,6 +46,7 @@ namespace {
    PORT_ARENA_SPAN) */
 static const uint64_t K0 = 0x80000000u;
 static const uint64_t SPAN = 0x00400000u;
+static const uint64_t STACKS = 0x10000000u, STACKS_SPAN = 0x01000000u;
 
 struct Arena : PassInfoMixin<Arena> {
     static bool isRequired() { return true; }
@@ -72,12 +76,85 @@ struct Arena : PassInfoMixin<Arena> {
            variable the backend would fold the subtraction into a
            PC-relative relocation that can't reach) */
         Value *off = b.CreateXor(b.CreatePtrToInt(q, ip), ConstantInt::get(ip, K0));
-        Value *in = b.CreateICmpULT(off, ConstantInt::get(ip, SPAN));
+        Value *in = b.CreateOr(b.CreateICmpULT(off, ConstantInt::get(ip, SPAN)),
+                               b.CreateICmpULT(b.CreateSub(off, ConstantInt::get(ip, STACKS)),
+                                               ConstantInt::get(ip, STACKS_SPAN)));
         Value *h = b.CreateGEP(b.getInt8Ty(), arena, off);
         rewritten++;
         /* (a 32-bit pointer, PTR32, becomes an ordinary one: the host
            address doesn't fit) */
         return b.CreateSelect(in, h, q);
+    }
+
+    /* whether a local's address goes anywhere but the pointer operand of
+       loads, stores and memory intrinsics */
+    static bool escapes(Value *v) {
+        for (User *u : v->users()) {
+            if (auto *ld = dyn_cast<LoadInst>(u)) {
+                (void)ld;
+                continue;
+            }
+            if (auto *st = dyn_cast<StoreInst>(u)) {
+                if (st->getValueOperand() == v)
+                    return true;
+                continue;
+            }
+            if (auto *ii = dyn_cast<IntrinsicInst>(u)) {
+                if (ii->isLifetimeStartOrEnd() || isa<DbgInfoIntrinsic>(ii))
+                    continue;
+                if (auto *mi = dyn_cast<MemIntrinsic>(ii)) {
+                    if (mi->getLength() == v)
+                        return true;
+                    if (auto *ms = dyn_cast<MemSetInst>(mi))
+                        if (ms->getValue() == v)
+                            return true;
+                    continue;
+                }
+                return true;
+            }
+            if (isa<GetElementPtrInst>(u) || isa<BitCastInst>(u) || isa<AddrSpaceCastInst>(u)) {
+                if (escapes(u))
+                    return true;
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /* an escaping local gets its N64 address (if it is on a fiber's stack,
+       in the arena) */
+    unsigned escaped = 0;
+    void locals(Function &f, Value *arena) {
+        std::vector<AllocaInst *> as;
+        /* (not in a variadic function: its va_list is the host's) */
+        if (f.isVarArg())
+            return;
+        for (BasicBlock &bb : f)
+            for (Instruction &i : bb)
+                if (auto *a = dyn_cast<AllocaInst>(&i))
+                    if (escapes(a))
+                        as.push_back(a);
+        const DataLayout &dl = M->getDataLayout();
+        IntegerType *ip = IntegerType::get(M->getContext(), dl.getPointerSizeInBits(0));
+        for (AllocaInst *a : as) {
+            Instruction *at = a->getNextNode();
+            while (isa<AllocaInst>(at))
+                at = at->getNextNode();
+            IRBuilder<> b(at);
+            Value *h = b.CreatePtrToInt(a, ip);
+            Value *off = b.CreateSub(h, b.CreatePtrToInt(arena, ip));
+            Value *in = b.CreateICmpULT(b.CreateSub(off, ConstantInt::get(ip, STACKS)), ConstantInt::get(ip, STACKS_SPAN));
+            Value *n = b.CreateSelect(in, b.CreateOr(off, ConstantInt::get(ip, K0)), h);
+            Value *np = b.CreateIntToPtr(n, a->getType(), a->getName() + ".n64");
+            a->replaceUsesWithIf(np, [&](Use &u) {
+                auto *ii = dyn_cast<IntrinsicInst>(u.getUser());
+                if (ii && (ii->isLifetimeStartOrEnd() || isa<DbgInfoIntrinsic>(ii)))
+                    return false;
+                return u.getUser() != h;
+            });
+            escaped++;
+        }
     }
 
     /* a local, or the port's own counters (ICount's __port_icount_c) */
@@ -117,10 +194,9 @@ struct Arena : PassInfoMixin<Arena> {
                         }
                 }
             }
-        if (ops.empty())
-            return;
         IRBuilder<> eb(&*f.getEntryBlock().getFirstInsertionPt());
         Value *arena = eb.CreateLoad(PointerType::get(M->getContext(), 0), base, "port.arena");
+        locals(f, arena);
         /* a memory intrinsic on 32-bit pointers (PTR32) is made again on
            ordinary ones, which is what the mapped addresses are */
         std::vector<MemIntrinsic *> redo;
@@ -183,7 +259,8 @@ struct Arena : PassInfoMixin<Arena> {
             if (!f.isDeclaration())
                 function(f);
         if (getenv("PORT_ARENA_STATS"))
-            errs() << "port-arena: " << rewritten << " accesses (" << hostArgs << " host arguments) in "
+            errs() << "port-arena: " << rewritten << " accesses (" << hostArgs << " host arguments), " << escaped
+                   << " escaping locals in "
                    << m.getSourceFileName() << "\n";
         return PreservedAnalyses::none();
     }

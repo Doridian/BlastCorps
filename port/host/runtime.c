@@ -54,6 +54,14 @@ void port_fixups(void) {
         swap_bytes((uint8_t *)(uintptr_t)*p, 4);
 }
 
+/* A thread's host stack: inside the KSEG0 window (at PORT_STACK_BASE,
+   port.h), so that the address of a local means the same to the translated
+   code; in the movable build that range is in the arena (port_arena.h). */
+void *host_thread_stack(int idx, uint32_t *size) {
+    *size = PORT_STACK_SIZE;
+    return port_host(PORT_STACK_BASE + (uint32_t)idx * PORT_STACK_SIZE);
+}
+
 /* ---- movable memory (PORT_MOVABLE, docs/PORT.md "Movable memory") ------- */
 
 #ifdef PORT_MOVABLE
@@ -64,13 +72,14 @@ uint8_t *port_arena = (uint8_t *)(uintptr_t)PORT_RDRAM_BASE;
 /* RDRAM moves from the image's .rdram section to memory of the host's
    choosing, at an offset into its page (PORT_ARENA_OFFSET, default 0x5670)
    so that nothing can rely on its alignment beyond 16 bytes; the old
-   place is then unmapped (made inaccessible), so anything that still
-   reaches RDRAM at 0x80000000 faults there. */
+   place is then made inaccessible, so anything that still reaches RDRAM
+   at 0x80000000 faults there.  The fibers' stacks are in the same
+   reservation, where their N64 addresses (PORT_STACK_BASE) put them. */
 void port_move_rdram(void) {
     const char *o = getenv("PORT_ARENA_OFFSET");
     uintptr_t off = o ? strtoul(o, NULL, 0) : 0x5670;
-    size_t len = PORT_ARENA_SPAN + ((off + 0xFFFF) & ~(uintptr_t)0xFFFF);
-    uint8_t *m = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    size_t len = PORT_ARENA_SIZE + ((off + 0xFFFF) & ~(uintptr_t)0xFFFF);
+    uint8_t *m = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
     if (m == MAP_FAILED)
         host_fatal("can't map the arena");
     uint8_t *a = m + off;

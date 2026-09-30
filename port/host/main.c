@@ -462,7 +462,9 @@ int main(int argc, char **argv) {
 #endif
     /* RDRAM itself is the image's .rdram section (tools/gen_ld.py) */
     map_fixed(PORT_HWREG_BASE, PORT_HWREG_SIZE, "hardware registers");
+#ifndef PORT_MOVABLE      /* (there, in the arena: runtime.c) */
     map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");
+#endif
     fiber_init();
     load_rom(rom_path);
     port_fixups();
