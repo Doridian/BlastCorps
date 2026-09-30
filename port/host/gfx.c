@@ -60,6 +60,7 @@ void gfx_gl_tex_rect(int x0, int y0, int x1, int y1, int tile, float s, float t,
     (void)x0; (void)y0; (void)x1; (void)y1; (void)tile; (void)s; (void)t; (void)dsdx; (void)dtdy; (void)flip;
 }
 void gfx_gl_zclear(int x0, int y0, int x1, int y1) { (void)x0; (void)y0; (void)x1; (void)y1; }
+void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) { (void)x0; (void)y0; (void)x1; (void)y1; }
 void gfx_gl_task_begin(void) {}
 void gfx_gl_task_end(void) {}
 void gfx_gl_texture_source(uint32_t addr) { (void)addr; }
@@ -126,6 +127,21 @@ void gfx_set_wide(int off) {
     nwfb = 0;
     cur_wfb = NULL;
     sw_target();
+}
+
+/* a texture load from a wide framebuffer (none happens): its middle into
+   RDRAM first, which the software renderer otherwise leaves alone there,
+   as the GPU does */
+static void wfb_texture_source(uint32_t addr) {
+    for (int i = 0; i < nwfb; i++)
+        if (addr >= wfb[i].addr && addr < wfb[i].addr + 320 * 240 * 2) {
+            uint8_t *dst = port_ptr(wfb[i].addr);
+            for (int y = 0; y < 240; y++)
+                for (int x = 0; x < 320; x++)
+                    port_wbe16(dst + 2 * (y * 320 + x), wfb[i].px[y * wfb[i].w + gfx_wide_off + x]);
+            if (host_verbose)
+                host_log("gfx: texture from wide framebuffer %08X: copied back\n", wfb[i].addr);
+        }
 }
 
 const uint16_t *gfx_sw_wide_frame(uint32_t addr, int *w) {
@@ -1038,13 +1054,20 @@ static void charge_poly(const GfxVtx *s, int n) {
 }
 
 /* widescreen: a 2D polygon (w 1 throughout: an orthographic projection)
-   that reaches an edge of the game's frame is stretched to the edge of the
-   wide one (the sky's gradient behind the levels, full-screen overlays);
-   the rest of the 2D stays in the middle */
+   that spans the game's frame, edge to edge, is stretched to the edges of
+   the wide one (the sky's gradient behind the levels, full-screen
+   overlays); the rest of the 2D stays in the middle (the HUD, and its
+   arrows at the edges that point at what is off screen) */
 static void wide_2d(GfxVtx *s, int n) {
-    for (int i = 0; i < n; i++)
+    float x0 = 1e9f, x1 = -1e9f;
+    for (int i = 0; i < n; i++) {
         if (fabsf(s[i].w - 1) >= 1e-4f)
             return;
+        x0 = fminf(x0, s[i].x);
+        x1 = fmaxf(x1, s[i].x);
+    }
+    if (x0 > 0 || x1 < 319)
+        return;
     for (int i = 0; i < n; i++) {
         if (s[i].x <= 0)
             s[i].x = -gfx_wide_off;
@@ -1164,6 +1187,16 @@ static void fill_rect(uint32_t w0, uint32_t w1) {
         }
 }
 
+/* black into the wide frame's side columns x0..x1 (x0 < 0 or x1 > 320) */
+static void wide_band_clear(int x0, int y0, int x1, int y1, int gl) {
+    if (gl) {
+        gfx_gl_clear_rect(x0, y0, x1, y1);
+        return;
+    }
+    for (int y = y0; y < y1; y++)
+        memset(cur_wfb->px + y * cur_wfb->w + x0 + gfx_wide_off, 0, (size_t)(x1 - x0) * 2);
+}
+
 static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
     float lrx = ((w0 >> 12) & 0xFFF) / 4.0f, lry = (w0 & 0xFFF) / 4.0f;
     float ulx = ((w1 >> 12) & 0xFFF) / 4.0f, uly = (w1 & 0xFFF) / 4.0f;
@@ -1184,7 +1217,17 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
     if (x1 <= x0 || y1 <= y0)
         return;
     st_cover += (double)(x1 - x0) * (y1 - y0) * (cyc == 2 ? 0.25 : 1);
-    if (gl_target()) {
+    int gl = gl_target();
+    if (gfx_wide_off && (gl || cur_wfb)) {
+        /* widescreen: a rectangle at an edge of the game's frame (the tiles
+           of a full-screen picture) blacks out the side beyond it, so a
+           2D screen is pillarboxed rather than framed by stale pixels */
+        if (x0 <= 0)
+            wide_band_clear(-gfx_wide_off, y0, 0, y1, gl);
+        if (x1 >= 320)
+            wide_band_clear(320, y0, 320 + gfx_wide_off, y1, gl);
+    }
+    if (gl) {
         float sa = s0 + ((flip ? y0 - uly : x0 - ulx)) * dsdx;
         float ta = t0 + ((flip ? x0 - ulx : y0 - uly)) * dtdy;
         gfx_gl_tex_rect(x0, y0, x1, y1, tile, sa, ta, dsdx, dtdy, flip);
@@ -1353,6 +1396,8 @@ static void run(uint32_t dl, int depth) {
             gs.timg_addr = seg_to_k0(w1);
             if (gfx_gl_enabled && !ipass)
                 gfx_gl_texture_source(gs.timg_addr);
+            else if (nwfb)
+                wfb_texture_source(gs.timg_addr);
             break;
         case 0xFE: gs.zimg_addr = seg_to_k0(w1); sw_target(); break;
         case 0xFF:                                              /* G_SETCIMG */

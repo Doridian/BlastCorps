@@ -116,6 +116,7 @@ void gfx_gl_fill_rect(int x0, int y0, int x1, int y1);
 void gfx_gl_tex_rect(int x0, int y0, int x1, int y1, int tile, float s_at0, float t_at0,
                      float dsdx, float dtdy, int flip);
 void gfx_gl_zclear(int x0, int y0, int x1, int y1);
+void gfx_gl_clear_rect(int x0, int y0, int x1, int y1);   /* black, whatever the draw state */
 void gfx_gl_task_begin(void);
 void gfx_gl_task_end(void);
 void gfx_gl_texture_source(uint32_t addr);      /* SETTIMG: read back a GPU target? */

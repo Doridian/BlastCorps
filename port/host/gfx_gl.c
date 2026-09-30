@@ -953,6 +953,19 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1) {
     glClear(GL_DEPTH_BUFFER_BIT);
 }
 
+void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) {
+    flush();
+    if (!cur_target)
+        return;
+    glBindFramebuffer(GL_FRAMEBUFFER, cur_target->fbo);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
+    glColorMask(1, 1, 1, 1);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
+    cur_target->dirty = 1;
+}
+
 void gfx_gl_texture_source(uint32_t addr) {
     for (int i = 0; i < ntargets; i++) {
         Target *t = &targets[i];

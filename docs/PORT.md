@@ -50,7 +50,8 @@ window's height, so resizing the window changes it) and
 `--filter n64|bilinear|point` (textures: the N64's 3-point filter where
 the game asks for bilinear filtering, which is the default, a 4-tap
 bilinear one, or point sampling throughout), `--interpolate` (OpenGL:
-60 frames a second where the game draws 30, see "Frame rate"),
+60 frames a second where the game draws 30, see "Frame rate"), `--aspect
+W:H`, `--widescreen` (16:9) and `--aspect window` (see "Widescreen"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
 `PORT_AUTOSTART=1` taps Start and A, which is enough to get from the title
@@ -1505,6 +1506,62 @@ second passes at t = i/k, each into its own twin, which multiplies the GPU
 work.  The second is presents between retraces: at present the loop
 presents at the VI (`host_video_frame`), and it would need a display clock
 of its own, as the audio has in SDL.  Neither is done.
+
+## Widescreen
+
+`--aspect W:H` (`16:9`, `21:9`, up to 32:9), `--widescreen` (16:9) or
+`--aspect window` (the window's shape, followed as it is resized) shows
+the 3D world wider than the N64's 4:3, with either renderer.  The default
+is 4:3, and then the output is what it was before, pixel for pixel.
+
+The game doesn't know: it still draws its 320x240 frame with its own
+projection.  The renderers' framebuffers are `off` columns wider on each
+side (`off` = (240 * aspect - 320) / 2, rounded: 53 at 16:9, a 426x240
+frame), with the game's 320 in the middle, which is then exactly the 4:3
+picture.  A perspective triangle's screen position goes past 0 and 320 as
+it is (the N64 scissors it there), so the world continues into the sides.
+What else decides what is drawn out there (`gfx.c`, shared by both):
+
+- **Scissors and fills.**  A scissor that covers all 320 columns covers
+  the wide frame; a narrower one stays where it is.  So does a fill that
+  covers them (the game's 1-cycle fills stop at 319): the background, the
+  z-buffer clear, the fades and the sepia overlay of the story screens.
+- **2D.**  A polygon with w = 1 throughout (an orthographic projection)
+  that spans the game's frame from edge to edge is stretched to the edges
+  of the wide one: the sky's gradient behind the levels.  The rest of the
+  2D (the HUD and its arrows at the edges pointing at what is off screen,
+  text, menus, the pause screen) stays in the middle, as does every
+  texture rectangle.  A texture rectangle at an edge (the tiles of a
+  full-screen picture: the story, results and promotion screens) blacks
+  out the side beyond it, in its rows, so those screens are pillarboxed
+  instead of framed by whatever the sides held.
+- **The software renderer** draws the 320-wide 16-bit color images (the
+  framebuffers) wide on the host instead of into RDRAM, the z-buffer with
+  them, and the window shows those.  A texture load from one would copy
+  its middle back to RDRAM first (none happens), as the OpenGL renderer
+  reads its targets back.
+
+The game doesn't cull at the view's edges.  Over 40,000 frames of the TAS,
+the perspective triangles it sends fall off smoothly with their distance
+from the middle, out to ten times the 4:3 view's half-width, with no step
+at its edge, so nothing pops in at the sides.  What bounds the world there
+is the level's list of active cells (`D_803C30A8`, made from the camera's
+position by `func_802A470C` in `5FD50.s`, or from an area's list by
+`func_80295C70`): the terrain and the objects drawn come from those cells.
+The game logic reads the list too (`func_80267614`, `func_80270A54`), so
+widening it would change the game, and it is left alone.  At 16:9 the
+missing cells show now and then, as a small black patch at the far edge
+of a side; at 32:9 more often and larger.
+
+None of this reaches the game: the display lists are the game's, the
+RDP's time comes from the 4:3 geometry, and RDRAM is the same but for the
+two color framebuffers, which the OpenGL renderer never writes anyway.
+With `--widescreen` the TAS still beats the game (all 125,297 reads
+matched, none skipped, 57 platinum; also with the software renderer at
+21:9), and `PORT_COUNT_PER_OP=0 --deterministic` runs (the TAS's first
+30,000 frames, and `PORT_AUTOSTART=1`) write the same save and sound with
+and without it, 32-bit and LP64, and the same RDRAM outside the
+framebuffers.
 
 ## The glue to the translated code
 
