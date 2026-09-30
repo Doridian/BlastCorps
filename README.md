@@ -158,6 +158,7 @@ ctest --test-dir build/port64 -L quick -V     # a minute: deterministic runs aga
 ctest --test-dir build/port64 -L tas -V       # the TAS replay (us.v10 builds, 10-20 minutes)
 ctest --test-dir build/port64 -L recomp -V    # the translated engine's differential test
 port/tools/test.py variants                   # build the standard variants into build/test-*/ and check them all
+port/tools/test.py variants --emsdk DIR      # ... and the WebAssembly build under node, which must equal mn32's
 ```
 
 These are `port/tools/test.py`'s tiers; docs/PORT.md, "Testing the port",

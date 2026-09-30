@@ -376,17 +376,27 @@ running them.
 (us.v10 by default, `--version`: the stage 2 has to be that version's),
 the standard set into `build/test-*/`:
 `32`, `64`, `n64` (native-endian 64-bit), `lp64`, `m64` (movable 64-bit),
-`mlp64` (movable LP64) and `mn32` (movable native-endian 32-bit); runs quick
-on all of them at once, then prints a table of every variant's scenarios
-against the references; `--tas` then replays the TAS on all seven in
+`mlp64` (movable LP64), `mn32` (movable native-endian 32-bit) and, where
+emsdk is (`--emsdk DIR`, `$EMSDK`, or `emcmake` on the `PATH`; a SKIP
+otherwise), `wasm` (the WebAssembly build under node, "WebAssembly"); runs
+quick on all of them at once, then checks `wasm` against `mn32` in every
+hash, the layout-dependent screenshots included (the two have one
+layout: "WebAssembly"), and prints a table of every variant's scenarios
+against the references; `--tas` then replays the TAS on all of them in
 parallel.  `--no-build` uses the directories as they are, `--only` picks
 variants.  `test.py table BUILD...` shows every hash of some builds' last
-quick runs side by side.  On a 32-thread machine, from empty directories:
-the seven builds 38 seconds, their quick tiers 67 seconds together, and
-with `--tas` 24 minutes in all.
+quick runs side by side.  `quick` and `tas` take a WebAssembly build
+directory like any other (they run `blastcorps.js` with the node CMake
+found, and `quick --against` between it and an `mn32` compares every
+hash).  On a 32-thread machine, from empty directories: the seven Linux
+builds 38 seconds, their quick tiers 67 seconds together, and with
+`--tas` 24 minutes in all; `wasm`'s quick tier takes about 2 minutes
+beside them and its TAS 28 to 38 minutes, so the eight with `--tas` take
+30 to 40.
 
 Where it stands (main at the time of writing): quick passes in all seven
-for us.v10, us.v11 and jp, with no known failures.  The last one was the native-endian
+for us.v10, us.v11 and jp, and in `wasm` for us.v10 (the version it was
+run for), with no known failures.  The last one was the native-endian
 builds' carrier on the globe: from retrace 1,228 to 1,285 of every
 `PORT_AUTOSTART` run (the world map's intro), about 22 pixels of the
 carrier came out slightly different in color, with both renderers.  The
@@ -416,10 +426,11 @@ translated engine calls return `u8`, and i386 leaves the rest of the
 register as it was, which changed the attract demo from its 1,563rd
 controller read.  `gen_glue.py` declares them by their type now.)
 
-The TAS: all seven exact, all 125,297 reads matched, none skipped, no
+The TAS: all eight exact, all 125,297 reads matched, none skipped, no
 mode forced, 57 platinum and the same save (the native-endian builds'
-late drift is gone: "The native-endian build").  Seven replays at once
-take about 23 minutes on a 32-thread machine.
+late drift is gone: "The native-endian build"); `wasm`'s replay log is
+`mn32`'s line for line.  Eight replays at once take 30 to 40 minutes on
+a 32-thread machine (`wasm`'s is the slowest; the Linux ones 18 to 25).
 
 ## Native-endian memory
 
@@ -1034,7 +1045,7 @@ port is at a fixed address, and ASLR moves the image and the arena every
 run.  It takes `PORT_64BIT` (big-endian or native), `PORT_LP64`, or
 neither (the 32-bit build).
 
-**The arena** is one `mmap` of 28 MB (`port_arena_init`, `host/runtime.c`,
+**The arena** is one `mmap` of 29 MB (`port_arena_init`, `host/runtime.c`,
 before anything else runs), at an offset into its page
 (`PORT_ARENA_OFFSET`, default `0x5670`, so nothing can rely on more than
 16-byte alignment).  It holds N64 physical memory from 0, and an N64
@@ -1049,7 +1060,10 @@ address `a`, KSEG0 or KSEG1, is at `port_arena + (a & 0x1FFFFFFF)`
   `D_803FDF60`): about 70 KB in us.v10;
 - `0xC00000`: the fibers' host stacks, 16 of 1 MB (`PORT_STACK_BASE` is
   `0x80C00000`; `host_thread_stack()` is where a threads backend gets
-  one).
+  one);
+- `0x1C00000`: the stacks of the C's locals that live in memory, 16 of
+  64 KB
+  (`PORT_ARENA_LOCALS`, below).
 
 **The arena link** (`CMakeLists.txt`): the N64 side (the game's C and
 `port/src`) is compiled per file as before, to bitcode; the asm data
@@ -1081,11 +1095,29 @@ make one object.  port-arena, over the whole program:
   is handed back to the thread, so it isn't) and a struct passed by value
   (the call copies it from its host address), to `port_arena + (p &
   0x1FFFFFFF)`, unless it is a local that doesn't escape or the host's;
-- gives an escaping local (an alloca, or a struct passed by value, whose
-  address goes to a call, into memory or into an integer) its N64 address
-  on the fiber's stack, and stops the port (`port_arena_bad_local`) if it
-  isn't on one: 369 in us.v10.  (Not in a variadic function, whose
-  `va_list` is the host's.);
+- lays out the locals left in memory (an alloca, or a struct passed by
+  value whose address goes to a call, into memory or into an integer: the
+  escaping ones, and the few arrays and structs `-O2` kept in memory
+  without their escaping) on a stack of its own: each function's are one
+  frame, at offsets the pass decides from the IR (the target's frame
+  layout has no say), taken from the running thread's slot of the locals'
+  stacks at the entry and given back at every return.  `port_locals_sp`
+  is the pointer (an N64 address; `threads.c` keeps each thread's while
+  it doesn't run, and a thread starts at the top of its slot), and a
+  frame outside the running thread's slot (`port_locals_end`), or outside
+  a thread, stops the port (`port_arena_bad_local`).  348 locals (9 that
+  don't escape) in 160 frames in us.v10's 32-bit build, the biggest 1,360
+  bytes; 370 in 167 in LP64.  So the addresses of locals the game stores
+  in RDRAM, and what is left in the frames between calls (which the
+  decompiled C reads where IDO's code read an uninitialized local), are
+  the same wherever the module is code-generated: the WebAssembly build is
+  the Linux 32-bit native-endian one's to the byte ("WebAssembly").  (Not
+  in a variadic function, whose `va_list` is the host's.);
+- makes what is left undefined 0 (an `undef` or `poison` operand: an
+  argument the caller never set, a function that falls off its end, a phi
+  from a path that set nothing: 22 in us.v10's 32-bit build, 183 in the
+  64-bit one), which each backend would make something of its own, i386
+  whatever was in the register or on the stack;
 - makes a function used as a value its N64 address, the game's by its
   vram and the port's own from `0x7F000000`, and a call through a value a
   call through `port_fn(address)` (the pass's `__port_fns`, `runtime.c`):
@@ -1102,7 +1134,14 @@ make one object.  port-arena, over the whole program:
   (34430.c declares `func_8029A7E4` with four parameters), and the result
   is converted by the callee's extension.  x86-64 and AArch64 ran them
   anyway; WebAssembly can't call a function through another type, and
-  i386 got narrow results wrong (below);
+  i386 got narrow results wrong (below).  A call of the callee's type
+  whose narrow result it says is extended the other way (1D990.c's `s16
+  func_8028604C(s32)` for 409D0.c's `u16 (u32)`, three calls in the 32-bit
+  build, none in the 64-bit ones, whose results port-ilp32 widens) has the
+  caller's extension of the result made the callee's: the N64 used `v0`
+  as the callee left it, and so does x86, which takes the call's word for
+  it, where WebAssembly extends again (the level time's cap, 59,999, came
+  out negative there, and a countdown ran out);
 - in the LP64 build, lays out after RDRAM the C's variables that outgrew
   their N64 room (as `gen_ld.py` decides it: bigger than the N64 symbol's
   size and the distance to the next, or aligned where it isn't: 115 in
@@ -1273,7 +1312,10 @@ box's portrait static at frame 1500 of `PORT_AUTOSTART=2` came out
 different (the rest of that run was identical).  So both enter a fiber
 through `fiber_enter`, which `alloca`s down to 64 KB below the top of the
 stack first; RDRAM is then identical between the two, word for word, at
-every dump compared.  (The same run also showed that the LP64 build's
+every dump compared.  (In the movable build the C's locals that live in
+memory aren't on these stacks at all: port-arena gives them a stack of
+its own, laid out the same on every target, "The movable build".)  (The
+same run also showed that the LP64 build's
 pixels depend on the executable's layout: two LP64 builds whose host code
 differs draw that portrait differently, presumably from the pointers into
 the image the game stores in RDRAM.  Compare LP64 runs with one executable.)
@@ -1472,7 +1514,10 @@ over through `fiber_call_on_loop`), and then the TAS.
 
 The movable 32-bit native-endian build, compiled for wasm32 with
 emscripten: headless under node (for the TAS and comparisons), or a page
-that plays in a browser (WebGL 2, WebAudio, the save in IndexedDB).
+that plays in a browser (WebGL 2, WebAudio, the save in IndexedDB).  Under
+node it plays exactly as the Linux build it is compiled like (`mn32`):
+the same RDRAM, save, sound and screenshots, and the TAS replayed read
+for read (below; `test.py variants` checks it).
 
 ```
 # emsdk anywhere (git clone https://github.com/emscripten-core/emsdk;
@@ -1578,36 +1623,38 @@ page's size.
 
 **How it was checked**, us.v10:
 
-- 3,000 frames of `PORT_AUTOSTART=2 --deterministic` under node against
-  the Linux 32-bit native-endian movable build: the save, `--wav` and the
-  12 screenshots (every 250 frames, the hint box's static at 1500
-  included) byte for byte the same, and RDRAM the same at the
-  `PORT_REPLAY_DUMP`s compared up to the TAS's read 4,000 but for the addresses of
-  locals on the fibers' stacks (the frames are wasm's, not x86's).
-  Linux took 12.2 s, the asyncify build 16.7 s (5.6 ms a frame, 180 a
-  second; about 1.4 times native), the pthread one about 20 s.
+- `test.py`'s quick tier under node against the Linux 32-bit
+  native-endian movable build (`mn32`): the attract mode and the three
+  `PORT_AUTOSTART` runs, 2,000 to 4,000 frames each with the save,
+  `--wav` and a screenshot every 250 frames, and the widescreen run's
+  save and sound, every hash the same, the hint box's layout-dependent
+  static included ("Testing the port").  Linux took 12.2 s for 3,000
+  frames of `PORT_AUTOSTART=2`, the asyncify build 16.7 s (5.6 ms a
+  frame, 180 a second; about 1.4 times native), the pthread one about
+  20 s.
 - The TAS under node (`--replay`, the asyncify build): 57 platinum, the
-  save byte for byte the Linux build's, and the same report but for two
-  counts: "118445 reads, 121304 of the log's 125297 matched (3993
-  skipped), 600 without a match, 1309 retraces given anyway [Linux:
-  1310], 265 random states set, the player elsewhere at 2841, 558 reads
-  of the counts and 2208 audio answers the log doesn't have [2184], 1
-  save commands let go early, 11 modes forced".  The 3,993 skipped and
-  the forced modes are the native-endian builds' known drift, the same
-  on Linux ("The movable build").  The replay log differs in two lines
-  of 1,088 (a retrace waited for at the log's read 13,413 on Linux, at
-  28,095 in wasm).  It took 26 minutes (1,552 s, with another TAS
-  running beside it; Linux alone takes about 20); the pthread build's
-  (before the sprintf fix) 28 minutes and the same result.
-- What still differs from Linux is where the fibers' frames are: the
+  reference save, and the Linux build's report: "125297 of the log's
+  125297 matched (0 skipped)", no mode forced, 37 retraces given anyway,
+  the replay log `mn32`'s line for line.  RDRAM the same as `mn32`'s at
+  every `PORT_REPLAY_DUMP` compared (the log's reads 2,000 to 125,000),
+  and the CPU model's instruction counts and clock the same at every one
+  of the 125,582 controller reads.  28 to 38 minutes, beside the other
+  variants' replays; Linux takes 18 to 25.
+- Before the locals had a stack of port-arena's own ("The movable
+  build"), what differed from Linux was where the fibers' frames are: the
   addresses of the C's locals (in RDRAM wherever the game stores one)
   and what is left on the stacks between calls.  Between the log's reads
-  4,000 and 5,000 some frames begin to be drawn differently (the software renderer's
-  output in RDRAM; RDRAM is otherwise the same), presumably a display
-  list pointing at a local that has gone, and the timing parts by a
-  retrace near read 13,413.  A stack of the arena link's own for the
-  locals that escape (laid out by port-arena, so the same on every
-  target) would take that away.
+  4,000 and 5,000 some frames began to be drawn differently, and the
+  timing parted by a retrace near read 13,413.  With it, RDRAM was the
+  same up to the log's read 112,784, where a level's countdown was out
+  from its start in wasm: `func_8028604C`'s capped level time, a `u16`
+  result its caller declares `s16`, which x86 took as the callee left it and
+  wasm extended again.  (The TAS still matched every read: the replay
+  gives the log's retraces and reads, so a game drifting in the last
+  levels didn't show there; the instruction counts parted a few frames
+  earlier, where the countdown's branch first went the other way.)
+  port-arena gives such a result the callee's extension now, as the N64
+  had it.
 - In headless chromium (Playwright's `playwright-core` with the system
   chromium, WebGL 2 through SwiftShader): the page loads, takes the ROM
   from the file picker or `?rom=`, plays the logos, the title, the name
