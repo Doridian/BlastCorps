@@ -257,6 +257,11 @@ void __port_poll(void) {
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
 /* the scheduler's retrace count, the game's frame count and the mode */
 extern char D_803156C4[], D_80358064[], D_80364A90[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_803156C4 PORT_VAR(D_803156C4)
+#define D_80358064 PORT_VAR(D_80358064)
+#define D_80364A90 PORT_VAR(D_80364A90)
+#endif
 
 /* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read
    (compare with tools/recomp/test/snapshot.c, which counts the same way) */
@@ -286,7 +291,7 @@ void host_controller_poll(void) {
             snprintf(path, sizeof path, "rdram_%u.bin", n);
             FILE *f = fopen(path, "wb");
             if (f) {
-                fwrite((void *)(uintptr_t)PORT_RDRAM_BASE, 1, PORT_RDRAM_SIZE, f);
+                fwrite(port_ptr(PORT_RDRAM_BASE), 1, PORT_RDRAM_SIZE, f);
                 fclose(f);
                 host_log("dumped %s\n", path);
 #ifdef PORT_ACCESS_PROFILE
@@ -308,7 +313,7 @@ static void on_crash(int sig, siginfo_t *si, void *uc) {
     if (getenv("PORT_DUMP")) {
         FILE *f = fopen("rdram_crash.bin", "wb");
         if (f) {
-            fwrite((void *)(uintptr_t)PORT_RDRAM_BASE, 1, PORT_RDRAM_SIZE, f);
+            fwrite(port_ptr(PORT_RDRAM_BASE), 1, PORT_RDRAM_SIZE, f);
             fclose(f);
         }
     }
@@ -320,6 +325,7 @@ static void on_crash(int sig, siginfo_t *si, void *uc) {
 
 extern void port_boot(void);
 extern void port_fixups(void);
+extern void port_move_rdram(void);   /* runtime.c, PORT_MOVABLE */
 
 static void usage(const char *argv0) {
     fprintf(stderr,
@@ -413,6 +419,9 @@ int main(int argc, char **argv) {
     map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");
     load_rom(rom_path);
     port_fixups();
+#ifdef PORT_MOVABLE
+    port_move_rdram();
+#endif
     host_video_init();
 
     port_boot();

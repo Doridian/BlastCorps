@@ -521,6 +521,7 @@ struct ICount : PassInfoMixin<ICount> {
    ahead of BEPass (the LP64 build, BEPASS_LP64=1) */
 void portRegisterILP32(PassBuilder &pb);
 void portRegisterLP64(PassBuilder &pb);
+void portRegisterArena(PassBuilder &pb);
 
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
     return {LLVM_PLUGIN_API_VERSION, "BEPass", "1", [](PassBuilder &pb) {
@@ -532,5 +533,6 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
                     [](ModulePassManager &mpm, OptimizationLevel, ThinOrFullLTOPhase) {
                         mpm.addPass(ICount());
                     });
+                portRegisterArena(pb);      /* after ICount: BEPASS_ARENA=1 */
             }};
 }

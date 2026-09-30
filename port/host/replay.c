@@ -57,8 +57,17 @@
 /* the scheduler's retrace count, the game's frame count, the mode and the
    random number generator's state */
 extern char D_803156C4[], D_80358064[], D_80364A90[], D_8036B968[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_803156C4 PORT_VAR(D_803156C4)
+#define D_80358064 PORT_VAR(D_80358064)
+#define D_80364A90 PORT_VAR(D_80364A90)
+#define D_8036B968 PORT_VAR(D_8036B968)
+#endif
 /* the player's position */
 extern char D_803643E0[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_803643E0 PORT_VAR(D_803643E0)
+#endif
 
 typedef struct {
     uint32_t retraces, frames, pad, rng;
@@ -461,6 +470,9 @@ void host_replay_read_started(void) {
    different number of times; within a function and a frame the movie's
    values nearly always agree.) */
 extern char D_803156C0[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_803156C0 PORT_VAR(D_803156C0)
+#endif
 unsigned int port_counter(int timer, const char *func) {
     if (counts && cur_read) {
         int id = func_named(func);
@@ -605,7 +617,20 @@ int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
    this frame (00000.c's loop, its init included); a fade still going is
    dropped (the loop asserts none is). */
 extern char D_80364AF0[], D_80364EF0[], D_80364F70[], D_802E8BDC[], D_80364AE8[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_80364AF0 PORT_VAR(D_80364AF0)
+#define D_80364EF0 PORT_VAR(D_80364EF0)
+#define D_80364F70 PORT_VAR(D_80364F70)
+#define D_802E8BDC PORT_VAR(D_802E8BDC)
+#define D_80364AE8 PORT_VAR(D_80364AE8)
+#endif
 extern char D_80364A98[], D_80364AA0[], D_8036C778[], D_8036C784[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_80364A98 PORT_VAR(D_80364A98)
+#define D_80364AA0 PORT_VAR(D_80364AA0)
+#define D_8036C778 PORT_VAR(D_8036C778)
+#define D_8036C784 PORT_VAR(D_8036C784)
+#endif
 
 static void force_mode(unsigned k) {
     const Checkpoint *c = NULL;

@@ -163,6 +163,10 @@ enum {
 
 /* the scheduler's retrace count and the mode, where the version has them */
 extern char D_803156C4[], D_80364A90[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_803156C4 PORT_VAR(D_803156C4)
+#define D_80364A90 PORT_VAR(D_80364A90)
+#endif
 
 static uint16_t scripted_buttons(int *sy) {
     /* PORT_AUTOSTART=1: tap Start/A now and then, to get past the title;

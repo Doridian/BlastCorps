@@ -363,7 +363,13 @@ static inline uint32_t recomp_ea_w(recomp_context *ctx, uint64_t ea, uint32_t al
     return a;
 }
 
+/* (an embedder that keeps parts of the address space elsewhere defines
+   RECOMP_HOST(rdram, addr): the PC port's movable build, docs/PORT.md) */
+#ifdef RECOMP_HOST
+#define HOST(a) RECOMP_HOST(rdram, (uint32_t)(a))
+#else
 #define HOST(a) (rdram + ((uint32_t)(a) & 0x1FFFFFFFu))
+#endif
 
 #ifndef RECOMP_NATIVE_ENDIAN
 static inline uint16_t recomp_be16(uint16_t v) {

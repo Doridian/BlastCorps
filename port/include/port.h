@@ -17,6 +17,7 @@
 #define PORT_H
 
 #include <stdint.h>
+#include "port_arena.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -43,8 +44,10 @@ extern "C" {
 static inline void *port_ptr(uint32_t addr) {
     if (addr - 0xA0000000u < 0x20000000u)
         addr -= 0x20000000u;        /* KSEG1 -> KSEG0 */
-    return (void *)(uintptr_t)addr;
+    return port_host(addr);
 }
+/* a game variable the host names (extern char D_X[]): where it is */
+#define PORT_VAR(sym) ((char *)port_ptr((uint32_t)(uintptr_t)(sym)))
 
 #ifdef PORT_ACCESS_PROFILE
 /* host/access.c: the access-width profiler */
@@ -131,6 +134,10 @@ static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((c
    file comes from malloc, after _end */
 extern char _end[];
 static inline int port_in_rdram(const void *p) {
+#ifdef PORT_MOVABLE
+    if ((uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SPAN)
+        return 1;
+#endif
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
 static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }

@@ -54,6 +54,35 @@ void port_fixups(void) {
         swap_bytes((uint8_t *)(uintptr_t)*p, 4);
 }
 
+/* ---- movable memory (PORT_MOVABLE, docs/PORT.md "Movable memory") ------- */
+
+#ifdef PORT_MOVABLE
+#include <sys/mman.h>
+
+uint8_t *port_arena = (uint8_t *)(uintptr_t)PORT_RDRAM_BASE;
+
+/* RDRAM moves from the image's .rdram section to memory of the host's
+   choosing, at an offset into its page (PORT_ARENA_OFFSET, default 0x5670)
+   so that nothing can rely on its alignment beyond 16 bytes; the old
+   place is then unmapped (made inaccessible), so anything that still
+   reaches RDRAM at 0x80000000 faults there. */
+void port_move_rdram(void) {
+    const char *o = getenv("PORT_ARENA_OFFSET");
+    uintptr_t off = o ? strtoul(o, NULL, 0) : 0x5670;
+    size_t len = PORT_ARENA_SPAN + ((off + 0xFFFF) & ~(uintptr_t)0xFFFF);
+    uint8_t *m = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (m == MAP_FAILED)
+        host_fatal("can't map the arena");
+    uint8_t *a = m + off;
+    memcpy(a, (void *)(uintptr_t)PORT_RDRAM_BASE, PORT_ARENA_SPAN);
+    if (mprotect((void *)(uintptr_t)PORT_RDRAM_BASE, PORT_ARENA_SPAN, PROT_NONE))
+        host_fatal("can't protect the old RDRAM");
+    port_arena = a;
+    if (host_verbose)
+        host_log("RDRAM moved to %p\n", (void *)a);
+}
+#endif
+
 /* ---- translated-code hooks ------------------------------------------------ */
 
 void recomp_trap(recomp_context *ctx, int kind, uint32_t pc, uint32_t code) {
