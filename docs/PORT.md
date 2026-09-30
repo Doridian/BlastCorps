@@ -325,7 +325,9 @@ skip) when nothing could run: no ROM, no TAS log (`build/tas/run/polls.csv`,
 `--headless`, the software renderer, no save to start from): the attract
 mode for 4,000 frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
 2,000 and 3,000, each with `--save`, `--wav` and a screenshot every 250
-frames.  Their hashes (16 digits of sha1) are compared with
+frames; for us.v11 and jp, which the TAS doesn't cover, also the attract
+mode for 12,000 frames (`attract.long`: the story and several of its demo
+levels, about 70 seconds).  Their hashes (16 digits of sha1) are compared with
 `port/tools/test_refs.json`'s for the build's version; with `--against
 BUILD` also with another build's last results.  Within the build, where
 the executable is the same, `=3` again must give the same:
@@ -342,8 +344,10 @@ screenshots, except where the references say otherwise:
 - **layout-dependent** (`layout`): the hint box's portrait static at
   frame 1500 of `=2` and `=3` differs between executables (the software
   renderer's static samples memory that holds addresses of the image; see
-  "Threads without ucontext").  It is compared only within a build; the
-  OpenGL renderer draws it the same everywhere.
+  "Threads without ucontext"), and so does the story's TV static in
+  `attract.long` (5500 and 8250 in us.v11; 5000, 5250, 7500, 8000 and
+  9500 in jp).  It is compared only within a build; the OpenGL renderer
+  draws it the same everywhere.
 - **known failures** (`known`, by variant): the build passes as XFAIL
   while it gives exactly the hashes recorded there, and fails on anything
   else; when the failure goes away it passes with a note to take the
@@ -353,8 +357,7 @@ screenshots, except where the references say otherwise:
 `test.py quick BUILD --update` writes a build's hashes as its version's
 references; take them from a build that is right (a 64-bit big-endian one
 now), after a change meant to change what the game draws or plays.  There
-are references for us.v10 only (the version the TAS is), and other
-versions still get the comparisons within the build.
+are references for us.v10, us.v11 and jp; eu (no port yet) has none.
 
 **tas.**  The replay of "The TAS", each build in its own copy of the
 executable: `tas_check.py`'s 57 platinum, and the replay's report: all of
@@ -368,7 +371,8 @@ movable one).  `--again` checks the last replays' results again without
 running them.
 
 **variants.**  Configures and builds, from the stage 2 in `blastcorps/`
-(us.v10 by default, `--version`), the standard set into `build/test-*/`:
+(us.v10 by default, `--version`: the stage 2 has to be that version's),
+the standard set into `build/test-*/`:
 `32`, `64`, `n64` (native-endian 64-bit), `lp64`, `m64` (movable 64-bit),
 `mlp64` (movable LP64) and `mn32` (movable native-endian 32-bit); runs quick
 on all of them at once, then prints a table of every variant's scenarios
@@ -379,8 +383,8 @@ quick runs side by side.  On a 32-thread machine, from empty directories:
 the seven builds 38 seconds, their quick tiers 67 seconds together, and
 with `--tas` 24 minutes in all.
 
-Where it stands (us.v10, main at the time of writing): quick passes in
-all seven, with no known failures.  The last one was the native-endian
+Where it stands (main at the time of writing): quick passes in all seven
+for us.v10, us.v11 and jp, with no known failures.  The last one was the native-endian
 builds' carrier on the globe: from retrace 1,228 to 1,285 of every
 `PORT_AUTOSTART` run (the world map's intro), about 22 pixels of the
 carrier came out slightly different in color, with both renderers.  The
@@ -390,6 +394,19 @@ RGBA16 mipmaps (`D_802084F0`, `D_80209028`, `D_80209B60`, `D_8020A698`,
 `D_8020B1D0`), which the C declares as `u16` arrays and only hands the
 RDP: they were left in host order.  `port_native_fixups` puts them back
 into the N64's, as it does hd_code's (below).
+
+With the tier running under the variants' table, us.v11 and jp: every
+variant equal to the 64-bit big-endian references but for the
+layout-dependent static (`~`), in all five scenarios.  The
+quick tiers take about two minutes together with `attract.long`.
+
+(jp's first runs found its IDO asm, translated, doing what Rare's code
+doesn't: the movable builds stopped at the pak thread's entry, which only
+the asm takes the address of; the LP64 build crashed on display list slots
+passed as `Gfx **` and on pointer arrays read by words, and lost the
+Japanese text; `sprintf` from the asm read four arguments of five; and the
+native-endian builds read a byte of an `s16` and byte pairs declared as
+halves at their big-endian places.  "Other versions" has what changed.)
 
 (The suite's first run also found the 32-bit builds reading the glue's
 narrow results as all of `eax`: three of the game's C functions the
@@ -2128,12 +2145,44 @@ word slot (`lbu 0x5B($sp)` for a `u8` the glue stored as a word), so a
 byte or half access through `$sp` to a word it or its caller stores whole
 is XORed as a site (`x3`/`x2`, translate.py); and the menus' `u16` text
 (`hd_code/BC8E0`, `D_803010A0` on, which only jp shows) is converted as
-halves (`asm2x86.py`, `HALF_FILES`).  With those it plays the same way
-into Simian Acres with the right text, but it isn't checked against the
-big-endian build as us.v11's is: with `PORT_COUNT_PER_OP=0` the two part
-by frame 4,000 of `PORT_AUTOSTART=1`.  The type inventory, `native_sites.txt`
-and the islands' layouts are us.v11's; what jp's own data (its `_jp`
-symbols, its text) needs beyond that hasn't been gone through.
+halves (`asm2x86.py`, `HALF_FILES`).  Two more reads of the IDO code and
+of Rare's jp-only code are sites of jp's own (`native_sites.txt` lines
+with a third field, `jp`: a version's asm at its own offsets):
+`func_8026BCE0` takes the fade's low byte as the byte after the `s16`
+`D_8036BB0C` (the name entry's title came out differently), and
+`func_802BA3E8_jp` reads (level, value) byte pairs that the asm data
+declares as halves (`D_8030606E_jp`; Simian Acres then played
+differently).  Found with `build_cmp.py rdram --native` and `itrace`
+(skipping `func_802A794C`'s byte copy of words, where the registers hold
+bytes in their memory's order).  With them the native-endian builds play
+as the big-endian one, the quick tier's hashes but for the carrier on the
+globe.  The type inventory and the islands' layouts are still us.v11's;
+the runs are what checks jp.
+
+The other variants needed the IDO code's calls out of it looked at:
+
+- **The movable builds**: `func_801F57B0` starts the pak thread with
+  `func_801F58E8`'s address, which only the asm takes (a `lui`/`addiu`
+  pair), so port-arena didn't see a function used as a value and the
+  host's `port_fn` didn't know it.  `gen_glue.py` writes `fn_values.txt`,
+  every name the translated code takes the address of, and port-arena
+  makes those of them that are functions values (`-port-arena-fn-values`).
+- **The LP64 builds**: the IDO code passes its 32-bit display list slot to
+  C that takes `Gfx **` (`func_80259BD4`, `func_80259C24`,
+  `func_8025E2CC`), and the extern gives the C a native slot (below the
+  N64 stack pointer, where the movable build's C can reach it) and copies
+  the pointer back; and the pointer arrays it reads by words
+  (`D_80208358`/`68`, `D_80208378`, `D_802FF188`, `D_80358050`,
+  `D_80365348`) are `PTR32` (the attract mode's Japanese text was missing,
+  its scroller divided by zero at frame 7,250).  The native pointers it
+  reads or writes whole (`D_802158A0` ...) are right as they are: their
+  low half is the N64's word on a little-endian host.
+- **Everywhere**: `sprintf` and `bcopy` from the asm went to the host's
+  libc, with N64 addresses (the movable build's are in the arena) and
+  `sprintf` with four arguments of the five `"%d MINUTE%c %d SECONDS"`
+  has; both externs are written by hand now (`gen_glue.py`, `BY_HAND`),
+  `sprintf` taking its arguments by the format, the rest off the N64
+  stack, and formatting apart as `n64_sprintf` does.
 
 ## Source changes for the port
 
