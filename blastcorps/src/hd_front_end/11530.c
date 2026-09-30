@@ -42,13 +42,7 @@ void func_80260650(SndBank *, s32, s32 *);
 void func_802608C8(s32);
 void func_80260A10(void);
 void func_80261FB0(u8);
-#ifdef TARGET_PC
-/* 1D990.c defines it u8: IDO's v0 has it zero-extended, i386's eax
-   doesn't, and the port's 32-bit build compared its upper bytes too */
 u8 func_80264BA4(u8);
-#else
-s32 func_80264BA4(s32);
-#endif
 s32 func_8026A828(s32, s32);
 s8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
 Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
