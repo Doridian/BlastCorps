@@ -36,6 +36,13 @@ static int quit;
 static uint32_t pixels[640 * 480];
 
 void host_vi_set_framebuffer(uint32_t fb, int width) {
+    /* a retrace that shows another buffer: the frame in it is complete (the
+       next one's tasks wait for the RDP's thaw, after this) */
+    static uint32_t shown;
+    if (fb && fb != shown) {
+        shown = fb;
+        host_gfx_frame_shown(fb);
+    }
     vi_fb = fb;
     if (width > 0 && width <= 640)
         vi_width = width;

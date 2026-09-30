@@ -1344,9 +1344,11 @@ int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
     return c.sync;
 }
 
-/* osViSwapBuffer: the frame drawn into fb is complete.  Its in-between
-   frame is shown first if every task of it had its pass. */
-void host_vi_swap(uint32_t fb) {
+/* The VI shows fb from this retrace on, so the frame drawn into it is
+   complete.  (Hooked here rather than in osViSwapBuffer: a call there would
+   be counted as the game's CPU time.)  Its in-between frame is shown first
+   if every task of it had its pass. */
+void host_gfx_frame_shown(uint32_t fb) {
     if (!gfx_interp || !gfx_gl_enabled || !ifr[0])
         return;
     gfx_gl_interp_swap(fb, !iframe_partial);

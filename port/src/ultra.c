@@ -481,7 +481,7 @@ void osViSetEvent(OSMesgQueue *mq, OSMesg msg, u32 retraceCount) {
         host_log("osViSetEvent(%08X, %X, %u)\n", (unsigned)mq, (unsigned)msg, (unsigned)retraceCount);
 }
 
-void osViSwapBuffer(void *fb) { host_cpu_sync(); vi_next_fb = fb; host_vi_swap((u32)fb); }
+void osViSwapBuffer(void *fb) { host_cpu_sync(); vi_next_fb = fb; }
 void *osViGetCurrentFramebuffer(void) { return vi_cur_fb; }
 void *osViGetNextFramebuffer(void) { return vi_next_fb; }
 void osViBlack(u8 active) { vi_black = active; }

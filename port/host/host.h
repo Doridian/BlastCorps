@@ -47,6 +47,7 @@ extern int gfx_filter;              /* GFX_FILTER_* (gfx.h) */
 extern int gfx_gl_scale;            /* internal resolution factor, 0: the window's */
 extern int gfx_interp;              /* --interpolate: in-between frames (gfx.c) */
 void host_gfx_interp_report(void);
+void host_gfx_frame_shown(uint32_t fb);     /* the VI shows fb from this retrace on */
 struct SDL_Window;
 unsigned gfx_gl_window_flags(void);
 int gfx_gl_init(struct SDL_Window *win);
