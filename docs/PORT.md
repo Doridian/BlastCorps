@@ -28,9 +28,8 @@ a 64-bit program instead (x86-64 now, AArch64 in principle; see "The
 libepoxy rather than the multilib ones; `-DPORT_NATIVE_ENDIAN=ON` keeps game
 memory in host order ("The native-endian build"), and `-DPORT_LP64=ON`
 (both of those and more) compiles the game's C as an ordinary LP64 program
-("The LP64 build"); `-DPORT_MOVABLE=ON` puts game memory wherever the
-host allocates it and links an ordinary PIE, with `PORT_64BIT` (and
-`PORT_NATIVE_ENDIAN`) or the 32-bit build, not yet with `PORT_LP64`
+("The LP64 build"); `-DPORT_MOVABLE=ON`, with any of them, puts game
+memory wherever the host allocates it and links an ordinary PIE
 ("Movable memory"):
 
 ```
@@ -870,11 +869,11 @@ interface do.
 
 ### The movable build (`-DPORT_MOVABLE=ON`)
 
-Steps 1 to 5 of the plan below are done, behind the option; the default
-builds are as they were.  The movable 64-bit build is an ordinary PIE:
-nothing of the port is at a fixed address, and ASLR moves the image and
-the arena every run.  It takes `PORT_64BIT` (big-endian or native) or
-neither (the 32-bit build); `PORT_LP64` not yet (step 7).
+The plan below is done, behind the option; the default builds are as
+they were.  The movable 64-bit build is an ordinary PIE: nothing of the
+port is at a fixed address, and ASLR moves the image and the arena every
+run.  It takes `PORT_64BIT` (big-endian or native), `PORT_LP64`, or
+neither (the 32-bit build).
 
 **The arena** is one `mmap` of 28 MB (`port_arena_init`, `host/runtime.c`,
 before anything else runs), at an offset into its page
@@ -935,7 +934,23 @@ make one object.  port-arena, over the whole program:
   the same way (`PORT_FN`, `threads.c`);
 - names the caller of the replay's hooks (`port_replay_set_caller`, which
   `replay.c` uses instead of looking the return address up in the port's
-  symbol table, as the other builds do).
+  symbol table, as the other builds do);
+- first of all, makes every direct call with its callee's type: the
+  decompiled C's K&R declarations disagree between files (449 calls in
+  us.v10's 64-bit build, 417 in the 32-bit one).  The arguments are
+  truncated or extended as the N64's registers would carry them (a
+  missing one is zero), a variadic callee gets the rest as they are
+  (34430.c declares `func_8029A7E4` with four parameters), and the result
+  is converted by the callee's extension.  x86-64 and AArch64 ran them
+  anyway; WebAssembly can't call a function through another type, and
+  i386 got narrow results wrong (below);
+- in the LP64 build, lays out after RDRAM the C's variables that outgrew
+  their N64 room (as `gen_ld.py` decides it: bigger than the N64 symbol's
+  size and the distance to the next, or aligned where it isn't: 115 in
+  us.v10, its native pointer variables and tables), and writes where they
+  went as a header (`gen/arena_syms.h`: `SYM_` for the translated code,
+  which reads seven of them, `PORT_N64_` for the host, both ahead of the
+  N64's addresses).
 
 port-wrap, per file (`BEPASS_WRAP`), does the link's `--wrap` for the N64
 side, which is one object now; the link keeps `--wrap` for the glue's own
@@ -963,6 +978,9 @@ translated code reads).
 | 3, the arena link | 57 platinum, all matched, no mode forced; 164 retraces given anyway (373) | identical with `PORT_COUNT_PER_OP=0` |
 | 4, the arena, globals by constant | 57 platinum, all matched, no mode forced; 142 given anyway | identical with `PORT_COUNT_PER_OP=0`; RDRAM the same but the stacks' addresses |
 | 5, functions, PIE | 57 platinum, all matched, no mode forced; 126 given anyway | identical with `PORT_COUNT_PER_OP=0` |
+| 1-5 on main's fibers | 57 platinum, all matched, no mode forced, 395 given anyway; `PORT_THREADS=ucontext` and `pthread` the same save and replay log | identical with `PORT_COUNT_PER_OP=0`; `--interpolate --widescreen` (GL, headless) the same screenshots |
+| 6, call types | 57 platinum, all matched, no mode forced, 384 given anyway | identical with `PORT_COUNT_PER_OP=0`, 64-bit and 32-bit native |
+| 7, LP64 | LP64 movable: 57 platinum, the same save and the same report as the LP64 build without it (both drift: 3,993 of the log's reads skipped, 11 modes forced) | LP64: identical with `PORT_COUNT_PER_OP=0` |
 
 Where the arena is doesn't matter: the step-5 TAS played again with
 another arena offset (`PORT_ARENA_OFFSET=0x10`, and whatever ASLR gave
@@ -970,26 +988,26 @@ both runs) wrote the same save and the same replay log, line for line.
 From step 3 on the timing differs a little from the build without it:
 the string literals are laid out differently, and some of the game's
 loops over them take other paths by their alignment; the game logic
-doesn't see it (the pace log is identical over those 3,000 frames).  The
-32-bit native-endian movable build plays, but parts from the 32-bit
-build without it: a K&R call reads a `u8` result as a word
-(`func_80264BA4`, defined `u8`, declared `s32` in 9570.c), which on
-i386 has garbage in the upper bytes, different garbage in the two
-builds.  The 64-bit builds widen such results (port-ilp32); step 6
-repairs the calls.
+doesn't see it (the pace log is identical over those 3,000 frames).
+(The retraces given anyway went from 126 to 395 with main's fiber API
+underneath: the build without the option went from 373 to 376 then.)
 
-**What's left:**
+The call repair found a bug of the 32-bit builds: `func_80264BA4` is
+defined `u8` (1D990.c) and declared `s32` in four other files, and i386
+leaves the upper bytes of `eax` as they were, so the map's `!= 3`
+compared garbage (IDO's `v0` has a `u8` zero-extended; the 64-bit builds
+widen narrow results, port-ilp32).  Those declarations are `u8` under
+`TARGET_PC` now, so the default 32-bit builds are right too, and the
+32-bit native-endian movable build plays as the one without (before, the
+two had parted, on different garbage).  The 32-bit big-endian build's
+TAS gains by it: 57 platinum and all reads matched as before, but no
+mode forced any more (two were), 78 retraces given anyway (85).
 
-6. Call types repaired: a direct call whose type isn't the definition's
-   is made with the definition's, the arguments and the result converted
-   as the N64's registers would (port-callfix, tried: 424 calls in us.v10
-   including the glue's).  Harmless on x86-64 and AArch64, needed by wasm
-   (which can't call through another type), and the fix for the 32-bit
-   build's narrow results above.  Also `func_8029A7E4`, called as
-   variadic and defined without.
-7. LP64: its variables that outgrew their N64 room laid out after RDRAM
-   too, and a header of their addresses for the translated code's
-   `SYM()`s (seven of the 120 are read by it).
+**What's left** for the movable build itself: the access profiler
+(refused with it), `build_cmp.py rdram`'s view of the stacks, and the
+glue's prototypes against the host's definitions for wasm-ld (the pass
+fixes the N64 side's calls to the glue by the declaration it has, which
+wasm-ld will check against `entry.c`'s).
 
 Then, for **macOS** (arm64, the movable 64-bit build first): CMake for
 Darwin (Homebrew's SDL2 and libepoxy, `-fPIE`), no `-Wl,--wrap` (the
@@ -1014,15 +1032,12 @@ yielding to the browser, threads without `ucontext`: Asyncify's fibers or
 the pthread backend's structure); the arena from `malloc` (28 MB of
 linear memory), or at linear address 0 with `GLOBAL_BASE` above it.
 
-Tried for wasm32 on us.v10's N64 side before step 4 (the 32-bit native-endian build's
-commands, `--target=wasm32` for `-m32`, with port-arena): all 124 files
-compile to bitcode and `llvm-link` takes them; `llc` then fails on the
-mismatched calls (the backend's own fix-up makes trapping thunks, and
-breaks on their attributes).  With the experimental port-callfix over the
-linked module (424 calls rewritten), `wasm32-unknown-unknown` stopped only
-at the replay hooks' `__builtin_return_address` (gone now), and
-`wasm32-unknown-emscripten` produces the object (4.3 MB), with one thunk
-left for `func_8029A7E4`'s variadic calls.
+Tried for wasm32 with step 6: the movable 32-bit native-endian build's
+commands with `--target=wasm32-unknown-emscripten` for `-m32` compile all
+124 files, and the arena link as the build does it (the asm data's `.ll`
+files, `-port-arena-native`) gives `llc` a module it makes a wasm object
+of, with no signature thunk left.  (Before the call repair `llc` failed on
+the mismatched calls.)
 
 The LP64 build doesn't finish the TAS at the moment, with or without
 this: it stops with SIGFPE at about the movie's read 1,620 (main's
@@ -1901,15 +1916,16 @@ Where it stands: the port beats the game with the movie's input, 57
 platinum medals like the movie, in about 20 minutes (`port/tools/tas_port.sh`
 after `tas.sh`).  All 125,297 of the movie's reads are matched, none
 skipped, and the player is where the movie has it at every frame of every
-level and on the map.  Two of the game's mode switches are the movie's
-rather than the port's: twice, at the world map, the port's cursor picks
-the level it is on where the movie's picks the next one (the cursor's
-target comes from the paths the map draws, which the replay doesn't make
-exact), and the switch hook sends it where the movie went.  The 64-bit
-build plays it as exactly (all 125,297 reads matched, the player always
-where the movie has it, 57 platinum), with no mode forced at all; its
-timing differs (373 retraces given anyway to the 32-bit build's 80, one
-save command let go early to three).
+level and on the map.  Two of the game's mode switches used to be the
+movie's rather than the port's: twice, at the world map, the 32-bit
+port's cursor picked the level it was on where the movie's picked the
+next one, and the switch hook sent it where the movie went.  That was
+the 32-bit build reading garbage in a `u8` result (`func_80264BA4`,
+"The movable build"); since that's fixed, no mode is forced (78 retraces
+given anyway, one save command let go early).  The 64-bit build plays
+it as exactly (all 125,297 reads matched, the player always where the
+movie has it, 57 platinum), with no mode forced at all; its timing
+differs (376 retraces given anyway).
 
 - **The mode switches.**  `m64p_tas` logs every mode the game's loop
   switches to (`switches.csv`, an exec breakpoint where it prints "game mode
@@ -1964,8 +1980,7 @@ writable, as the N64 has it.
   native-endian memory ("The native-endian build") and the LP64 build ("The
   LP64 build").  Next are the fixed addresses: the game's C and data should
   work at any base, which arm64 macOS and a WebAssembly build (both wanted
-  eventually) need; the movable build ("Movable memory") is that, but for
-  LP64 and the call types wasm needs.  Threads without `ucontext` are done
+  eventually) need; the movable build ("Movable memory") is that.  Threads without `ucontext` are done
   (the pthread backend, "Threads without ucontext"); the browser also
   needs the loop to return every frame, and a way for the fibers not to
   block its main thread (the same section).  The

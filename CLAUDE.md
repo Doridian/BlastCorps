@@ -67,8 +67,8 @@ throughout); jp's remaining `GLOBAL_ASM` functions are translated by
 
 `-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
 64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with
-`port/tools/build_cmp.py` and `layout_cmp.py`.  `-DPORT_MOVABLE=ON` (not
-with LP64 yet) puts game memory at any base and links a PIE, the way to
+`port/tools/build_cmp.py` and `layout_cmp.py`.  `-DPORT_MOVABLE=ON` (with
+any of them) puts game memory at any base and links a PIE, the way to
 macOS and WebAssembly: the N64 side is one LLVM module there, through
 port-arena (docs/PORT.md, "Movable memory").  The game's threads switch by ucontext or by host threads one at
 a time (`port/host/fiber.h`); on Linux one executable has both and
