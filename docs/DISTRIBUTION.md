@@ -60,10 +60,14 @@ movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
 3. **The engine rewrite (category 2).** The translation is ROM-derived by construction, so a published
    binary needs Rare's engine as hand-written C. The alternative is an interpreter, estimated 5–20× slower
    on that third of the code. See below.
-4. **`gu_extra.c`** replaced by a clean implementation, and **the GPL-derived gzip driver** replaced
-   under `TARGET_PC` (or its terms accepted).
+4. **`gu_extra.c`** replaced by a clean implementation.  The gzip driver's GPLv2+ is fine: the project
+   is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
 5. **Strip releases**, and drop `PORT_N64_FUNCS`.
-6. **Notices** for SDL2, libepoxy, musl and emscripten, and a root LICENSE for the project's code.
+6. **Notices** for SDL2, libepoxy, musl and emscripten, and a root LICENSE for the project's code: the
+   owner's intent is **AGPL-3.0**, or plain GPL where that can't work.  The third-party licenses above
+   (zlib, MIT, Apache-2.0 with the LLVM exception, LGPL for dynamic glibc) are all compatible with it.
+   What can't be relicensed by the project is what isn't its own: the decompiled SDK parts (3b/3c/3d,
+   ultralib has no license either) and anything ROM-derived.
 7. **The decompiled game and SDK C (3a/3b)** is the same material as the repository's source. It is the
    owner's decision. If libaudio had to go, a clean-room synthesizer and sequencer is weeks of work and
    gives up exact output. gu is about 12 small functions.
