@@ -62,6 +62,7 @@
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/TargetParser/Triple.h"
@@ -615,6 +616,27 @@ struct ILP32 : PassInfoMixin<ILP32> {
         }
     }
 
+    /* Elsewhere than on x86 the optimiser raises the alignment of globals
+       (AArch64: i8 and i16 to 4, float arrays to 16 for vector accesses),
+       which would move them off their N64 addresses (gen_ld.py).  A global
+       with a section of its own keeps what it has: the one -fdata-sections
+       gives it, for what gen_ld.py places.  (x86-64 has never raised one;
+       its build stays as it was.) */
+    void keepAlignment(Module &m, const TargetMachine &tm) {
+        if (tm.getTargetTriple().isX86())
+            return;
+        for (GlobalVariable &g : m.globals()) {
+            if (g.isDeclaration() || g.hasSection() || !g.hasName() || g.hasPrivateLinkage() ||
+                g.getName().starts_with("llvm.") || g.isThreadLocal())
+                continue;
+            SectionKind k = TargetLoweringObjectFile::getKindForGlobal(&g, tm);
+            const char *pre = k.isBSS() ? ".bss." : k.isData() ? ".data." :
+                              k.isReadOnly() && !k.isMergeableConst() && !k.isMergeableCString() ? ".rodata." : nullptr;
+            if (pre)
+                g.setSection((Twine(pre) + g.getName()).str());
+        }
+    }
+
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
         M = &m;
         C = &m.getContext();
@@ -629,7 +651,7 @@ struct ILP32 : PassInfoMixin<ILP32> {
         const Target *tgt = TargetRegistry::lookupTarget(tt, err);
         if (!tgt)
             fail("target " + ILP32Triple + ": " + err);
-        std::unique_ptr<TargetMachine> tm(tgt->createTargetMachine(tt, "", "", TargetOptions(), std::nullopt));
+        std::unique_ptr<TargetMachine> tm(tgt->createTargetMachine(tt, "", "", TargetOptions(), Reloc::PIC_));
         New = std::make_unique<DataLayout>(tm->createDataLayout());
 
         widenReturns();
@@ -648,6 +670,7 @@ struct ILP32 : PassInfoMixin<ILP32> {
         }
         m.setTargetTriple(tt);
         m.setDataLayout(*New);
+        keepAlignment(m, *tm);
         for (Function &f : m)
             if (!f.isDeclaration())
                 launderOutOfBounds(f);

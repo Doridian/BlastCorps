@@ -52,7 +52,10 @@ def main():
             src = args[k + 1]
             k += 2
             continue
-        if not a.startswith("-fpass-plugin"):
+        if a in ("-target", "--target"):          # a cross build's: stage 1 is i386
+            k += 2
+            continue
+        if not a.startswith(("-fpass-plugin", "--target=")):
             s1.append(a)
         k += 1
     if not out or not src:
@@ -66,7 +69,7 @@ def main():
         passes.append("-port-ilp32-check")
     run([opts["--opt"], "-load-pass-plugin=" + opts["--plugin"], "-passes=port-ilp32"] + passes +
         [ir32, "-o", ir64])
-    s3 = [a for a in args if a.startswith(STAGE3_PREFIXES)]
+    s3 = [a for a in args if a.startswith(STAGE3_PREFIXES + ("--sysroot", "--gcc-toolchain"))]
     run([cc, "--target=" + opts["--target"], "-Wno-override-module"] + s3 + ["-c", ir64, "-o", out])
 
 
