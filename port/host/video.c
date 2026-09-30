@@ -58,11 +58,24 @@ void host_vi_set_framebuffer(uint32_t fb, int width) {
         vi_width = width;
 }
 
+/* SDL is up (not in emscripten's headless runs: it has no offscreen
+   driver, and node no page; the software renderer draws all the same) */
+static int sdl_up;
+
 void host_video_init(void) {
+#ifdef __EMSCRIPTEN__
+    if (host_headless) {
+        if (host_renderer == 1)
+            host_log("headless: using the software renderer\n");
+        host_renderer = 0;
+        return;
+    }
+#endif
     if (host_headless)
         SDL_setenv("SDL_VIDEODRIVER", "offscreen", 1);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0)
         host_fatal("SDL_Init: %s", SDL_GetError());
+    sdl_up = 1;
     if (host_renderer < 0)
         host_renderer = !host_headless;
 #ifndef PORT_HAVE_GL
@@ -103,7 +116,8 @@ pads:
 }
 
 void host_video_shutdown(void) {
-    SDL_Quit();
+    if (sdl_up)
+        SDL_Quit();
 }
 
 static void save_bmp(const char *path, int w, int h) {
@@ -128,7 +142,7 @@ static void save_bmp(const char *path, int w, int h) {
 
 void host_video_frame(void) {
     SDL_Event e;
-    while (SDL_PollEvent(&e)) {
+    while (sdl_up && SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT)
             quit = 1;
         if (e.type == SDL_CONTROLLERDEVICEADDED && !pad)
@@ -158,7 +172,7 @@ void host_video_frame(void) {
     sw_wide();
     int fw = 320 + 2 * gfx_wide_off, ww;
     const uint16_t *wide = vi_fb ? gfx_sw_wide_frame(vi_fb, &ww) : NULL;
-    if (fw != tex_w) {
+    if (fw != tex_w && ren) {
         SDL_DestroyTexture(tex);
         tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, fw, 240);
         tex_w = fw;
@@ -192,10 +206,12 @@ void host_video_frame(void) {
                                       (b << 3 | b >> 2);
             }
     }
-    SDL_UpdateTexture(tex, NULL, pixels, fw * 4);
-    SDL_RenderClear(ren);
-    SDL_RenderCopy(ren, tex, NULL, NULL);
-    SDL_RenderPresent(ren);
+    if (ren) {
+        SDL_UpdateTexture(tex, NULL, pixels, fw * 4);
+        SDL_RenderClear(ren);
+        SDL_RenderCopy(ren, tex, NULL, NULL);
+        SDL_RenderPresent(ren);
+    }
     if (shot) {
         save_bmp(path, fw, 240);
         host_log("saved %s\n", path);
@@ -264,6 +280,8 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     int sx = 0, sy = 0;
     if (n == 0 && host_replay_active()) {
         host_replay_pad(&b, &sx, &sy);
+    } else if (n == 0 && !sdl_up) {
+        b |= scripted_buttons(&sy);
     } else if (n == 0) {
         const Uint8 *k = SDL_GetKeyboardState(NULL);
         if (k[SDL_SCANCODE_X]) b |= B_A;

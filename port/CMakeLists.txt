@@ -46,6 +46,19 @@ if(PORT_LP64)
     set(PORT_64BIT ON CACHE BOOL "" FORCE)
     set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
 endif()
+# WebAssembly (emcmake cmake ...; docs/PORT.md, "WebAssembly"): the 32-bit
+# native-endian movable build for wasm32, the host side through emcc and
+# the N64 side through the system's clang, which loads BEPass
+if(EMSCRIPTEN)
+    if(PORT_64BIT OR PORT_LP64)
+        message(FATAL_ERROR "the WebAssembly build is wasm32: no PORT_64BIT or PORT_LP64")
+    endif()
+    set(PORT_MOVABLE ON CACHE BOOL "" FORCE)
+    set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
+    # node: headless, the files through node's (NODERAWFS); web: a page
+    set(PORT_WASM_TARGET node CACHE STRING "the WebAssembly build's host: node or web")
+    set_property(CACHE PORT_WASM_TARGET PROPERTY STRINGS node web)
+endif()
 
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
@@ -116,9 +129,26 @@ find_program(LLVM_CONFIG llvm-config HINTS ${CLANG_BINDIR} REQUIRED)
 # A cross build (CMAKE_C_COMPILER_TARGET, port/tools/cross-aarch64.cmake)
 # can't build the plugin clang loads: it takes one from a native build.
 set(PORT_BEPASS_PLUGIN "" CACHE FILEPATH "cross builds: a libBEPass.so built for the host")
+if(EMSCRIPTEN)
+    # the N64 side's compiler and the plugin's: the clang of LLVM_CONFIG
+    execute_process(COMMAND ${LLVM_CONFIG} --bindir OUTPUT_VARIABLE LLVM_BINDIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    find_program(PORT_N64_CC clang HINTS ${LLVM_BINDIR} NO_DEFAULT_PATH REQUIRED)
+    find_program(PORT_N64_CXX clang++ HINTS ${LLVM_BINDIR} NO_DEFAULT_PATH REQUIRED)
+endif()
 if(PORT_BEPASS_PLUGIN)
     set(BEPASS ${PORT_BEPASS_PLUGIN})
     add_custom_target(BEPass)
+elseif(EMSCRIPTEN)
+    # (CMake's C++ compiler is em++: the plugin is the host's)
+    execute_process(COMMAND ${LLVM_CONFIG} --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
+    separate_arguments(LLVM_CXXFLAGS)
+    set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass.so)
+    set(BEPASS_SRC bepass/BEPass.cpp bepass/ILP32.cpp bepass/LP64.cpp bepass/Arena.cpp)
+    list(TRANSFORM BEPASS_SRC PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/)
+    add_custom_command(OUTPUT ${BEPASS}
+        COMMAND ${PORT_N64_CXX} ${LLVM_CXXFLAGS} -fno-rtti -O2 -fPIC -shared -o ${BEPASS} ${BEPASS_SRC}
+        DEPENDS ${BEPASS_SRC} COMMAND_EXPAND_LISTS)
+    add_custom_target(BEPass DEPENDS ${BEPASS})
 else()
     execute_process(COMMAND ${LLVM_CONFIG} --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
     separate_arguments(LLVM_CXXFLAGS)
@@ -132,11 +162,19 @@ else()
     set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass${CMAKE_SHARED_MODULE_SUFFIX})
 endif()
 
-execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(EMSCRIPTEN)
+    execute_process(COMMAND ${PORT_N64_CC} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+else()
+    execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
 # the N64 side's layout: i386 with 8-byte aligned doubles and long longs,
 # as MIPS o32 has them
 set(M32 -m32 -msse2 -mfpmath=sse -malign-double)
-if(PORT_LP64)
+if(EMSCRIPTEN)
+    # wasm32's own layout is that one (4-byte pointers and longs, 8-aligned
+    # doubles and long longs); -pthread for the atomics shared memory needs
+    set(M32 --target=wasm32-unknown-emscripten -pthread)
+elseif(PORT_LP64)
     # the host's own layout: no i386 frontend, no port-ilp32
     set(M32)
 elseif(PORT_64BIT)
@@ -190,6 +228,13 @@ elseif(PORT_64BIT)
     set(HOST_ARCH -fPIE)
     list(APPEND M32 -fPIE)
     message(STATUS "64-bit build for ${PORT_TRIPLE}")
+elseif(EMSCRIPTEN)
+    list(APPEND N64_LAUNCHER ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/n64cc.py ${PORT_N64_CC} --)
+    if(NOT N64_LAUNCHER MATCHES "^env;")
+        list(PREPEND N64_LAUNCHER env)
+    endif()
+    set(HOST_ARCH -pthread)
+    message(STATUS "WebAssembly build (${PORT_WASM_TARGET}); the N64 side by ${PORT_N64_CC}")
 else()
     set(HOST_ARCH ${M32})
 endif()
@@ -376,6 +421,11 @@ if(NOT PORT_MOVABLE)
 endif()
 
 # ---- host side -----------------------------------------------------------------
+if(EMSCRIPTEN)
+    # emscripten's SDL2 port
+    set(SDL2_CFLAGS_OTHER -sUSE_SDL=2)
+    set(SDL2_LDFLAGS -sUSE_SDL=2)
+else()
 find_package(PkgConfig REQUIRED)
 if(NOT PORT_64BIT)
     set(ENV{PKG_CONFIG_LIBDIR} "/usr/lib32/pkgconfig:/usr/share/pkgconfig")
@@ -384,6 +434,7 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 # the OpenGL renderer (gfx_gl.c) is optional: without libepoxy, only the
 # software one is built
 pkg_check_modules(EPOXY epoxy)
+endif()
 file(GLOB HOST_C ${CMAKE_CURRENT_SOURCE_DIR}/host/*.c)
 add_library(host OBJECT ${HOST_C})
 # the game's threads' context switch (host/fiber.h): ucontext on the one OS
@@ -428,7 +479,7 @@ if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})
 endif()
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i.86|amd64|AMD64")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i.86|amd64|AMD64" AND NOT EMSCRIPTEN)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3;-msse4.1")
 else()
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3")
@@ -445,6 +496,9 @@ if(PORT_MOVABLE)
     find_program(LLVM_LLC llc HINTS ${LLVM_BINDIR_HINT} REQUIRED)
     if(PORT_64BIT)
         set(LLC_RELOC -relocation-model=pic)
+    elseif(EMSCRIPTEN)
+        # (a wasm object for emcc's link: its shared memory needs these)
+        set(LLC_RELOC -mattr=+atomics,+bulk-memory)
     else()
         set(LLC_RELOC -relocation-model=static)
     endif()
@@ -488,6 +542,9 @@ if(PORT_MOVABLE)
     set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt -port-arena-header=${GEN}/arena_syms.h)
     if(PORT_NATIVE_ENDIAN)
         list(APPEND ARENA_FLAGS -port-arena-native)
+    endif()
+    if(EMSCRIPTEN)      # (wasm can't call a function through another type)
+        list(APPEND ARENA_FLAGS -port-arena-typed-calls)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h
         COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
@@ -546,7 +603,14 @@ if(PORT_64BIT)
     target_compile_definitions(host PRIVATE PORT_64BIT)
     target_compile_definitions(recomp PRIVATE PORT_64BIT)
 endif()
-if(PORT_MOVABLE AND APPLE)
+if(EMSCRIPTEN)
+    # the game's threads are host threads (fiber_pthread.c), and the loop
+    # one too (PROXY_TO_PTHREAD), so that the page's own thread is free to
+    # start them; the fibers' stacks are in the arena
+    target_link_options(blastcorps PRIVATE -pthread -sPROXY_TO_PTHREAD -sPTHREAD_POOL_SIZE=24
+        -sINITIAL_MEMORY=256MB -sSTACK_SIZE=1MB -sDEFAULT_PTHREAD_STACK_SIZE=1MB -sEXIT_RUNTIME
+        -sENVIRONMENT=node,worker -sNODERAWFS)
+elseif(PORT_MOVABLE AND APPLE)
     # (a PIE is all arm64 macOS runs, and ld64's default)
 elseif(PORT_MOVABLE AND PORT_64BIT)
     # nothing is at a fixed address: an ordinary PIE, wherever the loader

@@ -160,7 +160,9 @@ static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((c
 extern char _end[];
 static inline int port_in_rdram(const void *p) {
 #ifdef PORT_MOVABLE
-    return (uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SIZE;
+    /* (none before port_arena_init: the ROM file is read first, and in
+       wasm's linear memory it is below 28 MB) */
+    return port_arena && (uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SIZE;
 #endif
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
