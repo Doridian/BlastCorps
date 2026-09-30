@@ -126,6 +126,13 @@
     });
   };
   Module.canvas.addEventListener('click', function () { Module.canvas.focus(); });
+  /* the browser may start the sound suspended, or suspend it later: any
+     input is a chance to resume it */
+  function resumeAudio() {
+    var ac = Module.SDL2 && Module.SDL2.audioContext;
+    if (ac && ac.state !== 'running' && ac.state !== 'closed') ac.resume();
+  }
+  ['keydown', 'pointerdown', 'touchstart'].forEach(function (e) { addEventListener(e, resumeAudio, true); });
   /* the picture as big as the page has room for, in the shape of the window
      SDL made (its size is --scale's, start() above) */
   function room() { return innerHeight - document.getElementById('panel').offsetHeight - 8; }

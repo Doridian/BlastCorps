@@ -14,11 +14,23 @@ void host_charge(uint64_t ns);
 uint64_t host_busy_wake(void);       /* threads.c: when a busy thread may go on */
 extern double host_ns_per_instr, host_c_scale;          /* the N64's clock: real or virtual time */
 
+/* perf.c: PORT_PERF=N, where the host's time goes per retrace */
+enum { PERF_LOOP, PERF_GAME, PERF_GFX, PERF_GFX2, PERF_AUDIO, PERF_PRESENT, PERF_IDLE, PERF_NCAT };
+extern int host_perf_on;
+extern int host_paced;                      /* main.c: PORT_PACED, virtual time between retraces */
+void host_perf_init(void);
+double host_perf_now(void);                 /* ms */
+void host_perf_push(int cat);               /* time from here on is cat's ... */
+void host_perf_pop(void);                   /* ... until this */
+void host_perf_sleep(double want_ms, double got_ms);
+void host_perf_vi(double late_ms, unsigned long long images, unsigned long long frames);
+
 /* audio.c */
 extern int host_audio_enabled;
 extern const char *host_wav_path;
 uint64_t host_audio_samples(void);
 void host_audio_shutdown(void);
+void host_audio_perf(int *queued_ms, unsigned *dropped);     /* queued -1: no device */
 
 /* video.c */
 extern int host_max_frames;

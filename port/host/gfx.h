@@ -137,5 +137,6 @@ int gfx_interp_image_at(uint32_t fb, double phase);
 /* the software renderer's twin k of fb (as gfx_sw_wide_frame), or NULL */
 const uint16_t *gfx_sw_twin_frame(uint32_t fb, int k, int *w);
 extern unsigned long long gfx_st_shown[3];     /* presents, new frames among them, in-between ones */
+extern unsigned long long gfx_st_images;        /* retraces that showed another picture than the last */
 
 #endif

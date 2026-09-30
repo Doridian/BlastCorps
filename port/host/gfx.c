@@ -364,6 +364,7 @@ static int *tkeys, tk_n, tk_cap, tk_i;      /* this task's loads, in order */
    longer than their twins were made for, and shorter */
 unsigned long long gfx_st_interp[8 + GFX_TWINS + 2];
 unsigned long long gfx_st_shown[3];         /* gfx.h */
+unsigned long long gfx_st_images;           /* gfx.h */
 
 static inline uint32_t ihash(uint32_t a, uint32_t b) {
     uint32_t h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u) * 0x85EBCA77u;
@@ -1721,12 +1722,14 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
             memcpy(tmem0, gfx_tmem, sizeof tmem0);
         }
     }
+    host_perf_push(PERF_GFX);
     if (gfx_gl_enabled)
         gfx_gl_task_begin();
     double cover = st_cover;
     run(dl, 0);
     if (gfx_gl_enabled)
         gfx_gl_task_end();
+    host_perf_pop();
     double covered = st_cover - cover;
     if (between) {
         static GfxState s1;
@@ -1735,6 +1738,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         uint32_t noise1 = cc_noise;
         s1 = gs;
         memcpy(tmem1, gfx_tmem, sizeof tmem1);
+        host_perf_push(PERF_GFX2);
         for (int k = 0; k < frame_k; k++) {
             gs = s0;
             memcpy(gfx_tmem, tmem0, sizeof tmem0);
@@ -1755,6 +1759,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
             }
             gfx_st_interp[5]++;
         }
+        host_perf_pop();
         ipass = 0;
         gs = s1;
         memcpy(gfx_tmem, tmem1, sizeof tmem1);

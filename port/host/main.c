@@ -10,6 +10,7 @@
 #define _GNU_SOURCE
 #endif
 #include <errno.h>
+#include <math.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -174,6 +175,17 @@ uint32_t host_rom_word(uint32_t addr) {
 static int deterministic;
 static uint64_t virtual_ns;
 
+/* PORT_PACED=1 (the page's default): virtual time between retraces, real
+   time at them.  Inside a retrace the clock jumps from event to event as
+   --deterministic's does, so the CPU model's waits cost the host nothing
+   (the loop neither spins nor sleeps through them, and a coarse real clock
+   -- Firefox's performance.now() is 1 ms -- doesn't stretch them); a
+   retrace waits until real time has caught up with it, and in a browser
+   until the display's next frame (paced_wait below). */
+int host_paced;
+static double real_off_ms;      /* a retrace at virtual v is due at real v + real_off_ms */
+static unsigned paced_resyncs;  /* the host fell behind: time dropped */
+
 /* The RDP's time for the display list being run, as the renderer estimates
    it (host_charge from gfx.c), times PORT_RDP_SCALE (default 0: the RDP is
    instant, as in mupen64plus, which is what the pacing is matched to).
@@ -189,8 +201,14 @@ uint64_t host_take_rdp_ns(void) {
     return ns;
 }
 
+static double real_ms(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (t.tv_sec - t0.tv_sec) * 1e3 + (t.tv_nsec - t0.tv_nsec) / 1e6;
+}
+
 static uint64_t now_ns(void) {
-    if (deterministic)
+    if (deterministic || host_paced)
         return virtual_ns;
     struct timespec t;
     clock_gettime(CLOCK_MONOTONIC, &t);
@@ -267,7 +285,7 @@ void __port_poll(void) {
     if (++n & 63 || port_ints_masked)
         return;
     host_cpu_sync();                /* spinning takes time too */
-    if (deterministic && host_ns_per_instr <= 0)
+    if ((deterministic || host_paced) && host_ns_per_instr <= 0)
         virtual_ns += 2000;
     if (replay_vi_held)
         spins_held++;
@@ -285,15 +303,111 @@ void __port_poll(void) {
 static void yield_to_page(uint64_t ns) {
     static double last;
     double t = emscripten_get_now();
+    host_perf_push(PERF_IDLE);
     if (ns >= 1000000)
         emscripten_sleep((unsigned)(ns / 1000000));
     else if (t - last >= 12.0)
         emscripten_sleep(0);
-    else
+    else {
+        host_perf_pop();
         return;
+    }
     last = emscripten_get_now();
+    host_perf_pop();
+    host_perf_sleep(ns / 1e6, last - t);
 }
 #endif
+
+extern unsigned long long gfx_st_images;         /* gfx_gl.c: retraces that showed a new picture */
+
+#ifdef PORT_WASM_WEB
+/* A retrace waits for the display: the first animation frame from
+   deadline - early on (the frame the picture will be shown in), or a timer
+   if none comes (a hidden page has none).  Returns when it resumed. */
+EM_ASYNC_JS(double, wait_display, (double deadline, double early), {
+    return new Promise(function (resolve) {
+        var done = false, timer = 0;
+        function fin() {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            resolve(performance.now());
+        }
+        function frame() {
+            if (performance.now() >= deadline - early) fin();
+            else requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+        timer = setTimeout(fin, Math.max(0, deadline - performance.now()) + 4 * early);
+    });
+});
+
+/* the page's turn now (input, sound, the frame just drawn), with none of
+   setTimeout's 4 ms clamp: a message to ourselves */
+EM_ASYNC_JS(void, yield_now, (void), {
+    if (!Module.yieldChannel) {
+        Module.yieldChannel = new MessageChannel();
+        Module.yieldChannel.port1.onmessage = function () { var r = Module.yieldResolve; Module.yieldResolve = null; r(); };
+    }
+    return new Promise(function (resolve) {
+        Module.yieldResolve = resolve;
+        Module.yieldChannel.port2.postMessage(0);
+    });
+});
+#endif
+
+static double last_yield_ms;
+
+/* PORT_PACED: long stretches of work give the page its turn now and then */
+static void paced_breathe(void) {
+#ifdef PORT_WASM_WEB
+    double t = emscripten_get_now();
+    if (t - last_yield_ms < 8.0)
+        return;
+    host_perf_push(PERF_IDLE);
+    yield_now();
+    last_yield_ms = emscripten_get_now();
+    host_perf_pop();
+#endif
+}
+
+/* PORT_PACED: the retrace at virtual v is next: wait for real time (and the
+   display) to get there */
+static void paced_wait(uint64_t v, uint64_t period) {
+    const double pms = period / 1e6;
+    double deadline = v / 1e6 + real_off_ms, t = real_ms();
+    if (t > deadline + 4 * pms) {                   /* fell behind: don't catch up */
+        real_off_ms = t - v / 1e6;
+        paced_resyncs++;
+        deadline = t;
+    }
+    host_perf_push(PERF_IDLE);
+#ifdef PORT_WASM_WEB
+    /* (emscripten's clock is performance.now()'s, from t0) */
+    double base = emscripten_get_now() - t, early = pms / 4;
+    if (t < deadline - early) {
+        double at = wait_display(base + deadline, early) - base;
+        /* follow the display: retraces drift towards the frames that show
+           them, a little at a time (a 59.94 Hz display, or one at 120) */
+        double err = at - deadline, adj = err * 0.05;
+        if (adj > 0.2) adj = 0.2;
+        if (adj < -0.2) adj = -0.2;
+        real_off_ms += adj;
+        host_perf_sleep(deadline - t, at - t);
+    } else if (emscripten_get_now() - last_yield_ms >= 8.0) {
+        yield_now();                                /* late: show it now, but let the page in */
+    }
+    last_yield_ms = emscripten_get_now();
+#else
+    if (t < deadline) {
+        struct timespec ts = { (time_t)((deadline - t) / 1e3), (long)(fmod(deadline - t, 1e3) * 1e6) };
+        nanosleep(&ts, NULL);
+        host_perf_sleep(deadline - t, real_ms() - t);
+    }
+#endif
+    host_perf_pop();
+    virtual_ns = v;
+}
 
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
 /* the scheduler's retrace count, the game's frame count and the mode */
@@ -466,6 +580,14 @@ int main(int argc, char **argv) {
     }
     if (deterministic || host_headless)
         host_audio_enabled = 0;
+#ifdef PORT_WASM_WEB
+    host_paced = 1;
+#endif
+    const char *pe = getenv("PORT_PACED");
+    if (pe)
+        host_paced = *pe && *pe != '0';
+    if (deterministic)
+        host_paced = 0;
     const char *rs = getenv("PORT_RDP_SCALE");
     if (rs)
         rdp_scale = atof(rs);
@@ -479,6 +601,7 @@ int main(int argc, char **argv) {
     prctl(PR_SET_TIMERSLACK, 1);    /* wake on time: the pacing is in 50 us steps */
 #endif
     clock_gettime(CLOCK_MONOTONIC, &t0);
+    host_perf_init();
 #ifndef __EMSCRIPTEN__
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
@@ -527,13 +650,26 @@ int main(int argc, char **argv) {
            read has it (replay.c) */
         int vi_held = host_replay_active() && !host_replay_vi_ok() && !vi_force;
         if (now >= next_vi && !vi_held) {
+            if (host_perf_on)
+                host_perf_vi(host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6,
+                             gfx_st_images, port_be32(D_80358064));
             vi_force = 0;
             spins_held = 0;
             next_vi += vi_period;
             if (now > next_vi + 4 * vi_period)      /* fell behind: don't catch up */
                 next_vi = now + vi_period;
+            host_perf_push(PERF_PRESENT);
             host_video_frame();
+            host_perf_pop();
             last_vi = now;
+#ifdef PORT_WASM_WEB
+            if (host_paced) {                /* the frame goes to the screen before the next one's work */
+                host_perf_push(PERF_IDLE);
+                yield_now();
+                last_yield_ms = emscripten_get_now();
+                host_perf_pop();
+            } else
+#endif
 #ifdef PORT_HAVE_ASYNCIFY
             yield_to_page(0);
 #endif
@@ -594,12 +730,26 @@ int main(int argc, char **argv) {
                 virtual_ns = wake;
             continue;
         }
+        if (host_paced) {
+            if (wake < next_vi) {
+                if (wake > virtual_ns)
+                    virtual_ns = wake;
+                paced_breathe();
+            } else {
+                paced_wait(next_vi, vi_period);
+            }
+            continue;
+        }
         if (wake > now + 50000) {
 #ifdef PORT_HAVE_ASYNCIFY
             yield_to_page(wake - now);
 #else
             struct timespec ts = { (time_t)((wake - now) / 1000000000ull), (long)((wake - now) % 1000000000ull) };
+            host_perf_push(PERF_IDLE);
             nanosleep(&ts, NULL);
+            host_perf_pop();
+            if (host_perf_on)
+                host_perf_sleep((wake - now) / 1e6, (now_ns() - now) / 1e6);
 #endif
         }
     }

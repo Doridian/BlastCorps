@@ -101,7 +101,13 @@ static void open_outputs(void) {
     want.freq = (int)rate_hz();
     want.format = AUDIO_S16SYS;
     want.channels = 2;
+#ifdef __EMSCRIPTEN__
+    /* (the page's ScriptProcessorNode runs on the page's thread, which the
+       game shares: a buffer of 1024 at 48 kHz is 21 ms between callbacks) */
+    want.samples = 1024;
+#else
     want.samples = 512;
+#endif
     dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (!dev)
         host_log("audio: %s; no sound\n", SDL_GetError());
@@ -120,6 +126,14 @@ void host_audio_shutdown(void) {
 }
 
 uint64_t host_audio_samples(void) { return samples_out; }
+
+/* PORT_PERF's report: what SDL has queued, and how often the queue was
+   started over */
+static unsigned dropped;
+void host_audio_perf(int *queued_ms, unsigned *ndropped) {
+    *queued_ms = dev ? (int)(SDL_GetQueuedAudioSize(dev) * 1000ull / (rate_hz() * 4)) : -1;
+    *ndropped = dropped;
+}
 
 /* osAiSetNextBuffer: -1 if the queue is full, as the hardware's AI_STATUS
    would have libultra return */
@@ -145,14 +159,25 @@ int host_ai_submit(uint32_t addr, uint32_t len) {
     if (wav)
         fwrite(buf, 2, n, wav);
     if (dev) {
-        /* keep at most ~0.2 s queued (if the host fell behind and then
-           caught up); start once two frames are in */
+        /* Keep at most 0.25 s queued.  More means the device played slower
+           than the game made sound (the host fell behind and caught up, or
+           the device stalled: a page whose thread was busy, a suspended
+           WebAudio context): then what's queued goes, and the sound starts
+           over from this buffer, rather than every new buffer being
+           dropped while the old ones play out (which, with a device that
+           had stopped, was silence for good).  Start once two frames are
+           in. */
         uint32_t queued = SDL_GetQueuedAudioSize(dev);
         static unsigned nsub;
         if (host_verbose && ++nsub % 150 == 0)
             host_log("audio: %u ms queued in SDL\n", queued * 1000 / (rate_hz() * 4));
-        if (queued < rate_hz() * 4 / 5)
-            SDL_QueueAudio(dev, buf, len);
+        if (queued > rate_hz() * 4 / 4) {
+            SDL_ClearQueuedAudio(dev);
+            dropped++;
+            if (host_verbose)
+                host_log("audio: %u ms queued: starting over\n", queued * 1000 / (rate_hz() * 4));
+        }
+        SDL_QueueAudio(dev, buf, len);
         if (!dev_started && SDL_GetQueuedAudioSize(dev) >= len * 2) {
             SDL_PauseAudioDevice(dev, 0);
             dev_started = 1;

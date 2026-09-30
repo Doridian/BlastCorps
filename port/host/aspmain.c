@@ -243,7 +243,7 @@ static void polef(int flags, int16_t gain, uint32_t state) {
 
 /* ---- the task ----------------------------------------------------------------- */
 
-void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data) {
+static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data) {
     const uint8_t *cmd = port_ptr(data_ptr);
     resample_lut = (const uint8_t *)port_ptr(ucode_data) + 0xD0;
     for (uint32_t off = 0; off + 8 <= data_size; off += 8) {
@@ -355,4 +355,10 @@ void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data)
             break;
         }
     }
+}
+
+void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data) {
+    host_perf_push(PERF_AUDIO);
+    audio_task(data_ptr, data_size, ucode_data);
+    host_perf_pop();
 }

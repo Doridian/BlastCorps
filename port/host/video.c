@@ -76,6 +76,13 @@ void host_video_init(void) {
 #endif
     if (host_headless)
         SDL_setenv("SDL_VIDEODRIVER", "offscreen", 1);
+#ifdef __EMSCRIPTEN__
+    /* SDL_GL_SwapWindow would emscripten_sleep(0) (a 4 ms setTimeout, and
+       one more Asyncify unwind) each frame: the loop gives the page its
+       turn itself (main.c) */
+    if (host_paced)
+        SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
+#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0)
         host_fatal("SDL_Init: %s", SDL_GetError());
     sdl_up = 1;
@@ -180,6 +187,17 @@ static int sw_present(int twin) {
     return fw;
 }
 
+/* PORT_PERF: a present of another picture than the last (another frame,
+   or another of its in-between images) */
+static void count_image(int twin) {
+    static uint32_t last_fb;
+    static int last_twin = -2;
+    if (vi_fb != last_fb || twin != last_twin)
+        gfx_st_images++;
+    last_fb = vi_fb;
+    last_twin = twin;
+}
+
 void host_video_frame(void) {
     SDL_Event e;
     while (sdl_up && SDL_PollEvent(&e)) {
@@ -203,6 +221,7 @@ void host_video_frame(void) {
         snprintf(path, sizeof path, "%s%05d.bmp", host_screenshot_prefix, frame);
     /* --interpolate: the frame's in-between image for this retrace, or -1 */
     int twin = gfx_interp_image(vi_fb);
+    count_image(twin);
     if (host_renderer == 1) {
         gfx_gl_present(vi_fb, vi_width, shot ? path : NULL, twin);
         if (shot)
@@ -229,6 +248,7 @@ void host_video_between(double phase) {
     int twin = gfx_interp_image_at(vi_fb, phase);
     if (twin < 0)                                   /* the frame itself, already on screen */
         return;
+    count_image(twin);
     if (host_renderer == 1) {
         gfx_gl_present(vi_fb, vi_width, NULL, twin);
         return;

@@ -313,7 +313,9 @@ int host_run_one(void) {
     if (host_verbose > 3)
         host_log("run %08X pri %d at %.3f\n", best->key, best->pri, host_now_ns() / 1e6);
     cur = best;
+    host_perf_push(PERF_GAME);
     fiber_run(best->fiber);
+    host_perf_pop();
     cur = NULL;
     return 1;
 }
