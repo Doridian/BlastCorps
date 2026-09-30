@@ -33,6 +33,7 @@ typedef struct {
     int pri;
     uint64_t seq;               /* FIFO order among equal priorities */
     uint32_t wait_key;
+    uint32_t recv_key;          /* the queue of the osRecvMesg it is in (host_recv_charge), or 0 */
     void (*entry)(void *);
     void *arg;
     ucontext_t uc;
@@ -71,6 +72,17 @@ static void fiber_main(void) {
     t->state = T_DEAD;
     swapcontext(&t->uc, &loop_uc);
     host_fatal("dead thread resumed");
+}
+
+/* whether another thread than the running one is in osRecvMesg on this
+   key: blocked, woken and not yet run, or preempted at the call's entry
+   (host_recv_charge), and so will take the next message */
+int host_receiving(uint32_t key) {
+    for (int i = 0; i < PORT_MAX_THREADS; i++)
+        if (&threads[i] != cur && threads[i].state != T_FREE && threads[i].state != T_DEAD &&
+            threads[i].recv_key == key)
+            return 1;
+    return 0;
 }
 
 /* whether a thread is blocked waiting on `wait_key` (host_block's key) */
@@ -117,6 +129,7 @@ static void to_loop(void) {
 void host_preempt(void) {
     if (!cur)
         return;
+    cur->recv_key = 0;          /* osRecvMesg's end: it has its message */
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (threads[i].state == T_RUNNABLE && threads[i].pri > cur->pri) {
             cur->seq = seq_counter++;
@@ -248,6 +261,17 @@ void host_cpu_sync(void) {
 }
 
 void host_cpu_charge(uint32_t n) { __port_icount += n; }
+
+/* osRecvMesg's charge, which also marks the thread as receiving on `key`
+   until the call returns (host_preempt), for host_receiving.  (One call
+   for host_cpu_charge's one: the C's ICount stays as it was.)  A
+   non-blocking receive that finds nothing leaves the mark behind; the
+   game's only one on the SI queue is the pak/EEPROM thread's own. */
+void host_recv_charge(uint32_t key, uint32_t n) {
+    __port_icount += n;
+    if (cur)
+        cur->recv_key = key;
+}
 
 /* an interrupt's handling (libultra's exception handler, the dispatch):
    it takes the CPU from whatever is computing */

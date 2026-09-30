@@ -111,6 +111,7 @@ static unsigned ncheckpoints, forced_modes, unmatched_run;
 #define GRACE 60        /* frames without a match before the log is followed on its own */
 static int save_waiting;
 static unsigned saves_early;
+static unsigned saves_held_si;  /* the save thread held while the game receives its pad read */
 static struct { int kind, func; unsigned n; } frame_audio[32];
 static unsigned nframe_audio;
 /* the reads in the current frame so far, per function */
@@ -721,6 +722,8 @@ int port_pad_read_due(int free) {
    it after, so that what it changes shows from the same frame.  (The
    thread spins on the scheduler before it takes one, 00000.c's saves
    waiting a varying number of frames.) */
+extern char D_80370BF8[];       /* the SI's event queue (45BB0.c) */
+
 int host_replay_save_due(int sync) {
     if (!log_reads || nogate || !save_starts)
         return 1;
@@ -732,9 +735,20 @@ int host_replay_save_due(int sync) {
                      matched + 1, sync, saves <= nsave_starts ? save_starts[saves - 1] : 0);
     }
     /* not while a read's SI completion is held: the SI is busy then, and
-       the thread would take the game's completion (func_8028A42C) */
+       the thread would take the game's completion (func_8028A42C); nor
+       while the game is receiving it, having seen it unfetched
+       (D_80370C10): the thread would take it all the same and leave the
+       game waiting for it forever.  The movie's thread (priority 11, above
+       the game's 10) never went on between the game's check and its
+       receive; this one, waking every millisecond, can. */
     if (si_waiting)
         return 0;
+    if (host_receiving((uint32_t)(uintptr_t)D_80370BF8)) {
+        if (saves_held_si++ < 5 || host_verbose)
+            host_log("replay: the save thread's command %u waits for the game's pad read (the log's read %d)\n",
+                     saves, matched + 1);
+        return 0;
+    }
     if (sync) {             /* the game waits for its reply: now */
         save_waiting = 0;
         return 1;

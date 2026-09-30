@@ -225,6 +225,10 @@ int32_t host_replay_audio(int kind, int32_t real, uint64_t caller);
 int host_replay_save_due(int sync);
 /* whether a thread waits in host_block on this key (threads.c) */
 int host_blocked_on(uint32_t wait_key);
+/* whether a thread other than the running one is in osRecvMesg on this key */
+int host_receiving(uint32_t key);
+/* osRecvMesg's charge: marks the thread as receiving on key until it returns */
+void host_recv_charge(uint32_t key, uint32_t n);
 
 /* EEPROM (4 Kbit) */
 void host_eeprom_read(int block, uint32_t dst);

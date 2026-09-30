@@ -976,7 +976,16 @@ frames and gives each the movie's input for that frame:
   its reply (then it runs at once, as it did in the movie).  While it has
   the SI, the game skips the frame's pad read (45BB0.c, `D_8039C4B0`), so
   whether a frame reads the pad follows the movie too
-  (`port_pad_read_due`).
+  (`port_pad_read_due`).  Having got its command, the thread takes the
+  completion of a pad read the game hasn't fetched (`func_8028A42C`), so
+  it isn't let go while the game is receiving that completion itself
+  (`host_receiving`: a thread in `osRecvMesg` on the SI's queue, blocked,
+  woken or preempted at the call).  The movie's thread (priority 11, the
+  game's 10) runs straight on from its wakeup and never lands between the
+  game's check of `D_80370C10` and its receive; the port's, waking every
+  millisecond, can, and then takes the message and leaves the game waiting
+  for it forever.  That hung the 64-bit build at the log's read 58,325,
+  where its CPU model put the wakeup in that window.
 - **Checkpoints at the mode changes.**  The menus aren't worth making
   exact (the world map's cursor picks its target from the paths it draws,
   which depends on sound effects and more), so where the port goes its own
@@ -1017,7 +1026,11 @@ level and on the map.  Two of the game's mode switches are the movie's
 rather than the port's: twice, at the world map, the port's cursor picks
 the level it is on where the movie's picks the next one (the cursor's
 target comes from the paths the map draws, which the replay doesn't make
-exact), and the switch hook sends it where the movie went.
+exact), and the switch hook sends it where the movie went.  The 64-bit
+build plays it as exactly (all 125,297 reads matched, the player always
+where the movie has it, 57 platinum), with no mode forced at all; its
+timing differs (373 retraces given anyway to the 32-bit build's 80, one
+save command let go early to three).
 
 - **The mode switches.**  `m64p_tas` logs every mode the game's loop
   switches to (`switches.csv`, an exec breakpoint where it prints "game mode

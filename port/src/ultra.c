@@ -60,7 +60,7 @@ s32 osSendMesg(OSMesgQueue *mq, OSMesg msg, s32 flag) { return send(mq, msg, fla
 s32 osJamMesg(OSMesgQueue *mq, OSMesg msg, s32 flag) { return send(mq, msg, flag, 1); }
 
 s32 osRecvMesg(OSMesgQueue *mq, OSMesg *msg, s32 flag) {
-    host_cpu_charge(COST_MESG);
+    host_recv_charge(KEY_NOT_EMPTY(mq), COST_MESG);     /* until host_preempt below */
     host_cpu_sync();
     while (mq->validCount == 0) {
         if (flag == OS_MESG_NOBLOCK)
