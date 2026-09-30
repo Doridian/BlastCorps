@@ -16,6 +16,12 @@
  * N64 3-point filtering.  The software renderer is the reference and works
  * headless.  What the game sees is the same as on the hardware either way:
  * OS_EVENT_DP only for a list that ends in gDPFullSync.
+ *
+ * Widescreen (docs/PORT.md, "Widescreen"): both back ends draw the
+ * framebuffers gfx_wide_off columns wider on each side; this file decides
+ * what covers the sides (full-width scissors and fills, full-width 2D
+ * polygons, black beside a picture's edge tiles), and the software
+ * renderer then draws those framebuffers on the host (WideFb).
  */
 #include <math.h>
 #include <stdlib.h>
