@@ -28,8 +28,10 @@ a 64-bit program instead (x86-64 now, AArch64 in principle; see "The
 libepoxy rather than the multilib ones; `-DPORT_NATIVE_ENDIAN=ON` keeps game
 memory in host order ("The native-endian build"), and `-DPORT_LP64=ON`
 (both of those and more) compiles the game's C as an ordinary LP64 program
-("The LP64 build"); `-DPORT_MOVABLE=ON`, with any of them, moves RDRAM
-away from `0x80000000` ("Movable memory"):
+("The LP64 build"); `-DPORT_MOVABLE=ON` puts game memory wherever the
+host allocates it and links an ordinary PIE, with `PORT_64BIT` (and
+`PORT_NATIVE_ENDIAN`) or the 32-bit build, not yet with `PORT_LP64`
+("Movable memory"):
 
 ```
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
@@ -674,7 +676,8 @@ any of it (executables are PIE, ld64 has no linker scripts, the low 4 GB
 are `__PAGEZERO`), and neither can WebAssembly (no linker scripts, no
 fixed mappings, 32-bit pointers into one linear memory).  This is the
 design for a build where game memory is wherever the host puts it and the
-game still sees N64 addresses, and the first step of it, which is done.
+game still sees N64 addresses, and the build that does it, as far as it
+goes ("The movable build", below).
 
 ### The model
 
@@ -792,7 +795,11 @@ What port-arena does, in order:
    takes N64 addresses (`uint32_t`), as most of it already does.  What
    doesn't yet: `host_input`, `host_save_order`, `libc64.c`'s copies and
    `sprintf` (whose `%s` arguments are N64 addresses too),
-   `port_counter`'s `__func__`.
+   `port_counter`'s `__func__`.  (As built, the pass maps those
+   arguments at the call instead, by the functions' names, and the host
+   keeps its pointers: less to change, and just as portable.  Only a
+   pointer the host keeps and hands back, `host_thread_create`'s, is left
+   as it is.)
 
 Nothing in `blastcorps/src` changes for this; `port/src` and the host
 interface do.
@@ -844,7 +851,7 @@ interface do.
   `PORT_REPLAY_DUMP`, the crash dump) go through it and keep their format.
 - Game variables the host names (the replay's checkpoints and counts,
   `PORT_PACE`, `PORT_AUTOSTART`) by their N64 addresses, from a generated
-  header, not by linking to the game's symbols (`PORT_VAR` for now).
+  header, not by linking to the game's symbols (`PORT_VAR`, `n64_syms.h`).
 - The fibers' stacks come from the arena (`threads.c`); `map_fixed`, the
   `ADDR_NO_RANDOMIZE` re-exec, `-Ttext-segment`, `--no-pie` and the
   linker scripts go: the port links as an ordinary PIE.
@@ -855,112 +862,171 @@ interface do.
   `build_cmp.py rdram`'s exclusions of "addresses in the port's image or
   on the host stacks" become the arena's extra data and stack ranges (and
   there are fewer: a pointer word is an N64 value in both builds);
-  `layout_cmp.py` doesn't care.
+  `layout_cmp.py` doesn't care.  (Not done yet: the movable build refuses
+  `PORT_ACCESS_PROFILE`, and `build_cmp.py rdram` against it shows the
+  stacks' addresses, which it leaves in.)
 - The replay names the functions behind the counts by caller id (above)
   where it now looks the return address up in the port's symbol table.
 
-### The first step: RDRAM moves (`-DPORT_MOVABLE=ON`)
+### The movable build (`-DPORT_MOVABLE=ON`)
 
-Done, behind an option; the default builds are unchanged.  At startup
-`main` copies RDRAM (the image's `.rdram`, after the constructors and
-`port_fixups`) to memory from `mmap`, at an offset into its page
-(`PORT_ARENA_OFFSET`, default `0x5670`), and makes the old 4 MB
-inaccessible (`PROT_NONE`), so anything that still reaches RDRAM at
-`0x80000000` faults there, at the address.  Everything else stays fixed
-for now.
+Steps 1 to 5 of the plan below are done, behind the option; the default
+builds are as they were.  The movable 64-bit build is an ordinary PIE:
+nothing of the port is at a fixed address, and ASLR moves the image and
+the arena every run.  It takes `PORT_64BIT` (big-endian or native) or
+neither (the 32-bit build); `PORT_LP64` not yet (step 7).
 
-- **port-arena** (`bepass/Arena.cpp`, `BEPASS_ARENA=1`, after ICount):
-  every load, store, atomic and memory intrinsic of the N64 side, and the
-  pointer arguments of calls into the host, go through
-  `p ^ 0x80000000 < 4 MB ? port_arena + (p ^ 0x80000000) : p`: only
-  RDRAM moves, so the image and the stacks are still reached as they
-  are.  (`^`, not `-`: for a variable's address the backend folds a
-  subtraction into a PC-relative relocation that can't reach.)  A `PTR32`
-  operand becomes an ordinary pointer (the host address doesn't fit in
-  32 bits), memory intrinsics on `PTR32`s are made again on ordinary
-  ones, and so are `PTR32` variadic arguments (`n64_sprintf`'s strings).
-  `host_thread_create`'s argument is left alone: the host only hands it
-  back to the thread's entry, which is the C's.
-- The translated code: `RECOMP_HOST` (`recomp.h`, unset by default and in
-  the test) maps the same way (`port_arena.h`).
-- The host: `port_ptr` maps; `PORT_VAR` for the game variables it names
-  (`main.c`, `video.c`, `replay.c`); `port_in_rdram` takes the arena.
+**The arena** is one `mmap` of 28 MB (`port_arena_init`, `host/runtime.c`,
+before anything else runs), at an offset into its page
+(`PORT_ARENA_OFFSET`, default `0x5670`, so nothing can rely on more than
+16-byte alignment).  It holds N64 physical memory from 0, and an N64
+address `a`, KSEG0 or KSEG1, is at `port_arena + (a & 0x1FFFFFFF)`
+(`port_arena.h`):
 
-Checked, us.v10, `--deterministic`: `PORT_AUTOSTART=1`, 3,000 frames
-(the logos, the title, the name entry, the map, Simian Acres), the
-`--wav` and the save byte for byte those of the same build without it,
-LP64 and the 32-bit native-endian build alike.  (No `PORT_COUNT_PER_OP=0`
-needed: ICount runs first, so even the timing is the same.)  The TAS:
-see the last paragraph.
+- `0x000000`: RDRAM, every N64-named variable of the C and of the asm data
+  where the N64 has it;
+- `0x400000`: the N64 side's data that has no N64 address (string
+  literals, statics, the switch tables, `port/src`'s own, which keeps
+  its own place even where its names are N64 ones: `osViClock`,
+  `D_803FDF60`): about 70 KB in us.v10;
+- `0xC00000`: the fibers' host stacks, 16 of 1 MB (`PORT_STACK_BASE` is
+  `0x80C00000`; `host_thread_stack()` is where a threads backend gets
+  one).
 
-**Where it goes from here**, one commit each, every one keeping the
-default builds as they are and the TAS passing on the movable 64-bit
-build (the exact one) and the rest building:
+**The arena link** (`CMakeLists.txt`): the N64 side (the game's C and
+`port/src`) is compiled per file as before, to bitcode; the asm data
+files become LLVM IR (`tools/asm2ll.py`, from `asm2x86.py`'s output: each
+file a global of byte runs and its symbolic words as `ptrtoint`s); then
+`llvm-link`, `opt -passes=port-arena` (`bepass/Arena.cpp`) and `llc`
+make one object.  port-arena, over the whole program:
 
-1. RDRAM moves (done; about 250 lines).
-2. The stacks move: `threads.c` allocates the fibers' stacks in the
-   arena (it grows to cover them), escaping allocas become `n64()` of
-   their address, the `0x90000000` window and its `map_fixed` go
-   (~150 lines).
-3. The arena link: the N64 side's objects become bitcode, `llvm-link` +
-   `opt -passes=port-arena` + `llc` (CMake custom commands; `ilp32cc.py`
-   already runs a pipeline per file), with the pass doing only what it
-   does now; checks that nothing changes but the build (~150 lines).
-4. Globals by constant: N64-named globals resolved to their addresses,
-   their initializers into the arena image, the rest escaping laid out
-   after RDRAM, the asm data as IR (`asm2x86.py`'s IR writer), the map
-   made unconditional; `gen_ld.py`'s script, `port_syms.ld`,
-   `port_fixed.ld`, `__bepass_fixup`, `port_bswap32` and the
-   hardware-register window leave the movable build (~800 lines, the
-   biggest; it can land as N64-named globals first, then the rest, then
-   the asm data).
-5. Functions as N64 addresses with `port_fn`, the wraps and the caller ids
-   in the pass, the host interface in N64 addresses; then the movable
-   build links as PIE, and ASLR moves the arena and the image every run
-   (~400 lines).
-6. Call types repaired (item 7 above; harmless on x86-64, needed only by
-   wasm; ~120 lines, of which an experimental version exists).
-7. LP64 on top (moved variables, the header for the translated code;
-   ~150 lines).
+- resolves every global: a definition with an N64 name in RDRAM (the
+  version's names: `gen_syms.py table`, from the three ELFs) is at its
+  N64 address, every other definition is laid out from `0x400000`, and a
+  declaration with an N64 name (a variable of the asm or of another
+  module, a name inside a data island, a ROM offset, a fixed address such
+  as `D_803FF600`) is its value; every reference becomes the constant.
+  What is left is the host's (`__port_icount_c`, `port_ints_masked`...),
+  accessed where it is;
+- writes the arena's initial contents from the initializers, in host
+  order, then swaps what BEPass's `__bepass_table`s list (the C's
+  scalars in the big-endian build, the words of 64-bit ones in the native
+  one) and drops the tables and their constructors: the image has the
+  build's byte order, with the asm data's symbolic words in memory order.
+  It goes into the image as runs of non-zero bytes (`__port_arena_runs`),
+  which `port_arena_init` copies; a word it can't resolve (a pointer to
+  the host's data) would be left to startup (`__port_arena_relocs`), and
+  there are none;
+- maps every load, store, atomic and memory intrinsic, the pointer
+  arguments of the host's functions (by name: `host_*`, the `n64_*`
+  copies and `sprintf`, `port_counter`; `host_thread_create`'s argument
+  is handed back to the thread, so it isn't) and a struct passed by value
+  (the call copies it from its host address), to `port_arena + (p &
+  0x1FFFFFFF)`, unless it is a local that doesn't escape or the host's;
+- gives an escaping local (an alloca, or a struct passed by value, whose
+  address goes to a call, into memory or into an integer) its N64 address
+  on the fiber's stack, and stops the port (`port_arena_bad_local`) if it
+  isn't on one: 369 in us.v10.  (Not in a variadic function, whose
+  `va_list` is the host's.);
+- makes a function used as a value its N64 address, the game's by its
+  vram and the port's own from `0x7F000000`, and a call through a value a
+  call through `port_fn(address)` (the pass's `__port_fns`, `runtime.c`):
+  30 functions and 50 calls in us.v10.  The host calls a thread's entry
+  the same way (`PORT_FN`, `threads.c`);
+- names the caller of the replay's hooks (`port_replay_set_caller`, which
+  `replay.c` uses instead of looking the return address up in the port's
+  symbol table, as the other builds do).
 
-Then, specific to **macOS** (the movable 64-bit or LP64 build, arm64):
-CMake for Darwin (no `-Wl,--wrap`, no `-T`, `-fPIE` everywhere, SDL2 and
-libepoxy from Homebrew), `ucontext` with `_XOPEN_SOURCE` (deprecated but
-working; or a small context switch), the Linux calls ifdef'd out
-(`prctl`, `personality`, `MAP_FIXED_NOREPLACE`, `/proc/self/exe`), no
-`__start_`/`__stop_` section symbols (gone with step 4), the `__asm__`
-symbol names without their underscore (gone with step 4 too), and the
-N64 side already compiles for AArch64 through port-ilp32.
+port-wrap, per file (`BEPASS_WRAP`), does the link's `--wrap` for the N64
+side, which is one object now; the link keeps `--wrap` for the glue's own
+calls (`externs.c` calls the inflate).  `port/src`'s data gets sections
+of its own (`BEPASS_PORT_SRC`), which is how the pass knows it.
+`PORT_ARENA_STATS=1` makes `opt` print the counts, `PORT_ARENA_MAP=FILE`
+write where each variable went.
 
-And to **WebAssembly** (emscripten): the N64 side is compiled by the
-system clang with the plugin for `wasm32-unknown-emscripten` to bitcode
-(the plugin can't be loaded into emsdk's clang, which ships no LLVM
-headers), linked and passed as above, and `llc` makes a wasm object that
-emcc links with the host side; the host through emcc with `-sUSE_SDL=2`,
-the OpenGL renderer on WebGL 2 (GLSL ES 3.0, no libepoxy) or the software
-one, the ROM and the save through the browser's files and IndexedDB, the
-main loop yielding to the browser, and the threads without `ucontext`
-(emscripten's fibers under Asyncify, or the scheduler restructured).
+The translated code's `rdram` is the arena and its `SYM()`s are the N64
+addresses (`syms_<module>.h`'s own; no `port_recomp_syms.h`).  The host
+reaches game memory through `port_ptr`, names the game's variables by
+their N64 addresses (`PORT_VAR`, `PORT_ADDR`: `n64_syms.h`, from the same
+table), and uses the host versions of the copies and `sprintf`
+(`libc64.c`) in either width.  The movable build links no linker script
+(`gen_ld.py`'s, `port_syms.ld`, `port_fixed.ld`) and maps nothing fixed
+(RDRAM, the stacks, the hardware registers, which neither the C nor the
+translated code reads).
 
-Tried for wasm32 on us.v10's N64 side (the 32-bit native-endian build's
+**How it was checked**, us.v10, a step at a time (the commits say which):
+
+| step | TAS (64-bit big-endian, `--replay`) | 3,000 frames of `PORT_AUTOSTART=1` against the build without it |
+| --- | --- | --- |
+| 1, RDRAM moves | 57 platinum, all reads matched; save and replay log identical | `--wav` and save identical (LP64, 32-bit native) |
+| 2, the stacks | the same, identical | identical |
+| 3, the arena link | 57 platinum, all matched, no mode forced; 164 retraces given anyway (373) | identical with `PORT_COUNT_PER_OP=0` |
+| 4, the arena, globals by constant | 57 platinum, all matched, no mode forced; 142 given anyway | identical with `PORT_COUNT_PER_OP=0`; RDRAM the same but the stacks' addresses |
+| 5, functions, PIE | 57 platinum, all matched, no mode forced; 126 given anyway | identical with `PORT_COUNT_PER_OP=0` |
+
+Where the arena is doesn't matter: the step-5 TAS played again with
+another arena offset (`PORT_ARENA_OFFSET=0x10`, and whatever ASLR gave
+both runs) wrote the same save and the same replay log, line for line.
+From step 3 on the timing differs a little from the build without it:
+the string literals are laid out differently, and some of the game's
+loops over them take other paths by their alignment; the game logic
+doesn't see it (the pace log is identical over those 3,000 frames).  The
+32-bit native-endian movable build plays, but parts from the 32-bit
+build without it: a K&R call reads a `u8` result as a word
+(`func_80264BA4`, defined `u8`, declared `s32` in 9570.c), which on
+i386 has garbage in the upper bytes, different garbage in the two
+builds.  The 64-bit builds widen such results (port-ilp32); step 6
+repairs the calls.
+
+**What's left:**
+
+6. Call types repaired: a direct call whose type isn't the definition's
+   is made with the definition's, the arguments and the result converted
+   as the N64's registers would (port-callfix, tried: 424 calls in us.v10
+   including the glue's).  Harmless on x86-64 and AArch64, needed by wasm
+   (which can't call through another type), and the fix for the 32-bit
+   build's narrow results above.  Also `func_8029A7E4`, called as
+   variadic and defined without.
+7. LP64: its variables that outgrew their N64 room laid out after RDRAM
+   too, and a header of their addresses for the translated code's
+   `SYM()`s (seven of the 120 are read by it).
+
+Then, for **macOS** (arm64, the movable 64-bit build first): CMake for
+Darwin (Homebrew's SDL2 and libepoxy, `-fPIE`), no `-Wl,--wrap` (the
+glue calls the `__wrap_`s itself: `gen_glue.py` knows the list), the
+Linux calls behind `#ifdef __linux__` (`prctl`, `personality`,
+`MAP_FIXED_NOREPLACE`, `/proc/self/exe`, all outside the movable build's
+paths already but for `prctl`), `ucontext` with `_XOPEN_SOURCE` (or the
+pthread backend), no `__start_`/`__stop_` section symbols (`runtime.c`'s
+`port_bswap32`, compiled out in the movable build), and the N64 side's
+triple `arm64-apple-macos` through port-ilp32; the `.ll` data files take
+the module's triple from llvm-link.  Worth checking there: that
+`llc` for Mach-O keeps a variable's `section` names (`.data.port.*`),
+which the pass only reads.
+
+And for **WebAssembly** (emscripten): step 6 first; the N64 side through
+the system clang and the plugin for `wasm32-unknown-emscripten` (emsdk's
+clang can't load the plugin: it ships no LLVM headers), the arena link
+as it is, `llc` to a wasm object for emcc's link; the host through emcc
+(`-sUSE_SDL=2`, the OpenGL renderer on WebGL 2 or the software one, the
+ROM and the save through the browser's files and IndexedDB, the main loop
+yielding to the browser, threads without `ucontext`: Asyncify's fibers or
+the pthread backend's structure); the arena from `malloc` (28 MB of
+linear memory), or at linear address 0 with `GLOBAL_BASE` above it.
+
+Tried for wasm32 on us.v10's N64 side before step 4 (the 32-bit native-endian build's
 commands, `--target=wasm32` for `-m32`, with port-arena): all 124 files
 compile to bitcode and `llvm-link` takes them; `llc` then fails on the
 mismatched calls (the backend's own fix-up makes trapping thunks, and
-breaks on their attributes).  With an experimental port-callfix over the
-linked module (424 calls rewritten), `wasm32-unknown-unknown` stops only
-at the replay hooks' `__builtin_return_address`, and
+breaks on their attributes).  With the experimental port-callfix over the
+linked module (424 calls rewritten), `wasm32-unknown-unknown` stopped only
+at the replay hooks' `__builtin_return_address` (gone now), and
 `wasm32-unknown-emscripten` produces the object (4.3 MB), with one thunk
 left for `func_8029A7E4`'s variadic calls.
 
-**The TAS** (us.v10's 64-bit big-endian build with `PORT_MOVABLE`,
-`build/tas/run/polls.csv`): 57 platinum medals, all 125,297 of the
-movie's reads matched, the player where the movie has it throughout, and
-the save and the whole replay log identical to the same build's without
-`PORT_MOVABLE` (373 retraces given anyway, one save command let go early,
-no mode forced, in both).  The LP64 build doesn't finish
-the TAS at the moment, with or without this: it stops with SIGFPE at about
-the movie's read 1,620 (main's `build/p10lp` too), which is another
-matter.
+The LP64 build doesn't finish the TAS at the moment, with or without
+this: it stops with SIGFPE at about the movie's read 1,620 (main's
+`build/p10lp` too), which is being looked at separately.
 
 ## The platform layer
 
@@ -1898,11 +1964,11 @@ writable, as the N64 has it.
   native-endian memory ("The native-endian build") and the LP64 build ("The
   LP64 build").  Next are the fixed addresses: the game's C and data should
   work at any base, which arm64 macOS and a WebAssembly build (both wanted
-  eventually) need; the design and its first step are under "Movable
-  memory".  Threads without `ucontext` are done (the pthread backend,
-  "Threads without ucontext"); the browser also needs the loop to return
-  every frame, and a way for the fibers not to block its main thread (the
-  same section).  The
+  eventually) need; the movable build ("Movable memory") is that, but for
+  LP64 and the call types wasm needs.  Threads without `ucontext` are done
+  (the pthread backend, "Threads without ucontext"); the browser also
+  needs the loop to return every frame, and a way for the fibers not to
+  block its main thread (the same section).  The
   32-bit build still has the out-of-bounds miscompiles the 64-bit one
   avoids; typing those arrays fixes both.
 - **Readable C.** Replace translated functions with hand-written C one at a
