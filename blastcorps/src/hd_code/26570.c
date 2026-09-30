@@ -35,7 +35,7 @@ void func_8026A5CC(u64 *dst, u64 *src, s32 size);
 s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
 void func_802AC544(s32, s32, s32);
 void func_80260650(SndBank *, u16, s32);
-s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
+u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
 
 /*
  * YoshiWindow and dialogue text, reached only through the pointer tables in this

@@ -19,7 +19,7 @@ extern s8 D_80370C32;
 extern s8 D_80370C33;
 
 void func_8029A7E4(char *, ...);
-s8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
+u8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
 void func_80275270(u64, f32);
 void func_80275390(u64);
 s32 func_802753C0(void);

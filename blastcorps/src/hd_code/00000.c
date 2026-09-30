@@ -539,7 +539,7 @@ void func_80270AE0(u32 *);
 Gfx *func_80271FD0(Gfx *, void *, u16, s16, s16, s32 *);
 void func_802729F0(u16, u16);
 void func_80272C50(void);
-s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
+u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
 void func_80274B40(Gfx **, void *, u8, s16, s16);
 s32 func_802753C0(void);
 void func_80275430(void);

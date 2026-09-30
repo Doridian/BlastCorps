@@ -26,7 +26,7 @@ u8 func_8027EED8(s32, s32, s16 *);
 s32 func_8026394C();
 void func_80264A34(char *, u16, s32);
 void func_8026AF6C(s32);
-s16 func_8028604C(s32);
+u16 func_8028604C(u32);
 void func_8029A7E4(char *, ...);
 void alCSPSetTempo(ALCSPlayer *, s32);
 u8 func_802C1B1C(void);
@@ -420,7 +420,7 @@ extern char *D_80367C08;
 extern u16 *D_80367C0C;
 
 u8 func_8026FA38(char **, u16 **);
-s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
+u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
 void func_8028B4C4(u8 *, u8 *, s32 *, s32, s32, s32);
 
 void func_80262320(u8 arg0) {

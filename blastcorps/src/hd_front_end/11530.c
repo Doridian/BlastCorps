@@ -44,7 +44,7 @@ void func_80260A10(void);
 void func_80261FB0(u8);
 u8 func_80264BA4(u8);
 s32 func_8026A828(s32, s32);
-s8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
+u8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
 Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
 Gfx *func_80274868(Gfx *);
 Gfx *func_80274AA4(Gfx *);

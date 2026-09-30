@@ -302,7 +302,7 @@ u8 D_802FF5E8[14][5] = {
 };
 
 s32 func_8025B300(u8 *);
-s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
+u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
 u8 func_8029766C(u8, u8 *);
 u8 func_80297EF8(u8);
 u8 func_80297F74(void);
