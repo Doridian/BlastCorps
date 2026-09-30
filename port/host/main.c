@@ -415,9 +415,15 @@ static void paced_wait(uint64_t v, uint64_t period) {
    pictures of --interpolate go first (they cost as much as the frames'
    own): gfx.c skips them for a while, 20 s at first and twice as long each
    time they had to go again within 30 s of coming back (up to 10 min).
-   The game never waits for them either way. */
+   Late retraces while the GPU is behind don't count: those are the
+   resolution's to fix.  The game never waits for them either way. */
 int host_interp_suspended;
 static int adapt_on = -1;
+#ifdef PORT_HAVE_GL
+int gfx_gl_gpu_behind(void);
+#else
+static int gfx_gl_gpu_behind(void) { return 0; }
+#endif
 
 static void lag_account(double late_ms) {
     static int n, late;
@@ -432,7 +438,7 @@ static void lag_account(double late_ms) {
     }
     if (!adapt_on || !gfx_interp || deterministic)
         return;
-    late += late_ms > 2.0;
+    late += late_ms > 2.0 && !gfx_gl_gpu_behind();     /* (the GPU's: gfx_gl.c lowers the resolution) */
     if (++n < 120)
         return;
     double now = real_ms();
@@ -556,7 +562,10 @@ static void usage(const char *argv0) {
             "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
             "at the Nth controller read (and on a crash); PORT_PACE=FILE logs the pacing\n"
             "per controller read; PORT_COUNT_PER_OP=N: CPU count ticks charged per\n"
-            "instruction (default 2, as mupen64plus; 0: the CPU takes no time)\n", argv0);
+            "instruction (default 2, as mupen64plus; 0: the CPU takes no time); PORT_PERF=N\n"
+            "logs where the host's time goes every N retraces; PORT_PACED=1 virtual time\n"
+            "between retraces; PORT_ADAPT=1 lower resolution and no in-between pictures\n"
+            "when the host can't keep up (both the browser's default)\n", argv0);
     exit(2);
 }
 

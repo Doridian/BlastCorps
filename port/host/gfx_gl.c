@@ -1304,6 +1304,11 @@ static void save_bmp(const char *path, const uint8_t *rgba, int w, int h) {
 static int adapt = -1, adapt_cap = 16, adapt_n, adapt_late, adapt_quiet;
 static double adapt_down_at = -1e9;
 static GLsync fences[2];
+static unsigned fence_hist;                 /* the last 32 presents: 1 where the GPU was behind */
+
+/* the GPU has been behind lately (main.c: then a late retrace is the GPU's
+   to fix, with the resolution, not the in-between pictures') */
+int gfx_gl_gpu_behind(void) { return adapt > 0 && __builtin_popcount(fence_hist) >= 4; }
 
 static int adapt_scale(int want) {
     if (adapt < 0) {
@@ -1316,11 +1321,12 @@ static int adapt_scale(int want) {
     }
     if (!adapt)
         return want;
-    if (adapt_cap > want)
+    if (adapt_cap > want || adapt_down_at < 0)     /* (until the GPU first fell behind: the window's) */
         adapt_cap = want;
     if (fences[0]) {                        /* the picture before last */
         GLenum r = glClientWaitSync(fences[0], 0, 0);
         adapt_late += r == GL_TIMEOUT_EXPIRED;
+        fence_hist = fence_hist << 1 | (r == GL_TIMEOUT_EXPIRED);
         glDeleteSync(fences[0]);
     }
     fences[0] = fences[1];

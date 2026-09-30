@@ -96,6 +96,12 @@ cd build/wasm-web && python3 -m http.server 8000   # then open http://localhost:
 
 The page asks for your ROM once and keeps it, and the save, in the
 browser's IndexedDB; `?args=--widescreen` and the like pass options.
+It keeps to the display's frames, draws at most about 1.3 million pixels
+(`?args=--scale%203` picks for itself), and when the GPU can't keep up
+it draws smaller, when the CPU can't it drops `--interpolate`'s
+in-between pictures (`?env=PORT_ADAPT=0` turns both off);
+`?env=PORT_PERF=600` logs where the time goes to the browser's console
+(docs/PORT.md, "Performance").
 Without `-DPORT_WASM_TARGET=web` it builds `blastcorps.js` for node:
 `node build/wasm/blastcorps.js --headless --frames 600 --screenshot shot
 baserom.us.v11.z64` (docs/PORT.md, "WebAssembly").

@@ -1304,9 +1304,9 @@ becomes a function that runs until it has delivered a retrace
 and an emscripten build hands it to `emscripten_set_main_loop` instead,
 with the `nanosleep` replaced by returning (the browser paces the frames).
 Not done: the WebAssembly build has Asyncify anyway (for the fibers), and
-so the loop gives the page its thread back with `emscripten_sleep` where
-it would sleep, and after a retrace when it hasn't for 12 ms
-("WebAssembly"); the loop is as it was.  What the fibers needed there
+so the loop gives the page its thread back where it would wait
+("WebAssembly", and "Performance" for how it waits there); the loop is
+as it was.  What the fibers needed there
 (as it was planned; "WebAssembly" has what became of it):
 
 - **pthreads in the browser** (`-pthread`, a Web Worker per thread, a
@@ -1541,14 +1541,18 @@ loop on one too, `-sPROXY_TO_PTHREAD`, so that the page's thread is free
 to start them).  Asyncify is the faster of the two (the handovers between
 workers cost more than the instrumentation), and needs no
 `SharedArrayBuffer`, so no COOP/COEP headers: the page is plain files.
-It doubles the module (6.9 MB against 3.1 MB).  The loop hands the page
-its thread back with `emscripten_sleep` (Asyncify unwinds the loop's own
-frames, which are few: the fibers are elsewhere) in place of its
-`nanosleep`s, and after a retrace when it hasn't for 12 ms, so a busy
-game doesn't hold the page; with `--deterministic` it never sleeps, and
-under node that costs a millisecond now and then.  It is still the loop
-of `main.c`, not a frame callback (`emscripten_set_main_loop`), which
-Asyncify made unnecessary.
+It doubles the module (6.9 MB against 3.1 MB; 3.5 MB at `-O2`).  The
+loop hands the page its thread back where it would wait (Asyncify
+unwinds the loop's own frames, which are few: the fibers are
+elsewhere).  In the page it runs `PORT_PACED` ("Performance"): the time
+inside a retrace is virtual, and each retrace waits for the display's
+next frame (`requestAnimationFrame`); under node, and with
+`PORT_PACED=0`, it `emscripten_sleep`s in place of its `nanosleep`s, and
+after a retrace when it hasn't for 12 ms, so a busy game doesn't hold
+the page; with `--deterministic` it never sleeps, and under node that
+costs a millisecond now and then.  It is still the loop of `main.c`, not
+a frame callback (`emscripten_set_main_loop`), which Asyncify made
+unnecessary.
 
 **Headless under node** (`PORT_WASM_TARGET=node`, the default): the
 files are node's (`-sNODERAWFS`), and SDL isn't started (it has no
@@ -1565,8 +1569,12 @@ synced after the game writes the EEPROM), so the next visit only needs
 `--interpolate` checkboxes.  The OpenGL renderer runs on WebGL 2
 (`gfx_gl.c`: GLSL ES 3.00, `EXT_depth_clamp` where the browser has it),
 SDL's keyboard and gamepads are the input, and the sound goes through
-SDL's WebAudio.  The window is `--scale`d to the room the page has
-(chosen by the page), and the canvas's style follows the page's size.
+SDL's WebAudio (a `ScriptProcessorNode`, whose callback runs on the
+page's thread between the loop's turns: 1024-sample buffers; the page
+resumes a suspended `AudioContext` on any key or click).  The window is
+`--scale`d to the room the page has, as far as about 1.3 million pixels
+(chosen by the page; "Performance"), and the canvas's style follows the
+page's size.
 
 **How it was checked**, us.v10:
 
