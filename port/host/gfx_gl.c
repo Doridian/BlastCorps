@@ -278,10 +278,13 @@ static Target *find_target(uint32_t addr) {
     return NULL;
 }
 
+static void flush(void);
+
 static Target *get_target(uint32_t addr) {
     Target *t = find_target(addr);
     if (t)
         return t;
+    flush();                                        /* (the batches name targets, which move) */
     if (ntargets == 8) {                            /* recycle the oldest */
         GLC_DIRTY();
         glDeleteFramebuffers(1, &targets[0].fbo);
@@ -419,8 +422,6 @@ static uint64_t hash_words(uint64_t h, const uint8_t *p, int n) {
     }
     return hash_bytes(h, p + i, n - i);
 }
-
-static void flush(void);
 
 static void tc_sweep(void) {
     int n = 0;
@@ -830,6 +831,17 @@ static int vcount, vcap;
 static GLuint vao, vbo;
 static unsigned long long st_draws, st_verts, st_flushes_state;
 
+/* The batches wait, their vertices one after another in vbuf, until
+   something needs them drawn (flush: the task's end, a clear, a read-back,
+   a texture or target about to go): then the vertices go to the GPU in one
+   upload, and each batch is a draw of its range. */
+typedef struct {
+    DrawState d;
+    int first, count;
+} Batch;
+static Batch *batches;
+static int nbatches, batches_cap, batch_first;
+
 static void glc_check(void) {
     if (glc.valid)
         return;
@@ -850,8 +862,7 @@ static void glc_check(void) {
         call;                                                               \
     }
 
-static void apply_and_draw(void) {
-    const DrawState *d = &ds_batch;
+static void apply_and_draw(const DrawState *d, int first, int count) {
     Prog *p = d->prog;
     GLuint fbo = target_fbo(d->target);            /* (first: a twin may be made) */
     c_fbo(fbo);
@@ -897,20 +908,40 @@ static void apply_and_draw(void) {
     p->uv = 1;
     for (int i = 0; i < d->ntex; i++)
         c_tex(i, d->tex[i]);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vcount * sizeof(GLVtx), vbuf, GL_STREAM_DRAW);
-    glDrawArrays(GL_TRIANGLES, 0, vcount);
-    if (ipass_gl)
-        d->target->idrawn |= 1u << (ipass_gl - 1);
-    else
-        d->target->dirty = 1;
+    glDrawArrays(GL_TRIANGLES, first, count);
     st_draws++;
-    st_verts += vcount;
+    st_verts += count;
+}
+
+/* the batch being built is complete */
+static void batch_close(void) {
+    if (!batch_valid || vcount == batch_first)
+        return;
+    if (nbatches == batches_cap) {
+        batches_cap = batches_cap ? batches_cap * 2 : 1024;
+        batches = realloc(batches, (size_t)batches_cap * sizeof *batches);
+    }
+    Batch *b = &batches[nbatches++];
+    b->d = ds_batch;
+    b->first = batch_first;
+    b->count = vcount - batch_first;
+    batch_first = vcount;
+    if (ipass_gl)                       /* (drawn as far as anyone asking is concerned) */
+        ds_batch.target->idrawn |= 1u << (ipass_gl - 1);
+    else
+        ds_batch.target->dirty = 1;
 }
 
 static void flush(void) {
-    if (vcount && batch_valid)
-        apply_and_draw();
-    vcount = 0;
+    batch_close();
+    if (nbatches) {
+        glc_check();
+        glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vcount * sizeof(GLVtx), vbuf, GL_STREAM_DRAW);
+        for (int i = 0; i < nbatches; i++)
+            apply_and_draw(&batches[i].d, batches[i].first, batches[i].count);
+    }
+    nbatches = 0;
+    vcount = batch_first = 0;
 }
 
 /* returns 0 when nothing changed since the last call */
@@ -993,7 +1024,7 @@ static int build_state(int kind, int tile) {
 static void begin(int kind, int tile) {
     int changed = build_state(kind, tile);
     if (!batch_valid || (changed && memcmp(&ds_cur, &ds_batch, sizeof ds_cur))) {
-        flush();
+        batch_close();
         ds_batch = ds_cur;
         batch_valid = 1;
         st_flushes_state++;
