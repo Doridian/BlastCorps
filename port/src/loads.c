@@ -73,6 +73,14 @@ extern Vtx D_802F9A00[0x40];    /* 2B3F0.c: RGBA32 16x16 */
 extern Vtx D_802F9E00[0x40];
 extern u16 D_802FC5B0[0x80];    /* 3E4C0.c: IA16 */
 extern u16 D_802FC6B0[0x400];   /* 3E4C0.c: IA16 */
+/* hd_front_end 9570.c: RGBA16 32x32 with its mipmaps, the carrier on the
+   world map's globe (put back before overlay.c keeps the front end's .data
+   for its reloads) */
+extern u16 D_802084F0[0x55c];
+extern u16 D_80209028[0x55c];
+extern u16 D_80209B60[0x55c];
+extern u16 D_8020A698[0x55c];
+extern u16 D_8020B1D0[0x55c];
 
 /* And the other way round: YoshiIcon.unk6 (game/yoshi.h) is declared u8
    [0x14] but only ever read as u16 frames (func_80272C5C's first argument,
@@ -90,5 +98,10 @@ void port_native_fixups(void) {
     host_layout_to_be((u32)D_802F9E00, sizeof D_802F9E00, "hhhhhhbbbb", 1);
     host_layout_to_be((u32)D_802FC5B0, sizeof D_802FC5B0, "h", 1);
     host_layout_to_be((u32)D_802FC6B0, sizeof D_802FC6B0, "h", 1);
+    host_layout_to_be((u32)D_802084F0, sizeof D_802084F0, "h", 1);
+    host_layout_to_be((u32)D_80209028, sizeof D_80209028, "h", 1);
+    host_layout_to_be((u32)D_80209B60, sizeof D_80209B60, "h", 1);
+    host_layout_to_be((u32)D_8020A698, sizeof D_8020A698, "h", 1);
+    host_layout_to_be((u32)D_8020B1D0, sizeof D_8020B1D0, "h", 1);
 }
 #endif

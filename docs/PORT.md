@@ -380,13 +380,16 @@ the seven builds 38 seconds, their quick tiers 67 seconds together, and
 with `--tas` 24 minutes in all.
 
 Where it stands (us.v10, main at the time of writing): quick passes in
-all seven, with one known failure:
-
-- **Native-endian builds (`n64`, `lp64`, `mlp64`, `mn32`): the carrier on
-  the globe.**  From retrace 1,228 to 1,285 of every `PORT_AUTOSTART`
-  run (the world map's intro), about 22 pixels of the carrier over the
-  globe come out slightly different in color, with both renderers; the
-  save and the sound don't change.  Not tracked down.
+all seven, with no known failures.  The last one was the native-endian
+builds' carrier on the globe: from retrace 1,228 to 1,285 of every
+`PORT_AUTOSTART` run (the world map's intro), about 22 pixels of the
+carrier came out slightly different in color, with both renderers.  The
+display lists and RDRAM were the same by type; the renderer's log of
+what it loaded showed five textures differing, hd_front_end 9570.c's
+RGBA16 mipmaps (`D_802084F0`, `D_80209028`, `D_80209B60`, `D_8020A698`,
+`D_8020B1D0`), which the C declares as `u16` arrays and only hands the
+RDP: they were left in host order.  `port_native_fixups` puts them back
+into the N64's, as it does hd_code's (below).
 
 (The suite's first run also found the 32-bit builds reading the glue's
 narrow results as all of `eax`: three of the game's C functions the
@@ -571,7 +574,9 @@ an `s32`.
 **The C** needed three changes of its own: `func_80200714` (hd_front_end
 196F0.c) tints big-endian texels, through `IMG_RD`/`IMG_WR` under
 `TARGET_PC && PORT_NATIVE_ENDIAN`; the textures the C declares as `u16` or
-`Vtx` arrays are put back into the N64's order at boot, and
+`Vtx` arrays (hd_code's six and hd_front_end's five, before `overlay.c`
+keeps the front end's `.data` for its reloads) are put back into the
+N64's order at boot, and
 `YoshiIcon.unk6` (declared bytes, read as `u16`s) into host order
 (`port_native_fixups`, `port/src/loads.c`).  The host reads game variables
 through `port_var32` and the renderer and audio through `port_g16`/

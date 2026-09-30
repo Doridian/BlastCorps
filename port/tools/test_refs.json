@@ -1,36 +1,6 @@
 {
  "comment": "port/tools/test.py's references (docs/PORT.md, \"Testing the port\"): quick: the hashes (sha1, 16 digits) of each scenario's save, --wav and screenshots, by version; layout: screenshots that depend on the executable's layout (not compared across builds); known: failures the suite knows of, by variant (they pass as XFAIL while the hashes are exactly these); tas: the known drifts of the TAS replay's report, by variant.",
- "known": {
-  "us.v10": [
-   {
-    "note": "native-endian: the carrier on the world map's globe, frames 1228-1285 (a few pixels)",
-    "scenarios": {
-     "auto1": {
-      "shots": {
-       "1250": "7009212bd0ef925e"
-      }
-     },
-     "auto2": {
-      "shots": {
-       "1250": "7009212bd0ef925e"
-      }
-     },
-     "auto3": {
-      "shots": {
-       "1250": "7009212bd0ef925e"
-      }
-     }
-    },
-    "variants": [
-     "lp64",
-     "mlp64",
-     "mn32",
-     "n32",
-     "n64"
-    ]
-   }
-  ]
- },
+ "known": {},
  "layout": {
   "us.v10": {
    "auto2": [
