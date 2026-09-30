@@ -30,6 +30,85 @@ git submodule init
 git submodule update
 ```
 
+# The PC port
+
+The port runs the decompiled C natively and Rare's handwritten engine code
+through a mechanical translation to C; it needs your own copy of the ROM
+(`us.v11` by default, `us.v10` too).  It is built from the decompilation, so
+the steps are: set up the tools, build the decompilation once, then the port.
+[docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
+built and tested on.
+
+## Requirements
+
+* Everything the decompilation needs (see [Build](#build) below): the
+  `mips-linux-gnu-` binutils, Python 3 and the venv.
+* clang and LLVM with its development headers (`llvm-config`, `opt`): the
+  port's build runs an LLVM pass plugin over the game's C.
+* CMake and Ninja, SDL2, and libepoxy for the OpenGL renderer (without it only
+  the software renderer is built).
+
+The default build is a 32-bit program and needs the 32-bit (multilib) libc,
+SDL2 and libepoxy; the 64-bit build below needs only the ordinary 64-bit ones,
+and is the one to use if you don't have multilib installed.
+
+## Build it
+
+Put `baserom.us.v11.z64` in the repo's root, then, with the venv active:
+
+```
+make VERSION=us.v11 extract
+make VERSION=us.v11
+make VERSION=us.v11 decompress
+make VERSION=us.v11 -C blastcorps extract
+make -j VERSION=us.v11 -C blastcorps       # the decompilation, sha1-checked
+make VERSION=us.v11 -C blastcorps compress
+make VERSION=us.v11                        # the ROM's layout the port reads
+make -C tools/recomp                       # translate the handwritten code
+
+cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
+      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang -DPORT_64BIT=ON
+cmake --build build/port64
+```
+
+Leave out `-DPORT_64BIT=ON` for the 32-bit build.  Other variants, all
+playing the same game: `-DPORT_NATIVE_ENDIAN=ON` (game memory in the host's
+byte order) and `-DPORT_LP64=ON` (the game's C as an ordinary 64-bit
+program); see docs/PORT.md.
+
+For `us.v10`, run the same with `VERSION=us.v10` (after `make clean` and
+`make -C blastcorps clean`) and configure a separate build directory with
+`-DPORT_VERSION=us.v10`.
+
+## Run it
+
+```
+build/port64/blastcorps baserom.us.v11.z64
+```
+
+The save (the 4 Kbit EEPROM) goes to `blastcorps.eep` in the current
+directory, or wherever `--save PATH` says.
+
+| Key                 | N64            |
+| ---                 | ---            |
+| arrows or WASD      | stick          |
+| X, C                | A, B           |
+| Z                   | Z              |
+| Enter               | Start          |
+| Q, E                | L, R           |
+| I, J, K, L          | C buttons      |
+| T, F, G, H          | D-pad          |
+
+An SDL game controller works too.  Some options (`--help` lists them all):
+
+| option                       | what                                                      |
+| ---                          | ---                                                       |
+| `--renderer gl` / `sw`       | OpenGL (the default with a window) or the software renderer |
+| `--scale N`                  | OpenGL: render at 320x240 times N (default: the window's size) |
+| `--filter n64` / `bilinear` / `point` | texture filtering (default: the N64's 3-point filter) |
+| `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
+| `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window, for N frames, saving the last frame |
+
 # Build
 
 ## Requirements
