@@ -1,9 +1,9 @@
 /*
- * The game's threads as fibers on one OS thread, scheduled as libultra
- * does: the highest-priority runnable thread runs until it blocks, yields,
- * or wakes a thread of higher priority; equal priorities are FIFO.  The
- * main loop (main.c) runs whenever none is runnable, and stands in for the
- * interrupts.
+ * The game's threads as fibers (fiber.h: ucontext, or host threads one at
+ * a time), scheduled as libultra does: the highest-priority runnable
+ * thread runs until it blocks, yields, or wakes a thread of higher
+ * priority; equal priorities are FIFO.  The main loop (main.c) runs
+ * whenever none is runnable, and stands in for the interrupts.
  *
  * Each thread has two stacks: a host stack for the native C (a fiber stack
  * inside the KSEG0 window, see port.h), and its N64 stack, the one the game
@@ -20,8 +20,8 @@
  */
 #include <stdlib.h>
 #include <string.h>
-#include <ucontext.h>
 
+#include "fiber.h"
 #include "host.h"
 
 enum { T_FREE, T_STOPPED, T_RUNNABLE, T_WAITING, T_PARKED, T_DEAD, T_BUSY };
@@ -36,7 +36,7 @@ typedef struct {
     uint32_t recv_key;          /* the queue of the osRecvMesg it is in (host_recv_charge), or 0 */
     void (*entry)(void *);
     void *arg;
-    ucontext_t uc;
+    HostFiber *fiber;
     recomp_context ctx;
     int started;
     uint32_t imark, imark_c;    /* the counters when last charged */
@@ -47,7 +47,6 @@ typedef struct {
 
 static HThread threads[PORT_MAX_THREADS];
 static HThread *cur;
-static ucontext_t loop_uc;
 static uint64_t seq_counter;
 
 recomp_context *port_ctx(void) {
@@ -65,14 +64,16 @@ static HThread *find(uint32_t key) {
     return NULL;
 }
 
-static void fiber_main(void) {
-    HThread *t = cur;
+static void fiber_main(void *p) {
+    HThread *t = p;
     t->entry(t->arg);
     /* returning from a thread's entry: it just stops */
     t->state = T_DEAD;
-    swapcontext(&t->uc, &loop_uc);
-    host_fatal("dead thread resumed");
+    fiber_exit(t->fiber);
 }
+
+/* the host stack of thread slot idx: in the KSEG0 window (port.h) */
+static void *host_stack(int idx) { return (void *)(uintptr_t)(PORT_STACK_BASE + idx * PORT_STACK_SIZE); }
 
 /* whether another thread than the running one is in osRecvMesg on this
    key: blocked, woken and not yet run, or preempted at the call's entry
@@ -105,6 +106,8 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
     if (t == cur)
         host_fatal("osCreateThread on the running thread");
     int idx = (int)(t - threads);
+    if (t->fiber)
+        fiber_free(t->fiber);           /* a dead thread's, or one recreated */
     memset(t, 0, sizeof *t);
     t->state = T_STOPPED;
     t->key = key;
@@ -112,19 +115,12 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
     t->entry = entry;
     t->arg = arg;
     t->ctx.sp = (uint64_t)(int64_t)(int32_t)mips_sp;
-    getcontext(&t->uc);
-    t->uc.uc_stack.ss_sp = (void *)(uintptr_t)(PORT_STACK_BASE + idx * PORT_STACK_SIZE);
-    t->uc.uc_stack.ss_size = PORT_STACK_SIZE;
-    t->uc.uc_link = NULL;
-    makecontext(&t->uc, fiber_main, 0);
+    t->fiber = fiber_create(fiber_main, t, host_stack(idx), PORT_STACK_SIZE);
     if (host_verbose)
         host_log("thread %08X created, pri %d, entry %p\n", key, pri, (void *)entry);
 }
 
-static void to_loop(void) {
-    HThread *t = cur;
-    swapcontext(&t->uc, &loop_uc);
-}
+static void to_loop(void) { fiber_yield(cur->fiber); }
 
 void host_preempt(void) {
     if (!cur)
@@ -167,10 +163,11 @@ void host_thread_destroy(uint32_t key) {
         return;
     if (t == cur) {
         t->state = T_DEAD;
-        to_loop();
-        host_fatal("destroyed thread resumed");
+        fiber_exit(t->fiber);
     }
     t->state = T_FREE;
+    fiber_free(t->fiber);
+    t->fiber = NULL;
 }
 
 void host_thread_set_pri(uint32_t key, int pri) {
@@ -316,7 +313,7 @@ int host_run_one(void) {
     if (host_verbose > 3)
         host_log("run %08X pri %d at %.3f\n", best->key, best->pri, host_now_ns() / 1e6);
     cur = best;
-    swapcontext(&loop_uc, &best->uc);
+    fiber_run(best->fiber);
     cur = NULL;
     return 1;
 }

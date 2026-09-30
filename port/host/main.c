@@ -22,6 +22,7 @@
 #include <unistd.h>
 
 #include "port.h"
+#include "fiber.h"
 #include "host.h"
 
 /* the version this port is built from (CMake's PORT_VERSION) */
@@ -417,6 +418,7 @@ int main(int argc, char **argv) {
     /* RDRAM itself is the image's .rdram section (tools/gen_ld.py) */
     map_fixed(PORT_HWREG_BASE, PORT_HWREG_SIZE, "hardware registers");
     map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");
+    fiber_init();
     load_rom(rom_path);
     port_fixups();
 #ifdef PORT_MOVABLE

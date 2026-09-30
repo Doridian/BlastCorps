@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "fiber.h"
 #include "host.h"
 
 #ifdef PORT_NATIVE_ENDIAN
@@ -193,7 +194,7 @@ static uint16_t scripted_buttons(int *sy) {
     return 0;
 }
 
-void host_input(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
+static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     uint16_t b = 0;
     int sx = 0, sy = 0;
     if (n == 0 && host_replay_active()) {
@@ -247,6 +248,18 @@ void host_input(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     port_wbe16(buttons, b);         /* N64-side memory: big-endian */
     *x = (int8_t)sx;
     *y = (int8_t)sy;
+}
+
+/* SDL's keyboard and controllers on the loop's OS thread (fiber.h) */
+struct input_call { int n; uint16_t *buttons; int8_t *x, *y; };
+static void input_call(void *p) {
+    struct input_call *c = p;
+    input_read(c->n, c->buttons, c->x, c->y);
+}
+
+void host_input(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
+    struct input_call c = { n, buttons, x, y };
+    fiber_call_on_loop(input_call, &c);
 }
 
 /* ---- the rest of the "hardware" (stubs for now) --------------------------- */

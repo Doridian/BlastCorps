@@ -23,6 +23,7 @@
 #include <time.h>
 
 #include "host.h"
+#include "fiber.h"
 #include "gfx.h"
 
 /* ---- state ------------------------------------------------------------------- */
@@ -1076,7 +1077,7 @@ static double now_ms(void) {
     return t.tv_sec * 1e3 + t.tv_nsec / 1e6;
 }
 
-int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
+static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
     (void)ucode;
     gfx_tasks++;
     memset(gs.seg, 0, sizeof gs.seg);
@@ -1101,6 +1102,19 @@ int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
     if (host_verbose && (gfx_tasks < 5 || gfx_tasks % 300 == 0))
         host_log("gfx task %d: dl %08X size %X%s\n", gfx_tasks, dl, size, gs.sync ? " (full sync)" : "");
     return gs.sync;
+}
+
+/* on the loop's OS thread, which has the GL context (fiber.h) */
+struct gfx_call { uint32_t dl, size, ucode; int sync; };
+static void gfx_task_call(void *p) {
+    struct gfx_call *c = p;
+    c->sync = gfx_task(c->dl, c->size, c->ucode);
+}
+
+int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode) {
+    struct gfx_call c = { dl, size, ucode, 0 };
+    fiber_call_on_loop(gfx_task_call, &c);
+    return c.sync;
 }
 
 void host_gfx_dump_stats(void) {
