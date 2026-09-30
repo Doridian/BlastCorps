@@ -30,9 +30,9 @@ typedef struct {
 /* Per-frame buffer, double-buffered by D_8035805C. */
 void func_801E74E8(u8);
 Gfx *func_80200BE0(Gfx *, FrameBuf *, s32 *);
-void func_80202100(s32, UnkStruct_80210E90 **, u8 **, Gfx **);
+void func_80202100(s32, UnkStruct_80210E90 *PTR32 *, u8 *PTR32 *, Gfx *PTR32 *);
 void func_802021FC(u8 *, u8 *, u8 *);
-void func_80202270(UnkStruct_80210E90 *, u8 **, u8 *);
+void func_80202270(UnkStruct_80210E90 *, u8 *PTR32 *, u8 *);
 void func_802022EC(u8 *, u8, u8, u8, f32, u8, s32);
 void func_80202380(s32);
 void func_802025D0(u8, u32);
@@ -41,9 +41,9 @@ void func_80259C24(Gfx **, FrameBuf *);
 void func_80259CCC(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
 
 /* .bss, 0x80210E90-0x80215440 (tools/bss_c.py) */
-UnkStruct_80210E90 *D_80210E90[0x14];
-u8 *D_80210EE0[0x13][2];
-Gfx *D_80210F78[0x13][4];
+UnkStruct_80210E90 *PTR32 D_80210E90[0x14];
+u8 *PTR32 D_80210EE0[0x13][2];
+Gfx *PTR32 D_80210F78[0x13][4];
 Mtx D_802110A8[0x13];
 Mtx D_80211568[0x13];
 Mtx D_80211A28;
@@ -100,9 +100,9 @@ extern UnkStruct_802081A8 D_802081A8;
 extern s32 D_802081AC;
 extern s16 D_802081B0;
 extern s8 D_802081B4;
-extern UnkStruct_80210E90 *D_80210E90[];
-extern u8 *D_80210EE0[][2];
-extern Gfx *D_80210F78[][4];
+extern UnkStruct_80210E90 *PTR32 D_80210E90[];
+extern u8 *PTR32 D_80210EE0[][2];
+extern Gfx *PTR32 D_80210F78[][4];
 extern Mtx D_802110A8[];
 extern Mtx D_80211568[];
 extern Mtx D_80211A28;

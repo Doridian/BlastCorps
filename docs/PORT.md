@@ -567,7 +567,11 @@ N64's layout have it on every pointer field:
 - gzip's `huft` (the table pool is sized for the N64's), and the pointer
   slots the handwritten code passes to the C (the unzip's `src`/`dst`,
   `func_80278BF0`'s `out`, the sound handles of `func_80260650` and
-  `SndState.unk30`), and the C's `extern`s of pointers the asm's data
+  `SndState.unk30`), the pointer arrays the front end's model loader
+  (hd_front_end 1B100's `func_80202100`, a word per slot) fills and
+  `func_80202270` reads (00000.c's `D_80210E90`/`EE0`/`F78`, DE70.c's
+  `D_80218350`..`60`; the TAS's first front-end model, at read 1,620,
+  crashed on them), and the C's `extern`s of pointers the asm's data
   define (`level.h`'s `D_803BDAF0`..., `D_803F7654`, `D_802C4A20`).
 
 What is native then: pointer variables, and the structs only the C uses
@@ -594,6 +598,11 @@ the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
   constant, so `gbi.h` puts its words through `_GBI_W` (a cast through a
   32-bit pointer, which is a 32-bit relocation), and `STATIC_K0_TO_PHYS`
   the same;
+- no over-alignment on declarations either: x86-64 clang gives an
+  `extern` array of 16 bytes or more 16-byte alignment, as it does a
+  definition, and the optimiser then clears the low bits of addresses
+  made from it; BEPass puts both at the type's own alignment (the TAS's
+  `&D_802F49F4[i]`, at ...944, lost its 4 and divided by zero);
 - **port-lp64** (`bepass/LP64.cpp`, before BEPass): what port-ilp32 does
   that isn't layout.  Pointer arithmetic by a variable or large offset
   wraps at 32 bits, an integer made a pointer is zero-extended, accesses

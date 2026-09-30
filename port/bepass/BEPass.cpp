@@ -355,8 +355,18 @@ struct BEPass : PassInfoMixin<BEPass> {
         for (GlobalVariable &g : m.globals())
             gvs.push_back(&g);
         for (GlobalVariable *g : gvs) {
-            if (!g->hasInitializer() || g->getName().starts_with("llvm."))
+            if (g->getName().starts_with("llvm."))
                 continue;
+            /* nor on a declaration: x86-64 clang gives an extern array of
+               16 bytes or more 16-byte alignment too, and the optimiser
+               then drops the low bits of addresses computed from it (the
+               LP64 build's `&D_802F49F4[i]`, an array at ...944) */
+            if (!g->hasInitializer()) {
+                Align natural = g->getValueType()->isSized() ? dl.getABITypeAlign(g->getValueType()) : Align(1);
+                if (g->getAlign().value_or(Align(1)) > natural)
+                    g->setAlignment(natural);
+                continue;
+            }
             /* no over-alignment (x86 wants arrays 16-aligned): the port
                places the game's variables at their N64 addresses */
             if (!g->getMetadata("port.align"))      /* port-ilp32 did it */
