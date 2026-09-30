@@ -53,6 +53,16 @@ static inline void *port_ptr(uint32_t addr) {
         addr -= 0x20000000u;        /* KSEG1 -> KSEG0 */
     return port_host(addr);
 }
+/* a function value of the N64 side's, as the host calls it: in the movable
+   build it is the function's N64 address (bepass/Arena.cpp), found by
+   port_fn (port/host/runtime.c) */
+#ifdef PORT_MOVABLE
+void *port_fn(uint32_t addr);
+#define PORT_FN(type, f) ((type)port_fn((uint32_t)(uintptr_t)(f)))
+#else
+#define PORT_FN(type, f) ((type)(f))
+#endif
+
 /* a game variable the host names (extern char D_X[]): where it is */
 #ifdef PORT_MOVABLE
 /* (the game's variables aren't symbols of the host's link: by their N64

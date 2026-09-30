@@ -588,10 +588,21 @@ static const char *host_func_name(uint64_t addr) {
 /* alCSPGetState and alCSeqGetLoc (replay_audio.c): in a matched frame, what
    they told the movie's game in the same calling function in that frame (the
    n-th time for the n-th, or the last); the real answer otherwise. */
+/* the movable build: the arena link names the caller of the hooks before
+   the call (bepass/Arena.cpp), for want of return addresses the symbol
+   table knows */
+static const char *set_caller;
+void port_replay_set_caller(const char *name) { set_caller = name; }
+
 int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
     if (!audio || !cur_read)
         return real;
+#ifdef PORT_MOVABLE
+    const char *name = set_caller ? set_caller : "?";
+    (void)caller;
+#else
     const char *name = host_func_name(caller);
+#endif
     int id = func_named(name);
     unsigned k, n = 0;
     for (k = 0; k < nframe_audio && !(frame_audio[k].func == id && frame_audio[k].kind == kind); k++)

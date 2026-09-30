@@ -24,7 +24,14 @@
  *     port_arena + (p & 0x1FFFFFFF);
  *   - gives a local whose address escapes (to a call, into memory, into an
  *     integer) its N64 address, which it has on a fiber's stack; one that
- *     doesn't escape is accessed where it is.
+ *     doesn't escape is accessed where it is;
+ *   - makes a function used as a value its N64 address (the game's by its
+ *     name, the port's own from PORT_FN_BASE), and a call through a value
+ *     a call through port_fn(address) (__port_fns, port/host/runtime.c), so
+ *     that no host address is left in game memory;
+ *   - names the caller of the replay's hooks (port_replay_set_caller), for
+ *     the replay (port/host/replay.c), which on the other builds finds it
+ *     by its return address.
  *
  * Also here: port-wrap (below), per file.
  */
@@ -66,6 +73,8 @@ namespace {
 static const uint64_t K0 = 0x80000000u, MASK = 0x1FFFFFFFu;
 static const uint64_t RDRAM = 0x00400000u;
 static const uint64_t STACKS = 0x00C00000u, STACKS_SPAN = 0x01000000u;
+/* the port's own functions' "N64 addresses": nothing is there */
+static const uint64_t FN_BASE = 0x7F000000u;
 
 struct Arena : PassInfoMixin<Arena> {
     static bool isRequired() { return true; }
@@ -609,6 +618,124 @@ struct Arena : PassInfoMixin<Arena> {
         }
     }
 
+    /* ---- functions --------------------------------------------------- */
+
+    std::vector<std::pair<uint64_t, Function *>> fns;
+
+    static bool calleeUse(const Use &u) {
+        auto *cb = dyn_cast<CallBase>(u.getUser());
+        return cb && cb->isCallee(&u);
+    }
+
+    void functions() {
+        uint64_t next = FN_BASE;
+        std::vector<Function *> taken;
+        for (Function &f : *M) {
+            if (f.isIntrinsic())
+                continue;
+            bool value = false;
+            for (const Use &u : f.uses()) {
+                if (calleeUse(u))
+                    continue;
+                if (auto *g = dyn_cast<GlobalVariable>(u.getUser()->stripPointerCasts()))
+                    if (g->getName().starts_with("llvm."))
+                        fail(f.getName() + " is both a value and in " + g->getName());
+                value = true;
+            }
+            if (value)
+                taken.push_back(&f);
+        }
+        for (Function *f : taken) {
+            auto it = syms.find(f->getName().str());
+            uint64_t a;
+            if (it != syms.end() && it->second.second == 'F')
+                a = it->second.first;
+            else {
+                a = next;
+                next += 16;
+            }
+            fns.push_back({a, f});
+            /* the calls stay direct: RAUW, then the callees back */
+            std::vector<CallBase *> calls;
+            for (Use &u : f->uses())
+                if (calleeUse(u))
+                    calls.push_back(cast<CallBase>(u.getUser()));
+            f->replaceAllUsesWith(addrConst(a, f->getType()));
+            for (CallBase *cb : calls)
+                cb->setCalledOperand(f);
+        }
+        std::sort(fns.begin(), fns.end());
+        for (size_t k = 1; k < fns.size(); k++)
+            if (fns[k].first == fns[k - 1].first)
+                fail(fns[k].second->getName() + " and " + fns[k - 1].second->getName() + " at one address");
+    }
+
+    /* a call through a value: through port_fn(value) */
+    unsigned indirect = 0;
+    void indirectCalls(Function &f) {
+        std::vector<CallBase *> cs;
+        for (BasicBlock &bb : f)
+            for (Instruction &i : bb)
+                if (auto *cb = dyn_cast<CallBase>(&i))
+                    if (!cb->isInlineAsm() && !isa<Function>(cb->getCalledOperand()->stripPointerCasts()))
+                        cs.push_back(cb);
+        if (cs.empty())
+            return;
+        PointerType *ptr = PointerType::get(*C, 0);
+        Type *i32 = Type::getInt32Ty(*C);
+        FunctionCallee lookup = M->getOrInsertFunction("port_fn", FunctionType::get(ptr, {i32}, false));
+        for (CallBase *cb : cs) {
+            IRBuilder<> b(cb);
+            Value *v = cb->getCalledOperand();
+            if (v->getType()->getPointerAddressSpace())
+                v = b.CreateAddrSpaceCast(v, ptr);
+            Value *a = b.CreateTrunc(b.CreatePtrToInt(v, IP), i32);
+            cb->setCalledOperand(b.CreateCall(lookup, {a}));
+            indirect++;
+        }
+    }
+
+    void writeFns() {
+        Type *i32 = Type::getInt32Ty(*C);
+        PointerType *ptr = PointerType::get(*C, 0);
+        StructType *st = StructType::get(*C, {i32, ptr});
+        std::vector<Constant *> rows;
+        for (auto &f : fns)
+            rows.push_back(ConstantStruct::get(st, {ConstantInt::get(i32, f.first), f.second}));
+        ArrayType *at = ArrayType::get(st, rows.size());
+        new GlobalVariable(*M, at, true, GlobalValue::ExternalLinkage, ConstantArray::get(at, rows), "__port_fns");
+        new GlobalVariable(*M, i32, true, GlobalValue::ExternalLinkage, ConstantInt::get(i32, rows.size()),
+                           "__port_fns_n");
+    }
+
+    /* the replay's hooks (port/src/replay_hooks.c) are told who called */
+    void replayCallers() {
+        PointerType *ptr = PointerType::get(*C, 0);
+        FunctionCallee set = M->getOrInsertFunction("port_replay_set_caller",
+                                                    FunctionType::get(Type::getVoidTy(*C), {ptr}, false));
+        std::map<Function *, Constant *> names;
+        for (const char *hook : {"__wrap_func_802D4E10", "__wrap_alCSeqGetLoc"}) {
+            Function *h = M->getFunction(hook);
+            if (!h)
+                continue;
+            std::vector<CallBase *> calls;
+            for (Use &u : h->uses())
+                if (calleeUse(u))
+                    calls.push_back(cast<CallBase>(u.getUser()));
+            for (CallBase *cb : calls) {
+                Function *caller = cb->getFunction();
+                Constant *&n = names[caller];
+                if (!n) {
+                    Constant *s = ConstantDataArray::getString(*C, caller->getName());
+                    n = new GlobalVariable(*M, s->getType(), true, GlobalValue::PrivateLinkage, s,
+                                           "__port_caller_name");
+                }
+                IRBuilder<> b(cb);
+                b.CreateCall(set, {n});
+            }
+        }
+    }
+
     /* no more __bepass_fixup: the image has the build's byte order */
     void dropFixups() {
         GlobalVariable *ctors = M->getGlobalVariable("llvm.global_ctors");
@@ -664,19 +791,25 @@ struct Arena : PassInfoMixin<Arena> {
         IP = IntegerType::get(*C, DL->getPointerSizeInBits(0));
         readSyms();
         dropFixups();
+        functions();
         layout();
         writeImage();
+        writeFns();
         PointerType *ptr = PointerType::get(*C, 0);
         base = m.getGlobalVariable("port_arena");
         if (!base)
             base = new GlobalVariable(m, ptr, false, GlobalValue::ExternalLinkage, nullptr, "port_arena");
         for (Function &f : m)
-            if (!f.isDeclaration())
+            if (!f.isDeclaration()) {
                 function(f);
+                indirectCalls(f);
+            }
+        replayCallers();
         if (getenv("PORT_ARENA_STATS"))
             errs() << "port-arena: " << placed.size() << " variables, data to " << format_hex(extraEnd, 8) << ", "
                    << relocs.size() << " relocations; " << rewritten << " accesses (" << hostArgs
-                   << " host arguments), " << escaped << " escaping locals\n";
+                   << " host arguments), " << escaped << " escaping locals; " << fns.size()
+                   << " functions as values, " << indirect << " calls through one\n";
         return PreservedAnalyses::none();
     }
 };

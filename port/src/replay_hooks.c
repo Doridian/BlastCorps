@@ -15,14 +15,23 @@
 s32 __real_func_802D4E10(ALCSPlayer *seqp);
 void __real_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m);
 
+/* the caller, by its return address, which host_replay_audio looks up in
+   the port's symbol table; the movable build's arena link names it instead
+   (port_replay_set_caller) */
+#ifdef PORT_MOVABLE
+#define CALLER 0
+#else
+#define CALLER (uint64_t)(uintptr_t)__builtin_return_address(0)
+#endif
+
 s32 __wrap_func_802D4E10(ALCSPlayer *seqp) {
     s32 state = __real_func_802D4E10(seqp);
-    return host_replay_audio(0, state, (uint64_t)(uintptr_t)__builtin_return_address(0));
+    return host_replay_audio(0, state, CALLER);
 }
 
 void __wrap_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m) {
     __real_alCSeqGetLoc(seq, m);
-    m->lastTicks = host_replay_audio(1, m->lastTicks, (uint64_t)(uintptr_t)__builtin_return_address(0));
+    m->lastTicks = host_replay_audio(1, m->lastTicks, CALLER);
 }
 
 /* The pak/EEPROM thread, having taken a command: it changes the save record

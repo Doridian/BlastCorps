@@ -327,11 +327,13 @@ foreach(b ${DATA_BIN})
 endforeach()
 file(MAKE_DIRECTORY ${GEN}/data)
 set_source_files_properties(${DATA_X86} PROPERTIES LANGUAGE ASM GENERATED TRUE)
-add_library(game_data OBJECT ${DATA_X86})
-if(NOT PORT_64BIT)
-    target_compile_options(game_data PRIVATE -m32)
+if(NOT PORT_MOVABLE)       # (the movable build takes them as IR: the arena link, below)
+    add_library(game_data OBJECT ${DATA_X86})
+    if(NOT PORT_64BIT)
+        target_compile_options(game_data PRIVATE -m32)
+    endif()
+    target_compile_options(game_data PRIVATE -Wno-unused-command-line-argument)
 endif()
-target_compile_options(game_data PRIVATE -Wno-unused-command-line-argument)
 
 # ---- the translated handwritten engine (host side) ---------------------------
 file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
@@ -462,7 +464,9 @@ else()
 endif()
 
 # ---- link ----------------------------------------------------------------------
-# The port's image sits right above the 4 MB of RDRAM (port.h).
+# The port's image sits right above the 4 MB of RDRAM (port.h), but for the
+# movable build's, which has no fixed address.
+if(NOT PORT_MOVABLE)
 add_custom_command(OUTPUT ${GEN}/port_syms.ld
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py script ${GEN}/port_syms.ld
             "${N64_OBJECTS}" "$<TARGET_OBJECTS:game_data>"
@@ -477,6 +481,7 @@ add_custom_command(OUTPUT ${GEN}/port_rdram.ld
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py
     COMMAND_EXPAND_LISTS)
 add_custom_target(port_syms DEPENDS ${GEN}/port_syms.ld ${GEN}/port_rdram.ld)
+endif()
 
 if(PORT_MOVABLE)
     # the data are in the arena link, and nothing is placed by a script
@@ -498,14 +503,21 @@ endif()
 if(PORT_64BIT)
     target_compile_definitions(host PRIVATE PORT_64BIT)
     target_compile_definitions(recomp PRIVATE PORT_64BIT)
+endif()
+if(PORT_MOVABLE AND PORT_64BIT)
+    # nothing is at a fixed address: an ordinary PIE, wherever the loader
+    # puts it
+    target_link_options(blastcorps PRIVATE -pie)
+elseif(PORT_MOVABLE)
+    target_link_options(blastcorps PRIVATE -m32 -no-pie)
+elseif(PORT_64BIT)
     # a position-dependent executable (the image is at fixed addresses), but
     # with the PIE start files: the non-PIE crtbegin.o addresses its data
     # with sign-extended 32-bit immediates, which can't reach 0x80400000
-    target_link_options(blastcorps PRIVATE -pie -Wl,--no-pie)
+    target_link_options(blastcorps PRIVATE -pie -Wl,--no-pie -Wl,-Ttext-segment=0x80400000)
 else()
-    target_link_options(blastcorps PRIVATE -m32 -no-pie)
+    target_link_options(blastcorps PRIVATE -m32 -no-pie -Wl,-Ttext-segment=0x80400000)
 endif()
-target_link_options(blastcorps PRIVATE -Wl,-Ttext-segment=0x80400000)
 if(NOT PORT_MOVABLE)
     target_link_options(blastcorps PRIVATE -Wl,${GEN}/port_syms.ld -Wl,-T,${GEN}/port_rdram.ld -Wl,${GEN}/port_fixed.ld)
 endif()

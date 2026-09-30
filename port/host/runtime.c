@@ -115,6 +115,26 @@ void port_arena_init(void) {
         host_log("the arena at %p (%u relocations)\n", (void *)a, __port_arena_relocs_n);
 }
 
+/* the functions the N64 side uses as values, by their N64 addresses
+   (bepass/Arena.cpp), sorted */
+struct port_fn_entry { uint32_t addr; void *fn; };
+extern const struct port_fn_entry __port_fns[];
+extern const uint32_t __port_fns_n;
+
+void *port_fn(uint32_t addr) {
+    uint32_t lo = 0, hi = __port_fns_n;
+    while (lo < hi) {
+        uint32_t mid = (lo + hi) / 2;
+        if (__port_fns[mid].addr < addr)
+            lo = mid + 1;
+        else
+            hi = mid;
+    }
+    if (lo == __port_fns_n || __port_fns[lo].addr != addr)
+        host_fatal("a call through %08X, which is no function's", addr);
+    return __port_fns[lo].fn;
+}
+
 /* port-arena: a local whose address escapes, on a stack that isn't in the
    arena (not a fiber's) */
 void port_arena_bad_local(uintptr_t p) {

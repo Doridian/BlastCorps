@@ -66,7 +66,7 @@ static HThread *find(uint32_t key) {
 
 static void fiber_main(void *p) {
     HThread *t = p;
-    t->entry(t->arg);
+    PORT_FN(void (*)(void *), t->entry)(t->arg);
     /* returning from a thread's entry: it just stops */
     t->state = T_DEAD;
     fiber_exit(t->fiber);

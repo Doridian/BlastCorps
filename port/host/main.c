@@ -461,8 +461,8 @@ int main(int argc, char **argv) {
     sigaltstack(&ss, NULL);
 #endif
     /* RDRAM itself is the image's .rdram section (tools/gen_ld.py) */
+#ifndef PORT_MOVABLE      /* (the movable build maps nothing fixed: the stacks are in the arena, runtime.c) */
     map_fixed(PORT_HWREG_BASE, PORT_HWREG_SIZE, "hardware registers");
-#ifndef PORT_MOVABLE      /* (there, in the arena: runtime.c) */
     map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");
 #endif
     fiber_init();
