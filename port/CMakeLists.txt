@@ -646,8 +646,10 @@ if(PORT_64BIT)
     target_compile_definitions(recomp PRIVATE PORT_64BIT)
 endif()
 if(EMSCRIPTEN)
-    # (the fibers' stacks are in the arena)
-    target_link_options(blastcorps PRIVATE -sINITIAL_MEMORY=256MB -sSTACK_SIZE=1MB)
+    # (the fibers' stacks are in the arena; -O2 at the link too: without it
+    # emcc runs no wasm-opt, and Asyncify's instrumentation stays as slow
+    # as it was made)
+    target_link_options(blastcorps PRIVATE -O2 -sINITIAL_MEMORY=256MB -sSTACK_SIZE=1MB)
     if(WASM_PTHREAD)
         # the game's threads are host threads (fiber_pthread.c), and the
         # loop one too (PROXY_TO_PTHREAD), so that the page's own thread is
