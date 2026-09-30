@@ -105,7 +105,7 @@ struct Arena : PassInfoMixin<Arena> {
     const DataLayout *DL = nullptr;
     IntegerType *IP = nullptr;          /* the pointer-sized integer */
     GlobalVariable *base = nullptr;     /* port_arena */
-    unsigned rewritten = 0, hostArgs = 0, escaped = 0, frames = 0;
+    unsigned rewritten = 0, hostArgs = 0, escaped = 0, kept = 0, frames = 0, undefs = 0;
     uint64_t frameMax = 0;
     GlobalVariable *lsp = nullptr, *lsplim = nullptr;  /* port_locals_sp, port_locals_end */
     std::optional<DataLayout> frameDL;  /* the module's own, before -port-arena-triple */
@@ -545,28 +545,33 @@ struct Arena : PassInfoMixin<Arena> {
         return false;
     }
 
-    /* The escaping locals get N64 addresses on a stack of the pass's own
-       (the locals' stack: PORT_ARENA_LOCALS, a slot per thread,
-       port_locals_sp the running thread's pointer, threads.c), laid out
-       here: each function's escaping locals are one frame, at offsets
-       decided from the IR, which is the same wherever it is code-generated
-       (WebAssembly's is i386's, -port-arena-triple).  So the addresses the
-       game stores in RDRAM, and what is left in the frames between calls,
+    /* The locals left in memory (-O2 promoted the rest: the escaping ones,
+       and the arrays and structs it couldn't) get N64 addresses on a stack
+       of the pass's own (the locals' stack: PORT_ARENA_LOCALS, a slot per
+       thread, port_locals_sp the running thread's pointer, threads.c), laid
+       out here: each function's are one frame, at offsets decided from the
+       IR, which is the same wherever it is code-generated (WebAssembly's is
+       i386's, -port-arena-triple).  So the addresses the game stores in
+       RDRAM, and what is left in the frames between calls (which the
+       decompiled C reads where IDO's code read an uninitialized local),
        don't depend on the backend's frames: the Linux 32-bit build and
-       wasm32 have the same.  The frame is taken at the entry and given back
-       at every return; a thread's frames are dropped with it, and a thread
-       starts at the top of its slot.  A frame outside the running thread's
-       slot (past its end, port_locals_end, which is 0 outside a thread)
-       stops the port (port_arena_bad_local). */
+       wasm32 have the same.  (The ones that don't escape go there too, for
+       what they may read before they are written.)  The frame is taken at
+       the entry and given back at every return; a thread's frames are
+       dropped with it, and a thread starts at the top of its slot.  A frame
+       outside the running thread's slot (past its end, port_locals_end,
+       which is 0 outside a thread) stops the port (port_arena_bad_local). */
     void locals(Function &f, LoadInst *arena) {
         if (f.isVarArg())       /* its va_list is the host's */
             return;
         std::vector<Value *> as;
         for (BasicBlock &bb : f)
             for (Instruction &i : bb)
-                if (auto *a = dyn_cast<AllocaInst>(&i))
-                    if (escapes(a))
-                        as.push_back(a);
+                if (auto *a = dyn_cast<AllocaInst>(&i)) {
+                    as.push_back(a);
+                    if (!escapes(a))
+                        kept++;
+                }
         /* (a struct passed by value is a local too, the call's copy) */
         for (Argument &a : f.args())
             if (a.hasByValAttr() && escapes(&a))
@@ -591,7 +596,7 @@ struct Arena : PassInfoMixin<Arena> {
             uint64_t n = 1, al;
             if (auto *ai = dyn_cast<AllocaInst>(a)) {
                 if (!ai->isStaticAlloca())
-                    fail("a variable-sized escaping local in " + f.getName());
+                    fail("a variable-sized local in " + f.getName());
                 t = ai->getAllocatedType();
                 n = cast<ConstantInt>(ai->getArraySize())->getZExtValue();
                 al = ai->getAlign().value();
@@ -602,7 +607,7 @@ struct Arena : PassInfoMixin<Arena> {
             }
             uint64_t sz = frameDL->getTypeAllocSize(t) * n;
             if (DL->getTypeAllocSize(t) * n != sz)
-                fail("an escaping local's size differs from the target's in " + f.getName());
+                fail("a local's size differs from the target's in " + f.getName());
             al = std::max<uint64_t>(al, 1);
             size = alignTo(size, al);
             offs.push_back(size);
@@ -945,6 +950,28 @@ struct Arena : PassInfoMixin<Arena> {
                            "__port_fns_typed_n");
     }
 
+    /* What is left undefined (undef, poison: an argument the caller never
+       set, a function that falls off its end, a phi from a path that set
+       nothing) each backend makes something of its own, which in i386's
+       case is what was in a register or on the stack: the N64 had
+       whatever was in its register too.  Made 0, it is the same on every
+       target. */
+    void defineUndef() {
+        for (Function &f : *M)
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb) {
+                    if (isa<ShuffleVectorInst>(&i) || isa<DbgInfoIntrinsic>(&i))
+                        continue;
+                    for (Use &u : i.operands())
+                        if (isa<UndefValue>(u.get()) && u->getType()->isFirstClassType() &&
+                            !u->getType()->isLabelTy() && !u->getType()->isTokenTy() &&
+                            !u->getType()->isMetadataTy()) {
+                            u.set(Constant::getNullValue(u->getType()));
+                            undefs++;
+                        }
+                }
+    }
+
     /* the replay's hooks (port/src/replay_hooks.c) are told who called */
     void replayCallers() {
         PointerType *ptr = PointerType::get(*C, 0);
@@ -1006,7 +1033,7 @@ struct Arena : PassInfoMixin<Arena> {
         return i;
     }
 
-    unsigned fixedCalls = 0, unfixable = 0, voidResults = 0;
+    unsigned fixedCalls = 0, unfixable = 0, voidResults = 0, extFixes = 0, argExts = 0;
 
     void callFix() {
         std::vector<CallInst *> work;
@@ -1053,6 +1080,56 @@ struct Arena : PassInfoMixin<Arena> {
             ci->eraseFromParent();
             fixedCalls++;
         }
+        /* A call of the callee's type that says the narrow result is
+           extended one way when the callee extends it the other (1D990.c's
+           s16 func_8028604C(s32) for 409D0.c's u16 (u32)): the N64 used v0
+           as the callee left it, and so does x86, which takes the call's
+           word for it and drops the caller's extension; WebAssembly extends
+           again.  The caller's extension of the result is made the
+           callee's, which every target does alike. */
+        for (Function &f : *M)
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb) {
+                    auto *ci = dyn_cast<CallInst>(&i);
+                    auto *callee = ci ? dyn_cast<Function>(ci->getCalledOperand()) : nullptr;
+                    if (callee && !callee->isIntrinsic() && !callee->isDeclaration())
+                        for (unsigned a = 0; a < ci->arg_size() && a < callee->arg_size(); a++)
+                            if (ci->getArgOperand(a)->getType()->isIntegerTy() &&
+                                ci->getArgOperand(a)->getType()->getIntegerBitWidth() < 32 &&
+                                ((ci->paramHasAttr(a, Attribute::SExt) && callee->hasParamAttribute(a, Attribute::ZExt)) ||
+                                 (ci->paramHasAttr(a, Attribute::ZExt) && callee->hasParamAttribute(a, Attribute::SExt)))) {
+                                argExts++;
+                                if (getenv("PORT_ARENA_STATS"))
+                                    errs() << "port-arena: " << f.getName() << " passes " << callee->getName()
+                                           << "'s argument " << a << " extended otherwise\n";
+                            }
+                    if (!callee || callee->isIntrinsic() || !ci->getType()->isIntegerTy() ||
+                        ci->getType()->getIntegerBitWidth() >= 32)
+                        continue;
+                    bool cs = ci->hasRetAttr(Attribute::SExt), cz = ci->hasRetAttr(Attribute::ZExt);
+                    bool fs = callee->hasRetAttribute(Attribute::SExt), fz = callee->hasRetAttribute(Attribute::ZExt);
+                    if (!(cs || cz) || !(fs || fz) || cs == fs)
+                        continue;
+                    std::vector<CastInst *> exts;
+                    for (User *u : ci->users())
+                        if ((cs && isa<SExtInst>(u)) || (cz && isa<ZExtInst>(u)))
+                            exts.push_back(cast<CastInst>(u));
+                    for (CastInst *e : exts) {
+                        IRBuilder<> b(e);
+                        IntegerType *i32 = b.getInt32Ty();
+                        Value *w = fs ? b.CreateSExt(ci, i32) : b.CreateZExt(ci, i32);
+                        unsigned bits = e->getType()->getIntegerBitWidth();
+                        Value *r = bits == 32 ? w : bits < 32 ? b.CreateTrunc(w, e->getType())
+                                                   : cs ? b.CreateSExt(w, e->getType()) : b.CreateZExt(w, e->getType());
+                        e->replaceAllUsesWith(r);
+                        e->eraseFromParent();
+                    }
+                    AttributeList al = ci->getAttributes()
+                                           .removeRetAttribute(*C, cs ? Attribute::SExt : Attribute::ZExt)
+                                           .addRetAttribute(*C, fs ? Attribute::SExt : Attribute::ZExt);
+                    ci->setAttributes(al);
+                    extFixes++;
+                }
     }
 
     /* -port-arena-x86-fptoint: a float to integer conversion of a value out
@@ -1206,16 +1283,19 @@ struct Arena : PassInfoMixin<Arena> {
                 indirectCalls(f);
             }
         replayCallers();
+        defineUndef();
         if (getenv("PORT_ARENA_STATS"))
             errs() << "port-arena: " << placed.size() << " variables (" << moved.size() << " moved), data to "
                    << format_hex(extraEnd, 8) << ", "
                    << relocs.size() << " relocations; " << rewritten << " accesses (" << hostArgs
-                   << " host arguments), " << escaped << " escaping locals (" << frames
-                   << " frames, the biggest " << frameMax << " bytes); " << fns.size()
+                   << " host arguments), " << escaped << " locals on the locals' stack (" << kept
+                   << " that don't escape; " << frames << " frames, the biggest " << frameMax << " bytes), "
+                   << undefs << " undefined values made 0; " << fns.size()
                    << " functions as values, " << indirect << " calls through one (" << sigs.size()
                    << " types, " << thunks << " thunks); " << fixedCalls
                    << " calls made with their callee's type (" << voidResults << " void results used, "
-                   << unfixable << " arguments lost); " << fpConversions << " float conversions as x86's\n";
+                   << unfixable << " arguments lost), " << extFixes << " narrow results extended as the callee does, "
+                   << argExts << " narrow arguments extended otherwise than the callee says; " << fpConversions << " float conversions as x86's\n";
         return PreservedAnalyses::none();
     }
 };
