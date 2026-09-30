@@ -42,9 +42,6 @@ option(PORT_MOVABLE "game memory at a base the host chooses, not at 0x80000000" 
 if(PORT_MOVABLE AND PORT_ACCESS_PROFILE)
     message(FATAL_ERROR "PORT_MOVABLE and PORT_ACCESS_PROFILE don't go together (yet)")
 endif()
-if(PORT_MOVABLE AND PORT_LP64)
-    message(FATAL_ERROR "PORT_MOVABLE doesn't take PORT_LP64 yet (its variables that grew)")
-endif()
 if(PORT_LP64)
     set(PORT_64BIT ON CACHE BOOL "" FORCE)
     set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
@@ -443,17 +440,17 @@ if(PORT_MOVABLE)
         list(APPEND DATA_LL ${GEN}/data_ll/${d})
     endforeach()
     file(MAKE_DIRECTORY ${GEN}/data_ll)
-    set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt)
+    set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt -port-arena-header=${GEN}/arena_syms.h)
     if(PORT_NATIVE_ENDIAN)
         list(APPEND ARENA_FLAGS -port-arena-native)
     endif()
-    add_custom_command(OUTPUT ${GEN}/n64.o
+    add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h
         COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
         COMMAND ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
         DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
         COMMAND_EXPAND_LISTS)
-    add_custom_target(n64_link DEPENDS ${GEN}/n64.o)
+    add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
     set(N64_OBJECTS ${GEN}/n64.o)
     set(GAME_OBJECTS ${GEN}/n64.o)
     set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)
@@ -570,8 +567,12 @@ if(PORT_MOVABLE)
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${BLAST}/build/hd_code.${PORT_VERSION}.elf
                 ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf ${BLAST}/build/init.${PORT_VERSION}.elf)
     add_custom_target(n64_syms DEPENDS ${GEN}/n64_syms.txt ${GEN}/n64_syms.h)
-    add_dependencies(host n64_syms)
-    target_compile_options(host PRIVATE "SHELL:-include ${GEN}/n64_syms.h")
+    add_dependencies(host n64_syms n64_link)
+    add_dependencies(recomp n64_link)
+    # the LP64 build's moved variables first (port-arena's header), then the
+    # N64's addresses of the rest
+    target_compile_options(host PRIVATE "SHELL:-include ${GEN}/arena_syms.h" "SHELL:-include ${GEN}/n64_syms.h")
+    target_compile_options(recomp PRIVATE "SHELL:-include ${GEN}/arena_syms.h")
     message(STATUS "movable memory")
 else()
     # every game variable where the N64 has it?
