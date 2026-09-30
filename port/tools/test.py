@@ -5,6 +5,7 @@
     port/tools/test.py tas BUILD [BUILD...] [--polls FILE]
     port/tools/test.py recomp [--trials N]
     port/tools/test.py variants [--version V] [--no-build] [--tas] [--only NAME,...]
+                                [--emsdk DIR]
 
 quick: deterministic headless runs (PORT_COUNT_PER_OP=0 --deterministic,
 the software renderer), a few thousand frames each; the save, the --wav and
@@ -27,7 +28,10 @@ test, for blastcorps/'s version).
 variants: configures and builds the standard variants into build/test-*/
 (from the stage 2 blastcorps/ holds) and runs quick on each; every variant
 must give the references' hashes, which makes them all equal to each
-other.  --tas runs the TAS on all of them too.
+other.  --tas runs the TAS on all of them too.  The WebAssembly build
+(wasm, under node) is one of them where emsdk is there (--emsdk, $EMSDK,
+or emcmake on the PATH), and it must equal mn32 in every hash, the
+layout-dependent screenshots included.
 
 Exit status: 0 when everything passed (known drifts included), 1 on a
 failure, 77 when nothing could run (no ROM, no log, no venv: CTest's skip).
@@ -57,7 +61,13 @@ VARIANTS = {
     "m64": ["-DPORT_64BIT=ON", "-DPORT_MOVABLE=ON"],
     "mlp64": ["-DPORT_LP64=ON", "-DPORT_MOVABLE=ON"],
     "mn32": ["-DPORT_NATIVE_ENDIAN=ON", "-DPORT_MOVABLE=ON"],
+    # the movable 32-bit native-endian build for wasm32, under node (emsdk)
+    "wasm": ["-DPORT_WASM_TARGET=node"],
 }
+# builds whose layouts are the same, so that they must be identical in
+# every hash, the layout-dependent screenshots included (docs/PORT.md,
+# "WebAssembly": the escaping locals' frames are port-arena's)
+TWINS = {frozenset(("wasm", "mn32"))}
 CMAKE = ["-G", "Ninja", "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
          "-DCMAKE_ASM_COMPILER=clang"]
 
@@ -156,12 +166,37 @@ class Build:
             on("PORT_LP64"), on("PORT_NATIVE_ENDIAN"), on("PORT_64BIT"), on("PORT_MOVABLE"))
         self.gl = cache.get("EPOXY_FOUND", "") == "1"
         self.threads = cache.get("PORT_THREADS", "ucontext")
+        self.wasm = cache.get("EMSCRIPTEN", "") == "1"
         self.variant = ("m" if self.movable else "") + (
             "lp64" if self.lp64 else ("n" if self.native else "") + ("64" if self.bits64 else "32"))
+        self.node = None
+        if self.wasm:       # (the movable native-endian 32-bit build, for wasm32)
+            self.variant = "wasm"
+            self.exe = os.path.join(self.path, "blastcorps.js")
+            self.node = cache.get("CMAKE_CROSSCOMPILING_EMULATOR") or shutil.which("node")
         self.name = os.path.relpath(self.path, ROOT) if self.path.startswith(ROOT) else self.path
 
     def rom(self):
         return os.path.join(ROOT, f"baserom.{self.version}.z64")
+
+    def copy_exe(self, d):
+        """a copy of the executable in d (wasm: the .js and its .wasm); its path"""
+        os.makedirs(d, exist_ok=True)
+        shutil.copy2(self.exe, d)
+        if self.wasm:
+            shutil.copy2(os.path.splitext(self.exe)[0] + ".wasm", d)
+        return os.path.join(d, os.path.basename(self.exe))
+
+    def command(self, exe=None):
+        return ([self.node] if self.wasm else []) + [exe or self.exe]
+
+    def runnable(self):
+        return os.access(self.exe, os.X_OK) if not self.wasm else (
+            os.path.exists(self.exe) and bool(self.node) and os.access(self.node, os.X_OK))
+
+
+def twins(a, b):
+    return frozenset((a.variant, b.variant)) in TWINS
 
 
 def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=None):
@@ -178,7 +213,7 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
     if shots:
         e["PORT_SHOT_EVERY"] = str(SHOT_EVERY)
     e.update(env)
-    cmd = [exe or build.exe, "--headless", "--deterministic", "--frames", str(frames),
+    cmd = build.command(exe) + ["--headless", "--deterministic", "--frames", str(frames),
            "--save", "save.eep", "--wav", "audio.wav"]
     if shots:
         cmd += ["--screenshot", "shot"]
@@ -262,9 +297,7 @@ def quick_run(build, jobs, scenarios):
     """runs the scenarios; returns {name: hashes or None}, logging failures"""
     out = os.path.join(build.path, "test", "quick")
     # a copy of the executable, so a rebuild during the run doesn't mix two
-    exe = os.path.join(build.path, "test", "blastcorps")
-    os.makedirs(os.path.dirname(exe), exist_ok=True)
-    shutil.copy2(build.exe, exe)
+    exe = build.copy_exe(os.path.join(build.path, "test"))
     res, times = {}, {}
 
     def one(name):
@@ -298,13 +331,16 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
     if not os.path.exists(build.rom()):
         say("SKIP", build.name, f"no {os.path.basename(build.rom())} in the repo's root")
         return None
-    if not os.access(build.exe, os.X_OK):
-        say("FAIL", build.name, "not built")
+    if not build.runnable():
+        say("FAIL", build.name, "not built" + (" (or no node)" if build.wasm else ""))
         return 1
     names = [n for n in scenarios_for(build.version) if build.gl or "gl" not in n.split(".")]
     if build.threads == "pthread":      # the default is the base run then
         names.remove("auto3.pthread")
-    else:
+    elif build.threads == "ucontext":
+        names.remove("auto3.ucontext")
+    else:                               # (asyncify: the one backend there)
+        names.remove("auto3.pthread")
         names.remove("auto3.ucontext")
     t0 = time.time()
     res, times = quick_run(build, jobs, names)
@@ -365,10 +401,11 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
             say("FAIL", f"{build.name} against {against.name}", "no results there (run quick on it first)")
             fails += 1
         else:
+            exact = twins(build, against)
             for name in names:
                 if res[name] is None or name not in other["results"]:
                     continue
-                lay = layout.get(SCENARIOS[name][4] or name, [])
+                lay = [] if exact else layout.get(SCENARIOS[name][4] or name, [])
                 # the OpenGL screenshots are the host's GL's, but the same on
                 # one machine
                 d = compare(res[name], other["results"][name], "all", lay)
@@ -377,7 +414,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
                     say("FAIL", label, "; ".join(d))
                     fails += 1
                 else:
-                    say("PASS", label, "identical")
+                    say("PASS", label, "identical" + (", the layout-dependent screenshots too" if exact else ""))
     if update:
         refs.setdefault("quick", {})[build.version] = vref
     if update or known is not None:
@@ -399,13 +436,12 @@ def tas_one(build, polls, again=False):
     if os.path.isdir(out):
         shutil.rmtree(out)
     os.makedirs(out)
-    exe = os.path.join(out, "blastcorps")
-    shutil.copy2(build.exe, exe)
+    exe = build.copy_exe(out)
     e = {k: v for k, v in os.environ.items() if not k.startswith("PORT_")}
     e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy")
     t = time.time()
     with open(os.path.join(out, "log.txt"), "w") as log:
-        rc = subprocess.call([exe, "--headless", "--replay", polls, "--save", "save.eep", build.rom()],
+        rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep", build.rom()],
                              cwd=out, env=e, stdout=log, stderr=subprocess.STDOUT)
     t = time.time() - t
     with open(os.path.join(out, "exit.txt"), "w") as f:
@@ -526,6 +562,25 @@ def recomp(trials):
 
 # ---- variants ----------------------------------------------------------------
 
+def emsdk_cmake(given):
+    """how to configure a WebAssembly build: the cmake command's start, or None"""
+    root = given or os.environ.get("EMSDK")
+    if root:
+        tc = os.path.join(root, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake")
+        if not os.path.exists(tc):
+            return None
+        nodes = sorted(d for d in (os.listdir(os.path.join(root, "node"))
+                                   if os.path.isdir(os.path.join(root, "node")) else [])
+                       if os.path.exists(os.path.join(root, "node", d, "bin", "node")))
+        node = os.path.join(root, "node", nodes[-1], "bin", "node") if nodes else shutil.which("node")
+        if not node:
+            return None
+        return ["cmake", f"-DCMAKE_TOOLCHAIN_FILE={tc}", f"-DCMAKE_CROSSCOMPILING_EMULATOR={node}"]
+    if shutil.which("emcmake"):
+        return ["emcmake", "cmake"]
+    return None
+
+
 def variants(args, refs):
     version = args.version
     try:
@@ -535,15 +590,23 @@ def variants(args, refs):
     names = args.only.split(",") if args.only else list(VARIANTS)
     builds = []
     t0 = time.time()
-    for n in names:
+    emcmake = emsdk_cmake(args.emsdk)
+    for n in list(names):
         d = os.path.join(ROOT, "build", f"test-{n}")
+        if n == "wasm" and (not os.path.exists(os.path.join(d, "CMakeCache.txt")) if args.no_build
+                            else emcmake is None):
+            say("SKIP", f"build/test-{n}", "no emsdk (--emsdk, $EMSDK or emcmake on the PATH)"
+                if not args.no_build else "not configured")
+            names.remove(n)
+            continue
         if not args.no_build:
             if extracted != version:
                 raise SystemExit(f"blastcorps/ holds {extracted}'s stage 2, not {version}'s")
             t = time.time()
             log = d + ".build.log"
             with open(log, "w") as f:
-                rc = subprocess.call(["cmake", "-S", os.path.join(ROOT, "port"), "-B", d] + CMAKE
+                start, flags = (emcmake, ["-G", "Ninja"]) if n == "wasm" else (["cmake"], CMAKE)
+                rc = subprocess.call(start + ["-S", os.path.join(ROOT, "port"), "-B", d] + flags
                                      + [f"-DPORT_VERSION={version}"] + VARIANTS[n],
                                      stdout=f, stderr=subprocess.STDOUT)
                 rc = rc or subprocess.call(["cmake", "--build", d], stdout=f, stderr=subprocess.STDOUT)
@@ -571,6 +634,11 @@ def variants(args, refs):
             skipped += 1
         else:
             fails += r
+    # the builds that must be identical, layout and all
+    for a in builds:
+        for b in builds:
+            if a.variant > b.variant and twins(a, b):
+                fails += twin_check(a, b)
     # the equivalences, as a table: every variant's hashes against the first's
     table(builds, refs)
     print(f"== variants: build {tb - t0:.0f}s, quick {time.time() - tb:.0f}s", flush=True)
@@ -578,6 +646,25 @@ def variants(args, refs):
         r = tas(builds, refs, args.polls, args.jobs or len(builds))
         fails += r or 0
     return None if skipped == len(builds) and not fails else fails
+
+
+def twin_check(a, b):
+    """two builds' last quick results, every hash the same; the failures"""
+    try:
+        ra, rb = (json.load(open(os.path.join(x.path, "test", "quick.json")))["results"] for x in (a, b))
+    except OSError:
+        say("FAIL", f"{a.variant} against {b.variant}", "no quick results")
+        return 1
+    fails = 0
+    for n in sorted(set(ra) & set(rb)):
+        d = compare(ra[n], rb[n], "all")
+        label = f"{a.variant} {n} against {b.variant}"
+        if d:
+            say("FAIL", label, "; ".join(d))
+            fails += 1
+        else:
+            say("PASS", label, "identical, the layout-dependent screenshots too")
+    return fails
 
 
 def table(builds, refs):
@@ -664,6 +751,7 @@ def main():
     v.add_argument("--only", help="comma-separated variant names (" + ", ".join(VARIANTS) + ")")
     v.add_argument("--no-build", action="store_true", help="use build/test-* as they are")
     v.add_argument("--tas", action="store_true", help="and the TAS on each")
+    v.add_argument("--emsdk", help="emsdk's directory, for the wasm variant (default: $EMSDK, or emcmake)")
     v.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
     args = ap.parse_args()
