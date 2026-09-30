@@ -37,7 +37,8 @@ through a mechanical translation to C; it needs your own copy of the ROM
 (`us.v11` by default; `us.v10` and `jp`, Blastdozer, too).  It is built from the decompilation, so
 the steps are: set up the tools, build the decompilation once, then the port.
 [docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
-built and tested on.
+built and tested on; the 64-bit build also cross-compiles for AArch64 Linux
+(`port/tools/cross-aarch64.cmake`, PORT.md "Other hosts").
 
 ## Requirements
 

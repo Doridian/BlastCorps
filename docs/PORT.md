@@ -62,6 +62,8 @@ resolution with OpenGL); `PORT_GL_QUANT=1` makes the OpenGL renderer write
 5-bit color, as the RDRAM framebuffer holds it, and `PORT_GL_READBACK=1`
 copies its framebuffers back to RDRAM after every task (see "Graphics").
 `PORT_PACE=FILE` logs the pacing at every controller read (see "Timing").
+`PORT_THREADS=ucontext|pthread` picks how the game's threads switch
+(`-DPORT_THREADS=` sets the default; see "Threads without ucontext").
 
 ## Memory model
 
@@ -948,10 +950,11 @@ matter.
 
 ## The platform layer
 
-- **Threads** (`port/host/threads.c`): each OSThread is a fiber (ucontext) on
-  the one OS thread, scheduled as libultra does: the highest-priority
-  runnable thread runs until it blocks, yields, or wakes a thread of higher
-  priority.  The idle thread parks when it drops to priority 0.  Each thread
+- **Threads** (`port/host/threads.c`): each OSThread is a fiber
+  (`port/host/fiber.h`: ucontext on the one OS thread, or a host thread
+  each, one running at a time; see "Threads without ucontext"), scheduled
+  as libultra does: the highest-priority runnable thread runs until it
+  blocks, yields, or wakes a thread of higher priority.  The idle thread parks when it drops to priority 0.  Each thread
   has its own `recomp_context`, whose `$sp` is the N64 stack the game gave
   `osCreateThread` (only the translated code uses it).  A loop's poll
   (BEPass's `__port_poll`) can yield to the loop, and so let a higher
@@ -982,6 +985,153 @@ matter.
 - **Audio**: the game's audio thread and libaudio run, the audio task goes
   through an HLE of the audio microcode, and the AI plays it through SDL
   (see "Audio").
+
+### Threads without ucontext
+
+The context switch is behind a small interface, `port/host/fiber.h`, and
+`threads.c` does all the scheduling above it.  The switches form a star:
+the loop (`main.c`) runs a fiber (`fiber_run`) until it yields back
+(`fiber_yield`, `fiber_exit`); a fiber never switches to another fiber.
+There are two backends:
+
+- **ucontext** (`fiber_ucontext.c`): `makecontext`/`swapcontext` on the one
+  OS thread, as before.  The default where it exists (Linux with glibc).
+- **pthread** (`fiber_pthread.c`): an OS thread per fiber, and exactly one
+  of them, or the loop's, running at any time.  The CPU is a baton handed
+  over under one mutex, with a condition variable per fiber and one for
+  the loop; every handover is a lock/unlock pair, so what one side wrote
+  the other sees, and the game's state (touched only by the baton's
+  holder) needs no locks of its own.  A fiber whose frames are dropped
+  (`fiber_free` of a suspended one, a thread that ends) `longjmp`s back to
+  its thread's start routine and returns from it: nothing unwinds through
+  the game's frames.  The default on macOS (where ucontext is deprecated),
+  emscripten and musl (which have none).
+
+Where both are built, the environment's `PORT_THREADS=ucontext|pthread`
+picks one at startup (CMake's `PORT_THREADS` is the default), so one
+executable runs either and a comparison isn't confounded by two builds'
+layouts.  With the pthread backend the host calls that are tied to the
+main thread go back to it: `fiber_call_on_loop` runs the renderer
+(`host_gfx_task`: the GL context) and the pad (`host_input`: SDL) on the
+loop's thread while the fiber waits; in the ucontext backend it is a plain
+call.  Everything else the game threads call into (the audio queue, the
+EEPROM file, the ROM) doesn't care which thread it is on.
+
+**The stacks.**  A fiber's native C runs on a host stack in the KSEG0
+window, `0x90000000` + 1 MB per thread slot (`PORT_STACK_BASE`, port.h),
+in both backends (`pthread_attr_setstack`).  It has to be there as things
+are, not for the game's sake but for the port's: the address of a local
+reaches game memory and the translated code (a message queue on a
+thread's stack, an argument block the game's C passes to the engine), the
+translated code reaches memory as `rdram + (addr & 0x1FFFFFFF)` with
+`rdram = 0x80000000`, and the 64-bit build stores pointers in 32 bits.  So
+the stacks move with RDRAM when the fixed addresses go (a base-relative
+RDRAM arena would hold them too); nothing in the backends depends on the
+address itself (the pthread backend takes a NULL stack for one of its
+own).  The backends do have to agree on where the frames are: the game
+stores the addresses of its locals in RDRAM, and glibc puts a new thread's
+descriptor and TLS at the top of a stack it's given (0x1210 bytes here),
+which moved every frame down by as much.  In the LP64 build the hint
+box's portrait static at frame 1500 of `PORT_AUTOSTART=2` came out
+different (the rest of that run was identical).  So both enter a fiber
+through `fiber_enter`, which `alloca`s down to 64 KB below the top of the
+stack first; RDRAM is then identical between the two, word for word, at
+every dump compared.  (The same run also showed that the LP64 build's
+pixels depend on the executable's layout: two LP64 builds whose host code
+differs draw that portrait differently, from pointers into the image that
+the game stores in RDRAM.  Compare LP64 runs with one executable.)
+
+**How it was checked**, us.v10, one executable each, `PORT_THREADS=ucontext`
+against `=pthread`, `PORT_COUNT_PER_OP=0 --deterministic --renderer sw`,
+`PORT_AUTOSTART=2`, 4,000 frames with the save, `--wav` and a screenshot
+every 250 frames: identical in the 32-bit and the LP64 build (and the
+ucontext run identical to the build before the change); RDRAM at
+controller reads 100 and 700 identical in both.  The TAS: the 32-bit build
+on either backend gives the log's "125297 of the log's 125297 matched (0
+skipped)", 57 platinum, with the log and the save byte for byte those of
+the build before the change; the 64-bit build the same (57 platinum, log
+and save identical between the backends).  The LP64 build doesn't finish
+the TAS on either backend, nor did it before the change: it dies of a
+SIGFPE after the log's read 1,620, identically on both.  Speed: the same
+to within a few percent (4,000 frames of `PORT_AUTOSTART=2`, 32-bit:
+22.4 s both; LP64: 18.1 s ucontext, 18.8 s pthread).
+
+**Returning to the host every frame.**  A browser's main loop can't block:
+the page gets control back once per `requestAnimationFrame`.  The loop in
+`main.c` already has the shape for that, because of the star: between two
+`fiber_run`s no fiber is in the middle of anything the loop has to wait
+for, and the loop's own state (`next_vi`, `vi_force`, the pending events)
+is a handful of variables.  Made into `static`s, the body of its `for (;;)`
+becomes a function that runs until it has delivered a retrace
+(`host_video_frame`, `port_irq_vi`) and returns; `main` calls it in a loop,
+and an emscripten build hands it to `emscripten_set_main_loop` instead,
+with the `nanosleep` replaced by returning (the browser paces the frames).
+Not done yet, so as not to move the loop under the other work on it.  What
+the fibers need there:
+
+- **pthreads in the browser** (`-pthread`, a Web Worker per thread, a
+  `SharedArrayBuffer` and so the COOP/COEP headers): the pthread backend
+  as it is, but the page's main thread may not block, and `fiber_run`
+  waits on a condition variable while the fiber runs (emscripten turns
+  that into a busy-wait on the main thread).  Either the whole loop runs on
+  a worker (`-sPROXY_TO_PTHREAD`, with the renderer's WebGL context on an
+  OffscreenCanvas, and `fiber_call_on_loop` then means "on the worker
+  with the context"), or the frame function's waits stay short.
+- **emscripten's fibers** (`emscripten_fiber_init`/`_swap`, which need
+  Asyncify): a third backend in the same shape as the ucontext one, all on
+  the page's thread.  Asyncify instruments every function that can be on
+  the stack at a switch, which here is nearly all of the game (any loop's
+  `__port_poll` can yield), for size and speed.
+- The replay's audio answers name their caller by its return address
+  (`replay.c`, `replay_hooks.c`); WebAssembly has none to look up, so
+  `--replay` there needs the callers passed explicitly.
+
+### Other hosts
+
+What wasn't portable in the host code, and what became of it:
+
+- `main.c`'s ASLR re-exec (`personality(ADDR_NO_RANDOMIZE)` and `execv` of
+  `/proc/self/exe`, for a brk heap in the fixed windows) and
+  `prctl(PR_SET_TIMERSLACK)` are Linux-only and guarded by `__linux__`;
+  `MAP_FIXED_NOREPLACE` is used where it exists, and elsewhere the fixed
+  map is a hint that has to be taken (or the port stops).  The crash
+  handler (`sigaction`, `sigaltstack`, per thread in the pthread backend)
+  is POSIX, left out under emscripten.
+- `replay.c` reads its own ELF symbol table from `/proc/self/exe` for the
+  audio answers; elsewhere it asks `dladdr`, which sees exported symbols
+  (on macOS every global of the executable, which the game's functions
+  are).
+- `ucontext` is only used where `swapcontext` links (not macOS, emscripten
+  or musl), and the instruction count `__port_icount` is a plain global the
+  translated code and BEPass add to: nothing x86-specific (no inline asm,
+  `rdtsc` or intrinsics in the host code; `gfx.c` gets `-msse4.1` only on
+  x86).
+- Still in the way on macOS, and not in the host code: the fixed map
+  itself (arm64 macOS reserves the low 4 GB as `__PAGEZERO`, and won't map
+  RDRAM at `0x80000000`), the link (GNU ld's `-Ttext-segment`, linker
+  scripts with `INSERT`, `--wrap`, `__start_`/`__stop_` section symbols:
+  ld64 has none of those) and ELF section names in `gen_ld.py`.  That is the
+  fixed-address work ("What's left for the port").
+
+Checked: every file in `port/host/` compiles for `aarch64-linux-musl`
+(musl's headers: no ucontext, no glibc extensions), also with `__linux__`
+undefined, which takes the non-Linux branches.  There is no macOS SDK or
+emscripten here to try those.
+
+**AArch64.**  `port/tools/cross-aarch64.cmake` cross-builds the 64-bit port
+(`-DPORT_64BIT=ON`) for AArch64 Linux with clang, given the target's glibc
+and gcc runtime (Arch: `aarch64-linux-gnu-glibc`, `-gcc`, `-binutils`), an
+aarch64 SDL2 (through `PKG_CONFIG_LIBDIR`/`PKG_CONFIG_SYSROOT_DIR`), and
+the host's BEPass from a native build (`-DPORT_BEPASS_PLUGIN`, since clang
+loads it).  What it took: `ilp32cc.py` keeps stage 1 at i386 whatever
+`--target` CMake adds; and off x86 the optimiser raises the alignment of
+globals (AArch64 prefers 4 for `i8`/`i16` and 16 for float arrays it
+vectorizes), which moved them off their N64 addresses, so port-ilp32
+gives each global a section of its own there, named as `-fdata-sections`
+would (the x86-64 build is byte for byte what it was).  It builds, passes
+`gen_ld.py check` (3,419 symbols, 0 misplaced) and runs under
+`qemu-aarch64` (headless, `--renderer sw`): 4,000 frames of
+`PORT_AUTOSTART=2` in about 7 minutes.
 
 ## Timing
 
@@ -1496,8 +1646,11 @@ writable, as the N64 has it.
   native-endian memory ("The native-endian build") and the LP64 build ("The
   LP64 build").  Next are the fixed addresses: the game's C and data should
   work at any base, which arm64 macOS and a WebAssembly build (both wanted
-  eventually) need, and the latter also threads without `ucontext`; the
-  design and its first step are under "Movable memory".  The
+  eventually) need; the design and its first step are under "Movable
+  memory".  Threads without `ucontext` are done (the pthread backend,
+  "Threads without ucontext"); the browser also needs the loop to return
+  every frame, and a way for the fibers not to block its main thread (the
+  same section).  The
   32-bit build still has the out-of-bounds miscompiles the 64-bit one
   avoids; typing those arrays fixes both.
 - **Readable C.** Replace translated functions with hand-written C one at a
