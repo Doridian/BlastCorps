@@ -2097,7 +2097,19 @@ the game.)  The one other writer, `func_80295C70`, puts an area's fixed
 list there (`D_802FF150`, one area in one level).  So what shows at the
 sides is the world itself, and where a level's map ends (or the sky
 isn't drawn) the background: over the TAS at 32:9 (a screenshot every 600
-retraces) no black patch showed at the sides but the intros' sky above.
+retraces, the first 90,000) no black patch showed at the sides but the
+intros' sky above.
+
+**As defaults** (a proposal; not done): in a windowed run that is neither
+`--deterministic` nor `--replay`, `--interpolate --display-hz auto` and
+`--aspect window` could be the defaults, with `--no-interpolate` and
+`--aspect 4:3` to turn them off.  Nothing the suite or the TAS checks would
+change (they run headless and deterministic), and the game doesn't see
+either.  `--aspect window` changes nothing until the window is made wider
+than 4:3 (the default window is 640x480), and then shows what the window
+has room for.  Against `--interpolate` by default: a retrace (17 ms) more
+latency, the rare mispaired instance or rectangle for one image, and with
+the software renderer twice the drawing (the WebAssembly page's default).
 
 None of this reaches the game: the display lists are the game's, the
 RDP's time comes from the 4:3 geometry, and RDRAM is the same but for the
