@@ -33,6 +33,8 @@ BLAST = os.path.join(ROOT, "blastcorps")
 # the version of the stage-2 build the port is made from (CMake sets it)
 VERSION = os.environ.get("PORT_VERSION", "us.v11")
 GEN = os.path.join(BLAST, "build", "recomp", "src")
+# what reads the N64 link's ELFs (CMake: MIPS binutils' nm or llvm-nm)
+N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 MODULES = ("hd_code", "hd_front_end")
 
 ASSIGN_RE = re.compile(r"^\s*([A-Za-z_][\w.]*)\s*=\s*([^;]+);\s*(?:/\*\s*(.*?)\s*\*/)?")
@@ -61,7 +63,7 @@ def n64_addresses():
     addrs = {}
     for m in MODULES + ("init",):
         elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
-        out = subprocess.run(["mips-linux-gnu-nm", elf], capture_output=True, text=True, check=True).stdout
+        out = subprocess.run([N64_NM, elf], capture_output=True, text=True, check=True).stdout
         for line in out.splitlines():
             p = line.split()
             if len(p) == 3:
@@ -147,7 +149,7 @@ def funcs(out):
     rows = []
     for m in MODULES:
         elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
-        res = subprocess.run(["mips-linux-gnu-nm", "-n", elf], capture_output=True, text=True, check=True).stdout
+        res = subprocess.run([N64_NM, "-n", elf], capture_output=True, text=True, check=True).stdout
         for line in res.splitlines():
             p = line.split()
             if len(p) == 3 and p[1] in "tT":
@@ -169,7 +171,7 @@ def table(out):
     seen = {}
     for m in MODULES + ("init",):
         elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
-        res = subprocess.run(["mips-linux-gnu-nm", "-S", elf], capture_output=True, text=True, check=True).stdout
+        res = subprocess.run([N64_NM, "-S", elf], capture_output=True, text=True, check=True).stdout
         for line in res.splitlines():
             p = line.split()
             size = 0
@@ -181,6 +183,7 @@ def table(out):
             # (a D_ name in .text is a data island, and so are the bins')
             island = p[2].startswith(("D_", "_binary_")) or p[2].endswith("_bin")
             seen[p[2]] = (int(p[0], 16), "F" if p[1] in "tT" and not island else "D", size)
+    seen = dict(sorted(seen.items()))      # (whichever nm listed them)
     with open(out, "w") as f:
         for name, (addr, kind, size) in seen.items():
             f.write(f"{name} {addr:08X} {kind} {size:X}\n")

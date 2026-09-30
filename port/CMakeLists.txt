@@ -57,11 +57,16 @@ set(RECOMP_GEN ${BLAST}/build/recomp/src)
 set(GEN ${CMAKE_CURRENT_BINARY_DIR}/gen)
 file(MAKE_DIRECTORY ${GEN})
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# LLVM's tools, next to the compiler first (Homebrew's LLVM isn't on PATH)
+get_filename_component(CLANG_BINDIR ${CMAKE_C_COMPILER} DIRECTORY)
+# the N64 link's ELFs are read with MIPS binutils, or LLVM's, which read any
+find_program(N64_NM NAMES mips-linux-gnu-nm llvm-nm HINTS ${CLANG_BINDIR} REQUIRED)
+find_program(N64_READELF NAMES mips-linux-gnu-readelf llvm-readelf HINTS ${CLANG_BINDIR} REQUIRED)
 # the generators read the stage-2 build of PORT_VERSION
 if(PORT_LP64)
-    set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_LP64=1 ${Python3_EXECUTABLE})
+    set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_N64_NM=${N64_NM} PORT_LP64=1 ${Python3_EXECUTABLE})
 else()
-    set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} ${Python3_EXECUTABLE})
+    set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_N64_NM=${N64_NM} ${Python3_EXECUTABLE})
 endif()
 
 foreach(f ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${RECOMP_GEN}/recomp_funcs.h)
@@ -79,13 +84,13 @@ endif()
 # Addresses that differ between versions, from the version's N64 link: the
 # end of hd_code's .bss, where the heap starts (D_803FF600 there,
 # port_fixed.ld.in), and the front end's .data and .bss (src/overlay.c)
-execute_process(COMMAND mips-linux-gnu-nm ${BLAST}/build/hd_code.${PORT_VERSION}.elf
+execute_process(COMMAND ${N64_NM} ${BLAST}/build/hd_code.${PORT_VERSION}.elf
     OUTPUT_VARIABLE HD_CODE_NM COMMAND_ERROR_IS_FATAL ANY)
 if(NOT HD_CODE_NM MATCHES "([0-9a-f]+) B D_803FF600\n")
     message(FATAL_ERROR "no D_803FF600 in hd_code.${PORT_VERSION}.elf")
 endif()
 set(PORT_HEAP_START 0x${CMAKE_MATCH_1})
-execute_process(COMMAND mips-linux-gnu-readelf -SW ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
+execute_process(COMMAND ${N64_READELF} -SW ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
     OUTPUT_VARIABLE FE_SECTIONS COMMAND_ERROR_IS_FATAL ANY)
 foreach(sec data bss)
     string(TOUPPER ${sec} SEC)

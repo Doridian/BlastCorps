@@ -20,6 +20,7 @@ no address in it is a literal.
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -667,7 +668,9 @@ def make_groups(obj):
 
 
 def elf_symbols(path):
-    out = subprocess.run(["mips-linux-gnu-nm", path], capture_output=True,
+    # MIPS binutils' nm, or LLVM's where there are none (macOS)
+    nm = os.environ.get("PORT_N64_NM") or shutil.which("mips-linux-gnu-nm") or "llvm-nm"
+    out = subprocess.run([nm, path], capture_output=True,
                          text=True, check=True).stdout
     syms = {}
     for line in out.splitlines():
