@@ -77,16 +77,17 @@ snapshots: $(OUT)/snapshot
 	rm -rf $(OUT)/snapshots
 	SDL_VIDEODRIVER=offscreen $(OUT)/snapshot $(ROOT)/baserom.us.v11.z64 $(OUT)/snapshots $(SNAPSHOT_FRAMES)
 
-SNAPS := $(if $(wildcard $(OUT)/snapshots/rdram_*.bin),--snapshots $(OUT)/snapshots)
+# (snapshot.c plays us.v11: its RDRAM is no use to another version's code)
+SNAPS := $(if $(filter us.v11,$(VERSION)),$(if $(wildcard $(OUT)/snapshots/rdram_*.bin),--snapshots $(OUT)/snapshots))
 
 # Two passes: calls out of the translated code run the real callee (in
 # unicorn), then return a hash of their arguments (gets further in code
 # whose callees fault on random state).  The second reports the combined
 # block coverage.
 test: $(OUT)/librecomp_test.so
-	$(PYTHON) $(HERE)/test/difftest.py $< --trials $(TRIALS) $(SNAPS) \
+	RECOMP_VERSION=$(VERSION) $(PYTHON) $(HERE)/test/difftest.py $< --trials $(TRIALS) $(SNAPS) \
 	    --save-coverage $(OUT)/coverage-follow.npy
-	$(PYTHON) $(HERE)/test/difftest.py $< --trials $(TRIALS) $(SNAPS) --stub-externs \
+	RECOMP_VERSION=$(VERSION) $(PYTHON) $(HERE)/test/difftest.py $< --trials $(TRIALS) $(SNAPS) --stub-externs \
 	    --blocks $(GEN)/blocks.tsv --merge-coverage $(OUT)/coverage-follow.npy
 
 clean:

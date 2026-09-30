@@ -137,6 +137,30 @@ KNOWN = {
 }
 
 
+# libultra (and libc) that the IDO code a version still has as asm calls
+# (jp's GLOBAL_ASM, tools/recomp/config.py), with their types from os.h,
+# gu.h and libaudio.h: some take floats
+_F = "float"
+LIBULTRA_TYPED = {
+    "alCSPGetTempo": ("s32", ("void *",)),
+    "alCSPSetTempo": ("void", ("void *", "s32")),
+    "bcopy": ("void", ("void *", "void *", "s32")),
+    "guLookAtReflect": ("void", ("void *", "void *") + (_F,) * 9),
+    "guMtxIdent": ("void", ("void *",)),
+    "guOrtho": ("void", ("void *",) + (_F,) * 7),
+    "guPerspective": ("void", ("void *", "void *") + (_F,) * 5),
+    "guRotate": ("void", ("void *",) + (_F,) * 4),
+    "guScale": ("void", ("void *",) + (_F,) * 3),
+    "guTranslate": ("void", ("void *",) + (_F,) * 3),
+    "osCreateMesgQueue": ("void", ("void *", "void *", "s32")),
+    "osCreateThread": ("void", ("void *", "s32", "void *", "void *", "void *", "s32")),
+    "osStartThread": ("void", ("void *",)),
+    "osVirtualToPhysical": ("u32", ("void *",)),
+    "sins": ("s16", ("u16",)),
+    "sprintf": ("s32", ("char *", "char *", "...")),
+}
+
+
 def scan(names):
     """name -> {'def': (ret, params) or None, 'decls': Counter}"""
     files = []
@@ -177,7 +201,7 @@ def scan(names):
                     types[v] = base
             ps = tuple(types.get(a.strip(), "s32") for a in names.split(",") if a.strip())
             info[name]["def"] = (ret.strip(), ps)
-    for name, sig in KNOWN.items():
+    for name, sig in list(KNOWN.items()) + list(LIBULTRA_TYPED.items()):
         if name in info and not info[name]["def"]:
             info[name]["def"] = sig
     return info
@@ -322,7 +346,10 @@ def gen_extern(name, sig, is_lib):
     decl_args = ", ".join(pty(c) for c in pcs) or "void"
     if variadic:
         decl_args += ", ..."
-    lines = [f"extern {rty} {name}({decl_args});",
+    # a libc name the host's headers declare otherwise: by its symbol
+    cname = f"port_libc_{name}" if name in LIBULTRA_TYPED else name
+    asm = f' __asm__("{name}")' if cname != name else ""
+    lines = [f"extern {rty} {cname}({decl_args}){asm};",
              f"void recomp_extern_{name}(uint8_t *rdram, recomp_context *ctx) {{"]
     vals = []
     for k, (c, loc, off) in enumerate(placed):
@@ -352,7 +379,7 @@ def gen_extern(name, sig, is_lib):
         # the translated code only calls the game's (empty) debug printf
         for r in range(len(placed), 4):
             vals.append(f"(uintptr_t)(uint32_t)ctx->r[{4 + r}]")
-    call = f"{name}({', '.join(vals)})"
+    call = f"{cname}({', '.join(vals)})"
     lines.append("    PORT_CALLEE_SAVE(ctx);")
     if rc == "V":
         lines.append(f"    {call};")

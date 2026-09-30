@@ -78,6 +78,7 @@ enum {
     RECOMP_TRAP_BREAK = 1, RECOMP_TRAP_SYSCALL, RECOMP_TRAP_OVERFLOW,
     RECOMP_TRAP_ADDRESS, RECOMP_TRAP_ALIGN, RECOMP_TRAP_TIMEOUT,
     RECOMP_TRAP_RA, RECOMP_TRAP_EXTERN, RECOMP_TRAP_BADCALL,
+    RECOMP_TRAP_JUMP,       /* jr through a jump table to no label of it */
 };
 
 /* break/syscall, and (RECOMP_TEST) faults.  Must not return. */
@@ -552,6 +553,32 @@ static inline uint64_t recomp_f2l(double r) {
 static inline uint64_t recomp_f2l_s(float r) {
     if (!(r >= -9223372036854775808.0f && r < 9223372036854775808.0f)) return 0x7FFFFFFFFFFFFFFFull;
     return (uint64_t)(int64_t)r;
+}
+
+/* cvt.w in IDO's code, which sets the FCSR around it (cfc1/ctc1): its
+   float -> unsigned conversion truncates (RM = 1) and reads the invalid
+   flag back to handle values of 2^31 and up.  So these honour the FCSR's
+   rounding mode and set its cause bits, and its flags, for invalid (V: NaN
+   or out of range) and inexact (I), as QEMU does.  Rare's code never
+   touches the FCSR and uses the plain conversions above. */
+static inline uint32_t recomp_cvt_w_fcsr(recomp_context *ctx, double x) {
+    double r;
+    uint32_t v, exc;
+    switch (ctx->fcr31 & 3) {
+    case 0: r = recomp_rint(x); break;
+    case 1: r = trunc(x); break;
+    case 2: r = ceil(x); break;
+    default: r = floor(x); break;
+    }
+    if (!(r >= -2147483648.0 && r <= 2147483647.0)) {
+        v = 0x7FFFFFFFu;
+        exc = 0x10;                     /* V */
+    } else {
+        v = (uint32_t)(int32_t)r;
+        exc = r != x;                   /* I */
+    }
+    ctx->fcr31 = (ctx->fcr31 & ~0x3F000u) | exc << 12 | exc << 2;
+    return v;
 }
 
 #define FCR31_C (1u << 23)

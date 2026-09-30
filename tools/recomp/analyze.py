@@ -19,7 +19,9 @@ from config import translated_objects
 from parse import parse_file, is_terminator
 
 
-def load_all(version="us.v11"):
+def load_all(version=None):
+    # the version of the stage-2 build (the Makefile's VERSION)
+    version = version or os.environ.get("RECOMP_VERSION", "us.v11")
     objs = []
     for module, name, path in translated_objects(version):
         objs.append(parse_file(path, module, name))

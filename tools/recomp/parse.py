@@ -23,6 +23,11 @@ LOCAL_RE = re.compile(r"^\s*(\.L[0-9A-Za-z_]+):")
 HI_RE = re.compile(r"%hi\(([^)]+)\)")
 LO_RE = re.compile(r"%lo\(([^)]+)\)")
 SECTION_RE = re.compile(r"^\s*\.section\s+(\S+?)[,\s]")
+# asm-processor's section directives in a GLOBAL_ASM function's .s
+BARE_SECTION_RE = re.compile(r"^\s*(\.text|\.data|\.bss|\.rdata|\.rodata|\.late_rodata)\s*$")
+# a jump table's target in IDO code: splat labels those `glabel L<vram>_<rom>`
+JUMP_LABEL_RE = re.compile(r"^L[0-9A-F]{8}_[0-9A-F]+$")
+WORD_RE = re.compile(r"^\s*\.word\s+(.*)$")
 
 
 @dataclass
@@ -56,6 +61,7 @@ class Object:
     name: str
     path: str
     functions: list = field(default_factory=list)
+    jump_labels: set = field(default_factory=set)   # labels a jump table holds
 
 
 class ParseError(Exception):
@@ -70,13 +76,21 @@ def parse_file(path, module, name):
     with open(path) as f:
         for lineno, raw in enumerate(f, 1):
             s = raw.split("#", 1)[0] if raw.lstrip().startswith("#") else raw
-            m = SECTION_RE.match(s)
+            m = SECTION_RE.match(s) or BARE_SECTION_RE.match(s)
             if m:
                 section = m.group(1)
                 continue
             if section != ".text":
+                # a jump table (IDO's switch): the labels a `jr` may reach
+                m = WORD_RE.match(s)
+                if m:
+                    obj.jump_labels |= {w.strip() for w in m.group(1).split(",")
+                                        if JUMP_LABEL_RE.match(w.strip())}
                 continue
             m = GLABEL_RE.match(s)
+            if m and func is not None and JUMP_LABEL_RE.match(m.group(1)):
+                pending_labels.append(m.group(1))
+                continue
             if m:
                 label = m.group(1)
                 func = Function(name=label, vram=None, obj=obj)

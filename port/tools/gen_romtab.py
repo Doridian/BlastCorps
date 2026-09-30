@@ -69,7 +69,10 @@ def main():
     # what each segment's data is (host/native.c converts by it); the order is
     # docs/ASSETS.md's, the same in every version
     klass = {}
-    for n in between("scientist", "shuttle_dl") | between("usa_star", "reflectlogo_dl"):
+    # the logos after the attract mode's images start with the star:
+    # usa_star, jap_star in jp
+    star = next(n for n in names if n.endswith("_star"))
+    for n in between("scientist", "shuttle_dl") | between(star, "reflectlogo_dl"):
         klass[n] = "ROM_VEHICLE"
     for n in between("lagp", "level59_dl"):
         klass[n] = "ROM_LEVEL"

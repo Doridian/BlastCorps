@@ -1,7 +1,7 @@
 # The PC port of Blast Corps.  See docs/PORT.md.
 #
 # Needs a built stage 2 and the translated engine of PORT_VERSION (default
-# us.v11; us.v10 builds too):
+# us.v11; us.v10 and jp build too):
 #   make VERSION=us.v11 -C blastcorps && make -C tools/recomp VERSION=us.v11
 # then
 #   cmake -S port -B build/port && cmake --build build/port -j
@@ -15,19 +15,13 @@
 # build").
 cmake_minimum_required(VERSION 3.20)
 project(blastcorps_pc C CXX ASM)
-set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11 or us.v10")
-set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10)
-if(NOT PORT_VERSION MATCHES "^us\\.v1[01]$")
-    message(FATAL_ERROR "PORT_VERSION is us.v11 or us.v10, not ${PORT_VERSION}")
+set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11, us.v10 or jp")
+set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10 jp)
+if(NOT PORT_VERSION MATCHES "^(us\\.v1[01]|jp)$")
+    message(FATAL_ERROR "PORT_VERSION is us.v11, us.v10 or jp, not ${PORT_VERSION}")
 endif()
 string(TOUPPER "VERSION_${PORT_VERSION}" PORT_VERSION_DEFINE)
 string(REPLACE "." "_" PORT_VERSION_DEFINE ${PORT_VERSION_DEFINE})
-# the end of hd_code's .bss, where the heap starts (port_fixed.ld.in)
-if(PORT_VERSION STREQUAL "us.v10")
-    set(PORT_HEAP_START 0x803FF550)
-else()
-    set(PORT_HEAP_START 0x803FF600)
-endif()
 option(PORT_64BIT "a 64-bit program (the game's C through port-ilp32)" OFF)
 option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in 32 bits" OFF)
 # diagnostics (docs/PORT.md, "Comparing builds"): a call trace of the
@@ -56,7 +50,6 @@ set(BLAST ${ROOT}/blastcorps)
 set(RECOMP_GEN ${BLAST}/build/recomp/src)
 set(GEN ${CMAKE_CURRENT_BINARY_DIR}/gen)
 file(MAKE_DIRECTORY ${GEN})
-configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # the generators read the stage-2 build of PORT_VERSION
 if(PORT_LP64)
@@ -76,6 +69,27 @@ string(STRIP "${STAGE2_VERSION}" STAGE2_VERSION)
 if(NOT STAGE2_VERSION STREQUAL PORT_VERSION)
     message(FATAL_ERROR "blastcorps/ is extracted for ${STAGE2_VERSION}, not ${PORT_VERSION}")
 endif()
+
+# Addresses that differ between versions, from the version's N64 link: the
+# end of hd_code's .bss, where the heap starts (D_803FF600 there,
+# port_fixed.ld.in), and the front end's .data and .bss (src/overlay.c)
+execute_process(COMMAND mips-linux-gnu-nm ${BLAST}/build/hd_code.${PORT_VERSION}.elf
+    OUTPUT_VARIABLE HD_CODE_NM COMMAND_ERROR_IS_FATAL ANY)
+if(NOT HD_CODE_NM MATCHES "([0-9a-f]+) B D_803FF600\n")
+    message(FATAL_ERROR "no D_803FF600 in hd_code.${PORT_VERSION}.elf")
+endif()
+set(PORT_HEAP_START 0x${CMAKE_MATCH_1})
+execute_process(COMMAND mips-linux-gnu-readelf -SW ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
+    OUTPUT_VARIABLE FE_SECTIONS COMMAND_ERROR_IS_FATAL ANY)
+foreach(sec data bss)
+    string(TOUPPER ${sec} SEC)
+    if(NOT FE_SECTIONS MATCHES "\\.hd_front_end_${sec} +[A-Z]+ +([0-9a-f]+)")
+        message(FATAL_ERROR "no .hd_front_end_${sec} in hd_front_end.${PORT_VERSION}.elf")
+    endif()
+    set(PORT_FE_${SEC} 0x${CMAKE_MATCH_1})
+endforeach()
+configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
+message(STATUS "${PORT_VERSION}: heap from ${PORT_HEAP_START}, front end .data ${PORT_FE_DATA}, .bss ${PORT_FE_BSS}")
 
 # ---- BEPass (a host LLVM plugin, 64-bit) ------------------------------------
 find_program(LLVM_CONFIG llvm-config REQUIRED)
@@ -219,6 +233,7 @@ add_library(port_n64 OBJECT ${PORT_N64_C})
 target_include_directories(port_n64 PRIVATE ${N64_INCLUDES})
 target_compile_definitions(port_n64 PRIVATE ${N64_DEFINES})
 target_compile_options(port_n64 PRIVATE ${N64_FLAGS} -Wno-implicit-function-declaration)
+target_compile_definitions(port_n64 PRIVATE PORT_FE_DATA=${PORT_FE_DATA} PORT_FE_BSS=${PORT_FE_BSS})
 add_dependencies(port_n64 BEPass)
 set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
 if(N64_LAUNCHER)
@@ -249,6 +264,19 @@ foreach(s ${DATA_S})
         COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} ${GEN}/data/${out} ${s} ${label}
         DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${BLAST}/include/game/inventory.json)
     list(APPEND DATA_X86 ${GEN}/data/${out})
+endforeach()
+# the data of the IDO functions the version still has as asm (its GLOBAL_ASM,
+# which tools/recomp translates): their strings, floats and jump tables
+execute_process(COMMAND ${Python3_EXECUTABLE} -c
+    "import sys; sys.path.insert(0, '${ROOT}/tools/recomp'); import config; print(';'.join(f'{m}/{o}/{f}' for m, o, f in config.global_asm_functions('${PORT_VERSION}')))"
+    OUTPUT_VARIABLE GLOBAL_ASM_FUNCS OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+foreach(g ${GLOBAL_ASM_FUNCS})
+    string(REPLACE "/" "_" out ${g})
+    set(src ${BLAST}/asm/nonmatchings/${g}.s)
+    add_custom_command(OUTPUT ${GEN}/data/global_asm_${out}.s
+        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} --global-asm ${GEN}/data/global_asm_${out}.s ${src}
+        DEPENDS ${src} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
+    list(APPEND DATA_X86 ${GEN}/data/global_asm_${out}.s)
 endforeach()
 foreach(b ${DATA_BIN})
     string(REPLACE "/" "_" label ${b})

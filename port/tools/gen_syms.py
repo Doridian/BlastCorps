@@ -40,7 +40,7 @@ REL_COMMENT_RE = re.compile(r"^([A-Za-z_]\w*)\s*\+\s*(0x[0-9A-Fa-f]+)\s+in\s+(\w
 
 
 def recomp_funcs():
-    return set(re.findall(r"recomp_(func_[0-9A-F]{8})\(", open(os.path.join(GEN, "recomp_funcs.h")).read()))
+    return set(re.findall(r"recomp_(func_[0-9A-F]{8}(?:_[a-z0-9]+)?)\(", open(os.path.join(GEN, "recomp_funcs.h")).read()))
 
 
 def header(out):

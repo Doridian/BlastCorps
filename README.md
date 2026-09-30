@@ -34,7 +34,7 @@ git submodule update
 
 The port runs the decompiled C natively and Rare's handwritten engine code
 through a mechanical translation to C; it needs your own copy of the ROM
-(`us.v11` by default, `us.v10` too).  It is built from the decompilation, so
+(`us.v11` by default; `us.v10` and `jp`, Blastdozer, too).  It is built from the decompilation, so
 the steps are: set up the tools, build the decompilation once, then the port.
 [docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
 built and tested on.
@@ -80,10 +80,13 @@ playing the same game: `-DPORT_NATIVE_ENDIAN=ON` (game memory in the host's
 byte order) and `-DPORT_LP64=ON` (the game's C as an ordinary 64-bit
 program); see docs/PORT.md.
 
-For `us.v10`, put `baserom.us.v10.z64` in the root and run the same with
-`VERSION=us.v10`, `make -C tools/recomp` included (after `make clean` and
-`make -C blastcorps clean`), and configure a separate build directory with
-`-DPORT_VERSION=us.v10`.
+For `us.v10` or `jp`, put `baserom.us.v10.z64` or `baserom.jp.z64` in the
+root and run the same with `VERSION=us.v10` or `VERSION=jp`, `make -C
+tools/recomp` included (after `make clean` and `make -C blastcorps clean`),
+and configure a separate build directory with `-DPORT_VERSION=us.v10` or
+`-DPORT_VERSION=jp`.  jp still has some of its compiled code as asm where it
+differs from the US versions; the port translates that the same way as the
+handwritten code (docs/PORT.md, "Other versions").
 
 ## Run it
 
@@ -92,8 +95,9 @@ build/port64/blastcorps baserom.us.v11.z64
 ```
 
 The ROM argument may be left out: it defaults to `baserom.us.v11.z64` (the
-us.v10 build's to `baserom.us.v10.z64`) in the current directory.  The port
-reads everything else from the ROM, so the binary can be run from anywhere.
+us.v10 and jp builds' to `baserom.us.v10.z64` and `baserom.jp.z64`) in the
+current directory.  The port reads everything else from the ROM, so the
+binary can be run from anywhere.
 
 The save (the 4 Kbit EEPROM) goes to `blastcorps.eep` in the current
 directory, or wherever `--save PATH` says.

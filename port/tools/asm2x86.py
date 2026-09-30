@@ -409,8 +409,14 @@ class Native:
         out.append(".popsection")
 
 
+# data objects that are u16 text, however splat wrote them (`.word`): the
+# menus' Japanese text, which only jp shows (26570.c's D_803010A0 on)
+HALF_FILES = ("hd_code/BC8E0.data.s",)
+
+
 def convert_native(src, label=None):
     nat = Native(src)
+    halves = src.endswith(HALF_FILES)
     section = None
     pending_section = None
     for raw in open(src):
@@ -459,7 +465,9 @@ def convert_native(src, label=None):
             nat.data(be_bytes([int(a, 0) for a in split_args(rest)], 2), 2)
         elif d in (".word", ".word32"):
             for a in split_args(rest):
-                if is_number(a):
+                if is_number(a) and halves:
+                    nat.data(be_bytes([int(a, 0)], 4), 2)
+                elif is_number(a):
                     nat.data(be_bytes([int(a, 0)], 4), 4, "word")
                 else:
                     nat.sym(a)
@@ -509,10 +517,49 @@ def native_blob(src, label):
     return nat.emit()
 
 
+BARE_SECTION = {".text": None, ".rdata": ".rodata", ".rodata": ".rodata", ".late_rodata": ".rodata",
+                ".data": ".data", ".bss": ".bss"}
+
+
+def global_asm_data(src, dst):
+    """The data of a GLOBAL_ASM function's .s (asm-processor's `.rdata`,
+    `.late_rodata`: its strings, floats and jump tables), which the N64
+    build puts in the C file's object and the port has nowhere else, as a
+    data file this script converts: each label a section of its own, since
+    asm-processor puts `.rdata` and `.late_rodata` apart.  A jump table's
+    `.word L<vram>_<rom>` becomes that address, which is what the
+    translated `jr` compares with (tools/recomp/translate.py)."""
+    out = []
+    section = None
+    for raw in open(src):
+        s = raw.strip()
+        if s in BARE_SECTION:
+            section = BARE_SECTION[s]
+            continue
+        if section is None or not s or s.startswith(".late_rodata_alignment"):
+            continue
+        if re.match(r"(dlabel|glabel)\s", s):
+            out.append(f".section {section}")
+        m = re.match(r"\.word\s+(.*)$", s)
+        if m:
+            s = ".word " + ", ".join(
+                f"0x{w.strip()[1:9]}" if re.match(r"L[0-9A-F]{8}_[0-9A-F]+$", w.strip()) else w.strip()
+                for w in m.group(1).split(","))
+        out.append(s)
+    with open(dst, "w") as f:
+        f.write("\n".join(out) + "\n")
+
+
 def main():
     native = sys.argv[1] == "--native"
     if native:
         del sys.argv[1]
+    if sys.argv[1] == "--global-asm":
+        # asm2x86.py [--native] --global-asm OUT.s FUNC.s
+        del sys.argv[1]
+        tmp = sys.argv[1] + ".in.s"
+        global_asm_data(sys.argv[2], tmp)
+        sys.argv[2] = tmp
     dst, src = sys.argv[1], sys.argv[2]
     if native:
         if src.endswith(".bin"):

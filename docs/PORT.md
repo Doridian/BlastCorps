@@ -15,6 +15,10 @@ cmake --build build/port
 build/port/blastcorps baserom.us.v11.z64   # the user's own ROM
 ```
 
+`-DPORT_VERSION=us.v10` or `-DPORT_VERSION=jp` builds another version,
+from that version's stage 2 and `make -C tools/recomp VERSION=...`, in a
+build directory of its own ("Other versions").
+
 It needs clang/LLVM with its development headers (BEPass is an LLVM
 plugin), a 32-bit (multilib) libc and SDL2, and Python 3; the OpenGL
 renderer also needs 32-bit libepoxy and an OpenGL 3.3 driver (without
@@ -886,6 +890,85 @@ registers; the generator checks the prototypes against them (no entry reads
 an argument outside `a0`-`a3`/`f12`/`f14`) and lists disagreements in
 `glue_report.txt`.
 
+## Other versions
+
+`PORT_VERSION` is `us.v11` (the default), `us.v10` or `jp` (Blastdozer).
+`blastcorps/` and the translated engine hold one version at a time, so
+switching means `make clean` in both directories, stages 1 and 2 for the
+other version, and `make -C tools/recomp VERSION=<v>`; CMake refuses a
+stage 2 of another version.  What differs between versions in the port:
+
+- **Addresses from the version's link.**  CMake reads the heap start (the
+  end of hd_code's `.bss`, `D_803FF600`: `0x803FF600` in us.v11,
+  `0x803FF550` in us.v10, `0x803FF6E0` in jp) and the front end's `.data`
+  and `.bss` (`src/overlay.c`) out of the version's ELFs.  The generators
+  (`gen_ld.py`, `gen_syms.py`, `gen_romtab.py`, `liveness.py`, the
+  replay's `n64_funcs.txt`) read the version's ELFs and link map; names
+  are us.v11's in every version, so the rest of the port is the same.
+  `gen_romtab.py` finds the logos by the star (`usa_star`, `jap_star`).
+  The host's default ROM and its header check follow the version.
+- **Compiled code that is still asm.**  us.v10's C is complete, but jp has
+  17 IDO functions that differ from the US versions and are still that
+  version's `GLOBAL_ASM` (`#if defined(VERSION_JP)`): the text renderer
+  `func_80259EC4` and `func_8025B498`, `func_8026BCE0` (the menus), four
+  in 1D990, `func_802860F0`, `func_802979E0`, and in the front end the
+  pak/EEPROM thread's `func_801F57B0`, `func_801F6F18`, `func_801F7410`
+  and five more.  clang ignores the pragma, so the port's C lacks them;
+  `tools/recomp/config.py` finds each version's `GLOBAL_ASM` (through
+  `tools/version_ifs.py`, as the N64 build resolves the conditionals,
+  libultra's `gu` in 90C50 excepted: the port has its own) and translates
+  each as an object of its own.  The C calls them and they call the C, so
+  the glue covers them like the rest: jp has 184 entries and 118 externs.
+  IDO's code needed three things Rare's doesn't:
+  - **Jump tables.**  A `switch` is `jr $reg` through a table in
+    `.rodata` of `L<vram>_<rom>` labels (splat marks them `glabel`).  The
+    parser keeps those as labels of the function and reads the tables'
+    words; the translation compares the register with each label's
+    address (`pc_base + offset`, the address in the linked image) and
+    jumps there (`RECOMP_TRAP_JUMP` for anything else).
+  - **The FCSR.**  IDO's float-to-unsigned conversion sets the rounding
+    mode to truncate (`ctc1`), does `cvt.w.s` and reads the invalid flag
+    back (`cfc1`, `andi 0x78`) to handle values of 2^31 and up.  In a
+    function with a `ctc1`, `cvt.w` goes through `recomp_cvt_w_fcsr`
+    (`recomp.h`), which follows the FCSR's rounding mode and sets its V
+    and I cause and flag bits as QEMU does.  (The first differential test
+    run caught this: `func_80259EC4` took the other path.)
+  - **Their `.rodata`.**  A `GLOBAL_ASM` function's `.s` carries its
+    strings, floats and jump tables (asm-processor puts them in the C
+    file's object); `asm2x86.py --global-asm` turns each label into a data
+    section, placed at its N64 address like the rest, with a jump table's
+    labels as their addresses.
+  - libultra calls from them (the `gu` matrix functions with float
+    arguments, `osCreateThread`, `sprintf`, `alCSPGetTempo`...) have
+    their prototypes in `gen_glue.py` (`LIBULTRA_TYPED`).
+- **The differential test** takes the version too:
+  `make -C tools/recomp VERSION=jp test` (`RECOMP_VERSION` for
+  `difftest.py`; the `.text` sizes come from the ELFs).  The snapshots are
+  us.v11's (`snapshot.c` plays it), so other versions run on the random
+  fills only.
+
+jp runs as us.v11 does: headless it plays the N64 and Rare logos, the
+title and the attract mode (the story, the demo levels), and
+`PORT_AUTOSTART=1` goes through the name entry and the map into Simian
+Acres, whose hints and pause menus show their Japanese text.  (`=2` stops
+at the level's first hint: jp shows one as the level starts and waits for
+A, which `=2` doesn't press once it is in a level.)  The 32-bit and 64-bit
+builds are identical with `PORT_COUNT_PER_OP=0` (every 1,000th frame of
+8,000 with `PORT_AUTOSTART=1`).
+
+The native-endian build (`-DPORT_NATIVE_ENDIAN=ON`) builds and runs for jp
+too, with two more pieces: IDO's code reads a narrow argument out of its
+word slot (`lbu 0x5B($sp)` for a `u8` the glue stored as a word), so a
+byte or half access through `$sp` to a word it or its caller stores whole
+is XORed as a site (`x3`/`x2`, translate.py); and the menus' `u16` text
+(`hd_code/BC8E0`, `D_803010A0` on, which only jp shows) is converted as
+halves (`asm2x86.py`, `HALF_FILES`).  With those it plays the same way
+into Simian Acres with the right text, but it isn't checked against the
+big-endian build as us.v11's is: with `PORT_COUNT_PER_OP=0` the two part
+by frame 4,000 of `PORT_AUTOSTART=1`.  The type inventory, `native_sites.txt`
+and the islands' layouts are us.v11's; what jp's own data (its `_jp`
+symbols, its text) needs beyond that hasn't been gone through.
+
 ## Source changes for the port
 
 Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
@@ -1239,8 +1322,9 @@ make -C tools/recomp snapshots        # optional: RDRAM from real play (mupen64p
 make -C tools/recomp test PYTHON=.env/bin/python TRIALS=100
 ```
 
-These need a built us.v11 stage 2, because the translator reads
-`blastcorps/asm/` and `blastcorps/build/*.elf`. The test needs `numpy` and
+These need a built stage 2 (us.v11 by default, `VERSION=` for another),
+because the translator reads `blastcorps/asm/` and
+`blastcorps/build/*.elf`. The test needs `numpy` and
 `unicorn` in the venv. `tools/recomp/analyze.py` prints the opcode
 inventory and any control flow the translator would refuse (there is none
 now).
@@ -1286,6 +1370,11 @@ per-instruction register trace on both sides and prints where they diverge.
 
 - **688/688 functions pass.** Across both passes, 0 of about 137,000 trials
   differ.
+- **jp: 706/706 pass** (its 689 handwritten functions and the 17 IDO
+  ones, random fills only), 0 of 141,200 trials differing; 490 functions
+  returned normally in a trial, 517 with the callees stubbed; 53.3% of
+  the blocks and 60.4% of the instructions were executed.  The 17 alone,
+  at 200 trials: all pass, 14 returned normally.
 - 548 functions returned normally in at least one trial, and 584 when
   callees are stubbed. The other 104 only ever faulted or trapped,
   identically on both sides, which still compares state up to the fault.

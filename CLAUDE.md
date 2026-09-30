@@ -61,6 +61,9 @@ cmake --build build/port && build/port/blastcorps baserom.us.v11.z64
 `-DPORT_VERSION=us.v10` builds the us.v10 port instead (in its own build
 directory, from a us.v10 stage 2 and `make -C tools/recomp VERSION=us.v10`),
 which is what the TAS replays on (docs/PORT.md, "The TAS").
+`-DPORT_VERSION=jp` builds Blastdozer the same way (`VERSION=jp`
+throughout); jp's remaining `GLOBAL_ASM` functions are translated by
+`tools/recomp` like the handwritten code (docs/PORT.md, "Other versions").
 
 `-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
 64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with

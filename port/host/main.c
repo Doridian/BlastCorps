@@ -25,12 +25,21 @@
 #include "host.h"
 
 /* the version this port is built from (CMake's PORT_VERSION) */
-#ifdef VERSION_US_V10
+#if defined(VERSION_US_V10)
 #define ROM_DEFAULT "baserom.us.v10.z64"
+#define ROM_CODE "NBCE"
 #define ROM_REVISION 0
+#define ROM_TITLE "Blast Corps (USA) v1.0"
+#elif defined(VERSION_JP)
+#define ROM_DEFAULT "baserom.jp.z64"
+#define ROM_CODE "NBCJ"
+#define ROM_REVISION 0
+#define ROM_TITLE "Blastdozer (Japan)"
 #else
 #define ROM_DEFAULT "baserom.us.v11.z64"
+#define ROM_CODE "NBCE"
 #define ROM_REVISION 1
+#define ROM_TITLE "Blast Corps (USA) v1.1"
 #endif
 
 #ifdef PORT_NATIVE_ENDIAN
@@ -112,8 +121,8 @@ static void load_rom(const char *path) {
     } else if (magic != 0x80371240u) {
         host_fatal("%s is not an N64 ROM", path);
     }
-    if (memcmp(rom + 0x3B, "NBCE", 4) != 0 || rom[0x3F] != ROM_REVISION)
-        host_log("warning: %s doesn't look like Blast Corps (USA) v1.%d; expect trouble\n", path, ROM_REVISION);
+    if (memcmp(rom + 0x3B, ROM_CODE, 4) != 0 || rom[0x3F] != ROM_REVISION)
+        host_log("warning: %s doesn't look like " ROM_TITLE "; expect trouble\n", path);
 }
 
 uint32_t host_rom_size(void) { return rom_size; }

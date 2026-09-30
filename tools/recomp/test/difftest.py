@@ -62,9 +62,24 @@ BUDGET = 400_000                # instructions per run
 EXT_BUDGET = 400_000
 STATUS = 0x20000000             # CU1, FR=0, kernel mode, interrupts off
 
+# the version of the stage-2 build (the Makefile's VERSION)
+VERSION = os.environ.get("RECOMP_VERSION", "us.v11")
+
+
+def text_size(module):
+    """the size of a module's .text in the linked ELF"""
+    out = subprocess.run(["mips-linux-gnu-readelf", "-SW", os.path.join(BLAST, "build", f"{module}.{VERSION}.elf")],
+                         capture_output=True, text=True, check=True).stdout
+    for line in out.splitlines():
+        p = line.replace("[ ", "[").split()
+        if len(p) > 5 and p[1] == "." + module:
+            return int(p[5], 16)
+    raise KeyError(module)
+
+
 IMAGES = [  # (module, vram, .text size)
-    ("hd_code", 0x802447C0, 0xA4410),
-    ("hd_front_end", 0x801E7000, 0x21040),
+    ("hd_code", 0x802447C0, text_size("hd_code")),
+    ("hd_front_end", 0x801E7000, text_size("hd_front_end")),
     ("init", 0x8021ED00, 0),
 ]
 
@@ -73,7 +88,7 @@ RETURN, BREAK, SYSCALL, OVERFLOW, FAULT, TIMEOUT, OTHER = \
     "return", "break", "syscall", "overflow", "fault", "timeout", "other"
 # RECOMP_TRAP_* (recomp.h) -> class
 TRAP_CLASS = {0: RETURN, 1: BREAK, 2: SYSCALL, 3: OVERFLOW, 4: FAULT, 5: FAULT,
-              6: TIMEOUT, 7: "ra-changed", 8: OTHER, 9: OTHER}
+              6: TIMEOUT, 7: "ra-changed", 8: OTHER, 9: OTHER, 10: OTHER}
 # QEMU MIPS exception numbers (target/mips/cpu.h, QEMU 5.0 as in unicorn 2)
 EXCP_CLASS = {17: SYSCALL, 18: BREAK, 21: OVERFLOW, 12: FAULT, 13: FAULT,
               14: FAULT, 15: FAULT, 25: FAULT, 26: FAULT, 27: FAULT,
@@ -100,7 +115,7 @@ def sx(v):
 
 
 def elf_symbol(module, name):
-    out = subprocess.run(["mips-linux-gnu-nm", os.path.join(BLAST, "build", f"{module}.us.v11.elf")],
+    out = subprocess.run(["mips-linux-gnu-nm", os.path.join(BLAST, "build", f"{module}.{VERSION}.elf")],
                          capture_output=True, text=True, check=True).stdout
     for line in out.splitlines():
         p = line.split()
@@ -113,7 +128,7 @@ def load_images():
     img = np.zeros(RDRAM_SIZE, dtype=np.uint8)
     keep = np.zeros(RDRAM_SIZE, dtype=bool)
     for module, vram, _ in IMAGES:
-        data = open(os.path.join(BLAST, "build", f"{module}.us.v11.bin"), "rb").read()
+        data = open(os.path.join(BLAST, "build", f"{module}.{VERSION}.bin"), "rb").read()
         off = vram - 0x80000000
         img[off:off + len(data)] = np.frombuffer(data, dtype=np.uint8)
         keep[off:off + len(data)] = True
@@ -249,7 +264,7 @@ def pointer_globals():
     found = set()
     for o in objs:
         if o.module not in syms:
-            syms[o.module] = elf_symbols(os.path.join(BLAST, "build", f"{o.module}.us.v11.elf"))
+            syms[o.module] = elf_symbols(os.path.join(BLAST, "build", f"{o.module}.{VERSION}.elf"))
         sy = syms[o.module]
         for fn in o.functions:
             addr_of, val_of = {}, {}      # reg -> address of / value at symbol
@@ -304,7 +319,7 @@ def extern_addrs():
     out = set()
     for o in objs:
         if o.module not in syms:
-            syms[o.module] = elf_symbols(os.path.join(BLAST, "build", f"{o.module}.us.v11.elf"))
+            syms[o.module] = elf_symbols(os.path.join(BLAST, "build", f"{o.module}.{VERSION}.elf"))
         for fn in o.functions:
             for ln in fn.lines:
                 if ln.insn.op in ("jal", "j") and ln.target not in funcs:

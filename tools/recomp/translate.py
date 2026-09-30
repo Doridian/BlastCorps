@@ -95,6 +95,9 @@ class FuncEmitter:
         self.externs = externs
         self.cov = cov                  # [next block id]
         self.out = []
+        # IDO code that sets the FCSR (its float -> unsigned conversions):
+        # cvt.w follows its rounding mode and sets its V/I bits
+        self.fcsr = any(ln.insn.op == "ctc1" for f in group for ln in f.lines)
 
     # --- helpers ---------------------------------------------------------
     def pc(self, ln):
@@ -137,7 +140,33 @@ class FuncEmitter:
                 return None
             USED_SITES.add((fn.name, None))
             return kind
+        if "/" in fn.obj.name and GPR_NAMES[i.rs] == "sp" and i.op in ("lb", "lbu", "sb", "lh", "lhu", "sh") \
+                and ln.lo is None and (i.imm & ~3) in self.stack_words(fn):
+            # IDO code (a version's GLOBAL_ASM, config.py) reads a narrow
+            # argument out of its word slot: the words the glue or the
+            # caller stores, its own `sw` of a0-a3.  A byte or half of a
+            # host-order word is XORed.  (Narrow locals that are only ever
+            # narrow, which may be a buffer passed to C, are left alone.)
+            return "x3" if i.op in ("lb", "lbu", "sb") else "x2"
         return None
+
+    def stack_words(self, fn):
+        """The $sp offsets of fn's argument words (the caller's frame) and of
+        the words it reads or writes whole (lw/sw)"""
+        if not hasattr(fn, "_stack_words"):
+            frame = 0
+            for ln in fn.lines[:8]:
+                i = ln.insn
+                if i.op == "addiu" and i.rs == i.rt == 29 and i.imm < 0:
+                    frame = -i.imm
+                    break
+            words = set()
+            for ln in fn.lines:
+                i = ln.insn
+                if i.op in ("lw", "sw") and i.rs == 29 and ln.lo is None:
+                    words.add(i.imm & ~3)
+            fn._stack_words = words | set(range(frame, frame + 0x100, 4))
+        return fn._stack_words
 
     def native_site(self, ln, kind, ea, rt, pc):
         i = ln.insn
@@ -400,6 +429,8 @@ class FuncEmitter:
             # round-to-nearest-even (recomp_rint, recomp.h).
             rnd = {"cvt": "recomp_rint", "round": "recomp_rint", "trunc": "trunc",
                    "ceil": "ceil", "floor": "floor"}[kind] + f
+            if to == "w" and kind == "cvt" and self.fcsr:
+                return [f"ctx->f[{fd}] = recomp_cvt_w_fcsr(ctx, {a});"]
             if to == "w":
                 return [f"ctx->f[{fd}] = recomp_f2w({rnd}({a}));"]
             self.even(ln, fd)
@@ -527,9 +558,9 @@ class FuncEmitter:
             return [f"ctx->ra = S32({ret});", dcomment.strip()] + delay + [self.call(ln.target)]
         if i.op == "j":
             return [dcomment.strip()] + delay + [self.call(ln.target), "return;"]
+        if i.op == "jr" and i.rs != 31:
+            return self.jump_table(fn, ln, dl, delay, dcomment)
         if i.op == "jr":
-            if i.rs != 31:
-                raise TranslateError(f"jr ${GPR_NAMES[i.rs]} at {ln.vram:08X}")
             return [f"{{ uint64_t target = ctx->ra;", dcomment.strip()] + delay + \
                    [f"ctx->ra = target; CHECK_RA({pc}); return; }}"] \
                 if self.writes_ra(dl) else \
@@ -545,6 +576,26 @@ class FuncEmitter:
         if i.likely:
             return [f"if ({cond}) {{", dcomment.strip()] + delay + [f"goto {target}; }}"]
         return [f"{{ int c = {cond};", dcomment.strip()] + delay + [f"if (c) goto {target}; }}"]
+
+    def jump_table(self, fn, ln, dl, delay, dcomment):
+        """`jr $reg` in IDO code: a switch through a jump table in .rodata,
+        whose words are addresses of labels in this function (the .s file's
+        `.word L<vram>_<rom>` list).  The register is compared with each of
+        them, as the address it would be in the linked image."""
+        i = ln.insn
+        pc = self.pc(ln)
+        targets = []
+        for f in self.group:
+            for name in sorted(f.labels, key=lambda n: f.labels[n]):
+                if name in f.obj.jump_labels:
+                    targets.append((f.lines[f.labels[name]].vram, self.label_of(f, name)))
+        if not targets:
+            raise TranslateError(f"jr ${GPR_NAMES[i.rs]} at {ln.vram:08X} with no jump table")
+        out = [f"{{ uint32_t target = U32({R(i.rs)});", dcomment.strip()] + delay
+        for vram, lab in targets:
+            out.append(f"if (target == pc_base + 0x{vram - self.base.vram:X}u) goto {lab};")
+        out.append(f"recomp_trap(ctx, RECOMP_TRAP_JUMP, {pc}, target); }}")
+        return out
 
     def writes_ra(self, ln):
         """Whether a jr $ra's delay slot overwrites $ra (the jump uses the
@@ -664,7 +715,7 @@ def main():
             em = FuncEmitter(group, funcs, externs, cov, blocks)
             em_out.extend(em.emit())
         text = "\n".join(em_out) + "\n"
-        fname = f"{o.module}_{o.name}.c"
+        fname = f"{o.module}_{o.name.replace('/', '_')}.c"
         written.append(fname)
         with open(os.path.join(args.outdir, fname), "w") as f:
             f.write(text)

@@ -1,6 +1,10 @@
 """Which objects get translated, and where the build puts things.
 
-Only Rare's handwritten engine is translated.  libultra's own .s files and
+Rare's handwritten engine is translated, and so is whatever IDO-compiled
+code a version still has as asm: a function the C has under a `VERSION_*`
+#if as that version's GLOBAL_ASM (jp's 17, say) is missing from the port's
+C, so it is translated like the handwritten code (each one is an object of
+its own, `<object>/<function>`).  libultra's own .s files and
 init's boot code are exception vectors, TLB/cache maintenance and thread
 switching: the port's platform layer replaces them, so a call from translated
 code into one of them is an external call like any call into C.
@@ -39,6 +43,39 @@ def handwritten_objects(module, version="us.v11"):
     return out
 
 
+# GLOBAL_ASM the port replaces rather than translates: libultra's gu
+# (port/src/gu_extra.c)
+PORT_REPLACED_ASM = {"hd_code/90C50"}
+
+VERSION_MACRO = {"us.v10": "VERSION_US_V10", "us.v11": "VERSION_US_V11",
+                 "jp": "VERSION_JP", "eu": "VERSION_EU"}
+GLOBAL_ASM_RE = re.compile(r'^\s*#pragma\s+GLOBAL_ASM\("asm/nonmatchings/([^"]+)\.s"\)')
+
+
+def global_asm_functions(version="us.v11"):
+    """(module, object, function) of every GLOBAL_ASM the C has for `version`,
+    by the version conditionals as the N64 build resolves them."""
+    import sys
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    from version_ifs import process
+    out = []
+    for module in ("hd_code", "hd_front_end"):
+        d = os.path.join(BLAST, "src", module)
+        for f in sorted(os.listdir(d)):
+            if not f.endswith(".c"):
+                continue
+            obj = f[:-2]
+            if f"{module}/{obj}" in PORT_REPLACED_ASM:
+                continue
+            lines = open(os.path.join(d, f), encoding="latin-1").read().split("\n")
+            for line in process(lines, VERSION_MACRO[version]):
+                m = GLOBAL_ASM_RE.match(line)
+                if m:
+                    mod, o, fn = m.group(1).split("/")
+                    out.append((mod, o, fn))
+    return out
+
+
 def translated_objects(version="us.v11"):
     """(module, object name, .s path) for every object the translator covers."""
     out = []
@@ -48,4 +85,7 @@ def translated_objects(version="us.v11"):
             if obj in LIBULTRA_ASM.get(module, ()):
                 continue
             out.append((module, obj, os.path.join(BLAST, "asm", name + ".s")))
+    for module, obj, fn in global_asm_functions(version):
+        out.append((module, f"{obj}/{fn}",
+                    os.path.join(BLAST, "asm", "nonmatchings", module, obj, fn + ".s")))
     return out
