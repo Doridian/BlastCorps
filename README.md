@@ -120,6 +120,7 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--renderer gl` / `sw`       | OpenGL (the default with a window) or the software renderer |
 | `--scale N`                  | OpenGL: render at 320x240 times N (default: the window's size) |
 | `--filter n64` / `bilinear` / `point` | texture filtering (default: the N64's 3-point filter) |
+| `--interpolate`              | OpenGL: gameplay at 60 frames a second, with a frame drawn between each two of the game's 30 (docs/PORT.md, "Frame rate") |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 

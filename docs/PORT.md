@@ -49,16 +49,20 @@ be compared should each start from the same one, or none),
 window's height, so resizing the window changes it) and
 `--filter n64|bilinear|point` (textures: the N64's 3-point filter where
 the game asks for bilinear filtering, which is the default, a 4-tap
-bilinear one, or point sampling throughout), `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
+bilinear one, or point sampling throughout), `--interpolate` (OpenGL:
+60 frames a second where the game draws 30, see "Frame rate"),
+`--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
 `PORT_AUTOSTART=1` taps Start and A, which is enough to get from the title
 through the name entry into Simian Acres (`=2` taps by the game's own
 retrace count and then drives forward in the level, as
-`port/tools/m64p_pace.c` does in mupen64plus); `PORT_DUMP=N,...` writes RDRAM at
+`port/tools/m64p_pace.c` does in mupen64plus; `=3` also taps A in the
+level, which clears the hint panels, so the vehicle keeps moving);
+`PORT_DUMP=N,...` writes RDRAM at
 the Nth controller read, counted as `tools/recomp/test/snapshot.c` counts
 them in mupen64plus, so the two can be compared byte for byte.
 `PORT_SHOT_EVERY=N` saves a screenshot every N frames (at the internal
-resolution with OpenGL); `PORT_GL_QUANT=1` makes the OpenGL renderer write
+resolution with OpenGL; `PORT_SHOT_FROM=M`: from the Mth on); `PORT_GL_QUANT=1` makes the OpenGL renderer write
 5-bit color, as the RDRAM framebuffer holds it, and `PORT_GL_READBACK=1`
 copies its framebuffers back to RDRAM after every task (see "Graphics").
 `PORT_PACE=FILE` logs the pacing at every controller read (see "Timing").
@@ -1340,6 +1344,162 @@ vectors (the port uses the modelview's axes), the far plane (depth is
 clamped instead), and triangle edges follow GL's and the software
 renderer's pixel-center rule rather than the RDP's.
 
+## Frame rate
+
+Gameplay runs at 30 frames a second at most, and `--interpolate` shows it
+at 60 by drawing a frame between each two.  The game itself can't be made
+to run at 60, because its logic doesn't scale with time.
+
+### How the game paces itself
+
+- **Retraces.**  The scheduler counts every retrace (`Sched.frameCount`,
+  `D_803156C4`) and, while the game isn't paused (`D_802E8BD0`), the level
+  clock (`unk280`, `D_803156C0`).
+- **The swap** (`__scHandleRDP`, 2C560.c).  In the modes of the mask
+  `0xC9FD0FE79BFF80B0` (the logos, the title's story, the "leaders of"
+  screens, ...) a frame is shown as soon as it is drawn, up to 60 a second.
+  In every other mode, the levels and the world map among them, a frame
+  is held until a retrace has gone by since the last one showed.  So each
+  frame is on screen for two retraces at least: 30 frames a second at
+  most, and fewer when the CPU takes longer (the world map averages 3.45
+  retraces a frame, see "Timing").
+- **The game's frame.**  One pass of the mode's frame function (the
+  level's is `func_802475D8`, 00000.c) runs one step of the game and builds
+  one display list.  The step is the same size however long the frame
+  took.  There is no time delta anywhere in it: the game adds constants
+  (the zoom `D_802E8BE0 += 0.05`, the pause menu's scroll
+  `D_80364A80 += 100`) and counts frames (`D_80358060`, `D_80358064`).
+  The handwritten engine (vehicles, collisions, the carrier) never reads
+  the counts: its only use of the scheduler is sending it a task
+  (5FD50.s).
+- **What does count retraces**: the level clock and so the medal times
+  (`func_8028604C`: tenths of a second, retraces / 6, "TIME IN LEVEL"),
+  the countdowns on the results screens (1D990.c), the HUD's blinking
+  (`D_803156C4 % 20`, 3E4C0.c, 2E490.c), the fades (30430.c,
+  `func_80274BF0`), the messages' scrolling and the music cues
+  (`func_8026BCE0` scales by the retraces since its last call), and the
+  front end's timeouts (`SC_FRAMECOUNT - D_80364A54 > 160`).  A frame that
+  takes three retraces slows the game down while the clock runs on, on
+  the N64 as on the port.
+- **Audio** doesn't depend on the frame rate.  The scheduler starts the
+  audio thread's frame on every second retrace (`frameCount & 1`), and the
+  AI paces it.
+- **The TAS** gives one pad per game frame.  The retraces a frame takes
+  change where the game is by the next pad (`--replay` gives each frame
+  the log's retraces: "The TAS").
+
+### Running the game at 60: a turbo, not 60 fps
+
+This was tried by making `__scHandleRDP` swap at once in every mode
+(`|| port_fps_unlocked()` in its condition, for an experiment only), with
+`PORT_COUNT_PER_OP=0` so that the CPU model doesn't hold frames back.
+Simian Acres (`PORT_AUTOSTART=3`, `--deterministic`) then ran at 1.00
+retraces a frame instead of 2.00.  The bulldozer covered the same distance
+per frame as before: from rest, 21.7 units a frame over its first 50
+frames, against 21.0 at 30 fps.  That is twice the distance per second:
+the game ran at double speed while the clock ran at its normal rate.  To
+run at 60 the game would need every per-frame constant halved, in the C
+and in the handwritten engine (physics, animation, the carrier's route,
+the camera's smoothing), and a halved step doesn't give the same states at
+the frames the two rates share, so no movie would sync.  The experiment
+wasn't kept.
+
+### `--interpolate`: in-between frames
+
+The logic runs as before, and the renderer makes the extra frames
+(`port/host/gfx.c`, "in-between frames"; `gfx_gl.c`, the twins):
+
+- **Two passes.**  Where the game holds its frames (the mode is outside
+  the swap's mask, `host_frame_held`), each graphics task's display list
+  runs twice, back to back, while RDRAM is as the task found it.  The
+  first pass is the real one.  The second draws into a *twin* of each GPU
+  target, which has its own depth buffer.  The RSP/RDP state (and TMEM)
+  before the second pass is what the first started from, and after it,
+  what the first ended with.  The second pass draws nothing the software
+  rasterizer owns (the 8-bit render-to-texture images and the RDRAM
+  z-image stay the first pass's), skips the read-backs, and charges no
+  RDP time.
+- **Blending vertices.**  The first pass records where each vertex load
+  (`G_VTX`) put its vertices in clip space.  The second pass moves each
+  vertex halfway from where the previous frame put the same vertex.  For
+  model data that stays put this is the same as interpolating the
+  matrices, since a vertex's clip position is linear in its MVP.  It also
+  follows vertices the CPU writes each frame, and it needs no tags in the
+  game's code: the sm64 and Zelda ports record the transforms in their
+  C, which isn't possible for the handwritten engine.  A load is identified
+  by its address and by how many loads from that address came before it
+  in the frame.  Inside the double-buffered per-frame buffer (`D_803156F8`,
+  segment 2) the address is the offset into it, so the two buffers' loads
+  pair up.  A load whose vertices moved by more than a quarter of their
+  distance from the eye (in clip space) is taken for different vertices
+  (an object that appeared, or a camera cut), and all of it is drawn where
+  the frame has it.
+- **Showing it.**  At the swap (`osViSwapBuffer`, `host_vi_swap`) the
+  frame's twin is marked ready if every task of the frame had its second
+  pass.  The first retrace that shows the frame shows the twin instead,
+  and the second shows the frame.  The frame is therefore on screen one
+  retrace later than before, and in-between images take the retraces a
+  frame used to repeat on.
+- **The game sees none of it.**  With `--interpolate` the game's memory is
+  identical: RDRAM dumps (`PORT_DUMP`) at the 1,200th and 1,500th
+  controller reads (in Simian Acres, `PORT_AUTOSTART=3`, OpenGL,
+  deterministic) are byte for byte the same with and without it.  The TAS
+  gives the same replay report and the same save either way (below).
+  Without the option, host_gfx_task runs as before.
+
+Measured with `PORT_AUTOSTART=3`, `--deterministic`, OpenGL, from boot to
+retrace 3,000 (the attract, the menus, Simian Acres):
+
+- **Images.**  Over retraces 1,600-2,700 (the level's drop-in and
+  driving), 944 of 1,100 retraces showed a new image, 51.5 a second.
+  Without the option it is 474, 25.9 a second.  In steady driving
+  (retraces 2,400-2,420) every retrace is new: 60 a second, against 30.
+  The report at exit counts them: "3000 retraces presented: 1639 showed a
+  new frame of the game's, 869 an in-between one".
+- **Matching.**  Of 645,027 vertex loads in the second passes, 97.5% were
+  blended with the previous frame's, 2.4% had no match there, and 0.15%
+  of the vertices were in loads that moved too far.
+- **Host cost.**  Each graphics task costs twice the GPU work: 0.86 ms
+  of host time a task against 0.45 ms (4x, a Radeon RX 7900 XTX, about
+  two tasks a frame).
+- **Screenshots** (`PORT_SHOT_EVERY=1 PORT_SHOT_FROM=N`) show the
+  in-between frame at the frame's first retrace.  Of each pair of
+  retraces, the second matches a run without the option exactly.
+
+**The TAS** (us.v10, 32-bit build, `--headless --replay`) with
+`--renderer gl --scale 1 --interpolate` gives the same replay report
+(all 125,297 of the log's reads matched, none skipped) and a byte-identical
+save as `--renderer gl` without it: 57 platinum.  Over its 275,443
+retraces it showed 125,322 new frames of the game's and 120,614 in-between
+ones, and blended 92% of the vertex loads.  (The software
+and OpenGL renderers were already a little apart there: 80 retraces given
+anyway against 76, which the option doesn't change.)
+
+What it doesn't do:
+
+- **Only OpenGL**: the software renderer draws into RDRAM, which the second
+  pass mustn't touch, so `--interpolate` is ignored with `--renderer sw`
+  (and says so).
+- **Rectangles aren't interpolated.**  Texture and fill rectangles (text
+  and other 2D pieces) move at the game's rate.  So do
+  texture animations (the TVs, texture coordinates rewritten with
+  `G_MW_POINTS`) and the soft shadows' render-to-texture images, whose
+  images are the frame's (their geometry is blended).
+- **A fixed halfway point.**  Frames that take three retraces or more
+  (lag, the world map) show one in-between image and then the frame for
+  the rest.  The front end's one-retrace modes need none and get none.
+- **Mispairings.**  When objects that share vertex data appear or
+  disappear, the count of earlier loads from an address shifts, and
+  instances can pair with each other.  If they are near each other, the
+  distance test lets them through, and for one image an instance sits
+  between two places.
+
+Beyond 60 (a 120 or 144 Hz display) takes two changes.  The first is k-1
+second passes at t = i/k, each into its own twin, which multiplies the GPU
+work.  The second is presents between retraces: at present the loop
+presents at the VI (`host_video_frame`), and it would need a display clock
+of its own, as the audio has in SDL.  Neither is done.
+
 ## The glue to the translated code
 
 `port/tools/gen_glue.py` generates both directions from the C:
@@ -1640,6 +1800,8 @@ writable, as the N64 has it.
   bulldozer, the carrier, the pause menu).
 - Pacing matches mupen64plus to a few percent in every mode measured
   ("Timing"), and the music and sound effects play ("Audio").
+- `--interpolate` shows gameplay at 60 frames a second (OpenGL; "Frame
+  rate"), without changing what the game does.
 - Known problems: the CPU's time is a model (instruction counts, a scale for
   the C, fixed costs for libultra), and the reference is mupen64plus, not
   the hardware: its CPU is CountPerOp = 2, its RDP instant.  The loading
@@ -1656,6 +1818,8 @@ writable, as the N64 has it.
 - **Timing.**  A better RDP estimate would let `PORT_RDP_SCALE` default to
   1; the C's instruction scale could come from IDO's actual code size per
   function instead of one number.
+- **More than 60 frames a second** for faster displays: more in-between
+  passes and presents between retraces ("Frame rate").
 - **Real call states** for the translated code's test.  Recording `ctx` and
   memory at each translated function's entry during play would replace the
   random registers, and reach the 30% of blocks the random states don't.
