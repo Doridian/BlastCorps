@@ -63,10 +63,20 @@
       FS.syncfs(true, function (err) {
         if (err) console.warn('IndexedDB:', err);
         ready = true;
-        var have = false;
-        try { have = FS.stat(ROM).size > 0; } catch (e) {}
-        document.getElementById('play').hidden = !have;
-        status(have ? 'The ROM from last time is ready.' : 'Choose your Blast Corps ROM (it stays in this browser).');
+        /* ?rom=URL: the ROM from there (your own copy, on your own server) */
+        var url = new URLSearchParams(location.search).get('rom');
+        if (url) {
+          status('Fetching ' + url + '...');
+          fetch(url).then(function (r) {
+            if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+            return r.arrayBuffer();
+          }).then(function (buf) {
+            FS.writeFile(ROM, new Uint8Array(buf));
+            FS.syncfs(false, function () { haveRom(); });
+          }).catch(function (e) { status('Fetching ' + url + ': ' + e.message); });
+          return;
+        }
+        haveRom();
       });
     },
     /* the game wrote its EEPROM (port/host/video.c): to IndexedDB, once the burst is over */
@@ -77,6 +87,12 @@
       }, 500);
     },
   };
+  function haveRom() {
+    var have = false;
+    try { have = FS.stat(ROM).size > 0; } catch (e) {}
+    document.getElementById('play').hidden = !have;
+    status(have ? 'The ROM is ready.' : 'Choose your Blast Corps ROM (it stays in this browser).');
+  }
   function start() {
     if (started || !ready) return;
     started = true;
@@ -89,10 +105,15 @@
     /* more from the address: ?args=--aspect%20window&env=PORT_AUTOSTART=1 */
     var q = new URLSearchParams(location.search);
     if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));
+    /* a window (and so a picture) as many times 320x240 as the page has
+       room for: the canvas keeps the size SDL gives it */
+    if (args.indexOf('--scale') < 0)
+      args.push('--scale', String(Math.max(2, Math.min(6, Math.round(room() * (devicePixelRatio || 1) / 240)))));
     args.push(ROM);
     status('Running. Click the picture for the keyboard.');
     Module.canvas.focus();
     Module.callMain(args);
+    fit();
   }
   document.getElementById('play').onclick = start;
   document.getElementById('rom').onchange = function (e) {
@@ -105,17 +126,18 @@
     });
   };
   Module.canvas.addEventListener('click', function () { Module.canvas.focus(); });
-  /* the picture as big as the page has room for, in the canvas's own shape
-     (SDL sets its size, and its style, when it makes the window) */
+  /* the picture as big as the page has room for, in the shape of the window
+     SDL made (its size is --scale's, start() above) */
+  function room() { return innerHeight - document.getElementById('panel').offsetHeight - 8; }
   function fit() {
+    if (!started) return;     /* (before, SDL would take the size for its window's) */
     var c = Module.canvas, ar = c.width && c.height ? c.width / c.height : 4 / 3;
-    var w = Math.min(innerWidth, (innerHeight - document.getElementById('panel').offsetHeight - 8) * ar);
-    c.style.setProperty('width', Math.floor(w) + 'px', 'important');
+    var w = Math.floor(Math.min(innerWidth, room() * ar));
+    c.style.setProperty('width', w + 'px', 'important');
     c.style.setProperty('height', Math.floor(w / ar) + 'px', 'important');
   }
   addEventListener('resize', fit);
   setInterval(fit, 500);
-  fit();
 </script>
 {{{ SCRIPT }}}
 </body>
