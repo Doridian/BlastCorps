@@ -1135,13 +1135,15 @@ make one object.  port-arena, over the whole program:
   is converted by the callee's extension.  x86-64 and AArch64 ran them
   anyway; WebAssembly can't call a function through another type, and
   i386 got narrow results wrong (below).  A call of the callee's type
-  whose narrow result it says is extended the other way (1D990.c's `s16
-  func_8028604C(s32)` for 409D0.c's `u16 (u32)`, three calls in the 32-bit
-  build, none in the 64-bit ones, whose results port-ilp32 widens) has the
-  caller's extension of the result made the callee's: the N64 used `v0`
-  as the callee left it, and so does x86, which takes the call's word for
-  it, where WebAssembly extends again (the level time's cap, 59,999, came
-  out negative there, and a countdown ran out);
+  whose narrow result it says is extended the other way has the caller's
+  extension of the result made the callee's: the N64 used `v0` as the
+  callee left it, and so does x86, which takes the call's word for it,
+  where WebAssembly extends again.  There were three, 1D990.c's `s16
+  func_8028604C(s32)` for 409D0.c's `u16 (u32)` (the level time's cap,
+  59,999, came out negative in wasm, and a countdown ran out); that
+  declaration is the definition's now, as are `func_80272C5C`'s (`s8` in
+  seven files for a `u8`, which the call repair already covered), and the
+  pass is the safety net (none left in us.v10);
 - in the LP64 build, lays out after RDRAM the C's variables that outgrew
   their N64 room (as `gen_ld.py` decides it: bigger than the N64 symbol's
   size and the distance to the next, or aligned where it isn't: 115 in
@@ -1653,8 +1655,8 @@ page's size.
   gives the log's retraces and reads, so a game drifting in the last
   levels didn't show there; the instruction counts parted a few frames
   earlier, where the countdown's branch first went the other way.)
-  port-arena gives such a result the callee's extension now, as the N64
-  had it.
+  The declaration is fixed now (the ROMs don't change), and port-arena
+  gives any such result the callee's extension, as the N64 had it.
 - In headless chromium (Playwright's `playwright-core` with the system
   chromium, WebGL 2 through SwiftShader): the page loads, takes the ROM
   from the file picker or `?rom=`, plays the logos, the title, the name
