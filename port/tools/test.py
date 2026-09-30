@@ -602,7 +602,7 @@ def table(builds, refs):
     for b, r in got:
         cells = []
         for n in names:
-            if n not in r or n not in ref:
+            if r.get(n) is None or ref.get(n) is None:     # (not run, or failed)
                 cells.append("-")
                 continue
             keys = diff_keys(r[n], ref[n])
@@ -632,7 +632,8 @@ def detail(builds):
             row = []
             for v, r in got:
                 a = base[n].get(k) if f is None else base[n][k].get(f)
-                h = r.get(n, {}).get(k) if f is None else r.get(n, {}).get(k, {}).get(f)
+                rn = r.get(n) or {}     # (None: the run failed)
+                h = rn.get(k) if f is None else rn.get(k, {}).get(f)
                 row.append("=" if h == a else (h or "none")[:6])
             print("   " + (f or k).ljust(7) + " ".join(c.ljust(6) for c in row))
 

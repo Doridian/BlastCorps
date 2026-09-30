@@ -1,6 +1,34 @@
 {
  "comment": "port/tools/test.py's references (docs/PORT.md, \"Testing the port\"): quick: the hashes (sha1, 16 digits) of each scenario's save, --wav and screenshots, by version; layout: screenshots that depend on the executable's layout (not compared across builds); known: failures the suite knows of, by variant (they pass as XFAIL while the hashes are exactly these); tas: the known drifts of the TAS replay's report, by variant.",
  "known": {
+  "jp": [
+   {
+    "note": "native-endian: the carrier on the world map's globe, frames 1228-1285 (a few pixels)",
+    "scenarios": {
+     "auto1": {
+      "shots": {
+       "1250": "e3a6b4b422709fb5"
+      }
+     },
+     "auto2": {
+      "shots": {
+       "1250": "e3a6b4b422709fb5"
+      }
+     },
+     "auto3": {
+      "shots": {
+       "1250": "e3a6b4b422709fb5"
+      }
+     }
+    },
+    "variants": [
+     "n64",
+     "lp64",
+     "mlp64",
+     "mn32"
+    ]
+   }
+  ],
   "us.v10": [
    {
     "note": "native-endian: the carrier on the world map's globe, frames 1228-1285 (a few pixels)",
@@ -60,6 +88,15 @@
   ]
  },
  "layout": {
+  "jp": {
+   "attract.long": [
+    "5000",
+    "5250",
+    "7500",
+    "8000",
+    "9500"
+   ]
+  },
   "us.v10": {
    "auto2": [
     "1500"
@@ -82,6 +119,132 @@
   }
  },
  "quick": {
+  "jp": {
+   "attract": {
+    "shots": {
+     "1000": "228c41dd41b12059",
+     "1250": "caeeaad569758311",
+     "1500": "3ed639c6801ee8b2",
+     "1750": "19f44fa859b93277",
+     "2000": "f039a5a98b4f8fab",
+     "2250": "d1cb7007054d76c3",
+     "250": "618a788270b017be",
+     "2500": "43a52eac13bca48a",
+     "2750": "10bd6cc698acd333",
+     "3000": "de01c7b50fdbad95",
+     "3250": "8867441736343236",
+     "3500": "142bf8e25b0be8be",
+     "3750": "2f3f9b565dd049e3",
+     "4000": "e841dd9de2341003",
+     "500": "f34cae273c3b2c0f",
+     "750": "7f336a3c7e1d75f0"
+    },
+    "wav": "869e1a29bf8597f4"
+   },
+   "attract.long": {
+    "shots": {
+     "1000": "228c41dd41b12059",
+     "10000": "bc72130b8805b080",
+     "10250": "c0cc82bbe9f91833",
+     "10500": "5df26536b0e62938",
+     "10750": "99695baa47b3b07c",
+     "11000": "099d441d8ad4ebbf",
+     "11250": "fe88c6f51865f9a6",
+     "11500": "b9f41eb476153f9d",
+     "11750": "e01c059acc6220b7",
+     "12000": "1d3fe4f2b39f9d20",
+     "1250": "caeeaad569758311",
+     "1500": "3ed639c6801ee8b2",
+     "1750": "19f44fa859b93277",
+     "2000": "f039a5a98b4f8fab",
+     "2250": "d1cb7007054d76c3",
+     "250": "618a788270b017be",
+     "2500": "43a52eac13bca48a",
+     "2750": "10bd6cc698acd333",
+     "3000": "de01c7b50fdbad95",
+     "3250": "8867441736343236",
+     "3500": "142bf8e25b0be8be",
+     "3750": "2f3f9b565dd049e3",
+     "4000": "e841dd9de2341003",
+     "4250": "bc8025f27ecbf80f",
+     "4500": "33ddb591da843f71",
+     "4750": "19a13e0cc591f7c0",
+     "500": "f34cae273c3b2c0f",
+     "5000": "4d9034a2b9c53271",
+     "5250": "9f3710efd36d342f",
+     "5500": "f49ab906033184c1",
+     "5750": "d1e65ef89665d070",
+     "6000": "858af05d112c0838",
+     "6250": "c6556602aca6c6a9",
+     "6500": "2447c02cd509c244",
+     "6750": "2589f8d05315dcc5",
+     "7000": "dbce9fae6862b51f",
+     "7250": "6537c6b195bffa64",
+     "750": "7f336a3c7e1d75f0",
+     "7500": "a01eeefaf688160c",
+     "7750": "6bfb5e6d4da2d300",
+     "8000": "0a98bef24553a2b0",
+     "8250": "682bc8e8b0cf8495",
+     "8500": "7dd7f7bff3ecb433",
+     "8750": "5e2b41c73df0e186",
+     "9000": "e0734d907bf377da",
+     "9250": "a9ffebf89030cb3a",
+     "9500": "7f0d1d0ccbb89622",
+     "9750": "c9854e9d6877a0e8"
+    },
+    "wav": "efb1335ef1bd5f92"
+   },
+   "auto1": {
+    "save": "389ccd1b4337b967",
+    "shots": {
+     "1000": "a999751881b18033",
+     "1250": "90bbbfb5456fb9af",
+     "1500": "881ceb71c7e63f5b",
+     "1750": "b875bcd58203c09e",
+     "2000": "bef765eb1f9d3382",
+     "2250": "037cf6ee36d62ed8",
+     "250": "618a788270b017be",
+     "2500": "184b091a2b6b594a",
+     "2750": "754ee108eeb1e24b",
+     "3000": "e32b1c31f770f060",
+     "500": "f34cae273c3b2c0f",
+     "750": "7f336a3c7e1d75f0"
+    },
+    "wav": "03c415eca99ec8d1"
+   },
+   "auto2": {
+    "save": "389ccd1b4337b967",
+    "shots": {
+     "1000": "a999751881b18033",
+     "1250": "90bbbfb5456fb9af",
+     "1500": "1b9a2251c20a46e5",
+     "1750": "4fa8fb0371583413",
+     "2000": "4fa8fb0371583413",
+     "250": "618a788270b017be",
+     "500": "f34cae273c3b2c0f",
+     "750": "7f336a3c7e1d75f0"
+    },
+    "wav": "c743d58a626e5cd7"
+   },
+   "auto3": {
+    "save": "389ccd1b4337b967",
+    "shots": {
+     "1000": "a999751881b18033",
+     "1250": "90bbbfb5456fb9af",
+     "1500": "7ccbb15421ef77f9",
+     "1750": "226755d14c953bf1",
+     "2000": "2c7e85b59648890c",
+     "2250": "df2367bb00d5ae2f",
+     "250": "618a788270b017be",
+     "2500": "8acd63174b1e89c0",
+     "2750": "205459ae3262d7b3",
+     "3000": "be333251b11987a0",
+     "500": "f34cae273c3b2c0f",
+     "750": "7f336a3c7e1d75f0"
+    },
+    "wav": "64e15fd21da236af"
+   }
+  },
   "us.v10": {
    "attract": {
     "shots": {
