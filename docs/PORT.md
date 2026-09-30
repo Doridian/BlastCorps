@@ -31,7 +31,8 @@ memory in host order ("The native-endian build"), and `-DPORT_LP64=ON`
 ("The LP64 build"); `-DPORT_MOVABLE=ON`, with any of them, puts game
 memory wherever the host allocates it and links an ordinary PIE
 ("Movable memory"), which is the build for macOS (untested there: "Other
-hosts", "macOS", and `port/tools/macos_build.sh`):
+hosts", "macOS", and `port/tools/macos_build.sh`), and which `emcmake cmake`
+builds for WebAssembly, under node or in a browser ("WebAssembly"):
 
 ```
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
@@ -1157,30 +1158,13 @@ TAS gains by it: 57 platinum and all reads matched as before, but no
 mode forced any more (two were), 78 retraces given anyway (85).
 
 **What's left** for the movable build itself: the access profiler
-(refused with it), `build_cmp.py rdram`'s view of the stacks, and the
-glue's prototypes against the host's definitions for wasm-ld (the pass
-fixes the N64 side's calls to the glue by the declaration it has, which
-wasm-ld will check against `entry.c`'s).
+(refused with it) and `build_cmp.py rdram`'s view of the stacks.  (wasm-ld
+found no call to the glue whose type isn't `entry.c`'s.)
 
 For **macOS** (arm64) the movable build is all there is; what it took and
 how it was checked without a Mac is under "Other hosts", "macOS".
 
-And for **WebAssembly** (emscripten): step 6 first; the N64 side through
-the system clang and the plugin for `wasm32-unknown-emscripten` (emsdk's
-clang can't load the plugin: it ships no LLVM headers), the arena link
-as it is, `llc` to a wasm object for emcc's link; the host through emcc
-(`-sUSE_SDL=2`, the OpenGL renderer on WebGL 2 or the software one, the
-ROM and the save through the browser's files and IndexedDB, the main loop
-yielding to the browser, threads without `ucontext`: Asyncify's fibers or
-the pthread backend's structure); the arena from `malloc` (28 MB of
-linear memory), or at linear address 0 with `GLOBAL_BASE` above it.
-
-Tried for wasm32 with step 6: the movable 32-bit native-endian build's
-commands with `--target=wasm32-unknown-emscripten` for `-m32` compile all
-124 files, and the arena link as the build does it (the asm data's `.ll`
-files, `-port-arena-native`) gives `llc` a module it makes a wasm object
-of, with no signature thunk left.  (Before the call repair `llc` failed on
-the mismatched calls.)
+**WebAssembly** is done on top of this: see "WebAssembly" below.
 
 The LP64 build doesn't finish the TAS at the moment, with or without
 this: it stops with SIGFPE at about the movie's read 1,620 (main's
@@ -1230,7 +1214,7 @@ The context switch is behind a small interface, `port/host/fiber.h`, and
 `threads.c` does all the scheduling above it.  The switches form a star:
 the loop (`main.c`) runs a fiber (`fiber_run`) until it yields back
 (`fiber_yield`, `fiber_exit`); a fiber never switches to another fiber.
-There are two backends:
+There are three backends:
 
 - **ucontext** (`fiber_ucontext.c`): `makecontext`/`swapcontext` on the one
   OS thread, as before.  The default where it exists (Linux with glibc).
@@ -1242,8 +1226,11 @@ There are two backends:
   holder) needs no locks of its own.  A fiber whose frames are dropped
   (`fiber_free` of a suspended one, a thread that ends) `longjmp`s back to
   its thread's start routine and returns from it: nothing unwinds through
-  the game's frames.  The default on macOS (where ucontext is deprecated),
-  emscripten and musl (which have none).
+  the game's frames.  The default on macOS (where ucontext is deprecated)
+  and musl (which has none); emscripten can build it (node only).
+- **asyncify** (`fiber_asyncify.c`): emscripten's fibers
+  (`emscripten_fiber_swap`, Asyncify), all on the one thread, in the
+  ucontext backend's shape.  The WebAssembly build's default ("WebAssembly").
 
 Where both are built, the environment's `PORT_THREADS=ucontext|pthread`
 picks one at startup (CMake's `PORT_THREADS` is the default), so one
@@ -1304,8 +1291,11 @@ becomes a function that runs until it has delivered a retrace
 (`host_video_frame`, `port_irq_vi`) and returns; `main` calls it in a loop,
 and an emscripten build hands it to `emscripten_set_main_loop` instead,
 with the `nanosleep` replaced by returning (the browser paces the frames).
-Not done yet, so as not to move the loop under the other work on it.  What
-the fibers need there:
+Not done: the WebAssembly build has Asyncify anyway (for the fibers), and
+so the loop gives the page its thread back with `emscripten_sleep` where
+it would sleep, and after a retrace when it hasn't for 12 ms
+("WebAssembly"); the loop is as it was.  What the fibers needed there
+(as it was planned; "WebAssembly" has what became of it):
 
 - **pthreads in the browser** (`-pthread`, a Web Worker per thread, a
   `SharedArrayBuffer` and so the COOP/COEP headers): the pthread backend
@@ -1351,8 +1341,8 @@ What wasn't portable in the host code, and what became of it:
 
 Checked: every file in `port/host/` compiles for `aarch64-linux-musl`
 (musl's headers: no ucontext, no glibc extensions), also with `__linux__`
-undefined, which takes the non-Linux branches.  There is no macOS SDK or
-emscripten here to try those.
+undefined, which takes the non-Linux branches.  There is no macOS SDK
+here to try that; emscripten: "WebAssembly".
 
 **AArch64.**  `port/tools/cross-aarch64.cmake` cross-builds the 64-bit port
 (`-DPORT_64BIT=ON`) for AArch64 Linux with clang, given the target's glibc
@@ -1465,6 +1455,152 @@ tried, and `__linux__` undefined), the link with ld64 against the real
 libraries, the pthread backend with 16 KB pages, SDL's window and GL
 context on the main thread (the loop is on it, the game's threads call
 over through `fiber_call_on_loop`), and then the TAS.
+
+## WebAssembly
+
+The movable 32-bit native-endian build, compiled for wasm32 with
+emscripten: headless under node (for the TAS and comparisons), or a page
+that plays in a browser (WebGL 2, WebAudio, the save in IndexedDB).
+
+```
+# emsdk anywhere (git clone https://github.com/emscripten-core/emsdk;
+# ./emsdk install latest && ./emsdk activate latest), then in its shell:
+source /path/to/emsdk/emsdk_env.sh
+emcmake cmake -S port -B build/wasm -G Ninja -DPORT_VERSION=us.v10
+cmake --build build/wasm
+node build/wasm/blastcorps.js --headless --deterministic --frames 3000 --screenshot shot baserom.us.v10.z64
+
+emcmake cmake -S port -B build/wasm-web -G Ninja -DPORT_VERSION=us.v10 -DPORT_WASM_TARGET=web
+cmake --build build/wasm-web          # blastcorps.html, .js, .wasm: serve them over HTTP
+```
+
+**The build.**  `emcmake` makes CMake's compiler emcc, which builds the
+host side and the translated engine.  The N64 side can't go through
+emsdk's clang, which can't load BEPass (it ships no LLVM headers), so it
+goes through the clang of the system's `llvm-config` (`PORT_N64_CC`,
+`port/tools/n64cc.py` as the compiler launcher), and BEPass is built with
+that LLVM's clang++.  Its bitcode is **i386's**, exactly as the Linux
+32-bit native-endian movable build compiles it, and the arena link makes
+the linked module wasm32's (`-port-arena-triple`, `-datalayout`: the same
+layout, 4-byte pointers and longs, 8-aligned doubles and long longs as
+`-malign-double` has them; the i386 CPU, feature and stack-protector
+attributes go).  Compiled for wasm32 from the start, `-O2` made other IR
+(switch tables, where x86 has them and wasm doesn't), so other
+instruction counts and another layout of the arena's extra data, and a
+replay parted from the Linux build's in the first level.  `llc` (the
+system's, LLVM 22; emsdk's wasm-ld is 24 and links it) makes a wasm
+object.  Two more things port-arena does there:
+
+- `-port-arena-typed-calls`: WebAssembly traps on a call through another
+  type than the callee's, and the game calls through values of other
+  types (a thread entry defined without its argument, K&R handlers).
+  Each function used as a value gets a thunk per type it is called
+  through (converting as the call repair does), and `port_fn_typed(address,
+  type)` (`runtime.c`) picks it; `port_fn`'s table has the host's type,
+  `void(ptr)`: 30 functions, 8 types, 236 thunks in us.v10.
+- `-port-arena-x86-fptoint`: a float to integer conversion out of range
+  is poison to LLVM, and each target gives what its instruction does.
+  x86's `cvtt*` give 0x80000000 (and i386's narrow and unsigned
+  conversions go through them: a negative float to an unsigned type
+  wraps), which is also what mupen64plus on x86 gave the game when the
+  TAS was made; WebAssembly's saturate.  The conversions are made to give
+  x86's results on any target.
+
+No `-Wl,--wrap`: wasm-ld's would wrap the N64 object's own references
+too (the `__wrap_`s' calls of the real functions among them, which
+recursed); the glue calls the `__wrap_`s itself, as in every movable
+build (`gen_glue.py --wrap`, "macOS").  The arena is `mmap`'s (emscripten's comes from
+`malloc`), with the fibers' stacks in it as everywhere.
+
+What emscripten's libc does differently and the game saw: `sprintf(buf,
+"%s ...", buf, ...)`, the world map's way of building its lines
+(`hd_front_end/1C40.c`), which libultra's `_Printf` and glibc's do as
+they go and musl's garbles: `n64_sprintf` (`libc64.c`) formats apart and
+copies, the same output on glibc.  And `port_in_rdram` is false before
+the arena exists (the ROM file, read first, lies below 28 MB in linear
+memory, where an unset arena said it was RDRAM, so the ROM got
+byte-swapped as a `.n64` one).
+
+**The threads** (`PORT_THREADS`): `asyncify` by default, emscripten's
+fibers on the one thread (`fiber_asyncify.c`, `-sASYNCIFY`; a suspended
+fiber's wasm frames go to a 512 KB buffer of its own, its C frames stay
+on its arena stack), or `pthread` (node only: a worker per fiber, and the
+loop on one too, `-sPROXY_TO_PTHREAD`, so that the page's thread is free
+to start them).  Asyncify is the faster of the two (the handovers between
+workers cost more than the instrumentation), and needs no
+`SharedArrayBuffer`, so no COOP/COEP headers: the page is plain files.
+It doubles the module (6.9 MB against 3.1 MB).  The loop hands the page
+its thread back with `emscripten_sleep` (Asyncify unwinds the loop's own
+frames, which are few: the fibers are elsewhere) in place of its
+`nanosleep`s, and after a retrace when it hasn't for 12 ms, so a busy
+game doesn't hold the page; with `--deterministic` it never sleeps, and
+under node that costs a millisecond now and then.  It is still the loop
+of `main.c`, not a frame callback (`emscripten_set_main_loop`), which
+Asyncify made unnecessary.
+
+**Headless under node** (`PORT_WASM_TARGET=node`, the default): the
+files are node's (`-sNODERAWFS`), and SDL isn't started (it has no
+offscreen driver there): the software renderer draws, and screenshots,
+`--wav`, `--save`, `PORT_DUMP`/`PORT_REPLAY_DUMP` and `--replay` work as
+on Linux.
+
+**In a browser** (`PORT_WASM_TARGET=web`): `blastcorps.html` from
+`port/web/shell.html`.  The ROM comes from a file picker (or `?rom=URL`,
+fetched) and is kept in IndexedDB with the save (IDBFS at `/save`,
+synced after the game writes the EEPROM), so the next visit only needs
+"Play"; `?args=` and `?env=` pass options and environment (`?args=-v`,
+`?env=PORT_AUTOSTART=3`), and the page has widescreen and
+`--interpolate` checkboxes.  The OpenGL renderer runs on WebGL 2
+(`gfx_gl.c`: GLSL ES 3.00, `EXT_depth_clamp` where the browser has it),
+SDL's keyboard and gamepads are the input, and the sound goes through
+SDL's WebAudio.  The window is `--scale`d to the room the page has
+(chosen by the page), and the canvas's style follows the page's size.
+
+**How it was checked**, us.v10:
+
+- 3,000 frames of `PORT_AUTOSTART=2 --deterministic` under node against
+  the Linux 32-bit native-endian movable build: the save, `--wav` and the
+  12 screenshots (every 250 frames, the hint box's static at 1500
+  included) byte for byte the same, and RDRAM the same at the
+  `PORT_REPLAY_DUMP`s compared up to the TAS's read 4,000 but for the addresses of
+  locals on the fibers' stacks (the frames are wasm's, not x86's).
+  Linux took 12.2 s, the asyncify build 16.7 s (5.6 ms a frame, 180 a
+  second; about 1.4 times native), the pthread one about 20 s.
+- The TAS under node (`--replay`, the asyncify build): 57 platinum, the
+  save byte for byte the Linux build's, and the same report but for two
+  counts: "118445 reads, 121304 of the log's 125297 matched (3993
+  skipped), 600 without a match, 1309 retraces given anyway [Linux:
+  1310], 265 random states set, the player elsewhere at 2841, 558 reads
+  of the counts and 2208 audio answers the log doesn't have [2184], 1
+  save commands let go early, 11 modes forced".  The 3,993 skipped and
+  the forced modes are the native-endian builds' known drift, the same
+  on Linux ("The movable build").  The replay log differs in two lines
+  of 1,088 (a retrace waited for at the log's read 13,413 on Linux, at
+  28,095 in wasm).  It took 26 minutes (1,552 s, with another TAS
+  running beside it; Linux alone takes about 20); the pthread build's
+  (before the sprintf fix) 28 minutes and the same result.
+- What still differs from Linux is where the fibers' frames are: the
+  addresses of the C's locals (in RDRAM wherever the game stores one)
+  and what is left on the stacks between calls.  Between the log's reads
+  4,000 and 5,000 some frames begin to be drawn differently (the software renderer's
+  output in RDRAM; RDRAM is otherwise the same), presumably a display
+  list pointing at a local that has gone, and the timing parts by a
+  retrace near read 13,413.  A stack of the arena link's own for the
+  locals that escape (laid out by port-arena, so the same on every
+  target) would take that away.
+- In headless chromium (Playwright's `playwright-core` with the system
+  chromium, WebGL 2 through SwiftShader): the page loads, takes the ROM
+  from the file picker or `?rom=`, plays the logos, the title, the name
+  entry and the world map into Simian Acres with the keyboard (driven by
+  the test), the pause menu, at 60 retraces a second (`-v`'s frame
+  counts against the page's clock, SwiftShader's GL included),
+  widescreen and `--interpolate` too; after a reload the ROM and the
+  save are there.
+
+Untested: a real browser with a GPU and a person (the sound, a gamepad,
+the feel of the pacing, Firefox and Safari: headless Chromium is all
+there was here), and the jp and us.v11 builds (the same code; only
+us.v10 was built).
 
 ## Timing
 
@@ -2216,10 +2352,8 @@ writable, as the N64 has it.
   native-endian memory ("The native-endian build") and the LP64 build ("The
   LP64 build").  Next are the fixed addresses: the game's C and data should
   work at any base, which arm64 macOS and a WebAssembly build (both wanted
-  eventually) need; the movable build ("Movable memory") is that.  Threads without `ucontext` are done
-  (the pthread backend, "Threads without ucontext"); the browser also
-  needs the loop to return every frame, and a way for the fibers not to
-  block its main thread (the same section).  The
+  eventually) need; the movable build ("Movable memory") is that, and the
+  WebAssembly build runs on it in node and in a browser ("WebAssembly").  The
   32-bit build still has the out-of-bounds miscompiles the 64-bit one
   avoids; typing those arrays fixes both.
 - **Readable C.** Replace translated functions with hand-written C one at a

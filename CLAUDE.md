@@ -70,7 +70,10 @@ throughout); jp's remaining `GLOBAL_ASM` functions are translated by
 `port/tools/build_cmp.py` and `layout_cmp.py`.  `-DPORT_MOVABLE=ON` (with
 any of them) puts game memory at any base and links a PIE, the way to
 macOS and WebAssembly: the N64 side is one LLVM module there, through
-port-arena (docs/PORT.md, "Movable memory").  The game's threads switch by ucontext or by host threads one at
+port-arena (docs/PORT.md, "Movable memory").  `emcmake cmake` (emsdk)
+builds that for WebAssembly, headless under node or as a page
+(`-DPORT_WASM_TARGET=web`); the N64 side is still the system clang's
+i386 IR, retargeted at the arena link (docs/PORT.md, "WebAssembly").  The game's threads switch by ucontext or by host threads one at
 a time (`port/host/fiber.h`); on Linux one executable has both and
 `PORT_THREADS=ucontext|pthread` picks, and the two must give identical
 deterministic runs (docs/PORT.md, "Threads without ucontext").

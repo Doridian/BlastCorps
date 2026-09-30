@@ -82,6 +82,24 @@ playing the same game: `-DPORT_NATIVE_ENDIAN=ON` (game memory in the host's
 byte order) and `-DPORT_LP64=ON` (the game's C as an ordinary 64-bit
 program); see docs/PORT.md.
 
+For WebAssembly (a page that plays in a browser, or headless under node),
+install [emsdk](https://github.com/emscripten-core/emsdk) (`./emsdk install
+latest && ./emsdk activate latest`), and after the steps above but the
+last two, in its environment (`source emsdk_env.sh`; the system's clang
+and LLVM still compile the game's C, since they load the pass plugin):
+
+```
+emcmake cmake -S port -B build/wasm-web -G Ninja -DPORT_WASM_TARGET=web
+cmake --build build/wasm-web
+cd build/wasm-web && python3 -m http.server 8000   # then open http://localhost:8000/blastcorps.html
+```
+
+The page asks for your ROM once and keeps it, and the save, in the
+browser's IndexedDB; `?args=--widescreen` and the like pass options.
+Without `-DPORT_WASM_TARGET=web` it builds `blastcorps.js` for node:
+`node build/wasm/blastcorps.js --headless --frames 600 --screenshot shot
+baserom.us.v11.z64` (docs/PORT.md, "WebAssembly").
+
 For `us.v10` or `jp`, put `baserom.us.v10.z64` or `baserom.jp.z64` in the
 root and run the same with `VERSION=us.v10` or `VERSION=jp`, `make -C
 tools/recomp` included (after `make clean` and `make -C blastcorps clean`),
