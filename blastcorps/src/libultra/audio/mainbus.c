@@ -6,7 +6,7 @@ Acmd *alMainBusPull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Acm
 {
     Acmd        *ptr = p;
     ALMainBus   *m = (ALMainBus *)filter;
-    ALFilter    **sources = m->sources;
+    ALFilter    *PTR32 *sources = m->sources;
     s32         i;
 
     /*
@@ -29,7 +29,7 @@ Acmd *alMainBusPull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Acm
 s32 alMainBusParam(void *filter, s32 paramID, void *param)
 {
     ALMainBus     *m = (ALMainBus *) filter;
-    ALFilter    **sources = m->sources;
+    ALFilter    *PTR32 *sources = m->sources;
     
     switch (paramID) {
 

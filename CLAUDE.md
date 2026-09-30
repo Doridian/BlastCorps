@@ -62,7 +62,13 @@ cmake --build build/port && build/port/blastcorps baserom.us.v11.z64
 directory, from a us.v10 stage 2 and `make -C tools/recomp VERSION=us.v10`),
 which is what the TAS replays on (docs/PORT.md, "The TAS").
 
-Port-only source changes in `src/` go under `#ifdef TARGET_PC`.
+`-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
+64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with
+`port/tools/build_cmp.py` and `layout_cmp.py`.
+
+Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A pointer
+the handwritten code, the asm data or the ROM's data share with the C is
+`T *PTR32 p` (4 bytes in the LP64 port, nothing to IDO).
 
 ## Assets
 

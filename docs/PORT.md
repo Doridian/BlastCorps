@@ -21,13 +21,18 @@ renderer also needs 32-bit libepoxy and an OpenGL 3.3 driver (without
 libepoxy only the software renderer is built).  `-DPORT_64BIT=ON` builds
 a 64-bit program instead (x86-64 now, AArch64 in principle; see "The
 64-bit build"), which needs LLVM's `opt` and the ordinary 64-bit SDL2 and
-libepoxy rather than the multilib ones:
+libepoxy rather than the multilib ones; `-DPORT_NATIVE_ENDIAN=ON` keeps game
+memory in host order ("The native-endian build"), and `-DPORT_LP64=ON`
+(both of those and more) compiles the game's C as an ordinary LP64 program
+("The LP64 build"):
 
 ```
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang -DPORT_64BIT=ON
 cmake --build build/port64
-```  Keys: arrows or
+```
+
+Keys: arrows or
 WASD for the stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C
 buttons, TFGH = D-pad; an SDL game controller works too.  `--help` lists
 the options: `--headless`, `--deterministic` (virtual time: as fast as the
@@ -364,7 +369,8 @@ So the stages are:
 3. Native LP64 structs where a struct's pointers are only the C's: those
    the asm or the ROM data share keep 32-bit fields (`PTR32`), and the
    `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
-   depends on them.
+   depends on them.  The first two are gone in the LP64 build ("The LP64
+   build"); the fixed addresses are what's left.
 
 ### The native-endian build
 
@@ -468,11 +474,20 @@ Speed is the same: 6,000 frames take 3.94 s of user time native against
 and 4.27/4.28 s and 4.95/5.21 s in the 32-bit builds; the frame is the
 renderer's more than the game's.
 
-What's left: the inventory, the site table and the island layouts are
-us.v11's (the other versions build big-endian only); levels and vehicles
-the three runs don't reach are typed from the code but untested; and the
-profiler still leaves out the C's byte reads of wider data (its byte
-copies, often into locals it can't see).
+The TAS ("The TAS") plays on it too, us.v10's build with us.v11's
+inventory, site table and island layouts (the handwritten code is the same
+in both, and every site's instruction is): 57 platinum medals, with the
+checkpoints restored by type.  It found two tables of texture ids the C
+declared as bytes (`D_802E8BF4`, `D_802E8CB0`, now the `u16`s they are,
+which the N64 build doesn't see) and a port bug of every build (the polls
+ignored `osSetIntMask`, "The platform layer").  It isn't exact yet: from
+the movie's read 35,680 the player drifts by a unit and the checkpoints
+put the port back at the next mode change.
+
+What's left: jp and eu build no port yet (their functions still in asm);
+levels and vehicles the runs don't reach are typed from the code but
+untested; and the profiler still leaves out the C's byte reads of wider
+data (its byte copies, often into locals it can't see).
 
 **What the type inventory needs to give**, machine-readable (JSON, one
 file), for all of this:
@@ -509,6 +524,92 @@ side, and each checks the other.  Stage 1 needs `types`, `symbols` and
 `loads` for the ROM segments above and `packed`; stage 2 needs
 `punning`; stage 3 needs `asm_uses` and the `ptr` fields.
 
+### The LP64 build
+
+`-DPORT_LP64=ON` (which turns on `PORT_64BIT` and `PORT_NATIVE_ENDIAN`)
+compiles the game's C for the host as it is: no i386 frontend, no
+port-ilp32, 8-byte pointers, and every struct laid out by the host but
+where the N64's layout is shared.  BEPass still runs (the polls, the
+instruction count, the u64 words).
+
+**`PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's `__ptr32 __uptr` in this
+build, nothing elsewhere, so IDO sees the same code) is a pointer that stays
+4 bytes in memory, zero-extended when loaded.  The structs that keep the
+N64's layout have it on every pointer field:
+
+- what the translated code reads at the N64's offsets: `Vehicle`,
+  `Building`, `TntCrate`, `UnkStruct_803ED460`, and `SchedTask`, which
+  hd_code 5FD50 builds itself (the inventory's `asm_uses` misses that, so
+  it isn't proof on its own; the runs below are);
+- what the ROM's data, the asm data files and hd_code's islands hold:
+  libaudio's banks and sequences, Rare's `SndBank`/`SndInstrument`
+  (`ROMPTR` is `PTR32` now), `YoshiEntry` (hd_front_end 25070's tables),
+  `UnkStruct_8036EC30` (800DC's);
+- structs whose instances other files reach through labels inside them
+  (`D_803156C4` is `Sched.frameCount`, the audio DMA state's, `ALHeap`'s),
+  and so what those embed: libultra's `OSThread`, `OSMesgQueue` and
+  `OSMesg` (a `PTR32` typedef), `OSIoMesg`, `OSTimer`, `OSTask`;
+- all of libaudio and Rare's sound player: libaudio casts between its
+  parameter records and allocates them at `sizeof(ALParam)`, which holds
+  only in the N64's layout; its function-pointer typedefs are `PTR32` too;
+- gzip's `huft` (the table pool is sized for the N64's), and the pointer
+  slots the handwritten code passes to the C (the unzip's `src`/`dst`,
+  `func_80278BF0`'s `out`, the sound handles of `func_80260650` and
+  `SndState.unk30`), and the C's `extern`s of pointers the asm's data
+  define (`level.h`'s `D_803BDAF0`..., `D_803F7654`, `D_802C4A20`).
+
+What is native then: pointer variables, and the structs only the C uses
+(`SchedClient`, seven of the front end's and the game's
+`UnkStruct_*`).  `port/tools/layout_cmp.py A B` lists every struct whose
+layout differs between two builds from their DWARF.  The
+`SIZE_CHECK`s hold on the N64 for a native struct (`SIZE_CHECK_C`) and
+everywhere for the rest.
+
+**The variables that grew.**  `gen_ld.py` leaves a C variable to the host
+linker when it no longer fits where the N64 has it (its room up to the next
+sized N64 symbol, or its alignment): 120 in us.v10, pointers and the native
+structs' tables, listed in `gen/port_rdram_moved.txt`.  The translated
+code finds them through `SYM()` as before.  They live in the image, above
+RDRAM, so what reads game memory by address takes the whole KSEG0 window:
+the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
+(RDRAM to the image's `_end`).
+
+**Also needed:**
+
+- `s32`/`u32` are `int` in the port (`ultratypes.h`), `Mtx_t`, `Hilite`,
+  `Gsetcolor` and `TexRect` in `gbi.h` 32-bit, `size_t` the host's;
+- display lists in static data: clang won't truncate a 64-bit address in a
+  constant, so `gbi.h` puts its words through `_GBI_W` (a cast through a
+  32-bit pointer, which is a 32-bit relocation), and `STATIC_K0_TO_PHYS`
+  the same;
+- **port-lp64** (`bepass/LP64.cpp`, before BEPass): what port-ilp32 does
+  that isn't layout.  Pointer arithmetic by a variable or large offset
+  wraps at 32 bits, an integer made a pointer is zero-extended, accesses
+  outside a variable's name go through an integer, K&R calls are repaired
+  (pointer arguments and results re-zero-extended, narrow results
+  widened, narrow arguments extended by the callee), calls through a
+  32-bit function pointer are made through its value (clang calls through
+  the `__ptr32` operand, and the backend then loads 8 bytes), and a
+  `PTR32` field in a static initializer becomes the address's low 32 bits;
+- BEPass's native mode swaps the words of u64s but not of the 8-byte
+  pointers.
+
+**How it was checked**, us.v10, against the native-endian 64-bit build,
+`PORT_COUNT_PER_OP=0 --deterministic`, Simian Acres (`PORT_AUTOSTART=2`):
+4,000 frames with the save, `--wav` and 16 screenshots identical; RDRAM at
+controller reads 300 and 600 the same but for the native structs' own
+layout and pointers to what moved (`build_cmp.py rdram --moved`); call
+traces identical for 631,000 calls, up to an interrupt that the LP64 build
+takes one call earlier at read 655.
+
+What's left for it: the fixed addresses.  The image is still non-PIE at
+`0x80400000` and RDRAM at `0x80000000`, which `PTR32` (and the translated
+code's 32-bit addresses) depend on; Linux on x86-64 and AArch64 can do
+that, macOS on arm64 and WebAssembly can't.  Getting there means the game's
+variables reached by relocatable symbols only, RDRAM an arena at any base
+with the 32-bit addresses relative to it, and `PTR32` a base-relative
+pointer; and for the browser, threads without `ucontext`.
+
 ## The platform layer
 
 - **Threads** (`port/host/threads.c`): each OSThread is a fiber (ucontext) on
@@ -516,7 +617,13 @@ side, and each checks the other.  Stage 1 needs `types`, `symbols` and
   runnable thread runs until it blocks, yields, or wakes a thread of higher
   priority.  The idle thread parks when it drops to priority 0.  Each thread
   has its own `recomp_context`, whose `$sp` is the N64 stack the game gave
-  `osCreateThread` (only the translated code uses it).
+  `osCreateThread` (only the translated code uses it).  A loop's poll
+  (BEPass's `__port_poll`) can yield to the loop, and so let a higher
+  thread run, which on the N64 an interrupt would; with every interrupt
+  masked (`osSetIntMask(OS_IM_NONE)`) it doesn't.  The game walks its list
+  of playing sounds that way while the audio thread frees from it; before
+  the polls honoured the mask, the walk once reached a freed state (the
+  TAS on the 64-bit build, read 28,965).
 - **The loop** (`port/host/main.c`) runs when no thread can: it raises the
   events the hardware would (VI retrace at 60 Hz, timers, PI, SP and DP task
   completion) and sleeps until the next one, or until a busy thread's work
@@ -769,7 +876,9 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   of `RECOMP_NATIVE_ENDIAN`, both compiled out by default (the
   differential test passes 688/688 after them).
 
-The 64-bit build needs no change in `blastcorps/src`.
+The 64-bit build needs no change in `blastcorps/src`.  The LP64 build's are
+`PTR32`s (nothing to IDO), `_GBI_W` in `gbi.h`, and the port's `int`
+typedefs in `ultratypes.h` ("The LP64 build").
 
 ## The TAS
 
@@ -879,7 +988,8 @@ frames and gives each the movie's input for that frame:
   mode as the next one, and the game's own switch (and the new mode's init,
   a level's loading included) does the rest.  Levels play exactly from
   their start, so this checks every level even where the menus between
-  them don't match.  (Big-endian build only.)
+  them don't match.  The state is the N64's bytes; the native-endian build
+  writes each datum at its own width.
 - **The seed.**  The random number generator (`D_8036B968`) is seeded from
   `osGetCount`, which is the port's clock: after a seeding (23C20.c,
   20460.c call `port_replay_seeded` under `TARGET_PC`) the next read sets
@@ -955,10 +1065,12 @@ writable, as the N64 has it.
   memory at each translated function's entry during play would replace the
   random registers, and reach the 30% of blocks the random states don't.
 - **Toward native code**: the 64-bit build is done ("The 64-bit build"),
-  and native-endian memory for us.v11 ("The native-endian build"); native
-  pointers are stage 3 of "Native-endian memory", on the type inventory.  The 32-bit build still
-  has the out-of-bounds miscompiles the 64-bit one avoids; typing those
-  arrays fixes both.
+  native-endian memory ("The native-endian build") and the LP64 build ("The
+  LP64 build").  Next are the fixed addresses: the game's C and data should
+  work at any base, which arm64 macOS and a WebAssembly build (both wanted
+  eventually) need, and the latter also threads without `ucontext`.  The
+  32-bit build still has the out-of-bounds miscompiles the 64-bit one
+  avoids; typing those arrays fixes both.
 - **Readable C.** Replace translated functions with hand-written C one at a
   time. Each replacement can be checked with the same harness: point the
   test library at the new C instead of the generated file.

@@ -126,8 +126,12 @@ static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((c
    those files map them here, which reads RDRAM at its own width and
    anything else (the ROM file) big-endian as before. */
 #ifdef PORT_NATIVE_ENDIAN
+/* game memory: RDRAM and the image's data after it, where the LP64 build
+   puts the variables that outgrew their N64 addresses (gen_ld.py); the ROM
+   file comes from malloc, after _end */
+extern char _end[];
 static inline int port_in_rdram(const void *p) {
-    return (uintptr_t)p - PORT_RDRAM_BASE < PORT_RDRAM_SIZE;
+    return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
 static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
 static inline void port_wvar16(void *p, uint16_t v) {
@@ -174,6 +178,7 @@ void host_wake(uint32_t key);
 /* let a higher-priority runnable thread run now (libultra preemption) */
 void host_preempt(void);
 void host_yield(void);
+extern int port_ints_masked;        /* osSetIntMask(OS_IM_NONE): no preemption at the polls */
 /* charge the running thread for the instructions it executed (see
    threads.c); it may be held back until the clock catches up */
 void host_cpu_sync(void);
@@ -188,7 +193,7 @@ void host_irq_cost(uint32_t instructions);
 
 /* "interrupts" the host raises from its loop, into port/src */
 void port_irq_vi(void);             /* one retrace */
-uint64_t port_irq_timers(uint64_t now);   /* fire due timers; next deadline or ~0 */
+unsigned long long port_irq_timers(unsigned long long now);   /* fire due timers; next deadline or ~0 */
 void port_irq_event(int event);     /* OS_EVENT_* */
 void host_raise(int event);         /* queue an event for the loop */
 void host_raise_at(int event, uint64_t at_ns);  /* ... at host_now_ns() == at_ns */

@@ -9,7 +9,7 @@
 extern FrameGame D_02000000;
 
 void func_80291724(s32 arg0);
-extern void *func_80260650(SndBank *, s16, void **);
+extern void *func_80260650(SndBank *, s16, void *PTR32 *);
 extern void func_802608C8(void *);
 extern s32 func_8026A610(s32, s32, s32, s32);
 extern s32 func_8029B930(void);

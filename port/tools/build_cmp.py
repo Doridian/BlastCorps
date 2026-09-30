@@ -7,6 +7,11 @@
       stacks in both (they differ between builds by construction); prints
       the first differing words of each dump.
 
+  build_cmp.py rdram --moved MOVED.txt EXE DIR_A DIR_B N...
+      the same between a build with the N64's layout and an LP64 one (EXE,
+      whose gen/port_rdram_moved.txt is MOVED.txt): the N64 places of the
+      variables the LP64 build moved, and pointers to them, are left out.
+
   build_cmp.py rdram --native DIR_BE DIR_NATIVE N...
       the same between the big-endian build and a native-endian one: a
       word of the native dump matches if it is the big-endian word in one
@@ -48,11 +53,43 @@ def stack(v):
     return (v >= 0x90000000) & (v < 0x91000000)
 
 
-def rdram(a, b, ns):
+# rdram --moved: the variables the LP64 build put elsewhere (gen_ld.py's
+# port_rdram_moved.txt, next to the build's gen/): (N64 address, N64 size,
+# the LP64 build's address, its size)
+MOVED = []
+
+
+def load_moved(path, exe):
+    host = {}
+    for line in subprocess.run(["nm", exe], capture_output=True, text=True, check=True).stdout.splitlines():
+        p = line.split()
+        if len(p) == 3:
+            host[p[2]] = int(p[0], 16)
+    for line in open(path):
+        name, addr, hsize, nsize = line.split()
+        if name in host:
+            MOVED.append((int(addr, 16), int(nsize, 16), host[name], int(hsize, 16)))
+
+
+def moved_ok(x, y):
+    """words that differ only because of the moved variables: their N64
+    places (empty in the LP64 build), and pointers to them"""
+    ok = np.zeros(len(x), bool)
+    for lo, size, hlo, hsize in MOVED:
+        w0, w1 = (lo - 0x80000000) // 4, (lo - 0x80000000 + size + 3) // 4
+        ok[w0:w1] = True
+        ok |= (x >= lo) & (x < lo + max(size, 1)) & (y >= hlo) & (y < hlo + max(hsize, 1))
+    return ok
+
+
+def rdram(a, b, ns, order=">u4"):
     for n in ns:
-        x = np.fromfile(f"{a}/rdram_{n}.bin", ">u4")
-        y = np.fromfile(f"{b}/rdram_{n}.bin", ">u4")
-        d = np.nonzero(x != y)[0]
+        x = np.fromfile(f"{a}/rdram_{n}.bin", order)
+        y = np.fromfile(f"{b}/rdram_{n}.bin", order)
+        bad = x != y
+        if MOVED:
+            bad &= ~moved_ok(x.astype(np.int64), y.astype(np.int64))
+        d = np.nonzero(bad)[0]
         real = [w for w in d if not (image(x[w]) and image(y[w])) and not (stack(x[w]) and stack(y[w]))]
         print(f"rdram_{n}: {len(real)} words differ",
               " ".join(f"{0x80000000 + 4 * w:08X}:{x[w]:08X}/{y[w]:08X}" for w in real[:8]))
@@ -61,30 +98,36 @@ def rdram(a, b, ns):
 def rdram_typed(a, b, n):
     """byte by byte, the big-endian dump put into host order at the widths
     the native build's profiler recorded (rdram_N.widths); bytes of unknown
-    width fall back to the any-order word check"""
+    width fall back to the any-order word check.  A byte left of a unit
+    that was partly overwritten later (a u16 stored into a word that held a
+    pointer: gzip's huft union, a record built over a stale one) holds a
+    different byte of the old value in each order, so it isn't compared:
+    it can only be read at another width than it was written at, which the
+    profiler's table reports."""
     x = np.fromfile(f"{a}/rdram_{n}.bin", "u1")
     y = np.fromfile(f"{b}/rdram_{n}.bin", "u1")
     w = np.fromfile(f"{b}/rdram_{n}.widths", "u1")
     width, start = w & 0xF, (w & 0x10) != 0
-    exp = x.copy()
-    # bytes, and the units still whole (a unit partly overwritten later is
-    # left to the any-order check)
-    known = width == 1
     pos = w >> 5
-    for u in (2, 4):
+    exp = x.copy()
+    known = width == 1
+    cut = np.zeros(len(x), bool)
+    for u in (2, 4, 8):
         idx = np.nonzero(start & (width == u))[0]
         idx = idx[idx + u <= len(x)]
         whole = np.ones(len(idx), bool)
         for k in range(1, u):
             whole &= (width[idx + k] == u) & (pos[idx + k] == k)
-        idx = idx[whole]
+        # a u64 is two host-order words, the high one first
         for k in range(u):
-            exp[idx + k] = x[idx + u - 1 - k]
-            known[idx + k] = True
+            src = k // 4 * 4 + 3 - k % 4 if u == 8 else u - 1 - k
+            exp[idx[whole] + k] = x[idx[whole] + src]
+            known[idx[whole] + k] = True
+    cut = (width > 1) & ~known
     bad = np.nonzero(known & (exp != y))[0]
-    # the words with unknown bytes: any order
+    # the words with bytes of unknown width: any order
     xw, yw = x.view(">u4"), y.view(">u4")
-    unk = np.nonzero(~known.reshape(-1, 4).all(axis=1))[0]
+    unk = np.nonzero((width == 0).reshape(-1, 4).any(axis=1))[0]
     bs16 = lambda v: ((v & 0x00FF00FF) << 8) | ((v >> 8) & 0x00FF00FF)
     xu, yu = xw[unk], yw[unk]
     ok = (xu == yu) | (xu.byteswap() == yu) | (bs16(xu) == yu) | \
@@ -95,7 +138,8 @@ def rdram_typed(a, b, n):
     # differ by construction
     ptrs = set(np.nonzero(image(xw) & image(yw.byteswap()) | stack(xw) & stack(yw.byteswap()))[0].tolist())
     known_bad = sorted(set(int(i) // 4 for i in bad) - set(int(i) for i in unk) - ptrs)
-    print(f"rdram_{n}: {len(known_bad)} words differ at their widths, {len(badw)} of unknown width in every order")
+    print(f"rdram_{n}: {len(known_bad)} words differ at their widths, {len(badw)} of unknown width in every order"
+          f" ({int(cut.sum())} bytes of cut units not compared)")
     for i in known_bad[:10]:
         print(f"   {0x80000000 + 4 * i:08X}: be {x[4*i:4*i+4].tobytes().hex()} native {y[4*i:4*i+4].tobytes().hex()}"
               f" widths {[int(v) for v in width[4*i:4*i+4]]}")
@@ -193,6 +237,9 @@ def itrace(a, b):
 if __name__ == "__main__":
     if len(sys.argv) > 5 and sys.argv[1:3] == ["rdram", "--native"]:
         rdram_native(sys.argv[3], sys.argv[4], sys.argv[5:])
+    elif len(sys.argv) > 6 and sys.argv[1:3] == ["rdram", "--moved"]:
+        load_moved(sys.argv[3], sys.argv[4])
+        rdram(sys.argv[5], sys.argv[6], sys.argv[7:], "<u4")    # both native-endian
     elif len(sys.argv) > 4 and sys.argv[1] == "rdram":
         rdram(sys.argv[2], sys.argv[3], sys.argv[4:])
     elif len(sys.argv) == 4 and sys.argv[1] == "itrace":

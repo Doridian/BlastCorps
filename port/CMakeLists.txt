@@ -38,6 +38,14 @@ option(PORT_ACCESS_PROFILE "record the width every byte of RDRAM is written and 
 # host order where the N64 has it, the ROM's data converted by type as it
 # is loaded; BEPass then swaps nothing but the words of 64-bit scalars
 option(PORT_NATIVE_ENDIAN "game memory in host byte order instead of the N64's" OFF)
+# native LP64 structs (docs/PORT.md, "The LP64 build"): the game's C compiled
+# for the host as it is, 8-byte pointers but in the structs the handwritten
+# code, the ROM's data or the renderer share (PTR32); needs both of the above
+option(PORT_LP64 "the game's C as an ordinary LP64 program (implies PORT_64BIT, PORT_NATIVE_ENDIAN)" OFF)
+if(PORT_LP64)
+    set(PORT_64BIT ON CACHE BOOL "" FORCE)
+    set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
+endif()
 
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
@@ -51,7 +59,11 @@ file(MAKE_DIRECTORY ${GEN})
 configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # the generators read the stage-2 build of PORT_VERSION
-set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} ${Python3_EXECUTABLE})
+if(PORT_LP64)
+    set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_LP64=1 ${Python3_EXECUTABLE})
+else()
+    set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} ${Python3_EXECUTABLE})
+endif()
 
 foreach(f ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${RECOMP_GEN}/recomp_funcs.h)
     if(NOT EXISTS ${f})
@@ -69,7 +81,7 @@ endif()
 find_program(LLVM_CONFIG llvm-config REQUIRED)
 execute_process(COMMAND ${LLVM_CONFIG} --cxxflags OUTPUT_VARIABLE LLVM_CXXFLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 separate_arguments(LLVM_CXXFLAGS)
-add_library(BEPass MODULE bepass/BEPass.cpp bepass/ILP32.cpp)
+add_library(BEPass MODULE bepass/BEPass.cpp bepass/ILP32.cpp bepass/LP64.cpp)
 target_compile_options(BEPass PRIVATE ${LLVM_CXXFLAGS} -fno-rtti)
 set_target_properties(BEPass PROPERTIES PREFIX "lib" LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass.so)
@@ -78,7 +90,10 @@ execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE 
 # the N64 side's layout: i386 with 8-byte aligned doubles and long longs,
 # as MIPS o32 has them
 set(M32 -m32 -msse2 -mfpmath=sse -malign-double)
-if(PORT_64BIT)
+if(PORT_LP64)
+    # the host's own layout: no i386 frontend, no port-ilp32
+    set(M32)
+elseif(PORT_64BIT)
     execute_process(COMMAND ${CMAKE_C_COMPILER} -print-target-triple OUTPUT_VARIABLE PORT_TRIPLE OUTPUT_STRIP_TRAILING_WHITESPACE)
     get_filename_component(LLVM_BINDIR_HINT ${LLVM_CONFIG} DIRECTORY)
     find_program(LLVM_OPT opt HINTS ${LLVM_BINDIR_HINT} REQUIRED)
@@ -100,10 +115,17 @@ endif()
 if(PORT_NATIVE_ENDIAN)
     list(APPEND N64_LAUNCHER BEPASS_NATIVE=1)
 endif()
+if(PORT_LP64)
+    list(APPEND N64_LAUNCHER BEPASS_LP64=1)
+endif()
 if(N64_LAUNCHER)
     list(PREPEND N64_LAUNCHER env)
 endif()
-if(PORT_64BIT)
+if(PORT_LP64)
+    set(HOST_ARCH -fPIE)
+    list(APPEND M32 -fPIE)
+    message(STATUS "LP64 build")
+elseif(PORT_64BIT)
     list(PREPEND ILP32CC ${N64_LAUNCHER})
     set(N64_LAUNCHER ${ILP32CC})
     set(HOST_ARCH -fPIE)
@@ -142,6 +164,10 @@ set(N64_INCLUDES
 set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
 if(PORT_64BIT)
     list(APPEND N64_DEFINES PORT_64BIT)
+endif()
+if(PORT_LP64)
+    list(APPEND N64_DEFINES PORT_LP64)
+    list(APPEND M32 -fms-extensions)    # PTR32: __ptr32 __uptr
 endif()
 if(PORT_ACCESS_PROFILE)
     list(APPEND N64_DEFINES PORT_ACCESS_PROFILE)

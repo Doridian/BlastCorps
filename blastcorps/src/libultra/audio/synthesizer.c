@@ -52,14 +52,14 @@ void alSynNew(ALSynth *drvr, ALSynConfig *c)
      */
     drvr->auxBus = alHeapAlloc(hp, 1, sizeof(ALAuxBus));
     drvr->maxAuxBusses = 1;
-    sources = alHeapAlloc(hp, c->maxPVoices, sizeof(ALFilter *));
+    sources = alHeapAlloc(hp, c->maxPVoices, sizeof(ALFilter *PTR32));
     alAuxBusNew(drvr->auxBus, sources, c->maxPVoices);
 
     /*
      * allocate and initialize the main bus.
      */
     drvr->mainBus = alHeapAlloc(hp, 1, sizeof(ALMainBus));
-    sources = alHeapAlloc(hp, c->maxPVoices, sizeof(ALFilter *));
+    sources = alHeapAlloc(hp, c->maxPVoices, sizeof(ALFilter *PTR32));
     alMainBusNew(drvr->mainBus, sources, c->maxPVoices);
 
     if (c->fxType != AL_FX_NONE){

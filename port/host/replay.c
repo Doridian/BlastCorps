@@ -613,16 +613,18 @@ static void force_mode(unsigned k) {
             c = &checkpoints[i];
     if (!c)
         return;
-#ifdef PORT_NATIVE_ENDIAN
-    host_fatal("replay: checkpoints need the big-endian build");
-#endif
+    /* the log has the N64's bytes: each datum goes in at its own width */
     const uint8_t *st = c->state;
     memcpy(D_80364AF0, st, 0x400), st += 0x400;
-    memcpy(D_80364EF0, st, 0x80), st += 0x80;
-    memcpy(D_80364F70, st, 0xF0), st += 0xF0;
-    memcpy(D_802E8BDC, st, 4), st += 4;
+    for (int i = 0; i < 4; i++)         /* PlayerInfo[4], as the save has them */
+        host_save_order((uint8_t *)D_80364AF0 + 0x100 * i, 0, 0x100, 0);
+    for (int i = 0; i < 0x40; i++, st += 2)     /* u16 [4][16] */
+        port_wg16(D_80364EF0 + 2 * i, port_be16(st));
+    for (int i = 0; i < 0x78; i++, st += 2)     /* u16 [0x78] */
+        port_wg16(D_80364F70 + 2 * i, port_be16(st));
+    port_wg32(D_802E8BDC, port_be32(st)), st += 4;
     D_80364AE8[0] = st[0], st += 4;
-    memcpy(D_8036B968, st, 4);
+    port_wg32(D_8036B968, port_be32(st));
     /* the first mode the movie's game switched to on its way there: the
        reads so far were k */
     uint64_t first = c->mode;
@@ -632,8 +634,8 @@ static void force_mode(unsigned k) {
             next_switch = i + 1;
             break;
         }
-    port_wbe32(D_80364A98, (uint32_t)(first >> 32));
-    port_wbe32(D_80364A98 + 4, (uint32_t)first);
+    port_wg32(D_80364A98, (uint32_t)(first >> 32));
+    port_wg32(D_80364A98 + 4, (uint32_t)first);
     memset(D_80364AA0, 0, 8);
     memset(D_8036C778, 0, 8);
     D_8036C784[0] = 0;
@@ -669,8 +671,8 @@ void port_replay_mode_switch(void) {
             return;
         }
     next_switch++;
-    port_wbe32(D_80364A98, (uint32_t)(w->mode >> 32));
-    port_wbe32(D_80364A98 + 4, (uint32_t)w->mode);
+    port_wg32(D_80364A98, (uint32_t)(w->mode >> 32));
+    port_wg32(D_80364A98 + 4, (uint32_t)w->mode);
     host_log("(no change at the reads)\n");
 }
 

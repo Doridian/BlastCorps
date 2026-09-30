@@ -56,9 +56,9 @@ typedef struct AmmoBox {
     /* 0x06 */ u8 type;
     /* 0x07 */ u8 collected;     /* set when picked up (func_8028C874) */
     /* 0x08 */ s16 alpha;        /* 0xFF, fades by 20 a frame once collected (the prim colour's alpha) */
-    /* 0x0C */ u8 *unkC;         /* textures from func_802A0CC8, loaded with OS_K0_TO_PHYSICAL */
-    /* 0x10 */ u8 *unk10;
-    /* 0x14 */ Vtx *vtx;         /* 8 vertices, 0x80 bytes from the heap (D_80358070) */
+    /* 0x0C */ u8 *PTR32 unkC;   /* textures from func_802A0CC8, loaded with OS_K0_TO_PHYSICAL */
+    /* 0x10 */ u8 *PTR32 unk10;
+    /* 0x14 */ Vtx *PTR32 vtx;   /* 8 vertices, 0x80 bytes from the heap (D_80358070) */
 } AmmoBox;
 SIZE_CHECK(AmmoBox, 0x18);
 
@@ -121,10 +121,10 @@ typedef struct TntCrate {
     /* 0x26 */ s16 unk26;
     /* 0x28 */ s16 unk28;
     /* 0x2A */ s16 unk2A;
-    /* 0x2C */ u8 *tex[4];       /* textures from func_802A0CC8 (TntCrateInfo.unkC..unk12) */
-    /* 0x3C */ Vtx *vtx;         /* 8 vertices, 0x80 bytes from the heap */
-    /* 0x40 */ SndState *unk40;  /* sound 0x73, started when it is lit (func_80260650's handle) */
-    /* 0x44 */ SndState *unk44;  /* sound 7, while it is pushed */
+    /* 0x2C */ u8 *PTR32 tex[4]; /* textures from func_802A0CC8 (TntCrateInfo.unkC..unk12) */
+    /* 0x3C */ Vtx *PTR32 vtx;   /* 8 vertices, 0x80 bytes from the heap */
+    /* 0x40 */ SndState *PTR32 unk40;  /* sound 0x73, started when it is lit (func_80260650's handle) */
+    /* 0x44 */ SndState *PTR32 unk44;  /* sound 7, while it is pushed */
 } TntCrate;
 SIZE_CHECK(TntCrate, 0x48);
 
@@ -200,8 +200,8 @@ typedef struct Block {
     /* 0x2A */ s16 unk2A;
     /* 0x2C */ s16 unk2C;
     /* 0x2E */ s16 unk2E;
-    /* 0x30 */ void *unk30;      /* texture (func_802A0CC8) */
-    /* 0x34 */ SndState *unk34;  /* sound 7, while it is pushed */
+    /* 0x30 */ void *PTR32 unk30;      /* texture (func_802A0CC8) */
+    /* 0x34 */ SndState *PTR32 unk34;  /* sound 7, while it is pushed */
 } Block;
 SIZE_CHECK(Block, 0x38);
 
@@ -273,9 +273,9 @@ SIZE_CHECK(LevelBuilding, 0xE);
  * shadows.
  */
 typedef struct Building {
-    /* 0x00 */ struct Model *model;  /* game/model.h */
-    /* 0x04 */ void *unk4;       /* heap blocks (func_802A21AC) */
-    /* 0x08 */ void *unk8;
+    /* 0x00 */ struct Model *PTR32 model;  /* game/model.h */
+    /* 0x04 */ void *PTR32 unk4; /* heap blocks (func_802A21AC) */
+    /* 0x08 */ void *PTR32 unk8;
     /* 0x0C */ s32 unkC;
     /* 0x10 */ s32 x;            /* world position << 5 (13A70.c draws the shadow at x, unk44, z) */
     /* 0x14 */ s32 y;
@@ -311,7 +311,7 @@ typedef struct Building {
 SIZE_CHECK(Building, 0xFC);
 
 extern Building D_803F4030[];
-extern Building *D_803F7654; /* one past the last */
+extern Building *PTR32 D_803F7654; /* one past the last */
 
 /* LevelHeader.unk58 (in two levels): what hd_code 32E00.c walks from
  * D_803BE6FC to D_803BE700.  (tools/assetlib/level.py writes it as four

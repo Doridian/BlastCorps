@@ -15,7 +15,7 @@
 #define BMAX 16
 #define N_MAX 288
 
-int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft **t, int *m) {
+int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft *PTR32 *t, int *m) {
     unsigned a;
     unsigned c[BMAX + 1];
     unsigned f;
@@ -257,8 +257,8 @@ int inflate_stored(void) {
 
 int inflate_fixed(void) {
     int i;
-    struct huft *tl;
-    struct huft *td;
+    struct huft *PTR32 tl;
+    struct huft *PTR32 td;
     int bl;
     int bd;
     unsigned l[288];
@@ -289,8 +289,8 @@ int inflate_dynamic(void) {
     unsigned l;
     unsigned m;
     unsigned n;
-    struct huft *tl;
-    struct huft *td;
+    struct huft *PTR32 tl;
+    struct huft *PTR32 td;
     int bl;
     int bd;
     unsigned nb;

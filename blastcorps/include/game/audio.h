@@ -14,7 +14,7 @@
 
 /* The sample audio manager's AudioInfo: one per output buffer. */
 typedef struct AudioInfo {
-    /* 0x00 */ s16 *data;
+    /* 0x00 */ s16 *PTR32 data;
     /* 0x04 */ s16 frameSamples;
     /* 0x08 */ SchedTask task;
 } AudioInfo;
@@ -22,8 +22,8 @@ SIZE_CHECK(AudioInfo, 0x68);
 
 /* The sample audio manager's AMAudioMgr. */
 typedef struct AMAudioMgr {
-    /* 0x000 */ Acmd *ACMDList[2];
-    /* 0x008 */ AudioInfo *audioInfo[3];
+    /* 0x000 */ Acmd *PTR32 ACMDList[2];
+    /* 0x008 */ AudioInfo *PTR32 audioInfo[3];
     /* 0x018 */ OSThread thread;
     /* 0x1C8 */ OSMesgQueue audioFrameMsgQ;
     /* 0x1E0 */ OSMesg audioFrameMsgBuf[8];
@@ -36,21 +36,21 @@ typedef struct AMDMABuffer {
     /* 0x00 */ ALLink node;
     /* 0x08 */ u32 startAddr;
     /* 0x0C */ u32 lastFrame;
-    /* 0x10 */ char *ptr;
+    /* 0x10 */ char *PTR32 ptr;
 } AMDMABuffer;
 SIZE_CHECK(AMDMABuffer, 0x14);
 
 typedef struct AMDMAState {
     /* 0x0 */ u8 initialized;
-    /* 0x4 */ AMDMABuffer *firstUsed;
-    /* 0x8 */ AMDMABuffer *firstFree;
+    /* 0x4 */ AMDMABuffer *PTR32 firstUsed;
+    /* 0x8 */ AMDMABuffer *PTR32 firstFree;
 } AMDMAState;
 SIZE_CHECK(AMDMAState, 0xC);
 
 /* OSIoMesg from before 2.0I added piHandle. */
 typedef struct IoMesg {
     /* 0x00 */ OSIoMesgHdr hdr;
-    /* 0x08 */ void *dramAddr;
+    /* 0x08 */ void *PTR32 dramAddr;
     /* 0x0C */ u32 devAddr;
     /* 0x10 */ u32 size;
 } IoMesg;
@@ -62,11 +62,11 @@ typedef struct SynConfig {
     /* 0x04 */ s32 maxPVoices;
     /* 0x08 */ s32 maxUpdates;
     /* 0x0C */ s32 maxFXbusses;
-    /* 0x10 */ void *dmaproc;
-    /* 0x14 */ ALHeap *heap;
+    /* 0x10 */ void *PTR32 dmaproc;
+    /* 0x14 */ ALHeap *PTR32 heap;
     /* 0x18 */ s32 outputRate;
     /* 0x1C */ u8 fxType;
-    /* 0x20 */ s32 *params;
+    /* 0x20 */ s32 *PTR32 params;
 } SynConfig;
 SIZE_CHECK(SynConfig, 0x24);
 
@@ -100,11 +100,11 @@ extern SndBank *D_80367738;
  * ALSndPlayer, with changes). */
 typedef struct SndState {
     /* 0x00 */ ALLink node;
-    /* 0x08 */ ALSound *sound;
+    /* 0x08 */ ALSound *PTR32 sound;
     /* 0x0C */ ALVoice voice;
     /* 0x28 */ f32 unk28;
     /* 0x2C */ f32 pitch;
-    /* 0x30 */ struct SndState **unk30;
+    /* 0x30 */ struct SndState *PTR32 *PTR32 unk30;
     /* 0x34 */ s16 unk34;
     /* 0x36 */ u8 unk36;
     /* 0x38 */ s32 unk38;
@@ -117,9 +117,9 @@ SIZE_CHECK(SndState, 0x40);
 
 typedef struct SndEvent {
     /* 0x00 */ u16 type;
-    /* 0x04 */ SndState *state;
+    /* 0x04 */ SndState *PTR32 state;
     /* 0x08 */ s32 param;
-    /* 0x0C */ void *unkC;
+    /* 0x0C */ void *PTR32 unkC;
 } SndEvent; /* an ALEvent */
 SIZE_CHECK(SndEvent, 0x10);
 
@@ -127,7 +127,7 @@ typedef struct SndConfig {
     /* 0x00 */ u32 maxSounds;
     /* 0x04 */ s32 maxEvents;
     /* 0x08 */ s32 unk8;
-    /* 0x0C */ ALHeap *heap;
+    /* 0x0C */ ALHeap *PTR32 heap;
     /* 0x10 */ u16 unk10;
 } SndConfig;
 
@@ -135,10 +135,10 @@ typedef struct SndPlayer {
     /* 0x00 */ ALPlayer node;
     /* 0x14 */ ALEventQueue evtq;
     /* 0x28 */ ALEvent nextEvent;
-    /* 0x38 */ ALSynth *drvr;
+    /* 0x38 */ ALSynth *PTR32 drvr;
     /* 0x3C */ s32 unk3C;
-    /* 0x40 */ SndState *unk40;
-    /* 0x44 */ SndState *unk44;
+    /* 0x40 */ SndState *PTR32 unk40;
+    /* 0x44 */ SndState *PTR32 unk44;
     /* 0x48 */ s32 unk48;
     /* 0x4C */ ALMicroTime frameTime;
     /* 0x50 */ ALMicroTime nextDelta;
@@ -147,9 +147,9 @@ typedef struct SndPlayer {
 
 /* D_802E8CE0: the sound states in use and the free ones. */
 typedef struct SndStateLists {
-    /* 0x0 */ SndState *head;
-    /* 0x4 */ SndState *tail;
-    /* 0x8 */ SndState *freeList;
+    /* 0x0 */ SndState *PTR32 head;
+    /* 0x4 */ SndState *PTR32 tail;
+    /* 0x8 */ SndState *PTR32 freeList;
 } SndStateLists;
 
 /* The audio heap (D_80370C80, 46F60.c's; 1C460's alHeapInit) and the
@@ -163,7 +163,7 @@ typedef struct SndStateLists {
 #define NUM_DMA_MESSAGES 0x48
 #endif
 
-extern SndState *D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */
+extern SndState *PTR32 D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */
 
 /* 1C460.c's: the sequence player and the frame count (D_803156C4) it last started at. */
 extern ALCSPlayer *D_80367734;

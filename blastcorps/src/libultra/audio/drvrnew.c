@@ -248,7 +248,7 @@ void alAuxBusNew(ALAuxBus *m, void *sources, s32 maxSources)
     alFilterNew((ALFilter *) m, alAuxBusPull, alAuxBusParam, AL_AUXBUS);
     m->sourceCount = 0;
     m->maxSources = maxSources;
-    m->sources = (ALFilter **)sources;
+    m->sources = (ALFilter *PTR32 *)sources;
 }
 
 void alMainBusNew(ALMainBus *m, void *sources, s32 maxSources)
@@ -256,7 +256,7 @@ void alMainBusNew(ALMainBus *m, void *sources, s32 maxSources)
     alFilterNew((ALFilter *) m, alMainBusPull, alMainBusParam, AL_MAINBUS);
     m->sourceCount = 0;
     m->maxSources = maxSources;
-    m->sources = (ALFilter **)sources;
+    m->sources = (ALFilter *PTR32 *)sources;
 }
 
 void alSaveNew(ALSave *f) 

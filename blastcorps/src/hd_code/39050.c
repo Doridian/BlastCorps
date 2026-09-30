@@ -110,7 +110,7 @@ extern u8 D_803643D6;
 
 void func_8026A5CC(u64 *dst, u64 *src, s32 size);
 s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-void func_80260650(SndBank *, s32, SndState **);
+void func_80260650(SndBank *, s32, SndState *PTR32 *);
 void func_802A0B00(u16, s32);
 s32 func_8029DBF0(u8);
 void func_802AC1A0(s32);
@@ -129,7 +129,7 @@ u8 D_8036DCD4;
 u8 D_8036DCD5;
 u8 D_8036DCD6;
 u8 D_8036DCD7;
-SndState *D_8036DCD8;
+SndState *PTR32 D_8036DCD8;
 UnkStruct_8036DCE0 D_8036DCE0[1];
 u8 D_8036DCEC[4];
 u8 D_8036DCF0[0x80];

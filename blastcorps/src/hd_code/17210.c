@@ -19,7 +19,7 @@ extern s8 D_80370C32;
 extern s8 D_80370C33;
 
 void func_8029A7E4(char *, ...);
-s8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
+s8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
 void func_80275270(u64, f32);
 void func_80275390(u64);
 s32 func_802753C0(void);
@@ -70,7 +70,7 @@ u8 *D_803669B0;
 s32 D_803669B4;
 
 /* .data, 0x802E8CB0-0x802E8CC0 (tools/data_c.py) */
-u8 D_802E8CB0[0x10] = { 9, 32 };
+u16 D_802E8CB0[8] = { 0x0920 }; /* texture ids (func_80272C5C) */
 
 void func_8025B9D0(s32 arg0, s32 *arg1) {
     s32 sp34;

@@ -7,9 +7,11 @@ extern OSMesgQueue D_803150A0;
 
 void func_801F57B0(void);
 void func_8029A7E4(char *, ...);
-void func_8025C230(u8 **, u8 **, void *);
-void func_802C4070(u8 **, u8 **, void *, u8);
-void func_8028B4C4(u32 arg0, u8 *arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5);
+void func_8025C230(u8 *PTR32 *, u8 *PTR32 *, void *);
+void func_802C4070(u8 *PTR32 *, u8 *PTR32 *, void *, u8);
+/* sp3C and arg1 below are PTR32: the unzips advance them through their
+   words, and the handwritten one's are 32 bits */
+void func_8028B4C4(u32 arg0, u8 *PTR32 arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5);
 
 /* .bss, 0x80370C50-0x80370C70 (tools/bss_c.py) */
 u8 D_80370C50;
@@ -35,10 +37,10 @@ void func_8028B3E0(void) {
     }
 }
 
-void func_8028B4C4(u32 arg0, u8 *arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5) {
+void func_8028B4C4(u32 arg0, u8 *PTR32 arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5) {
     u32 sp44;
     u32 sp40;
-    u8 *sp3C;
+    u8 *PTR32 sp3C;
     u8 *sp38;
     u8 *sp34;
 

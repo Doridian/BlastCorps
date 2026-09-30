@@ -27,12 +27,12 @@ typedef struct YoshiEntry {
     /* 0x06 */ u16 unk6;          /* 24, 20, 15: the text's cell size? */
     /* 0x08 */ u16 unk8;
     /* 0x0A */ u8 padA[2];
-    /* 0x0C */ char *text;        /* "SELECT OPTION", "MORE", ... */
+    /* 0x0C */ char *PTR32 text;  /* "SELECT OPTION", "MORE", ... */
 #ifdef VERSION_EU
-    /* 0x10 */ char *text2;       /* eu: the German text ("OPTIONEN", "WEITER", ...) */
-    /* 0x14 */ char *text3;       /* eu: NULL in the tables */
+    /* 0x10 */ char *PTR32 text2; /* eu: the German text ("OPTIONEN", "WEITER", ...) */
+    /* 0x14 */ char *PTR32 text3; /* eu: NULL in the tables */
 #endif
-    /* 0x10 */ u16 *unk10;        /* yoshi.c's tables: the text in the 0x0FFE-terminated u16 encoding
+    /* 0x10 */ u16 *PTR32 unk10;  /* yoshi.c's tables: the text in the 0x0FFE-terminated u16 encoding
                                      (A44D0, BC8E0); the front end also stores char strings here */
     /* 0x14 */ u8 unk14;          /* the YoshiIcon it shows */
     /* 0x15 */ u8 pad15;
@@ -106,7 +106,7 @@ SIZE_CHECK(ColorPair, 8);
 /* D_8020C488 is &D_8020C070[37].text, reached as its own symbol: an array
  * of YoshiEntry seen from their text field. */
 typedef struct UnkStruct_8020C488 {
-    /* 0x00 */ char *text;
+    /* 0x00 */ char *PTR32 text;
     /* 0x04 */ u8 unk4[sizeof(YoshiEntry) - 4];
 } UnkStruct_8020C488;
 SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
@@ -167,7 +167,7 @@ typedef struct UnkStruct_802F9934 {
     /* 0x01 */ char unk1[0xF];
     /* 0x10 */ u16 *unk10;       /* u16 text */
 } UnkStruct_802F9934;
-SIZE_CHECK(UnkStruct_802F9934, 0x14);
+SIZE_CHECK_C(UnkStruct_802F9934, 0x14);
 
 typedef struct UnkStruct_802F48D0 {
     /* 0x00 */ u8 unk0;

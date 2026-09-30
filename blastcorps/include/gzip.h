@@ -32,13 +32,15 @@ typedef unsigned long  ulg;
 #define get_byte()  (inbuf[inptr++])
 #define NEXTBYTE()  (uch)get_byte()
 
-/* Huffman code lookup table entry, as in gzip. */
+/* Huffman code lookup table entry, as in gzip.  A table's pointer is 32 bits
+ * in the LP64 port (PTR32): huft_heap is sized for the N64's tables, and
+ * huft_build() stores both kinds of table pointer through one pointer. */
 struct huft {
     uch e; /* number of extra bits or operation */
     uch b; /* number of bits in this code or subcode */
     union {
         ush n;          /* literal, length base, or distance base */
-        struct huft *t; /* pointer to next level of table */
+        struct huft *PTR32 t; /* pointer to next level of table */
     } v;
 };
 
@@ -50,7 +52,7 @@ extern ush mask_bits[];
 extern int lbits;
 extern int dbits;
 
-int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft **t, int *m);
+int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft *PTR32 *t, int *m);
 int inflate_codes(struct huft *tl, struct huft *td, int bl, int bd);
 int inflate_stored(void);
 int inflate_fixed(void);

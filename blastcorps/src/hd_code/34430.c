@@ -51,7 +51,7 @@ Vtx D_802FBEE0[0x18] = { 0 };
 #endif
 s32 D_802FC060[4][2] = { { 0x552078, 0x552230 }, { 0x5049D8, 0x504A50 }, { 0x553078, 0x553078 } };
 
-void func_80278BF0(Gfx *src, Gfx *end, Gfx **out) {
+void func_80278BF0(Gfx *src, Gfx *end, Gfx *PTR32 *out) {
     Gfx *dst;
     s8 cmd;
     s32 mode;

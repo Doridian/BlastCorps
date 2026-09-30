@@ -7,9 +7,9 @@
 #define TXL2WORDS_4b(txls) ((txls) / 16)
 
 typedef struct {
-    /* 0x00 */ s16 *unk0;
-    /* 0x04 */ s16 *unk4;
-    /* 0x08 */ s16 *unk8;
+    /* 0x00 */ s16 *PTR32 unk0;
+    /* 0x04 */ s16 *PTR32 unk4;
+    /* 0x08 */ s16 *PTR32 unk8;
     /* 0x0C */ s32 unkC;
     /* 0x10 */ s16 unk10;
     /* 0x12 */ s16 unk12;
@@ -50,7 +50,7 @@ typedef struct {
     /* 0x4 */ s32 unk4;
 } UnkStruct_8028A1D0; /* size = 0x8 */
 
-extern UnkStruct_8036EC30 *D_802C4A20[];
+extern UnkStruct_8036EC30 *PTR32 D_802C4A20[]; /* hd_code 800DC's table */
 
 
 s32 func_8026A828(s32 lo, s32 hi);

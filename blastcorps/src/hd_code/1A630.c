@@ -9,7 +9,7 @@ ALMicroTime func_8025F044(void *node);
 void func_8025F0F0(SndPlayer *sndp, SndEvent *event);
 void func_80260148(ALEventQueue *evtq, SndState *state, u16 eventType);
 SndState *func_80260300(SndBank *bank, ALSound *sound);
-SndState *func_80260650(SndBank *bank, s16 id, SndState **handle);
+SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 void func_802609D0(void);
 void func_802609F0(void);
 void func_80260A10(void);
@@ -481,7 +481,7 @@ u8 func_80260634(SndState *state) {
     return 0;
 }
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState **handle) {
+SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle) {
     SndState *state;
     SndState *result;
     ALKeyMap *keyMap;

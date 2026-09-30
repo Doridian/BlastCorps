@@ -16,10 +16,10 @@
 #include "common.h"
 #include "port.h"
 
-void __real_func_8025C230(u8 **src, u8 **dst, void *heap);
+void __real_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap);
 void __real_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method);
 
-void __wrap_func_8025C230(u8 **src, u8 **dst, void *heap) {
+void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap) {
     u8 *s = *src, *d = *dst;
 
     __real_func_8025C230(src, dst, heap);

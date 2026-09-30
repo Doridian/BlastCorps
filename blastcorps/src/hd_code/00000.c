@@ -435,7 +435,7 @@ u8 D_802E8BE4 = 0;
 s32 D_802E8BE8 = 0;
 s32 D_802E8BEC = -1;
 u8 D_802E8BF0 = 0;
-u8 D_802E8BF4[4] = { 10, 29 };
+u16 D_802E8BF4[2] = { 0x0A1D }; /* texture ids (func_80272C5C) */
 u8 D_802E8BF8 = 0;
 s32 D_802E8BFC[0x12] = {
     2000, 2350, 1400, 1700, 1600, 1030, 1030, 2000, 1600, 1650, 100, 0, 2000, 1850, 1450, 1000,
@@ -487,8 +487,8 @@ extern u8 D_803C5770[];
 extern u8 D_803C6370[];
 extern u8 D_803C6F70[];
 extern u8 D_803C7B70[];
-extern void *D_803F7820;
-extern void *D_803F7824;
+extern void *PTR32 D_803F7820;
+extern void *PTR32 D_803F7824;
 extern u8 D_803FF600[];
 
 void func_801F7850(void);

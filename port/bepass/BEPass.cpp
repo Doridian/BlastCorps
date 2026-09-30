@@ -167,7 +167,9 @@ struct BEPass : PassInfoMixin<BEPass> {
             it = cast<IntegerType>(t);
         } else if (t->isFloatTy() || t->isDoubleTy() || t->isPointerTy() || t->isHalfTy())
             it = IntegerType::get(c, dl.getTypeSizeInBits(t));
-        if (it && native && it->getBitWidth() != 64)
+        /* native: only the 64-bit scalars, not an LP64 build's pointers,
+           whose low word first is what a 32-bit reader of them sees */
+        if (it && native && (it->getBitWidth() != 64 || t->isPointerTy()))
             return nullptr;
         return it;
     }
@@ -315,6 +317,8 @@ struct BEPass : PassInfoMixin<BEPass> {
         }
         if (t->isIntegerTy() || t->isFloatingPointTy() || t->isPointerTy()) {
             unsigned sz = dl.getTypeStoreSize(t);
+            if (mode == 1 && t->isPointerTy())
+                return;         /* an LP64 pointer isn't two words (swapType) */
             if (wanted(sz, mode))
                 out.push_back({off, sz});
             return;
@@ -513,12 +517,15 @@ struct ICount : PassInfoMixin<ICount> {
 
 } // namespace
 
-/* ILP32.cpp: port-ilp32, for opt (the 64-bit build) */
+/* ILP32.cpp: port-ilp32, for opt (the 64-bit build); LP64.cpp: port-lp64,
+   ahead of BEPass (the LP64 build, BEPASS_LP64=1) */
 void portRegisterILP32(PassBuilder &pb);
+void portRegisterLP64(PassBuilder &pb);
 
 extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
     return {LLVM_PLUGIN_API_VERSION, "BEPass", "1", [](PassBuilder &pb) {
                 portRegisterILP32(pb);
+                portRegisterLP64(pb);
                 pb.registerPipelineStartEPCallback(
                     [](ModulePassManager &mpm, OptimizationLevel) { mpm.addPass(BEPass()); });
                 pb.registerOptimizerLastEPCallback(

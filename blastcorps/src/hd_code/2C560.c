@@ -111,7 +111,7 @@ OSMesgQueue *osScGetCmdQ(Sched *sc) {
     return &sc->cmdQ;
 }
 
-extern OSMesgQueue *D_8036BF90;
+extern OSMesgQueue *PTR32 D_8036BF90;
 extern OSMesg D_8036BF94;
 u32 func_802A1320(void);
 void func_802712B4(Sched *, SchedTask *);

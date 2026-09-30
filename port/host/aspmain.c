@@ -66,7 +66,7 @@ static inline void st(uint32_t a, int16_t v) {
 /* RDRAM, through the segment table */
 static uint8_t *ram(uint32_t so) {
     uint32_t a = segments[(so >> 24) & 0xF] + (so & 0xFFFFFF);
-    return port_ptr(PORT_RDRAM_BASE | (a & (PORT_RDRAM_SIZE - 1)));
+    return port_ptr(PORT_RDRAM_BASE | (a & 0x1FFFFFFFu));      /* KSEG0, as gfx.c's */
 }
 /* game memory at its own widths (the codebooks, the loop state, the state
    the microcode keeps between frames, which only it reads) */

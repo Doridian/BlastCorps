@@ -111,21 +111,21 @@ typedef u8      ALPan;
  * Audio Library global routines
  ***********************************************************************/
 typedef struct ALLink_s {
-    struct ALLink_s      *next;
-    struct ALLink_s      *prev;
+    struct ALLink_s      *PTR32 next;
+    struct ALLink_s      *PTR32 prev;
 } ALLink;
 
 void    alUnlink(ALLink *element);
 void    alLink(ALLink *element, ALLink *after);
 
-typedef s32 (*ALDMAproc)(s32 addr, s32 len, void *state);
-typedef ALDMAproc (*ALDMANew)(void *state);
+typedef s32 (*PTR32 ALDMAproc)(s32 addr, s32 len, void *state);
+typedef ALDMAproc (*PTR32 ALDMANew)(void *state);
 
 void    alCopy(void *src, void *dest, s32 len);
 
 typedef struct {
-    u8          *base;
-    u8          *cur;
+    u8          *PTR32 base;
+    u8          *PTR32 cur;
     s32         len;
     s32         count;
 } ALHeap;
@@ -205,16 +205,16 @@ typedef struct {
 } ALKeyMap;
 
 typedef struct {
-    ALADPCMloop *loop;
-    ALADPCMBook *book;
+    ALADPCMloop *PTR32 loop;
+    ALADPCMBook *PTR32 book;
 } ALADPCMWaveInfo;
 
 typedef struct {
-    ALRawLoop *loop;
+    ALRawLoop *PTR32 loop;
 } ALRAWWaveInfo;
 
 typedef struct ALWaveTable_s {
-    u8          *base;          /* ptr to start of wave data    */
+    u8          *PTR32 base;    /* ptr to start of wave data    */
     s32         len;            /* length of data in bytes      */
     u8          type;           /* compression type             */
     u8          flags;          /* offset/address flags         */
@@ -225,9 +225,9 @@ typedef struct ALWaveTable_s {
 } ALWaveTable;
 
 typedef struct ALSound_s {
-    ALEnvelope  *envelope;
-    ALKeyMap    *keyMap;
-    ALWaveTable *wavetable;     /* offset to wavetable struct           */
+    ALEnvelope  *PTR32 envelope;
+    ALKeyMap    *PTR32 keyMap;
+    ALWaveTable *PTR32 wavetable;     /* offset to wavetable struct           */
     ALPan       samplePan;
     u8          sampleVolume;
     u8          flags;
@@ -248,7 +248,7 @@ typedef struct {
     u8          vibDelay;       /* the delay for the tremelo osc        */
     s16         bendRange;      /* pitch bend range in cents            */
     s16         soundCount;     /* number of sounds in this array       */
-    ALSound     *soundArray[1];
+    ALSound     *PTR32 soundArray[1];
 } ALInstrument;
 
 typedef struct ALBank_s {
@@ -256,14 +256,14 @@ typedef struct ALBank_s {
     u8                  flags;
     u8                  pad;
     s32                 sampleRate;     /* e.g. 44100, 22050, etc...       */
-    ALInstrument        *percussion;    /* default percussion for GM       */
-    ALInstrument        *instArray[1];  /* ARRAY of instruments            */
+    ALInstrument        *PTR32 percussion;    /* default percussion for GM       */
+    ALInstrument        *PTR32 instArray[1];  /* ARRAY of instruments            */
 } ALBank;
 
 typedef struct {                /* Note: sizeof won't be correct        */
     s16         revision;       /* format revision of this file         */
     s16         bankCount;      /* number of banks                      */
-    ALBank      *bankArray[1];  /* ARRAY of bank offsets                */
+    ALBank      *PTR32 bankArray[1];  /* ARRAY of bank offsets                */
 } ALBankFile;
 
 void    alBnkfNew(ALBankFile *f, u8 *table);
@@ -274,7 +274,7 @@ void    alBnkfNew(ALBankFile *f, u8 *table);
 #define AL_SEQBANK_VERSION    'S1'
 
 typedef struct {
-    u8          *offset;
+    u8          *PTR32 offset;
     s32         len;
 } ALSeqData;
 
@@ -289,23 +289,23 @@ void    alSeqFileNew(ALSeqFile *f, u8 *base);
 /***********************************************************************
  * Synthesis driver stuff
  ***********************************************************************/
-typedef ALMicroTime (*ALVoiceHandler)(void *);
+typedef ALMicroTime (*PTR32 ALVoiceHandler)(void *);
 
 typedef struct {
     s32                 maxVVoices;     /* obsolete */
     s32                 maxPVoices;
     s32                 maxUpdates;
     s32                 maxFXbusses;
-    void                *dmaproc;
-    ALHeap              *heap;
+    void                *PTR32 dmaproc;
+    ALHeap              *PTR32 heap;
     s32                 outputRate;     /* output sample rate */
     ALFxId              fxType;
-    s32                 *params;
+    s32                 *PTR32 params;
 } ALSynConfig;
 
 typedef struct ALPlayer_s {
-    struct ALPlayer_s   *next;
-    void                *clientData;    /* storage for client callback  */
+    struct ALPlayer_s   *PTR32 next;
+    void                *PTR32 clientData;    /* storage for client callback  */
     ALVoiceHandler      handler;        /* voice handler for player     */
     ALMicroTime         callTime;       /* usec requested callback      */
     s32                 samplesLeft;    /* usec remaining to callback   */
@@ -313,9 +313,9 @@ typedef struct ALPlayer_s {
 
 typedef struct ALVoice_s {
     ALLink              node;
-    struct PVoice_s     *pvoice;
-    ALWaveTable         *table;
-    void                *clientPrivate;
+    struct PVoice_s     *PTR32 pvoice;
+    ALWaveTable         *PTR32 table;
+    void                *PTR32 clientPrivate;
     s16                 state;
     s16                 priority;
     s16                 fxBus;
@@ -329,20 +329,20 @@ typedef struct ALVoiceConfig_s {
 } ALVoiceConfig;
 
 typedef struct {
-    ALPlayer    *head;          /* client list head                     */
+    ALPlayer    *PTR32 head;    /* client list head                     */
     ALLink      pFreeList;      /* list of free physical voices         */
     ALLink      pAllocList;     /* list of allocated physical voices    */
     ALLink      pLameList;      /* list of voices ready to be freed     */
     s32         paramSamples;
     s32         curSamples;     /* samples from start of game           */
     ALDMANew    dma;
-    ALHeap      *heap;
+    ALHeap      *PTR32 heap;
     
-    struct ALParam_s    *paramList;
+    struct ALParam_s    *PTR32 paramList;
     
-    struct ALMainBus_s  *mainBus;
-    struct ALAuxBus_s   *auxBus;        /* ptr to array of aux bus structs */
-    struct ALFilter_s   *outputFilter;  /* last filter in the filter chain */
+    struct ALMainBus_s  *PTR32 mainBus;
+    struct ALAuxBus_s   *PTR32 auxBus;  /* ptr to array of aux bus structs */
+    struct ALFilter_s   *PTR32 outputFilter;  /* last filter in the filter chain */
 
     s32                 numPVoices;
     s32                 maxAuxBusses;
@@ -518,7 +518,7 @@ enum AL_MIDImeta {
 #define AL_CMIDI_CNTRL_LOOPCOUNT_BIG  105
 
 typedef struct {
-    u8          *curPtr;                /* ptr to the next event */
+    u8          *PTR32 curPtr;          /* ptr to the next event */
     s32         lastTicks;              /* sequence clock ticks (used by alSeqSetLoc) */
     s32	       	curTicks;		/* sequence clock ticks of next event (used by loop end test) */
     s16         lastStatus;             /* the last status msg */
@@ -550,11 +550,11 @@ typedef struct {
 } ALEndEvent;
 
 typedef struct {
-    struct ALVoice_s    *voice;
+    struct ALVoice_s    *PTR32 voice;
 } ALNoteEvent;
 
 typedef struct {
-    struct ALVoice_s    *voice;
+    struct ALVoice_s    *PTR32 voice;
     ALMicroTime         delta;
     u8                  vol;
 } ALVolumeEvent;
@@ -564,8 +564,8 @@ typedef struct {
 } ALSeqpVolEvent;
 
 typedef struct {
-    ALSeqMarker         *start;
-    ALSeqMarker         *end;
+    ALSeqMarker         *PTR32 start;
+    ALSeqMarker         *PTR32 end;
     s32                 count;
 } ALSeqpLoopEvent;
 
@@ -575,16 +575,16 @@ typedef struct {
 } ALSeqpPriorityEvent;
 
 typedef struct {
-    void		*seq;	/* pointer to a seq (could be an ALSeq or an ALCSeq). */
+    void		*PTR32 seq;	/* pointer to a seq (could be an ALSeq or an ALCSeq). */
 } ALSeqpSeqEvent;
 
 typedef struct {
-    ALBank		*bank;
+    ALBank		*PTR32 bank;
 } ALSeqpBankEvent;
 
 typedef struct {
-    struct ALVoiceState_s      *vs;
-    void                       *oscState;
+    struct ALVoiceState_s      *PTR32 vs;
+    void                       *PTR32 oscState;
     u8                         chan;
 } ALOscEvent;
 
@@ -634,9 +634,9 @@ void        	alEvtqFlushType(ALEventQueue *evtq, s16 type);
 #define AL_PHASE_SUSTREL        4
 
 typedef struct ALVoiceState_s {
-    struct ALVoiceState_s *next;/* MUST be first                */
+    struct ALVoiceState_s *PTR32 next;/* MUST be first                */
     ALVoice     voice;
-    ALSound     *sound;
+    ALSound     *PTR32 sound;
     ALMicroTime envEndTime;     /* time of envelope segment end */
     f32         pitch;          /* currect pitch ratio          */
     f32         vibrato;        /* current value of the vibrato */
@@ -652,7 +652,7 @@ typedef struct ALVoiceState_s {
 } ALVoiceState;
 
 typedef struct {
-    ALInstrument        *instrument;    /* instrument assigned to this chan */
+    ALInstrument        *PTR32 instrument;    /* instrument assigned to this chan */
     s16                 bendRange;      /* pitch bend range in cents        */
     ALFxId              fxId;           /* type of fx assigned to this chan */
     ALPan               pan;            /* overall pan for this chan        */
@@ -664,9 +664,9 @@ typedef struct {
 } ALChanState;
 
 typedef struct ALSeq_s {
-    u8          *base;                  /* ptr to start of sequence file   */
-    u8          *trackStart;            /* ptr to first MIDI event         */
-    u8          *curPtr;                /* ptr to next event to read       */
+    u8          *PTR32 base;            /* ptr to start of sequence file   */
+    u8          *PTR32 trackStart;      /* ptr to first MIDI event         */
+    u8          *PTR32 curPtr;          /* ptr to next event to read       */
     s32         lastTicks;              /* MIDI ticks for last event       */
     s32         len;                    /* length of sequence in bytes     */
     f32         qnpt;                   /* qrter notes / tick (1/division) */
@@ -680,16 +680,16 @@ typedef struct {
 } ALCMidiHdr;
 
 typedef struct ALCSeq_s {
-    ALCMidiHdr    *base;             /* ptr to start of sequence file         */
+    ALCMidiHdr    *PTR32 base;       /* ptr to start of sequence file         */
     u32           validTracks;       /* set of flags, showing valid tracks    */
     f32           qnpt;              /* qrter notes / tick (1/division)       */
     u32           lastTicks;         /* keep track of ticks incase app wants  */
     u32           lastDeltaTicks;    /* number of delta ticks of last event   */
     u32		  deltaFlag;	     /* flag: set if delta's not subtracted   */
-    u8            *curLoc[16];       /* ptr to current track location,        */
+    u8            *PTR32 curLoc[16]; /* ptr to current track location,        */
                                      /* may point to next event, or may point */
                                      /* to a backup code                      */
-    u8            *curBUPtr[16];     /* ptr to next event if in backup mode   */
+    u8            *PTR32 curBUPtr[16];     /* ptr to next event if in backup mode   */
     u8            curBULen[16];      /* if > 0, then in backup mode           */
     u8            lastStatus[16];    /* for running status                    */
     u32           evtDeltaTicks[16]; /* delta time to next event              */
@@ -699,8 +699,8 @@ typedef struct {
     u32         validTracks;
     s32         lastTicks;
     u32         lastDeltaTicks;
-    u8          *curLoc[16];
-    u8          *curBUPtr[16];
+    u8          *PTR32 curLoc[16];
+    u8          *PTR32 curBUPtr[16];
     u8          curBULen[16];
     u8          lastStatus[16];
     u32         evtDeltaTicks[16];
@@ -715,23 +715,23 @@ typedef struct {
     s32         maxEvents;         /* max internal events to support   */
     u8          maxChannels;       /* max MIDI channels to support (16)*/
     u8          debugFlags;        /* control which error get reported */
-    ALHeap      *heap;             /* ptr to initialized heap          */
-    void        *initOsc;
-    void        *updateOsc;
-    void        *stopOsc;
+    ALHeap      *PTR32 heap;       /* ptr to initialized heap          */
+    void        *PTR32 initOsc;
+    void        *PTR32 updateOsc;
+    void        *PTR32 stopOsc;
 } ALSeqpConfig;
 
-typedef ALMicroTime   (*ALOscInit)(void **oscState,f32 *initVal, u8 oscType,
+typedef ALMicroTime   (*PTR32 ALOscInit)(void **oscState,f32 *initVal, u8 oscType,
                                    u8 oscRate, u8 oscDepth, u8 oscDelay);
-typedef ALMicroTime   (*ALOscUpdate)(void *oscState, f32 *updateVal);
-typedef void          (*ALOscStop)(void *oscState);
+typedef ALMicroTime   (*PTR32 ALOscUpdate)(void *oscState, f32 *updateVal);
+typedef void          (*PTR32 ALOscStop)(void *oscState);
 
 typedef struct {
     ALPlayer            node;           /* note: must be first in structure */
-    ALSynth             *drvr;          /* reference to the client driver   */
-    ALSeq               *target;        /* current sequence                 */
+    ALSynth             *PTR32 drvr;    /* reference to the client driver   */
+    ALSeq               *PTR32 target;  /* current sequence                 */
     ALMicroTime         curTime;
-    ALBank              *bank;          /* current ALBank                   */
+    ALBank              *PTR32 bank;    /* current ALBank                   */
     s32                 uspt;           /* microseconds per tick            */
     s32                 nextDelta;      /* microseconds to next callback    */
     s32                 state;
@@ -742,24 +742,24 @@ typedef struct {
     ALEvent             nextEvent;
     ALEventQueue        evtq;
     ALMicroTime         frameTime;
-    ALChanState         *chanState;     /* 16 channels for MIDI             */
-    ALVoiceState        *vAllocHead;    /* list head for allocated voices   */
-    ALVoiceState        *vAllocTail;    /* list tail for allocated voices   */
-    ALVoiceState        *vFreeList;     /* list of free voice state structs */
+    ALChanState         *PTR32 chanState;     /* 16 channels for MIDI             */
+    ALVoiceState        *PTR32 vAllocHead;    /* list head for allocated voices   */
+    ALVoiceState        *PTR32 vAllocTail;    /* list tail for allocated voices   */
+    ALVoiceState        *PTR32 vFreeList;     /* list of free voice state structs */
     ALOscInit           initOsc;
     ALOscUpdate         updateOsc;
     ALOscStop           stopOsc;
-    ALSeqMarker         *loopStart;
-    ALSeqMarker         *loopEnd;
+    ALSeqMarker         *PTR32 loopStart;
+    ALSeqMarker         *PTR32 loopEnd;
     s32                 loopCount;      /* -1 = loop forever, 0 = no loop   */
 } ALSeqPlayer;
 
 typedef struct {
     ALPlayer            node;           /* note: must be first in structure */
-    ALSynth             *drvr;          /* reference to the client driver   */
-    ALCSeq              *target;        /* current sequence                 */
+    ALSynth             *PTR32 drvr;    /* reference to the client driver   */
+    ALCSeq              *PTR32 target;  /* current sequence                 */
     ALMicroTime         curTime;
-    ALBank              *bank;          /* current ALBank                   */
+    ALBank              *PTR32 bank;    /* current ALBank                   */
     s32                 uspt;           /* microseconds per tick            */
     s32                 nextDelta;      /* microseconds to next callback    */
     s32                 state;
@@ -770,10 +770,10 @@ typedef struct {
     ALEvent             nextEvent;
     ALEventQueue        evtq;
     ALMicroTime         frameTime;
-    ALChanState         *chanState;     /* 16 channels for MIDI             */
-    ALVoiceState        *vAllocHead;    /* list head for allocated voices   */
-    ALVoiceState        *vAllocTail;    /* list tail for allocated voices   */
-    ALVoiceState        *vFreeList;     /* list of free voice state structs */
+    ALChanState         *PTR32 chanState;     /* 16 channels for MIDI             */
+    ALVoiceState        *PTR32 vAllocHead;    /* list head for allocated voices   */
+    ALVoiceState        *PTR32 vAllocTail;    /* list tail for allocated voices   */
+    ALVoiceState        *PTR32 vFreeList;     /* list of free voice state structs */
     ALOscInit           initOsc;
     ALOscUpdate         updateOsc;
     ALOscStop           stopOsc;
@@ -895,16 +895,16 @@ void    alCSPSendMidi(ALCSPlayer *seqp, s32 ticks, u8 status,
 typedef struct {
     s32         maxSounds;
     s32         maxEvents;
-    ALHeap      *heap;
+    ALHeap      *PTR32 heap;
 } ALSndpConfig;
 
 typedef struct {
     ALPlayer            node;           /* note: must be first in structure */
     ALEventQueue        evtq;
     ALEvent             nextEvent;
-    ALSynth             *drvr;          /* reference to the client driver   */
+    ALSynth             *PTR32 drvr;    /* reference to the client driver   */
     s32                 target;
-    void                *sndState;
+    void                *PTR32 sndState;
     s32                 maxSounds;
     ALMicroTime         frameTime;
     ALMicroTime         nextDelta;      /* microseconds to next callback    */

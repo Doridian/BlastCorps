@@ -25,8 +25,8 @@ typedef struct UnkStruct_8020BD30 {
     /* 0x04 */ f32 unk4;
     /* 0x08 */ f32 unk8;
     /* 0x0C */ f32 unkC;
-    /* 0x10 */ struct UnkStruct_8020BD30 *unk10;
-    /* 0x14 */ struct UnkStruct_8020BD30 *unk14;
+    /* 0x10 */ struct UnkStruct_8020BD30 *PTR32 unk10;
+    /* 0x14 */ struct UnkStruct_8020BD30 *PTR32 unk14;
     /* 0x18 */ u8 unk18;
     /* 0x19 */ u8 unk19;
     /* 0x1A */ u8 unk1A;
@@ -44,7 +44,7 @@ SIZE_CHECK(UnkStruct_8020BD30, 0x3C);
 /* C450.c's .bss; sorted with func_802595E0 by func_801F36B0. */
 typedef struct UnkStruct_80218270 {
     /* 0x0 */ s32 unk0;
-    /* 0x4 */ Gfx *unk4;
+    /* 0x4 */ Gfx *PTR32 unk4;
 } UnkStruct_80218270;
 SIZE_CHECK(UnkStruct_80218270, 8);
 

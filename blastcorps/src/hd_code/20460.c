@@ -36,7 +36,7 @@ typedef struct {
 } UnkStruct_80267614;
 
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState **handle);
+SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 void func_80265428(void);
 void func_8026513C(void);
 s32 func_80265A0C(s32 arg0);

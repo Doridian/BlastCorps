@@ -8,8 +8,9 @@
  */
 
 /* Inflate the gzip member at *src to *dst, advancing both past it.  heap is
- * where huft_build puts its tables. */
-void GZIP_UNZIP(uch **src, uch **dst, struct huft *heap) {
+ * where huft_build puts its tables.  The handwritten code calls it too,
+ * with its own words for src and dst (PTR32). */
+void GZIP_UNZIP(uch *PTR32 *src, uch *PTR32 *dst, struct huft *heap) {
     inbuf = *src;
     window = *dst;
     huft_heap = heap;

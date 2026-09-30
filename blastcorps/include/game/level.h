@@ -146,8 +146,8 @@ extern UnkStruct_802E8F38 D_802E8F38[6];
  */
 typedef struct UnkStruct_8020D810 {
     /* 0x00 */ u8 unk0[4];
-    /* 0x04 */ char *name;
-    /* 0x08 */ u16 *unk8;
+    /* 0x04 */ char *PTR32 name;
+    /* 0x08 */ u16 *PTR32 unk8;
     /* 0x0C */ u8 unkC[4];
     /* 0x10 */ f32 unk10;
     /* 0x14 */ f32 unk14;
@@ -218,24 +218,24 @@ extern LevelHeader *D_80358074;
  * into grids of cells in x and z (three: the objects', the terrain's and
  * the collision's), each given by a cell size (<< 5) and a count.
  */
-extern void *D_803BDAF0;        /* D_803BD310: 0xFC-byte records (the walls, LevelHeader.unk64) */
-extern s16 *D_803BDAF4;         /* LevelHeader.collisionFixes: triangles of 9 s16 and a pad */
-extern s16 *D_803BDAF8;         /* ... and its end */
-extern void *D_803BDAFC;        /* a model func_802A32CC loaded for the missile carrier (func_802A3198) */
-extern void *D_803BDB00;        /* a heap block: segment 7 while 50670.c draws */
-extern void *D_803BDB04;        /* that model + its unk14: segment 6 */
-extern void *D_803BDB08;        /* that model + its unk24: a display list */
-extern void *D_803BDB10[102];   /* LevelHeader.terrain: one pointer per group (func_802A4464) */
-extern void *D_803BDCA8[102];   /* LevelHeader.collisionXZ: one per group (func_802A3D54) */
-extern void *D_803BDE40[102];   /* LevelHeader.playerCollisionXZ (func_802A3DF8) */
-extern Gfx *D_803BE6E0;         /* level display lists (LevelHeader.displayLists) hd.c draws */
-extern Gfx *D_803BE6E4;
-extern Gfx *D_803BE6E8;
-extern Gfx *D_803BE6EC;
-extern u32 *D_803BE6F0;         /* the model table (DMA'd, func_802A2BB0) */
+extern void *PTR32 D_803BDAF0;  /* D_803BD310: 0xFC-byte records (the walls, LevelHeader.unk64) */
+extern s16 *PTR32 D_803BDAF4;   /* LevelHeader.collisionFixes: triangles of 9 s16 and a pad */
+extern s16 *PTR32 D_803BDAF8;   /* ... and its end */
+extern void *PTR32 D_803BDAFC;  /* a model func_802A32CC loaded for the missile carrier (func_802A3198) */
+extern void *PTR32 D_803BDB00;  /* a heap block: segment 7 while 50670.c draws */
+extern void *PTR32 D_803BDB04;  /* that model + its unk14: segment 6 */
+extern void *PTR32 D_803BDB08;  /* that model + its unk24: a display list */
+extern void *PTR32 D_803BDB10[102];   /* LevelHeader.terrain: one pointer per group (func_802A4464) */
+extern void *PTR32 D_803BDCA8[102];   /* LevelHeader.collisionXZ: one per group (func_802A3D54) */
+extern void *PTR32 D_803BDE40[102];   /* LevelHeader.playerCollisionXZ (func_802A3DF8) */
+extern Gfx *PTR32 D_803BE6E0;   /* level display lists (LevelHeader.displayLists) hd.c draws */
+extern Gfx *PTR32 D_803BE6E4;
+extern Gfx *PTR32 D_803BE6E8;
+extern Gfx *PTR32 D_803BE6EC;
+extern u32 *PTR32 D_803BE6F0;   /* the model table (DMA'd, func_802A2BB0) */
 extern s32 D_803BE6F4;          /* func_802A1674's second argument */
-extern struct LevelUnk58 *D_803BE6FC; /* LevelHeader.unk58 (game/objects.h) ... */
-extern struct LevelUnk58 *D_803BE700; /* ... to LevelHeader.buildings */
+extern struct LevelUnk58 *PTR32 D_803BE6FC; /* LevelHeader.unk58 (game/objects.h) ... */
+extern struct LevelUnk58 *PTR32 D_803BE700; /* ... to LevelHeader.buildings */
 extern s32 D_803BE70C;          /* the object grid (the RDUs' Rdu.cell): cell width in x, << 5 */
 extern s32 D_803BE710;          /* ... in z */
 extern u16 D_803BE714;          /* ... cells in x (LevelHeader.unk0[0]) */

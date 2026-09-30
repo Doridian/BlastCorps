@@ -213,9 +213,11 @@ static uint64_t next_event_ns;
 static int replay_vi_held;
 static unsigned spins_held;
 
+int port_ints_masked;
+
 void __port_poll(void) {
     static unsigned n;
-    if (++n & 63)
+    if (++n & 63 || port_ints_masked)
         return;
     host_cpu_sync();                /* spinning takes time too */
     if (deterministic && host_ns_per_instr <= 0)

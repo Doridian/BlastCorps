@@ -21,7 +21,7 @@ extern s16 D_803A7412;
 extern s32 D_803F9320;
 extern s32 D_803F9324;
 
-void func_80260650(SndBank *, s32, SndState **);
+void func_80260650(SndBank *, s32, SndState *PTR32 *);
 void func_802608C8(SndState *);
 s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
 s32 func_802A0CC8(s32, s32);

@@ -46,7 +46,11 @@
 /* K0_TO_PHYS for a static initializer (a display list in .data): the linker
  * can add a constant to an address but not mask it, and every address such a
  * list points at is KSEG0. */
+#if defined(TARGET_PC) && defined(PORT_LP64)
+#define STATIC_K0_TO_PHYS(x) ((u32)(void *PTR32)(x) - K0BASE)    /* see gbi.h's _GBI_W */
+#else
 #define STATIC_K0_TO_PHYS(x) ((u32)(x) - K0BASE)
+#endif
 
 /*
  * The versions: the Makefile defines one of VERSION_US_V10, VERSION_US_V11,

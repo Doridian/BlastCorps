@@ -8,7 +8,7 @@
 void func_8024FC2C(Gfx **gfxp, s32 arg1);
 Gfx *func_8025D2B4(Gfx *gfx, s32 arg1, s32 *arg2);
 void func_8025E1E0(Gfx **gfxp);
-SndState *func_80260650(SndBank *bank, s16 id, SndState **handle);
+SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 void func_802609D0(void);
 void func_802609F0(void);
 void func_80260A10(void);
