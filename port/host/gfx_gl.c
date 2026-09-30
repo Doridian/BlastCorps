@@ -957,7 +957,7 @@ void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) {
     flush();
     if (!cur_target)
         return;
-    glBindFramebuffer(GL_FRAMEBUFFER, cur_target->fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, target_fbo(cur_target));
     glEnable(GL_SCISSOR_TEST);
     glScissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
     glColorMask(1, 1, 1, 1);

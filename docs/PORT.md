@@ -1535,6 +1535,10 @@ What else decides what is drawn out there (`gfx.c`, shared by both):
   full-screen picture: the story, results and promotion screens) blacks
   out the side beyond it, in its rows, so those screens are pillarboxed
   instead of framed by whatever the sides held.
+- **`--interpolate`** composes with it: the twins are the wide size too,
+  and the in-between pass goes through the same rules (the positions are
+  blended in clip space, before the frame is widened).  Every second image
+  is then exactly the widescreen run without `--interpolate`'s.
 - **The software renderer** draws the 320-wide 16-bit color images (the
   framebuffers) wide on the host instead of into RDRAM, the z-buffer with
   them, and the window shows those.  A texture load from one would copy
@@ -1556,12 +1560,14 @@ of a side; at 32:9 more often and larger.
 None of this reaches the game: the display lists are the game's, the
 RDP's time comes from the 4:3 geometry, and RDRAM is the same but for the
 two color framebuffers, which the OpenGL renderer never writes anyway.
-With `--widescreen` the TAS still beats the game (all 125,297 reads
-matched, none skipped, 57 platinum; also with the software renderer at
-21:9), and `PORT_COUNT_PER_OP=0 --deterministic` runs (the TAS's first
-30,000 frames, and `PORT_AUTOSTART=1`) write the same save and sound with
-and without it, 32-bit and LP64, and the same RDRAM outside the
-framebuffers.
+With `--widescreen` the TAS still beats the game (OpenGL, with and
+without `--interpolate`: all 125,297 reads matched, none skipped, 57
+platinum, the same report and save as without widescreen; also with the
+software renderer at 21:9, 32-bit and LP64).  `PORT_COUNT_PER_OP=0
+--deterministic` runs (the TAS's first 30,000 frames, `PORT_AUTOSTART=1`,
+and `PORT_AUTOSTART=3` with `--interpolate`) write the same save and
+sound with and without it, 32-bit and LP64, and the same RDRAM outside
+the framebuffers (with OpenGL, the same RDRAM).
 
 ## The glue to the translated code
 
