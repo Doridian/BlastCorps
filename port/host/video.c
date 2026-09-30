@@ -91,6 +91,12 @@ void host_video_init(void) {
         ww = 320 * gfx_gl_scale;
         wh = 240 * gfx_gl_scale;
     }
+    if (gfx_interp_hz < 0) {                        /* --display-hz auto */
+        SDL_DisplayMode m;
+        gfx_interp_hz = SDL_GetCurrentDisplayMode(0, &m) == 0 && m.refresh_rate > 60 ? m.refresh_rate : 60;
+        if (gfx_interp)
+            host_log("--display-hz: %d\n", gfx_interp_hz);
+    }
     if (gfx_aspect > 0)                             /* widescreen: a window that wide */
         ww = (int)(wh * gfx_aspect_of(0, 0) + 0.5f);
     win = SDL_CreateWindow("Blast Corps", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh,
@@ -217,6 +223,23 @@ void host_video_frame(void) {
 done:
     if (host_max_frames && frame >= host_max_frames)
         quit = 1;
+}
+
+void host_video_between(double phase) {
+    int twin = gfx_interp_image_at(vi_fb, phase);
+    if (twin < 0)                                   /* the frame itself, already on screen */
+        return;
+    if (host_renderer == 1) {
+        gfx_gl_present(vi_fb, vi_width, NULL, twin);
+        return;
+    }
+    int fw = sw_present(twin);
+    if (ren) {
+        SDL_UpdateTexture(tex, NULL, pixels, fw * 4);
+        SDL_RenderClear(ren);
+        SDL_RenderCopy(ren, tex, NULL, NULL);
+        SDL_RenderPresent(ren);
+    }
 }
 
 int host_quit_requested(void) { return quit || host_replay_done(); }

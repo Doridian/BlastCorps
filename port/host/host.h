@@ -27,6 +27,7 @@ extern int host_headless;
 extern const char *host_save_path;
 void host_video_init(void);
 void host_video_frame(void);
+void host_video_between(double phase);   /* --display-hz: a present `phase` retraces after the last */
 void host_video_shutdown(void);
 int host_frame_held(void);          /* the game's mode holds each frame for two retraces */
 

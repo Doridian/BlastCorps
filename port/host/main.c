@@ -393,6 +393,9 @@ static void usage(const char *argv0) {
             "  --aspect W:H         widescreen: show the 3D world W:H wide (e.g. 16:9; 4:3,\n"
             "                       the default, is the N64's), or 'window' to follow it\n"
             "  --widescreen         --aspect 16:9\n"
+            "  --display-hz N|auto  --interpolate for a display this fast (default 60; auto:\n"
+            "                       the display's): more in-between images, shown between\n"
+            "                       retraces by the host clock (not with --deterministic)\n"
             "  --wav PATH           write the sound to a WAV file too\n"
             "  --no-audio           no sound (--headless and --deterministic imply it)\n"
             "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
@@ -438,7 +441,12 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(argv[i], "--interpolate"))
             gfx_interp = 1;
-        else if (!strcmp(argv[i], "--widescreen"))
+        else if (!strcmp(argv[i], "--display-hz") && i + 1 < argc) {
+            i++;
+            gfx_interp_hz = !strcmp(argv[i], "auto") ? -1 : atoi(argv[i]);
+            if (gfx_interp_hz == 0 || gfx_interp_hz > 1000)
+                usage(argv[0]);
+        } else if (!strcmp(argv[i], "--widescreen"))
             gfx_aspect = 16.0f / 9;
         else if (!strcmp(argv[i], "--aspect") && i + 1 < argc) {
             const char *a = argv[++i];
@@ -495,6 +503,10 @@ int main(int argc, char **argv) {
     port_fixups();
 #endif
     host_video_init();
+    if (deterministic && gfx_interp_hz > 60) {
+        host_log("--display-hz: presents between retraces follow the host clock; not with --deterministic\n");
+        gfx_interp_hz = 60;
+    }
 
     port_boot();
 
@@ -502,6 +514,10 @@ int main(int argc, char **argv) {
     const uint64_t vi_period = 1000000000ull / 60;
     uint64_t next_vi = now_ns() + vi_period;
     int vi_force = 0;
+    /* --display-hz above 60: presents between the retraces, by the host clock */
+    int between = gfx_interp && gfx_interp_hz > 60 && !deterministic;
+    uint64_t disp_period = between ? 1000000000ull / (uint64_t)gfx_interp_hz : 0;
+    uint64_t last_vi = now_ns(), next_disp = between ? last_vi + disp_period : ~0ull;
     for (;;) {
         deliver_pending();
         if (host_replay_poll_si())
@@ -517,12 +533,24 @@ int main(int argc, char **argv) {
             if (now > next_vi + 4 * vi_period)      /* fell behind: don't catch up */
                 next_vi = now + vi_period;
             host_video_frame();
+            last_vi = now;
 #ifdef PORT_HAVE_ASYNCIFY
             yield_to_page(0);
 #endif
             if (host_quit_requested())
                 break;
             port_irq_vi();
+            continue;
+        }
+        if (now >= next_disp) {
+            /* the display's clock runs on its own; a tick within half a
+               period of a retrace is that retrace's present */
+            double phase = (double)(now - last_vi) / vi_period;
+            next_disp += disp_period;
+            if (next_disp < now)
+                next_disp = now + disp_period;
+            if (now - last_vi >= disp_period / 2 && next_vi - now >= disp_period / 2 && phase < 1)
+                host_video_between(phase);
             continue;
         }
         uint64_t deadline = port_irq_timers(host_ticks());
@@ -539,6 +567,8 @@ int main(int argc, char **argv) {
             continue;
         }
         uint64_t wake = vi_held ? ~0ull : next_vi;
+        if (next_disp < wake)
+            wake = next_disp;
         /* (rounded up: at deadline * 64 / 3 the counter may not be there yet) */
         if (deadline != ~0ull && (deadline * 64 + 2) / 3 < wake)
             wake = (deadline * 64 + 2) / 3;

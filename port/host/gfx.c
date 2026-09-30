@@ -1830,8 +1830,13 @@ int gfx_interp_image(uint32_t fb) {
     return k;
 }
 
+static unsigned long long st_between[2];        /* presents between retraces, in-between images among them */
+
 int gfx_interp_image_at(uint32_t fb, double phase) {
-    return pick_image(fb, (double)(n_presents - shown_at - 1) + phase);
+    int k = pick_image(fb, (double)(n_presents - shown_at - 1) + phase);
+    st_between[0]++;
+    st_between[1] += k >= 0;
+    return k;
 }
 
 void host_gfx_interp_report(void) {
@@ -1845,6 +1850,9 @@ void host_gfx_interp_report(void) {
              gfx_st_rect[0], gfx_st_rect[1], gfx_st_rect[2]);
     host_log("interpolate: %llu retraces presented: %llu showed a new frame of the game's, %llu an "
              "in-between one\n", gfx_st_shown[0], gfx_st_shown[1], gfx_st_shown[2]);
+    if (st_between[0])
+        host_log("interpolate: %llu presents between retraces (--display-hz %d), %llu of them in-between images\n",
+                 st_between[0], gfx_interp_hz, st_between[1]);
     host_log("interpolate: frames by their in-between images:");
     for (int k = 1; k <= GFX_TWINS; k++)
         if (s[7 + k])
