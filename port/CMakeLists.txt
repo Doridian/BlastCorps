@@ -171,9 +171,16 @@ endif()
 # as MIPS o32 has them
 set(M32 -m32 -msse2 -mfpmath=sse -malign-double)
 if(EMSCRIPTEN)
-    # wasm32's own layout is that one (4-byte pointers and longs, 8-aligned
-    # doubles and long longs); -pthread for the atomics shared memory needs
-    set(M32 --target=wasm32-unknown-emscripten -pthread)
+    # The N64 side is compiled as the 32-bit build's, for i386 (the same IR,
+    # so the same instruction counts, the same timing), and the arena link
+    # makes it wasm32's, whose layout that is: 4-byte pointers and longs,
+    # 8-aligned doubles and long longs
+    execute_process(COMMAND ${PORT_N64_CC} --target=wasm32-unknown-emscripten -S -emit-llvm -o - -x c /dev/null
+        OUTPUT_VARIABLE WASM_IR COMMAND_ERROR_IS_FATAL ANY)
+    if(NOT WASM_IR MATCHES "target datalayout = \"([^\"]+)\"")
+        message(FATAL_ERROR "no wasm32 data layout from ${PORT_N64_CC}")
+    endif()
+    set(WASM_DATALAYOUT ${CMAKE_MATCH_1})
 elseif(PORT_LP64)
     # the host's own layout: no i386 frontend, no port-ilp32
     set(M32)
@@ -543,8 +550,10 @@ if(PORT_MOVABLE)
     if(PORT_NATIVE_ENDIAN)
         list(APPEND ARENA_FLAGS -port-arena-native)
     endif()
-    if(EMSCRIPTEN)      # (wasm can't call a function through another type)
-        list(APPEND ARENA_FLAGS -port-arena-typed-calls)
+    if(EMSCRIPTEN)      # (i386's IR to wasm32's; wasm can't call a function
+                        # through another type, and its float conversions saturate)
+        list(APPEND ARENA_FLAGS -port-arena-triple=wasm32-unknown-emscripten "-port-arena-datalayout=${WASM_DATALAYOUT}"
+             -port-arena-typed-calls -port-arena-x86-fptoint)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h
         COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}

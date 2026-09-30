@@ -60,6 +60,7 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <map>
 #include <set>
@@ -72,6 +73,11 @@ static cl::opt<std::string> HostNames("port-arena-host", cl::desc("N64-side vari
 static cl::opt<bool> Native("port-arena-native", cl::desc("the native-endian build's byte order"));
 static cl::opt<bool> TypedCalls("port-arena-typed-calls",
                                 cl::desc("a call through a value goes to a thunk of the call's type (WebAssembly)"));
+static cl::opt<bool> X86FpToInt("port-arena-x86-fptoint",
+                                cl::desc("float to integer conversions out of range as x86 gives them (WebAssembly)"));
+static cl::opt<std::string> Retarget("port-arena-triple",
+                                     cl::desc("the module's target from here on (WebAssembly: the N64 side is i386's)"));
+static cl::opt<std::string> RetargetLayout("port-arena-datalayout", cl::desc("... and its data layout"));
 static cl::opt<std::string> SymsHeader("port-arena-header",
                                        cl::desc("where the moved variables went, as a header (SYM_, PORT_N64_)"));
 
@@ -949,6 +955,61 @@ struct Arena : PassInfoMixin<Arena> {
         }
     }
 
+    /* -port-arena-x86-fptoint: a float to integer conversion of a value out
+       of the type's range (or a NaN) is poison to LLVM, and each target
+       gives what its instruction does.  x86's cvtt* give 0x80000000 (and
+       the i386 build's narrow and unsigned conversions go through them),
+       which is what mupen64plus on x86 gave the game when the TAS was made;
+       WebAssembly's saturate (a negative float to an unsigned type is 0
+       there, -1 on x86).  So the conversions are made to give x86's
+       results, as i386 code-generates them, on any target. */
+    unsigned fpConversions = 0;
+
+    Value *cvtt(IRBuilder<> &b, Value *f, unsigned bits) {
+        Type *ft = f->getType();
+        IntegerType *it = b.getIntNTy(bits);
+        Value *ok = b.CreateAnd(b.CreateFCmpOGE(f, ConstantFP::get(ft, -std::ldexp(1.0, bits - 1))),
+                                b.CreateFCmpOLT(f, ConstantFP::get(ft, std::ldexp(1.0, bits - 1))));
+        return b.CreateSelect(ok, b.CreateFPToSI(f, it), ConstantInt::get(it, APInt::getSignedMinValue(bits)));
+    }
+
+    void x86FpToInt() {
+        std::vector<CastInst *> work;
+        for (Function &f : *M)
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb)
+                    if ((isa<FPToSIInst>(&i) || isa<FPToUIInst>(&i)) && i.getType()->isIntegerTy() &&
+                        i.getOperand(0)->getType()->isFloatingPointTy())
+                        work.push_back(cast<CastInst>(&i));
+        for (CastInst *ci : work) {
+            IRBuilder<> b(ci);
+            Value *f = ci->getOperand(0);
+            unsigned bits = ci->getType()->getIntegerBitWidth();
+            Value *r;
+            if (bits > 64)
+                continue;
+            if (bits == 64 && isa<FPToUIInst>(ci)) {
+                /* below 2^63 as it is, above it less 2^63 with the top bit set */
+                Value *big = b.CreateFCmpOGE(f, ConstantFP::get(f->getType(), std::ldexp(1.0, 63)));
+                Value *hi = b.CreateXor(cvtt(b, b.CreateFSub(f, ConstantFP::get(f->getType(), std::ldexp(1.0, 63))), 64),
+                                        ConstantInt::get(b.getInt64Ty(), APInt::getSignedMinValue(64)));
+                r = b.CreateSelect(big, hi, cvtt(b, f, 64));
+            } else if (bits == 64) {
+                r = cvtt(b, f, 64);
+            } else if (bits == 32 && isa<FPToUIInst>(ci)) {
+                /* c | (d & (c >> 31)), d the conversion of f - 2^31 */
+                Value *c = cvtt(b, f, 32);
+                Value *d = cvtt(b, b.CreateFSub(f, ConstantFP::get(f->getType(), std::ldexp(1.0, 31))), 32);
+                r = b.CreateOr(c, b.CreateAnd(d, b.CreateAShr(c, 31)));
+            } else {
+                r = b.CreateTrunc(cvtt(b, f, 32), ci->getType());
+            }
+            ci->replaceAllUsesWith(r);
+            ci->eraseFromParent();
+            fpConversions++;
+        }
+    }
+
     /* no more __bepass_fixup: the image has the build's byte order */
     void dropFixups() {
         GlobalVariable *ctors = M->getGlobalVariable("llvm.global_ctors");
@@ -997,13 +1058,38 @@ struct Arena : PassInfoMixin<Arena> {
             g->eraseFromParent();
     }
 
+    /* -port-arena-triple/-datalayout: the N64 side is compiled and
+       optimised for i386 as in the 32-bit build (the same IR, so the same
+       instruction counts and the same layout as there), then code-generated
+       for another target of the same layout (wasm32: 4-byte pointers,
+       8-aligned doubles and long longs as -malign-double has them).  The
+       i386 function attributes go (the target's CPU and features, the
+       stack protector's canary); -mattr gives the new
+       target's. */
+    void retarget() {
+        M->setTargetTriple(Triple(Retarget));
+        M->setDataLayout(RetargetLayout);
+        for (Function &f : *M) {
+            f.removeFnAttr("target-cpu");
+            f.removeFnAttr("target-features");
+            f.removeFnAttr("tune-cpu");
+            f.removeFnAttr(Attribute::StackProtect);
+            f.removeFnAttr(Attribute::StackProtectStrong);
+            f.removeFnAttr(Attribute::StackProtectReq);
+        }
+    }
+
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
         M = &m;
         C = &m.getContext();
+        if (!Retarget.empty())
+            retarget();
         DL = &m.getDataLayout();
         IP = IntegerType::get(*C, DL->getPointerSizeInBits(0));
         readSyms();
         callFix();
+        if (X86FpToInt)
+            x86FpToInt();
         dropFixups();
         functions();
         layout();
@@ -1027,7 +1113,7 @@ struct Arena : PassInfoMixin<Arena> {
                    << " functions as values, " << indirect << " calls through one (" << sigs.size()
                    << " types, " << thunks << " thunks); " << fixedCalls
                    << " calls made with their callee's type (" << voidResults << " void results used, "
-                   << unfixable << " arguments lost)\n";
+                   << unfixable << " arguments lost); " << fpConversions << " float conversions as x86's\n";
         return PreservedAnalyses::none();
     }
 };
