@@ -509,8 +509,10 @@ unsigned int port_counter(int timer, const char *func) {
    /proc/self/exe): the audio queries name their caller by its return
    address.  Elsewhere dladdr, which sees the exported symbols only (on
    macOS every global of the executable); WebAssembly has no return
-   addresses to go by (docs/PORT.md, "Threads without ucontext"). */
-#ifdef __linux__
+   addresses to go by (docs/PORT.md, "Threads without ucontext").  The
+   movable build is told the names instead (port_replay_set_caller). */
+#ifdef PORT_MOVABLE
+#elif defined(__linux__)
 typedef struct { uint64_t addr, size; const char *name; } HostFunc;
 static HostFunc *hfuncs;
 static unsigned nhfuncs;

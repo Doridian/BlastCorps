@@ -87,6 +87,7 @@ void host_fatal(const char *fmt, ...) {
    malloc goes to mmap instead.) */
 static char **main_argv;
 
+#ifndef PORT_MOVABLE
 static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
 #ifdef MAP_FIXED_NOREPLACE
     void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
@@ -113,6 +114,7 @@ static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
     if (p == MAP_FAILED || p != (void *)(uintptr_t)addr)
         host_fatal("can't map %s at %08X: %s", what, addr, strerror(errno));
 }
+#endif
 
 /* ---- cartridge ------------------------------------------------------------ */
 
