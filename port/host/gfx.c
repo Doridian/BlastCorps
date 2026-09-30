@@ -1199,13 +1199,34 @@ static void wide_2d(GfxVtx *s, int n) {
         x0 = fminf(x0, s[i].x);
         x1 = fmaxf(x1, s[i].x);
     }
-    if (x0 > 0 || x1 < 319)
+    if (x0 > 1 || x1 < 318)                     /* (within a pixel) */
         return;
+    /* the attributes (depth, texture coordinates, shade) continue as the
+       polygon has them, a plane over the screen (w is 1: no perspective),
+       so that a picture continues past the edges (the sky's panorama)
+       rather than being stretched */
+    GfxVtx ref[3] = { s[0], s[1], s[2] };
+    const float *a = &ref[0].x, *b = &ref[1].x, *c = &ref[2].x;
+    float ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - a[0], vy = c[1] - a[1];
+    float det = ux * vy - uy * vx;
+    /* (a texture that doesn't wrap across would show what is beside it in
+       TMEM: stretched then) */
+    const Tile *tl = &gs.tile[gs.tex_tile];
+    int plane = fabsf(det) > 1e-3f && (!gs.tex_on || (tl->masks && !(tl->cms & 2)));
     for (int i = 0; i < n; i++) {
-        if (s[i].x <= 0)
-            s[i].x = -gfx_wide_off;
-        else if (s[i].x >= 319)
-            s[i].x = 320 + gfx_wide_off;
+        float nx = s[i].x <= 1 ? -gfx_wide_off : s[i].x >= 318 ? 320 + gfx_wide_off : s[i].x;
+        if (nx == s[i].x)
+            continue;
+        if (plane) {
+            /* (nx, y) = a + p * (b - a) + q * (c - a) */
+            float dx = nx - a[0], dy = s[i].y - a[1];
+            float p = (dx * vy - dy * vx) / det, q = (ux * dy - uy * dx) / det;
+            float *o = &s[i].x;
+            for (int k = 2; k < 10; k++)
+                if (k != 3)                     /* (w stays 1) */
+                    o[k] = a[k] + p * (b[k] - a[k]) + q * (c[k] - a[k]);
+        }
+        s[i].x = nx;
     }
 }
 

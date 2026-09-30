@@ -2050,8 +2050,17 @@ What else decides what is drawn out there (`gfx.c`, shared by both):
   covers them (the game's 1-cycle fills stop at 319): the background, the
   z-buffer clear, the fades and the sepia overlay of the story screens.
 - **2D.**  A polygon with w = 1 throughout (an orthographic projection)
-  that spans the game's frame from edge to edge is stretched to the edges
-  of the wide one: the sky's gradient behind the levels.  The rest of the
+  that spans the game's frame from edge to edge (to within a pixel) is
+  widened to the edges of the wide one: the sky behind the levels, its
+  gradient or its picture.  Its attributes (depth, shade, texture
+  coordinates) continue across the sides as the polygon has them (a plane
+  over the screen), so the sky's panorama goes on past the 4:3 edges
+  instead of being stretched; a texture that doesn't wrap across (it would
+  show what is beside it in TMEM) is stretched.  The sky of the levels'
+  intros, whose camera looks at the horizon, is such a picture 0 to 319
+  pixels wide (a hair short of 320): the test used to want 0 and 319
+  exactly, so it wasn't widened, and the sides above the horizon were
+  black or showed what was behind.  The rest of the
   2D (the HUD and its arrows at the edges pointing at what is off screen,
   text, menus, the pause screen) stays in the middle, as does every
   texture rectangle.  A texture rectangle at an edge (the tiles of a
@@ -2068,17 +2077,27 @@ What else decides what is drawn out there (`gfx.c`, shared by both):
   its middle back to RDRAM first (none happens), as the OpenGL renderer
   reads its targets back.
 
-The game doesn't cull at the view's edges.  Over 40,000 frames of the TAS,
-the perspective triangles it sends fall off smoothly with their distance
-from the middle, out to ten times the 4:3 view's half-width, with no step
-at its edge, so nothing pops in at the sides.  What bounds the world there
-is the level's list of active cells (`D_803C30A8`, made from the camera's
-position by `func_802A470C` in `5FD50.s`, or from an area's list by
-`func_80295C70`): the terrain and the objects drawn come from those cells.
-The game logic reads the list too (`func_80267614`, `func_80270A54`), so
-widening it would change the game, and it is left alone.  At 16:9 the
-missing cells show now and then, as a small black patch at the far edge
-of a side; at 32:9 more often and larger.
+The game doesn't cull at the view's edges, on the port or in the
+emulator the TAS was made on.  Over 40,000 frames of the TAS, the
+perspective triangles it sends fall off smoothly with their distance from
+the middle, out to ten times the 4:3 view's half-width, with no step at
+its edge, so nothing pops in at the sides.  The level's list of active
+cells (`D_803C30A8`), which the terrain and the objects drawn come from
+(and which the game logic reads too, `func_80267614`, `func_80270A54`),
+has every cell: Simian Acres's is all 18 of its 3x6.  It is built by a
+quadtree walk (`func_802A470C` and on, `5FD50.s`, a node a frame) that
+asks the RSP whether each node's bounding box is in view: `func_802A4B0C`
+sends a graphics task with a microcode of its own (`D_802E77B0`) that
+draws the box and writes the RDP commands to an output buffer
+(`D_803BEB80`), whose first word stays `0xE8000000` when nothing of the
+box was drawn.  Neither the port nor mupen64plus's HLE writes the output
+buffer, so every node is in view.  (On the hardware it would cull at the
+4:3 frustum.  Answering it for a wider one would change the list and so
+the game.)  The one other writer, `func_80295C70`, puts an area's fixed
+list there (`D_802FF150`, one area in one level).  So what shows at the
+sides is the world itself, and where a level's map ends (or the sky
+isn't drawn) the background: over the TAS at 32:9 (a screenshot every 600
+retraces) no black patch showed at the sides but the intros' sky above.
 
 None of this reaches the game: the display lists are the game's, the
 RDP's time comes from the 4:3 geometry, and RDRAM is the same but for the
