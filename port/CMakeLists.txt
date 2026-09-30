@@ -243,8 +243,9 @@ endif()
 # The decompiled C is IDO's dialect: K&R definitions, implicit
 # declarations, prototypes that differ between files, pointers and ints
 # used interchangeably.  These flags make clang accept it and not optimise
-# on the undefined behaviour it is full of.
-set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks
+# on the undefined behaviour it is full of.  (-fsigned-char: IDO's -signed,
+# which AArch64 Linux doesn't have by default.)
+set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks
     -ftrivial-auto-var-init=zero -ffp-contract=off -fno-common -fno-builtin
     -nostdinc -isystem ${CLANG_RESOURCE_DIR}/include -fpass-plugin=${BEPASS}
     -include ${CMAKE_CURRENT_SOURCE_DIR}/include/port_game.h
@@ -262,7 +263,7 @@ set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fno-strict-aliasing -fwrapv -fno-delete-
     -Wno-error=return-mismatch -Wno-return-mismatch -Wno-incompatible-function-pointer-types
     -Wno-implicit-const-int-float-conversion -Wno-pointer-bool-conversion
     -Wno-string-plus-int -Wno-null-pointer-arithmetic -Wno-gnu-folding-constant
-    -Wno-macro-redefined)
+    -Wno-macro-redefined -Wno-ignored-pragma-intrinsic)   # (IDO's sqrtf, not one on AArch64)
 if(PORT_MOVABLE)
     list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link
 endif()
