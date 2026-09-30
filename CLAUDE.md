@@ -70,7 +70,12 @@ throughout); jp's remaining `GLOBAL_ASM` functions are translated by
 `port/tools/build_cmp.py` and `layout_cmp.py`.  `-DPORT_MOVABLE=ON` (with
 any of them) moves RDRAM off `0x80000000`, the first step toward game
 memory at any base for macOS and WebAssembly (docs/PORT.md, "Movable
-memory").
+memory").  The game's threads switch by ucontext or by host threads one at
+a time (`port/host/fiber.h`); on Linux one executable has both and
+`PORT_THREADS=ucontext|pthread` picks, and the two must give identical
+deterministic runs (docs/PORT.md, "Threads without ucontext").
+`port/tools/cross-aarch64.cmake` cross-builds the 64-bit port for AArch64
+Linux, which runs under qemu-aarch64 ("Other hosts").
 
 Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A pointer
 the handwritten code, the asm data or the ROM's data share with the C is
