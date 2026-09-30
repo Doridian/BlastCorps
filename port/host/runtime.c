@@ -70,6 +70,9 @@ void *host_thread_stack(int idx, uint32_t *size) {
 
 #ifdef PORT_MOVABLE
 #include <sys/mman.h>
+#ifndef MAP_NORESERVE
+#define MAP_NORESERVE 0
+#endif
 
 uint8_t *port_arena;
 

@@ -50,6 +50,15 @@ endif()
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
 endif()
+if(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
+    # (Apple's clang loads no pass plugins and ships no LLVM headers)
+    message(FATAL_ERROR "the port needs LLVM's own clang, not Apple's: "
+        "-DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang (docs/PORT.md, \"macOS\")")
+endif()
+if(APPLE AND NOT (PORT_MOVABLE AND PORT_64BIT))
+    # arm64 macOS has no 32-bit programs and maps nothing in the low 4 GB
+    message(FATAL_ERROR "macOS takes the movable 64-bit build: -DPORT_MOVABLE=ON -DPORT_LP64=ON (or -DPORT_64BIT=ON)")
+endif()
 
 get_filename_component(ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
 set(BLAST ${ROOT}/blastcorps)
@@ -103,7 +112,7 @@ configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
 message(STATUS "${PORT_VERSION}: heap from ${PORT_HEAP_START}, front end .data ${PORT_FE_DATA}, .bss ${PORT_FE_BSS}")
 
 # ---- BEPass (a host LLVM plugin, 64-bit) ------------------------------------
-find_program(LLVM_CONFIG llvm-config REQUIRED)
+find_program(LLVM_CONFIG llvm-config HINTS ${CLANG_BINDIR} REQUIRED)
 # A cross build (CMAKE_C_COMPILER_TARGET, port/tools/cross-aarch64.cmake)
 # can't build the plugin clang loads: it takes one from a native build.
 set(PORT_BEPASS_PLUGIN "" CACHE FILEPATH "cross builds: a libBEPass.so built for the host")
@@ -116,7 +125,11 @@ else()
     add_library(BEPass MODULE bepass/BEPass.cpp bepass/ILP32.cpp bepass/LP64.cpp bepass/Arena.cpp)
     target_compile_options(BEPass PRIVATE ${LLVM_CXXFLAGS} -fno-rtti)
     set_target_properties(BEPass PROPERTIES PREFIX "lib" LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-    set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass.so)
+    if(APPLE)
+        # LLVM's symbols are clang's and opt's, found when they load it
+        target_link_options(BEPass PRIVATE -undefined dynamic_lookup)
+    endif()
+    set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass${CMAKE_SHARED_MODULE_SUFFIX})
 endif()
 
 execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -532,7 +545,9 @@ if(PORT_64BIT)
     target_compile_definitions(host PRIVATE PORT_64BIT)
     target_compile_definitions(recomp PRIVATE PORT_64BIT)
 endif()
-if(PORT_MOVABLE AND PORT_64BIT)
+if(PORT_MOVABLE AND APPLE)
+    # (a PIE is all arm64 macOS runs, and ld64's default)
+elseif(PORT_MOVABLE AND PORT_64BIT)
     # nothing is at a fixed address: an ordinary PIE, wherever the loader
     # puts it
     target_link_options(blastcorps PRIVATE -pie)

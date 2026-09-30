@@ -23,6 +23,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "fiber.h"
 #include "host.h"
@@ -106,9 +107,18 @@ static void f_run(HostFiber *f) {
     if (!f->started) {
         pthread_attr_t a;
         pthread_attr_init(&a);
-        if (f->stack)
-            pthread_attr_setstack(&a, f->stack, f->size);
-        else
+        if (f->stack) {
+            /* macOS takes whole pages only (the arena's stacks are at its
+               offset into a page): the pages inside the stack, where
+               fiber_enter still finds its frame (FIBER_TOP_GAP below the
+               top) */
+            uintptr_t pg = (uintptr_t)sysconf(_SC_PAGESIZE);
+            uintptr_t lo = ((uintptr_t)f->stack + pg - 1) & ~(pg - 1);
+            uintptr_t hi = ((uintptr_t)f->stack + f->size) & ~(pg - 1);
+            int e = pthread_attr_setstack(&a, (void *)lo, hi - lo);
+            if (e)
+                host_fatal("pthread_attr_setstack: %s", strerror(e));
+        } else
             pthread_attr_setstacksize(&a, f->size);
         int e = pthread_create(&f->th, &a, start, f);
         pthread_attr_destroy(&a);
