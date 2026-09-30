@@ -1617,10 +1617,13 @@ page's size.
   widescreen and `--interpolate` too; after a reload the ROM and the
   save are there.
 
-Untested: a real browser with a GPU and a person (the sound, a gamepad,
-the feel of the pacing, Firefox and Safari: headless Chromium is all
-there was here), and the jp and us.v11 builds (the same code; only
-us.v10 was built).
+- Headless Chromium on the GPU and headless Firefox 153 (Playwright's):
+  the level at 60 new pictures a second, the sound playing on
+  ("Performance", with the numbers).
+
+Untested: a real browser with a person (the sound heard, a gamepad, the
+feel of the pacing, Safari), and the jp and us.v11 builds (the same
+code; only us.v10 was built).
 
 ## Timing
 
@@ -2135,6 +2138,199 @@ with widescreen as without, either renderer.  `PORT_COUNT_PER_OP=0
 and `PORT_AUTOSTART=3` with `--interpolate`) write the same save and
 sound with and without it, 32-bit and LP64, and the same RDRAM outside
 the framebuffers (with OpenGL, the same RDRAM).
+
+## Performance
+
+The budget is the N64's: 60 retraces a second, 16.7 ms each, into which
+the game's CPU work (the fibers), the renderer (both passes with
+`--interpolate`), the audio microcode, presenting and, in a browser,
+Asyncify and the page's own work must fit.  The game draws 30 frames a
+second in the levels; with `--interpolate` every retrace shows a new
+picture.
+
+### Measuring
+
+`PORT_PERF=N` (`port/host/perf.c`) logs a line every N retraces (1: 600):
+the work per retrace (the time from one retrace to the next less what the
+loop gave away) as median, 95th and 99th percentile and maximum; the
+retraces that took over 16.7 ms and how late they came; new pictures and
+game frames a second; the mean of each part (`game`: the fibers, less
+what they call below; `gfx`/`gfx2`: the two passes; `shaders`: compiling;
+`gl-draws`: submitting the batches; `audio`; `present`; `loop`; `idle`);
+the loop's sleeps and how far they overshot; SDL's audio queue; and how
+often `PORT_PACED` dropped time.  In a page the lines go to the console,
+and the port also hands each new picture's time to the page
+(`Module.shown`).
+
+`port/tools/web_perf.mjs BUILD ROM [--browser chromium|firefox] [--gpu]
+[--throttle N]` serves a web build on a free port, plays it headless
+(Playwright's `playwright-core`; `PLAYWRIGHT_CORE` names its
+`node_modules` if node can't find it) with `PORT_AUTOSTART=3
+--interpolate --widescreen` into Simian Acres, prints the `PORT_PERF`
+lines and, every 5 s, what the display showed: of its frames
+(`requestAnimationFrame`), how many had a new picture, how many repeated
+the last, and how many came with two (one of them never seen); then a
+summary of the gameplay windows.  Chromium runs WebGL on SwiftShader (the
+CPU's GL: a pessimistic GPU) or with `--gpu` on the real one (ANGLE on
+Vulkan: a Radeon RX 7900 XTX here), and `--throttle N` is CDP's CPU
+throttling, standing for a laptop's slower CPU.  Firefox (Playwright's
+build; any recent `playwright-core` drives it) can't be throttled, and
+its `performance.now()` has 1 ms steps, so its per-part means are rough.
+`--profile-at S` takes a Chromium CPU profile; a `--profiling-funcs`
+build (`-DCMAKE_EXE_LINKER_FLAGS=--profiling-funcs`) names the wasm
+functions in it, and Firefox's own profiler runs headless with
+`MOZ_PROFILER_STARTUP=1 MOZ_PROFILER_SHUTDOWN=FILE`.
+
+### What was slow
+
+In the page, before (`c0c99a5`), Chromium on the GPU at 1x: 8.3 ms of
+work a retrace, of which 4.1 ms was presenting and 2.5 ms the loop;
+neither was work.
+
+- **The loop spun through the CPU model's waits.**  A game thread that
+  has run ahead of the clock goes busy until the clock catches up
+  (threads.c), for tens of microseconds at a time, dozens of times a
+  retrace (natively the loop `nanosleep`s through them: 10,000 sleeps
+  per 5 s).  In the browser a wait under 1 ms was spun (the page's
+  timers can't do better than 4 ms), and the page got its thread back
+  only on longer ones, or after 12 ms without.
+- **SDL's `SDL_GL_SwapWindow` slept**: with Asyncify, SDL's emscripten
+  driver calls `emscripten_sleep(0)` after each swap (a clamped
+  `setTimeout`, 4 ms, and one more unwind): the 4 ms of "present".
+- **Firefox's clock stretched the game.**  `performance.now()` there
+  moves in 1 ms steps, and the CPU model's waits, measured with it, came
+  out long: after the Rare logo the screen stayed black for 20 s and
+  more, with no graphics task at all (reproduced natively by rounding
+  the clock to 1 ms).  In the levels the game made 8 frames a second.
+- **Presenting wasn't the display's**: a picture drawn went to the screen
+  whenever the loop next yielded, and two drawn between two of the
+  display's frames meant one never seen.
+- **The sound wedged.**  More than 0.8 s queued in SDL made every new
+  buffer be dropped; when the page's thread was held long enough for
+  the `ScriptProcessorNode` to stop draining (Firefox), the queue played
+  out and the sound stopped for good.
+- **The renderer's GL calls**: about 360 draws a pass in the levels (a
+  new batch at each texture change, which is every few triangles), each
+  setting all of its state and uniforms again (25 GL calls, each a trip
+  through JavaScript and WebGL's checks) and uploading its own vertex
+  buffer; and a program was found by a linear search at each change of
+  draw state.
+- **Compiling shaders when first drawn**: up to 165 ms for one retrace.
+- **The front end**: TMEM loads a byte at a time (the largest item in a
+  profile of the level), every triangle copied through both clip planes,
+  `fminf`/`fmaxf` as calls; and in WebAssembly every display-list command
+  inlined into `run()` (binaryen inlines a function with one caller
+  whatever clang is told).
+- **Resolution**: the page asked for up to 6 times `devicePixelRatio`,
+  4 million pixels, twice a frame, on a high-DPI laptop.
+
+### What changed
+
+- **`PORT_PACED=1`, the page's default** (main.c): virtual time inside a
+  retrace, real time at it.  Between two retraces the clock jumps from
+  event to event, as `--deterministic`'s does, so the CPU model's waits
+  cost nothing and the clock's resolution doesn't matter; the next
+  retrace waits until real time is there.  In the page it waits for the
+  first animation frame from a quarter of a retrace before its time
+  (`wait_display`, an `EM_ASYNC_JS` promise on `requestAnimationFrame`,
+  with a timer in case none comes), and the retraces follow the frames
+  that show them by at most 0.2 ms a retrace (a 59.94 Hz display, or
+  120 Hz); a retrace already late is delivered at once.  After each
+  picture, and every 8 ms of work, the page gets its turn through a
+  `MessageChannel` message (no timer clamp): the picture goes to the
+  screen before the next one's work, and the sound's callbacks run.  The
+  host falling more than 4 retraces behind drops the time rather than
+  catching up.  SDL's swap doesn't sleep (`SDL_HINT_EMSCRIPTEN_ASYNCIFY`
+  off).  Natively `PORT_PACED=1` works too (a `nanosleep` a retrace), but
+  isn't the default.
+- **Audio** (audio.c): more than 0.25 s queued clears the queue and
+  starts over from the new buffer; the page resumes a suspended
+  `AudioContext` on input; 1024-sample buffers in a browser.
+- **GL state** (gfx_gl.c): a cache of what was last set (framebuffer,
+  viewport, scissor, masks, depth, blend, program, textures) and each
+  program's last uniform values; the batches of a task wait until
+  something needs them drawn and then share one vertex upload, each a
+  `glDrawArrays` of its range; programs are found by hash.
+- **Shaders ahead**: the 110 programs the TAS and the attract mode use
+  (`gfx_gl_progs.h`, written by `PORT_GL_PROGS=FILE`) are compiled while
+  the logos run, a few a retrace (up to 4 ms).  The longest retrace of
+  the run went from 165 ms to 11 ms.
+- **The front end** (gfx.c): TMEM loads a word at a time, no clipping for
+  triangles inside both planes, `min_f`/`max_f` inline (musl's
+  semantics), the commands out of line.
+- **`PORT_ADAPT=1`, the page's default**: a fence after each picture says
+  whether the GPU had finished the one before last when the next is
+  presented; if not in a quarter of a two-second window's retraces, the
+  internal resolution goes down a step (it may go up again after a
+  minute).  When more than 5% of a window's retraces come over 2 ms late
+  and the GPU isn't behind, the in-between pictures go first (20 s, then
+  twice as long each time they had to go again soon after): the game
+  never slows for them.  The page caps its picture at about 1.3 million
+  pixels (3x widescreen, 4x at 4:3).
+- All of this leaves the game as it was: the GL screenshots (20 over
+  3,000 frames of `PORT_AUTOSTART=3 --interpolate --widescreen`) and the
+  software ones are byte for byte what they were; under node the wasm
+  build matches the Linux `mn32` build's save, sound and 12 screenshots
+  over 3,000 frames of `PORT_AUTOSTART=2`; the variants and the TAS as in
+  "Testing the port".
+
+Tried and not kept: `-O3 -msimd128` for the host side (no measurable
+change), and taking the renderer out of Asyncify's instrumentation
+(`ASYNCIFY_REMOVE`: Asyncify instruments 81% of the code, the renderer
+included, since printf's indirect calls might unwind, but that cost
+nothing measurable, in Firefox either; taking the pad's and the audio
+microcode's calls out as well crashed).
+
+### Results
+
+us.v10, Simian Acres (`PORT_AUTOSTART=3 --interpolate --widescreen`),
+1278x720 where not lowered, the windows of retraces 3,000-4,200; work per
+retrace in ms (median / 95th / 99th percentile), and what the display
+showed (frames a second with a new picture, of 60):
+
+| browser, GPU, CPU     | before: work     | before: game, pictures | after: work      | after: on the display |
+| ---                   | ---              | ---                    | ---              | ---                   |
+| Chromium, GPU, 1x     | 8.3 / 12.8 / 13.3 | 28.5 fps, 57 drawn/s  | 1.8 / 3.0 / 3.3  | 59.8 new               |
+| Chromium, GPU, 4x     | 11.6 / 22.5 / 25.2 | 6 fps (behind)       | 7.0 / 11.6 / 12.3 | 59.9 new              |
+| Chromium, GPU, 6x     | 11.8 / 15.3 / 28.8 | 3.5 fps (behind)     | 10.0 / 16.7 / 18.1 | 51.2 new, 8.9 repeated |
+| Chromium, SwiftShader, 1x | 5.6 / 51 / 70 | 20 fps, 11.5 display frames/s | 1.4 / 3.0 / 3.3 | 30 new (852x480, no in-between) |
+| Chromium, SwiftShader, 4x | 11.6 / 24.7 / 30.1 | 6 fps (behind)   | 5.1 / 9.8 / 10.8 | 30 new (the same)     |
+| Chromium, SwiftShader, 6x | 11.8 / 15.3 / 36.5 | 4 fps (behind)   | 7.6 / 14.7 / 15.6 | 30 new (the same)    |
+| Firefox 153, GPU, 1x  | 12 / 17 / 22      | 8 fps, 9.6 drawn/s    | 10 / 14 / 14     | 59.9 new               |
+
+"Behind": the game made far fewer frames than its 30, and the window
+wasn't even the level by then.  After, the game makes its 30 frames a
+second in every row; on SwiftShader the resolution goes to 852x480 and
+the in-between pictures stay off most of the time, so each frame is
+shown for two retraces.  The parts at 4x on the GPU, per retrace: game
+2.1 ms, `gfx` 1.5, `gfx2` 1.3, audio 0.3 (before: presenting 4.3 and the
+loop 4.8).
+
+Natively (Linux, the `mn32` build, OpenGL headless, `--scale 6
+--interpolate --widescreen`, 2556x1440): 2.2 ms of work a retrace before,
+1.8 after, the two passes 1.06 ms against 0.73.
+
+The module: 3.50 MB before, 3.52 MB after (0.93 MB gzipped).
+
+### What's left
+
+- **The in-between pass redoes the display list**: TMEM loads, texture
+  hashing, state, every command, for a picture whose only difference is
+  where the vertices are.  Recording the first pass's triangles and
+  running only their vertices again would take off most of `gfx2`
+  (40% of the renderer).
+- **Firefox runs the front end three to five times slower** than
+  Chromium (`load_block`, `tri`, `do_vtx` in its profile), for no reason
+  found; on a laptop's CPU it would need the in-between pictures to go.
+- **Draw calls**: one per texture change; a texture array or atlas would
+  batch them.
+- **A retrace whose work runs over** is shown late even when the next is
+  short (at 6x the render retrace takes 17-19 ms, the other 7): a queue
+  of pictures presented a retrace later would absorb it, for a retrace
+  of latency.
+- **SwiftShader** trades resolution for in-between pictures; which of
+  the two to give up first could be the player's choice.
+- Displays over 60 Hz still get a new picture per retrace, at most.
 
 ## The glue to the translated code
 
