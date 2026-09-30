@@ -628,3 +628,17 @@ else()
     add_custom_command(TARGET blastcorps POST_BUILD
         COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py check $<TARGET_FILE:blastcorps>)
 endif()
+
+# The test suite (port/tools/test.py; docs/PORT.md, "Testing the port"):
+#   ctest --test-dir build/port -L quick -V      deterministic runs against the references
+#   ctest --test-dir build/port -L tas -V        the TAS replay (us.v10, 10-20 minutes)
+#   ctest --test-dir build/port -L recomp -V     the translated engine's difftest
+# Each skips (77) without the ROM, the TAS log or the venv.
+enable_testing()
+set(PORT_TEST ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/test.py)
+add_test(NAME quick COMMAND ${PORT_TEST} quick ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME tas COMMAND ${PORT_TEST} tas ${CMAKE_CURRENT_BINARY_DIR})
+add_test(NAME recomp COMMAND ${PORT_TEST} recomp)
+set_tests_properties(quick PROPERTIES LABELS quick TIMEOUT 1800 SKIP_RETURN_CODE 77)
+set_tests_properties(tas PROPERTIES LABELS tas TIMEOUT 5400 SKIP_RETURN_CODE 77)
+set_tests_properties(recomp PROPERTIES LABELS recomp TIMEOUT 3600 SKIP_RETURN_CODE 77)

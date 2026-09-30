@@ -1,0 +1,163 @@
+{
+ "comment": "port/tools/test.py's references (docs/PORT.md, \"Testing the port\"): quick: the hashes (sha1, 16 digits) of each scenario's save, --wav and screenshots, by version; layout: screenshots that depend on the executable's layout (not compared across builds); known: failures the suite knows of, by variant (they pass as XFAIL while the hashes are exactly these); tas: the known drifts of the TAS replay's report, by variant.",
+ "known": {
+  "us.v10": [
+   {
+    "note": "32-bit: externs.c reads the u8 results of func_802794F0, func_8026FE6C and func_80286090 as all of eax (the attract demo's explosion, frame 2676 on)",
+    "scenarios": {
+     "attract": {
+      "shots": {
+       "2750": "d85781fbc7e5595b",
+       "3000": "e468c9667c44c899",
+       "3500": "1d4fb7a65f9b8af2",
+       "3750": "3695fecb9d390bde",
+       "4000": "f0fea805ee6c04ff"
+      },
+      "wav": "8ae0713ffdb0b15e"
+     }
+    },
+    "variants": [
+     "32",
+     "m32",
+     "mn32",
+     "n32"
+    ]
+   },
+   {
+    "note": "native-endian: the carrier on the world map's globe, frames 1228-1285 (a few pixels)",
+    "scenarios": {
+     "auto1": {
+      "shots": {
+       "1250": "7009212bd0ef925e"
+      }
+     },
+     "auto2": {
+      "shots": {
+       "1250": "7009212bd0ef925e"
+      }
+     },
+     "auto3": {
+      "shots": {
+       "1250": "7009212bd0ef925e"
+      }
+     }
+    },
+    "variants": [
+     "lp64",
+     "mlp64",
+     "mn32",
+     "n32",
+     "n64"
+    ]
+   }
+  ]
+ },
+ "layout": {
+  "us.v10": {
+   "auto2": [
+    "1500"
+   ],
+   "auto3": [
+    "1500"
+   ]
+  }
+ },
+ "quick": {
+  "us.v10": {
+   "attract": {
+    "shots": {
+     "1000": "e3f5c6915ca96a9f",
+     "1250": "355ab7b525facc0d",
+     "1500": "e2924eb2dcf683ba",
+     "1750": "df20209a8ee418ec",
+     "2000": "f500c9e80b9aab60",
+     "2250": "4b2bf90215ebd567",
+     "250": "618a788270b017be",
+     "2500": "a8ddf65eebbe639e",
+     "2750": "daac9abaf74a3e59",
+     "3000": "1a35b2a39e798f71",
+     "3250": "260b911338e79c20",
+     "3500": "24ac637caf3b0962",
+     "3750": "3c7e903e9765a552",
+     "4000": "70203a8e7b6acaa4",
+     "500": "f34cae273c3b2c0f",
+     "750": "e97179866dcea57c"
+    },
+    "wav": "347acecbd25ae88e"
+   },
+   "auto1": {
+    "save": "389ccd1b4337b967",
+    "shots": {
+     "1000": "aa302aa4a71dc679",
+     "1250": "dee764fcf44ca3c9",
+     "1500": "1962dd82f60b6d78",
+     "1750": "b32ee74a80ce1016",
+     "2000": "31c5896ac847d066",
+     "2250": "9e7bc345ef73fe62",
+     "250": "618a788270b017be",
+     "2500": "f0cdfd96917f998a",
+     "2750": "754ee108eeb1e24b",
+     "3000": "2b821de38ce04479",
+     "500": "f34cae273c3b2c0f",
+     "750": "e97179866dcea57c"
+    },
+    "wav": "df659043ec6f1874"
+   },
+   "auto2": {
+    "save": "389ccd1b4337b967",
+    "shots": {
+     "1000": "aa302aa4a71dc679",
+     "1250": "dee764fcf44ca3c9",
+     "1500": "f7fe8dc2fc17f689",
+     "1750": "fddf84e3f078645d",
+     "2000": "fddf84e3f078645d",
+     "250": "618a788270b017be",
+     "500": "f34cae273c3b2c0f",
+     "750": "e97179866dcea57c"
+    },
+    "wav": "7bc3c3ab1985eb8b"
+   },
+   "auto3": {
+    "save": "389ccd1b4337b967",
+    "shots": {
+     "1000": "aa302aa4a71dc679",
+     "1250": "dee764fcf44ca3c9",
+     "1500": "d20cdc2fc93d10f1",
+     "1750": "226755d14c953bf1",
+     "2000": "2c7e85b59648890c",
+     "2250": "df2367bb00d5ae2f",
+     "250": "618a788270b017be",
+     "2500": "8acd63174b1e89c0",
+     "2750": "205459ae3262d7b3",
+     "3000": "be333251b11987a0",
+     "500": "f34cae273c3b2c0f",
+     "750": "e97179866dcea57c"
+    },
+    "wav": "2cb6b4d1ccf0d2a5"
+   }
+  }
+ },
+ "tas": {
+  "us.v10": {
+   "known": [
+    {
+     "forced": 11,
+     "matched": 121304,
+     "note": "native-endian: drifts from the log's read 38,289 (level 29) on",
+     "save": "ca47b1a68d5fd289",
+     "skipped": 3993,
+     "total": 125297,
+     "variants": [
+      "lp64",
+      "mlp64",
+      "mn32",
+      "mn64",
+      "n32",
+      "n64"
+     ]
+    }
+   ],
+   "save": "0db40f5e7068d3e3"
+  }
+ }
+}

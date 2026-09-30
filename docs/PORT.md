@@ -301,6 +301,113 @@ Against a native-endian build ("Native-endian memory"):
   something typed wrongly.  (Much slower; one or two controller reads at
   a time.)
 
+## Testing the port
+
+`port/tools/test.py` runs the checks above as a suite, and each build
+directory has them as CTest tests:
+
+```
+ctest --test-dir build/port.us.v10 -L quick -V    # about a minute
+ctest --test-dir build/port.us.v10 -L tas -V      # the TAS, 10-20 minutes
+ctest --test-dir build/port.us.v10 -L recomp -V   # tools/recomp's difftest, a few minutes
+port/tools/test.py variants [--tas]               # the standard variants, built and checked
+```
+
+or `test.py quick BUILD...`, `test.py tas BUILD...` (several at once, in
+parallel), `test.py recomp`.  Every line says PASS, FAIL, XFAIL (a known
+failure, below) or SKIP; the exit status is 1 on any FAIL, 77 (CTest's
+skip) when nothing could run: no ROM, no TAS log (`build/tas/run/polls.csv`,
+`port/tools/tas.sh`), no venv with numpy and unicorn.  The outputs stay in
+`BUILD/test/` for a closer look.
+
+**quick.**  Deterministic runs (`PORT_COUNT_PER_OP=0 --deterministic`,
+`--headless`, the software renderer, no save to start from): the attract
+mode for 4,000 frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
+2,000 and 3,000, each with `--save`, `--wav` and a screenshot every 250
+frames.  Their hashes (16 digits of sha1) are compared with
+`port/tools/test_refs.json`'s for the build's version; with `--against
+BUILD` also with another build's last results.  Within the build, where
+the executable is the same, `=3` again must give the same:
+
+- with the other thread backend (`PORT_THREADS`): every hash;
+- with `--widescreen`, with `--renderer gl --scale 1`, and with
+  `--renderer gl --interpolate --widescreen` (SDL's offscreen driver; left
+  out without libepoxy): the save and the sound.
+
+What's exact: with the timing taken out, every variant plays the same game,
+so the save and the sound are the same in all of them, and so are the
+screenshots, except where the references say otherwise:
+
+- **layout-dependent** (`layout`): the hint box's portrait static at
+  frame 1500 of `=2` and `=3` differs between executables (the software
+  renderer's static samples memory that holds addresses of the image; see
+  "Threads without ucontext").  It is compared only within a build; the
+  OpenGL renderer draws it the same everywhere.
+- **known failures** (`known`, by variant): the build passes as XFAIL
+  while it gives exactly the hashes recorded there, and fails on anything
+  else; when the failure goes away it passes with a note to take the
+  entry out.  `test.py quick BUILD --known NOTE` records a build's
+  differences as one.
+
+`test.py quick BUILD --update` writes a build's hashes as its version's
+references; take them from a build that is right (a 64-bit big-endian one
+now), after a change meant to change what the game draws or plays.  There
+are references for us.v10 only (the version the TAS is), and other
+versions still get the comparisons within the build.
+
+**tas.**  The replay of "The TAS", each build in its own copy of the
+executable: `tas_check.py`'s 57 platinum, and the replay's report: all of
+the log's reads matched, none skipped, no mode forced, and the save the
+reference's (every exact build writes the same one).  A variant with a
+known drift (`test_refs.json`'s `tas`) passes as XFAIL while its matched,
+skipped and forced counts and its save are exactly the known ones.  The
+retraces given anyway are printed but not checked (they follow the CPU
+model's timing: 78 in the 32-bit build, 123 in the 64-bit one, 384 in the
+movable one).  `--again` checks the last replays' results again without
+running them.
+
+**variants.**  Configures and builds, from the stage 2 in `blastcorps/`
+(us.v10 by default, `--version`), the standard set into `build/test-*/`:
+`32`, `64`, `n64` (native-endian 64-bit), `lp64`, `m64` (movable 64-bit),
+`mlp64` (movable LP64) and `mn32` (movable native-endian 32-bit); runs quick
+on all of them at once, then prints a table of every variant's scenarios
+against the references; `--tas` then replays the TAS on all seven in
+parallel.  `--no-build` uses the directories as they are, `--only` picks
+variants.  `test.py table BUILD...` shows every hash of some builds' last
+quick runs side by side.
+
+Where it stands (us.v10, main at the time of writing): quick passes in
+all seven, with these known failures:
+
+- **32-bit builds (`32`, `mn32`): the glue's narrow results.**  The
+  translated engine calls three of the game's C functions that return
+  `u8` (`func_802794F0`, `func_8026FE6C`, `func_80286090`), and
+  `gen_glue.py`'s `externs.c` declares them `uint32_t`.  i386 returns a
+  `u8` in `al` and leaves the rest of `eax` as it was (`func_802794F0` is
+  `cmpb ...; setne %al; ret` after an address computation in `eax`), so the
+  engine sees a nonzero result where the function returned 0.  The 64-bit
+  builds are right, since port-ilp32 widens narrow results in the callee;
+  the movable build's call repair covers only the game's C calling itself.
+  In the attract mode's demo the engine (71140.s) then skips
+  `func_80278EB0` from the 1,563rd controller read (retrace 2,676) on:
+  `D_802FBEE0`'s vertices stay zero, an explosion is drawn otherwise, and
+  the sound differs later.  Declaring the narrow type in `externs.c`
+  (`narrow_ctype`, as `entry.c`'s wrappers already do) makes the 32-bit
+  attract mode the 64-bit build's, hash for hash.
+- **Native-endian builds (`n64`, `lp64`, `mlp64`, `mn32`): the carrier on
+  the globe.**  From retrace 1,228 to 1,285 of every `PORT_AUTOSTART`
+  run (the world map's intro), about 22 pixels of the carrier over the
+  globe come out slightly different in color, with both renderers; the
+  save and the sound don't change.  Not tracked down.
+
+The TAS: `32`, `64` and `m64` exact (all 125,297 reads matched, none
+skipped, no mode forced, the same save); every native-endian build
+(`n64`, `lp64`, `mlp64`, `mn32`) drifts the same way, from the log's read
+38,289 (level 29) on: 121,304 of the reads matched, 3,993 skipped, 11
+modes forced, still 57 platinum, and the same save in all four (a known
+drift).  Seven replays at once take about 25 minutes on a 32-thread
+machine.
+
 ## Native-endian memory
 
 BEPass costs little (a `movbe` or `bswap` per access), so big-endian

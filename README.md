@@ -126,6 +126,18 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 
+## Test it
+
+```
+ctest --test-dir build/port64 -L quick -V     # a minute: deterministic runs against committed hashes (us.v10)
+ctest --test-dir build/port64 -L tas -V       # the TAS replay (us.v10 builds, 10-20 minutes)
+ctest --test-dir build/port64 -L recomp -V    # the translated engine's differential test
+port/tools/test.py variants                   # build the standard variants into build/test-*/ and check them all
+```
+
+These are `port/tools/test.py`'s tiers; docs/PORT.md, "Testing the port",
+says what each compares.
+
 ## macOS
 
 **Untested**: the build is prepared for macOS on Apple silicon and checked
