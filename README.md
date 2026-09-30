@@ -431,3 +431,17 @@ ninja -C build-tools
 
   Can be used to view raw textures extracted from gzip. Works with mono.
 
+
+# License
+
+The project's own code is licensed under the GNU Affero General Public
+License, version 3 or (at your option) any later version: see `LICENSE`.
+
+That covers what this project wrote. It doesn't cover:
+- the game, its ROM, or anything extracted or translated from it;
+- the Nintendo SDK parts in the tree, which are decompiled or kept as they
+  are (`blastcorps/include/2.0I`, `blastcorps/src/libultra`,
+  `port/src/gu_extra.c`);
+- the submodules and third-party libraries, which carry their own licenses.
+
+docs/DISTRIBUTION.md has the details.
