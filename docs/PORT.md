@@ -2175,7 +2175,8 @@ CPU's GL: a pessimistic GPU) or with `--gpu` on the real one (ANGLE on
 Vulkan: a Radeon RX 7900 XTX here), and `--throttle N` is CDP's CPU
 throttling, standing for a laptop's slower CPU.  Firefox (Playwright's
 build; any recent `playwright-core` drives it) can't be throttled, and
-its `performance.now()` has 1 ms steps, so its per-part means are rough.
+its `performance.now()` has 1 ms steps, so its per-part means are rough;
+it also runs WebAssembly with the baseline compiler only (below).
 `--profile-at S` takes a Chromium CPU profile; a `--profiling-funcs`
 build (`-DCMAKE_EXE_LINKER_FLAGS=--profiling-funcs`) names the wasm
 functions in it, and Firefox's own profiler runs headless with
@@ -2319,9 +2320,13 @@ The module: 3.50 MB before, 3.52 MB after (0.93 MB gzipped).
   where the vertices are.  Recording the first pass's triangles and
   running only their vertices again would take off most of `gfx2`
   (40% of the renderer).
-- **Firefox runs the front end three to five times slower** than
-  Chromium (`load_block`, `tri`, `do_vtx` in its profile), for no reason
-  found; on a laptop's CPU it would need the in-between pictures to go.
+- **Firefox ran the front end three to five times slower** than
+  Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
+  Firefox (Playwright's) has no optimizing WebAssembly compiler: with
+  `javascript.options.wasm_baselinejit` off (and `wasm_optimizingjit`
+  on) the page fails with "no WebAssembly compiler available".  Its
+  numbers are the baseline compiler's; a Firefox with Ion should do
+  better, unmeasured.
 - **Draw calls**: one per texture change; a texture array or atlas would
   batch them.
 - **A retrace whose work runs over** is shown late even when the next is
