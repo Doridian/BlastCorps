@@ -3,27 +3,6 @@
  "known": {
   "us.v10": [
    {
-    "note": "32-bit: externs.c reads the u8 results of func_802794F0, func_8026FE6C and func_80286090 as all of eax (the attract demo's explosion, frame 2676 on)",
-    "scenarios": {
-     "attract": {
-      "shots": {
-       "2750": "d85781fbc7e5595b",
-       "3000": "e468c9667c44c899",
-       "3500": "1d4fb7a65f9b8af2",
-       "3750": "3695fecb9d390bde",
-       "4000": "f0fea805ee6c04ff"
-      },
-      "wav": "8ae0713ffdb0b15e"
-     }
-    },
-    "variants": [
-     "32",
-     "m32",
-     "mn32",
-     "n32"
-    ]
-   },
-   {
     "note": "native-endian: the carrier on the world map's globe, frames 1228-1285 (a few pixels)",
     "scenarios": {
      "auto1": {
@@ -139,24 +118,7 @@
  },
  "tas": {
   "us.v10": {
-   "known": [
-    {
-     "forced": 11,
-     "matched": 121304,
-     "note": "native-endian: drifts from the log's read 38,289 (level 29) on",
-     "save": "ca47b1a68d5fd289",
-     "skipped": 3993,
-     "total": 125297,
-     "variants": [
-      "lp64",
-      "mlp64",
-      "mn32",
-      "mn64",
-      "n32",
-      "n64"
-     ]
-    }
-   ],
+   "known": [],
    "save": "0db40f5e7068d3e3"
   }
  }

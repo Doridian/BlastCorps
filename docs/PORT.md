@@ -380,36 +380,24 @@ the seven builds 38 seconds, their quick tiers 67 seconds together, and
 with `--tas` 24 minutes in all.
 
 Where it stands (us.v10, main at the time of writing): quick passes in
-all seven, with these known failures:
+all seven, with one known failure:
 
-- **32-bit builds (`32`, `mn32`): the glue's narrow results.**  The
-  translated engine calls three of the game's C functions that return
-  `u8` (`func_802794F0`, `func_8026FE6C`, `func_80286090`), and
-  `gen_glue.py`'s `externs.c` declares them `uint32_t`.  i386 returns a
-  `u8` in `al` and leaves the rest of `eax` as it was (`func_802794F0` is
-  `cmpb ...; setne %al; ret` after an address computation in `eax`), so the
-  engine sees a nonzero result where the function returned 0.  The 64-bit
-  builds are right, since port-ilp32 widens narrow results in the callee;
-  the movable build's call repair covers only the game's C calling itself.
-  In the attract mode's demo the engine (71140.s) then skips
-  `func_80278EB0` from the 1,563rd controller read (retrace 2,676) on:
-  `D_802FBEE0`'s vertices stay zero, an explosion is drawn otherwise, and
-  the sound differs later.  Declaring the narrow type in `externs.c`
-  (`narrow_ctype`, as `entry.c`'s wrappers already do) makes the 32-bit
-  attract mode the 64-bit build's, hash for hash.
 - **Native-endian builds (`n64`, `lp64`, `mlp64`, `mn32`): the carrier on
   the globe.**  From retrace 1,228 to 1,285 of every `PORT_AUTOSTART`
   run (the world map's intro), about 22 pixels of the carrier over the
   globe come out slightly different in color, with both renderers; the
   save and the sound don't change.  Not tracked down.
 
-The TAS: `32`, `64` and `m64` exact (all 125,297 reads matched, none
-skipped, no mode forced, the same save); every native-endian build
-(`n64`, `lp64`, `mlp64`, `mn32`) drifts the same way, from the log's read
-38,289 (level 29) on: 121,304 of the reads matched, 3,993 skipped, 11
-modes forced, still 57 platinum, and the same save in all four (a known
-drift).  Seven replays at once take about 25 minutes on a 32-thread
-machine.
+(The suite's first run also found the 32-bit builds reading the glue's
+narrow results as all of `eax`: three of the game's C functions the
+translated engine calls return `u8`, and i386 leaves the rest of the
+register as it was, which changed the attract demo from its 1,563rd
+controller read.  `gen_glue.py` declares them by their type now.)
+
+The TAS: all seven exact, all 125,297 reads matched, none skipped, no
+mode forced, 57 platinum and the same save (the native-endian builds'
+late drift is gone: "The native-endian build").  Seven replays at once
+take about 23 minutes on a 32-thread machine.
 
 ## Native-endian memory
 
