@@ -96,7 +96,99 @@ static Target view;             /* RDRAM shown as it is */
 #define TW 320
 #define TH 240
 
+/* ---- GL state, as last set ------------------------------------------------------ */
+
+/* A browser's GL call costs a trip through JavaScript and WebGL's checks,
+   a few hundred of them a frame (a draw per texture, and the game changes
+   textures every few triangles): the draws set only what differs from the
+   last draw.  Code that sets GL state by other ways (targets, uploads,
+   textures, presenting) marks it unknown (GLC_DIRTY). */
+static struct {
+    int valid;
+    GLuint fbo, prog, tex[8];
+    int vp_w, vp_h, scissor_on, sc[4], cmask, depth_on, depth_func, depth_mask, blend, active;
+} glc;
+#define GLC_DIRTY() (glc.valid = 0)
+
+static void glc_check(void);
+
+static void c_fbo(GLuint f) {
+    glc_check();
+    if (glc.fbo != f)
+        glBindFramebuffer(GL_FRAMEBUFFER, glc.fbo = f);
+}
+
+static void c_viewport(int w, int h) {
+    if (glc.vp_w != w || glc.vp_h != h)
+        glViewport(0, 0, glc.vp_w = w, glc.vp_h = h);
+}
+
+static void c_scissor(int x, int y, int w, int h) {
+    if (glc.scissor_on != 1) {
+        glEnable(GL_SCISSOR_TEST);
+        glc.scissor_on = 1;
+    }
+    if (glc.sc[0] != x || glc.sc[1] != y || glc.sc[2] != w || glc.sc[3] != h) {
+        glScissor(x, y, w, h);
+        glc.sc[0] = x; glc.sc[1] = y; glc.sc[2] = w; glc.sc[3] = h;
+    }
+}
+
+static void c_cmask(int all) {
+    if (glc.cmask != all) {
+        glColorMask(1, 1, 1, all);
+        glc.cmask = all;
+    }
+}
+
+static void c_depth_mask(int m) {
+    if (glc.depth_mask != m)
+        glDepthMask((glc.depth_mask = m) ? GL_TRUE : GL_FALSE);
+}
+
+static void c_depth(int on, int func) {
+    if (glc.depth_on != on) {
+        if (on)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        glc.depth_on = on;
+    }
+    if (on && glc.depth_func != func)
+        glDepthFunc(glc.depth_func = func);
+}
+
+static void c_blend(int mode) {
+    if (glc.blend == mode)
+        return;
+    if (mode == 0) {
+        glDisable(GL_BLEND);
+    } else {
+        if (glc.blend <= 0)
+            glEnable(GL_BLEND);
+        if (mode == 1)
+            glBlendFunc(GL_ONE, GL_SRC_ALPHA);
+        else
+            glBlendFunc(GL_ZERO, GL_ONE);
+    }
+    glc.blend = mode;
+}
+
+static void c_prog(GLuint p) {
+    if (glc.prog != p)
+        glUseProgram(glc.prog = p);
+}
+
+static void c_tex(int unit, GLuint t) {
+    if (glc.tex[unit] == t)
+        return;
+    if (glc.active != unit)
+        glActiveTexture(GL_TEXTURE0 + (glc.active = unit));
+    glBindTexture(GL_TEXTURE_2D, glc.tex[unit] = t);
+}
+
 static void target_storage(Target *t) {
+    GLC_DIRTY();
     glBindTexture(GL_TEXTURE_2D, t->tex);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tw_px, th_px, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -115,6 +207,7 @@ static int px_x(int x) { return (x + wide_off) * scale; }
 /* RDRAM's RGBA5551 image at addr into t, scaled, in the middle of a wide target */
 static uint32_t upload_buf[TW * TH];
 static void upload_rdram(Target *t, uint32_t addr, int width) {
+    GLC_DIRTY();
     const uint8_t *src = port_ptr(addr);
     for (int y = 0; y < TH; y++)
         for (int x = 0; x < TW; x++) {
@@ -146,6 +239,7 @@ static void upload_rdram(Target *t, uint32_t addr, int width) {
 }
 
 static void twin_storage(Target *t, int k) {
+    GLC_DIRTY();
     if (!idepth_rb[k]) {
         glGenRenderbuffers(1, &idepth_rb[k]);
         glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb[k]);
@@ -189,6 +283,7 @@ static Target *get_target(uint32_t addr) {
     if (t)
         return t;
     if (ntargets == 8) {                            /* recycle the oldest */
+        GLC_DIRTY();
         glDeleteFramebuffers(1, &targets[0].fbo);
         glDeleteTextures(1, &targets[0].tex);
         for (int k = 0; k < GFX_TWINS; k++)
@@ -219,6 +314,7 @@ static void set_geometry(int s, float aspect) {
     if (s == scale && npx == tw_px && depth_rb)
         return;
     int old_w = tw_px, old_h = th_px;
+    GLC_DIRTY();
     if (!depth_rb)
         glGenRenderbuffers(1, &depth_rb);
     scale = s;
@@ -269,6 +365,7 @@ static uint8_t *rb_buf;
 static void read_back(Target *t) {
     int w = tw_px, h = th_px;
     rb_buf = realloc(rb_buf, (size_t)w * h * 4);
+    GLC_DIRTY();
     glBindFramebuffer(GL_READ_FRAMEBUFFER, t->fbo);
     glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rb_buf);
     uint8_t *dst = port_ptr(t->addr);
@@ -328,6 +425,7 @@ static void flush(void);
 static void tc_sweep(void) {
     int n = 0;
     flush();                    /* the pending batch may use them */
+    GLC_DIRTY();
     for (int i = 0; i < TC_SIZE; i++)
         if (tcache[i].tex) {
             glDeleteTextures(1, &tcache[i].tex);
@@ -394,6 +492,7 @@ static GLuint tile_texture(int tile) {
         for (int x = 0; x < w; x++)
             gfx_fetch_texel(t, x, y, decode_buf + 4 * (y * w + x));
     GLuint tex;
+    GLC_DIRTY();
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -422,6 +521,13 @@ typedef struct {
     GLuint prog;
     int blend;                  /* 0 none, 1 (ONE, SRC_ALPHA), 2 keep the destination */
     GLint u_vp, u_zbias, u_prim, u_env, u_blend, u_fog, u_primlod, u_seed, u_tA, u_tB, u_tul, u_levels, u_lodscale;
+    /* what its uniforms were last set to (uv: they were) */
+    int uv;
+    struct {
+        float vp[2], zbias, prim[4], env[4], blend[4], fog[4], primlod, seed, lodscale;
+        int levels, ntex, tA[8][4], tB[8][4];
+        float tul[8][2];
+    } u;
 } Prog;
 
 static Prog progs[1024];
@@ -665,6 +771,7 @@ done:;
     }
     glDeleteShader(vs);
     glDeleteShader(fs);
+    GLC_DIRTY();
     glUseProgram(p->prog);
     for (int i = 0; i < 8; i++) {
         char name[16];
@@ -721,54 +828,73 @@ static int vcount, vcap;
 static GLuint vao, vbo;
 static unsigned long long st_draws, st_verts, st_flushes_state;
 
+static void glc_check(void) {
+    if (glc.valid)
+        return;
+    memset(&glc, 0xFF, sizeof glc);                 /* all unknown: set at the next use */
+    glc.valid = 1;
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+}
+
+#define U_SET(field, n, call)                                               \
+    if (!p->uv || memcmp(p->u.field, d->field, (n) * sizeof p->u.field[0])) { \
+        memcpy(p->u.field, d->field, (n) * sizeof p->u.field[0]);           \
+        call;                                                               \
+    }
+#define U_SET1(field, val, call)                                            \
+    if (!p->uv || p->u.field != (val)) {                                    \
+        p->u.field = (val);                                                 \
+        call;                                                               \
+    }
+
 static void apply_and_draw(void) {
     const DrawState *d = &ds_batch;
     Prog *p = d->prog;
-    glBindFramebuffer(GL_FRAMEBUFFER, target_fbo(d->target));
-    glViewport(0, 0, tw_px, th_px);
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(d->sc[0], (TH - d->sc[3]) * scale, d->sc[2] - d->sc[0], (d->sc[3] - d->sc[1]) * scale);
-    glColorMask(1, 1, 1, 0);
-    if (d->depth) {
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc((d->depth & 1) ? GL_LEQUAL : GL_ALWAYS);
-        glDepthMask((d->depth & 2) ? GL_TRUE : GL_FALSE);
-    } else {
-        glDisable(GL_DEPTH_TEST);
-        glDepthMask(GL_FALSE);
+    GLuint fbo = target_fbo(d->target);            /* (first: a twin may be made) */
+    c_fbo(fbo);
+    c_viewport(tw_px, th_px);
+    c_scissor(d->sc[0], (TH - d->sc[3]) * scale, d->sc[2] - d->sc[0], (d->sc[3] - d->sc[1]) * scale);
+    c_cmask(0);
+    c_depth(d->depth != 0, (d->depth & 1) ? GL_LEQUAL : GL_ALWAYS);
+    c_depth_mask(d->depth ? (d->depth & 2) != 0 : 0);
+    c_blend(p->blend);
+    c_prog(p->prog);
+    float vp[2] = { TW + 2 * wide_off, TH };
+    if (!p->uv || p->u.vp[0] != vp[0] || p->u.vp[1] != vp[1]) {
+        p->u.vp[0] = vp[0];
+        p->u.vp[1] = vp[1];
+        glUniform2fv(p->u_vp, 1, vp);
     }
-    if (p->blend == 1) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_SRC_ALPHA);
-    } else if (p->blend == 2) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_ZERO, GL_ONE);
-    } else {
-        glDisable(GL_BLEND);
-    }
-    glUseProgram(p->prog);
-    glUniform2f(p->u_vp, TW + 2 * wide_off, TH);
-    glUniform1f(p->u_zbias, d->zbias);
-    glUniform4fv(p->u_prim, 1, d->prim);
-    glUniform4fv(p->u_env, 1, d->env);
-    glUniform4fv(p->u_blend, 1, d->blend);
-    glUniform4fv(p->u_fog, 1, d->fog);
-    glUniform1f(p->u_primlod, d->primlod);
-    glUniform1f(p->u_seed, (float)(frame_no % 997));
-    glUniform1f(p->u_lodscale, scale);
-    glUniform1i(p->u_levels, d->levels);
+    U_SET1(zbias, d->zbias, glUniform1f(p->u_zbias, d->zbias))
+    U_SET(prim, 4, glUniform4fv(p->u_prim, 1, d->prim))
+    U_SET(env, 4, glUniform4fv(p->u_env, 1, d->env))
+    U_SET(blend, 4, glUniform4fv(p->u_blend, 1, d->blend))
+    U_SET(fog, 4, glUniform4fv(p->u_fog, 1, d->fog))
+    U_SET1(primlod, d->primlod, glUniform1f(p->u_primlod, d->primlod))
+    float seed = (float)(frame_no % 997);
+    U_SET1(seed, seed, glUniform1f(p->u_seed, seed))
+    U_SET1(lodscale, (float)scale, glUniform1f(p->u_lodscale, (float)scale))
+    U_SET1(levels, d->levels, glUniform1i(p->u_levels, d->levels))
     if (d->ntex) {
-        glUniform4iv(p->u_tA, d->ntex, &d->tA[0][0]);
-        glUniform4iv(p->u_tB, d->ntex, &d->tB[0][0]);
-        glUniform2fv(p->u_tul, d->ntex, &d->tul[0][0]);
+        /* (only the tiles it has: the shader reads no others) */
+        if (!p->uv || p->u.ntex != d->ntex || memcmp(p->u.tA, d->tA, d->ntex * sizeof d->tA[0])) {
+            memcpy(p->u.tA, d->tA, d->ntex * sizeof d->tA[0]);
+            glUniform4iv(p->u_tA, d->ntex, &d->tA[0][0]);
+        }
+        if (!p->uv || p->u.ntex != d->ntex || memcmp(p->u.tB, d->tB, d->ntex * sizeof d->tB[0])) {
+            memcpy(p->u.tB, d->tB, d->ntex * sizeof d->tB[0]);
+            glUniform4iv(p->u_tB, d->ntex, &d->tB[0][0]);
+        }
+        if (!p->uv || p->u.ntex != d->ntex || memcmp(p->u.tul, d->tul, d->ntex * sizeof d->tul[0])) {
+            memcpy(p->u.tul, d->tul, d->ntex * sizeof d->tul[0]);
+            glUniform2fv(p->u_tul, d->ntex, &d->tul[0][0]);
+        }
+        p->u.ntex = d->ntex;
     }
-    for (int i = 0; i < d->ntex; i++) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, d->tex[i]);
-    }
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    p->uv = 1;
+    for (int i = 0; i < d->ntex; i++)
+        c_tex(i, d->tex[i]);
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vcount * sizeof(GLVtx), vbuf, GL_STREAM_DRAW);
     glDrawArrays(GL_TRIANGLES, 0, vcount);
     if (ipass_gl)
@@ -959,11 +1085,10 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1) {
     Target *t = cur_target ? cur_target : ntargets ? &targets[0] : NULL;
     if (!t)
         return;
-    glBindFramebuffer(GL_FRAMEBUFFER, target_fbo(t));
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
-    glDepthMask(GL_TRUE);
-    glClearDepth(1.0);
+    GLuint fbo = target_fbo(t);
+    c_fbo(fbo);
+    c_scissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
+    c_depth_mask(1);
     glClear(GL_DEPTH_BUFFER_BIT);
 }
 
@@ -971,11 +1096,10 @@ void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) {
     flush();
     if (!cur_target)
         return;
-    glBindFramebuffer(GL_FRAMEBUFFER, target_fbo(cur_target));
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
-    glColorMask(1, 1, 1, 1);
-    glClearColor(0, 0, 0, 1);
+    GLuint fbo = target_fbo(cur_target);
+    c_fbo(fbo);
+    c_scissor(px_x(x0), (TH - y1) * scale, (x1 - x0) * scale, (y1 - y0) * scale);
+    c_cmask(1);
     glClear(GL_COLOR_BUFFER_BIT);
     if (!ipass_gl)
         cur_target->dirty = 1;
@@ -1072,6 +1196,9 @@ int gfx_gl_init(SDL_Window *w) {
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GLVtx), (void *)(6 * sizeof(float)));
     glEnable(GL_DEPTH_CLAMP);
+    glClearColor(0, 0, 0, 1);       /* (every clear's) */
+    glClearDepth(1.0);
+    GLC_DIRTY();
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
     set_geometry(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH, gfx_aspect_of(dw, dh));
@@ -1104,6 +1231,7 @@ static void save_bmp(const char *path, const uint8_t *rgba, int w, int h) {
 
 void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
     frame_no++;
+    GLC_DIRTY();
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
     set_geometry(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH, gfx_aspect_of(dw, dh));
