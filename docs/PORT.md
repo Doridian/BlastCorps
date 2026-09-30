@@ -78,7 +78,12 @@ exactly, and adapts the host to that, rather than the other way round:
   the heap after `.bss` at `0x803FF600`) are where it expects them.  The
   hardware registers (`0xA4000000`) are mapped as plain memory, and the
   fibers' host stacks sit at `0x90000000`, inside the KSEG0 window, so the
-  address of a local means the same to the translated code.
+  address of a local means the same to the translated code.  A 64-bit
+  kernel puts the brk heap anywhere up to 1 GB above a non-PIE image (a
+  32-bit program's within 32 MB), so in a 64-bit build it is, a few starts
+  in a hundred, already in one of those two windows when `main` maps them;
+  then the port runs itself again with `ADDR_NO_RANDOMIZE`, which puts the
+  heap right above the image (`map_fixed`, `host/main.c`).
 - **Every game variable at its N64 address.**  The decompiled C relies on
   the layout of the data, not just its contents: code reads fields through
   names of their own (other files read the scheduler's frame counter,
@@ -559,8 +564,8 @@ N64's layout have it on every pointer field:
   define (`level.h`'s `D_803BDAF0`..., `D_803F7654`, `D_802C4A20`).
 
 What is native then: pointer variables, and the structs only the C uses
-(`SchedClient`, seven of the front end's and the game's
-`UnkStruct_*`).  `port/tools/layout_cmp.py A B` lists every struct whose
+(`SchedClient` and six of the front end's and the game's
+`UnkStruct_*`, in both versions).  `port/tools/layout_cmp.py A B` lists every struct whose
 layout differs between two builds from their DWARF.  The
 `SIZE_CHECK`s hold on the N64 for a native struct (`SIZE_CHECK_C`) and
 everywhere for the rest.
@@ -601,6 +606,30 @@ controller reads 300 and 600 the same but for the native structs' own
 layout and pointers to what moved (`build_cmp.py rdram --moved`); call
 traces identical for 631,000 calls, up to an interrupt that the LP64 build
 takes one call earlier at read 655.
+
+us.v11, the same way (the LP64 build against the native-endian 64-bit one,
+`PORT_COUNT_PER_OP=0 --deterministic`, `--renderer sw`):
+
+- `PORT_AUTOSTART=2`, 4,000 frames (in us.v11 it stops at the first
+  level's hint box), `PORT_AUTOSTART=1`, 6,000 frames (the first level,
+  driving and the pause menus), and the attract mode, 12,000 frames: the
+  saves, `--wav` and the screenshots every 250 frames (16, 24 and 48)
+  byte for byte identical;
+- call traces (`PORT_TRACE_CALLS`) identical over the whole runs:
+  5,098,000, 7,845,941 and 23,216,880 calls;
+- RDRAM (`build_cmp.py rdram --moved`) at controller reads 300 and 600 of
+  `=2`, 300, 1,000, 2,000 and 3,000 of `=1`, and 2,000 and 5,000 of the
+  attract mode: the same but for `D_8020E430` (hd_front_end 1A240's
+  `char *[4]`, a native pointer array that still fits where the N64 has
+  it, so it isn't moved; only the C reads it);
+- `layout_cmp.py`: the same seven native types as us.v10;
+- `--renderer gl --headless` (SDL's offscreen driver on Mesa): the
+  `PORT_AUTOSTART=1` screenshots every 500 frames identical to the
+  native-endian build's.
+
+The one thing the runs found wasn't the LP64 build's: a 64-bit build of
+either kind now and then failed to start, with `can't map thread stacks`
+or `hardware registers ... File exists` (the brk heap, "Memory model").
 
 What's left for it: the fixed addresses.  The image is still non-PIE at
 `0x80400000` and RDRAM at `0x80000000`, which `PTR32` (and the translated
