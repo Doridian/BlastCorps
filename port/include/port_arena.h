@@ -15,11 +15,20 @@
 /* what is where, by physical address (bepass/Arena.cpp has the same):
    RDRAM; from 0x400000 the N64 side's data that has no N64 address (to
    __port_arena_data_end); from PORT_ARENA_STACKS the fibers' host stacks
-   (PORT_STACK_BASE, port.h) */
+   (PORT_STACK_BASE, port.h); from PORT_ARENA_LOCALS the stacks of the C's
+   locals whose addresses escape, laid out by port-arena the same on every
+   target (a slot of PORT_LOCALS_SIZE per thread, port_locals_sp) */
 #define PORT_ARENA_SPAN 0x00400000u
 #define PORT_ARENA_STACKS 0x00C00000u
 #define PORT_ARENA_STACKS_SPAN 0x01000000u
-#define PORT_ARENA_SIZE (PORT_ARENA_STACKS + PORT_ARENA_STACKS_SPAN)
+#define PORT_ARENA_LOCALS (PORT_ARENA_STACKS + PORT_ARENA_STACKS_SPAN)
+#define PORT_ARENA_LOCALS_SPAN 0x00100000u
+#define PORT_LOCALS_SIZE (PORT_ARENA_LOCALS_SPAN / 16)
+#define PORT_ARENA_SIZE (PORT_ARENA_LOCALS + PORT_ARENA_LOCALS_SPAN)
+/* the running thread's locals' stack pointer and its slot's bottom, N64
+   addresses (threads.c; the end 0 outside a thread, where a frame of them
+   is fatal: port_arena_bad_local) */
+extern uint32_t port_locals_sp, port_locals_end;
 /* set up by port_arena_init (port/host/runtime.c) before anything runs */
 extern uint8_t *port_arena;
 static inline void *port_host(uint32_t addr) { return port_arena + (addr & 0x1FFFFFFFu); }

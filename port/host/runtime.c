@@ -164,10 +164,11 @@ void *port_fn_typed(uint32_t addr, uint32_t type) {
     return __port_fns_typed[lo].fn;
 }
 
-/* port-arena: a local whose address escapes, on a stack that isn't in the
-   arena (not a fiber's) */
+/* port-arena: a frame of escaping locals outside a thread's slot of the
+   locals' stacks (outside a thread, or past its slot's end) */
+uint32_t port_locals_sp, port_locals_end;
 void port_arena_bad_local(uintptr_t p) {
-    host_fatal("a local of the game's C off the arena's stacks, at %p", (void *)p);
+    host_fatal("a frame of the game's C's escaping locals off the locals' stacks, at %08lX", (unsigned long)p);
 }
 #endif
 

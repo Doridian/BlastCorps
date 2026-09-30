@@ -41,6 +41,7 @@ typedef struct {
     int started;
     uint32_t imark, imark_c;    /* the counters when last charged */
     double owed;                /* ns not charged yet (under 1) */
+    uint32_t locals_sp;         /* its port_locals_sp while it doesn't run (PORT_MOVABLE) */
     uint64_t clock;             /* how far its own work has got (ns) */
     uint64_t busy_until;        /* T_BUSY: host_now_ns() it may resume at */
 } HThread;
@@ -116,6 +117,9 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
     uint32_t stack_size;
     void *stack = host_thread_stack(idx, &stack_size);
     t->fiber = fiber_create(fiber_main, t, stack, stack_size);
+#ifdef PORT_MOVABLE
+    t->locals_sp = 0x80000000u | (PORT_ARENA_LOCALS + (uint32_t)(idx + 1) * PORT_LOCALS_SIZE);
+#endif
     if (host_verbose)
         host_log("thread %08X created, pri %d, entry %p\n", key, pri, (void *)entry);
 }
@@ -313,9 +317,17 @@ int host_run_one(void) {
     if (host_verbose > 3)
         host_log("run %08X pri %d at %.3f\n", best->key, best->pri, host_now_ns() / 1e6);
     cur = best;
+#ifdef PORT_MOVABLE
+    port_locals_sp = best->locals_sp;
+    port_locals_end = 0x80000000u | (PORT_ARENA_LOCALS + (uint32_t)(best - threads) * PORT_LOCALS_SIZE);
+#endif
     host_perf_push(PERF_GAME);
     fiber_run(best->fiber);
     host_perf_pop();
+#ifdef PORT_MOVABLE
+    best->locals_sp = port_locals_sp;
+    port_locals_sp = port_locals_end = 0;
+#endif
     cur = NULL;
     return 1;
 }

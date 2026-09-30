@@ -63,6 +63,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <optional>
 #include <set>
 #include <vector>
 
@@ -90,6 +91,9 @@ namespace {
 static const uint64_t K0 = 0x80000000u, MASK = 0x1FFFFFFFu;
 static const uint64_t RDRAM = 0x00400000u;
 static const uint64_t STACKS = 0x00C00000u, STACKS_SPAN = 0x01000000u;
+/* a thread's slot of the escaping locals' stacks (locals(); port_arena.h's
+   PORT_LOCALS_SIZE) */
+static const uint64_t LOCALS_SLOT = 0x00010000u;
 /* the port's own functions' "N64 addresses": nothing is there */
 static const uint64_t FN_BASE = 0x7F000000u;
 
@@ -101,7 +105,10 @@ struct Arena : PassInfoMixin<Arena> {
     const DataLayout *DL = nullptr;
     IntegerType *IP = nullptr;          /* the pointer-sized integer */
     GlobalVariable *base = nullptr;     /* port_arena */
-    unsigned rewritten = 0, hostArgs = 0, escaped = 0;
+    unsigned rewritten = 0, hostArgs = 0, escaped = 0, frames = 0;
+    uint64_t frameMax = 0;
+    GlobalVariable *lsp = nullptr, *lsplim = nullptr;  /* port_locals_sp, port_locals_end */
+    std::optional<DataLayout> frameDL;  /* the module's own, before -port-arena-triple */
 
     [[noreturn]] void fail(const Twine &what) { report_fatal_error("port-arena: " + what); }
 
@@ -538,9 +545,20 @@ struct Arena : PassInfoMixin<Arena> {
         return false;
     }
 
-    /* an escaping local gets its N64 address; not being on a fiber's stack
-       in the arena is fatal (port_arena_bad_local) */
-    void locals(Function &f, Value *arena) {
+    /* The escaping locals get N64 addresses on a stack of the pass's own
+       (the locals' stack: PORT_ARENA_LOCALS, a slot per thread,
+       port_locals_sp the running thread's pointer, threads.c), laid out
+       here: each function's escaping locals are one frame, at offsets
+       decided from the IR, which is the same wherever it is code-generated
+       (WebAssembly's is i386's, -port-arena-triple).  So the addresses the
+       game stores in RDRAM, and what is left in the frames between calls,
+       don't depend on the backend's frames: the Linux 32-bit build and
+       wasm32 have the same.  The frame is taken at the entry and given back
+       at every return; a thread's frames are dropped with it, and a thread
+       starts at the top of its slot.  A frame outside the running thread's
+       slot (past its end, port_locals_end, which is 0 outside a thread)
+       stops the port (port_arena_bad_local). */
+    void locals(Function &f, LoadInst *arena) {
         if (f.isVarArg())       /* its va_list is the host's */
             return;
         std::vector<Value *> as;
@@ -555,29 +573,88 @@ struct Arena : PassInfoMixin<Arena> {
                 as.push_back(&a);
         if (as.empty())
             return;
+        /* the entry block's allocas first, so that the frame's setup (and
+           its check's branch) comes after all of them */
+        BasicBlock &entry = f.getEntryBlock();
+        std::vector<AllocaInst *> top;
+        for (Instruction &i : entry)
+            if (auto *ai = dyn_cast<AllocaInst>(&i))
+                if (isa<ConstantInt>(ai->getArraySize()))
+                    top.push_back(ai);
+        for (AllocaInst *ai : top)
+            ai->moveBefore(arena->getIterator());
+        /* the frame */
+        std::vector<uint64_t> offs, sizes;
+        uint64_t size = 0, align = 16;
+        for (Value *a : as) {
+            Type *t;
+            uint64_t n = 1, al;
+            if (auto *ai = dyn_cast<AllocaInst>(a)) {
+                if (!ai->isStaticAlloca())
+                    fail("a variable-sized escaping local in " + f.getName());
+                t = ai->getAllocatedType();
+                n = cast<ConstantInt>(ai->getArraySize())->getZExtValue();
+                al = ai->getAlign().value();
+            } else {
+                Argument *arg = cast<Argument>(a);
+                t = arg->getParamByValType();
+                al = arg->getParamAlign().valueOrOne().value();
+            }
+            uint64_t sz = frameDL->getTypeAllocSize(t) * n;
+            if (DL->getTypeAllocSize(t) * n != sz)
+                fail("an escaping local's size differs from the target's in " + f.getName());
+            al = std::max<uint64_t>(al, 1);
+            size = alignTo(size, al);
+            offs.push_back(size);
+            sizes.push_back(sz);
+            size += sz;
+            align = std::max(align, al);
+        }
+        size = alignTo(size, align);
+        IntegerType *i32 = Type::getInt32Ty(*C);
+        if (!lsp) {
+            lsp = new GlobalVariable(*M, i32, false, GlobalValue::ExternalLinkage, nullptr, "port_locals_sp");
+            lsplim = new GlobalVariable(*M, i32, false, GlobalValue::ExternalLinkage, nullptr, "port_locals_end");
+        }
+        IRBuilder<> b(arena->getNextNode());
+        Value *old = b.CreateLoad(i32, lsp, "port.lsp");
+        Value *sp = b.CreateAnd(b.CreateSub(old, ConstantInt::get(i32, size)), ConstantInt::get(i32, ~(align - 1)));
+        b.CreateStore(sp, lsp);
+        /* (the slot's bottom is port_locals_end, 0 outside a thread) */
+        Value *out = b.CreateICmpUGE(b.CreateSub(sp, b.CreateLoad(i32, lsplim)), ConstantInt::get(i32, LOCALS_SLOT));
+        Instruction *at = &*b.GetInsertPoint();
         FunctionCallee bad = M->getOrInsertFunction("port_arena_bad_local",
                                                     FunctionType::get(Type::getVoidTy(*C), {IP}, false));
-        for (Value *a : as) {
-            Instruction *at = isa<Argument>(a) ? cast<Instruction>(arena) : cast<Instruction>(a)->getNextNode();
-            while (isa<AllocaInst>(at) || at == arena)
-                at = at->getNextNode();
-            IRBuilder<> b(at);
-            Value *h = b.CreatePtrToInt(a, IP);
-            Value *off = b.CreateSub(h, b.CreatePtrToInt(arena, IP));
-            Value *out = b.CreateICmpUGE(b.CreateSub(off, ConstantInt::get(IP, STACKS)), ConstantInt::get(IP, STACKS_SPAN));
-            Instruction *then = SplitBlockAndInsertIfThen(out, at, false);
-            IRBuilder<> tb(then);
-            tb.CreateCall(bad, {h});
-            IRBuilder<> nb(at);
-            Value *np = nb.CreateIntToPtr(nb.CreateOr(off, ConstantInt::get(IP, K0)), a->getType(), a->getName() + ".n64");
-            a->replaceUsesWithIf(np, [&](Use &u) {
-                auto *ii = dyn_cast<IntrinsicInst>(u.getUser());
-                if (ii && (ii->isLifetimeStartOrEnd() || isa<DbgInfoIntrinsic>(ii)))
-                    return false;
-                return u.getUser() != h;
-            });
+        Instruction *then = SplitBlockAndInsertIfThen(out, at, false);
+        IRBuilder<> tb(then);
+        tb.CreateCall(bad, {tb.CreateZExt(sp, IP)});
+        IRBuilder<> nb(at);
+        for (size_t k = 0; k < as.size(); k++) {
+            Value *a = as[k];
+            Value *np = nb.CreateIntToPtr(nb.CreateZExt(nb.CreateAdd(sp, ConstantInt::get(i32, offs[k])), IP),
+                                          a->getType(), a->getName() + ".n64");
+            Instruction *copy = nullptr;
+            if (auto *arg = dyn_cast<Argument>(a))
+                copy = nb.CreateMemCpy(np, MaybeAlign(1), arg, arg->getParamAlign(), sizes[k]);
+            a->replaceUsesWithIf(np, [&](Use &u) { return u.getUser() != copy; });
+            if (auto *ai = dyn_cast<AllocaInst>(a)) {
+                /* what is left of it: lifetime markers */
+                std::vector<Instruction *> dead;
+                for (User *u : np->users())
+                    if (auto *ii = dyn_cast<IntrinsicInst>(u))
+                        if (ii->isLifetimeStartOrEnd())
+                            dead.push_back(ii);
+                for (Instruction *d : dead)
+                    d->eraseFromParent();
+                ai->eraseFromParent();
+            }
             escaped++;
         }
+        for (BasicBlock &bb : f)
+            if (auto *r = dyn_cast<ReturnInst>(bb.getTerminator()))
+                IRBuilder<>(r).CreateStore(old, lsp);
+        frames++;
+        frameMax = std::max(frameMax, size);
     }
 
     Value *map(IRBuilder<> &b, Value *p, Value *arena) {
@@ -1105,6 +1182,7 @@ struct Arena : PassInfoMixin<Arena> {
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
         M = &m;
         C = &m.getContext();
+        frameDL.emplace(m.getDataLayout());
         if (!Retarget.empty())
             retarget();
         DL = &m.getDataLayout();
@@ -1132,7 +1210,8 @@ struct Arena : PassInfoMixin<Arena> {
             errs() << "port-arena: " << placed.size() << " variables (" << moved.size() << " moved), data to "
                    << format_hex(extraEnd, 8) << ", "
                    << relocs.size() << " relocations; " << rewritten << " accesses (" << hostArgs
-                   << " host arguments), " << escaped << " escaping locals; " << fns.size()
+                   << " host arguments), " << escaped << " escaping locals (" << frames
+                   << " frames, the biggest " << frameMax << " bytes); " << fns.size()
                    << " functions as values, " << indirect << " calls through one (" << sigs.size()
                    << " types, " << thunks << " thunks); " << fixedCalls
                    << " calls made with their callee's type (" << voidResults << " void results used, "
