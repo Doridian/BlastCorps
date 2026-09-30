@@ -408,10 +408,11 @@ static void tk_push(int k) {
     tkeys[tk_n++] = k;
 }
 
-/* the first pass: remember where this load's vertices went */
-static void irecord(uint32_t w1, int v0, int n) {
+/* the first pass: remember where the n points of the thing known as addr
+   went (a vertex load's vertices in clip space, a rectangle's corners) */
+static void irecord_at(uint32_t addr, const float (*pt)[4], int n) {
     IFrame *f = ifr[icur];
-    uint32_t addr = ikey(w1), h = ihash(addr, 0xFFFFFFFFu);
+    uint32_t h = ihash(addr, 0xFFFFFFFFu);
     while (f->occ[h].cnt && f->occ[h].addr != addr)
         h = (h + 1) & (IHASH - 1);
     uint32_t occ = f->occ[h].cnt;
@@ -429,12 +430,7 @@ static void irecord(uint32_t w1, int v0, int n) {
     l->addr = addr;
     l->occ = occ;
     l->n = n;
-    for (int i = 0; i < n; i++) {
-        l->p[i][0] = gs.v[v0 + i].x;
-        l->p[i][1] = gs.v[v0 + i].y;
-        l->p[i][2] = gs.v[v0 + i].z;
-        l->p[i][3] = gs.v[v0 + i].w;
-    }
+    memcpy(l->p, pt, (size_t)n * sizeof pt[0]);
     uint32_t hh = ihash(addr, occ);
     while (f->hash[hh])
         hh = (hh + 1) & (IHASH - 1);
@@ -442,18 +438,38 @@ static void irecord(uint32_t w1, int v0, int n) {
     tk_push(f->n - 1);
 }
 
+static void irecord(uint32_t w1, int v0, int n) {
+    float pt[16][4];
+    for (int i = 0; i < n; i++) {
+        pt[i][0] = gs.v[v0 + i].x;
+        pt[i][1] = gs.v[v0 + i].y;
+        pt[i][2] = gs.v[v0 + i].z;
+        pt[i][3] = gs.v[v0 + i].w;
+    }
+    irecord_at(ikey(w1), pt, n);
+}
+
+/* an in-between pass: the previous frame's record of the thing the first
+   pass recorded next (NULL: none, or none in the previous frame) */
+static const ILoad *iprev(int n) {
+    if (tk_i >= tk_n)
+        return NULL;
+    int k = tkeys[tk_i++];
+    if (k < 0)
+        return NULL;
+    const ILoad *c = &ifr[icur]->l[k];
+    const ILoad *p = ilookup(ifr[icur ^ 1], c->addr, c->occ);
+    return p && p->n >= n ? p : NULL;
+}
+
 /* the second pass: the same load, between the previous frame's and this one's */
 static void iblend(int v0, int n) {
     if (tk_i >= tk_n)
         return;
-    int k = tkeys[tk_i++];
     gfx_st_interp[0]++;
-    if (k < 0)
-        return;
-    const ILoad *c = &ifr[icur]->l[k];
-    const ILoad *p = ilookup(ifr[icur ^ 1], c->addr, c->occ);
     gfx_st_interp[2] += n;
-    if (!p || p->n < n) {
+    const ILoad *p = iprev(n);
+    if (!p) {
         gfx_st_interp[7]++;
         return;
     }
@@ -1254,11 +1270,58 @@ static void tri(int i0, int i1, int i2, int flag) {
 
 /* ---- rectangles ------------------------------------------------------------------------ */
 
+/* --interpolate: a rectangle (a texture or fill rectangle: text, the HUD,
+   the menus) is known by what it draws (the key: its texture and texture
+   coordinates, or its colors, and its size) and how many before it in the
+   frame were the same, as the vertex loads are by their addresses.  The
+   in-between passes move its corners (ulx, uly, lrx, lry) between the
+   previous frame's and this one's, unless one moved by more than 64
+   pixels (another piece, or a cut). */
+#define IRECT_KEY(tag, h) ((uint32_t)(tag) << 28 | ((h) & 0x0FFFFFFFu))
+static unsigned long long gfx_st_rect[3];             /* rectangles, moved, moved too far */
+
+static uint32_t rect_hash(const uint32_t *w, int n) {
+    uint32_t h = 0x811C9DC5u;
+    for (int i = 0; i < n; i++)
+        h = (h ^ w[i]) * 0x01000193u, h ^= h >> 13;
+    return h;
+}
+
+static void irect(uint32_t key, float *r) {
+    if (!ipass) {
+        const float pt[1][4] = { { r[0], r[1], r[2], r[3] } };
+        irecord_at(key, pt, 1);
+        return;
+    }
+    const ILoad *p = iprev(1);
+    gfx_st_rect[0]++;
+    if (!p)
+        return;
+    const float *q = p->p[0];
+    int moved = 0;
+    for (int i = 0; i < 4; i++) {
+        if (fabsf(r[i] - q[i]) > 64) {
+            gfx_st_rect[2]++;
+            return;
+        }
+        moved |= r[i] != q[i];
+    }
+    gfx_st_rect[1] += moved;
+    for (int i = 0; i < 4; i++)
+        r[i] = q[i] + (r[i] - q[i]) * interp_t;
+}
+
 static void fill_rect(uint32_t w0, uint32_t w1) {
     int lrx = ((w0 >> 12) & 0xFFF) >> 2, lry = (w0 & 0xFFF) >> 2;
     int ulx = ((w1 >> 12) & 0xFFF) >> 2, uly = (w1 & 0xFFF) >> 2;
     int cyc = gfx_cycle_type();
     if (cyc == 3 || cyc == 2) { lrx++; lry++; }
+    if (itrack && gs.cimg_addr != gs.zimg_addr) {
+        uint32_t k[] = { (uint32_t)cyc, gs.fill, port_be32(gs.prim), port_be32(gs.env), gs.cc0, gs.cc1, gs.om_l };
+        float r[4] = { (float)ulx, (float)uly, (float)lrx, (float)lry };
+        irect(IRECT_KEY(3, rect_hash(k, 7)), r);
+        ulx = (int)lroundf(r[0]); uly = (int)lroundf(r[1]); lrx = (int)lroundf(r[2]); lry = (int)lroundf(r[3]);
+    }
     if (ulx < gs.sc_x0) ulx = gs.sc_x0;
     if (uly < gs.sc_y0) uly = gs.sc_y0;
     if (lrx > gs.sc_x1) lrx = gs.sc_x1;
@@ -1345,6 +1408,14 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
         dsdx /= 4;
         lrx += 1;
         lry += 1;
+    }
+    if (itrack) {
+        const Tile *tl = &gs.tile[tile];
+        uint32_t k[] = { gs.timg_addr, (uint32_t)(tl->tmem | tl->fmt << 9 | tl->siz << 12 | tl->pal << 14 | flip << 18),
+                         h2, hc, ((w0 >> 12) & 0xFFF) - ((w1 >> 12) & 0xFFF), (w0 & 0xFFF) - (w1 & 0xFFF) };
+        float r[4] = { ulx, uly, lrx, lry };
+        irect(IRECT_KEY(1, rect_hash(k, 6)), r);
+        ulx = r[0]; uly = r[1]; lrx = r[2]; lry = r[3];
     }
     int x0 = (int)ulx, y0 = (int)uly, x1 = (int)lrx, y1 = (int)lry;
     if (x0 < gs.sc_x0) x0 = gs.sc_x0;
@@ -1770,6 +1841,8 @@ void host_gfx_interp_report(void) {
     host_log("interpolate: %llu in-between passes for %llu frames; of %llu vertex loads, %llu blended with the "
              "previous frame's, %llu without a match there, %llu vertices (of %llu) in loads that moved too far\n",
              s[5], s[6], s[0], s[1], s[7], s[4], s[2]);
+    host_log("interpolate: %llu rectangles in in-between passes, %llu moved, %llu moved too far\n",
+             gfx_st_rect[0], gfx_st_rect[1], gfx_st_rect[2]);
     host_log("interpolate: %llu retraces presented: %llu showed a new frame of the game's, %llu an "
              "in-between one\n", gfx_st_shown[0], gfx_st_shown[1], gfx_st_shown[2]);
     host_log("interpolate: frames by their in-between images:");
