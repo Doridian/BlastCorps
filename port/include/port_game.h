@@ -36,6 +36,8 @@ int port_pad_read_due(int free);
 /* the pak/EEPROM thread starts a command (E7B0.c): with --replay, it waits
    for the frame the movie's thread did (port/src/replay_hooks.c) */
 void port_replay_save_started(void);
+/* the game switches mode (00000.c's loop, before the new mode's init) */
+void port_replay_mode_switch(void);
 #define D_803156C0 port_counter(1, __func__)
 
 #endif

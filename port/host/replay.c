@@ -96,6 +96,19 @@ static unsigned audio_unlogged;
 /* save_starts.csv, next to FILE: the log's read each time the pak/EEPROM
    thread started a command */
 static unsigned *save_starts, nsave_starts, saves;
+/* checkpoints.csv: at each of the log's mode changes, the state to carry
+   over when the port has to be put there (force_mode) */
+typedef struct { unsigned read; uint64_t mode; uint8_t *state; } Checkpoint;
+static Checkpoint *checkpoints;
+/* switches.csv: every mode the movie's game switched to, with its reads so
+   far (a change seen at the reads may be several: the game passes through
+   some modes within one switch) */
+typedef struct { unsigned read; uint64_t mode; } Switch;
+static Switch *switches;
+static unsigned nswitches, next_switch;
+static unsigned ncheckpoints, forced_modes, unmatched_run;
+#define CHECKPOINT_STATE (0x400 + 0x80 + 0xF0 + 4 + 4 + 4)
+#define GRACE 60        /* frames without a match before the log is followed on its own */
 static int save_waiting;
 static unsigned saves_early;
 static struct { int kind, func; unsigned n; } frame_audio[32];
@@ -270,6 +283,42 @@ void host_replay_load(const char *path) {
             }
         fclose(f);
         host_log("replay: %u of the save thread's commands from %s\n", nsave_starts, cpath);
+    }
+    snprintf(cpath, sizeof cpath, "%.*sswitches.csv", slash ? (int)(slash - path + 1) : 0, path);
+    if ((f = fopen(cpath, "r"))) {
+        unsigned wcap = 0, rd;
+        unsigned long long mode;
+        while (fgets(line, sizeof line, f))
+            if (sscanf(line, "%u,%llx", &rd, &mode) == 2) {
+                if (nswitches == wcap)
+                    switches = realloc(switches, (wcap = wcap ? wcap * 2 : 1024) * sizeof *switches);
+                switches[nswitches++] = (Switch){ rd, mode };
+            }
+        fclose(f);
+        host_log("replay: %u of the game's mode switches from %s\n", nswitches, cpath);
+    }
+    snprintf(cpath, sizeof cpath, "%.*scheckpoints.csv", slash ? (int)(slash - path + 1) : 0, path);
+    if ((f = fopen(cpath, "r"))) {
+        static char big[2 * CHECKPOINT_STATE + 128];
+        unsigned ccap = 0;
+        while (fgets(big, sizeof big, f)) {
+            unsigned rd;
+            unsigned long long mode;
+            int n = 0;
+            if (sscanf(big, "%u,%llx,%n", &rd, &mode, &n) != 2 || strlen(big + n) < 2 * CHECKPOINT_STATE)
+                continue;
+            uint8_t *st = malloc(CHECKPOINT_STATE);
+            for (unsigned i = 0; i < CHECKPOINT_STATE; i++) {
+                unsigned b;
+                sscanf(big + n + 2 * i, "%2x", &b);
+                st[i] = (uint8_t)b;
+            }
+            if (ncheckpoints == ccap)
+                checkpoints = realloc(checkpoints, (ccap = ccap ? ccap * 2 : 256) * sizeof *checkpoints);
+            checkpoints[ncheckpoints++] = (Checkpoint){ rd, mode, st };
+        }
+        fclose(f);
+        host_log("replay: %u checkpoints from %s\n", ncheckpoints, cpath);
     }
     /* the movie's emulator rounds cvt.w halves up (recomp.h), and the
        movie depends on it (PORT_REPLAY_VR4300_ROUNDING=1: the hardware's) */
@@ -549,6 +598,94 @@ int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
    the save thread has the SI (D_8039C4B0), which is that thread's timing;
    with --replay the frame reads if the movie's did (a read with this mode
    and frame after the last match), and fetches what it started. */
+/* Put the port into the log's mode at its read k (a mode change): the state
+   the movie had there (the save records, best times, level, player, random
+   state), and the mode as the next one, which the game switches to after
+   this frame (00000.c's loop, its init included); a fade still going is
+   dropped (the loop asserts none is). */
+extern char D_80364AF0[], D_80364EF0[], D_80364F70[], D_802E8BDC[], D_80364AE8[];
+extern char D_80364A98[], D_80364AA0[], D_8036C778[], D_8036C784[];
+
+static void force_mode(unsigned k) {
+    const Checkpoint *c = NULL;
+    for (unsigned i = 0; i < ncheckpoints; i++)
+        if (checkpoints[i].read == k + 1)
+            c = &checkpoints[i];
+    if (!c)
+        return;
+#ifdef PORT_NATIVE_ENDIAN
+    host_fatal("replay: checkpoints need the big-endian build");
+#endif
+    const uint8_t *st = c->state;
+    memcpy(D_80364AF0, st, 0x400), st += 0x400;
+    memcpy(D_80364EF0, st, 0x80), st += 0x80;
+    memcpy(D_80364F70, st, 0xF0), st += 0xF0;
+    memcpy(D_802E8BDC, st, 4), st += 4;
+    D_80364AE8[0] = st[0], st += 4;
+    memcpy(D_8036B968, st, 4);
+    /* the first mode the movie's game switched to on its way there: the
+       reads so far were k */
+    uint64_t first = c->mode;
+    for (unsigned i = 0; i < nswitches; i++)
+        if (switches[i].read == k) {
+            first = switches[i].mode;
+            next_switch = i + 1;
+            break;
+        }
+    port_wbe32(D_80364A98, (uint32_t)(first >> 32));
+    port_wbe32(D_80364A98 + 4, (uint32_t)first);
+    memset(D_80364AA0, 0, 8);
+    memset(D_8036C778, 0, 8);
+    D_8036C784[0] = 0;
+    forced_modes++;
+    host_log("replay: mode %016llX forced at the log's read %u (the port was in %016llX, level %u)\n",
+             (unsigned long long)c->mode, k + 1, (unsigned long long)mode_now(), port_be32(D_802E8BDC));
+    matched = (int)k - 1;       /* the next read: the log's read k+1 */
+}
+
+/* 00000.c's mode switch, before the new mode's init: the port goes where
+   the movie's game went next (switches.csv, from where the log is); if that
+   isn't where it would go, it goes there instead, with the state the movie
+   had (force_mode). */
+void port_replay_mode_switch(void) {
+    if (!checkpoints || !switches || matched < 0)
+        return;
+    uint64_t want = (uint64_t)port_be32(D_80364A98) << 32 | port_be32(D_80364A98 + 4);
+    while (next_switch < nswitches && switches[next_switch].read < (unsigned)matched + 1)
+        next_switch++;
+    if (next_switch >= nswitches)
+        return;
+    const Switch *w = &switches[next_switch];
+    if (w->mode == want) {
+        next_switch++;
+        return;
+    }
+    host_log("replay: the port would switch to %016llX, the movie to %016llX; ", (unsigned long long)want,
+             (unsigned long long)w->mode);
+    /* the movie's change at the reads that this switch starts */
+    for (unsigned k = w->read; k < nreads && k <= w->read + 2; k++)
+        if (log_reads[k].mode != log_reads[k - 1].mode) {
+            force_mode(k);
+            return;
+        }
+    next_switch++;
+    port_wbe32(D_80364A98, (uint32_t)(w->mode >> 32));
+    port_wbe32(D_80364A98 + 4, (uint32_t)w->mode);
+    host_log("(no change at the reads)\n");
+}
+
+/* a port frame with no match: once there have been GRACE of them, the log
+   goes on by one, and at its next mode change the port is put there */
+static void unmatched_frame(void) {
+    if (!checkpoints || ++unmatched_run <= GRACE || matched + 2 >= (int)nreads)
+        return;
+    if (matched >= 0 && log_reads[matched + 1].mode != log_reads[matched].mode) {
+        force_mode(matched + 1);
+        unmatched_run = 0;
+    } else
+        matched++;
+}
+
 int port_pad_read_due(int free) {
     if (!log_reads || nogate)
         return free;
@@ -557,10 +694,13 @@ int port_pad_read_due(int free) {
     uint64_t mode = mode_now();
     uint32_t frames = port_be32(D_80358064);
     for (unsigned k = matched + 1; k < nreads && k <= (unsigned)(matched + 1) + WINDOW; k++)
-        if (log_reads[k].mode == mode && log_reads[k].frames == frames)
+        if (log_reads[k].mode == mode && log_reads[k].frames == frames) {
+            unmatched_run = 0;
             return 1;
+        }
     if (matched + 1 >= (int)nreads)
         return free;                                /* past the log: as the game says */
+    unmatched_frame();
     static unsigned skips;
     static int skips_at = -2;
     if (skips_at != matched) {
@@ -697,8 +837,8 @@ void host_replay_report(void) {
         return;
     host_log("replay: %u reads, %d of the log's %u matched (%u skipped), %u without a match, "
              "%u retraces given anyway, %u random states set, the player elsewhere at %u, %u reads of the "
-             "counts and %u audio answers the log doesn't have, %u save commands let go early\n", reads,
-             matched + 1 - (int)skipped, nreads, skipped, unmatched, forced, seeds, pos_diffs, counts_unlogged,
-             audio_unlogged, saves_early);
+             "counts and %u audio answers the log doesn't have, %u save commands let go early, %u modes "
+             "forced\n", reads, matched + 1 - (int)skipped, nreads, skipped, unmatched, forced, seeds, pos_diffs,
+             counts_unlogged, audio_unlogged, saves_early, forced_modes);
 }
 

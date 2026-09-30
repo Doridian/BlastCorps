@@ -756,6 +756,9 @@ void func_80244930(void *arg0) {
     for (;;) {
         D_80364A70 = 0;
         do {
+#ifdef TARGET_PC
+            port_replay_mode_switch();  /* --replay: the movie's mode, if the port would go elsewhere */
+#endif
             func_8029A7E4("game mode switch from %d to %d\n", func_8026F92C(D_80364A90), func_8026F92C(D_80364A98));
             D_80364AA0 = 0;
             switch (D_80364A98) {

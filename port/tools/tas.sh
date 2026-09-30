@@ -12,7 +12,8 @@
 # plays the movie (or its first VIS VIs) into build/tas/run/: polls.csv has
 # the pad and the VI at every controller read (what the port's --replay
 # plays), eeprom.bin the save, which
-# tas_check.py reads the medals from.  See docs/PORT.md, "The TAS".
+# tas_check.py reads the medals from.  port/tools/tas_port.sh then replays it
+# on the port.  See docs/PORT.md, "The TAS".
 #
 # Needs baserom.us.v10.z64 (the movie's ROM), git, curl, SDL 1.2 (or
 # sdl12-compat), zlib, libpng and minizip.

@@ -28,6 +28,8 @@
  *                      random number generator's state (D_8036B968, seeded
  *                      from osGetCount), the player's position (D_803643E0)
  *   OUTDIR/modes.csv   one line per change of the mode (D_80364A90/94)
+ *   OUTDIR/checkpoints.csv  the same, with the state --replay carries over
+ *                      (write_checkpoint)
  *   OUTDIR/counter_reads.csv  (TAS_COUNTER_READS=1, us.v10) every read the
  *                      game makes of the scheduler's retrace count or level
  *                      timer (D_803156C4, D_803156C0), in order: the
@@ -38,6 +40,8 @@
  *                      or 1 with the sequence's lastTicks
  *   OUTDIR/save_starts.csv  (the same) the controller reads so far each
  *                      time the pak/EEPROM thread starts a command
+ *   OUTDIR/switches.csv  (the same) every mode the game's loop switches to
+ *                      (D_80364A98), with the controller reads so far
  *   OUTDIR/eeprom.bin  the EEPROM at the end (from blank, as the movie is)
  *   OUTDIR/rdram.bin   RDRAM at the end, big-endian (TAS_DUMP=N,...: also
  *                      rdram_N.bin as the Nth controller read starts)
@@ -60,7 +64,7 @@
 
 static uint32_t *pads;          /* per movie frame: buttons << 16 | x << 8 | y */
 static unsigned npads, vis, max_vis, polls;
-static FILE *polls_csv, *modes_csv;
+static FILE *polls_csv, *modes_csv, *checkpoints_csv;
 static m64p_plugin_type attaching;
 static unsigned char *rdram;
 static GFX_INFO gfx;
@@ -70,10 +74,12 @@ static GFX_INFO gfx;
 static uint32_t a_retraces = 0x803156C4, a_frames = 0x80358064, a_mode = 0x80364A90, a_rng = 0x8036B968,
                 a_pos = 0x803643E0;
 static uint64_t last_mode = ~0ull;
+static void write_checkpoint(uint64_t mode);
 static const char *dump_spec;   /* TAS_DUMP=N,...: RDRAM at those reads */
 static FILE *counter_csv;       /* TAS_COUNTER_READS=1: the game's reads of the retrace counts */
 static FILE *audio_csv;         /* ... and what the audio thread's state told it */
 static FILE *save_csv;          /* ... and when the save thread starts a command */
+static FILE *switch_csv;        /* ... and every mode the game switches to */
 static const char *outdir;
 
 static void dump_rdram(const char *name) {
@@ -235,8 +241,29 @@ EXPORT void CALL GetKeys(int control, BUTTONS *keys) {
     if (mode != last_mode) {
         fprintf(modes_csv, "%u,%u,%016llX\n", polls, vis, (unsigned long long)mode);
         last_mode = mode;
+        write_checkpoint(mode);
     }
 }
+/* checkpoints.csv: at every change of the mode, the state the port's --replay
+   carries over when it has to force that change (port/host/replay.c): the
+   read, the mode, then as hex (big-endian, as in RDRAM) the players' save
+   records (D_80364AF0, 0x400), the best times (D_80364EF0, 0x80, and
+   D_80364F70, 0xF0), the level (D_802E8BDC), the player (D_80364AE8) and the
+   random number generator's state (D_8036B968) */
+static const struct { uint32_t addr, size; } checkpoint_vars[] = {
+    { 0x80364AF0, 0x400 }, { 0x80364EF0, 0x80 }, { 0x80364F70, 0xF0 },
+    { 0x802E8BDC, 4 }, { 0x80364AE8, 4 }, { 0x8036B968, 4 },
+};
+static uint32_t v10_shift;
+
+static void write_checkpoint(uint64_t mode) {
+    fprintf(checkpoints_csv, "%u,%016llX,", polls, (unsigned long long)mode);
+    for (unsigned i = 0; i < sizeof checkpoint_vars / sizeof checkpoint_vars[0]; i++)
+        for (uint32_t a = 0; a < checkpoint_vars[i].size; a += 4)
+            fprintf(checkpoints_csv, "%08X", rd32(checkpoint_vars[i].addr - v10_shift + a));
+    fputc('\n', checkpoints_csv);
+}
+
 EXPORT void CALL ControllerCommand(int c, unsigned char *cmd) { (void)c; (void)cmd; }
 EXPORT void CALL ReadController(int c, unsigned char *cmd) { (void)c; (void)cmd; }
 EXPORT void CALL SDL_KeyDown(int k, int s) { (void)k; (void)s; }
@@ -257,7 +284,10 @@ static int (*pDebugBreakpointCommand)(m64p_dbg_bkp_command, unsigned int, void *
 /* us.v10's pak/EEPROM thread (hd_front_end E7B0.c's func_801F58E8), where it
    sets D_8039C4B0 for a command it received */
 #define V10_SAVE_START 0x801F1088
-static int bpt_state = -1, bpt_loc = -1, bpt_save = -1;
+/* us.v10's main loop (func_80244930) printing "game mode switch", with the
+   mode it switches to in D_80364A98 */
+#define V10_MODE_SWITCH 0x80244990
+static int bpt_state = -1, bpt_loc = -1, bpt_save = -1, bpt_switch = -1;
 
 static void dbg_init(void) {
     /* D_803156C0 (the level timer) and D_803156C4 (retraces) */
@@ -269,6 +299,8 @@ static void dbg_init(void) {
     bpt_loc = pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &l);
     breakpoint v = { V10_SAVE_START, V10_SAVE_START, BPT_FLAG_ENABLED | BPT_FLAG_EXEC };
     bpt_save = pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &v);
+    breakpoint w = { V10_MODE_SWITCH, V10_MODE_SWITCH, BPT_FLAG_ENABLED | BPT_FLAG_EXEC };
+    bpt_switch = pDebugBreakpointCommand(M64P_BKP_CMD_ADD_STRUCT, 0, &w);
     pDebugSetRunState(2);
     pDebugStep();
 }
@@ -284,7 +316,9 @@ static int game_read(uint32_t pc) {
 /* a hit: the game read one of the two (which one, the log doesn't say:
    the port takes the value it asks for) */
 static void dbg_update(int bpt) {
-    if (rdram && bpt >= 0 && bpt == bpt_save) {
+    if (rdram && bpt >= 0 && bpt == bpt_switch) {
+        fprintf(switch_csv, "%u,%08X%08X\n", polls, rd32(a_mode + 8), rd32(a_mode + 12));
+    } else if (rdram && bpt >= 0 && bpt == bpt_save) {
         fprintf(save_csv, "%u\n", polls);
     } else if (rdram && (bpt == bpt_state || bpt == bpt_loc) && bpt >= 0) {
         /* at the entry: the caller's return address, and the value */
@@ -374,6 +408,8 @@ int main(int argc, char **argv) {
     fprintf(polls_csv, "poll,vi,retraces,frames,mode,pad,rng,x,y,z\n");
     modes_csv = out(outdir, "modes.csv", "w");
     fprintf(modes_csv, "poll,vi,mode\n");
+    checkpoints_csv = out(outdir, "checkpoints.csv", "w");
+    fprintf(checkpoints_csv, "read,mode,state\n");
 
     FILE *f = fopen(argv[4], "rb");
     if (!f) { perror(argv[4]); return 1; }
@@ -386,6 +422,7 @@ int main(int argc, char **argv) {
     /* us.v10 (header version byte 0) */
     if (rom[0x3F] == 0 && !memcmp(rom + 0x3B, "NBCE", 4)) {
         a_retraces -= 0xB0; a_frames -= 0xB0; a_mode -= 0xB0; a_rng -= 0xB0; a_pos -= 0xB0;
+        v10_shift = 0xB0;
     }
 
     void *core = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
@@ -415,6 +452,8 @@ int main(int argc, char **argv) {
             fprintf(audio_csv, "read,caller,kind,value\n");
             save_csv = out(outdir, "save_starts.csv", "w");
             fprintf(save_csv, "read\n");
+            switch_csv = out(outdir, "switches.csv", "w");
+            fprintf(switch_csv, "read,mode\n");
             pDebugGetCPUDataPtr = SYM(core, DebugGetCPUDataPtr);
             pDebugSetRunState = SYM(core, DebugSetRunState);
             pDebugStep = SYM(core, DebugStep);
@@ -457,12 +496,15 @@ int main(int argc, char **argv) {
     pCoreDoCommand(M64CMD_ROM_CLOSE, 0, NULL);
     fclose(polls_csv);
     fclose(modes_csv);
+    fclose(checkpoints_csv);
     if (counter_csv)
         fclose(counter_csv);
     if (audio_csv)
         fclose(audio_csv);
     if (save_csv)
         fclose(save_csv);
+    if (switch_csv)
+        fclose(switch_csv);
     fprintf(stderr, "%u VIs, %u controller reads\n", vis, polls);
     return 0;
 }

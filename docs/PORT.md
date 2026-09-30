@@ -868,6 +868,18 @@ frames and gives each the movie's input for that frame:
   the SI, the game skips the frame's pad read (45BB0.c, `D_8039C4B0`), so
   whether a frame reads the pad follows the movie too
   (`port_pad_read_due`).
+- **Checkpoints at the mode changes.**  The menus aren't worth making
+  exact (the world map's cursor picks its target from the paths it draws,
+  which depends on sound effects and more), so where the port goes its own
+  way the log goes on without it: after 60 frames with no match, each frame
+  moves the log on by one, and at the log's next mode change the port is
+  put there.  `m64p_tas` writes the state to carry over at every mode change
+  (`checkpoints.csv`: the save records, best times, level, player and random
+  state); the replay writes it into the port, clears any fade and sets the
+  mode as the next one, and the game's own switch (and the new mode's init,
+  a level's loading included) does the rest.  Levels play exactly from
+  their start, so this checks every level even where the menus between
+  them don't match.  (Big-endian build only.)
 - **The seed.**  The random number generator (`D_8036B968`) is seeded from
   `osGetCount`, which is the port's clock: after a seeding (23C20.c,
   20460.c call `port_replay_seeded` under `TARGET_PC`) the next read sets
@@ -887,17 +899,24 @@ given anyway are reported at the end; and the save has the medals.
 starts (`rdram_N.bin`, big-endian), and `TAS_DUMP=N,...` makes `m64p_tas`
 write the same at its Nth read, to compare the two.
 
-Where it stands: every read through the first levels matches the movie's
-read for read (the same mode and frame at the same read number), with the
-player where the movie has it, up to read 8,589 of 125,297 (five gold
-medals, level 10 next).  There, on the world map, the movie's stick moves
-the cursor to level 34 and A selects it; on the port the cursor's target
-(`func_801FA180`, from the paths `func_801FA74C` draws) stays on the
-level it is on, and A selects that one.  The difference starts with a path
-reveal the movie's map plays and the port's doesn't: in the movie a sound
-starts for it (`D_8021AB38`), on the port it doesn't, although the reveal's
-inputs (the save record, the counts, the matrices) agree; the sound
-effect player's state is the next thing to replay.
+Where it stands: the port beats the game with the movie's input, 57
+platinum medals like the movie, in about 20 minutes (`port/tools/tas_port.sh`
+after `tas.sh`).  All 125,297 of the movie's reads are matched, none
+skipped, and the player is where the movie has it at every frame of every
+level and on the map.  Two of the game's mode switches are the movie's
+rather than the port's: twice, at the world map, the port's cursor picks
+the level it is on where the movie's picks the next one (the cursor's
+target comes from the paths the map draws, which the replay doesn't make
+exact), and the switch hook sends it where the movie went.
+
+- **The mode switches.**  `m64p_tas` logs every mode the game's loop
+  switches to (`switches.csv`, an exec breakpoint where it prints "game mode
+  switch"); a change at the reads can be several, the game passing through
+  some modes within one switch.  On the port, `port_replay_mode_switch`
+  (00000.c's loop, before the new mode's init, under `TARGET_PC`) compares
+  each switch with the movie's next one and, where they differ, makes it
+  the movie's, with the movie's state (`checkpoints.csv`).
+
 `PORT_REPLAY_TRACE=FROM,TO` logs every read in that range; after 50
 retraces given at one read the replay dumps the threads.
 
