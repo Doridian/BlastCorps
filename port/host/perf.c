@@ -31,11 +31,11 @@ static int nsamp;
 static unsigned total_vi;
 static int win_over;                     /* retraces whose work took over 16.7 ms */
 static int win_late;                     /* ... delivered 4 ms or more after they were due */
-static double sleep_want, sleep_over, sleep_over_max;
+static double sleep_over, sleep_over_max;
 static int nsleeps;
 static unsigned long long img0, nframes, last_frame;
 static double t_win;
-static const char *names[PERF_NCAT] = { "loop", "game", "gfx", "gfx2", "audio", "present", "idle", "shaders" };
+static const char *names[PERF_NCAT] = { "loop", "game", "gfx", "gfx2", "audio", "present", "idle", "shaders", "gl-draws" };
 
 double host_perf_now(void) {
 #ifdef __EMSCRIPTEN__
@@ -86,7 +86,6 @@ void host_perf_sleep(double want_ms, double got_ms) {
     if (!host_perf_on)
         return;
     nsleeps++;
-    sleep_want += want_ms;
     double o = got_ms - want_ms;
     sleep_over += o;
     if (o > sleep_over_max)
@@ -112,10 +111,10 @@ static void report(unsigned long long images) {
         n += snprintf(parts + n, sizeof parts - n, " %s %.2f", names[i], win_acc[i] / nsamp);
     host_log("perf: to retrace %u, %d in %.2f s: work/retrace ms median %.2f p95 %.2f p99 %.2f max %.2f; over 16.7 ms %d;"
              " late p50 %.2f p99 %.2f (>=4 ms %d); new images %.1f/s, game frames %.1f/s; mean ms:%s;"
-             " sleeps %d, overshoot mean %.2f max %.2f; audio queued %d ms, %u dropped\n",
+             " sleeps %d, overshoot mean %.2f max %.2f; audio queued %d ms, %u dropped; time dropped %u times\n",
              total_vi, nsamp, secs, PCT(work, 0.5), PCT(work, 0.95), PCT(work, 0.99), work[nsamp - 1], win_over,
              PCT(late, 0.5), PCT(late, 0.99), win_late, (images - img0) / secs, nframes / secs, parts,
-             nsleeps, nsleeps ? sleep_over / nsleeps : 0.0, sleep_over_max, aq, adrop);
+             nsleeps, nsleeps ? sleep_over / nsleeps : 0.0, sleep_over_max, aq, adrop, host_paced_resyncs);
 #undef PCT
 #ifdef PORT_WASM_WEB
     /* for a page's own display (and the tests that drive it) */
@@ -125,7 +124,7 @@ static void report(unsigned long long images) {
 #endif
     memset(win_acc, 0, sizeof win_acc);
     nsamp = win_over = win_late = nsleeps = 0;
-    sleep_want = sleep_over = sleep_over_max = 0;
+    sleep_over = sleep_over_max = 0;
     img0 = images;
     nframes = 0;
     t_win = now;

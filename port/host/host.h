@@ -15,9 +15,10 @@ uint64_t host_busy_wake(void);       /* threads.c: when a busy thread may go on 
 extern double host_ns_per_instr, host_c_scale;          /* the N64's clock: real or virtual time */
 
 /* perf.c: PORT_PERF=N, where the host's time goes per retrace */
-enum { PERF_LOOP, PERF_GAME, PERF_GFX, PERF_GFX2, PERF_AUDIO, PERF_PRESENT, PERF_IDLE, PERF_SHADER, PERF_NCAT };
+enum { PERF_LOOP, PERF_GAME, PERF_GFX, PERF_GFX2, PERF_AUDIO, PERF_PRESENT, PERF_IDLE, PERF_SHADER, PERF_GL, PERF_NCAT };
 extern int host_perf_on;
 extern int host_paced;                      /* main.c: PORT_PACED, virtual time between retraces */
+extern unsigned host_paced_resyncs;         /* ... and how often it fell behind */
 void host_perf_init(void);
 double host_perf_now(void);                 /* ms */
 void host_perf_push(int cat);               /* time from here on is cat's ... */

@@ -184,7 +184,7 @@ static uint64_t virtual_ns;
    until the display's next frame (paced_wait below). */
 int host_paced;
 static double real_off_ms;      /* a retrace at virtual v is due at real v + real_off_ms */
-static unsigned paced_resyncs;  /* the host fell behind: time dropped */
+unsigned host_paced_resyncs;    /* the host fell behind: time dropped */
 
 /* The RDP's time for the display list being run, as the renderer estimates
    it (host_charge from gfx.c), times PORT_RDP_SCALE (default 0: the RDP is
@@ -378,7 +378,7 @@ static void paced_wait(uint64_t v, uint64_t period) {
     double deadline = v / 1e6 + real_off_ms, t = real_ms();
     if (t > deadline + 4 * pms) {                   /* fell behind: don't catch up */
         real_off_ms = t - v / 1e6;
-        paced_resyncs++;
+        host_paced_resyncs++;
         deadline = t;
     }
     host_perf_push(PERF_IDLE);

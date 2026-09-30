@@ -251,6 +251,42 @@ int host_gfx_stats[256];
 static unsigned long long st_tris, st_raster, st_tested, st_drawn;
 static double st_cover;         /* pixels covered, as the geometry says: the RDP's work */
 
+/* fminf and fmaxf as musl has them (NaN loses, -0 is below +0), inline:
+   emscripten's are calls, a dozen a triangle */
+static inline float min_f(float x, float y) {
+    if (x != x)
+        return y;
+    if (y != y)
+        return x;
+    if (signbit(x) != signbit(y))
+        return signbit(x) ? x : y;
+    return x < y ? x : y;
+}
+
+static inline float max_f(float x, float y) {
+    if (x != x)
+        return y;
+    if (y != y)
+        return x;
+    if (signbit(x) != signbit(y))
+        return signbit(x) ? y : x;
+    return x < y ? y : x;
+}
+
+/* (the display list's commands that do real work are functions of their
+   own, so that run() stays a small loop: one huge function with all of
+   them inlined compiled to slow code, in Firefox above all.  Binaryen
+   inlines a function called from one place whatever clang was told, so
+   in WebAssembly run() calls them through pointers, CALL) */
+#define NOINLINE __attribute__((noinline))
+#ifdef __EMSCRIPTEN__
+#define CALL(f) (*(__typeof__(&f) volatile *)&call_##f)
+#define CALL_VIA(f) static __typeof__(&f) call_##f = f;
+#else
+#define CALL(f) f
+#define CALL_VIA(f)
+#endif
+
 /* A segmented address is a segment (bits 24..27) and a 24-bit offset, and
    the RSP ignores the top nibble.  But the game's C keeps its locals on the
    fibers' host stacks at 0x90000000 (port.h), whose physical addresses
@@ -288,7 +324,7 @@ static void load_mtx(float m[4][4], uint32_t addr) {
 
 /* ---- the RSP ----------------------------------------------------------------- */
 
-static void do_mtx(uint32_t w0, uint32_t w1) {
+NOINLINE static void do_mtx(uint32_t w0, uint32_t w1) {
     int p = (w0 >> 16) & 0xFF;
     float m[4][4];
     load_mtx(m, seg_to_k0(w1));
@@ -502,7 +538,7 @@ static void iblend(int v0, int n) {
     gfx_st_interp[3] += n;
 }
 
-static void do_vtx(uint32_t w0, uint32_t w1) {
+NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
     const uint8_t *p = port_ptr(seg_to_k0(w1));
     if (gs.mvp_dirty) {
@@ -577,7 +613,7 @@ static void do_vtx(uint32_t w0, uint32_t w1) {
 
 /* gSPModifyVertex (G_MW_POINTS): the RSP's vertex buffer is 40 bytes a
    vertex; the game rewrites texture coordinates this way */
-static void modify_vertex(int off, uint32_t val) {
+NOINLINE static void modify_vertex(int off, uint32_t val) {
     Vtx4 *v = &gs.v[(off / 40) & 15];
     switch (off % 40) {
     case 0x10:                                  /* G_MWO_POINT_RGBA */
@@ -632,7 +668,7 @@ static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
         tmem_put(a + i, odd, px + i, 0);
 }
 
-static void load_block(uint32_t w0, uint32_t w1) {
+NOINLINE static void load_block(uint32_t w0, uint32_t w1) {
     Tile *t = &gs.tile[(w1 >> 24) & 7];
     int uls = (w0 >> 12) & 0xFFF, ult = w0 & 0xFFF, lrs = (w1 >> 12) & 0xFFF, dxt = w1 & 0xFFF;
     int bpt2 = bytes_per_texel_x2(gs.timg_siz);
@@ -655,7 +691,7 @@ static void load_block(uint32_t w0, uint32_t w1) {
     gs.tmem_gen++;
 }
 
-static void load_tile(uint32_t w0, uint32_t w1) {
+NOINLINE static void load_tile(uint32_t w0, uint32_t w1) {
     Tile *t = &gs.tile[(w1 >> 24) & 7];
     int uls = ((w0 >> 12) & 0xFFF) >> 2, ult = (w0 & 0xFFF) >> 2;
     int lrs = ((w1 >> 12) & 0xFFF) >> 2, lrt = (w1 & 0xFFF) >> 2;
@@ -678,7 +714,7 @@ static void load_tile(uint32_t w0, uint32_t w1) {
     gs.tile_gen++;
 }
 
-static void load_tlut(uint32_t w0, uint32_t w1) {
+NOINLINE static void load_tlut(uint32_t w0, uint32_t w1) {
     Tile *t = &gs.tile[(w1 >> 24) & 7];
     int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
     const uint8_t *p = port_ptr(gs.timg_addr + (uint32_t)uls * 2);
@@ -1053,8 +1089,8 @@ typedef struct {
 } SV;
 
 static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) {
-    float minx = fminf(v0->x, fminf(v1->x, v2->x)), maxx = fmaxf(v0->x, fmaxf(v1->x, v2->x));
-    float miny = fminf(v0->y, fminf(v1->y, v2->y)), maxy = fmaxf(v0->y, fmaxf(v1->y, v2->y));
+    float minx = min_f(v0->x, min_f(v1->x, v2->x)), maxx = max_f(v0->x, max_f(v1->x, v2->x));
+    float miny = min_f(v0->y, min_f(v1->y, v2->y)), maxy = max_f(v0->y, max_f(v1->y, v2->y));
     int x0 = (int)floorf(minx), x1 = (int)ceilf(maxx), y0 = (int)floorf(miny), y1 = (int)ceilf(maxy);
     int sx0 = gs.sc_x0, sx1 = gs.sc_x1;
     if (cur_wfb)
@@ -1124,7 +1160,7 @@ static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) 
                     float tx = (ax * v0->t + bx * v1->t + (1 - ax - bx) * v2->t) / iwx;
                     float sy = (ay * v0->s + by * v1->s + (1 - ay - by) * v2->s) / iwy;
                     float ty = (ay * v0->t + by * v1->t + (1 - ay - by) * v2->t) / iwy;
-                    float l = fmaxf(fmaxf(fabsf(sx - s), fabsf(tx - t)), fmaxf(fabsf(sy - s), fabsf(ty - t)));
+                    float l = max_f(max_f(fabsf(sx - s), fabsf(tx - t)), max_f(fabsf(sy - s), fabsf(ty - t)));
                     float frac;
                     gfx_lod_tiles(l, tile, &ta, &tb, &frac);
                     in.lod = frac * 255;
@@ -1198,12 +1234,12 @@ static void charge_poly(const GfxVtx *s, int n) {
     for (int i = 0; i < n; i++) {
         const GfxVtx *a = &s[i], *b = &s[(i + 1) % n];
         area += a->x * b->y - b->x * a->y;
-        x0 = fminf(x0, a->x); x1 = fmaxf(x1, a->x); y0 = fminf(y0, a->y); y1 = fmaxf(y1, a->y);
+        x0 = min_f(x0, a->x); x1 = max_f(x1, a->x); y0 = min_f(y0, a->y); y1 = max_f(y1, a->y);
     }
-    x0 = fmaxf(x0, gs.sc_x0); y0 = fmaxf(y0, gs.sc_y0); x1 = fminf(x1, gs.sc_x1); y1 = fminf(y1, gs.sc_y1);
+    x0 = max_f(x0, gs.sc_x0); y0 = max_f(y0, gs.sc_y0); x1 = min_f(x1, gs.sc_x1); y1 = min_f(y1, gs.sc_y1);
     if (x1 <= x0 || y1 <= y0)
         return;
-    st_cover += fminf(fabsf(area) * 0.5f, (x1 - x0) * (y1 - y0));
+    st_cover += min_f(fabsf(area) * 0.5f, (x1 - x0) * (y1 - y0));
 }
 
 /* widescreen: a 2D polygon (w 1 throughout: an orthographic projection)
@@ -1216,8 +1252,8 @@ static void wide_2d(GfxVtx *s, int n) {
     for (int i = 0; i < n; i++) {
         if (fabsf(s[i].w - 1) >= 1e-4f)
             return;
-        x0 = fminf(x0, s[i].x);
-        x1 = fmaxf(x1, s[i].x);
+        x0 = min_f(x0, s[i].x);
+        x1 = max_f(x1, s[i].x);
     }
     if (x0 > 1 || x1 < 318)                     /* (within a pixel) */
         return;
@@ -1258,7 +1294,7 @@ static void wide_2d(GfxVtx *s, int n) {
    (docs/PORT.md, "Graphics"). */
 static int rsp_only;
 
-static void tri(int i0, int i1, int i2, int flag) {
+NOINLINE static void tri(int i0, int i1, int i2, int flag) {
     st_tris++;
     Vtx4 *a = &gs.v[i0 & 15], *b = &gs.v[i1 & 15], *c = &gs.v[i2 & 15];
     float flat[4];
@@ -1362,7 +1398,7 @@ static void irect(uint32_t key, float *r) {
         r[i] = q[i] + (r[i] - q[i]) * interp_t;
 }
 
-static void fill_rect(uint32_t w0, uint32_t w1) {
+NOINLINE static void fill_rect(uint32_t w0, uint32_t w1) {
     int lrx = ((w0 >> 12) & 0xFFF) >> 2, lry = (w0 & 0xFFF) >> 2;
     int ulx = ((w1 >> 12) & 0xFFF) >> 2, uly = (w1 & 0xFFF) >> 2;
     int cyc = gfx_cycle_type();
@@ -1448,7 +1484,7 @@ static void wide_band_clear(int x0, int y0, int x1, int y1, int gl) {
         memset(cur_wfb->px + y * cur_wfb->w + x0 + gfx_wide_off, 0, (size_t)(x1 - x0) * 2);
 }
 
-static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
+NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
     float lrx = ((w0 >> 12) & 0xFFF) / 4.0f, lry = (w0 & 0xFFF) / 4.0f;
     float ulx = ((w1 >> 12) & 0xFFF) / 4.0f, uly = (w1 & 0xFFF) / 4.0f;
     int tile = (w1 >> 24) & 7;
@@ -1499,7 +1535,7 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
     float lodfrac = 255;
     if (gfx_lod_on() && cyc < 2) {
         float frac;
-        gfx_lod_tiles(fmaxf(fabsf(dsdx), fabsf(dtdy)), tile, &ta, &tb, &frac);
+        gfx_lod_tiles(max_f(fabsf(dsdx), fabsf(dtdy)), tile, &ta, &tb, &frac);
         lodfrac = frac * 255;
     }
     for (int y = y0; y < y1; y++)
@@ -1528,6 +1564,9 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
 
 /* ---- the display list ------------------------------------------------------------------- */
 
+CALL_VIA(do_mtx) CALL_VIA(do_vtx) CALL_VIA(modify_vertex) CALL_VIA(load_tlut) CALL_VIA(load_block)
+CALL_VIA(load_tile) CALL_VIA(fill_rect) CALL_VIA(tex_rect) CALL_VIA(tri)
+
 static void run(uint32_t dl, int depth) {
     for (int n = 0; n < 1000000; n++, dl += 8) {
         const uint8_t *p = port_ptr(dl);
@@ -1541,7 +1580,7 @@ static void run(uint32_t dl, int depth) {
             continue;
         }
         switch (op) {
-        case 0x01: do_mtx(w0, w1); break;                       /* G_MTX */
+        case 0x01: CALL(do_mtx)(w0, w1); break;                       /* G_MTX */
         case 0x03: {                                            /* G_MOVEMEM */
             int idx = (w0 >> 16) & 0xFF;
             const uint8_t *m = port_ptr(seg_to_k0(w1));
@@ -1561,7 +1600,7 @@ static void run(uint32_t dl, int depth) {
             }
             break;
         }
-        case 0x04: do_vtx(w0, w1); break;                       /* G_VTX */
+        case 0x04: CALL(do_vtx)(w0, w1); break;                       /* G_VTX */
         case 0x06:                                              /* G_DL */
             if (depth < 16) {
                 if ((w0 >> 16) & 1) {
@@ -1599,7 +1638,7 @@ static void run(uint32_t dl, int depth) {
                 gs.fog_mul = (int16_t)(w1 >> 16);
                 gs.fog_off = (int16_t)(w1 & 0xFFFF);
             } else if (idx == 0x0C)                             /* G_MW_POINTS */
-                modify_vertex(off, w1);
+                CALL(modify_vertex)(off, w1);
             if (gs.nlights < 0) gs.nlights = 0;
             if (gs.nlights > 7) gs.nlights = 7;
             break;
@@ -1611,12 +1650,12 @@ static void run(uint32_t dl, int depth) {
             break;
         case 0xBE: break;                                       /* G_CULLDL */
         case 0xBF:                                              /* G_TRI1 */
-            tri(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10, w1 >> 24);
+            CALL(tri)(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10, w1 >> 24);
             break;
         case 0xE4: case 0xE5: {                                 /* texture rectangle */
             const uint8_t *q = port_ptr(dl + 8);
             uint32_t h2 = port_g32(q + 4), hc = port_g32(q + 12);
-            tex_rect(w0, w1, h2, hc, op == 0xE5);
+            CALL(tex_rect)(w0, w1, h2, hc, op == 0xE5);
             dl += 16;
             break;
         }
@@ -1627,7 +1666,7 @@ static void run(uint32_t dl, int depth) {
             gs.sc_x1 = ((w1 >> 12) & 0xFFF) >> 2; gs.sc_y1 = (w1 & 0xFFF) >> 2;
             break;
         case 0xEF: gs.om_h = w0 & 0xFFFFFF; gs.om_l = w1; break; /* G_RDPSETOTHERMODE */
-        case 0xF0: load_tlut(w0, w1); break;
+        case 0xF0: CALL(load_tlut)(w0, w1); break;
         case 0xF2: {                                            /* G_SETTILESIZE */
             Tile *t = &gs.tile[(w1 >> 24) & 7];
             t->uls = (w0 >> 12) & 0xFFF; t->ult = w0 & 0xFFF;
@@ -1635,8 +1674,8 @@ static void run(uint32_t dl, int depth) {
             gs.tile_gen++;
             break;
         }
-        case 0xF3: load_block(w0, w1); break;
-        case 0xF4: load_tile(w0, w1); break;
+        case 0xF3: CALL(load_block)(w0, w1); break;
+        case 0xF4: CALL(load_tile)(w0, w1); break;
         case 0xF5: {                                            /* G_SETTILE */
             Tile *t = &gs.tile[(w1 >> 24) & 7];
             t->fmt = (w0 >> 21) & 7; t->siz = (w0 >> 19) & 3;
@@ -1647,7 +1686,7 @@ static void run(uint32_t dl, int depth) {
             gs.tile_gen++;
             break;
         }
-        case 0xF6: fill_rect(w0, w1); break;
+        case 0xF6: CALL(fill_rect)(w0, w1); break;
         case 0xF7: gs.fill = w1; break;
         case 0xF8: port_wbe32(gs.fog, w1); break;
         case 0xF9: port_wbe32(gs.blend, w1); break;

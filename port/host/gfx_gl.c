@@ -935,10 +935,12 @@ static void batch_close(void) {
 static void flush(void) {
     batch_close();
     if (nbatches) {
+        host_perf_push(PERF_GL);
         glc_check();
         glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vcount * sizeof(GLVtx), vbuf, GL_STREAM_DRAW);
         for (int i = 0; i < nbatches; i++)
             apply_and_draw(&batches[i].d, batches[i].first, batches[i].count);
+        host_perf_pop();
     }
     nbatches = 0;
     vcount = batch_first = 0;
