@@ -70,15 +70,18 @@ void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) { (void)x0; (void)y0; (vo
 void gfx_gl_task_begin(void) {}
 void gfx_gl_task_end(void) {}
 void gfx_gl_texture_source(uint32_t addr) { (void)addr; }
-void gfx_gl_interp(int on) { (void)on; }
-void gfx_gl_interp_swap(uint32_t fb, int ready) { (void)fb; (void)ready; }
+void gfx_gl_interp(int k) { (void)k; }
+unsigned gfx_gl_interp_swap(uint32_t fb) { (void)fb; return 0; }
 int gfx_gl_scale;
 unsigned gfx_gl_window_flags(void) { return 0; }
 int gfx_gl_init(struct SDL_Window *win) { (void)win; return 0; }
-void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot) { (void)vi_fb; (void)vi_width; (void)shot; }
+void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
+    (void)vi_fb; (void)vi_width; (void)shot; (void)twin;
+}
 #endif
 
 static float zbuf[640 * 480];
+static float *zb = zbuf;        /* the z-buffer drawn with: zbuf, or an in-between pass's */
 static int zb_w = 320, zb_off;  /* the z-buffer's row length, and where x 0 is in it */
 
 /* ---- widescreen, software renderer: the framebuffers drawn wide, on the host ---- */
@@ -116,9 +119,94 @@ static WideFb *get_wfb(uint32_t addr) {
     return f;
 }
 
+/* --interpolate, software renderer: the in-between passes draw each
+   framebuffer's twins, on the host (as wide as the WideFb, 320 at 4:3),
+   each with a z-buffer of its own; RDRAM stays the first pass's */
+typedef struct {
+    uint32_t addr;
+    uint16_t *px[GFX_TWINS];
+    unsigned drawn;             /* the twins drawn since the frame in it was shown */
+} SwTwin;
+static SwTwin twins[4];
+static int ntwins;
+static float *twin_z[GFX_TWINS];
+static WideFb twin_fb;          /* the one drawn into, as a WideFb */
+
+static int ipass, ik;           /* in an in-between pass (--interpolate, below), into twin ik */
+
+static void free_twins(void) {
+    for (int i = 0; i < ntwins; i++)
+        for (int k = 0; k < GFX_TWINS; k++)
+            free(twins[i].px[k]);
+    memset(twins, 0, sizeof twins);
+    ntwins = 0;
+}
+
+static SwTwin *find_twin(uint32_t addr) {
+    for (int i = 0; i < ntwins; i++)
+        if (twins[i].addr == addr)
+            return &twins[i];
+    return NULL;
+}
+
+static WideFb *get_twin(uint32_t addr, int k) {
+    SwTwin *t = find_twin(addr);
+    if (!t) {
+        if (ntwins == 4) {                          /* recycle the oldest */
+            for (int j = 0; j < GFX_TWINS; j++)
+                free(twins[0].px[j]);
+            memmove(twins, twins + 1, 3 * sizeof twins[0]);
+            ntwins--;
+        }
+        t = &twins[ntwins++];
+        memset(t, 0, sizeof *t);
+        t->addr = addr;
+    }
+    int w = 320 + 2 * gfx_wide_off;
+    if (!t->px[k]) {                                /* what the frame has */
+        t->px[k] = calloc((size_t)w * 240, 2);
+        const WideFb *f = NULL;
+        for (int i = 0; i < nwfb; i++)
+            if (wfb[i].addr == addr)
+                f = &wfb[i];
+        if (f)
+            memcpy(t->px[k], f->px, (size_t)w * 240 * 2);
+        else {
+            const uint8_t *src = port_ptr(addr);
+            for (int y = 0; y < 240; y++)
+                for (int x = 0; x < 320; x++)
+                    t->px[k][y * w + gfx_wide_off + x] = port_be16(src + 2 * (y * 320 + x));
+        }
+    }
+    t->drawn |= 1u << k;
+    twin_fb.addr = addr;
+    twin_fb.w = w;
+    twin_fb.px = t->px[k];
+    return &twin_fb;
+}
+
+const uint16_t *gfx_sw_twin_frame(uint32_t fb, int k, int *w) {
+    SwTwin *t = find_twin(fb);
+    if (!t || k < 0 || k >= GFX_TWINS || !t->px[k])
+        return NULL;
+    *w = 320 + 2 * gfx_wide_off;
+    return t->px[k];
+}
+
 /* after the color or z image changes */
 static void sw_target(void) {
+    if (ipass && !gfx_gl_enabled) {                 /* a twin, or nothing */
+        if (!twin_z[ik])
+            twin_z[ik] = calloc(640 * 480, sizeof(float));
+        zb = twin_z[ik];
+        zb_w = 320 + 2 * gfx_wide_off;
+        zb_off = gfx_wide_off;
+        cur_wfb = gs.cimg_siz == 2 && gs.cimg_w == 320 && gs.cimg_addr != gs.zimg_addr ? get_twin(gs.cimg_addr, ik)
+                                                                                         : NULL;
+        return;
+    }
     int wide = wide_cimg();
+    zb = zbuf;
     zb_w = wide ? 320 + 2 * gfx_wide_off : gs.cimg_w;
     zb_off = wide ? gfx_wide_off : 0;
     cur_wfb = wide && !gfx_gl_enabled && gs.cimg_addr != gs.zimg_addr ? get_wfb(gs.cimg_addr) : NULL;
@@ -131,6 +219,7 @@ void gfx_set_wide(int off) {
     for (int i = 0; i < nwfb; i++)
         free(wfb[i].px);
     nwfb = 0;
+    free_twins();
     cur_wfb = NULL;
     sw_target();
 }
@@ -223,25 +312,36 @@ static void do_mtx(uint32_t w0, uint32_t w1) {
 
 /* ---- in-between frames (--interpolate; docs/PORT.md, "Frame rate") -------------------------
  *
- * Where the game holds each frame for two retraces (gameplay), every
- * graphics task runs twice: once as always, and once more into the GPU
- * targets' twins with each vertex's clip-space position halfway between
- * where the previous frame put the same vertex and where this one does.
- * That is the matrices interpolated (a vertex's clip position is linear in
- * its MVP) for model data that stays put, and it also follows vertices the
- * CPU writes each frame.  The first retrace of a frame then shows the twin
- * and the second the frame itself.  A vertex is "the same" by the address
- * it was loaded from (inside the double-buffered per-frame buffer, the
- * offset from its start, segment 2) and how many loads from that address
- * came before it in the frame.  The second pass reads the display list as
- * the first left RDRAM, draws nothing the software rasterizer owns, and
- * leaves the RSP/RDP state as the first pass left it: the game sees nothing.
+ * Where the game holds each frame for two retraces or more (gameplay),
+ * every graphics task runs again for each in-between image, into the
+ * framebuffers' twins (the GPU's, or the software renderer's on the host),
+ * with each vertex's clip-space position between where the previous frame
+ * put the same vertex and where this one does, at t = (k + 1) / (K + 1)
+ * for twin k of K.  That is the matrices interpolated (a vertex's clip
+ * position is linear in its MVP) for model data that stays put, and it
+ * also follows vertices the CPU writes each frame.  The retraces a frame
+ * is on screen then show its twins in turn, and the frame itself last.  A
+ * vertex is "the same" by the address it was loaded from (inside the
+ * double-buffered per-frame buffer, the offset from its start, segment 2)
+ * and how many loads from that address came before it in the frame.  The
+ * in-between passes read the display list as the first left RDRAM, draw
+ * nothing but the twins, and leave the RSP/RDP state as the first pass
+ * left it: the game sees nothing.
+ *
+ * K is chosen as the frame's first task runs, from how long the last
+ * frames were held (the one being drawn will be held as long, most
+ * likely): D retraces, D * gfx_interp_hz / 60 images.
  */
 int gfx_interp;                 /* --interpolate */
-static int ipass;               /* running the in-between pass */
+int gfx_interp_hz = 60;         /* --display-hz */
 static int itrack;              /* this task's vertex loads are recorded */
 static int iframe_partial;      /* a task of this frame had no in-between pass */
 static float interp_t = 0.5f;
+static int frame_k = -1, frame_d;   /* the frame being drawn: its twins (-1: not yet chosen), and hold */
+static int hold_last[2] = { 2, 2 }; /* the last two frames' holds, in retraces */
+static uint32_t shown_fb;           /* the frame the VI shows, */
+static int shown_k, shown_d;        /* its twins that are ready (0: none) and the hold they were made for, */
+static unsigned long long shown_at, n_presents; /* and the present before it showed */
 
 #define IHASH (1 << 16)
 typedef struct {
@@ -259,8 +359,10 @@ static IFrame *ifr[2];
 static int icur;
 static int *tkeys, tk_n, tk_cap, tk_i;      /* this task's loads, in order */
 /* vertex loads, loads blended, vertices, vertices blended, vertices of loads
-   that moved too far, in-between passes, frames with one, loads with no match */
-unsigned long long gfx_st_interp[8];
+   that moved too far, in-between passes, frames with in-between images, loads
+   with no match, frames by their twins (1..GFX_TWINS), frames that were held
+   longer than their twins were made for, and shorter */
+unsigned long long gfx_st_interp[8 + GFX_TWINS + 2];
 unsigned long long gfx_st_shown[3];         /* gfx.h */
 
 static inline uint32_t ihash(uint32_t a, uint32_t b) {
@@ -797,6 +899,7 @@ static void cc_prepare(void) {
 }
 
 static inline void splat(float *d, float v) { d[0] = d[1] = d[2] = d[3] = v; }
+static uint32_t cc_noise = 0x12345678;         /* the combiner's NOISE */
 
 static void combine(const Inputs *in, float *out) {
     if (gs.cc0 != cc_key0 || gs.cc1 != cc_key1 || gs.om_h != cc_keyh)
@@ -820,11 +923,8 @@ static void combine(const Inputs *in, float *out) {
     splat(t[CC_ENV_A], gs.env[3]);
     splat(t[CC_LOD], in->lod);
     splat(t[CC_PRIM_LOD], gs.prim_lod);
-    {
-        static uint32_t noise = 0x12345678;
-        noise ^= noise << 13; noise ^= noise >> 17; noise ^= noise << 5;
-        splat(t[CC_NOISE], (float)(noise >> 24));
-    }
+    cc_noise ^= cc_noise << 13; cc_noise ^= cc_noise >> 17; cc_noise ^= cc_noise << 5;
+    splat(t[CC_NOISE], (float)(cc_noise >> 24));
     for (int c = 0; c < cc_cycles; c++) {
         const uint8_t *k = cc_idx[c];
         float r[4];
@@ -960,7 +1060,7 @@ static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) 
             float z = w0 * v0->z + w1 * v1->z + w2 * v2->z;
             int zi = y * zb_w + x + zb_off;
             if (zcmp) {
-                if (decal ? z > zbuf[zi] + 0.0005f : z > zbuf[zi])
+                if (decal ? z > zb[zi] + 0.0005f : z > zb[zi])
                     continue;
             }
             float iw = w0 * v0->iw + w1 * v1->iw + w2 * v2->iw;
@@ -1008,7 +1108,7 @@ static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) 
                 continue;
             write_pixel(x, y, c);
             if (zupd)
-                zbuf[zi] = z;
+                zb[zi] = z;
         }
     }
 }
@@ -1143,7 +1243,7 @@ static void tri(int i0, int i1, int i2, int flag) {
         gfx_gl_tri(s, n, fl);
         return;
     }
-    if (ipass)                          /* RDRAM is the first pass's */
+    if (ipass && !cur_wfb)              /* RDRAM is the first pass's; a twin only */
         return;
     SV sv[9];
     for (int i = 0; i < n; i++)
@@ -1169,17 +1269,27 @@ static void fill_rect(uint32_t w0, uint32_t w1) {
     int wx0 = ulx, wx1 = lrx;                       /* widescreen: a full-width fill covers the wide frame */
     if (wide_cimg())
         gfx_wide_span(ulx, lrx, &wx0, &wx1);
-    if (ipass) {                        /* the twins' only; RDRAM is the first pass's */
+    if (ipass && gfx_gl_enabled) {      /* the twins' only; RDRAM is the first pass's */
         if (gs.cimg_addr == gs.zimg_addr && zbuf_ok())
             gfx_gl_zclear(wx0, uly, wx1, lry);
         else if (gl_target())
             gfx_gl_fill_rect(wx0, uly, wx1, lry);
         return;
     }
-    if (gs.cimg_addr == gs.zimg_addr && zbuf_ok()) {  /* clearing the z-buffer */
+    if (ipass && gs.cimg_addr == gs.zimg_addr && zbuf_ok()) {  /* the software renderer's twin's z */
         for (int y = uly; y < lry; y++)
             for (int x = wx0; x < wx1; x++)
-                zbuf[y * zb_w + x + zb_off] = 1.0f;
+                zb[y * zb_w + x + zb_off] = 1.0f;
+        return;
+    }
+    if (ipass && !cur_wfb)
+        return;
+    if (ipass) {
+        /* a twin: drawn below */
+    } else if (gs.cimg_addr == gs.zimg_addr && zbuf_ok()) {  /* clearing the z-buffer */
+        for (int y = uly; y < lry; y++)
+            for (int x = wx0; x < wx1; x++)
+                zb[y * zb_w + x + zb_off] = 1.0f;
         if (gfx_gl_enabled)
             gfx_gl_zclear(wx0, uly, wx1, lry);
     } else if (gl_target()) {
@@ -1260,7 +1370,7 @@ static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int fli
         gfx_gl_tex_rect(x0, y0, x1, y1, tile, sa, ta, dsdx, dtdy, flip);
         return;
     }
-    if (ipass)
+    if (ipass && !cur_wfb)
         return;
     int filt = gfx_filter_mode();
     int ta = tile, tb = tile + 1;
@@ -1426,7 +1536,9 @@ static void run(uint32_t dl, int depth) {
             gs.timg_fmt = (w0 >> 21) & 7; gs.timg_siz = (w0 >> 19) & 3;
             gs.timg_w = (w0 & 0xFFF) + 1;
             gs.timg_addr = seg_to_k0(w1);
-            if (gfx_gl_enabled && !ipass)
+            if (ipass)                          /* (the first pass's did) */
+                break;
+            if (gfx_gl_enabled)
                 gfx_gl_texture_source(gs.timg_addr);
             else if (nwfb)
                 wfb_texture_source(gs.timg_addr);
@@ -1456,6 +1568,30 @@ static double now_ms(void) {
     return t.tv_sec * 1e3 + t.tv_nsec / 1e6;
 }
 
+/* --interpolate: the twins for the frame whose first task this is, from
+   the holds of the last two frames (the shorter: a frame held longer than
+   its twins were made for shows the frame for the rest, which looks better
+   than one held shorter, which never gets to it) */
+static int twins_max(void) {
+    static int max = -1;
+    if (max < 0) {
+        const char *e = getenv("PORT_INTERP_MAX");
+        /* the software renderer draws a frame again for each */
+        max = e ? atoi(e) : gfx_gl_enabled ? GFX_TWINS : 3;
+        max = max < 1 ? 1 : max > GFX_TWINS ? GFX_TWINS : max;
+    }
+    return max;
+}
+
+static void choose_twins(void) {
+    int d = hold_last[0] < hold_last[1] ? hold_last[0] : hold_last[1];
+    d = d < 2 ? 2 : d > 4 ? 4 : d;
+    int hz = gfx_interp_hz > 60 ? gfx_interp_hz : 60;
+    int k = (int)lround((double)d * hz / 60) - 1;
+    frame_d = d;
+    frame_k = k < 1 ? 1 : k > twins_max() ? twins_max() : k;
+}
+
 static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     (void)ucode;
     gfx_tasks++;
@@ -1471,11 +1607,12 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     double t0 = now_ms();
     sw_target();
     /* --interpolate: record the vertex loads always (the next frame may want
-       them), run the in-between pass where the game holds frames */
+       them), run the in-between passes where the game holds frames */
     int between = 0;
     static GfxState s0;
     static uint8_t tmem0[4096];
-    itrack = gfx_interp && gfx_gl_enabled;
+    uint32_t noise0 = cc_noise;
+    itrack = gfx_interp && rdp;     /* (an RSP-only task draws nothing to interpolate) */
     if (itrack) {
         if (!ifr[0]) {
             ifr[0] = calloc(1, sizeof *ifr[0]);
@@ -1484,6 +1621,8 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         between = host_frame_held();
         if (!between)
             iframe_partial = 1;
+        else if (frame_k < 0)
+            choose_twins();
         tk_n = 0;
         if (between) {
             s0 = gs;
@@ -1501,21 +1640,34 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         static GfxState s1;
         static uint8_t tmem1[4096];
         unsigned long long st[4] = { st_tris, st_raster, st_tested, st_drawn };
+        uint32_t noise1 = cc_noise;
         s1 = gs;
         memcpy(tmem1, gfx_tmem, sizeof tmem1);
-        gs = s0;
-        memcpy(gfx_tmem, tmem0, sizeof tmem0);
-        ipass = 1;
-        tk_i = 0;
-        gfx_gl_interp(1);
-        gfx_gl_task_begin();
-        run(dl, 0);
-        gfx_gl_task_end();
-        gfx_gl_interp(0);
+        for (int k = 0; k < frame_k; k++) {
+            gs = s0;
+            memcpy(gfx_tmem, tmem0, sizeof tmem0);
+            cc_noise = noise0;
+            ipass = 1;
+            ik = k;
+            interp_t = (float)(k + 1) / (frame_k + 1);
+            tk_i = 0;
+            sw_target();
+            if (gfx_gl_enabled) {
+                gfx_gl_interp(k);
+                gfx_gl_task_begin();
+            }
+            run(dl, 0);
+            if (gfx_gl_enabled) {
+                gfx_gl_task_end();
+                gfx_gl_interp(-1);
+            }
+            gfx_st_interp[5]++;
+        }
         ipass = 0;
-        gfx_st_interp[5]++;
         gs = s1;
         memcpy(gfx_tmem, tmem1, sizeof tmem1);
+        cc_noise = noise1;
+        sw_target();
         st_cover = cover + covered;
         st_tris = st[0]; st_raster = st[1]; st_tested = st[2]; st_drawn = st[3];
     }
@@ -1544,17 +1696,71 @@ int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
 
 /* The VI shows fb from this retrace on, so the frame drawn into it is
    complete.  (Hooked here rather than in osViSwapBuffer: a call there would
-   be counted as the game's CPU time.)  Its in-between frame is shown first
-   if every task of it had its pass. */
+   be counted as the game's CPU time.)  Its in-between images are shown
+   first if every task of it had its passes. */
 void host_gfx_frame_shown(uint32_t fb) {
-    if (!gfx_interp || !gfx_gl_enabled || !ifr[0])
+    if (!gfx_interp || !ifr[0])
         return;
-    gfx_gl_interp_swap(fb, !iframe_partial);
-    if (!iframe_partial)
+    unsigned drawn;
+    if (gfx_gl_enabled) {
+        drawn = gfx_gl_interp_swap(fb);
+    } else {
+        SwTwin *t = find_twin(fb);
+        drawn = t ? t->drawn : 0;
+        if (t)
+            t->drawn = 0;
+    }
+    /* the frame on screen until now was held this long */
+    int held = (int)(n_presents - shown_at);
+    if (shown_k > 0) {
+        if (held > shown_d)
+            gfx_st_interp[8 + GFX_TWINS]++;
+        else if (held < shown_d)
+            gfx_st_interp[9 + GFX_TWINS]++;
+    }
+    if (shown_fb) {
+        hold_last[1] = hold_last[0];
+        hold_last[0] = held;
+    }
+    unsigned all = frame_k > 0 ? (1u << frame_k) - 1 : 0;
+    int ready = !iframe_partial && frame_k > 0 && (drawn & all) == all;
+    shown_fb = fb;
+    shown_at = n_presents;
+    shown_k = ready ? frame_k : 0;
+    shown_d = frame_d;
+    if (ready) {
         gfx_st_interp[6]++;
+        gfx_st_interp[7 + frame_k]++;
+    }
     iframe_partial = 0;
+    frame_k = -1;
     icur ^= 1;
     iframe_reset(ifr[icur]);
+}
+
+/* the image for a present `phase` retraces after the frame in fb first
+   showed: twin j of K (at t = (j + 1) / (K + 1)) while j < K, spread over
+   the retraces the twins were made for */
+static int pick_image(uint32_t fb, double phase) {
+    if (!gfx_interp || fb != shown_fb || shown_k <= 0 || phase < 0)
+        return -1;
+    int j = (int)floor(phase * (shown_k + 1) / shown_d + 1e-6);
+    return j < shown_k ? j : -1;
+}
+
+int gfx_interp_image(uint32_t fb) {
+    static uint32_t last_fb;
+    n_presents++;
+    int k = pick_image(fb, (double)(n_presents - shown_at - 1));
+    gfx_st_shown[0]++;
+    gfx_st_shown[1] += fb != last_fb;
+    gfx_st_shown[2] += k >= 0;
+    last_fb = fb;
+    return k;
+}
+
+int gfx_interp_image_at(uint32_t fb, double phase) {
+    return pick_image(fb, (double)(n_presents - shown_at - 1) + phase);
 }
 
 void host_gfx_interp_report(void) {
@@ -1566,6 +1772,11 @@ void host_gfx_interp_report(void) {
              s[5], s[6], s[0], s[1], s[7], s[4], s[2]);
     host_log("interpolate: %llu retraces presented: %llu showed a new frame of the game's, %llu an "
              "in-between one\n", gfx_st_shown[0], gfx_st_shown[1], gfx_st_shown[2]);
+    host_log("interpolate: frames by their in-between images:");
+    for (int k = 1; k <= GFX_TWINS; k++)
+        if (s[7 + k])
+            host_log(" %d: %llu", k, s[7 + k]);
+    host_log("; held longer than they were made for %llu, shorter %llu\n", s[8 + GFX_TWINS], s[9 + GFX_TWINS]);
 }
 
 void host_gfx_dump_stats(void) {

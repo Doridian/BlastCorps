@@ -99,10 +99,6 @@ void host_video_init(void) {
         host_fatal("SDL_CreateWindow: %s", SDL_GetError());
     if (host_renderer == 1 && !gfx_gl_init(win))
         host_renderer = 0;
-    if (gfx_interp && host_renderer != 1) {
-        host_log("--interpolate needs the OpenGL renderer; not interpolating\n");
-        gfx_interp = 0;
-    }
     if (host_renderer == 1)
         goto pads;
     ren = SDL_CreateRenderer(win, -1, 0);
@@ -143,6 +139,41 @@ static void save_bmp(const char *path, int w, int h) {
     fclose(f);
 }
 
+/* the software renderer's frame into pixels (and the window's texture):
+   an in-between image (twin >= 0), the frame it drew wide (widescreen),
+   or RDRAM's (in the middle of a wide one) */
+static int sw_present(int twin) {
+    sw_wide();
+    int fw = 320 + 2 * gfx_wide_off, ww = 0;
+    const uint16_t *host = NULL;                    /* host order, ww across */
+    if (vi_fb && twin >= 0)
+        host = gfx_sw_twin_frame(vi_fb, twin, &ww);
+    if (vi_fb && !host && fw > 320)
+        host = gfx_sw_wide_frame(vi_fb, &ww);
+    if (fw != tex_w && ren) {
+        SDL_DestroyTexture(tex);
+        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, fw, 240);
+        tex_w = fw;
+        SDL_RenderSetLogicalSize(ren, fw > 320 ? fw : 0, fw > 320 ? 240 : 0);
+    }
+    const uint8_t *src = vi_fb && !host ? port_ptr(vi_fb) : NULL;
+    memset(pixels, 0, sizeof pixels);
+    for (int y = 0; (host || src) && y < 240; y++)
+        for (int x = 0; x < fw; x++) {
+            uint16_t c;
+            if (host)
+                c = ww == fw ? host[y * fw + x] : 0;
+            else if (x >= gfx_wide_off && x < gfx_wide_off + 320)
+                c = port_be16(src + 2 * (y * vi_width + x - gfx_wide_off));
+            else
+                continue;
+            uint32_t r = (c >> 11) & 31, g = (c >> 6) & 31, b = (c >> 1) & 31;
+            pixels[y * fw + x] = 0xFF000000u | (r << 19 | (r >> 2) << 16) | (g << 11 | (g >> 2) << 8) |
+                                 (b << 3 | b >> 2);
+        }
+    return fw;
+}
+
 void host_video_frame(void) {
     SDL_Event e;
     while (sdl_up && SDL_PollEvent(&e)) {
@@ -164,51 +195,15 @@ void host_video_frame(void) {
     char path[512];
     if (shot)
         snprintf(path, sizeof path, "%s%05d.bmp", host_screenshot_prefix, frame);
+    /* --interpolate: the frame's in-between image for this retrace, or -1 */
+    int twin = gfx_interp_image(vi_fb);
     if (host_renderer == 1) {
-        gfx_gl_present(vi_fb, vi_width, shot ? path : NULL);
+        gfx_gl_present(vi_fb, vi_width, shot ? path : NULL, twin);
         if (shot)
             host_log("saved %s\n", path);
         goto done;
     }
-    /* widescreen: the frame the software renderer drew wide, or RDRAM's in
-       the middle of one */
-    sw_wide();
-    int fw = 320 + 2 * gfx_wide_off, ww;
-    const uint16_t *wide = vi_fb ? gfx_sw_wide_frame(vi_fb, &ww) : NULL;
-    if (fw != tex_w && ren) {
-        SDL_DestroyTexture(tex);
-        tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, fw, 240);
-        tex_w = fw;
-        SDL_RenderSetLogicalSize(ren, fw > 320 ? fw : 0, fw > 320 ? 240 : 0);
-    }
-    if (fw > 320) {
-        memset(pixels, 0, sizeof pixels);
-        const uint8_t *src = vi_fb && !wide ? port_ptr(vi_fb) : NULL;
-        for (int y = 0; (wide || src) && y < 240; y++)
-            for (int x = 0; x < fw; x++) {
-                uint16_t c;
-                if (wide)
-                    c = ww == fw ? wide[y * fw + x] : 0;
-                else if (x >= gfx_wide_off && x < gfx_wide_off + 320)
-                    c = port_be16(src + 2 * (y * vi_width + x - gfx_wide_off));
-                else
-                    continue;
-                uint32_t r = (c >> 11) & 31, g = (c >> 6) & 31, b = (c >> 1) & 31;
-                pixels[y * fw + x] = 0xFF000000u | (r << 19 | (r >> 2) << 16) | (g << 11 | (g >> 2) << 8) |
-                                     (b << 3 | b >> 2);
-            }
-    } else if (!vi_fb) {
-        memset(pixels, 0, sizeof pixels);
-    } else {
-        const uint8_t *src = port_ptr(vi_fb);
-        for (int y = 0; y < 240; y++)
-            for (int x = 0; x < 320; x++) {
-                uint16_t c = port_be16(src + 2 * (y * vi_width + x));
-                uint32_t r = (c >> 11) & 31, g = (c >> 6) & 31, b = (c >> 1) & 31;
-                pixels[y * 320 + x] = 0xFF000000u | (r << 19 | (r >> 2) << 16) | (g << 11 | (g >> 2) << 8) |
-                                      (b << 3 | b >> 2);
-            }
-    }
+    int fw = sw_present(twin);
     if (ren) {
         SDL_UpdateTexture(tex, NULL, pixels, fw * 4);
         SDL_RenderClear(ren);

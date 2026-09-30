@@ -78,17 +78,17 @@ typedef struct {
     uint32_t addr;
     GLuint fbo, tex;
     int dirty;                  /* drawn since the last read-back */
-    /* --interpolate: the twin the in-between pass draws into (its own depth
-       buffer), and whether it holds the in-between frame of what the target
-       holds, not yet shown */
-    GLuint ifbo, itex;
-    int idrawn, iready;
+    /* --interpolate: the twins the in-between passes draw into (each with
+       its own depth buffer), and which were drawn since the frame in the
+       target was shown */
+    GLuint ifbo[GFX_TWINS], itex[GFX_TWINS];
+    unsigned idrawn;
 } Target;
 
 static Target targets[8];
 static int ntargets;
-static GLuint depth_rb, idepth_rb;
-static int ipass_gl;            /* drawing the in-between frame */
+static GLuint depth_rb, idepth_rb[GFX_TWINS];
+static int ipass_gl;            /* drawing in-between image ipass_gl - 1 (0: the frame) */
 static Target *cur_target;
 static uint32_t cur_cimg = 1;
 static Target view;             /* RDRAM shown as it is */
@@ -145,35 +145,36 @@ static void upload_rdram(Target *t, uint32_t addr, int width) {
     glBlitFramebuffer(0, 0, TW, TH, px_x(0), 0, px_x(TW), th_px, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
-static void twin_storage(Target *t) {
-    if (!idepth_rb) {
-        glGenRenderbuffers(1, &idepth_rb);
-        glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb);
+static void twin_storage(Target *t, int k) {
+    if (!idepth_rb[k]) {
+        glGenRenderbuffers(1, &idepth_rb[k]);
+        glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb[k]);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
     }
-    if (!t->ifbo) {
-        glGenFramebuffers(1, &t->ifbo);
-        glGenTextures(1, &t->itex);
+    if (!t->ifbo[k]) {
+        glGenFramebuffers(1, &t->ifbo[k]);
+        glGenTextures(1, &t->itex[k]);
     }
-    glBindTexture(GL_TEXTURE_2D, t->itex);
+    glBindTexture(GL_TEXTURE_2D, t->itex[k]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, tw_px, th_px, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glBindFramebuffer(GL_FRAMEBUFFER, t->ifbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, t->itex, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, idepth_rb);
+    glBindFramebuffer(GL_FRAMEBUFFER, t->ifbo[k]);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, t->itex[k], 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, idepth_rb[k]);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         host_fatal("gl: framebuffer incomplete");
-    t->idrawn = t->iready = 0;
+    t->idrawn &= ~(1u << k);
 }
 
 /* the framebuffer object a draw into t goes to */
 static GLuint target_fbo(Target *t) {
     if (!ipass_gl)
         return t->fbo;
-    if (!t->ifbo)
-        twin_storage(t);
-    return t->ifbo;
+    int k = ipass_gl - 1;
+    if (!t->ifbo[k])
+        twin_storage(t, k);
+    return t->ifbo[k];
 }
 
 static Target *find_target(uint32_t addr) {
@@ -190,10 +191,11 @@ static Target *get_target(uint32_t addr) {
     if (ntargets == 8) {                            /* recycle the oldest */
         glDeleteFramebuffers(1, &targets[0].fbo);
         glDeleteTextures(1, &targets[0].tex);
-        if (targets[0].ifbo) {
-            glDeleteFramebuffers(1, &targets[0].ifbo);
-            glDeleteTextures(1, &targets[0].itex);
-        }
+        for (int k = 0; k < GFX_TWINS; k++)
+            if (targets[0].ifbo[k]) {
+                glDeleteFramebuffers(1, &targets[0].ifbo[k]);
+                glDeleteTextures(1, &targets[0].itex[k]);
+            }
         memmove(targets, targets + 1, 7 * sizeof targets[0]);
         ntargets--;
     }
@@ -225,13 +227,14 @@ static void set_geometry(int s, float aspect) {
     th_px = TH * s;
     glBindRenderbuffer(GL_RENDERBUFFER, depth_rb);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
-    if (idepth_rb) {                                /* the twins start over */
-        glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
-        for (int i = 0; i < ntargets; i++)
-            if (targets[i].ifbo)
-                twin_storage(&targets[i]);
-    }
+    for (int k = 0; k < GFX_TWINS; k++)             /* the twins start over */
+        if (idepth_rb[k]) {
+            glBindRenderbuffer(GL_RENDERBUFFER, idepth_rb[k]);
+            glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT32F, tw_px, th_px);
+            for (int i = 0; i < ntargets; i++)
+                if (targets[i].ifbo[k])
+                    twin_storage(&targets[i], k);
+        }
     /* keep what the targets hold, rescaled */
     for (int i = -1; i < ntargets; i++) {
         Target *t = i < 0 ? &view : &targets[i];
@@ -769,7 +772,7 @@ static void apply_and_draw(void) {
     glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)vcount * sizeof(GLVtx), vbuf, GL_STREAM_DRAW);
     glDrawArrays(GL_TRIANGLES, 0, vcount);
     if (ipass_gl)
-        d->target->idrawn = 1;
+        d->target->idrawn |= 1u << (ipass_gl - 1);
     else
         d->target->dirty = 1;
     st_draws++;
@@ -974,7 +977,8 @@ void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) {
     glColorMask(1, 1, 1, 1);
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT);
-    cur_target->dirty = 1;
+    if (!ipass_gl)
+        cur_target->dirty = 1;
 }
 
 void gfx_gl_texture_source(uint32_t addr) {
@@ -1004,19 +1008,20 @@ void gfx_gl_task_end(void) {
                 read_back(&targets[i]);
 }
 
-void gfx_gl_interp(int on) {
+void gfx_gl_interp(int k) {
     flush();
     batch_valid = 0;
     raw_valid = 0;
-    ipass_gl = on;
+    ipass_gl = k + 1;
 }
 
-void gfx_gl_interp_swap(uint32_t fb, int ready) {
+unsigned gfx_gl_interp_swap(uint32_t fb) {
     Target *t = find_target(fb);
     if (!t)
-        return;
-    t->iready = ready && t->idrawn;
+        return 0;
+    unsigned d = t->idrawn;
     t->idrawn = 0;
+    return d;
 }
 
 /* ---- window, presentation --------------------------------------------------------- */
@@ -1097,7 +1102,7 @@ static void save_bmp(const char *path, const uint8_t *rgba, int w, int h) {
     fclose(f);
 }
 
-void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot) {
+void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
     frame_no++;
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
@@ -1107,20 +1112,10 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot) {
         upload_rdram(&view, vi_fb, vi_width > 0 && vi_width <= 640 ? vi_width : TW);
         t = &view;
     }
-    /* --interpolate: a frame's first retrace shows its in-between frame */
+    /* --interpolate: one of the frame's in-between images (gfx.c) */
     GLuint src = t ? t->fbo : 0;
-    static uint32_t last_fb;
-    int fresh = vi_fb != last_fb;
-    last_fb = vi_fb;
-    gfx_st_shown[0]++;
-    gfx_st_shown[1] += fresh;
-    if (t && t != &view && t->iready) {
-        t->iready = 0;
-        if (fresh && t->ifbo) {
-            src = t->ifbo;
-            gfx_st_shown[2]++;
-        }
-    }
+    if (t && t != &view && twin >= 0 && twin < GFX_TWINS && t->ifbo[twin])
+        src = t->ifbo[twin];
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
     glDisable(GL_SCISSOR_TEST);
     glColorMask(1, 1, 1, 1);

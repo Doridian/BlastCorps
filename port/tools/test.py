@@ -11,7 +11,7 @@ the software renderer), a few thousand frames each; the save, the --wav and
 a screenshot every 250 frames are hashed and compared with the committed
 references (port/tools/test_refs.json, by version), with --against another
 build's results, and within the build (the pthread backend against
-ucontext, --widescreen and the OpenGL renderer with --interpolate against
+ucontext, --widescreen, --interpolate with either renderer against
 the plain run: the save and the sound must not change).  --update writes
 the build's hashes as the references for its version.
 
@@ -73,6 +73,7 @@ SCENARIOS = {
     "auto3.pthread": ("3", 3000, [], {"PORT_THREADS": "pthread"}, "auto3", "all"),
     "auto3.ucontext": ("3", 3000, [], {"PORT_THREADS": "ucontext"}, "auto3", "all"),
     "auto3.wide": ("3", 3000, ["--widescreen"], {}, "auto3", "game"),
+    "auto3.interp": ("3", 3000, ["--interpolate", "--widescreen"], {}, "auto3", "game"),
     "auto3.gl": ("3", 3000, ["--renderer", "gl", "--scale", "1"], {}, "auto3", "game"),
     "auto3.gl.interp": ("3", 3000, ["--renderer", "gl", "--scale", "1", "--interpolate", "--widescreen"],
                         {}, "auto3", "game"),

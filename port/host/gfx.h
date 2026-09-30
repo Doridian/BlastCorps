@@ -120,10 +120,22 @@ void gfx_gl_clear_rect(int x0, int y0, int x1, int y1);   /* black, whatever the
 void gfx_gl_task_begin(void);
 void gfx_gl_task_end(void);
 void gfx_gl_texture_source(uint32_t addr);      /* SETTIMG: read back a GPU target? */
-/* --interpolate (gfx.c): draw into the targets' twins (1) or the targets (0);
-   the frame in fb is complete, and its twin holds its in-between frame */
-void gfx_gl_interp(int on);
-void gfx_gl_interp_swap(uint32_t fb, int ready);
+/* --interpolate (gfx.c; docs/PORT.md, "Frame rate"): up to GFX_TWINS
+   in-between images a frame, each drawn into a twin of the framebuffer.
+   gfx_gl_interp(k) draws into twin k from now on (-1: the targets);
+   gfx_gl_interp_swap(fb) returns the twins of fb drawn since the last call
+   (a mask) and starts over. */
+#define GFX_TWINS 7
+void gfx_gl_interp(int k);
+unsigned gfx_gl_interp_swap(uint32_t fb);
+/* which image a present at this retrace shows of fb: twin k (>= 0) or the
+   frame itself (-1).  gfx_interp_image counts the retraces (once per VI
+   present); gfx_interp_image_at is a present between retraces, `phase`
+   retraces after the last one (host clock, --display-hz). */
+int gfx_interp_image(uint32_t fb);
+int gfx_interp_image_at(uint32_t fb, double phase);
+/* the software renderer's twin k of fb (as gfx_sw_wide_frame), or NULL */
+const uint16_t *gfx_sw_twin_frame(uint32_t fb, int k, int *w);
 extern unsigned long long gfx_st_shown[3];     /* presents, new frames among them, in-between ones */
 
 #endif
