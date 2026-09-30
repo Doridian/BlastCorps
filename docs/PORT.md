@@ -374,7 +374,9 @@ on all of them at once, then prints a table of every variant's scenarios
 against the references; `--tas` then replays the TAS on all seven in
 parallel.  `--no-build` uses the directories as they are, `--only` picks
 variants.  `test.py table BUILD...` shows every hash of some builds' last
-quick runs side by side.
+quick runs side by side.  On a 32-thread machine, from empty directories:
+the seven builds 38 seconds, their quick tiers 67 seconds together, and
+with `--tas` 24 minutes in all.
 
 Where it stands (us.v10, main at the time of writing): quick passes in
 all seven, with these known failures:
