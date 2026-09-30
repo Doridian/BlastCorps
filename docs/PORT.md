@@ -2242,11 +2242,19 @@ neither was work.
   screen before the next one's work, and the sound's callbacks run.  The
   host falling more than 4 retraces behind drops the time rather than
   catching up.  SDL's swap doesn't sleep (`SDL_HINT_EMSCRIPTEN_ASYNCIFY`
-  off).  Natively `PORT_PACED=1` works too (a `nanosleep` a retrace), but
-  isn't the default.
+  off).  With `--display-hz` above 60 the presents between retraces wait
+  for real time (and the display's frame) the same way, without the lock
+  (the page turns `--display-hz auto` into the rate its animation frames
+  run at, which SDL can't tell there).  Natively `PORT_PACED=1` works too
+  (a `nanosleep` a retrace), but isn't the default.
 - **Audio** (audio.c): more than 0.25 s queued clears the queue and
   starts over from the new buffer; the page resumes a suspended
-  `AudioContext` on input; 1024-sample buffers in a browser.
+  `AudioContext` on input; 1024-sample buffers in a browser.  Reproduced
+  in headless Chromium on the GPU at 4x CPU throttling, `PORT_AUTOSTART=1`
+  (an `AnalyserNode` on SDL's output): before, the sound went silent
+  during the name entry, 15 s in, and stayed so for the rest of the
+  two minutes; after, it plays throughout, into the level (the queue at
+  40-210 ms, started over once).
 - **GL state** (gfx_gl.c): a cache of what was last set (framebuffer,
   viewport, scissor, masks, depth, blend, program, textures) and each
   program's last uniform values; the batches of a task wait until
@@ -2264,9 +2272,12 @@ neither was work.
   presented; if not in a quarter of a two-second window's retraces, the
   internal resolution goes down a step (it may go up again after a
   minute).  When more than 5% of a window's retraces come over 2 ms late
-  and the GPU isn't behind, the in-between pictures go first (20 s, then
-  twice as long each time they had to go again soon after): the game
-  never slows for them.  The page caps its picture at about 1.3 million
+  and the GPU isn't behind, the in-between images go first, half of them
+  at a time (with `--display-hz 144`'s 4 a frame: 2, 1, then none, the
+  frame shown for all its retraces; `host_interp_limit` caps gfx.c's
+  choice of twins), and come back twice as many at a time after a while
+  without (a step holds 20 s, twice as long each time it had to be taken
+  again soon after the step back): the game never slows for them.  The page caps its picture at about 1.3 million
   pixels (3x widescreen, 4x at 4:3).
 - All of this leaves the game as it was: the GL screenshots (20 over
   3,000 frames of `PORT_AUTOSTART=3 --interpolate --widescreen`) and the
@@ -2335,7 +2346,10 @@ The module: 3.50 MB before, 3.52 MB after (0.93 MB gzipped).
   of latency.
 - **SwiftShader** trades resolution for in-between pictures; which of
   the two to give up first could be the player's choice.
-- Displays over 60 Hz still get a new picture per retrace, at most.
+- Presents between retraces (`--display-hz`) in the page come from the
+  loop's own clock, rounded to the display's frames by `wait_display`,
+  not from the frames themselves; checked natively only (144 Hz: the
+  same 90 new pictures a second as without `PORT_PACED`).
 
 ## The glue to the translated code
 
