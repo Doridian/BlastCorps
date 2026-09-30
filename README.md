@@ -54,9 +54,13 @@ and is the one to use if you don't have multilib installed.
 
 ## Build it
 
-Put `baserom.us.v11.z64` in the repo's root, then, with the venv active:
+Put `baserom.us.v11.z64` in the repo's root, then, from the root:
 
 ```
+python3 -m venv .env                       # once (see "Set up Python for splat")
+. .env/bin/activate
+pip install -r tools/splat/requirements.txt
+
 make VERSION=us.v11 extract
 make VERSION=us.v11
 make VERSION=us.v11 decompress
@@ -76,8 +80,9 @@ playing the same game: `-DPORT_NATIVE_ENDIAN=ON` (game memory in the host's
 byte order) and `-DPORT_LP64=ON` (the game's C as an ordinary 64-bit
 program); see docs/PORT.md.
 
-For `us.v10`, run the same with `VERSION=us.v10` (after `make clean` and
-`make -C blastcorps clean`) and configure a separate build directory with
+For `us.v10`, put `baserom.us.v10.z64` in the root and run the same with
+`VERSION=us.v10`, `make -C tools/recomp` included (after `make clean` and
+`make -C blastcorps clean`), and configure a separate build directory with
 `-DPORT_VERSION=us.v10`.
 
 ## Run it
@@ -85,6 +90,10 @@ For `us.v10`, run the same with `VERSION=us.v10` (after `make clean` and
 ```
 build/port64/blastcorps baserom.us.v11.z64
 ```
+
+The ROM argument may be left out: it defaults to `baserom.us.v11.z64` (the
+us.v10 build's to `baserom.us.v10.z64`) in the current directory.  The port
+reads everything else from the ROM, so the binary can be run from anywhere.
 
 The save (the 4 Kbit EEPROM) goes to `blastcorps.eep` in the current
 directory, or wherever `--save PATH` says.
@@ -107,7 +116,7 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--scale N`                  | OpenGL: render at 320x240 times N (default: the window's size) |
 | `--filter n64` / `bilinear` / `point` | texture filtering (default: the N64's 3-point filter) |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
-| `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window, for N frames, saving the last frame |
+| `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 
 # Build
 
