@@ -24,6 +24,7 @@ this project's own pace (2026-09-29/30), not from human-calendar guesses:
 | The SDK's gu, sinf/fcos, sins/coss, crc and `ll.c` out of the port (`port/src/gu.c`, `sdk_check`) | about 2 agent-hours | 1.5 agent-hours, the exhaustive and traced checks and the quick tier included; the TAS another half hour |
 | The SDK headers and gbi.h (`port/include/sdk`, `sdk_identity.py`) | 1–2 agent-hours | half an agent-hour, the identity check on five variants included |
 | `--hd-text` made fast (shared R8 glyph textures, distance fields between retraces) | — | 40 agent-minutes, measured natively and in headless Chromium |
+| The engine's loaders, terrain and textures (7F8B0, 5BF40, 60D50, 8A080, 5FD50; most of 60F60 and 5CB60; 91 functions) | — | about 9 agent-hours: 2.5 drafting before the mechanism, 1 for the native-endian, LP64 and port-arena fixes, 5.5 converting and checking (5CB60's leftovers most of that) |
 
 So a piece with an exact oracle (the difftest, the TAS, object identity) takes about an agent-hour
 where a person's estimate said a week.  Work checked by eye or ear, or whose design is still open, goes
@@ -156,6 +157,16 @@ against its translation.
   which us.v10 has differently, `func_802A95A4`, `func_802A9710`), the recursive dispatchers into the
   vehicle modules (`func_802AB478` to `func_802AB714`), and the moving objects' matrix chain
   (`func_802AA890` and its callers).
+- The loaders, terrain and textures (engine-B's): native now are all of 7F8B0 (the LZSS, the
+  loaders' gzip call, the engine sound), 5BF40 (the texture loader), 60D50 (the height boxes), 8A080
+  (the collision objects' table) and 5FD50 (the visibility walk and the terrain's display lists),
+  16 of 60F60's 24 (the texture decoders and their queue, the effects' sprite slots) and 30 of
+  5CB60's 41 (the level tables, the collision triangles, the buildings, the vehicle records): 77
+  functions and 14 inlined into them, about 9,000 instructions.  Still translated: 60F60's sprite
+  drawing (`func_802A64A4` to `func_802A6EB8`, which call 679E0's matrix builders with register
+  conventions), and 5CB60's loader itself (`func_802A1674`) with its vehicle and model loading
+  (`func_802A350C`, `func_802A396C`, `func_802A32CC` and the carrier, chopper, cargo and extra
+  models), whose callees are the vehicle modules' inits.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).

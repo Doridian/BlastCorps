@@ -2873,6 +2873,39 @@ engine's CPU time to the instruction ("Timing").
   the TAS is the check.  Comparing `__port_icount` at every controller
   read between a build with the replacement and one without also finds
   where the cost first differs.
+  `PORT_ICOUNT_LOG=FILE` writes that log: "read, `__port_icount`,
+  `__port_icount_c`" per controller read.  Two `--deterministic` runs
+  (default `PORT_COUNT_PER_OP`) of builds that should cost the same give
+  the same file.
+
+**What else the native code has to do** (from the loaders, terrain and
+textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
+- `ENGINE_REG(gpr)` reads what the context holds.  Rare's code stores
+  registers it never set (5CB60's collision triangles take bytes from
+  whatever `$t9`, `$v0`, `$t6` and `$s1` held), and the C sees what the
+  translated code would have, wherever it is called from.
+- Where callers read many leftovers (5CB60's loader, whose registers the
+  vehicles' inits may read), the native code mirrors each write of such a
+  register into the context in the original's order (`ENGINE_LEAVE` at
+  the point of the write), so the context ends as the original leaves it,
+  whichever callee wrote last.
+- A native function calling another native one directly gets the callee's
+  `REGS()` outputs as C values only; if they are the caller's leftovers too,
+  the caller leaves them.
+- In LP64, `REGS()` parameters, results and outputs that are addresses are
+  `u32`, not pointers.
+- Native-endian memory: `tools/recomp/native_sites.txt`'s sites are the
+  native code's to handle by hand: big-endian data (`be`: texture streams,
+  palettes and texels, `__builtin_bswap16/32` under `PORT_NATIVE_ENDIAN`),
+  bytes and halves of wider data at their N64 address (`x3`, `x2`: the
+  address `^ 3`, `^ 2`), and the `lwl`/`lwr` words of the level files,
+  which the loaders put in host order where they are.
+- A function folded into its only callers is listed as `func_X inlined`:
+  it has no definition or glue, and its translation is kept only for the
+  check build (its callers' translations call it).
+- A difference between versions is a `#if` on `VERSION_*` in the native
+  code, as in the decompiled C (us.v10's `func_802A2D68` doesn't clear
+  `D_803F7812`); `ENGINE_BLK` sizes are each version's.
 
 ## Other versions
 
