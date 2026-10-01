@@ -818,3 +818,396 @@ void func_802A3F80(u32 h_) {
     ENGINE_LEAVE(28, 1);
     ENGINE_LEAVE(30, (u32)tris);
 }
+
+/* ---- the buildings' parts and the textures ---------------------------- */
+
+#include "game/model.h"
+
+REGS(t6, fp -> s0)
+u32 func_802A0CFC(u32 id, u32 param);
+REGS(s0, s1, s4 -> s2, s3, s4, s5, s6)
+u32 func_802A08E4(u32 dl, u32 end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out, u32 *s6_out);
+s32 func_802CE6F8(s32 x, s32 z, s32 y);
+
+extern u8 *PTR32 D_803BE704, *PTR32 D_803BE708;    /* this level's building groups */
+extern u8 D_802D30D0[], D_802D3194[], D_802D32A0[], D_802D331C[], D_802D33C8[], D_802D3444[],
+    D_802D3538[], D_802D3614[], D_802D36C0[], D_802D3784[], D_802D3890[], D_802D393C[],
+    D_802D3A00[], D_802D3A4C[], D_802D3BA0[], D_802D3BD4[], D_802D3CE0[], D_802D3DD4[],
+    D_802D3EB0[], D_802D3F74[];
+extern u8 D_8030631F[];
+extern u32 D_80365330;
+
+/* func_802A1EC8: this level's table of building groups (D_803BE708, its
+   cursor D_803BE704 four bytes on), or none.  Leaves $at the high half of
+   the last of the two it stored. */
+#define LEVEL_TABLE(b_found, table)                                         \
+    do {                                                                    \
+        ENGINE_BLK(b_found);                                                \
+        t = (table);                                                        \
+        goto found;                                                         \
+    } while (0)
+#define LEVEL_TEST(b_test, level)                                           \
+    ENGINE_BLK(b_test);                                                     \
+    if (D_802E8BDC == (level))
+
+REGS()
+void func_802A1EC8(void) {
+    u8 *t;
+
+    ENGINE_BLK(802A1EC8);
+    if (D_802E8BDC == 0) LEVEL_TABLE(802A1EE4, D_802D30D0);
+    LEVEL_TEST(802A1EF0, 0x01) LEVEL_TABLE(802A1EFC, D_802D3194);
+    LEVEL_TEST(802A1F08, 0x02) LEVEL_TABLE(802A1F14, D_802D32A0);
+    LEVEL_TEST(802A1F20, 0x03) LEVEL_TABLE(802A1F2C, D_802D331C);
+    LEVEL_TEST(802A1F38, 0x04) LEVEL_TABLE(802A1F44, D_802D33C8);
+    LEVEL_TEST(802A1F50, 0x05) LEVEL_TABLE(802A1F5C, D_802D3444);
+    LEVEL_TEST(802A1F68, 0x09) LEVEL_TABLE(802A1F74, D_802D3538);
+    LEVEL_TEST(802A1F80, 0x0A) LEVEL_TABLE(802A1F8C, D_802D3614);
+    LEVEL_TEST(802A1F98, 0x0C) LEVEL_TABLE(802A1FA4, D_802D36C0);
+    LEVEL_TEST(802A1FB0, 0x0D) LEVEL_TABLE(802A1FBC, D_802D3784);
+    LEVEL_TEST(802A1FC8, 0x0E) LEVEL_TABLE(802A1FD4, D_802D3890);
+    LEVEL_TEST(802A1FE0, 0x0F) LEVEL_TABLE(802A1FEC, D_802D393C);
+    LEVEL_TEST(802A1FF8, 0x10) LEVEL_TABLE(802A2004, D_802D3A00);
+    LEVEL_TEST(802A2010, 0x11) LEVEL_TABLE(802A201C, D_802D3A4C);
+    LEVEL_TEST(802A2028, 0x12) LEVEL_TABLE(802A2034, D_802D3BA0);
+    LEVEL_TEST(802A2040, 0x1A) LEVEL_TABLE(802A204C, D_802D3BD4);
+    LEVEL_TEST(802A2058, 0x1D) LEVEL_TABLE(802A2064, D_802D3CE0);
+    LEVEL_TEST(802A2070, 0x21) LEVEL_TABLE(802A207C, D_802D3DD4);
+    LEVEL_TEST(802A2088, 0x39) LEVEL_TABLE(802A2094, D_802D3EB0);
+    LEVEL_TEST(802A20A0, 0x3A) LEVEL_TABLE(802A20AC, D_802D3F74);
+    ENGINE_BLK(802A20B8);
+    D_803BE704 = NULL;
+    D_803BE708 = NULL;
+    ENGINE_BLK(802A20E0);
+    ENGINE_LEAVE(1, HI16(&D_803BE708));
+    return;
+found:
+    ENGINE_BLK(802A20CC);
+    D_803BE708 = t;
+    D_803BE704 = t + 4;
+    ENGINE_BLK(802A20E0);
+    ENGINE_LEAVE(1, HI16(&D_803BE704));
+}
+
+/* func_802A20F4: in game mode 0x800, a model's vertex colours (0xC..0xE of
+   the 0x10-byte vertices from 0x50) set to 0xFF, 0, 0, if `flag` */
+REGS(t4, s0)
+void func_802A20F4(u32 m_, u32 flag) {
+    u8 *m = (u8 *)m_;
+
+    ENGINE_BLK(802A20F4);
+    if (flag != 0) {
+        ENGINE_BLK(802A210C);
+        if (D_80364A98 == 0x800) {
+            u8 *v = m + 0x50, *end = AT(m, 0x1C);
+
+            ENGINE_BLK(802A2120);
+            for (;;) {
+                ENGINE_BLK(802A2130);
+                if (v == end) {
+                    break;
+                }
+                ENGINE_BLK(802A2138);
+                v[0xC] = 0xFF;
+                v[0xD] = 0;
+                v[0xE] = 0;
+                v += 0x10;
+            }
+        }
+    }
+    ENGINE_BLK(802A214C);
+}
+
+/* func_802A2164: in level 0x31, model 0x24's unk4 is 2 */
+REGS(t3, s0)
+void func_802A2164(u32 n, u32 m_) {
+    u8 *m = (u8 *)m_;
+
+    ENGINE_BLK(802A2164);
+    if (D_802E8BDC == 0x31) {
+        ENGINE_BLK(802A2184);
+        if (n == 0x24) {
+            ENGINE_BLK(802A2190);
+            m[4] = 2;
+        }
+    }
+    ENGINE_BLK(802A2198);
+}
+
+/* func_802A23E0: a building's model's 0x38-byte effect records
+   (Model.unk30..unk38): byte 0x31 through D_8030631F */
+REGS(v1)
+void func_802A23E0(u32 b_) {
+    u8 *m = *(u8 **)b_;
+    u8 *p = AT(m, 0x30), *end = AT(m, 0x38);
+
+    ENGINE_BLK(802A23E0);
+    for (;;) {
+        ENGINE_BLK(802A2418);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A2420);
+        X3(p + 0x31) = D_8030631F[X3(p + 0x31)];
+        p += 0x38;
+    }
+    ENGINE_BLK(802A2438);
+}
+
+/* func_802A2458: a building's centre in x and z, from its model's box */
+REGS(v1, t4)
+void func_802A2458(u32 b_, u32 m_) {
+    u8 *b = (u8 *)b_;
+    s16 *box = (s16 *)AT(m_, 0x1C);
+
+    ENGINE_BLK(802A2458);
+    *(s32 *)(b + 0x28) = ((box[0] + box[3]) >> 1) << 5;
+    *(s32 *)(b + 0x2C) = ((box[2] + box[8]) >> 1) << 5;
+}
+
+/* func_802A2608: a model's animated textures loaded (Model.unk28..unk2C:
+   a texture, a count n at 4, and n - 1 more from 0x10), each number
+   replaced by its physical address.  Leaves $t1 and $t2 the records' end
+   and $s1 0x80000000 where there are any. */
+REGS(t4)
+void func_802A2608(u32 m_) {
+    u8 *m = (u8 *)m_;
+    u8 *a = AT(m, 0x28), *end = AT(m, 0x2C);
+    u32 fp = ENGINE_REG(30);
+
+    ENGINE_BLK(802A2608);
+    for (;;) {
+        u32 *tex;
+        s32 n;
+
+        ENGINE_BLK(802A2638);
+        if (a == end) {
+            break;
+        }
+        ENGINE_BLK(802A2640);
+        *(u32 *)a = func_802A0CFC(*(u32 *)a, fp);
+        ENGINE_BLK(802A2648);
+        n = a[4] - 1;
+        tex = (u32 *)(a + 0x10);
+        ENGINE_LEAVE(17, 0x80000000);
+        for (;;) {
+            ENGINE_BLK(802A265C);
+            if (n == 0) {
+                break;
+            }
+            ENGINE_BLK(802A2664);
+            n--;
+            *tex = func_802A0CFC(*tex, fp);
+            ENGINE_BLK(802A2670);
+            tex++;
+        }
+        ENGINE_BLK(802A267C);
+        a = (u8 *)tex;
+    }
+    ENGINE_BLK(802A2684);
+    ENGINE_LEAVE(9, (u32)end);
+    ENGINE_LEAVE(10, (u32)end);
+}
+
+/* func_802A24BC: the three buildings 0xBA..0xBC get texture 0xF81
+   (D_80365330) and a collision object (89250's func_802CE6F8) */
+REGS(v1)
+void func_802A24BC(u32 b_) {
+    Building *b = (Building *)b_;
+
+    ENGINE_BLK(802A24BC);
+    if (b->unk30 != 0xBA) {
+        ENGINE_BLK(802A254C);
+        if (b->unk30 != 0xBB) {
+            ENGINE_BLK(802A2554);
+            if (b->unk30 != 0xBC) {
+                ENGINE_BLK(802A2584);
+                return;
+            }
+        }
+    }
+    ENGINE_BLK(802A255C);
+    D_80365330 = func_802A0CFC(0xF81, ENGINE_REG(30));
+    ENGINE_BLK(802A2564);
+    b->unk44 = func_802CE6F8(b->x, b->z, b->y);
+    ENGINE_BLK(802A2580);
+    ENGINE_BLK(802A2584);
+}
+
+/* func_802A26A8: a model moved by (dx, dy, dz) */
+REGS(t4, t5, t6, t7)
+void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
+    u8 *m = (u8 *)m_;
+    u8 *p, *end;
+    s32 i, k;
+
+    ENGINE_BLK(802A26A8);
+    for (p = AT(m, 0x40), end = AT(m, 0x44);; p += 2) {
+        ENGINE_BLK(802A26CC);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A26D4);
+        *(s16 *)p += dy;
+    }
+    ENGINE_BLK(802A26E8);
+    p = AT(m, 0x20);
+    *(s16 *)(p + 0) += dx;
+    *(s16 *)(p + 2) += dz;
+    *(s16 *)(p + 4) += dx;
+    *(s16 *)(p + 6) += dz;
+    for (p = AT(m, 0x24), end = AT(m, 0x28);; p += 0x14) {
+        ENGINE_BLK(802A2730);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A2738);
+        for (i = 0; i < 18; i += 6) {
+            *(s16 *)(p + i + 0) += dx;
+            *(s16 *)(p + i + 2) += dy;
+            *(s16 *)(p + i + 4) += dz;
+        }
+    }
+    ENGINE_BLK(802A27AC);
+    for (p = AT(m, 0x1C), i = 4;; p += 6) {
+        ENGINE_BLK(802A27B8);
+        if (i == 0) {
+            break;
+        }
+        ENGINE_BLK(802A27C0);
+        i--;
+        *(s16 *)(p + 0) += dx;
+        *(s16 *)(p + 2) += dy;
+        *(s16 *)(p + 4) += dz;
+    }
+    ENGINE_BLK(802A27F0);
+    if (*(u16 *)(m + 0xE) == 0) {
+        ENGINE_BLK(802A27FC);
+        for (p = m + 0x50, end = AT(m, 0x1C);; p += 0x10) {
+            ENGINE_BLK(802A2808);
+            if (p == end) {
+                break;
+            }
+            ENGINE_BLK(802A2810);
+            *(s16 *)(p + 0) += dx;
+            *(s16 *)(p + 2) += dy;
+            *(s16 *)(p + 4) += dz;
+        }
+    }
+    ENGINE_BLK(802A283C);
+    for (p = AT(m, 0x48), end = AT(m, 0x4C);; p += 0x19) {
+        ENGINE_BLK(802A284C);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A2854);
+        for (i = 0; i < 18; i += 6) {
+            s32 d[3];
+
+            d[0] = dx; d[1] = dy; d[2] = dz;
+            for (k = 0; k < 3; k++) {
+                u32 v = (u32)(BE16S(p + i + 2 * k) + d[k]);
+
+                p[i + 2 * k] = v >> 8;
+                p[i + 2 * k + 1] = v;
+            }
+        }
+    }
+    ENGINE_BLK(802A297C);
+    for (p = AT(m, 0x30), end = AT(m, 0x34);; p += 0x38) {
+        ENGINE_BLK(802A298C);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A2994);
+        *(s32 *)(p + 0x0) = (*(s32 *)(p + 0x0) + dx) << 16;
+        *(s32 *)(p + 0x4) = (*(s32 *)(p + 0x4) + dy) << 16;
+        *(s32 *)(p + 0x8) = (*(s32 *)(p + 0x8) + dz) << 16;
+        *(s32 *)(p + 0x28) = (*(s32 *)(p + 0x28) + dy) << 16;
+    }
+    ENGINE_BLK(802A29DC);
+    for (p = AT(m, 0x34), end = AT(m, 0x38);; p += 0x38) {
+        ENGINE_BLK(802A29EC);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A29F4);
+        *(s32 *)(p + 0x0) = (*(s32 *)(p + 0x0) + dx) << 16;
+        *(s32 *)(p + 0x4) = (*(s32 *)(p + 0x4) + dy) << 16;
+        *(s32 *)(p + 0x8) = (*(s32 *)(p + 0x8) + dz) << 16;
+        *(s32 *)(p + 0x28) = (*(s32 *)(p + 0x28) + dy) << 16;
+    }
+    ENGINE_BLK(802A2A3C);
+    for (p = AT(m, 0x2C), end = AT(m, 0x30);; p += 8) {
+        ENGINE_BLK(802A2A4C);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A2A54);
+        *(s16 *)(p + 0) += dx;
+        *(s16 *)(p + 2) += dy;
+        *(s16 *)(p + 4) += dz;
+    }
+    ENGINE_BLK(802A2A80);
+}
+
+/* func_802A1C20: the level's animated textures' frames loaded
+   (LevelHeader.animTextures: 8 + 4 n bytes each, frames 1.. from 0xC).
+   Leaves $t6 the last number, $s0 the last address and $s1 0x80000000. */
+REGS(t0)
+void func_802A1C20(u32 h_) {
+    LevelHeader *h = (LevelHeader *)h_;
+    u8 *a = AT(h, 0x2C), *end = AT(h, 0x30);
+    u32 fp = ENGINE_REG(30);
+
+    ENGINE_BLK(802A1C20);
+    for (;;) {
+        u32 *tex;
+        s32 n;
+
+        ENGINE_BLK(802A1C38);
+        if (a == end) {
+            break;
+        }
+        ENGINE_BLK(802A1C40);
+        tex = (u32 *)(a + 0xC);
+        n = a[4] - 1;
+        ENGINE_LEAVE(17, 0x80000000);
+        for (;;) {
+            u32 phys;
+
+            ENGINE_BLK(802A1C50);
+            if (n == 0) {
+                break;
+            }
+            ENGINE_BLK(802A1C58);
+            n--;
+            ENGINE_LEAVE(14, *tex);
+            phys = func_802A0CFC(*tex, fp);
+            ENGINE_LEAVE(16, phys);
+            ENGINE_BLK(802A1C64);
+            *tex++ = phys;
+        }
+        ENGINE_BLK(802A1C70);
+        a = (u8 *)tex;
+    }
+    ENGINE_BLK(802A1C78);
+}
+
+/* func_802A3008: the level's display lists' textures (802A08E4 over
+   [unk78, unk84)), leaving its registers */
+REGS(t0)
+void func_802A3008(u32 h_) {
+    LevelHeader *h = (LevelHeader *)h_;
+    u32 s2, s3, s4, s5, s6;
+
+    ENGINE_BLK(802A3008);
+    s2 = func_802A08E4((u32)AT(h, 0x78), (u32)AT(h, 0x84), ENGINE_REG(20), &s3, &s4, &s5, &s6);
+    ENGINE_BLK(802A3028);
+    ENGINE_LEAVE(17, (u32)AT(h, 0x84));
+    ENGINE_LEAVE(18, s2);
+    ENGINE_LEAVE(19, s3);
+    ENGINE_LEAVE(20, s4);
+    ENGINE_LEAVE(21, s5);
+    ENGINE_LEAVE(22, s6);
+}
