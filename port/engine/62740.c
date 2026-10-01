@@ -1848,3 +1848,51 @@ done:
     ENGINE_BLK(802A92B8);
     ENGINE_LEAVE(10, t2);               /* ($t2, as it leaves it) */
 }
+
+REGS(a0, a2, a3 -> a1, a3, t1)
+s64 func_802ACE38(s64 x, s64 z, s32 angle, s32 *xr, s32 *zr);
+
+/* point `i` of a table of (x, z) s16 pairs rotated by the angle *a */
+REGS(v0, v1, s4 -> t5, t6)
+s32 func_802A94A4(s32 i, s16 *pts, s16 *a, s32 *z_out) {
+    s32 xr, zr;
+
+    ENGINE_BLK(802A94A4);
+    func_802ACE38(pts[2 * i], pts[2 * i + 1], *a, &xr, &zr);
+    ENGINE_BLK(802A94E4);
+    *z_out = zr;
+    return xr;
+}
+
+/* clamped to 0x240 when positive */
+REGS(s3 -> s3)
+s32 func_802A9514(s32 v) {
+    ENGINE_BLK(802A9514);
+    if (v >= 0) {
+        ENGINE_BLK(802A9520);
+        if (!(v < 0x241)) {
+            ENGINE_BLK(802A952C);
+            v = 0x240;
+        }
+    }
+    ENGINE_BLK(802A9530);
+    return v;
+}
+
+/* wheel i on the ground: its height (clamped), 2 and t2 in the three
+   arrays, and its flag in D_803ED3EE[] */
+REGS(v0, a1, a2, a3, t2, s3)
+void func_802A9540(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 v) {
+    ENGINE_BLK(802A9540);
+    v = func_802A9514(v);
+    ENGINE_BLK(802A9558);
+    h[i] = v;
+    state[i] = 2;
+    ground[i] = g;
+    *(u8 *)((u32)&D_803ED3EE + i) = 1;
+    /* (what it leaves: $s3, $s0, $t3, $t7) */
+    ENGINE_LEAVE(19, v);
+    ENGINE_LEAVE(16, 1);
+    ENGINE_LEAVE(11, i << 2);
+    ENGINE_LEAVE(15, (u32)&D_803ED3EE + i);
+}
