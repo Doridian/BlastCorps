@@ -2989,10 +2989,24 @@ s32 func_802AB878(s32 id) {
 
 extern u8 D_803EBB98[];                 /* the product's scratch matrix */
 
+/* An Mtx's halves by their words (element 2n is word n's high half; in
+   native-endian memory a halfword's address is another, docs/PORT.md) */
+static u32 mtx_half(u8 *m, s32 off) {
+    u32 w = *(u32 *)(m + (off & ~3));
+
+    return off & 2 ? w & 0xFFFF : w >> 16;
+}
+
+static void mtx_set_half(u8 *m, s32 off, u32 v) {
+    u32 *w = (u32 *)(m + (off & ~3));
+
+    *w = off & 2 ? (*w & 0xFFFF0000) | (v & 0xFFFF) : (*w & 0xFFFF) | (v << 16);
+}
+
 /* a 4x4 16.16 matrix's element at this offset (the integer halves first,
    the fractions 0x20 on) */
 static s32 mtx_el(u8 *m, s32 off) {
-    return (s32)(((u32) * (u16 *)(m + off) << 16) | *(u16 *)(m + off + 0x20));
+    return (s32)((mtx_half(m, off) << 16) | mtx_half(m, off + 0x20));
 }
 
 /* (x, y, z) through the n matrices at base + offs[i], multiplied in
@@ -3034,8 +3048,8 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
                     for (k = 0; k < 4; k++)
                         sum += (u64)((s64)mtx_el(cur, i * 8 + k * 2) * mtx_el(m, k * 8 + j * 2));
                     sum >>= 16;
-                    *(u16 *)(D_803EBB98 + 0x20 + (i * 4 + j) * 2) = (u16)sum;
-                    *(u16 *)(D_803EBB98 + (i * 4 + j) * 2) = (u16)(sum >> 16);
+                    mtx_set_half(D_803EBB98, 0x20 + (i * 4 + j) * 2, (u32)sum);
+                    mtx_set_half(D_803EBB98, (i * 4 + j) * 2, (u32)(sum >> 16));
                 }
                 ENGINE_BLK(802AAA18);
             }
@@ -3052,7 +3066,7 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
         }
         ENGINE_BLK(802AAA60);
         s0 = (u32)mtx_el(cur, 0x00) * x + (u32)mtx_el(cur, 0x08) * y + (u32)mtx_el(cur, 0x10) * z +
-             ((u32) * (u16 *)(cur + 0x18) << 16);
+             (mtx_half(cur, 0x18) << 16);
         s1 = (u32)mtx_el(cur, 0x02) * x + (u32)mtx_el(cur, 0x0A) * y + (u32)mtx_el(cur, 0x12) * z +
              (u32)mtx_el(cur, 0x1A);
         s2 = (u32)mtx_el(cur, 0x04) * x + (u32)mtx_el(cur, 0x0C) * y + (u32)mtx_el(cur, 0x14) * z +
