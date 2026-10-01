@@ -878,6 +878,7 @@ def gen_engine(check, funcs, report):
                  f"(and tools/recomp then still translates: make -C tools/recomp after listing)")
     adapters, cside, check_hdr = {}, [], []
     ext = reaches_extern(funcs)
+    leaves = engine_leaves()
     ids = []
     for cid, name in enumerate(replaced):
         sig = defs.get(name)
@@ -896,15 +897,11 @@ def gen_engine(check, funcs, report):
                                                    34 + int(r[1:]) if r[0] == "f" and r[1:].isdigit() else None)
                 if b is not None and b not in declared:
                     missing.append(convmod.regname(r))
+            # (the ones the native code leaves itself, ENGINE_LEAVE, are given back)
+            missing = [r for r in missing if r not in leaves.get(name, ())]
             if missing:
                 report.append(f"{name}: a translated caller may read {', '.join(missing)} afterwards, "
-                              f"which REGS() doesn't give back")
-            ins_decl = {r for r in conv[0]}
-            extra_in = [convmod.regname(r) for r in sorted(a.inputs - {29}, key=convmod.reg_order)
-                        if (("g", r) if isinstance(r, int) else ("f", int(r[1:])) if r[0] == "f" and r[1:].isdigit()
-                            else (r,)) not in ins_decl and r != "fcc"]
-            if extra_in:
-                report.append(f"{name}: reads {', '.join(extra_in)} as well (left as the caller has them)")
+                              f"which neither REGS() nor an ENGINE_LEAVE gives back")
         mask = check_mask(name, list(zip(conv[1], out_c)), a)
         checked = check and not ext.get(name, True)
         cname = f"native_{name}" if check else name
@@ -963,6 +960,38 @@ def gen_c_check(name, sig, cid, mask):
         lines.append("    return r;")
     lines.append("}")
     return lines
+
+
+def engine_leaves():
+    """name -> the registers its definition leaves (ENGINE_LEAVE*), by name"""
+    out, calls = {}, {}
+    for path in engine_files():
+        if not path.endswith(".c"):
+            continue
+        text = strip_comments(open(path).read())
+        text = REGS_RE.sub(" ", text)
+        defs = [m for m in DECL_RE.finditer(text) if m.group(5) == "{"]
+        for k, m in enumerate(defs):
+            body = text[m.end():defs[k + 1].start() if k + 1 < len(defs) else len(text)]
+            regs = set()
+            for lm in re.finditer(r"ENGINE_LEAVE(64|_F|_FW)?\(\s*(\d+)", body):
+                n = int(lm.group(2))
+                if lm.group(1) in ("_F", "_FW"):
+                    regs.add(f"f{n}")
+                else:
+                    regs.add(GPR[n])
+            out[m.group(3)] = regs
+            calls[m.group(3)] = set(re.findall(r"\bfunc_[0-9A-F]{8}\b", body))
+    # (and what the native functions it calls leave)
+    changed = True
+    while changed:
+        changed = False
+        for n, cs in calls.items():
+            for c in cs:
+                if c in out and not out[c] <= out[n]:
+                    out[n] |= out[c]
+                    changed = True
+    return out
 
 
 def scan_engine(names):

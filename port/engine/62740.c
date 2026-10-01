@@ -378,6 +378,8 @@ void func_802A768C(u8 *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n,
         src += 2, dst += 2, n -= 8;
     }
     ENGINE_BLK(802A771C);
+    ENGINE_LEAVE(6, (u32)src);          /* ($a2, $a3 as the copy leaves them) */
+    ENGINE_LEAVE(7, (u32)dst);
     *x = ((UnalignedWord *)s)[0].v;
     *y = ((UnalignedWord *)s)[1].v;
     *z = ((UnalignedWord *)s)[2].v;
@@ -1262,4 +1264,182 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
         ENGINE_LEAVE(20, s4);
     if (s5set)
         ENGINE_LEAVE(21, s5);
+}
+
+extern s32 D_803A740C;          /* a frame count */
+extern s32 D_802E8BDC;          /* the level */
+extern s32 D_80358068;
+extern s32 D_80305C58[];        /* (level, value, frames) triples, to a value of 0 */
+
+/* the level's value for this many frames past D_803A740C (unchanged until
+   ten frames have gone) */
+REGS(t5 -> t5)
+s32 func_802A8314(s32 v) {
+    s32 base = D_803A740C, now = D_80358068, *p;
+
+    ENGINE_BLK(802A8314);
+    if (base + 10 < now)
+        goto done;
+    ENGINE_BLK(802A8350);
+    p = D_80305C58;
+    for (;;) {
+        ENGINE_BLK(802A8360);
+        if (p[1] == 0)
+            break;
+        ENGINE_BLK(802A836C);
+        if (p[0] != D_802E8BDC) {
+            p += 3;
+            continue;
+        }
+        ENGINE_BLK(802A8378);
+        p += 3;
+        if (p[-1] + base < now)
+            continue;
+        ENGINE_BLK(802A8390);
+        v = p[-2];
+        break;
+    }
+done:
+    ENGINE_BLK(802A8394);
+    return v;
+}
+
+/* the speed (*speed) over the distance from s7[1] to s7[0], stored at
+   *ratio; the old ratio when a flag of three is set or the speed is 0 */
+REGS(t3, t6, s0, s7, t8 -> f12, t3)
+f32 func_802A83B8(s32 t3, s16 *speed, u8 *flags, s32 *pos, f32 *ratio, s32 *t3_out) {
+    f32 r;
+
+    ENGINE_BLK(802A83B8);
+    /* ($t1: the flag it looked at last, or s7[1]) */
+    ENGINE_LEAVE(9, flags[1]);
+    if (flags[1] == 1)
+        goto old;
+    ENGINE_BLK(802A83D4);
+    ENGINE_LEAVE(9, flags[2]);
+    if (flags[2] == 1)
+        goto old;
+    ENGINE_BLK(802A83E4);
+    ENGINE_LEAVE(9, flags[0]);
+    if (flags[0] == 1)
+        goto old;
+    ENGINE_BLK(802A83F4);
+    ENGINE_LEAVE(9, pos[1]);
+    t3 = *speed;
+    if (t3 == 0)
+        goto old;
+    ENGINE_BLK(802A8408);
+    r = (f32)(pos[0] - pos[1]) / (f32)t3;
+    *ratio = r;
+    goto done;
+old:
+    ENGINE_BLK(802A8424);
+    r = *ratio;
+done:
+    ENGINE_BLK(802A8428);
+    *t3_out = t3;
+    return r;
+}
+
+/* of s7[0] - s7[6] and s7[3] - s7[6], the one nearer 0 */
+REGS(s7 -> t1)
+s32 func_802A8590(s32 *s7) {
+    s32 a, b, aa, bb, r;
+
+    ENGINE_BLK(802A8590);
+    a = s7[0] - s7[6];
+    aa = a;
+    if (a < 0) {
+        ENGINE_BLK(802A85C4);
+        aa = -a;
+    }
+    ENGINE_BLK(802A85C8);
+    b = s7[3] - s7[6];
+    bb = b;
+    if (b < 0) {
+        ENGINE_BLK(802A85D4);
+        bb = -b;
+    }
+    ENGINE_BLK(802A85D8);
+    if (bb < aa) {
+        ENGINE_BLK(802A85E4);
+        r = b;
+    } else {
+        ENGINE_BLK(802A85EC);
+        r = a;
+    }
+    ENGINE_BLK(802A85F0);
+    ENGINE_LEAVE(1, bb < aa);
+    ENGINE_LEAVE(10, s7[6]);            /* ($t2, as it leaves it) */
+    return r;
+}
+
+/* (x, z) moved by the speed (scaled by the turn rate f12) in the direction
+   `angle`: *x + ..., *z + ... */
+REGS(t4, t6, t7, s1, f12 -> t0, t1)
+s32 func_802A860C(s32 angle, s16 *speed, s32 *x, s32 *z, f32 rate, s32 *z_out) {
+    s32 v = *speed, rem, s, c, dx, dz, at, rx, rz, px, pz;
+    f32 a = __builtin_fabsf(rate), q;
+
+    ENGINE_BLK(802A860C);
+    if (v != 0) {
+        if (!(a >= 1.0f)) {
+            ENGINE_BLK(802A863C);
+            ENGINE_BLK(802A8648);
+            q = a / 2.0f;
+            q = 1.0f - q;
+            q = q * (f32)v;
+            v = engine_cvt_w_s(q);
+        } else {
+            ENGINE_BLK(802A863C);
+            ENGINE_BLK(802A8670);
+            q = a * 2.0f;
+            q = (f32)v / q;
+            v = engine_cvt_w_s(q);
+        }
+    }
+    ENGINE_BLK(802A8690);
+    ENGINE_BLK(802A86A8);
+    ENGINE_BLK(802A86C0);
+    rem = angle % 0x400;
+    s = func_802AE160(rem);
+    ENGINE_BLK(802A86D4);
+    dx = (s32)(v * s) >> 16;
+    c = func_802AE104(rem);
+    ENGINE_BLK(802A86EC);
+    dz = (s32)(v * c) >> 16;
+    px = *x;
+    pz = *z;
+    at = angle < 0x400;
+    if (at) {
+        ENGINE_BLK(802A870C);
+        rx = px + dx, rz = pz + dz;
+    } else {
+        ENGINE_BLK(802A8718);
+        at = angle < 0x800;
+        if (at) {
+            ENGINE_BLK(802A8724);
+            rx = px + dz, rz = pz - dx;
+        } else {
+            ENGINE_BLK(802A8730);
+            at = angle < 0xC00;
+            if (at) {
+                ENGINE_BLK(802A873C);
+                rx = px - dx, rz = pz - dz;
+            } else {
+                ENGINE_BLK(802A8748);
+                rx = px - dz, rz = pz + dx;
+            }
+        }
+    }
+    ENGINE_BLK(802A8750);
+    /* (what it leaves for the vehicle modules, which read on) */
+    ENGINE_LEAVE(1, at);
+    ENGINE_LEAVE(2, 0x400);
+    ENGINE_LEAVE(3, rem);
+    ENGINE_LEAVE(13, rem);
+    ENGINE_LEAVE(19, px);
+    ENGINE_LEAVE(30, c);
+    *z_out = rz;
+    return rx;
 }
