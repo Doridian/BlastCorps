@@ -50,9 +50,8 @@ Apple silicon is prepared but untested ([macOS](#macos) below).
 * CMake and Ninja, SDL2, and libepoxy for the OpenGL renderer (without it only
   the software renderer is built).
 
-The default build is a 32-bit program and needs the 32-bit (multilib) libc,
-SDL2 and libepoxy; the 64-bit build below needs only the ordinary 64-bit ones,
-and is the one to use if you don't have multilib installed.
+The recommended build below is an ordinary 64-bit program.  Only the
+32-bit variant needs the 32-bit (multilib) libc, SDL2 and libepoxy.
 
 ## Build it
 
@@ -93,14 +92,19 @@ make VERSION=us.v11                        # the ROM's layout the port reads
 make -C tools/recomp                       # translate the handwritten code
 
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
-      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang -DPORT_64BIT=ON
+      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang \
+      -DPORT_LP64=ON -DPORT_MOVABLE=ON
 cmake --build build/port64
 ```
 
-Leave out `-DPORT_64BIT=ON` for the 32-bit build.  Other variants, all
-playing the same game: `-DPORT_NATIVE_ENDIAN=ON` (game memory in the host's
-byte order) and `-DPORT_LP64=ON` (the game's C as an ordinary 64-bit
-program); see docs/PORT.md.
+That is the recommended build. It is 64-bit and keeps game memory in the
+host's byte order, has no fixed addresses, and is the one macOS uses.  The
+other variants all play the same game, exactly, and are mostly for checking
+the port against itself (docs/PORT.md):
+- without `-DPORT_MOVABLE=ON`, the same at the N64's fixed addresses;
+- `-DPORT_64BIT=ON` alone, big-endian game memory;
+- `-DPORT_64BIT=ON -DPORT_NATIVE_ENDIAN=ON`, native byte order through the i386 front end;
+- no options at all, the 32-bit build, which needs multilib.
 
 For WebAssembly (a page that plays in a browser, or headless under node),
 install [emsdk](https://github.com/emscripten-core/emsdk) (`./emsdk install

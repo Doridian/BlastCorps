@@ -21,9 +21,10 @@ Options:
                      .emsdk/)
     --node           the WebAssembly build for node (headless) instead
     --serve [PORT]   after --wasm, serve the page (default port 8000)
-    --variant V      native only: 64 (default on Linux), 32, lp64, movable
-                     (LP64, no fixed addresses; macOS's), native (native-endian
-                     64-bit)
+    --variant V      native only: movable (the default: 64-bit, native byte
+                     order, no fixed addresses; macOS's too), lp64 (the same
+                     at fixed addresses), native (native-endian through the
+                     i386 front end), 64 (big-endian game memory), 32
     -j N             parallel jobs
     --cmake ARG      pass a -D... to CMake (repeatable)
 
@@ -228,8 +229,8 @@ def main():
     build_decomp(v, env, args.jobs)
 
     if not wasm:
-        variant = args.variant or "64"
-        out = ROOT / f"build/port-{v}" if variant == "64" else ROOT / f"build/port-{v}-{variant}"
+        variant = args.variant or "movable"
+        out = ROOT / f"build/port-{v}" if variant == "movable" else ROOT / f"build/port-{v}-{variant}"
         say(f"the port ({variant}) into {out.relative_to(ROOT)}")
         run(["cmake", "-S", "port", "-B", str(out), "-G", "Ninja", "-DCMAKE_C_COMPILER=clang",
              "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_ASM_COMPILER=clang", f"-DPORT_VERSION={v}"]
