@@ -6,6 +6,23 @@ planned. It is an inventory by origin, not legal advice. Measured on us.v10 buil
 movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.  `port/tools/rom_scan.py
 FILE...` checks a build for the ROM's data.
 
+**Estimates** in this file are in agent-hours: the wall-clock time one agent takes, including
+running the checks (a full `test.py variants --tas` is about half an hour of that).  They come from
+this project's own pace (2026-09-29/30), not from human-calendar guesses:
+
+| Piece | Earlier estimate | Took |
+|---|---|---|
+| The data from the ROM at run time (`PORT_ROM_DATA`, `rom_scan.py`) | 1–2 weeks | 1.1 agent-hours, TAS on all variants included |
+| The movable build, from the arena link to LP64 as a PIE | — | about 2 hours |
+| The WebAssembly build, from node to the page | — | about 1.5 hours |
+| The results screen's black boxes and the medal's seam | — | 2 agent-hours, with a 20,000-frame screenshot sweep |
+| Typing the name on the name entry | — | 1 agent-hour |
+| The path-tracing investigation | — | 8 agent-minutes |
+
+So a piece with an exact oracle (the difftest, the TAS, object identity) takes about an agent-hour
+where a person's estimate said a week.  Work checked by eye or ear, or whose design is still open, goes
+slower.  Several agents can run at once (about four has worked here), so calendar time is shorter.
+
 ## What a built port contains
 
 **Not embedded:**
@@ -89,7 +106,7 @@ to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,002 K, the web build's .
    What can't be relicensed by the project is what isn't its own: the decompiled SDK parts (3b/3c/3d,
    ultralib has no license either) and anything ROM-derived.
 7. **The decompiled game and SDK C (3a/3b)** is the same material as the repository's source. It is the
-   owner's decision. If libaudio had to go, a clean-room synthesizer and sequencer is weeks of work and
+   owner's decision. If libaudio had to go, a clean-room synthesizer and sequencer is several agent-hours and
    gives up exact output. gu is about 12 small functions.
 
 ## The engine rewrite
@@ -117,6 +134,9 @@ unidentified.
   that decides how many retraces a frame takes. A rewrite needs a cost model, e.g. each function charged
   its original instruction counts, or the 30 fps pacing and the TAS drift.
 
+**Effort:** not estimated yet.  It is 688 functions (220 K of MIPS), far more than anything above.  Time
+the first module, e.g. 679E0's math (3.6 K), and scale from that.
+
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
 
@@ -132,11 +152,12 @@ rewrite).
   - Ray-traced light added on top would be counted twice.
   - Unlit replacement textures would be ROM-derived, so they couldn't be shipped.
 - **Possible now, but not worth it yet:** hooking `gfx.c`'s `do_mtx`/`do_vtx` and adding shadows, AO
-  and a bounce over the GL rasterizer. That is 4–8 weeks, or more for full path tracing.
+  and a bounce over the GL rasterizer. That is about 6–12 agent-hours, more for full path tracing.
 - **Worth doing with a rewritten engine,** whose renderer gets a scene API: instances, material IDs and
   emitters such as explosions.
 - **First step then:** a debug dump of one frame as glTF, rendered offline (e.g. Blender Cycles) to
-  check that it looks better and not just muddier.
+  check that it looks better and not just muddier (about an agent-hour; a scene API in the rewritten
+  renderer, 3–6 more).
 - **Hardware:** OpenGL 4.3 compute with our own BVH is enough at this size; Vulkan ray queries are the
   alternative. Denoising: NRD or SVGF.
 
@@ -161,14 +182,14 @@ replaces. So the interface to keep is the one the game's C uses.
 
 | Piece | Size | What the game uses | Approach | Exactness and check | Effort |
 |---|---|---|---|---|---|
-| `ll.c` (`__ll_*`, `__ull_*`) | 0.7 K | nothing in the port (clang does 64-bit natively) | drop it; `alCSPGetState` comes with the new libaudio | — | an hour |
-| `io/crc.c` | 0.6 K | `__osContDataCrc`, the save checksum (E7B0.c) | from the public joybus/pak description | exact: random inputs against the original, and the save hashes | an hour |
-| `sins`/`coss`, `sintable` | 0.2 K + 2 K | 1C40.c, 6790.c, 20460.c | generate the table: `(int)(32767*sin(i*pi/2046))` gives all 1,024 entries | exhaustive over 65,536 inputs | an hour |
-| `sinf`/`fcos` | 2.3 K | direct calls, and inside guRotateF, guLookAt*, guPerspective | range reduction plus an odd polynomial. Only SGI's constants are exact: a correctly rounded sinf differs on about 0.9% of inputs | exhaustive over all 2^32 floats against the original (in a test tool only) | a day, plus a decision on the constants |
-| gu matrices (F2L/L2F, Ident, Translate, Scale, Rotate(F), Ortho, Perspective, LookAt(Reflect), MtxCatF/L, XFMF/L, Normalize) | ~7 K | about 20 files; the order of float operations and `FTOFIX32`'s rounding matter | from the function reference's formulas, computed in the same order and precision | bit for bit on random inputs and on arguments traced from the suite's runs; then the quick tier | 2–3 days |
-| Headers (types; os.h's `OS*` structs and constants; rcp.h, sptask.h, abi.h, gu.h, mbi.h; libaudio.h's public structs) | layouts only | struct layouts, the `.ctl`/`.seq` formats, the port's `PTR32`/`_GBI_W` edits | `port/include/sdk/`, written from the documentation and what the code needs, ahead of `2.0I` | exact by construction: every game object's `.text`/`.data`/`.rodata` is byte-identical with either header set, plus `layout_cmp.py` | 3–5 days |
+| `ll.c` (`__ll_*`, `__ull_*`) | 0.7 K | nothing in the port (clang does 64-bit natively) | drop it; `alCSPGetState` comes with the new libaudio | — | minutes |
+| `io/crc.c` | 0.6 K | `__osContDataCrc`, the save checksum (E7B0.c) | from the public joybus/pak description | exact: random inputs against the original, and the save hashes | ¼ agent-hour |
+| `sins`/`coss`, `sintable` | 0.2 K + 2 K | 1C40.c, 6790.c, 20460.c | generate the table: `(int)(32767*sin(i*pi/2046))` gives all 1,024 entries | exhaustive over 65,536 inputs | ¼ agent-hour |
+| `sinf`/`fcos` | 2.3 K | direct calls, and inside guRotateF, guLookAt*, guPerspective | range reduction plus an odd polynomial. Only SGI's constants are exact: a correctly rounded sinf differs on about 0.9% of inputs | exhaustive over all 2^32 floats against the original (in a test tool only) | ½ agent-hour, plus a decision on the constants |
+| gu matrices (F2L/L2F, Ident, Translate, Scale, Rotate(F), Ortho, Perspective, LookAt(Reflect), MtxCatF/L, XFMF/L, Normalize) | ~7 K | about 20 files; the order of float operations and `FTOFIX32`'s rounding matter | from the function reference's formulas, computed in the same order and precision | bit for bit on random inputs and on arguments traced from the suite's runs; then the quick tier | about 1 agent-hour |
+| Headers (types; os.h's `OS*` structs and constants; rcp.h, sptask.h, abi.h, gu.h, mbi.h; libaudio.h's public structs) | layouts only | struct layouts, the `.ctl`/`.seq` formats, the port's `PTR32`/`_GBI_W` edits | `port/include/sdk/`, written from the documentation and what the code needs, ahead of `2.0I` | exact by construction: every game object's `.text`/`.data`/`.rodata` is byte-identical with either header set, plus `layout_cmp.py` | 1–2 agent-hours |
 | gbi.h (F3D: 64 macros, 95 `G_` constants) | macros only | display-list encoding | from the public command formats (n64brew), as facts only. Not GLideN64's (GPL-2.0-only) and not libultraship's gbi.h (the SDK's, with the notices removed) | the same object-identity check; the renderer's decoder is already the port's own | in the row above |
-| libaudio | 44 K (≈2 K dead: `seq.c`, `alSeqpNew`) | below | from the reference manual and the observed behaviour, with a differential oracle | below | 4–8 weeks exact; 2–4 weeks approximate |
+| libaudio | 44 K (≈2 K dead: `seq.c`, `alSeqpNew`) | below | from the reference manual and the observed behaviour, with a differential oracle | below | 6–12 agent-hours exact; 3–5 approximate |
 
 **libaudio's interface:**
 - The calls made by `1A630.c` (Rare's sound player), `1C460.c` (music), `22EE0.c` (audio manager),
@@ -222,9 +243,9 @@ them implements it from the specification, the public manuals and the oracle's p
 Whether numeric constants such as sinf's may be reused is for the owner or counsel to decide.
 
 **Order of work:**
-1. `ll.c`, crc, sintable, gu and sinf: about a week, exact.
-2. The headers and gbi.h: about a week, exact by object identity.
-3. libaudio's oracle, then libaudio from the bottom up: 4–8 weeks. It could be scheduled alongside the
+1. `ll.c`, crc, sintable, gu and sinf: about 2 agent-hours, exact.
+2. The headers and gbi.h: 1–2 agent-hours, exact by object identity.
+3. libaudio's oracle, then libaudio from the bottom up: 6–12 agent-hours. It could be scheduled alongside the
    engine rewrite, which blocks publishing anyway and is far larger.
 
 `2C560.c` (the scheduler), `22EE0.c` and `1A630.c` are Rare's adaptations of the SDK's sample code.
