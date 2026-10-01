@@ -2864,3 +2864,36 @@ void func_8029D040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) 
     ENGINE_BLK(8029D110);
     ENGINE_LEAVE(20, (u32)q);
 }
+
+void func_8028FAC0(s32 x, s32 y, s32 z, s32 id);
+void func_802920DC(s32 x, s32 y, s32 z, s32 id);
+
+/* D_803A6B30's record func_8029C6E4 finds (kind 6, id 0x3BD), looked up
+   again for its point (no cost: the original keeps it in registers) */
+static s32 *record_3bd(void) {
+    u8 *p;
+
+    for (p = D_803A6B30; (s8)p[0x13] != -1; p += 0x14)
+        if (p[0x12] == 6 && *(s32 *)(p + 0xC) == 0x3BD)
+            return (s32 *)p;
+    return NULL;
+}
+
+/* With D_803A6B30's record 0x3BD (func_8029C6E4), its point to
+   func_8028FAC0 and func_802920DC */
+void func_8029C5EC(void) {
+    s32 found, *r;
+
+    ENGINE_BLK(8029C5EC);
+    found = func_8029C6E4();
+    ENGINE_BLK(8029C650);
+    if (found != 0) {
+        r = record_3bd();
+        ENGINE_BLK(8029C658);
+        func_8028FAC0(r[0], r[1], r[2], 0x3BD);
+        ENGINE_BLK(8029C66C);
+        func_802920DC(r[0], r[1], r[2], 0x3BD);
+    }
+    ENGINE_BLK(8029C680);
+    ENGINE_LEAVE(20, found);
+}
