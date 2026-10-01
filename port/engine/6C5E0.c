@@ -94,7 +94,7 @@ void func_802B0DA0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     D_803EDFC8 = buf;
     D_803EDFCC = buf + 0x1400;
     D_80358070 = buf + 0x2800;
-    func_802A1388(2, 0, D_803EDFC8, D_803EDFCC, model);
+    func_802A1388(2, 1, D_803EDFC8, D_803EDFCC, model);
     ENGINE_BLK(802B0E20);
     func_802A754C(vs);
     ENGINE_BLK(802B0E2C);
