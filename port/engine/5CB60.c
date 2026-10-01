@@ -1799,3 +1799,62 @@ found:
     ENGINE_LEAVE(R_S2, (u32)m);
     return (u32)m;
 }
+
+/* func_802A3824: the vehicle the player starts in (D_803BE73A): the one
+   standing where the driver's record (type 0, LevelHeader.vehicles' 9-byte
+   records) is, or the chosen one (D_803643D4) outside the attract modes */
+extern u8 D_803643D4;
+extern u8 D_803BE73A;
+
+REGS(t0)
+void func_802A3824(u32 h_) {
+    LevelHeader *h = (LevelHeader *)h_;
+    u8 *p = AT(h, 0x50), *end;
+    s32 x, y, z;
+
+    ENGINE_BLK(802A3824);
+    do {
+        ENGINE_BLK(802A385C);
+        p += 9;
+    } while (p[-9] != 0);
+    ENGINE_BLK(802A386C);
+    x = BE16S(p - 8);
+    y = BE16S(p - 6);
+    z = BE16S(p - 4);
+    p = AT(h, 0x50);
+    end = AT(h, 0x54);
+    for (;;) {
+        u32 type;
+
+        ENGINE_BLK(802A38B0);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A38B8);
+        type = p[0];
+        if (type != 0) {
+            ENGINE_BLK(802A38C4);
+            if (BE16S(p + 1) == x) {
+                ENGINE_BLK(802A38DC);
+                if (BE16S(p + 3) == y) {
+                    ENGINE_BLK(802A38F4);
+                    if (BE16S(p + 5) == z) {
+                        ENGINE_BLK(802A390C);
+                        if (D_80364AA8 != 1) {
+                            ENGINE_BLK(802A3920);
+                            if (D_80364AA8 != 0x80) {
+                                ENGINE_BLK(802A3928);
+                                type = D_803643D4;
+                            }
+                        }
+                        ENGINE_BLK(802A3930);
+                        D_803BE73A = type;
+                    }
+                }
+            }
+        }
+        ENGINE_BLK(802A3938);
+        p += 9;
+    }
+    ENGINE_BLK(802A3940);
+}
