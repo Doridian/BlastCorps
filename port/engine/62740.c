@@ -3547,3 +3547,159 @@ done:
     ENGINE_BLK(802A96D8);
     return s6;
 }
+
+/* ---- turning toward an angle --------------------------------------------- */
+
+extern u8 D_803ED3F8;                   /* the turning sound's count */
+extern f32 D_803ED3FC, D_8030D890;      /* its pitch, and the speed's part in it */
+void func_80260AB8(SndState *state, s16 type, s32 param);
+
+/* The angle *angle (0 to 0xFFF) a step toward *target: rate
+   (func_802A8314), times the gears (unk50) over the speed *speed when
+   it isn't 0, the short way round, not past it.  Unless *turning, it is
+   done when within 0x156 (*out = the target).  With `sound`, every
+   seventh call plays the turn (10) at a pitch from the speed.  *out gets
+   the angle, and *turning clears when it is there.  Leaves the angle in
+   $t2 and the target in $t3. */
+REGS(t5, t6, t1, s4, s5, s6, s7, gp)
+void func_802A7FD8(s32 rate, s16 *speed, u16 *angle, u16 *target, u16 *out, s8 *turning, s32 sound, VS *vs) {
+    s32 v, t2, t3, t4, t5, n;
+    u32 p;
+    f32 f;
+
+    ENGINE_BLK(802A7FD8);
+    t5 = func_802A8314(rate);
+    ENGINE_BLK(802A7FE8);
+    v = *speed;
+    t2 = *angle;
+    t3 = *target;
+    if (v != 0) {
+        ENGINE_BLK(802A7FFC);
+        t5 = (s32)((u32)t5 * vs->unk50);
+        ENGINE_DIV(t5, t5, v, 802A801C, 802A8020, 802A802C, 802A8034);
+        ENGINE_BLK(802A8038);
+    }
+    ENGINE_BLK(802A8048);
+    t4 = t2 - t3;
+    if (t5 < 0) {
+        ENGINE_BLK(802A8054);
+        t5 = -t5;
+    }
+    ENGINE_BLK(802A8058);
+    if (t4 < 0) {
+        ENGINE_BLK(802A8060);
+        t4 = -t4;
+    }
+    ENGINE_BLK(802A8064);
+    if (t4 >= 0x801) {
+        /* the other way round, through 0 */
+        ENGINE_BLK(802A8070);
+        if (t3 < t2) {
+            ENGINE_BLK(802A809C);
+            t2 += t5;
+            if (t2 < 0x1000)
+                goto store;
+            ENGINE_BLK(802A80AC);
+            t2 -= 0x1000;
+            if (t3 < t2)
+                goto there;
+            ENGINE_BLK(802A80BC);
+            goto store;
+        }
+        ENGINE_BLK(802A8078);
+        t2 -= t5;
+        if (t2 >= 0)
+            goto store;
+        ENGINE_BLK(802A8084);
+        t2 += 0x1000;
+        if (t2 < t3)
+            goto there;
+        ENGINE_BLK(802A8094);
+        goto store;
+    }
+    ENGINE_BLK(802A80C4);
+    if (t2 < t3) {
+        ENGINE_BLK(802A80EC);
+        t2 += t5;
+        if (t2 >= 0x1000)
+            goto there;
+        ENGINE_BLK(802A80FC);
+        if (t3 < t2)
+            goto there;
+        ENGINE_BLK(802A8104);
+        goto store;
+    }
+    ENGINE_BLK(802A80D0);
+    t2 -= t5;
+    if (t2 < 0)
+        goto there;
+    ENGINE_BLK(802A80DC);
+    if (t2 < t3)
+        goto there;
+    ENGINE_BLK(802A80E4);
+    goto store;
+there:
+    ENGINE_BLK(802A810C);
+    t2 = t3;
+store:
+    ENGINE_BLK(802A8110);
+    *angle = t2;
+    if (*turning == 0) {
+        ENGINE_BLK(802A8120);
+        t4 = t2 - t3;
+        if (t4 < 0) {
+            ENGINE_BLK(802A812C);
+            t4 = -t4;
+        }
+        ENGINE_BLK(802A8130);
+        if (t4 >= 0x801) {
+            ENGINE_BLK(802A813C);
+            t4 = 0x1000 - t4;
+        }
+        ENGINE_BLK(802A8144);
+        if (t4 < 0x156) {
+            ENGINE_BLK(802A8150);
+            *out = t3;
+            goto done;
+        }
+        ENGINE_BLK(802A8158);
+        *turning = 1;
+    }
+    ENGINE_BLK(802A8160);
+    if (sound != 0) {
+        ENGINE_BLK(802A8168);
+        n = D_803ED3F8 + 1;
+        if (n >= 7) {
+            ENGINE_BLK(802A81FC);
+            D_803ED3F8 = 0;
+            n = 0;
+            p = v;
+            if (v < 0) {
+                ENGINE_BLK(802A822C);
+                p = -v;
+            }
+            ENGINE_BLK(802A8230);
+            f = (f32)(s32)p * D_8030D890;
+            f = 0.5f + f;
+            D_803ED3FC = f;
+            {
+                SndState *st = func_80260650(D_80367738, 0xA, NULL);
+
+                ENGINE_BLK(802A8258);
+                func_80260AB8(st, 0x10, *(s32 *)&D_803ED3FC);
+            }
+        }
+        ENGINE_BLK(802A826C);
+        D_803ED3F8 = n;
+    }
+    ENGINE_BLK(802A82F4);
+    *out = t2;
+    if (t2 == t3) {
+        ENGINE_BLK(802A82FC);
+        *turning = 0;
+    }
+done:
+    ENGINE_BLK(802A8300);
+    ENGINE_LEAVE(10, t2);
+    ENGINE_LEAVE(11, t3);
+}
