@@ -1443,3 +1443,225 @@ s32 func_802A860C(s32 angle, s16 *speed, s32 *x, s32 *z, f32 rate, s32 *z_out) {
     *z_out = rz;
     return rx;
 }
+
+extern u8 D_80370C22, D_80370C1A, D_80370C1B;
+extern s16 D_803ED400;
+
+REGS(t2, s1, gp -> t4, s1)
+s32 func_802A7C28(s32 x, s16 *rows, VS *vs, u32 *rows_out);
+REGS(t2, s1 -> t4)
+s32 func_802A7A1C(s32 x, s16 *rows);
+REGS(t2, s1 -> t4)
+s32 func_802A7AAC(s32 x, s16 *rows);
+REGS(t7, s0 -> t3)
+s32 func_802A7D68(s32 mode, u8 *flags);
+
+/* The speed (*speed, the state's unk76): with D_80370C22 set, toward 0 by
+   `brake` while D_803ED400 holds; otherwise capped at half the first or
+   last gear's, then accelerated through the gears by the stick
+   (D_80370C2D).  D_803ED400 gets the result.  Returns $t2 as it leaves it,
+   and $t3: the gear rows' step (func_802A7D68's, for the mode). */
+REGS(t3, t6, t7, s0, s1, s2, gp -> t2, t3)
+s32 func_802A785C(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, VS *vs, s32 *step_out) {
+    s32 t2, t4, g;
+    u32 rows2;
+
+    ENGINE_BLK(802A785C);
+    if (D_80370C22 != 0) {
+        ENGINE_BLK(802A7874);
+        t2 = D_803ED400;
+        t4 = *speed;
+        if (t2 == 0)
+            goto done;
+        ENGINE_BLK(802A788C);
+        if (t4 > 0) {
+            ENGINE_BLK(802A78A8);
+            t4 -= brake;
+            if (!(t4 > 0)) {
+                ENGINE_BLK(802A78B4);
+                t4 = 0;
+            }
+        } else {
+            ENGINE_BLK(802A7894);
+            t4 += brake;
+            if (!(t4 < 0)) {
+                ENGINE_BLK(802A78A0);
+                t4 = 0;
+            }
+        }
+        ENGINE_BLK(802A78B8);
+        *speed = t4;
+        goto done;
+    }
+    ENGINE_BLK(802A78C0);
+    if ((s8)D_803ED40C == 0)
+        goto gears;
+    ENGINE_BLK(802A78D0);
+    if (D_802E8BDC == 0x22)
+        goto gears;
+    ENGINE_BLK(802A78E4);
+    if (D_80364456 == 0xB)
+        goto gears;
+    ENGINE_BLK(802A78F8);
+    if (D_80364456 == 0x11)
+        goto gears;
+    ENGINE_BLK(802A7900);
+    if (D_80364456 == 0x12)
+        goto gears;
+    ENGINE_BLK(802A7908);
+    t4 = *speed;
+    if (t4 >= 0) {
+        ENGINE_BLK(802A7914);
+        g = rows[13] >> 1;
+        if (!(g < t4))
+            goto gears;
+        ENGINE_BLK(802A7928);
+        *speed = g;
+    } else {
+        ENGINE_BLK(802A7930);
+        g = rows[0] >> 1;
+        if (!(t4 < g))
+            goto gears;
+        ENGINE_BLK(802A7944);
+        *speed = g;
+    }
+gears:
+    ENGINE_BLK(802A7948);
+    step = func_802A7D68(mode, flags);
+    ENGINE_BLK(802A7950);
+    t2 = D_80370C2D;
+    if (t2 == 0)
+        goto done;
+    ENGINE_BLK(802A7964);
+    if (t2 > 0) {
+        ENGINE_BLK(802A79B0);
+        t2 = *speed;
+        if (t2 < 0) {
+            ENGINE_BLK(802A79FC);
+            t2 += brake;
+            *speed = t2;
+            goto done;
+        }
+        ENGINE_BLK(802A79BC);
+        t4 = func_802A7AAC(t2, rows);
+        ENGINE_BLK(802A79C4);
+        if (t4 != 0)
+            goto done;
+        ENGINE_BLK(802A79CC);
+        t4 = func_802A7C28(t2, rows, vs, &rows2);
+        ENGINE_BLK(802A79D4);
+        if (t4 != 0) {
+            ENGINE_BLK(802A79DC);
+            t2 += t4 * step;
+        } else {
+            ENGINE_BLK(802A79F0);
+            t2 -= 6;
+        }
+        *speed = t2;
+        goto done;
+    }
+    ENGINE_BLK(802A796C);
+    t2 = *speed;
+    if (t2 > 0) {
+        ENGINE_BLK(802A79A4);
+        t2 -= brake;
+        *speed = t2;
+        goto done;
+    }
+    ENGINE_BLK(802A7978);
+    t4 = func_802A7A1C(t2, rows);
+    ENGINE_BLK(802A7980);
+    if (t4 != 0)
+        goto done;
+    ENGINE_BLK(802A7988);
+    t4 = func_802A7C28(t2, rows, vs, &rows2);
+    ENGINE_BLK(802A7990);
+    t2 -= t4 * step;
+    *speed = t2;
+done:
+    ENGINE_BLK(802A7A04);
+    D_803ED400 = *speed;
+    *step_out = step;
+    return t2;
+}
+
+REGS(s3, s4 -> s3, t0, t2)
+s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick);
+
+/* the steering, then the speed: a turn and the gears in one */
+REGS(t3, t6, t7, s0, s1, s2, s3, s4, gp -> t2, t3, s3)
+s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, s32 rate, u16 *h, VS *vs,
+                  s32 *step_out, s32 *turn_out) {
+    u32 sa;
+    s32 st, r;
+
+    ENGINE_BLK(802A7834);
+    *turn_out = func_802A7E70(rate, h, &sa, &st);
+    ENGINE_BLK(802A7844);
+    r = func_802A785C(step, speed, mode, flags, rows, brake, vs, step_out);
+    ENGINE_BLK(802A784C);
+    return r;
+}
+
+/* the speed for a vehicle without gears: toward 0 by `brake` with
+   D_80370C22 and D_803ED400 set, otherwise accelerated through the gear
+   rows on D_80370C1A/D_80370C1B (the buttons) */
+REGS(t6, s1, s2, gp)
+void func_802A7B3C(s16 *speed, s16 *rows, s32 brake, VS *vs) {
+    s32 t2, t4;
+    u32 rows2;
+
+    ENGINE_BLK(802A7B3C);
+    if (D_80370C22 != 0) {
+        ENGINE_BLK(802A7B54);
+        t2 = D_803ED400;
+        t4 = *speed;
+        if (t2 == 0)
+            goto done;
+        ENGINE_BLK(802A7B6C);
+        if (t2 > 0) {
+            ENGINE_BLK(802A7B88);
+            t4 -= brake;
+            if (!(t4 > 0)) {
+                ENGINE_BLK(802A7B94);
+                t4 = 0;
+            }
+        } else {
+            ENGINE_BLK(802A7B74);
+            t4 += brake;
+            if (!(t4 < 0)) {
+                ENGINE_BLK(802A7B80);
+                t4 = 0;
+            }
+        }
+        ENGINE_BLK(802A7B98);
+        *speed = t4;
+        goto done;
+    }
+    ENGINE_BLK(802A7BA0);
+    if (D_80370C1A == 0) {
+        ENGINE_BLK(802A7BB4);
+        if (D_80370C1B == 0)
+            goto done;
+    }
+    ENGINE_BLK(802A7BC8);
+    t2 = *speed;
+    if (t2 < 0) {
+        ENGINE_BLK(802A7C08);
+        *speed = t2 + brake;
+        goto done;
+    }
+    ENGINE_BLK(802A7BD4);
+    t4 = func_802A7C28(t2, rows, vs, &rows2);
+    ENGINE_BLK(802A7BDC);
+    if (t4 != 0) {
+        ENGINE_BLK(802A7BE4);
+        *speed = t2 + t4 * 4;
+    } else {
+        ENGINE_BLK(802A7BFC);
+        *speed = t2 - 6;
+    }
+done:
+    ENGINE_BLK(802A7C10);
+    D_803ED400 = *speed;
+}
