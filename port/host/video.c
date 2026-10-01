@@ -189,11 +189,40 @@ static int sw_present(int twin) {
 
 /* PORT_PERF: a present of another picture than the last (another frame,
    or another of its in-between images) */
+/* the window's title (the page's, in the browser: SDL sets document.title)
+   says how many pictures it showed in the last second, and how many of them
+   were new frames of the game's (--interpolate's in-between ones are the
+   rest); host time only, so nothing the game sees */
+static void title_fps(int new_image, int new_frame) {
+    static unsigned images, frames;
+    static Uint32 since;
+    images += new_image;
+    frames += new_frame;
+    Uint32 now = SDL_GetTicks();
+    if (!since)
+        since = now;
+    if (now - since < 1000)
+        return;
+    char t[96];
+    if (gfx_interp)
+        snprintf(t, sizeof t, "Blast Corps - %.0f fps (game %.0f)", images * 1000.0 / (now - since),
+                 frames * 1000.0 / (now - since));
+    else
+        snprintf(t, sizeof t, "Blast Corps - %.0f fps", frames * 1000.0 / (now - since));
+    if (win)
+        SDL_SetWindowTitle(win, t);
+    images = frames = 0;
+    since = now;
+}
+
 static void count_image(int twin) {
     static uint32_t last_fb;
     static int last_twin = -2;
-    if (vi_fb != last_fb || twin != last_twin)
+    int new_image = vi_fb != last_fb || twin != last_twin;
+    if (new_image)
         gfx_st_images++;
+    if (sdl_up)
+        title_fps(new_image, vi_fb != last_fb);
     last_fb = vi_fb;
     last_twin = twin;
     host_perf_presented(gfx_st_images);

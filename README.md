@@ -141,8 +141,12 @@ handwritten code (docs/PORT.md, "Other versions").
 ## Run it
 
 ```
-build/port64/blastcorps baserom.us.v11.z64
+build/port-us.v11/blastcorps baserom.us.v11.z64      # port/build.py's; build/port64/ by hand
 ```
+
+The window's title shows the frame rate once a second: the pictures shown
+and, with `--interpolate`, how many of them were the game's own frames, e.g.
+"60 fps (game 30)".  In the browser, the page's title shows the same.
 
 The ROM argument may be left out: it defaults to `baserom.us.v11.z64` (the
 us.v10 and jp builds' to `baserom.us.v10.z64` and `baserom.jp.z64`) in the
