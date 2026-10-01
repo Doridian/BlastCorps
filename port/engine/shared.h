@@ -121,6 +121,10 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
 REGS(-> t0)
 s32 func_802A5ED0(void);
 
+/* 86ED0: getting in (the vehicle modules call it) */
+REGS(gp)
+void func_802CB690(VS *vs);
+
 /* 77E20 (engine-B's), still translated */
 REGS(t8, gp)
 void func_802BE77C(s32 type, VS *vs);
