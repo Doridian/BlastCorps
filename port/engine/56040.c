@@ -1674,8 +1674,10 @@ s32 func_8029EDEC(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
    translation as s16s, the second key 0x14 on), the fraction t of the way:
    each matrix that isn't the identity into acc (func_802ACCCC) in the
    order scale, z, y, x, translation */
-REGS(s3, s2, f30)
-void func_8029EF80(s16 *k, s32 *acc, f32 t) {
+/* (fp: what it puts back, as the original reloads it; its rotations
+   leave theirs) */
+REGS(s3, s2, f30, fp)
+void func_8029EF80(s16 *k, s32 *acc, f32 t, s32 fp) {
     s32 r;
 
     ENGINE_BLK(8029EF80);
@@ -1720,13 +1722,15 @@ void func_8029EF80(s16 *k, s32 *acc, f32 t) {
         ENGINE_LEAVE(6, k[8]);
     }
     ENGINE_BLK(8029F04C);
+    ENGINE_LEAVE(30, fp);
 }
 
 /* the same along a spline: the four keys (D_803B7FC0-D_803B7FC3 of the
    0x14-byte records 8 on from s1) at t, in the order scale, z, y, x,
    translation */
-REGS(s1, s2, f30)
-void func_8029E730(u8 *keys, s32 *acc, f32 t) {
+/* (a3 likewise, which func_802ACCCC leaves) */
+REGS(s1, s2, f30, a3)
+void func_8029E730(u8 *keys, s32 *acc, f32 t, s32 a3) {
     u8 *k = keys + 8, *p0 = k + D_803B7FC0 * 0x14, *p1 = k + D_803B7FC1 * 0x14, *p2 = k + D_803B7FC2 * 0x14,
        *p3 = k + D_803B7FC3 * 0x14;
 
@@ -1771,6 +1775,7 @@ void func_8029E730(u8 *keys, s32 *acc, f32 t) {
         ENGINE_BLK(8029E834);
     }
     ENGINE_BLK(8029E848);
+    ENGINE_LEAVE(7, a3);
 }
 
 /* An animation's step (its state at a: 4 the fraction, 0xC the loops so
@@ -1779,8 +1784,8 @@ void func_8029E730(u8 *keys, s32 *acc, f32 t) {
    the fraction t on by rate * speed, the key k on by its whole part, over
    n keys.  At an end it wraps (mode 0) or stops there (1, and it turns
    round), and when the loops reach their limit it stops (0x10 clear). */
-REGS(t0, t2, t6, f6, f30)
-void func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t) {
+REGS(t0, t2, t6, f6, f30 -> t2, f30)
+s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
     s32 speed = a[0x14], back = (s8)a[0x11], mode = a[0x12], w, c, lim, at = 1, s2set = 0;
     f32 fspeed = (f32)speed, f, f2w;
     u32 f2;
@@ -1926,4 +1931,117 @@ done:
     ENGINE_LEAVE_FW(2, f2);
     ENGINE_LEAVE_F(8, fspeed);
     ENGINE_LEAVE_F(30, t);
+    *t_out = t;
+    return k;
+}
+
+extern s32 D_803B3770;                  /* the parts' records' base */
+
+/* An object's animation, one frame on: its state a (func_8029F1BC; the
+   rate from its data's per-key speeds, / 300), then each part's matrix
+   (base + the part's offset) from its rest matrix with the key frames'
+   (mode 0, func_8029EF80) or the spline's (mode 1, func_8029E730) on top,
+   to the RSP's form, and recorded (func_8029DCD4) or, when the animation
+   has stopped, dropped (func_8029DD54).  Leaves its registers in the
+   original's order, around its callees' (ENGINE_LEAVE). */
+REGS(t0, v0, a3)
+void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
+    u8 *d = *(u8 *PTR32 *)a, *rec, *dst, *src;
+    s32 k = (s8)a[0x13], n, mode, running, parts, step, rem, i;
+    u32 *s, *w;
+    f32 t = *(f32 *)(a + 4), rate;
+
+    ENGINE_BLK(8029E5AC);
+    n = d[0];
+    rate = (f32)(d[k + 2] - d[k + 1]) * t + (f32)d[k + 1];
+    rate = rate / 300.0f;
+    ENGINE_LEAVE(1, 0x43960000);
+    ENGINE_LEAVE(14, n);
+    k = func_8029F1BC(a, k, n, rate, t, &t);
+    ENGINE_BLK(8029E604);
+    mode = a[0x15];
+    running = a[0x10];
+    ENGINE_LEAVE(30, mode);
+    ENGINE_LEAVE(12, running);
+    if (mode != 0) {
+        ENGINE_BLK(8029E614);
+        func_8029F110(a, mode);
+        ENGINE_BLK(8029E61C);
+        func_8029F060(t, k, n);
+    }
+    ENGINE_BLK(8029E624);
+    step = 0x14 * n + 8;
+    rec = d + n + 2;
+    parts = d[n + 1];
+    rem = (u32)rec & 3;
+    ENGINE_LEAVE(11, (u32)(d + n));
+    ENGINE_LEAVE(21, 0x14);
+    ENGINE_LEAVE(22, step);
+    ENGINE_LEAVE(18, rem);
+    if (rem != 0) {
+        ENGINE_BLK(8029E64C);
+        ENGINE_LEAVE(19, 4);
+        ENGINE_LEAVE(18, 4 - rem);
+        rec += 4 - rem;
+    }
+    for (;;) {
+        ENGINE_BLK(8029E658);
+        if (parts == 0)
+            break;
+        ENGINE_BLK(8029E660);
+        dst = base + ((s32 *)rec)[0];
+        src = base + ((s32 *)rec)[1];
+        ENGINE_LEAVE(13, D_803B3770 + ((s32 *)rec)[0]);
+        ENGINE_LEAVE(19, (u32)(rec + 8 + k * 0x14));
+        ENGINE_LEAVE(20, k * 0x14);
+        s = (u32 *)src;
+        w = (u32 *)dst;
+        for (i = 8; i != 0; i--) {
+            ENGINE_BLK(8029E694);
+            w[0] = s[0];
+            w[1] = s[1];
+            w += 2, s += 2;
+        }
+        ENGINE_BLK(8029E6AC);
+        ENGINE_LEAVE(4, 0);
+        ENGINE_LEAVE64(5, (u64)s[-2] << 32 | s[-1]);
+        ENGINE_LEAVE(18, (u32)dst);
+        ENGINE_LEAVE(23, (u32)(src + 0x40));
+        if (mode == 0) {
+            ENGINE_BLK(8029E6C4);
+            func_8029EF80((s16 *)(rec + 8 + k * 0x14), (s32 *)dst, t, mode);
+            ENGINE_BLK(8029E6CC);
+        } else {
+            ENGINE_BLK(8029E6B4);
+            ENGINE_LEAVE(1, 1);
+            if (mode != 1) {
+                ENGINE_BLK(8029E6C0);
+                engine_syscall(0x8029E6C0);
+            }
+            ENGINE_BLK(8029E6D4);
+            func_8029E730(rec, (s32 *)dst, t, a3);
+        }
+        ENGINE_BLK(8029E6DC);
+        ENGINE_LEAVE(4, (u32)(src + 0x40));
+        func_802ACCCC((s32 *)(src + 0x40), (s32 *)dst);
+        a3 = 0;                         /* (as func_802ACCCC leaves it) */
+        ENGINE_BLK(8029E6E4);
+        func_802AC8CC((u32 *)dst);
+        ENGINE_BLK(8029E6EC);
+        ENGINE_LEAVE(1, 1);
+        if (running != 1) {
+            ENGINE_BLK(8029E6F8);
+            func_8029DCD4((u32)dst, D_803B3770 + ((s32 *)rec)[0]);
+            ENGINE_BLK(8029E700);
+        } else {
+            ENGINE_BLK(8029E708);
+            func_8029DD54((u32)dst);
+        }
+        ENGINE_BLK(8029E710);
+        rec += step;
+        parts--;
+    }
+    ENGINE_BLK(8029E71C);
+    ENGINE_LEAVE(16, 0);
+    ENGINE_LEAVE(17, (u32)rec);
 }
