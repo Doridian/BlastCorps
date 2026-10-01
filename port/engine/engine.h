@@ -101,4 +101,11 @@ void engine_break(u32 pc, u32 code) __attribute__((noreturn));
     } while (0)
 #define ENGINE_LEAVE64(gpr, v) engine_leave64((gpr), (u32)(v), (u32)((u64)(v) >> 32))
 
+/* The other way: what a register holds that the original reads without
+   having set it, and stores (a byte of a collision triangle from whatever
+   $t9 held, say).  Called by the game's C or by the translated code, the
+   original sees what the context holds; ENGINE_REG(25) is that. */
+u32 engine_reg(unsigned int reg);
+#define ENGINE_REG(gpr) engine_reg(gpr)
+
 #endif

@@ -135,7 +135,10 @@ static u32 tex_fix_dl(u32 *dl, u32 *end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *
 
 REGS(s0, s1, s4 -> s2, s3, s4, s5, s6)
 u32 func_802A08E4(u32 dl, u32 end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out, u32 *s6_out) {
-    return tex_fix_dl((u32 *)dl, (u32 *)end, s4, s3_out, s4_out, s5_out, s6_out);
+    u32 s2 = tex_fix_dl((u32 *)dl, (u32 *)end, s4, s3_out, s4_out, s5_out, s6_out);
+
+    ENGINE_LEAVE(16, end);      /* $s0, walked to the end */
+    return s2;
 }
 
 /* func_802A08B4 (DE70.c's) */

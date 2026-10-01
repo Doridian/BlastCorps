@@ -44,6 +44,16 @@ void engine_leave64(unsigned int reg, uint32_t lo, uint32_t hi) {
         ctx->r[reg] = (uint64_t)hi << 32 | lo;
 }
 
+/* engine.h's ENGINE_REG: what the context holds, in the same numbering */
+uint32_t engine_reg(unsigned int reg) {
+    recomp_context *ctx = port_ctx();
+    if (reg < 32)
+        return (uint32_t)ctx->r[reg];
+    if (reg >= 34 && reg < 66)
+        return ctx->f[reg - 34];
+    return 0;
+}
+
 #ifdef PORT_ENGINE_CHECK
 /*
  * Each call of a replaced function, from the translated code (its glue,
