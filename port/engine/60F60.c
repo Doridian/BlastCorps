@@ -694,3 +694,213 @@ fail:
     ENGINE_BLK(802A647C);
     return 0;
 }
+
+/* ---- the effects' sprite drawing ---------------------------------------- */
+
+/* The effects' heap (D_803EB788..D_803EB78C): 0x1010-byte pieces, a frame's
+   texture in the first 0x1000, then which animation (0 when free), its
+   age and its frame. */
+#define PIECE_KEY(p) (*(u32 *)((u8 *)(p) + 0x1000))
+#define PIECE_AGE(p) (*(u16 *)((u8 *)(p) + 0x1004))
+#define PIECE_FRAME(p) (*(u8 *)((u8 *)(p) + 0x1006))
+#define PIECE_NEXT(p) ((u8 *)(p) + 0x1010)
+
+extern u32 D_80305C10[];        /* the animations kept in the heap's pieces, 0 at the end */
+extern Gfx *PTR32 D_803EB780, *PTR32 D_803EB784;   /* the effects' two display lists */
+Gfx *func_80257540(Gfx *gfx);
+Gfx *func_802575F4(Gfx *gfx, s32 arg1, s32 arg2, s16 arg3, s32 arg4, s32 arg5, s32 arg6);
+REGS(t6, s1, fp)
+void func_802A1074(u32 id, u32 dst, u32 param);
+
+/* func_802A6748: the pieces a frame older; those 60 frames old are free
+   again */
+REGS()
+void func_802A6748(void) {
+    u8 *p = D_803EB788, *end = D_803EB78C;
+    s32 freed = 0;
+
+    ENGINE_BLK(802A6748);
+    for (;;) {
+        u32 age;
+
+        ENGINE_BLK(802A6764);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A676C);
+        if (PIECE_KEY(p) == 0) {
+            p = PIECE_NEXT(p);
+            continue;
+        }
+        ENGINE_BLK(802A6778);
+        age = PIECE_AGE(p) + 1;
+        PIECE_AGE(p) = age;
+        if ((s32)age < 0x3D) {
+            ENGINE_BLK(802A678C);
+            p = PIECE_NEXT(p);
+            continue;
+        }
+        ENGINE_BLK(802A6794);
+        freed++;
+        PIECE_KEY(p) = 0;
+        p = PIECE_NEXT(p);
+    }
+    ENGINE_BLK(802A67A4);
+    D_803EB790 += freed;
+}
+
+/* func_802A67C4: where slot `s`'s current frame is: a piece already
+   holding it, or (an animation kept that way, while there are free
+   pieces) a free one, or the slot's own texture cell (`cells` + the cell
+   number at `cell` << 12); in the last two the frame's texture (the next
+   number at $t9) is loaded there.  Returns it ($s1), $t9 advanced and $t6
+   the number, as the original leaves them. */
+REGS(a0, t3, t4, t9, t6, fp -> s1, t9, t6)
+u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_out, u32 *t6_out) {
+    EffectSlot *s = (EffectSlot *)s_;
+    u8 *p = D_803EB788, *end = D_803EB78C;
+    u32 frame = s->frame;
+    u32 key = (u32)s->anim;
+    u32 dst;
+
+    ENGINE_BLK(802A67C4);
+    *t9_out = t9;
+    *t6_out = t6;
+    for (;;) {
+        ENGINE_BLK(802A67F8);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A6800);
+        if (PIECE_KEY(p) == 0) {
+            p = PIECE_NEXT(p);
+            continue;
+        }
+        ENGINE_BLK(802A680C);
+        if (key != PIECE_KEY(p)) {
+            p = PIECE_NEXT(p);
+            continue;
+        }
+        ENGINE_BLK(802A6814);
+        if (frame != PIECE_FRAME(p)) {
+            p = PIECE_NEXT(p);
+            continue;
+        }
+        ENGINE_BLK(802A6820);
+        PIECE_AGE(p) = 0;
+        ENGINE_BLK(802A68B4);
+        return (u32)p;
+    }
+    ENGINE_BLK(802A682C);
+    if (D_803EB790 != 0) {
+        u32 *k;
+
+        ENGINE_BLK(802A683C);
+        for (k = D_80305C10;; k++) {
+            ENGINE_BLK(802A6844);
+            if (*k == key) {
+                ENGINE_BLK(802A6860);
+                D_803EB790--;
+                for (p = D_803EB788;; p = PIECE_NEXT(p)) {
+                    ENGINE_BLK(802A6874);
+                    if (PIECE_KEY(p) == 0) {
+                        break;
+                    }
+                    ENGINE_BLK(802A6880);
+                }
+                ENGINE_BLK(802A6888);
+                PIECE_KEY(p) = key;
+                PIECE_FRAME(p) = frame;
+                PIECE_AGE(p) = 0;
+                dst = (u32)p;
+                goto load;
+            }
+            ENGINE_BLK(802A6850);
+            if (*k == 0) {
+                break;
+            }
+            ENGINE_BLK(802A6858);
+        }
+    }
+    ENGINE_BLK(802A689C);
+    dst = cells + (*(u8 *)cell << 12);
+load:
+    ENGINE_BLK(802A68A8);
+    t6 = *(u16 *)t9;
+    *t9_out = t9 + 2;
+    *t6_out = t6;
+    func_802A1074(t6, dst, fp);
+    ENGINE_BLK(802A68B4);
+    return dst;
+}
+
+/* func_802A6C10: the four corners of a sprite at (x, y) on screen, w by h
+   (the texture coordinates w << 5, h << 5), coloured by bytes 6..9 of
+   `rec` */
+REGS(t1, t7, s2, s3, v1, s5)
+void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
+    s16 *v = (s16 *)vtx_;
+    u8 *rec = (u8 *)rec_;
+    s32 x1 = x - w, y1 = y + h;
+    s32 sw = w << 5, sh = h << 5;
+    s32 i;
+
+    ENGINE_BLK(802A6C10);
+    v[0x00] = x;  v[0x01] = y;  v[0x02] = 0; v[0x03] = 0; v[0x04] = 0;  v[0x05] = 0;
+    v[0x08] = x1; v[0x09] = y;  v[0x0A] = 0; v[0x0B] = 0; v[0x0C] = sw; v[0x0D] = 0;
+    v[0x10] = x;  v[0x11] = y1; v[0x12] = 0; v[0x13] = 0; v[0x14] = 0;  v[0x15] = sh;
+    v[0x18] = x1; v[0x19] = y1; v[0x1A] = 0; v[0x1B] = 0; v[0x1C] = sw; v[0x1D] = sh;
+    for (i = 0; i < 4; i++) {
+        u8 *c = (u8 *)vtx_ + i * 0x10 + 0xC;
+
+        c[0] = rec[6];
+        c[1] = rec[7];
+        c[2] = rec[8];
+        c[3] = rec[9];
+    }
+}
+
+/* func_802A6D34: the effects' two display lists begun (func_80257540) */
+REGS()
+void func_802A6D34(void) {
+    ENGINE_BLK(802A6D34);
+    D_803EB780 = func_80257540(D_803EB780);
+    ENGINE_BLK(802A6D84);
+    D_803EB784 = func_80257540(D_803EB784);
+    ENGINE_BLK(802A6D98);
+}
+
+/* func_802A6EB8: slot `s`'s display list: the second (D_803EB784) if its
+   0x3B is set */
+REGS(t4 -> t2)
+u32 func_802A6EB8(u32 s_) {
+    EffectSlot *s = (EffectSlot *)s_;
+
+    ENGINE_BLK(802A6EB8);
+    if (s->unk3B != 0) {
+        ENGINE_BLK(802A6ED0);
+        ENGINE_BLK(802A6EE4);
+        return (u32)&D_803EB784;
+    }
+    ENGINE_BLK(802A6EDC);
+    ENGINE_BLK(802A6EE4);
+    return (u32)&D_803EB780;
+}
+
+/* func_802A6DE8: slot `s`'s sprite drawn into its display list
+   (12D80.c's func_802575F4).  Leaves $s0 the slot. */
+REGS(t4, t1, s1, t8, v1, s5, gp)
+void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) {
+    Gfx *PTR32 *dl;
+    Gfx *g;
+
+    ENGINE_BLK(802A6DE8);
+    ENGINE_LEAVE(16, s);
+    dl = (Gfx *PTR32 *)func_802A6EB8(s);
+    ENGINE_BLK(802A6E3C);
+    g = func_802575F4(*dl, a1, a2, a3, sp10, sp14, sp18);
+    ENGINE_BLK(802A6E5C);
+    dl = (Gfx *PTR32 *)func_802A6EB8(s);
+    ENGINE_BLK(802A6E64);
+    *dl = g;
+}
