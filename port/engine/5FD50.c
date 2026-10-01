@@ -243,9 +243,8 @@ static s32 box_visible(Gfx *dl, Vtx *vtx, s32 size) {
 
 /* (802A484C) test the node; split a visible one in four onto the stack,
    or keep a visible cell */
-static void node_visit(LevelHeader *h, QuadNode node, Gfx *dl, Vtx *vtx, s32 size, QuadNode **top,
-                       s16 **cells) {
-    s32 x = node.x, z = node.z, w = node.w, hh = node.h;
+static void node_visit(LevelHeader *h, s32 x, s32 z, s32 w, s32 hh, Gfx *dl, Vtx *vtx, s32 size,
+                       QuadNode **top, s16 **cells) {
     s32 lo, hi, w0, h0;
     QuadNode *t = *top;
 
@@ -314,7 +313,6 @@ done:
 /* (802A470C) one step of the walk */
 static void vis_step(LevelHeader *h, Gfx *dl, Vtx *vtx, s32 size) {
     QuadNode *top = D_803C2B88;
-    QuadNode node;
     s16 *cells;
 
     ENGINE_BLK(802A470C);
@@ -375,9 +373,8 @@ static void vis_step(LevelHeader *h, Gfx *dl, Vtx *vtx, s32 size) {
     }
     ENGINE_BLK(802A47EC);
     top--;
-    node = *top;
     cells = D_803C3170;
-    node_visit(h, node, dl, vtx, size, &top, &cells);
+    node_visit(h, top->x, top->z, top->w, top->h, dl, vtx, size, &top, &cells);
     ENGINE_BLK(802A4824);
     D_803C3170 = cells;
     D_803C2B88 = top;

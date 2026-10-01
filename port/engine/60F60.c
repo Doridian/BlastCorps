@@ -77,7 +77,8 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
             break;
         }
         ENGINE_BLK(802A5980);
-        w = *in++;
+        w = (s16)TEX_BE16(*in);
+        in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8, lo = w & 0xFF;
 
@@ -109,7 +110,8 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
             break;
         }
         ENGINE_BLK(802A5A54);
-        w = *in++;
+        w = (s16)TEX_BE16(*in);
+        in++;
         if (w >= 0) {
             ENGINE_BLK(802A5A64);
             out[0] = (u32)w >> 8 << 1;
@@ -139,10 +141,11 @@ u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
             break;
         }
         ENGINE_BLK(802A5B08);
-        w = *in++;
+        w = (s16)TEX_BE16(*in);
+        in++;
         if (w >= 0) {
             ENGINE_BLK(802A5B18);
-            *(u16 *)out = ((w & 0xFFC0) << 1) | (w & 0x3F);
+            *(u16 *)out = TEX_BE16(((w & 0xFFC0) << 1) | (w & 0x3F));
             out += 2;
             len -= 2;
         } else {
@@ -168,11 +171,12 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
             break;
         }
         ENGINE_BLK(802A5BB8);
-        w = *in++;
+        w = (s16)TEX_BE16(*in);
+        in++;
         if (w >= 0) {
             ENGINE_BLK(802A5BC8);
-            *(u32 *)out = ((w & 0x7800) << 17) | ((w & 0x780) << 13) | ((w & 0x78) << 9) |
-                          ((w & 7) << 5);
+            *(u32 *)out = TEX_BE32(((w & 0x7800) << 17) | ((w & 0x780) << 13) | ((w & 0x78) << 9) |
+                                   ((w & 7) << 5));
             out += 4;
             len -= 2;
         } else {
@@ -200,15 +204,16 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
             break;
         }
         ENGINE_BLK(802A5C84);
-        w = *in++;
+        w = (s16)TEX_BE16(*in);
+        in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8;
 
             ENGINE_BLK(802A5C94);
             out += 4;
-            ((u16 *)out)[-2] = (*(u16 *)(pal + (hi & 0xFE)) << 1) | (hi & 1);
+            ((u16 *)out)[-2] = TEX_BE16((TEX_BE16(*(u16 *)(pal + (hi & 0xFE))) << 1) | (hi & 1));
             len -= 2;
-            ((u16 *)out)[-1] = (*(u16 *)(pal + (w & 0xFE)) << 1) | (w & 1);
+            ((u16 *)out)[-1] = TEX_BE16((TEX_BE16(*(u16 *)(pal + (w & 0xFE))) << 1) | (w & 1));
         } else {
             BACKREF32(802A5CDC, 802A5CF0, 802A5CF8);
         }
@@ -234,13 +239,14 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
             break;
         }
         ENGINE_BLK(802A5D5C);
-        w = *in++;
+        w = (s16)TEX_BE16(*in);
+        in++;
         if (w >= 0) {
-            u32 c = *(u16 *)(pal + (((u32)w >> 4) << 1));
+            u32 c = TEX_BE16(*(u16 *)(pal + (((u32)w >> 4) << 1)));
 
             ENGINE_BLK(802A5D6C);
-            *(u32 *)out = ((c & 0x7C00) << 17) | ((c & 0x3E0) << 14) | ((c & 0x1F) << 11) |
-                          ((w & 0xF) << 4);
+            *(u32 *)out = TEX_BE32(((c & 0x7C00) << 17) | ((c & 0x3E0) << 14) | ((c & 0x1F) << 11) |
+                                   ((w & 0xF) << 4));
             out += 4;
             len -= 2;
         } else {

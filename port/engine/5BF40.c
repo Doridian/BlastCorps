@@ -59,8 +59,9 @@ void func_802A0700(void) {
    load the ones not loaded yet and put their addresses in.  The original
    leaves $s2..$s6 as it used them, which its callers may see. */
 REGS(s0, s1, s4 -> s2, s3, s4, s5, s6)
-u32 func_802A08E4(u32 *dl, u32 *end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out,
+u32 func_802A08E4(u32 dl_, u32 end_, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out,
                   u32 *s6_out) {
+    u32 *dl = (u32 *)dl_, *end = (u32 *)end_;
     TexCacheEntry *top = D_803B8D40;
     TextureEntry *table = D_803B8D44;
     TexCacheEntry *c = (TexCacheEntry *)s4;
@@ -137,7 +138,7 @@ void func_802A08B4(u32 *dl, u32 *end) {
     u32 s3, s4, s5, s6;
 
     ENGINE_BLK(802A08B4);
-    func_802A08E4(dl, end, 0, &s3, &s4, &s5, &s6);
+    func_802A08E4((u32)dl, (u32)end, 0, &s3, &s4, &s5, &s6);
     ENGINE_BLK(802A08D0);
 }
 

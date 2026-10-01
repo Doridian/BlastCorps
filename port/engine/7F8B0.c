@@ -39,7 +39,7 @@ typedef struct LzssIn {
 
 /* (the translation of func_802C42CC, which nothing calls now) */
 REGS(a0, a3, t3, t4, s4, s5 -> v0, a0, t3, t4)
-u32 func_802C42CC(u8 *src, u32 top, u32 cur, u32 mask, u32 s4, u32 s5, u8 **src_out,
+u32 func_802C42CC(u32 src, u32 top, u32 cur, u32 mask, u32 s4, u32 s5, u32 *src_out,
                   u32 *cur_out, u32 *mask_out);
 
 /* func_802C42CC: as many bits as `top` (a power of two) is wide */
@@ -74,7 +74,9 @@ static u32 lzss_bits(LzssIn *in, u32 top) {
 /* func_802C41C0: inflate *src into *dst through `window` (1 << index_bits
    bytes); both are left at the ends (the input's rounded up to even) */
 REGS(a0, a1, a2, a3 -> a0, a1)
-u8 *func_802C41C0(u8 *src, u8 *dst, u8 *window, s32 index_bits, u8 **dst_end) {
+u32 func_802C41C0(u32 src_, u32 dst_, u32 window_, s32 index_bits, u32 *dst_end) {
+    u8 *dst = (u8 *)dst_;
+    u8 *window = (u8 *)window_;
     LzssIn in;
     u32 wmask = (1 << index_bits) - 1;
     u32 pos_top = 1 << (index_bits - 1);
@@ -82,7 +84,7 @@ u8 *func_802C41C0(u8 *src, u8 *dst, u8 *window, s32 index_bits, u8 **dst_end) {
     u32 wp = 1;
 
     ENGINE_BLK(802C41C0);
-    in.src = src;
+    in.src = (u8 *)src_;
     in.cur = 0;
     in.mask = 0x80;
     for (;;) {
@@ -141,33 +143,32 @@ u8 *func_802C41C0(u8 *src, u8 *dst, u8 *window, s32 index_bits, u8 **dst_end) {
         in.src++;
     }
     ENGINE_BLK(802C42BC);
-    *dst_end = dst;
-    return in.src;
+    *dst_end = (u32)dst;
+    return (u32)in.src;
 }
 
 /* func_802C4070 (46C20.c's): inflate *src into *dst and advance both */
 void func_802C4070(u8 *PTR32 *src, u8 *PTR32 *dst, void *window, u8 index_bits) {
-    u8 *end;
-    u8 *s;
+    u32 end, s;
 
     ENGINE_BLK(802C4070);
-    s = func_802C41C0(*src, *dst, window, index_bits, &end);
+    s = func_802C41C0((u32)*src, (u32)*dst, (u32)window, index_bits, &end);
     ENGINE_BLK(802C40BC);
-    *src = s;
-    *dst = end;
+    *src = (u8 *)s;
+    *dst = (u8 *)end;
 }
 
 /* func_802C4108: the model loaders' gzip (func_8025C230): src and dst as
    the inflate leaves them */
 REGS(a0, a1, a2 -> a0, a1)
-u8 *func_802C4108(u8 *src, u8 *dst, void *arg2, u8 **dst_end) {
+u32 func_802C4108(u32 src, u32 dst, u32 arg2, u32 *dst_end) {
     ENGINE_BLK(802C4108);
-    D_803F7830 = src;
-    D_803F7834 = dst;
-    func_8025C230(&D_803F7830, &D_803F7834, arg2);
+    D_803F7830 = (u8 *)src;
+    D_803F7834 = (u8 *)dst;
+    func_8025C230(&D_803F7830, &D_803F7834, (void *)arg2);
     ENGINE_BLK(802C416C);
-    *dst_end = D_803F7834;
-    return D_803F7830;
+    *dst_end = (u32)D_803F7834;
+    return (u32)D_803F7830;
 }
 
 /* ---- the player vehicle's engine sound ----------------------------------- */

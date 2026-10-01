@@ -29,4 +29,16 @@ typedef struct TexDecode {
 
 u32 func_802A57DC(TexDecode *req);
 
+/* In native-endian memory (docs/PORT.md, "Native-endian memory") texture
+   data stays in the N64's byte order, which is what the RDP reads: the
+   packed stream's codes, the palettes and the texels written as halves or
+   words are big-endian there (tools/recomp/native_sites.txt's `be`). */
+#ifdef PORT_NATIVE_ENDIAN
+#define TEX_BE16(x) ((u16)__builtin_bswap16((u16)(x)))
+#define TEX_BE32(x) ((u32)__builtin_bswap32((u32)(x)))
+#else
+#define TEX_BE16(x) ((u16)(x))
+#define TEX_BE32(x) ((u32)(x))
+#endif
+
 #endif
