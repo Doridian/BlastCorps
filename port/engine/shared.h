@@ -93,6 +93,8 @@ REGS(v0 -> v1)
 s32 func_8029DC14(s32 type);
 REGS(gp)
 void func_8029A914(VS *vs);
+REGS(v0, v1, a0)
+void func_8029F9D4(s32 i, s32 v, Part *parts);
 
 /* 5CB60 (engine-B's), still translated */
 REGS(v0, v1, a0, a1, gp)
@@ -126,6 +128,8 @@ REGS(t8, gp)
 void func_802BE77C(s32 type, VS *vs);
 REGS(v0 -> v1)
 s32 func_802BCD80(s32 id);
+REGS()
+void func_802BCC10(void);
 
 /* 7F8B0 (engine-B's), still translated: the vehicles' engine sounds */
 REGS(a1)
