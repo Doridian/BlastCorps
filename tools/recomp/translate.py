@@ -99,20 +99,28 @@ REPLACED_FILE = os.path.join(os.path.dirname(BLAST), "port", "engine", "replaced
 
 
 def load_replaced():
-    out = []
+    """(names, the ones marked `inlined`): an inlined function is one the
+    native code has folded into its only callers, which are replaced; it
+    has no native definition, and its translation is kept only for the
+    checks (recomp_orig_X), which its callers' translations call."""
+    out, inlined = [], set()
     if not os.path.exists(REPLACED_FILE):
-        return out
+        return out, inlined
     for n, line in enumerate(open(REPLACED_FILE), 1):
         line = line.split("#", 1)[0].split()
         if not line:
             continue
-        if len(line) != 1 or not re.match(r"^func_[0-9A-F]{8}(_\w+)?$", line[0]):
-            raise TranslateError(f"{REPLACED_FILE}:{n}: expected one function name")
+        if len(line) not in (1, 2) or not re.match(r"^func_[0-9A-F]{8}(_\w+)?$", line[0]) or \
+                len(line) == 2 and line[1] != "inlined":
+            raise TranslateError(f"{REPLACED_FILE}:{n}: expected a function name (and `inlined`)")
         out.append(line[0])
-    return out
+        if len(line) == 2:
+            inlined.add(line[0])
+    return out, inlined
 
 
 REPLACED = set()
+INLINED = set()
 
 
 class FuncEmitter:
@@ -503,6 +511,13 @@ class FuncEmitter:
         raise TranslateError(f"unsupported branch {i.op} at {ln.vram:08X}")
 
     def call(self, name):
+        if name in INLINED:
+            # only the replaced callers' translations, kept for the checks,
+            # still call it
+            if self.base.name not in REPLACED:
+                raise TranslateError(f"{self.base.name} calls {name}, which {REPLACED_FILE} says is "
+                                     f"inlined: replace its callers first")
+            return f"recomp_orig_{name}(rdram, ctx);"
         if name in self.funcs and name not in REPLACED:
             return f"recomp_{name}(rdram, ctx);"
         self.externs.add(name)
@@ -736,7 +751,9 @@ def main():
                 raise TranslateError(f"duplicate function {fn.name}")
             funcs[fn.name] = fn
     # (a name another version doesn't have is that version's business)
-    REPLACED.update(n for n in load_replaced() if n in funcs)
+    names, inlined = load_replaced()
+    REPLACED.update(n for n in names if n in funcs)
+    INLINED.update(n for n in inlined if n in funcs)
     for o in objs:
         for group in make_groups(o):
             names = {f.name for f in group}

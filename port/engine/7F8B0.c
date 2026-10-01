@@ -37,11 +37,6 @@ typedef struct LzssIn {
     u32 mask;   /* its next bit ($t4); 0x80: a new byte is due */
 } LzssIn;
 
-/* (the translation of func_802C42CC, which nothing calls now) */
-REGS(a0, a3, t3, t4, s4, s5 -> v0, a0, t3, t4)
-u32 func_802C42CC(u32 src, u32 top, u32 cur, u32 mask, u32 s4, u32 s5, u32 *src_out,
-                  u32 *cur_out, u32 *mask_out);
-
 /* func_802C42CC: as many bits as `top` (a power of two) is wide */
 static u32 lzss_bits(LzssIn *in, u32 top) {
     u32 v = 0;

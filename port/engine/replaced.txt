@@ -172,6 +172,7 @@ func_802AE290
 func_802C4070
 func_802C4108
 func_802C41C0
+func_802C42CC inlined
 func_802C4310
 func_802C444C
 func_802C4584
@@ -223,6 +224,17 @@ func_802A4510
 func_802A45D4
 func_802A467C
 func_802A4CDC
+func_802A470C inlined
+func_802A484C inlined
+func_802A49A8 inlined
+func_802A4A50 inlined
+func_802A4B0C inlined
+func_802A4DE8 inlined
+func_802A4E4C inlined
+func_802A5020 inlined
+func_802A50DC inlined
+func_802A51FC inlined
+func_802A5334 inlined
 
 # 5CB60: the level loader's parts (engine-B)
 func_802A1934
@@ -237,6 +249,7 @@ func_802A3DF8
 func_802A3E9C
 func_802A3F80
 func_802A41B0
+func_802A4168 inlined
 func_802A1C20
 func_802A1EC8
 func_802A20F4
@@ -253,6 +266,7 @@ func_802A2A98
 func_802A2BB0
 func_802A1388
 func_802A133C
+func_802A1558 inlined
 
 # 60F60: the effects' sprite slots (engine-B)
 func_802A5E60
