@@ -43,6 +43,13 @@ option(PORT_MOVABLE "game memory at a base the host chooses, not at 0x80000000" 
 if(PORT_MOVABLE AND PORT_ACCESS_PROFILE)
     message(FATAL_ERROR "PORT_MOVABLE and PORT_ACCESS_PROFILE don't go together (yet)")
 endif()
+# the libaudio oracle's recorder (docs/PORT.md, "The libaudio oracle"):
+# PORT_AUDIO_LOG=FILE logs every libaudio call the game makes, for
+# tools/audio_oracle to replay; a native-endian build at fixed addresses
+option(PORT_AUDIO_RECORD "wrap the game's libaudio calls for the oracle's log" OFF)
+if(PORT_AUDIO_RECORD AND (PORT_MOVABLE OR NOT PORT_NATIVE_ENDIAN OR PORT_LP64))
+    message(FATAL_ERROR "PORT_AUDIO_RECORD is for the native-endian ILP32 build (-DPORT_64BIT=ON -DPORT_NATIVE_ENDIAN=ON)")
+endif()
 if(PORT_LP64)
     set(PORT_64BIT ON CACHE BOOL "" FORCE)
     set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
@@ -260,6 +267,15 @@ endif()
 # the functions the link wraps (the replay's hooks, the overlay, the loaders);
 # the glue calls them by their __wrap_ names itself (gen_glue.py)
 set(PORT_WRAPS func_8028B3E0 func_802D4E10 alCSeqGetLoc func_8025C230 func_8028B4C4 __osContDataCrc)
+if(PORT_AUDIO_RECORD)
+    # (func_802D4E10 and alCSeqGetLoc are the replay's already: it calls the recorder's)
+    list(APPEND PORT_WRAPS alHeapInit alHeapDBAlloc alBnkfNew alSeqFileNew alInit alClose
+        alAudioFrame alLink alUnlink alEvtqNew alEvtqNextEvent alEvtqPostEvent alSynAddPlayer
+        alSynAllocVoice alSynFreeVoice alSynStopVoice alSynStartVoice alSynSetVol alSynSetPan
+        alSynSetPitch alSynSetFXMix alCents2Ratio alCSPNew func_802D81F0 func_802D76C0
+        func_802D97E0 func_802D81B0 alCSPSetVol alCSPGetVol alCSPSetTempo alCSPGetTempo
+        alCSeqNew alCSeqSetLoc)
+endif()
 string(REPLACE ";" "," PORT_WRAPS_LIST "${PORT_WRAPS}")
 if(PORT_MOVABLE)
     # the N64 side is linked into one module (the arena link, below), so
@@ -354,6 +370,9 @@ set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${BLAST} ${BLAST}/include ${SDK_INCLUDES})
 set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
+if(PORT_AUDIO_RECORD)
+    list(APPEND N64_DEFINES PORT_AUDIO_RECORD)
+endif()
 if(PORT_64BIT)
     list(APPEND N64_DEFINES PORT_64BIT)
 endif()
@@ -564,6 +583,9 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c
             -DNAME=hdtext_builtin_ttf -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake
     DEPENDS ${HDTEXT_FONT} ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake)
 add_library(host OBJECT ${HOST_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
+if(PORT_AUDIO_RECORD)
+    target_compile_definitions(host PRIVATE PORT_AUDIO_RECORD)
+endif()
 # the game's threads' context switch (host/fiber.h): ucontext on the one OS
 # thread, or a host thread each, one running at a time.  ucontext is the
 # cheaper switch; macOS has deprecated it and WebAssembly has none.  Where

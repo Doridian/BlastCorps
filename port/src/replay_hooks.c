@@ -14,6 +14,13 @@
 
 s32 __real_func_802D4E10(ALCSPlayer *seqp);
 void __real_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m);
+#ifdef PORT_AUDIO_RECORD
+/* (through the libaudio oracle's recorder, audio_record.c) */
+s32 rec_func_802D4E10(ALCSPlayer *seqp);
+void rec_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m);
+#define __real_func_802D4E10 rec_func_802D4E10
+#define __real_alCSeqGetLoc rec_alCSeqGetLoc
+#endif
 
 /* the caller, by its return address, which host_replay_audio looks up in
    the port's symbol table; the movable build's arena link names it instead
