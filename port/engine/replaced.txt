@@ -441,3 +441,18 @@ func_802B0C74
 func_802B0CE8
 func_802B0D44
 func_802B0D70
+
+# 86F60: the police car (func_802CBD5C and func_802CBDE8 go with 62740's
+# collision dispatch)
+func_802CB720
+func_802CBA94
+func_802CBB60
+func_802CBBBC
+func_802CBC08
+func_802CBD18
+func_802CBEF0
+func_802CC400
+func_802CC56C
+func_802CC70C
+func_802CC844
+func_802CC8B8
