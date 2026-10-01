@@ -7,6 +7,7 @@
 func_8029A914
 func_8029B514
 func_8029B5B8
+func_8029B7CC
 func_8029B930
 func_8029BD0C
 func_8029BEE4

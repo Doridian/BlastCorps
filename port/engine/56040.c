@@ -2383,3 +2383,111 @@ s32 func_8029BD0C(u8 *part, s32 x, s32 y, s32 z, s32 r) {
     }
     return hit;
 }
+
+extern u8 D_803A742C, D_803A742F;
+
+/* the high half of an address's lui */
+#define HI(sym) (((u32) & (sym) + 0x8000) & 0xFFFF0000)
+
+/* The camera's two headings (D_803A7410, D_803A7412) widened to take in
+   a and b (12-bit, wrapped): set to them when unset (0 and 0xFFF).  When
+   that widens the turn between them (func_8029B930) with D_80358064 set,
+   D_803A742F is set, and with D_803A742C (and D_803A742E clear) the
+   count D_803A742D steps on (1 to 8, else up one) and D_803A742E is set. */
+REGS(a0, a1)
+void func_8029B7CC(s32 a, s32 b) {
+    s32 before, h0, h1, d, at;
+
+    ENGINE_BLK(8029B7CC);
+    if (a < 0) {
+        ENGINE_BLK(8029B7DC);
+        a += 0xFFF;
+    }
+    ENGINE_BLK(8029B7E0);
+    if (a >= 0x1000) {
+        ENGINE_BLK(8029B7EC);
+        a -= 0xFFF;
+    }
+    ENGINE_BLK(8029B7F0);
+    if (b < 0) {
+        ENGINE_BLK(8029B7F8);
+        b += 0xFFF;
+    }
+    ENGINE_BLK(8029B7FC);
+    if (b >= 0x1000) {
+        ENGINE_BLK(8029B808);
+        b -= 0xFFF;
+    }
+    ENGINE_BLK(8029B80C);
+    before = func_8029B930();
+    ENGINE_BLK(8029B814);
+    h0 = (u16)D_803A7410;
+    h1 = (u16)D_803A7412;
+    if (h0 == 0) {
+        ENGINE_BLK(8029B834);
+        if (h1 == 0xFFF) {
+            ENGINE_BLK(8029B840);
+            D_803A7410 = a;
+            D_803A7412 = b;
+            ENGINE_LEAVE(1, HI(D_803A7412));
+            ENGINE_LEAVE(5, b);
+            goto done;
+        }
+    }
+    ENGINE_BLK(8029B850);
+    h1 = (u32)h1 << 20;
+    b = (u32)b << 20;
+    h0 = (u32)h0 << 20;
+    a = (u32)a << 20;
+    d = (s32)((u32)b - h1);
+    if (d <= 0) {
+        ENGINE_BLK(8029B868);
+        h1 = b;
+    }
+    ENGINE_BLK(8029B86C);
+    d = (s32)((u32)a - h0);
+    if (d > 0) {
+        ENGINE_BLK(8029B878);
+        h0 = a;
+    }
+    ENGINE_BLK(8029B87C);
+    D_803A7410 = (u32)h0 >> 20;
+    D_803A7412 = (u32)h1 >> 20;
+    ENGINE_LEAVE(5, b);
+    ENGINE_LEAVE(7, d);
+    {
+        s32 after = func_8029B930();
+
+        ENGINE_BLK(8029B8A0);
+        at = before < after;
+    }
+    if (!at)
+        goto leave;
+    ENGINE_BLK(8029B8AC);
+    if (D_80358064 == 0)
+        goto leave;
+    ENGINE_BLK(8029B8BC);
+    D_803A742F = 1;
+    at = HI(D_803A742F);
+    if (D_803A742C == 0)
+        goto leave;
+    ENGINE_BLK(8029B8D8);
+    if (D_803A742E != 0)
+        goto leave;
+    ENGINE_BLK(8029B8E8);
+    if (D_803A742D == 1) {
+        ENGINE_BLK(8029B8FC);
+        d = 8;
+    } else {
+        ENGINE_BLK(8029B904);
+        d = D_803A742D + 1;
+    }
+    ENGINE_BLK(8029B908);
+    D_803A742D = d;
+    D_803A742E = 1;
+    at = HI(D_803A742E);
+leave:
+    ENGINE_LEAVE(1, at);
+done:
+    ENGINE_BLK(8029B91C);
+}
