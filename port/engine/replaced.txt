@@ -23,3 +23,13 @@ func_802ACCCC
 func_802ACE38
 func_802ACF3C
 func_802ACF64
+
+# 69014: an arctangent table
+func_802AD7D4
+func_802AD7FC
+
+# 69944: cos and sin
+func_802AE104
+func_802AE160
+func_802AE1BC
+func_802AE290

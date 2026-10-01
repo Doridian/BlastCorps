@@ -839,6 +839,16 @@ def gen_engine(check, funcs, report):
     import conventions as convmod
     analysis = convmod.conventions(funcs) if replaced else {}
     defs = scan_engine(set(replaced) | set(regs))
+    # a translated function defined in port/engine but not in replaced.txt
+    # would be there twice (its translation and entry.c's wrapper)
+    defined = set()
+    for path in engine_files():
+        text = REGS_RE.sub(" ", strip_comments(open(path).read()))
+        defined |= {m.group(3) for m in DECL_RE.finditer(text) if m.group(5) == "{"}
+    stray = sorted((defined & set(funcs)) - set(replaced))
+    if stray:
+        sys.exit(f"gen_glue.py: port/engine defines {', '.join(stray)}, which replaced.txt doesn't list "
+                 f"(and tools/recomp then still translates: make -C tools/recomp after listing)")
     adapters, cside, check_hdr = {}, [], []
     ext = reaches_extern(funcs)
     ids = []
@@ -965,6 +975,10 @@ def main():
     report = []
     adapters, cside, ecalled, check_hdr, eregs, edefs = gen_engine(check, funcs, report) \
         if engine_files() else ({}, [], set(), [], {}, {})
+    stale = sorted(set(rfuncs) & set(load_replaced(funcs)))
+    if stale:
+        sys.exit(f"gen_glue.py: {', '.join(stale[:5])}... are in port/engine/replaced.txt but still "
+                 f"translated: make -C tools/recomp")
     entries = sorted(set(rfuncs) & (cnames | ecalled))
     info = scan(set(entries) | set(externs))
     live = {n: {liveness.regname(r) for r in s} for n, s in liveness.liveness(funcs).items()}
