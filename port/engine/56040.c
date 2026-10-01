@@ -2491,3 +2491,137 @@ leave:
 done:
     ENGINE_BLK(8029B91C);
 }
+
+REGS(v1 -> fp)
+s32 func_802AD7FC(u32 x);
+
+/* a double's or a 64-bit integer's two FPR words */
+#define LEAVE_FPAIR(fpr, v)                                                 \
+    do {                                                                    \
+        u64 b_ = (v);                                                       \
+        ENGINE_LEAVE_FW((fpr), (u32)b_);                                    \
+        ENGINE_LEAVE_FW((fpr) + 1, (u32)(b_ >> 32));                        \
+    } while (0)
+
+static u64 f64_bits(f64 d) {
+    union {
+        f64 d;
+        u64 u;
+    } u;
+
+    u.d = d;
+    return u.u;
+}
+
+/* The part's heading in the ground plane (0x4C, 12-bit) from its
+   triangle's normal (corners / 8 at 0x28): the arctangent
+   (func_802AD7FC) of the normal's x over its length across, by quadrant;
+   turned half round (0x56 set) when the corner moved 100 along the
+   normal lies on the other side of the plane (func_8029D90C) than the
+   origin does */
+REGS(s0)
+void func_8029D56C(u8 *part) {
+    u32 *w = (u32 *)(part + 0x28);
+    s32 x1 = w[0] >> 3, y1 = w[1] >> 3, z1 = w[2] >> 3, x2 = w[3] >> 3, y2 = w[4] >> 3, z2 = w[5] >> 3;
+    s32 x3 = w[6] >> 3, y3 = w[7] >> 3, z3 = w[8] >> 3, h, px, py, pz;
+    s64 ey3 = y3 - y1, ez2 = z2 - z1, ez3 = z3 - z1, ey2 = y2 - y1, ex2 = x2 - x1, ex3 = x3 - x1;
+    s64 nx, ny, nz, ax, az, num, len, q, dn, nb, nc, nd, side;
+    f64 f0, f2, f4, f6;
+    s64 l2, l4, l6;
+
+    ENGINE_BLK(8029D56C);
+    nx = (s64)((u64)ey3 * (u64)ez2 - (u64)ez3 * (u64)ey2);
+    ny = (s64)((u64)ez3 * (u64)ex2 - (u64)ex3 * (u64)ez2);
+    nz = (s64)((u64)ex3 * (u64)ey2 - (u64)ey3 * (u64)ex2);
+    ax = nx;
+    if (nx < 0) {
+        ENGINE_BLK(8029D6B0);
+        ax = -nx;
+    }
+    ENGINE_BLK(8029D6B4);
+    az = nz;
+    if (nz < 0) {
+        ENGINE_BLK(8029D6BC);
+        az = -nz;
+    }
+    ENGINE_BLK(8029D6C0);
+    num = (s64)((u64)ax << 16);
+    len = engine_cvt_l_d(__builtin_sqrt((f64)(s64)((u64)az * (u64)az + (u64)ax * (u64)ax)));
+    if (len == 0) {
+        ENGINE_BLK(8029D70C);
+        engine_break(0x8029D70C, 7);
+    }
+    ENGINE_BLK(8029D710);
+    if (len == -1) {
+        ENGINE_BLK(8029D71C);
+        if ((u64)num == (u64)1 << 63) {
+            ENGINE_BLK(8029D728);
+            engine_break(0x8029D728, 6);
+        }
+    }
+    ENGINE_BLK(8029D72C);
+    q = num / len;
+    h = func_802AD7FC((u32)q);
+    ENGINE_BLK(8029D738);
+    h = (u32)h >> 4;
+    if (nx < 0) {
+        ENGINE_BLK(8029D740);
+        if (nz < 0) {
+            ENGINE_BLK(8029D754);
+            h += 0x800;
+        } else {
+            ENGINE_BLK(8029D748);
+            h = 0xFFF - h;
+        }
+    } else {
+        ENGINE_BLK(8029D75C);
+        if (nz < 0) {
+            ENGINE_BLK(8029D764);
+            h = 0x800 - h;
+        }
+    }
+    ENGINE_BLK(8029D76C);
+    f0 = __builtin_sqrt((f64)(s64)((u64)nx * (u64)nx + (u64)ny * (u64)ny + (u64)nz * (u64)nz));
+    f2 = (f64)nx / f0;
+    f4 = (f64)ny / f0;
+    f2 = f2 * 100.0;
+    l2 = engine_cvt_l_d(f2);
+    px = x1 + (s32)l2;
+    f6 = (f64)nz / f0;
+    f4 = f4 * 100.0;
+    l4 = engine_cvt_l_d(f4);
+    py = y1 + (s32)l4;
+    f6 = f6 * 100.0;
+    l6 = engine_cvt_l_d(f6);
+    pz = z1 + (s32)l6;
+    dn = func_8029D90C(part, &nb, &nc, &nd);
+    ENGINE_BLK(8029D81C);
+    part[0x56] = 0;
+    side = (s64)((u64)(s64)px * (u64)dn + (u64)(s64)py * (u64)nb + (u64)(s64)pz * (u64)nc + (u64)nd);
+    if (side > 0) {
+        ENGINE_BLK(8029D868);
+        if (nd > 0)
+            goto done;
+    } else {
+        ENGINE_BLK(8029D858);
+        if (nd < 0)
+            goto done;
+        ENGINE_BLK(8029D860);
+    }
+    ENGINE_BLK(8029D870);
+    h -= 0x800;
+    part[0x56] = 1;
+    if (h < 0) {
+        ENGINE_BLK(8029D880);
+        h += 0xFFF;
+    }
+done:
+    ENGINE_BLK(8029D884);
+    *(s16 *)(part + 0x4C) = h;
+    /* (what it leaves: the FPU's last values) */
+    LEAVE_FPAIR(0, f64_bits(f0));
+    LEAVE_FPAIR(2, (u64)l2);
+    LEAVE_FPAIR(4, (u64)l4);
+    LEAVE_FPAIR(6, (u64)l6);
+    LEAVE_FPAIR(8, f64_bits(100.0));
+}
