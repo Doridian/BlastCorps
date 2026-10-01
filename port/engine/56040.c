@@ -3040,3 +3040,131 @@ s32 func_8029A800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s
     ENGINE_BLK(8029A900);
     return v;
 }
+
+extern u8 D_803B67C0[], D_803B37C0[];   /* a blend's animation, built and its copy */
+
+/* the frame of the animation in part p's state (spline: func_8029FFA0;
+   key frames: func_802A0118) for its record rec, into out */
+static u8 *anim_frame(u8 *p, u8 *rec, u8 *out, s32 *t5) {
+    if (p[0x15] == 0) {
+        u8 *k = rec + (s8)p[0x13] * 0x14 + 8;
+
+        *t5 = (u32)k;
+        ENGINE_LEAVE_F(30, *(f32 *)(p + 4));
+        func_802A0118((s16 *)k, (s16 *)out, *(f32 *)(p + 4));
+    } else {
+        *t5 = (u32)rec;
+        func_8029FFA0(p, rec, (s16 *)out);
+    }
+    return out + 0x14;
+}
+
+/* A blend of the animations of parts[a] and parts[b] (0x18 each): a
+   two-key animation (speeds 1) whose parts are those both have, each with
+   its frame in a and in b, built at D_803B67C0 and kept at D_803B37C0 for
+   parts[31] (from its start) */
+REGS(v0, v1, a0)
+void func_8029F9D4(s32 a, s32 b, u8 *parts) {
+    u8 *pa = parts + a * 0x18, *pb = parts + b * 0x18, *da = *(u8 *PTR32 *)pa, *db = *(u8 *PTR32 *)pb;
+    u8 *ra, *rb, *rb0, *out = D_803B67C0 + 4, *p31;
+    s32 na = da[da[0] + 1], nb = db[db[0] + 1], sa = da[0] * 0x14 + 8, sb = db[0] * 0x14 + 8, n = 0, j;
+    s32 t5;
+    u32 *s, *d;
+
+    ENGINE_BLK(8029F9D4);
+    D_803B67C0[0] = 2;
+    D_803B67C0[1] = 1;
+    D_803B67C0[2] = 1;
+    ra = da + da[0] + 2;
+    if ((u32)ra & 3) {
+        ENGINE_BLK(8029FA94);
+        ra += 4 - ((u32)ra & 3);
+    }
+    ENGINE_BLK(8029FAA0);
+    rb0 = db + db[0] + 2;
+    t5 = (u32)(db + db[0]);
+    if ((u32)rb0 & 3) {
+        ENGINE_BLK(8029FAC8);
+        rb0 += 4 - ((u32)rb0 & 3);
+    }
+    for (;;) {
+        ENGINE_BLK(8029FAD4);
+        if (na == 0)
+            break;
+        ENGINE_BLK(8029FADC);
+        rb = rb0;
+        for (j = nb;; j--, rb += sb) {
+            ENGINE_BLK(8029FAE8);
+            if (j == 0)
+                goto next;
+            ENGINE_BLK(8029FAF0);
+            t5 = *(s32 *)rb;
+            if (*(u32 *)ra == *(u32 *)rb)
+                break;
+            ENGINE_BLK(8029FAFC);
+        }
+        ENGINE_BLK(8029FB08);
+        ((u32 *)out)[0] = *(u32 *)ra;
+        ((u32 *)out)[1] = t5 = ((s32 *)ra)[1];
+        out += 8;
+        n++;
+        ENGINE_LEAVE(1, 1);
+        if (pa[0x15] != 0) {
+            ENGINE_BLK(8029FB28);
+            if (pa[0x15] != 1) {
+                ENGINE_BLK(8029FB30);
+                engine_syscall(0x8029FB30);
+            }
+            ENGINE_BLK(8029FB34);
+            out = anim_frame(pa, ra, out, &t5);
+            ENGINE_BLK(8029FB40);
+        } else {
+            ENGINE_BLK(8029FB48);
+            out = anim_frame(pa, ra, out, &t5);
+        }
+        ENGINE_BLK(8029FB68);
+        ENGINE_LEAVE(1, 1);
+        if (pb[0x15] != 0) {
+            ENGINE_BLK(8029FB74);
+            if (pb[0x15] != 1) {
+                ENGINE_BLK(8029FB7C);
+                engine_syscall(0x8029FB7C);
+            }
+            ENGINE_BLK(8029FB80);
+            out = anim_frame(pb, rb, out, &t5);
+            ENGINE_BLK(8029FB8C);
+        } else {
+            ENGINE_BLK(8029FB94);
+            out = anim_frame(pb, rb, out, &t5);
+        }
+    next:
+        ENGINE_BLK(8029FBB4);
+        ra += sa;
+        na--;
+    }
+    ENGINE_BLK(8029FBC0);
+    D_803B67C0[3] = n;
+    p31 = parts + 0x2E8;
+    p31[0x10] = 0;
+    p31[0x11] = 0;
+    p31[0x12] = 0;
+    p31[0x15] = 0;
+    p31[0x13] = 0;
+    *(u8 *PTR32 *)p31 = D_803B37C0;
+    *(f32 *)(p31 + 4) = 0.0f;
+    s = (u32 *)D_803B67C0;
+    d = (u32 *)D_803B37C0;
+    for (j = 0x1800;;) {
+        ENGINE_BLK(8029FC04);
+        if (j == 0)
+            break;
+        ENGINE_BLK(8029FC0C);
+        d[0] = s[0];
+        d[1] = s[1];
+        d += 2, s += 2;
+        j -= 8;
+    }
+    ENGINE_BLK(8029FC24);
+    ENGINE_LEAVE(13, t5);
+    ENGINE_LEAVE_F(0, 0.0f);
+}
