@@ -2045,3 +2045,139 @@ void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
     ENGINE_LEAVE(16, 0);
     ENGINE_LEAVE(17, (u32)rec);
 }
+
+REGS(v0, v1, a0, a1, a2, s4, s0, s1, s2 -> v0, v1, a0, s1, s2)
+s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s1, s32 s2, s32 *y_out, s32 *z_out,
+                  s32 *s1_out, s32 *s2_out);
+
+/* An object's points (from p to end: its first (x, y, z), then records of
+   three s16s, the matrices' count and offsets) into D_803A7300's record
+   of id (the first, as it is) and D_803A6B30's from the first of id on
+   (each through its matrices at base, func_802AA890) */
+REGS(t0, t1, t2, v0, v1, a0, s4, s0, s1, s2)
+void func_8029C454(s32 id, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0, s32 s1, s32 s2) {
+    u8 *r = D_803A7300;
+    s16 *h;
+    s32 ry, rz, called = 0;
+
+    ENGINE_BLK(8029C454);
+    for (;;) {
+        ENGINE_BLK(8029C480);
+        if (r[0x10] == id)
+            break;
+        r += 0x14;
+    }
+    ENGINE_BLK(8029C48C);
+    p += 4;
+    ((s32 *)r)[0] = x;
+    ((s32 *)r)[1] = y;
+    ((s32 *)r)[2] = z;
+    r[0x11] = 1;
+    if (p == end)
+        goto done;
+    ENGINE_BLK(8029C4A8);
+    for (r = D_803A6B30;;) {
+        ENGINE_BLK(8029C4B0);
+        if (r[0x12] == id)
+            break;
+        r += 0x14;
+    }
+    for (;;) {
+        ENGINE_BLK(8029C4BC);
+        if (p == end)
+            break;
+        ENGINE_BLK(8029C4C4);
+        h = (s16 *)p;
+        x = func_802AA890(h[0], h[1], h[2], (u16)h[5], (s32 *)(p + 0xC), base, s0, s1, s2, &ry, &rz, &s1, &s2);
+        called = 1;
+        ENGINE_BLK(8029C4DC);
+        ((s32 *)r)[0] = x;
+        ((s32 *)r)[1] = ry;
+        ((s32 *)r)[2] = rz;
+        r[0x13] = 1;
+        p += (u16)h[5] * 4 + 0xC;
+        r += 0x14;
+    }
+done:
+    ENGINE_BLK(8029C504);
+    if (called) {
+        ENGINE_LEAVE(17, s1);
+        ENGINE_LEAVE(18, s2);
+    }
+    ENGINE_LEAVE(9, (u32)p);
+}
+
+/* Whether (px, pz) is inside the triangle (x0, z0), (x1, z1), (x2, z2):
+   on the same side of each edge as a point inside (between the third
+   corner and the first edge's middle), an edge it lies on not counting
+   ($t7) */
+REGS(v0, v1, a0, a1, a2, a3, t0, t1, f24 -> t7)
+s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz, f32 f24) {
+    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, f2 = 0.0f, f4, f14, f22 = 2.0f, f26 = 0.0f, f28;
+    s32 e = 4, in = 1, at = 3, ex, ez;
+
+    ENGINE_BLK(8029BF64);
+    cx = (f32)(x0 + x1) / 2.0f;
+    cz = (f32)(z0 + z1) / 2.0f;
+    cx = ((f32)x2 + cx) / 2.0f;
+    cz = ((f32)z2 + cz) / 2.0f;
+    for (;;) {
+        ENGINE_BLK(8029BFE4);
+        at = 3;
+        if (--e == 0)
+            break;
+        ENGINE_BLK(8029BFF0);
+        at = 2;                         /* (the delay slot's, either way) */
+        if (e == 3) {
+            ENGINE_BLK(8029C038);
+            f2 = (f32)x0, f4 = (f32)z0;
+            ez = z1 - z0, ex = x1 - x0;
+        } else {
+            if (e == 2) {
+                ENGINE_BLK(8029BFF8);
+                ENGINE_BLK(8029C01C);
+                f2 = (f32)x0, f4 = (f32)z0;
+                ez = z2 - z0, ex = x2 - x0;
+            } else {
+                ENGINE_BLK(8029BFF8);
+                ENGINE_BLK(8029C000);
+                f2 = (f32)x1, f4 = (f32)z1;
+                ez = z2 - z1, ex = x2 - x1;
+            }
+        }
+        ENGINE_BLK(8029C050);
+        f26 = (f32)ez;
+        f28 = (f32)ex;
+        f14 = (fpx - f2) * f26;
+        f14 = f14 - (fpz - f4) * f28;
+        if (f14 == 0.0f)
+            continue;
+        ENGINE_BLK(8029C080);
+        f22 = (cx - f2) * f26;
+        f24 = (cz - f4) * f28;
+        f22 = f22 - f24;
+        if (!(f14 > 0.0f)) {
+            ENGINE_BLK(8029C09C);
+            if (f22 < 0.0f)
+                continue;
+            ENGINE_BLK(8029C0A8);
+        } else {
+            ENGINE_BLK(8029C0B0);
+            if (f22 > 0.0f)
+                continue;
+        }
+        ENGINE_BLK(8029C0BC);
+        in = 0;
+        break;
+    }
+    ENGINE_BLK(8029C0C0);
+    ENGINE_LEAVE(1, at);
+    ENGINE_LEAVE(10, e);
+    ENGINE_LEAVE_F(0, 0.0f);
+    ENGINE_LEAVE_F(2, f2);
+    ENGINE_LEAVE_F(20, cz);
+    ENGINE_LEAVE_F(22, f22);
+    ENGINE_LEAVE_F(24, f24);
+    ENGINE_LEAVE_F(26, f26);
+    return in;
+}
