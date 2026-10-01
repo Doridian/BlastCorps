@@ -121,6 +121,36 @@ REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
 s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2);
 REGS(a3, t3, t4, t5)
 void func_802ABD54(s32 type, s32 x, s32 y, s32 z);
+REGS(t5 -> t5)
+s32 func_802A8314(s32 v);
+REGS(t3, t6, s0, s7, t8 -> f12, t3)
+f32 func_802A83B8(s32 t3, s16 *speed, u8 *flags, s32 *pos, f32 *ratio, s32 *t3_out);
+REGS(s7 -> t1)
+s32 func_802A8590(s32 *s7);
+REGS(t4, t6, t7, s1, f12 -> t0, t1)
+s32 func_802A860C(s32 angle, s16 *speed, s32 *x, s32 *z, f32 rate, s32 *z_out);
+REGS(t3, t6, t7, s0, s1, s2, gp -> t2, t3)
+s32 func_802A785C(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, VS *vs, s32 *step_out);
+REGS(t3, t6, t7, s0, s1, s2, s3, s4, gp -> t2, t3, s3)
+s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, s32 rate, u16 *h, VS *vs,
+                  s32 *step_out, s32 *turn_out);
+REGS(t6, s1, s2, gp)
+void func_802A7B3C(s16 *speed, s16 *rows, s32 brake, VS *vs);
+void func_802A8FB4(void);
+REGS(gp)
+void func_802A8FF4(VS *vs);
+REGS(gp)
+void func_802A9038(VS *vs);
+REGS(v1)
+void func_802A90E4(u16 *g);
+REGS(s0, t8, gp)
+void func_802A9164(u8 *flags, s32 type, VS *vs);
+REGS(v0, v1, s4 -> t5, t6)
+s32 func_802A94A4(s32 i, s16 *pts, s16 *a, s32 *z_out);
+REGS(s3 -> s3)
+s32 func_802A9514(s32 v);
+REGS(v0, a1, a2, a3, t2, s3)
+void func_802A9540(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 v);
 
 /* 679E0 */
 void func_802AC1A0(s32 radius);
