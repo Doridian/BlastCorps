@@ -262,3 +262,11 @@ func_802C1DD0
 func_802C1EE0
 func_802C1F30
 func_802C2054
+
+# hd_front_end 1B100: the front end's vehicle models (engine-D)
+func_80202100
+func_802021FC
+func_80202270
+func_802022EC
+func_80202380
+func_802025D0
