@@ -1638,3 +1638,164 @@ void func_802A133C(s32 x, s32 y, s32 z, s32 type, VS *vs) {
     v->z = z;
     v->unk70 = ((u8 *)vs)[0x9B];
 }
+
+/* ---- the vehicles' and the cargo's model files -------------------------- */
+
+extern u8 D_0048FE90[], D_004903C0[], D_00490AC0[], D_00491E00[], D_004929D0[], D_00494390[],
+    D_00496AD0[], D_00497AF0[], D_004989E0[], D_00499690[], D_0049AD20[], D_0049B630[],
+    D_0049BCE0[], D_0049C480[], D_0049E8E0[], D_0049F7A0[], D_0049FF70[], D_004A0720[],
+    D_004A1000[], D_004A1690[], D_004A4120[], D_004A5660[];
+REGS(s0, s1, s2)
+void func_8029DF78(u32 dl, u32 end, u32 type);
+
+#define R_S2 18
+#define R_S4 20
+#define R_S5 21
+#define R_S6 22
+
+#define MODEL_TEST(b_test, ty, b_go, s, e)                                  \
+    ENGINE_BLK(b_test);                                                     \
+    if (type == (ty)) {                                                     \
+        ENGINE_BLK(b_go);                                                   \
+        start = (u32)(s);                                                   \
+        end = (u32)(e);                                                     \
+        goto found;                                                         \
+    }
+
+/* func_802A396C: vehicle model `type` (or the carrier's 0xFF, the J-Bomb's
+   0xFE, the chopper's 0xFD, the extra models 0x96 and 0x98): returns it
+   ($s2), its display list's textures put in (8029DF78 and 802A08E4) */
+REGS(t3 -> s2)
+u32 func_802A396C(u32 type) {
+    u32 start, end, size, src, dst, top, s2, s3, s4, s5, s6;
+    u8 *m;
+
+    ENGINE_BLK(802A396C);
+    if (type == 0) {
+        ENGINE_BLK(802A3A5C);
+        start = (u32)D_00491E00;
+        end = (u32)D_004929D0;
+        goto found;
+    }
+    MODEL_TEST(802A39A4, 0x01, 802A3A74, D_004929D0, D_00494390)
+    MODEL_TEST(802A39B0, 0x02, 802A3A8C, D_00494390, D_00496AD0)
+    MODEL_TEST(802A39B8, 0x10, 802A3AA4, D_004A1690, D_004A4120)
+    MODEL_TEST(802A39C0, 0x03, 802A3ABC, D_00490AC0, D_00491E00)
+    MODEL_TEST(802A39C8, 0x04, 802A3AD4, D_00496AD0, D_00497AF0)
+    MODEL_TEST(802A39D0, 0x05, 802A3AEC, D_00497AF0, D_004989E0)
+    MODEL_TEST(802A39D8, 0x06, 802A3B04, D_0049AD20, D_0049B630)
+    MODEL_TEST(802A39E0, 0x07, 802A3B1C, D_0049B630, D_0049BCE0)
+    MODEL_TEST(802A39E8, 0x08, 802A3B34, D_0049BCE0, D_0049C480)
+    MODEL_TEST(802A39F0, 0x09, 802A3B4C, D_0049C480, D_0049E8E0)
+    MODEL_TEST(802A39F8, 0x0A, 802A3B64, D_0049E8E0, D_0049F7A0)
+    MODEL_TEST(802A3A00, 0x0B, 802A3B7C, D_0049F7A0, D_0049FF70)
+    MODEL_TEST(802A3A08, 0x11, 802A3B7C, D_0049F7A0, D_0049FF70)
+    MODEL_TEST(802A3A10, 0x12, 802A3B7C, D_0049F7A0, D_0049FF70)
+    MODEL_TEST(802A3A18, 0x0D, 802A3B94, D_0049FF70, D_004A0720)
+    MODEL_TEST(802A3A20, 0x0E, 802A3BAC, D_004A0720, D_004A1000)
+    MODEL_TEST(802A3A28, 0x0F, 802A3BC4, D_004A1000, D_004A1690)
+    MODEL_TEST(802A3A30, 0xFE, 802A3BDC, D_004989E0, D_00499690)
+    MODEL_TEST(802A3A38, 0xFF, 802A3BF4, D_00499690, D_0049AD20)
+    MODEL_TEST(802A3A40, 0xFD, 802A3C0C, D_004A4120, D_004A5660)
+    MODEL_TEST(802A3A48, 0x96, 802A3C24, D_004903C0, D_00490AC0)
+    MODEL_TEST(802A3A50, 0x98, 802A3C3C, D_0048FE90, D_004903C0)
+    ENGINE_BLK(802A3A58);
+    *(volatile u32 *)0 = 0;     /* (the original's syscall: an unknown type) */
+found:
+    size = end - start;
+    ENGINE_LEAVE(R_S4, start);
+    ENGINE_LEAVE(R_S5, size);
+    ENGINE_LEAVE(R_S7, INIT_AREA);
+    ENGINE_LEAVE(R_S2, type);
+    ENGINE_BLK(802A3C54);
+    osInvalDCache((void *)INIT_AREA, size);
+    ENGINE_BLK(802A3C70);
+    osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, start, (void *)INIT_AREA, size,
+                 &D_803150A0);
+    ENGINE_BLK(802A3C9C);
+    osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
+    ENGINE_BLK(802A3CB0);
+    src = func_802C4108(INIT_AREA, (u32)D_80358070, GZIP_WINDOW, &dst);
+    ENGINE_BLK(802A3CCC);
+    src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
+    ENGINE_BLK(802A3CD4);
+    ENGINE_LEAVE(R_A0, src);
+    ENGINE_LEAVE(R_A2, GZIP_WINDOW);
+    ENGINE_LEAVE(R_A3, 0xA);
+    top = func_802A44E4(dst);
+    ENGINE_LEAVE(R_A1, top);
+    ENGINE_BLK(802A3CDC);
+    m = D_80358070;
+    D_80358070 = (u8 *)top;
+    ENGINE_LEAVE(R_S7, (u32)m);
+    func_8029DF78((u32)AT(m, 0x1C), (u32)AT(m, 0x20), type);
+    ENGINE_BLK(802A3D04);
+    s2 = func_802A08E4((u32)AT(m, 0x1C), (u32)AT(m, 0x20), ENGINE_REG(R_S4), &s3, &s4, &s5, &s6);
+    ENGINE_LEAVE(R_S4, s4);
+    ENGINE_LEAVE(R_S5, s5);
+    ENGINE_LEAVE(R_S6, s6);
+    ENGINE_BLK(802A3D18);
+    ENGINE_LEAVE(R_S2, (u32)m);
+    return (u32)m;
+}
+
+/* func_802A32CC: the carrier's cargo model `type` (the vehicles 3, 4, 5, 8,
+   9, 10, 13, 14, 15): returns it ($s2), its display list's textures put in */
+REGS(t3 -> s2)
+u32 func_802A32CC(u32 type) {
+    u32 start, end, size, src, dst, top, s2, s3, s4, s5, s6;
+    u8 *m;
+
+    ENGINE_BLK(802A32CC);
+    if (type == 3) {
+        ENGINE_BLK(802A334C);
+        start = (u32)D_00490AC0;
+        end = (u32)D_00491E00;
+        goto found;
+    }
+    MODEL_TEST(802A3304, 0x04, 802A3364, D_00496AD0, D_00497AF0)
+    MODEL_TEST(802A3310, 0x05, 802A337C, D_00497AF0, D_004989E0)
+    MODEL_TEST(802A3318, 0x08, 802A3394, D_0049BCE0, D_0049C480)
+    MODEL_TEST(802A3320, 0x09, 802A33AC, D_0049C480, D_0049E8E0)
+    MODEL_TEST(802A3328, 0x0A, 802A33C4, D_0049E8E0, D_0049F7A0)
+    MODEL_TEST(802A3330, 0x0D, 802A33DC, D_0049FF70, D_004A0720)
+    MODEL_TEST(802A3338, 0x0E, 802A33F4, D_004A0720, D_004A1000)
+    MODEL_TEST(802A3340, 0x0F, 802A340C, D_004A1000, D_004A1690)
+    ENGINE_BLK(802A3348);
+    *(volatile u32 *)0 = 0;     /* (the original's syscall) */
+found:
+    size = end - start;
+    ENGINE_LEAVE(R_S4, start);
+    ENGINE_LEAVE(R_S5, size);
+    ENGINE_LEAVE(R_S7, INIT_AREA);
+    ENGINE_LEAVE(R_S2, type);
+    ENGINE_BLK(802A3424);
+    osInvalDCache((void *)INIT_AREA, size);
+    ENGINE_BLK(802A3440);
+    osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, start, (void *)INIT_AREA, size,
+                 &D_803150A0);
+    ENGINE_BLK(802A346C);
+    osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
+    ENGINE_BLK(802A3480);
+    src = func_802C4108(INIT_AREA, (u32)D_80358070, GZIP_WINDOW, &dst);
+    ENGINE_BLK(802A349C);
+    src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
+    ENGINE_BLK(802A34A4);
+    ENGINE_LEAVE(R_A0, src);
+    ENGINE_LEAVE(R_A2, GZIP_WINDOW);
+    ENGINE_LEAVE(R_A3, 0xA);
+    top = func_802A44E4(dst);
+    ENGINE_LEAVE(R_A1, top);
+    ENGINE_BLK(802A34AC);
+    m = D_80358070;
+    D_80358070 = (u8 *)top;
+    ENGINE_LEAVE(R_S7, (u32)m);
+    s2 = func_802A08E4((u32)AT(m, 0x1C), (u32)AT(m, 0x20), ENGINE_REG(R_S4), &s3, &s4, &s5, &s6);
+    ENGINE_LEAVE(19, s3);
+    ENGINE_LEAVE(R_S4, s4);
+    ENGINE_LEAVE(R_S5, s5);
+    ENGINE_LEAVE(R_S6, s6);
+    ENGINE_BLK(802A34D4);
+    ENGINE_LEAVE(R_S2, (u32)m);
+    return (u32)m;
+}
