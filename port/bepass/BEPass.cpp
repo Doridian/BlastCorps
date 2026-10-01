@@ -236,6 +236,12 @@ struct BEPass : PassInfoMixin<BEPass> {
         LLVMContext &c = f.getContext();
         bool changed = false;
         for (Instruction *i : work) {
+            /* the port's own counters (__port_icount, which the engine's
+               replacement adds to) are host data */
+            if (Value *p = getLoadStorePointerOperand(i))
+                if (auto *g = dyn_cast<GlobalVariable>(getUnderlyingObject(p)))
+                    if (g->getName().starts_with("__port_"))
+                        continue;
             if (auto *ld = dyn_cast<LoadInst>(i)) {
                 Type *t = ld->getType();
                 if (t->isVectorTy() || t->isStructTy() || t->isArrayTy())

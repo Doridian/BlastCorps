@@ -56,7 +56,7 @@ static unsigned ntrace_o, ntrace_n, *ntrace_cur;
 static unsigned long *ncalls, *nchecked, *nfailed;
 static unsigned long first_n = 2000;
 
-extern uint32_t __port_icount_c;
+extern uint32_t __port_icount, __port_icount_c;
 
 static void report(void) {
     unsigned long tot = 0, bad = 0;
