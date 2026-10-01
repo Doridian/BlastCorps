@@ -4043,3 +4043,226 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
     ENGINE_LEAVE(10, f);
     engine_restore();
 }
+
+/* (D_80364460: the models, 0x74 bytes: the id at 0x5C, the display lists at 0xC and 0x30) */
+
+/* A texture (kind, for animation id) into a free record of D_803A7440
+   (the one past them when none is free) through func_802A1074; returns
+   the physical address of its data, 0x10 on ($s1) */
+REGS(t3, t6, fp -> s1)
+u32 func_8029E47C(s32 id, s32 kind, s32 fp) {
+    u8 *r = D_803A7440;
+    s32 n = 12, a2 = 0, read = 0;
+    u32 dst;
+
+    ENGINE_BLK(8029E47C);
+    for (;;) {
+        ENGINE_BLK(8029E490);
+        if (n == 0) {
+            ENGINE_BLK(8029E4B0);
+            break;
+        }
+        ENGINE_BLK(8029E498);
+        a2 = r[6], read = 1;
+        n--;
+        if (a2 == 0)
+            break;
+        ENGINE_BLK(8029E4A8);
+        r += 0x1010;
+    }
+    ENGINE_BLK(8029E4B4);
+    *(s32 *)r = id;
+    *(u16 *)(r + 4) = kind;
+    r[6] = 1;
+    r[7] = 0;
+    dst = (u32)(r + 0x10);
+    if (read)
+        ENGINE_LEAVE(6, a2);
+    func_802A1074(kind, dst, fp);
+    ENGINE_BLK(8029E4D0);
+    return dst - 0x80000000;
+}
+
+/* A texture animation one frame on (its state at a: the descriptor T at 0,
+   the fraction at 4, the key at 0x13; T: an id, the key count n, the
+   textures a frame c, a second texture's flag, n per-key speeds, then the
+   frames' texture kinds): the textures still in use counted (D_803A7440's
+   0x7), the state stepped (func_8029F1BC, the rate from the speeds / 300),
+   each of the frame's textures found (func_8029E4E4) or loaded
+   (func_8029E47C) and put into the model's display list where D_803B3500
+   says (with the second texture and the fraction as G_SETPRIMCOLOR's),
+   and the textures no frame uses any more freed */
+REGS(t0, fp)
+void func_8029E21C(u8 *a, s32 fp) {
+    u8 *T = *(u8 *PTR32 *)a, *r, *m, *e, *dl, *end;
+    s32 k, n, c, second, i, idx, a3 = 0, a3set = 0, s6set = 0;
+    u16 *h1, *h2;
+    u32 s1 = 0, s5 = 0, *w;
+    f32 t = *(f32 *)(a + 4), rate;
+
+    ENGINE_BLK(8029E21C);
+    for (r = D_803A7440, n = 12;; r += 0x1010) {
+        ENGINE_BLK(8029E238);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029E240);
+        n--;
+        if (*(u32 *)r != (u32)T)
+            goto next1;
+        ENGINE_BLK(8029E250);
+        if (r[6] == 0)
+            goto next1;
+        ENGINE_BLK(8029E25C);
+        r[7]++;
+    next1:
+        ENGINE_BLK(8029E268);
+    }
+    ENGINE_BLK(8029E270);
+    k = (s8)a[0x13];
+    {
+        u16 *sp = (u16 *)(T + 4 + k * 2);
+
+        rate = (f32)(sp[1] - sp[0]) * t + (f32)sp[0];
+        rate = rate / 300.0f;
+    }
+    ENGINE_LEAVE(1, 0x43960000);
+    k = func_8029F1BC(a, k, T[1], rate, t, &t);
+    ENGINE_BLK(8029E2BC);
+    c = T[2];
+    second = T[3];
+    h1 = (u16 *)(T + T[1] * 2 + 4 + c * 2 * k);
+    h2 = h1 + c;
+    ENGINE_LEAVE(19, second);
+    for (idx = -1;;) {
+        ENGINE_BLK(8029E2E8);
+        if (c == 0)
+            break;
+        ENGINE_BLK(8029E2F0);
+        c--;
+        idx++;
+        s1 = func_8029E4E4(*h1, (s32)T);
+        h1++;
+        ENGINE_BLK(8029E304);
+        if (s1 == 0) {
+            ENGINE_BLK(8029E30C);
+            s1 = func_8029E47C((s32)T, h1[-1], fp);
+        }
+        ENGINE_BLK(8029E314);
+        s5 = s1;
+        if (second != 0) {
+            ENGINE_BLK(8029E31C);
+            s1 = func_8029E4E4(*h2, (s32)T);
+            h2++;
+            ENGINE_BLK(8029E328);
+            if (s1 == 0) {
+                ENGINE_BLK(8029E330);
+                s1 = func_8029E47C((s32)T, h2[-1], fp);
+            }
+        }
+        ENGINE_BLK(8029E338);
+        for (m = (u8 *)D_80364460;; m += 0x74) {
+            ENGINE_BLK(8029E350);
+            if (*(u32 *)(m + 0x5C) == T[0])
+                break;
+            ENGINE_BLK(8029E35C);
+        }
+        ENGINE_BLK(8029E364);
+        if (D_8035805C != 0) {
+            ENGINE_BLK(8029E36C);
+            dl = *(u8 *PTR32 *)(m + 0xC);
+        } else {
+            ENGINE_BLK(8029E374);
+            dl = *(u8 *PTR32 *)(m + 0x30);
+        }
+        ENGINE_BLK(8029E378);
+        ENGINE_LEAVE(4, (u32)dl);
+        end = D_803B35F0;
+        for (e = D_803B3500;; e += 0xC) {
+            ENGINE_BLK(8029E38C);
+            if (e == end)
+                break;
+            ENGINE_BLK(8029E394);
+            if (*(u32 *)e != (u32)T)
+                goto next2;
+            ENGINE_BLK(8029E3A0);
+            if (((s32 *)e)[2] != idx)
+                goto next2;
+            ENGINE_BLK(8029E3AC);
+            *(u32 *)(dl + ((s32 *)e)[1]) = s5;
+            if (second == 0)
+                goto next2;
+            ENGINE_BLK(8029E3BC);
+            s6set = 1;
+            w = (u32 *)(dl + ((s32 *)e)[4]);
+            e += 0xC;
+            *w++ = s1;
+            for (;;) {
+                u32 cmd;
+
+                ENGINE_BLK(8029E3D4);
+                cmd = *w;
+                w += 2;
+                if ((cmd & 0xFF000000) >> 24 == 0xFA)
+                    break;
+            }
+            ENGINE_BLK(8029E3F0);
+            w[-2] = engine_cvt_w_s(t * 255.0f) | 0xFA000000;
+        next2:
+            ENGINE_BLK(8029E414);
+        }
+    }
+    ENGINE_BLK(8029E41C);
+    for (r = D_803A7440, n = 12;; r += 0x1010) {
+        ENGINE_BLK(8029E428);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029E430);
+        n--;
+        a3 = r[6], a3set = 1;
+        if (a3 == 0)
+            goto next3;
+        ENGINE_BLK(8029E440);
+        a3 = r[7];
+        if (a3 < 2)
+            goto next3;
+        ENGINE_BLK(8029E450);
+        a3 = *(s32 *)r;
+        if (*(u32 *)r != (u32)T)
+            goto next3;
+        ENGINE_BLK(8029E45C);
+        r[6] = 0;
+    next3:
+        ENGINE_BLK(8029E460);
+    }
+    ENGINE_BLK(8029E468);
+    ENGINE_LEAVE(2, 0);
+    ENGINE_LEAVE(3, (u32)h1);
+    ENGINE_LEAVE(5, (u32)r);
+    ENGINE_LEAVE(6, 0);
+    if (a3set)
+        ENGINE_LEAVE(7, a3);
+    if (s6set)
+        ENGINE_LEAVE(22, 0xFF000000);
+    ENGINE_LEAVE(20, (u32)h2);
+    ENGINE_LEAVE(21, s5);
+}
+
+/* The texture animations (D_803B35F8's running records) one frame on */
+REGS(fp)
+void func_8029E0AC(s32 fp) {
+    u8 *p = (u8 *)D_803B35F8;
+
+    ENGINE_BLK(8029E0AC);
+    for (;; p += 0x18) {
+        ENGINE_BLK(8029E150);
+        if (*(s32 *)p == -1)
+            break;
+        ENGINE_BLK(8029E160);
+        if ((s8)p[0x10] != 0) {
+            ENGINE_BLK(8029E16C);
+            func_8029E21C(p, fp);
+        }
+        ENGINE_BLK(8029E174);
+    }
+    ENGINE_BLK(8029E17C);
+}
