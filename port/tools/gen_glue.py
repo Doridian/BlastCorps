@@ -135,7 +135,10 @@ def param_type(p):
     return p
 
 
-DECL_RE = re.compile(r"(?:(?<=[;{}])|^)\s*((?:[A-Za-z_][\w]*[\s\*]+)+?)(\**)\s*(\w+)\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*([;{])",
+# (C's statements aren't declarations: `} else if (x) {` would be `if`)
+_KW = r"(?!(?:if|else|while|for|switch|return|do|case|goto|sizeof)\b)"
+DECL_RE = re.compile(r"(?:(?<=[;{}])|^)\s*((?:" + _KW + r"[A-Za-z_][\w]*[\s\*]+)+?)(\**)\s*(" + _KW +
+                     r"\w+)\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*([;{])",
                      re.S | re.M)
 
 
