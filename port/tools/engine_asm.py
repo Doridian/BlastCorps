@@ -10,6 +10,7 @@ and its register convention (conventions.py: what it reads, what callers
 read of what it writes).
 """
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -64,8 +65,11 @@ def show(fn, conv=None):
         if i in lead and i not in skip:
             j = lead.index(i)
             nxt = lead[j + 1] if j + 1 < len(lead) else len(lines)
-            n = SIZES.get(ln.vram, nxt - i)
-            print(f"  == ENGINE_BLK({ln.vram:08X})  {n} ==")
+            # (keyed by us.v11's address in every version: translate.py)
+            key = int(fn.name[5:13], 16) + ln.vram - fn.vram if re.fullmatch(r"func_[0-9A-F]{8}", fn.name) \
+                else ln.vram
+            n = SIZES.get(key, nxt - i)
+            print(f"  == ENGINE_BLK({key:08X})  {n} ==")
         d = "  " if not ln.delay else "   "
         print(f"    {ln.vram:08X}: {d}{ln.text_op:<10} {ln.operands}")
     print()
