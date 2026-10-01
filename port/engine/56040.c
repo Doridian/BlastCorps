@@ -3168,3 +3168,123 @@ void func_8029F9D4(s32 a, s32 b, u8 *parts) {
     ENGINE_LEAVE(13, t5);
     ENGINE_LEAVE_F(0, 0.0f);
 }
+
+extern u8 D_803B4FC0[];                 /* the held frames' animation */
+
+/* the parts of one animation, each its current frame held (both keys the
+   same frame, func_8029FF2C), appended at out */
+static u8 *held_frames(u8 *p, u8 *out, s32 *n, s32 *t5, s32 first) {
+    u8 *d = *(u8 *PTR32 *)p, *r = d + d[0] + 2;
+    s32 cnt = d[d[0] + 1], stride = d[0] * 0x14 + 8;
+
+    *t5 = (u32)(d + d[0]);
+    if ((u32)r & 3) {
+        if (first)
+            ENGINE_BLK(8029FD34);
+        else
+            ENGINE_BLK(8029FDEC);
+        r += 4 - ((u32)r & 3);
+    }
+    for (;;) {
+        if (first)
+            ENGINE_BLK(8029FD40);
+        else
+            ENGINE_BLK(8029FDF8);
+        if (cnt == 0)
+            break;
+        if (first)
+            ENGINE_BLK(8029FD48);
+        else
+            ENGINE_BLK(8029FE00);
+        ((u32 *)out)[0] = *(u32 *)r;
+        ((u32 *)out)[1] = *t5 = ((s32 *)r)[1];
+        out += 8;
+        (*n)++;
+        ENGINE_LEAVE(1, 1);
+        if (p[0x15] != 0) {
+            if (first)
+                ENGINE_BLK(8029FD6C);
+            else
+                ENGINE_BLK(8029FE24);
+            if (p[0x15] != 1) {
+                if (first) {
+                    ENGINE_BLK(8029FD74);
+                    engine_syscall(0x8029FD74);
+                } else {
+                    ENGINE_BLK(8029FE2C);
+                    engine_syscall(0x8029FE2C);
+                }
+            }
+            if (first)
+                ENGINE_BLK(8029FD78);
+            else
+                ENGINE_BLK(8029FE30);
+            out = anim_frame(p, r, out, t5);
+            if (first)
+                ENGINE_BLK(8029FD84);
+            else
+                ENGINE_BLK(8029FE3C);
+        } else {
+            if (first)
+                ENGINE_BLK(8029FD8C);
+            else
+                ENGINE_BLK(8029FE44);
+            out = anim_frame(p, r, out, t5);
+        }
+        if (first)
+            ENGINE_BLK(8029FDAC);
+        else
+            ENGINE_BLK(8029FE64);
+        out = (u8 *)func_8029FF2C((s16 *)out);
+        if (first)
+            ENGINE_BLK(8029FDB4);
+        else
+            ENGINE_BLK(8029FE6C);
+        r += stride;
+        cnt--;
+    }
+    return out;
+}
+
+/* parts[a]'s animation then parts[b]'s, each frame held as it is now: a
+   two-key animation built at D_803B67C0 and kept at D_803B4FC0 for
+   parts[30] (from its start) */
+REGS(v0, v1, a0)
+void func_8029FC74(s32 a, s32 b, u8 *parts) {
+    u8 *out = D_803B67C0 + 4, *p30;
+    s32 n = 0, t5, j;
+    u32 *s, *d;
+
+    ENGINE_BLK(8029FC74);
+    D_803B67C0[0] = 2;
+    D_803B67C0[1] = 1;
+    D_803B67C0[2] = 1;
+    out = held_frames(parts + a * 0x18, out, &n, &t5, 1);
+    ENGINE_BLK(8029FDC0);
+    out = held_frames(parts + b * 0x18, out, &n, &t5, 0);
+    ENGINE_BLK(8029FE78);
+    D_803B67C0[3] = n;
+    p30 = parts + 0x2D0;
+    p30[0x10] = 0;
+    p30[0x11] = 0;
+    p30[0x12] = 0;
+    p30[0x15] = 0;
+    p30[0x13] = 0;
+    *(u8 *PTR32 *)p30 = D_803B4FC0;
+    *(f32 *)(p30 + 4) = 0.0f;
+    s = (u32 *)D_803B67C0;
+    d = (u32 *)D_803B4FC0;
+    for (j = 0x1800;;) {
+        ENGINE_BLK(8029FEBC);
+        if (j == 0)
+            break;
+        ENGINE_BLK(8029FEC4);
+        d[0] = s[0];
+        d[1] = s[1];
+        d += 2, s += 2;
+        j -= 8;
+    }
+    ENGINE_BLK(8029FEDC);
+    ENGINE_LEAVE(13, t5);
+    ENGINE_LEAVE_F(0, 0.0f);
+}
