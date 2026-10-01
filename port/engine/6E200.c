@@ -13,9 +13,9 @@
  * Ramdozer's parts are D_803EE3C0, its state D_803EE6C0 and its position
  * D_803EE76C..74 (see further down).
  *
- * Still translated: each one's two collision callbacks (func_802B30F4 and
- * func_802B3180, func_802B4818 and func_802B48A4), which go native with
- * 62740's dispatch.
+ * Each one's two callbacks for 62740's carrying (shared.h) follow its
+ * frame's functions: func_802B30F4 and func_802B3180, func_802B4818 and
+ * func_802B48A4.
  */
 #include "shared.h"
 #include "game/game.h"
@@ -847,6 +847,19 @@ void func_802B3FF0(VS *vs) {
     ENGINE_LEAVE_F(2, 4.0f);
 }
 
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802B30F4(s32 carrier) {
+    CARRY_KEEP(802B30F4, 802B3130, 802B3150, 802B315C, &D_803EE2E0, D_803EE38C, D_803EE394);
+}
+
+REGS(a3)
+void func_802B3180(s32 carrier) {
+    CARRY_MOVE(802B3180, 802B31BC, 802B31D0, 802B31D8, 802B322C, 802B3234, 802B3260, &D_803EE2E0, &D_803EE38C, &D_803EE390, &D_803EE394, 3, 0x2D4, 0x260,
+               (void)0, func_802B3FF0(&D_803EE2E0), func_802B3E40(&D_803EE2E0));
+}
+
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B40A8(u8 *dst) {
     ENGINE_BLK(802B40A8);
@@ -1644,4 +1657,17 @@ void func_802B58C8(u8 *src) {
     ENGINE_BLK(802B58C8);
     func_802AC85C(src, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768);
     ENGINE_BLK(802B58E4);
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802B4818(s32 carrier) {
+    CARRY_KEEP(802B4818, 802B4854, 802B4874, 802B4880, &D_803EE6C0, D_803EE768, D_803EE770);
+}
+
+REGS(a3)
+void func_802B48A4(s32 carrier) {
+    CARRY_MOVE(802B48A4, 802B48E0, 802B48F4, 802B48FC, 802B495C, 802B4964, 802B4990, &D_803EE6C0, &D_803EE768, &D_803EE76C, &D_803EE770, 4, 0x258, 0x190,
+               D_803ED40B = 1, func_802B5814(&D_803EE6C0), func_802B568C(&D_803EE6C0));
 }

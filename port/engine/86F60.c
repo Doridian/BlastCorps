@@ -7,9 +7,8 @@
  * hooks for it.  It is the A-Team van's code (88160) with its own numbers,
  * and the siren's lights.
  *
- * Still translated: func_802CBD5C and func_802CBDE8, what 62740's collision
- * dispatch (func_802AB5xx/7xx) calls for this vehicle; they go native with
- * that.
+ * func_802CBD5C and func_802CBDE8, at the end, are its two callbacks for
+ * 62740's carrying (shared.h).
  */
 #include "shared.h"
 #include "game/game.h"
@@ -580,4 +579,17 @@ void func_802CC8B8(void) {
     D_803EBBF4 = D_803EBBF0 * 4.0f;
     D_803ED3F6 = 0x96;
     D_803ED3F7 = 6;
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802CBD5C(s32 carrier) {
+    CARRY_KEEP(802CBD5C, 802CBD98, 802CBDB8, 802CBDC4, &D_803F8E80, D_803F8F28, D_803F8F30);
+}
+
+REGS(a3)
+void func_802CBDE8(s32 carrier) {
+    CARRY_MOVE(802CBDE8, 802CBE24, 802CBE38, 802CBE40, 802CBEA0, 802CBEA8, 802CBED4, &D_803F8E80, &D_803F8F28, &D_803F8F2C, &D_803F8F30, 0xD, 0x2BC, 0x190,
+               D_803ED40B = 1, func_802CC8B8(), func_802CC70C(&D_803F8E80));
 }

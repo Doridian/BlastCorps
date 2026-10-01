@@ -18,8 +18,8 @@
  * landing (D_80368030 + 0xFA0 high), 5 down (with the rotor stopping), 6
  * the rotor starting.
  *
- * Still translated: func_802B78F4 and func_802B7980, what 62740's collision
- * dispatch calls for the hotrod; they go native with that.
+ * func_802B78F4 and func_802B7980, at the end, are the hotrod's two
+ * callbacks for 62740's carrying (shared.h).
  */
 #include "shared.h"
 #include "game/game.h"
@@ -1548,4 +1548,17 @@ void func_802B9B4C(VS *vs) {
     func_802ABBEC(0xFE, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802B9C38);
     engine_frame(8);
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802B78F4(s32 carrier) {
+    CARRY_KEEP(802B78F4, 802B7930, 802B7950, 802B795C, &D_803EEE70, D_803EEF18, D_803EEF20);
+}
+
+REGS(a3)
+void func_802B7980(s32 carrier) {
+    CARRY_MOVE(802B7980, 802B79BC, 802B79D0, 802B79D8, 802B7A38, 802B7A40, 802B7A6C, &D_803EEE70, &D_803EEF18, &D_803EEF1C, &D_803EEF20, 8, 0x2BC, 0x190,
+               D_803ED40B = 1, func_802B8424(), func_802B8278(&D_803EEE70));
 }

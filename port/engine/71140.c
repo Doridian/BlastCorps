@@ -9,8 +9,8 @@
  * 4 its suspension (D_803EEB50), parts D_802C2208/D_802C226C its wheels'
  * turn with the camera.
  *
- * Still translated: func_802B6100 and func_802B618C, what 62740's collision
- * dispatch calls for this vehicle; they go native with that.
+ * func_802B6100 and func_802B618C, at the end, are its two callbacks for
+ * 62740's carrying (shared.h).
  */
 #include "shared.h"
 #include "game/game.h"
@@ -961,4 +961,17 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
     }
 done:
     ENGINE_BLK(802AC3A8);
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802B6100(s32 carrier) {
+    CARRY_KEEP(802B6100, 802B613C, 802B615C, 802B6168, &D_803EEA90, D_803EEB38, D_803EEB40);
+}
+
+REGS(a3)
+void func_802B618C(s32 carrier) {
+    CARRY_MOVE(802B618C, 802B61C8, 802B61DC, 802B61E4, 802B6244, 802B624C, 802B6278, &D_803EEA90, &D_803EEB38, &D_803EEB3C, &D_803EEB40, 5, 0x2D0, 0x2D0,
+               D_803ED40B = 1, func_802B7240(), func_802B7030(&D_803EEA90));
 }

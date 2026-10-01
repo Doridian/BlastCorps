@@ -8,8 +8,8 @@
  * in turn while the missiles D_803F8B72 last), part 3 its lean, part 2 its
  * front wheel in a jump (D_803F8B64..70, a parabola).
  *
- * Still translated: func_802CA34C and func_802CA3D8, what 62740's collision
- * dispatch calls for this vehicle; they go native with that.
+ * func_802CA34C and func_802CA3D8, at the end, are its two callbacks for
+ * 62740's carrying (shared.h).
  */
 #include "shared.h"
 #include "game/game.h"
@@ -869,4 +869,17 @@ void func_802CB660(u8 *src) {
     ENGINE_BLK(802CB660);
     func_802AC85C(src, (u8 *)&D_803F8AA0, (u32 *)&D_803F8B48);
     ENGINE_BLK(802CB67C);
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802CA34C(s32 carrier) {
+    CARRY_KEEP(802CA34C, 802CA388, 802CA3A8, 802CA3B4, &D_803F8AA0, D_803F8B48, D_803F8B50);
+}
+
+REGS(a3)
+void func_802CA3D8(s32 carrier) {
+    CARRY_MOVE(802CA3D8, 802CA414, 802CA428, 802CA430, 802CA490, 802CA498, 802CA4C4, &D_803F8AA0, &D_803F8B48, &D_803F8B4C, &D_803F8B50, 0xA, 0x280, 0x208,
+               D_803ED40B = 1, func_802CB5D8(), func_802CB42C(&D_803F8AA0));
 }

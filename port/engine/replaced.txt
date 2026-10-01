@@ -683,3 +683,27 @@ func_802B57C4
 func_802B5814
 func_802B589C
 func_802B58C8
+
+# 62740's carrying (62740_carry.c) and the vehicles' two callbacks for it
+func_802AB478
+func_802AB50C
+func_802AB670
+func_802AB714
+func_802CA34C
+func_802CA3D8
+func_802B30F4
+func_802B3180
+func_802B4818
+func_802B48A4
+func_802B6100
+func_802B618C
+func_802B78F4
+func_802B7980
+func_802CBD5C
+func_802CBDE8
+func_802CCED4
+func_802CCF60
+func_802CFC54
+func_802CFCE0
+func_802C59B4
+func_802C5A14

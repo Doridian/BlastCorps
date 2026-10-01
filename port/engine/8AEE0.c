@@ -13,9 +13,9 @@
  * 6, unkA2 2 at the higher speeds) and its own numbers.  func_802D07E0
  * sets it up, func_802D0F98 runs it each frame.
  *
- * Still translated: func_802CFC54 and func_802CFCE0, what 62740's
- * collision dispatch calls for the hotrod (they go native with that), and
- * the three functions nothing calls: func_802D0E44 (the suit put back on
+ * func_802CFC54 and func_802CFCE0, at the end, are the hotrod's two
+ * callbacks for 62740's carrying (shared.h).  Still translated: the three
+ * functions nothing calls: func_802D0E44 (the suit put back on
  * the ground), func_802D24F8 (its state saved) and func_802D2550 (an mtc0
  * to Compare).
  */
@@ -1726,4 +1726,17 @@ landing2:
     vs->unkA1 = 0;
 done:
     ENGINE_BLK(802D22E0);
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802CFC54(s32 carrier) {
+    CARRY_KEEP(802CFC54, 802CFC90, 802CFCB0, 802CFCBC, &D_803FC500, D_803FC5A8, D_803FC5B0);
+}
+
+REGS(a3)
+void func_802CFCE0(s32 carrier) {
+    CARRY_MOVE(802CFCE0, 802CFD1C, 802CFD30, 802CFD38, 802CFD98, 802CFDA0, 802CFDCC, &D_803FC500, &D_803FC5A8, &D_803FC5AC, &D_803FC5B0, 0xF, 0x1F4, 0x15E,
+               D_803ED40B = 1, func_802D0784(), func_802D05D8(&D_803FC500));
 }

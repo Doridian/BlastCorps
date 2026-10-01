@@ -6,9 +6,8 @@
  * each frame (from hd.c and at the end of the setup); the others are hd.c's
  * hooks for it.
  *
- * Still translated: func_802CCED4 and func_802CCF60, what 62740's collision
- * dispatch (func_802AB5xx/7xx) calls for this vehicle; they go native with
- * that.
+ * func_802CCED4 and func_802CCF60, at the end, are its two callbacks for
+ * 62740's carrying (shared.h).
  */
 #include "shared.h"
 #include "game/game.h"
@@ -534,4 +533,17 @@ void func_802CD9AC(void) {
     D_803EBBF4 = D_803EBBF0 * 4.0f;
     D_803ED3F6 = 0x3C;
     D_803ED3F7 = 3;
+}
+
+/* 62740's carrying (shared.h): where it stands on its carrier, and back
+   there after the carrier moved */
+REGS(a3)
+void func_802CCED4(s32 carrier) {
+    CARRY_KEEP(802CCED4, 802CCF10, 802CCF30, 802CCF3C, &D_803F9250, D_803F92F8, D_803F9300);
+}
+
+REGS(a3)
+void func_802CCF60(s32 carrier) {
+    CARRY_MOVE(802CCF60, 802CCF9C, 802CCFB0, 802CCFB8, 802CD018, 802CD020, 802CD04C, &D_803F9250, &D_803F92F8, &D_803F92FC, &D_803F9300, 0xE, 0x320, 0x1F4,
+               D_803ED40B = 1, func_802CD9AC(), func_802CD800(&D_803F9250));
 }

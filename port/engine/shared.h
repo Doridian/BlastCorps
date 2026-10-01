@@ -305,4 +305,120 @@ s32 func_802AE104(s32 angle);
 REGS(v1 -> fp)
 s32 func_802AE160(s32 angle);
 
+/* 62740's carrying (62740_carry.c): func_802AB478 and func_802AB670 walk
+   D_803ED3B8's links (a carried vehicle's type, its carrier's) and call
+   the carried vehicle's two callbacks with the carrier's id in $a3.  The
+   first keeps where the vehicle stands in the carrier's frame (its point
+   and the point ahead of it, func_802AAD0C, into unk6A..72); the second,
+   after the carrier moved, puts it back there (func_802AB9A4,
+   func_802AAE54) and steps it on the ground (func_802A8768). */
+REGS(a3, t0, t1 -> t3, t4)
+s32 func_802AAD0C(s32 id, s32 x, s32 z, s32 *v_out);
+REGS(a3, t0, t1 -> t3, t4)
+s32 func_802AAE54(s32 id, s32 x, s32 z, s32 *v_out);
+REGS(a3, t0, t1, s1, s2, v1, a2 -> t0)
+s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle);
+REGS(a3)
+void func_802CA34C(s32 carrier);
+REGS(a3)
+void func_802CA3D8(s32 carrier);
+REGS(a3)
+void func_802B30F4(s32 carrier);
+REGS(a3)
+void func_802B3180(s32 carrier);
+REGS(a3)
+void func_802B4818(s32 carrier);
+REGS(a3)
+void func_802B48A4(s32 carrier);
+REGS(a3)
+void func_802B6100(s32 carrier);
+REGS(a3)
+void func_802B618C(s32 carrier);
+REGS(a3)
+void func_802B78F4(s32 carrier);
+REGS(a3)
+void func_802B7980(s32 carrier);
+REGS(a3)
+void func_802CBD5C(s32 carrier);
+REGS(a3)
+void func_802CBDE8(s32 carrier);
+REGS(a3)
+void func_802CCED4(s32 carrier);
+REGS(a3)
+void func_802CCF60(s32 carrier);
+REGS(a3)
+void func_802CFC54(s32 carrier);
+REGS(a3)
+void func_802CFCE0(s32 carrier);
+REGS(a3)
+void func_802C59B4(s32 carrier);
+REGS(a3)
+void func_802C5A14(s32 carrier);
+
+/* the first callback of a wheeled vehicle at (x, z) (the original saves
+   and loads back $t0, $t1, $t3 and $t4) */
+#define CARRY_KEEP(b0, b1, b2, b3, vs, x, z)                                 \
+    do {                                                                     \
+        s32 t3_, t4_, t5_, t6_;                                              \
+        ENGINE_BLK(b0);                                                      \
+        engine_save(ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(12), 0); \
+        ENGINE_LEAVE(28, (s32)(vs));                                         \
+        t3_ = func_802AAD0C(carrier, (x), (z), &t4_);                        \
+        ENGINE_BLK(b1);                                                      \
+        (vs)->unk6A = t3_;                                                   \
+        (vs)->unk6C = t4_;                                                   \
+        (vs)->unk6E = (vs)->unk4C;                                           \
+        ENGINE_LEAVE(10, (vs)->unk4C);                                       \
+        ENGINE_LEAVE(20, (s32)&(vs)->unk4C);                                 \
+        t5_ = func_802A94A4(0, (vs)->unk52, (s16 *)&(vs)->unk4C, &t6_);      \
+        ENGINE_LEAVE(13, t5_);                                               \
+        ENGINE_LEAVE(14, t6_);                                               \
+        ENGINE_BLK(b2);                                                      \
+        t3_ = func_802AAD0C(carrier, (x) + t5_, (z) + t6_, &t4_);            \
+        ENGINE_BLK(b3);                                                      \
+        (vs)->unk70 = t3_;                                                   \
+        (vs)->unk72 = t4_;                                                   \
+        engine_restore();                                                    \
+        ENGINE_LEAVE(3, (s32)(vs)->unk52);                                   \
+    } while (0)
+
+/* the second, for a wheeled vehicle at (*px, *py, *pz) of the given type
+   and spans, its camera and matrix functions called as `camera` and
+   `matrix`, `flag` before func_802A8768 (the original saves and loads
+   back $a3, $t0, $t1 and $t2) */
+#define CARRY_MOVE(b0, b1, b2, b3, b4, b5, b6, vs, px, py, pz, type, t9, fp, flag, camera, matrix) \
+    do {                                                                     \
+        s32 t0_, t3_, t4_;                                                   \
+        ENGINE_BLK(b0);                                                      \
+        engine_save(ENGINE_GPR(7) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(10), 0); \
+        ENGINE_LEAVE(28, (s32)(vs));                                         \
+        t0_ = func_802AB9A4(carrier, (vs)->unk6A, (vs)->unk6C, (vs)->unk70, (vs)->unk72, (vs)->unk52, \
+                            (u16 *)&(vs)->unk6E);                            \
+        ENGINE_BLK(b1);                                                      \
+        (vs)->unk4E = t0_;                                                   \
+        (vs)->unk4C = t0_;                                                   \
+        t3_ = func_802AAE54(carrier, (vs)->unk6A, (vs)->unk6C, &t4_);        \
+        ENGINE_LEAVE(8, (vs)->unk6A);                                        \
+        ENGINE_LEAVE(9, (vs)->unk6C);                                        \
+        ENGINE_LEAVE(11, t3_);                                               \
+        ENGINE_LEAVE(12, t4_);                                               \
+        ENGINE_BLK(b2);                                                      \
+        camera;                                                              \
+        ENGINE_BLK(b3);                                                      \
+        flag;                                                                \
+        ENGINE_LEAVE(12, t4_);                                               \
+        ENGINE_LEAVE(14, (s32)&(vs)->unk76);                                 \
+        ENGINE_LEAVE(16, (s32)(vs)->unk96);                                  \
+        ENGINE_LEAVE(20, (s32)&(vs)->unk4C);                                 \
+        ENGINE_LEAVE(23, (s32)(vs)->unk4);                                   \
+        func_802A8768(t3_, t4_, (px), (pz), (py), (type), (t9), (fp), (vs)->unk52, (vs)->unk28, (vs)->unk28 + 6, \
+                      (vs)->unk28 + 3, (vs)->unk5E, (vs));                   \
+        ENGINE_BLK(b4);                                                      \
+        matrix;                                                              \
+        ENGINE_BLK(b5);                                                      \
+        func_802A133C(*(px), *(py), *(pz), (type), (vs));                    \
+        ENGINE_BLK(b6);                                                      \
+        engine_restore();                                                    \
+    } while (0)
+
 #endif
