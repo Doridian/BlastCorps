@@ -70,6 +70,7 @@ static int font_ok = -1;                /* -1: not loaded yet */
 typedef struct {
     uint64_t src;                       /* the hash of the 32x32 it was fitted to (0: none yet) */
     uint8_t *img;                       /* HDTEXT_K * 32 squared, coverage; NULL: the original */
+    unsigned serial;                    /* how many times img was made */
 } HdGlyph;
 static HdGlyph cache[64];
 
@@ -343,17 +344,27 @@ static uint8_t *make(int i, const uint8_t *rgba) {
 }
 
 void hdtext_init(void) {
-    if (!hdtext_on || !load_font())
+    if (hdtext_on)
+        load_font();
+}
+
+/* the distance fields ahead, one a retrace from the first on (the boot
+   screens have no text), so that neither the start nor a screen of new
+   text waits for them all; a glyph wanted sooner makes its own at once */
+void hdtext_idle(void) {
+    static unsigned next;
+    static double spent;
+    if (next >= sizeof stencil_chars || !hdtext_on || font_ok != 1)
         return;
-    /* (the distance fields ahead, so that a screen of new text doesn't
-       wait for them) */
     double t0 = secs();
-    for (unsigned i = 0; i < sizeof stencil_chars; i++)
-        if (stencil_chars[i] > 1)
-            field((int)i);
-    if (host_verbose)
+    while (next < sizeof stencil_chars && (stencil_chars[next] <= 1 || fields[next].done))
+        next++;
+    if (next < sizeof stencil_chars)
+        field((int)next++);
+    spent += secs() - t0;
+    if (next >= sizeof stencil_chars && host_verbose)
         host_log("hd-text: %s, distance fields in %.0f ms\n", hdtext_font_path ? hdtext_font_path : "built-in font",
-                 (secs() - t0) * 1e3);
+                 spent * 1e3);
 }
 
 const uint8_t *hdtext_image(int tex, const uint8_t *rgba) {
@@ -373,6 +384,12 @@ const uint8_t *hdtext_image(int tex, const uint8_t *rgba) {
         free(c->img);
         c->img = make(i, rgba);
         c->src = h;
+        c->serial++;
     }
     return c->img;
+}
+
+unsigned hdtext_serial(int tex) {
+    int i = tex - STENCIL_FIRST;
+    return i >= 0 && i < (int)sizeof stencil_chars ? cache[i].serial : 0;
 }

@@ -792,6 +792,7 @@ int main(int argc, char **argv) {
             host_perf_push(PERF_PRESENT);
             host_video_frame();
             host_perf_pop();
+            hdtext_idle();
             last_vi = now;
 #ifdef PORT_WASM_WEB
             if (host_paced) {                /* the frame goes to the screen before the next one's work */

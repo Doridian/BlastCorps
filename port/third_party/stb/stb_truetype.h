@@ -4636,7 +4636,10 @@ STBTT_DEF unsigned char * stbtt_GetGlyphSDF(const stbtt_fontinfo *info, float sc
       for (y=iy0; y < iy1; ++y) {
          for (x=ix0; x < ix1; ++x) {
             float val;
-            float min_dist = 999999.0f;
+            // (Blast Corps port: start from the distance past which the value
+            // clamps to 0 or 255 anyway, which lets the curves' box test skip
+            // more; the field comes out byte for byte the same)
+            float min_dist = (onedge_value > 255 - onedge_value ? onedge_value : 255 - onedge_value) / pixel_dist_scale + 1.0f;
             float sx = (float) x + 0.5f;
             float sy = (float) y + 0.5f;
             float x_gspace = (sx / scale_x);

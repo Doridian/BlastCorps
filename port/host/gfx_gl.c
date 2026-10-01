@@ -447,7 +447,7 @@ static void tc_sweep(void) {
     flush();                    /* the pending batch may use them */
     GLC_DIRTY();
     for (int i = 0; i < TC_SIZE; i++)
-        if (tcache[i].tex) {
+        if (tcache[i].tex && !tcache[i].hd) {   /* (a font glyph's is shared: hd_texture) */
             glDeleteTextures(1, &tcache[i].tex);
             n++;
         }
@@ -458,6 +458,37 @@ static void tc_sweep(void) {
 }
 
 static uint8_t decode_buf[1024 * 1024 * 4];
+
+/* --hd-text: one GL texture a font glyph, whatever TMEM it came through
+   (the game loads the same glyph into many places, and each upload is
+   256x256 with its mipmaps, which a software GL takes milliseconds over;
+   one channel, a quarter of RGBA's) */
+static struct {
+    const uint8_t *img;         /* hdtext_image()'s, which it keeps until the glyph changes */
+    unsigned serial;
+    GLuint tex;
+} hd_shared[64];
+
+static GLuint hd_texture(int glyph, const uint8_t *img) {
+    unsigned serial = hdtext_serial(glyph);
+    int s = glyph & 63;
+    if (hd_shared[s].tex && hd_shared[s].img == img && hd_shared[s].serial == serial)
+        return hd_shared[s].tex;
+    enum { N = 32 * HDTEXT_K };
+    if (!hd_shared[s].tex)
+        glGenTextures(1, &hd_shared[s].tex);
+    glBindTexture(GL_TEXTURE_2D, hd_shared[s].tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, N, N, 0, GL_RED, GL_UNSIGNED_BYTE, img);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    hd_shared[s].img = img;
+    hd_shared[s].serial = serial;
+    return hd_shared[s].tex;
+}
 
 /* --hd-text: the font glyph a tile holds (hdtext.c), or -1: a 32x32 I4
    tile whose 512 bytes one LoadBlock brought from one of font.c's slots */
@@ -534,21 +565,12 @@ static GLuint tile_texture(int tile, int *hd) {
     const uint8_t *img = glyph >= 0 ? hdtext_image(glyph, decode_buf) : NULL;
     GLuint tex;
     GLC_DIRTY();
-    glGenTextures(1, &tex);
-    glBindTexture(GL_TEXTURE_2D, tex);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     if (img) {
-        enum { N = 32 * HDTEXT_K };
-        static uint8_t hd_buf[N * N * 4];
-        for (int j = 0; j < N * N; j++)
-            memset(hd_buf + 4 * j, img[j], 4);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, N, N, 0, GL_RGBA, GL_UNSIGNED_BYTE, hd_buf);
-        glGenerateMipmap(GL_TEXTURE_2D);
+        tex = hd_texture(glyph, img);
     } else {
+        glGenTextures(1, &tex);
+        glBindTexture(GL_TEXTURE_2D, tex);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
@@ -681,20 +703,22 @@ static const char *fs_common =
     "}\n";
 
 /* --hd-text: a unit whose u_hd is set holds a font glyph HDTEXT_K times
-   the tile's size, sampled with GL's filtering and mipmaps; the texel
+   the tile's size (its coverage in red only, which is the I4 texel's
+   intensity in all four channels), sampled with GL's filtering and
+   mipmaps; the texel
    centres line up with the tile's (the RDP's texel c is at c, not c + 0.5) */
 static const char *fs_hd =
     "uniform float u_hd[8];\n"
     "vec4 hdfetch(int i, vec2 px) {\n"
     "    switch (i) {\n"
-    "    case 0: return texture(u_tex[0], px / vec2(textureSize(u_tex[0], 0)));\n"
-    "    case 1: return texture(u_tex[1], px / vec2(textureSize(u_tex[1], 0)));\n"
-    "    case 2: return texture(u_tex[2], px / vec2(textureSize(u_tex[2], 0)));\n"
-    "    case 3: return texture(u_tex[3], px / vec2(textureSize(u_tex[3], 0)));\n"
-    "    case 4: return texture(u_tex[4], px / vec2(textureSize(u_tex[4], 0)));\n"
-    "    case 5: return texture(u_tex[5], px / vec2(textureSize(u_tex[5], 0)));\n"
-    "    case 6: return texture(u_tex[6], px / vec2(textureSize(u_tex[6], 0)));\n"
-    "    default: return texture(u_tex[7], px / vec2(textureSize(u_tex[7], 0)));\n"
+    "    case 0: return texture(u_tex[0], px / vec2(textureSize(u_tex[0], 0))).rrrr;\n"
+    "    case 1: return texture(u_tex[1], px / vec2(textureSize(u_tex[1], 0))).rrrr;\n"
+    "    case 2: return texture(u_tex[2], px / vec2(textureSize(u_tex[2], 0))).rrrr;\n"
+    "    case 3: return texture(u_tex[3], px / vec2(textureSize(u_tex[3], 0))).rrrr;\n"
+    "    case 4: return texture(u_tex[4], px / vec2(textureSize(u_tex[4], 0))).rrrr;\n"
+    "    case 5: return texture(u_tex[5], px / vec2(textureSize(u_tex[5], 0))).rrrr;\n"
+    "    case 6: return texture(u_tex[6], px / vec2(textureSize(u_tex[6], 0))).rrrr;\n"
+    "    default: return texture(u_tex[7], px / vec2(textureSize(u_tex[7], 0))).rrrr;\n"
     "    }\n"
     "}\n"
     "vec4 texel_hd(int i, vec2 st, int filt) {\n"
