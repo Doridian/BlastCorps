@@ -475,3 +475,21 @@ func_802C97C0
 func_802C995C
 func_802C9AF8
 func_802C9B30
+
+# 853D0: the Ballista (func_802CA34C and func_802CA3D8 go with 62740's
+# collision dispatch)
+func_802C9B90
+func_802C9F54
+func_802CA140
+func_802CA1AC
+func_802CA1F8
+func_802CA308
+func_802CA4E0
+func_802CAAFC
+func_802CB224
+func_802CB3C8
+func_802CB42C
+func_802CB564
+func_802CB5D8
+func_802CB634
+func_802CB660
