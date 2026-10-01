@@ -365,3 +365,253 @@ s32 func_8029B930(void) {
     ENGINE_BLK(8029B980);
     return r;
 }
+
+extern u8 D_803A6B30[];                 /* 0x14-byte records, to 0xFF in byte 0x13 */
+extern u8 *PTR32 D_803BD300;            /* the end of D_803B9890's records */
+extern u8 D_803A7440[];                 /* 12 records of 0x1010 bytes */
+extern u8 D_8035805C;
+
+/* D_803A6B30's record of kind 6 and id 0x3BD: its point in s0, s1, s2;
+   returns whether there is one ($s4) */
+REGS( -> s4)
+s32 func_8029C6E4(void) {
+    u8 *p = D_803A6B30;
+    s32 t7, s3 = 0, read3 = 0, r = 0;
+
+    ENGINE_BLK(8029C6E4);
+    for (;;) {
+        ENGINE_BLK(8029C704);
+        t7 = (s8)p[0x13];
+        if (t7 == -1)
+            break;
+        ENGINE_BLK(8029C710);
+        t7 = p[0x12];
+        if (t7 != 6) {
+            p += 0x14;
+            continue;
+        }
+        ENGINE_BLK(8029C71C);
+        s3 = *(s32 *)(p + 0xC);
+        read3 = 1;
+        if (s3 != 0x3BD) {
+            p += 0x14;
+            continue;
+        }
+        ENGINE_BLK(8029C728);
+        ENGINE_LEAVE(16, *(s32 *)p);
+        ENGINE_LEAVE(17, *(s32 *)(p + 4));
+        ENGINE_LEAVE(18, *(s32 *)(p + 8));
+        r = 1;
+        break;
+    }
+    ENGINE_BLK(8029C738);
+    if (read3)
+        ENGINE_LEAVE(19, s3);
+    ENGINE_LEAVE(11, 0x3BD);
+    ENGINE_LEAVE(12, 6);
+    ENGINE_LEAVE(13, -1);
+    ENGINE_LEAVE(14, (u32)p);
+    ENGINE_LEAVE(15, t7);
+    return r;
+}
+
+/* 0 if a part of kind id has its flag clear, else 1 ($v1) */
+REGS(v0 -> v1)
+s32 func_8029DC14(s32 id) {
+    u8 *p = D_803B9890, *end = D_803BD300;
+    s32 r = 1, flag;
+
+    ENGINE_BLK(8029DC14);
+    for (;;) {
+        ENGINE_BLK(8029DC40);
+        if (p == end)
+            break;
+        ENGINE_BLK(8029DC48);
+        if (p[0x4F] != id) {
+            p += 0x60;
+            continue;
+        }
+        ENGINE_BLK(8029DC54);
+        flag = p[0x51];
+        p += 0x60;
+        if (flag != 0)
+            continue;
+        ENGINE_BLK(8029DC64);
+        r = 0;
+        break;
+    }
+    ENGINE_BLK(8029DC68);
+    return r;
+}
+
+s32 func_8029DBF0(s32 id) {
+    s32 r;
+
+    ENGINE_BLK(8029DBF0);
+    r = func_8029DC14(id);
+    ENGINE_BLK(8029DC00);
+    return r;
+}
+
+/* 0 if one of the n (part, value) byte pairs has the part's byte 0x13
+   (parts 0x18 bytes each, at parts) equal to the value, else 1 ($t4) */
+REGS(s4, t5, a2 -> t4)
+s32 func_8029DB7C(u8 *pairs, s32 n, u8 *parts) {
+    s32 r = 1;
+
+    ENGINE_BLK(8029DB7C);
+    for (;;) {
+        ENGINE_BLK(8029DBA0);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029DBA8);
+        n--;
+        if ((s8)parts[pairs[0] * 0x18 + 0x13] == pairs[1]) {
+            ENGINE_BLK(8029DBD0);
+            r = 0;
+            break;
+        }
+        pairs += 2;
+    }
+    ENGINE_BLK(8029DBD4);
+    ENGINE_LEAVE(13, n);
+    return r;
+}
+
+/* D_803B7FC8's records for id cleared (the last pulling D_803B8568 back) */
+REGS(s2)
+void func_8029DD54(s32 id) {
+    u8 *p = D_803B7FC8, *end = (u8 *)&D_803B8568;
+
+    ENGINE_BLK(8029DD54);
+    for (;;) {
+        ENGINE_BLK(8029DD78);
+        if (end < p)
+            break;
+        ENGINE_BLK(8029DD84);
+        if (((s32 *)p)[1] != id) {
+            p += 0xC;
+            continue;
+        }
+        ENGINE_BLK(8029DD90);
+        ((u32 *)p)[0] = 0;
+        ((u32 *)p)[1] = 0;
+        if (p == end) {
+            ENGINE_BLK(8029DD9C);
+            D_803B8568 = p - 0xC;
+        }
+        ENGINE_BLK(8029DDA8);
+        p += 0xC;
+    }
+    ENGINE_BLK(8029DDB0);
+    ENGINE_LEAVE(1, 1);
+}
+
+/* D_803A7440's used record (byte 6) with this kind (half 4) and id
+   (word 0): its flag (byte 7) cleared; returns the physical address of
+   its data, 0x10 on ($s1), 0 if none */
+REGS(t6, t3 -> s1)
+u32 func_8029E4E4(s32 kind, s32 id) {
+    u8 *p = D_803A7440;
+    s32 n = 12, a2 = 0, read = 0;
+    u32 r = 0;
+
+    ENGINE_BLK(8029E4E4);
+    for (;;) {
+        ENGINE_BLK(8029E4FC);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029E504);
+        a2 = p[6], read = 1;
+        n--;
+        if (a2 == 0)
+            goto next;
+        ENGINE_BLK(8029E514);
+        a2 = *(u16 *)(p + 4);
+        if (a2 != kind)
+            goto next;
+        ENGINE_BLK(8029E520);
+        a2 = *(s32 *)p;
+        if (a2 != id)
+            goto next;
+        ENGINE_BLK(8029E52C);
+        p[7] = 0;
+        r = (u32)(p + 0x10) - 0x80000000;
+        break;
+    next:
+        ENGINE_BLK(8029E540);
+        p += 0x1010;
+    }
+    ENGINE_BLK(8029E548);
+    if (read)
+        ENGINE_LEAVE(6, a2);
+    return r;
+}
+
+/* whether the part's point (0x28) is within r of (x, y, z) ($t7) */
+REGS(s0, t3, t4, t5, t6 -> t7)
+s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r) {
+    s32 px = *(s32 *)(part + 0x28), py = *(s32 *)(part + 0x2C), pz = *(s32 *)(part + 0x30);
+    s32 dx = px - x, dy = py - y, dz = pz - z, in;
+    s64 d2, dy2 = (s64)dy * dy, dz2 = (s64)dz * dz, d;
+
+    ENGINE_BLK(8029BEE4);
+    d2 = (s64)dx * dx + dy2 + dz2;
+    d = engine_cvt_l_s(__builtin_sqrtf((f32)d2));
+    if (r < d) {
+        ENGINE_BLK(8029BF50);
+        in = 0;
+    } else {
+        ENGINE_BLK(8029BF58);
+        in = 1;
+    }
+    ENGINE_BLK(8029BF5C);
+    /* (what it leaves: everything) */
+    ENGINE_LEAVE(1, r < d);
+    ENGINE_LEAVE(2, px);
+    ENGINE_LEAVE(3, py);
+    ENGINE_LEAVE(4, pz);
+    ENGINE_LEAVE(5, dx);
+    ENGINE_LEAVE(6, dy);
+    ENGINE_LEAVE(7, dz);
+    ENGINE_LEAVE64(8, d);
+    ENGINE_LEAVE64(9, dy2);
+    ENGINE_LEAVE64(10, dz2);
+    ENGINE_LEAVE_FW(0, (u32)d);
+    ENGINE_LEAVE_FW(1, (u32)((u64)d >> 32));
+    return in;
+}
+
+/* a free record of D_803B7FC8 (word 0 clear) for (s2, t5, !D_8035805C),
+   D_803B8568 moved up to it */
+REGS(s2, t5)
+void func_8029DCD4(s32 a, s32 b) {
+    u8 *p = D_803B7FC8;
+    s32 n = 0x78;
+
+    ENGINE_BLK(8029DCD4);
+    for (;;) {
+        ENGINE_BLK(8029DCF4);
+        if (n == 0)
+            goto done;
+        ENGINE_BLK(8029DCFC);
+        n--;
+        if (((u32 *)p)[0] != 0) {
+            p += 0xC;
+            continue;
+        }
+        break;
+    }
+    ENGINE_BLK(8029DD0C);
+    ((s32 *)p)[0] = a;
+    ((s32 *)p)[1] = b;
+    ((s32 *)p)[2] = D_8035805C ^ 1;
+    if (D_803B8568 < p) {
+        ENGINE_BLK(8029DD38);
+        D_803B8568 = p;
+    }
+    /* ($at: the delay slot's lui) */
+    ENGINE_LEAVE(1, ((u32)&D_803B8568 + 0x8000) & 0xFFFF0000);
+done:
+    ENGINE_BLK(8029DD3C);
+}
