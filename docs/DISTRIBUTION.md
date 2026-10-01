@@ -120,6 +120,26 @@ unidentified.
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
 
+**Side note: path-traced lighting** (desktop only; looked into 2026-09-30, parked until after a full
+rewrite).
+- **What the renderer has to work with:**
+  - Capturing the scene is easy: the camera is its own matrix, and terrain and buildings arrive in world
+    coordinates. The game sends the whole level every frame (about 4.5 K triangles, 95% off screen; it
+    relies on `G_CULLDL`).
+  - The lighting is the hard part. It is almost all painted into the textures or given as flat vertex
+    tints: 64% of world triangles are white, there is one fixed light used by about 9 triangles a
+    frame, and no fog. Vehicle shadows are top-down silhouettes drawn as ground decals.
+  - Ray-traced light added on top would be counted twice.
+  - Unlit replacement textures would be ROM-derived, so they couldn't be shipped.
+- **Possible now, but not worth it yet:** hooking `gfx.c`'s `do_mtx`/`do_vtx` and adding shadows, AO
+  and a bounce over the GL rasterizer. That is 4–8 weeks, or more for full path tracing.
+- **Worth doing with a rewritten engine,** whose renderer gets a scene API: instances, material IDs and
+  emitters such as explosions.
+- **First step then:** a debug dump of one frame as glTF, rendered offline (e.g. Blender Cycles) to
+  check that it looks better and not just muddier.
+- **Hardware:** OpenGL 4.3 compute with our own BVH is enough at this size; Vulkan ray queries are the
+  alternative. Denoising: NRD or SVGF.
+
 ## Replacing the SDK parts
 
 The goal is for a published port to contain none of Nintendo's SDK. The N64 build keeps
