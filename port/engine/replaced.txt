@@ -176,3 +176,8 @@ func_802C4310
 func_802C444C
 func_802C4584
 func_802C4724
+
+# 60D50: the height boxes (engine-B)
+func_802A5510
+func_802A5604
+func_802A56C4
