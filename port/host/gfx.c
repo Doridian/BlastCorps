@@ -1616,8 +1616,12 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
         }
         fl = flat;
     }
-    /* culling, in normalized device coordinates */
-    if (a->w > 0 && b->w > 0 && c->w > 0 && (gs.geom & 0x3000)) {
+    /* culling, in normalized device coordinates (a triangle with a vertex
+       behind the eye is culled below, once clipped) */
+    int cull_late = 0;
+    if (!(a->w > 0 && b->w > 0 && c->w > 0))
+        cull_late = (gs.geom & 0x3000) != 0;
+    else if (gs.geom & 0x3000) {
         float ax = a->x / a->w, ay = a->y / a->w, bx = b->x / b->w, by = b->y / b->w;
         float cx = c->x / c->w, cy = c->y / c->w;
         float cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
@@ -1643,6 +1647,22 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
         n = clip_poly(p1, n, p2, 1);
         if (n < 3)
             return;
+        /* the clipped polygon is all in front of the eye, where its
+           winding on the screen is the triangle's facing, as the RSP
+           culls what its clipper hands on: without it, the back faces of
+           walls and girders that reach behind the camera were drawn as
+           sheets over the screen, with a straight edge */
+        if (cull_late) {
+            float area = 0;
+            for (int i = 0; i < n; i++) {
+                const Vtx4 *p = &p2[i], *q = &p2[(i + 1) % n];
+                area += p->x / p->w * (q->y / q->w) - q->x / q->w * (p->y / p->w);
+            }
+            if ((gs.geom & 0x2000) && area < 0)
+                return;
+            if ((gs.geom & 0x1000) && area > 0)
+                return;
+        }
         for (int i = 0; i < n; i++)
             to_screen(&p2[i], &s[i]);
     }

@@ -2146,6 +2146,18 @@ mupen64plus (rice) the back of the logo is plain gold and the boosters
 silver, as they are now.  (`G_TEXTURE_GEN_LINEAR` isn't used and is
 mapped the same way.)
 
+A triangle with a vertex behind the eye is culled once it is clipped,
+by the winding of what is left of it on the screen, as the RSP culls
+the polygons its clipper hands on.  The port used to draw every such
+triangle, so the back faces of walls and girders that reach behind the
+camera were drawn as sheets over the screen, with a straight edge where
+the triangle's side went behind the eye: the road's wall over the
+carrier at the end of a level (frame 108,600 of the TAS), dark slivers
+over the roads, and a red girder over half the screen while the carrier
+blew up among them (issue #1; the explosion's own shockwave isn't culled
+and was drawn right).  Over the TAS, 11 of the 918 frames a sweep looks
+at change.
+
 Not done: anti-aliasing (the coverage the blender uses on edges; rendering
 above 1x and scaling down is the substitute) and the VI's filters, dither,
 the combiner's chroma key (its noise input is a hash, not the RDP's
