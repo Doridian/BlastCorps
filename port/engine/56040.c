@@ -2289,3 +2289,97 @@ s64 func_8029D90C(u8 *part, s64 *b_out, s64 *c_out, s64 *d_out) {
     *c_out = c;
     return a;
 }
+
+/* Whether one of the part's triangle's edges (0x28 on: the corners 0-1,
+   0-2, 1-2) passes within r of (x, y, z): the edge's line meets the
+   sphere at a t in [0, 1] ($t7) */
+REGS(s0, t3, t4, t5, t6 -> t7)
+s32 func_8029BD0C(u8 *part, s32 x, s32 y, s32 z, s32 r) {
+    s32 *w = (s32 *)(part + 0x28), *a, *b;
+    s32 e = 4, hit = 0, at = 3, ex, ey, ez, px, py, pz, fsat = 0;
+    u64 dd = 0, dot2 = 0, cc = 0, disc = 0, q = 0;
+    f32 f0 = 0.0f, f2 = 0.0f, f4, f6;
+
+    ENGINE_BLK(8029BD0C);
+    for (;;) {
+        ENGINE_BLK(8029BD14);
+        at = 3;
+        if (--e == 0)
+            break;
+        ENGINE_BLK(8029BD20);
+        at = 2;
+        if (e == 3) {
+            ENGINE_BLK(8029BD68);
+            a = w, b = w + 3;
+        } else {
+            ENGINE_BLK(8029BD28);
+            if (e == 2) {
+                ENGINE_BLK(8029BD4C);
+                a = w, b = w + 6;
+            } else {
+                ENGINE_BLK(8029BD30);
+                a = w + 3, b = w + 6;
+            }
+        }
+        ENGINE_BLK(8029BD80);
+        px = a[0] - x, ex = b[0] - a[0];
+        py = a[1] - y, ey = b[1] - a[1];
+        pz = a[2] - z, ez = b[2] - a[2];
+        dd = (u64)(s64)ex * (u64)(s64)ex + (u64)(s64)ey * (u64)(s64)ey + (u64)(s64)ez * (u64)(s64)ez;
+        dot2 = ((u64)(s64)ex * (u64)(s64)px + (u64)(s64)ey * (u64)(s64)py + (u64)(s64)ez * (u64)(s64)pz) << 1;
+        cc = (u64)(s64)px * (u64)(s64)px + (u64)(s64)py * (u64)(s64)py + (u64)(s64)pz * (u64)(s64)pz -
+             (u64)(s64)r * (u64)(s64)r;
+        q = (dd * cc) << 2;
+        disc = dot2 * dot2 - q;
+        ENGINE_LEAVE(2, ex);
+        ENGINE_LEAVE(3, ey);
+        ENGINE_LEAVE(4, ez);
+        ENGINE_LEAVE(5, px);
+        ENGINE_LEAVE(6, py);
+        ENGINE_LEAVE(7, pz);
+        if ((s64)disc < 0)
+            continue;
+        ENGINE_BLK(8029BE60);
+        f2 = __builtin_sqrtf((f32)(s64)disc);
+        dot2 = 0 - dot2;
+        f4 = (f32)(s64)dot2;
+        dd <<= 1;
+        f0 = (f32)(s64)dd;
+        at = 0x3F800000;
+        fsat = 1;
+        f6 = (f4 + f2) / f0;
+        if (!(f6 < 0.0f)) {
+            ENGINE_BLK(8029BEA4);
+            if (!(f6 > 1.0f)) {
+                ENGINE_BLK(8029BEB0);
+                hit = 1;
+                break;
+            }
+        }
+        ENGINE_BLK(8029BEB8);
+        f6 = (f4 - f2) / f0;
+        if (f6 < 0.0f)
+            continue;
+        ENGINE_BLK(8029BECC);
+        if (f6 > 1.0f)
+            continue;
+        ENGINE_BLK(8029BED8);
+        hit = 1;
+        break;
+    }
+    ENGINE_BLK(8029BEDC);
+    /* (what it leaves: the last edge's working) */
+    ENGINE_LEAVE(1, at);
+    ENGINE_LEAVE64(8, dd);
+    ENGINE_LEAVE64(9, dot2);
+    ENGINE_LEAVE64(10, cc);
+    ENGINE_LEAVE(18, e);
+    ENGINE_LEAVE64(19, disc);
+    ENGINE_LEAVE64(20, q);
+    if (fsat) {
+        ENGINE_LEAVE_F(0, f0);
+        ENGINE_LEAVE_F(2, f2);
+        ENGINE_LEAVE_F(8, 0.0f);
+    }
+    return hit;
+}
