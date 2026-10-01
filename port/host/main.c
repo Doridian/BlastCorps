@@ -528,6 +528,12 @@ void host_controller_poll(void) {
         if (ic)
             fprintf(ic, "%u %u %u\n", polls, __port_icount, __port_icount_c);
     }
+#ifdef PORT_BLKLOG
+    {
+        void port_blklog_poll(unsigned int n);
+        port_blklog_poll(polls);
+    }
+#endif
     if (pace)
         fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(D_803156C4),
                 port_be32(D_80358064), port_be32(D_80364A90),

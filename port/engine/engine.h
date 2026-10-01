@@ -41,6 +41,9 @@ extern unsigned int __port_icount;
 #ifdef PORT_ENGINE_CHECK
 void engine_trace_blk(unsigned int id);
 #define ENGINE_BLK_(id, n) (__port_icount += (n), engine_trace_blk(id))
+#elif defined(PORT_BLKLOG)
+void port_blklog(unsigned int id);
+#define ENGINE_BLK_(id, n) (__port_icount += (n), port_blklog(id))
 #else
 #define ENGINE_BLK_(id, n) (__port_icount += (n))
 #endif
@@ -57,6 +60,25 @@ s32 engine_trunc_w_s(f32 x);
 s32 engine_trunc_w_d(f64 x);
 s64 engine_cvt_l_d(f64 x);
 s64 engine_cvt_l_s(f32 x);
+
+/* The original's syscall at pc (a state it doesn't expect): the game
+   stops, as with the translation (port/host/engine.c). */
+void engine_trap(u32 pc);
+
+/* Registers the original saves on its stack and loads back before it
+   returns: engine_save() at its entry and engine_restore() before each
+   return put them back in the thread's context as they were, undoing what
+   its translated callees left there (port/host/engine.c).  The masks have
+   a bit per GPR and per FPR word. */
+void engine_save(u32 gmask, u32 fmask);
+/* What the thread's context holds in GPR reg now: what the original would
+   find in a register that the code before it left (port/host/engine.c). */
+u32 engine_ctx(unsigned int reg);
+void engine_restore(void);
+#define ENGINE_GPR(r) (1u << (r))
+#define ENGINE_S0_S7_GP_FP (0xFFu << 16 | ENGINE_GPR(28) | ENGINE_GPR(30))
+#define ENGINE_T0_T5 (0x3Fu << 8)
+#define ENGINE_F20_F31 (0xFFFu << 20)
 
 /* Registers the original leaves behind besides its results, which some
    translated code reads afterwards (conventions.py's outputs that REGS()

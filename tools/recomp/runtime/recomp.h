@@ -119,6 +119,10 @@ extern uint32_t __port_icount;
 extern int engine_tracing;
 void engine_trace_blk(unsigned int id);
 #define BB(id, n) (__port_icount += (n), engine_tracing ? engine_trace_blk(id) : (void)0)
+#elif defined(PORT_BLKLOG)
+/* (the port's block log, port/host/engine.c) */
+void port_blklog(unsigned int id);
+#define BB(id, n) (__port_icount += (n), port_blklog(id))
 #else
 #define BB(id, n) (__port_icount += (n))
 #endif

@@ -26,9 +26,140 @@ void engine_break(uint32_t pc, uint32_t code) {
     recomp_trap(port_ctx(), RECOMP_TRAP_BREAK, pc, code);
 }
 
+#ifdef PORT_BLKLOG
+/* PORT_BLKLOG=FILE:FROM:TO:LO-HI,LO-HI...: from the FROMth controller read
+   to the TOth, the ids of the blocks charged (translated or native) in the
+   ranges given, one a line, and "P n" at the nth read (port/host/main.c);
+   the run ends at the TOth. */
+static FILE *blklog_f;
+static unsigned blklog_from, blklog_to, blklog_n;
+static unsigned blklog_r[64][2];
+static int blklog_on;
+
+static void blklog_init(void) {
+    static int done;
+    char path[512];
+    const char *s = getenv("PORT_BLKLOG"), *p;
+    int k;
+    if (done)
+        return;
+    done = 1;
+    if (!s || sscanf(s, "%511[^:]:%u:%u:%n", path, &blklog_from, &blklog_to, &k) != 3)
+        return;
+    for (p = s + k; *p && blklog_n < 64;) {
+        char *e;
+        blklog_r[blklog_n][0] = (unsigned)strtoul(p, &e, 10);
+        if (*e != '-')
+            break;
+        blklog_r[blklog_n][1] = (unsigned)strtoul(e + 1, &e, 10);
+        blklog_n++;
+        p = *e == ',' ? e + 1 : e;
+    }
+    blklog_f = fopen(path, "w");
+}
+
+/* PORT_BLKLOG_REGS=ID: at block ID, the context's GPRs too (as the
+   translated code would see them) */
+
+void port_blklog(unsigned int id) {
+    static long regs_at = -2;
+    unsigned k;
+    if (!blklog_on)
+        return;
+    if (regs_at == -2) {
+        const char *s = getenv("PORT_BLKLOG_REGS");
+        regs_at = s ? atol(s) : -1;
+    }
+    for (k = 0; k < blklog_n; k++)
+        if (id >= blklog_r[k][0] && id <= blklog_r[k][1]) {
+            fprintf(blklog_f, "%u\n", id);
+            if ((long)id == regs_at) {
+                recomp_context *ctx = port_ctx();
+                int r;
+                fprintf(blklog_f, "R");
+                for (r = 1; r < 32; r++)
+                    fprintf(blklog_f, " %d=%llx", r, (unsigned long long)ctx->r[r]);
+                fprintf(blklog_f, "\n");
+            }
+            return;
+        }
+}
+
+void port_blklog_poll(unsigned int n) {
+    blklog_init();
+    if (!blklog_f)
+        return;
+    blklog_on = n >= blklog_from && n < blklog_to;
+    if (n >= blklog_from)
+        fprintf(blklog_f, "P %u\n", n);
+    if (n >= blklog_to) {
+        fclose(blklog_f);
+        exit(0);
+    }
+}
+#endif
+
+/* engine.h's engine_trap: the original's syscall (Rare's "can't happen"),
+   which stops the game as the translation's recomp_trap does */
+void engine_trap(uint32_t pc) {
+    host_fatal("the engine trapped: syscall at %08X", pc);
+}
+
+/* engine.h's ENGINE_SAVE/ENGINE_RESTORE: the registers the original saves
+   on its stack and loads back before it returns (gmask: GPRs, fmask: FPR
+   words), kept here for the thread's context, so that what its translated
+   callees leave in them is undone as the original undoes it.  Nested as
+   the calls are; each thread's own (a context switch inside one is
+   possible, through the game's C). */
+static struct {
+    recomp_context *ctx;
+    uint32_t gmask, fmask;
+    uint64_t r[32];
+    uint32_t f[32];
+} save_stack[256];
+static int save_n;
+
+void engine_save(uint32_t gmask, uint32_t fmask) {
+    recomp_context *ctx = port_ctx();
+    int k;
+    if (save_n >= (int)(sizeof save_stack / sizeof save_stack[0]))
+        host_fatal("engine_save: too deep");
+    save_stack[save_n].ctx = ctx;
+    save_stack[save_n].gmask = gmask;
+    save_stack[save_n].fmask = fmask;
+    for (k = 0; k < 32; k++) {
+        if (gmask >> k & 1)
+            save_stack[save_n].r[k] = ctx->r[k];
+        if (fmask >> k & 1)
+            save_stack[save_n].f[k] = ctx->f[k];
+    }
+    save_n++;
+}
+
+uint32_t engine_ctx(unsigned int reg) {
+    return reg < 32 ? (uint32_t)port_ctx()->r[reg] : 0;
+}
+
+void engine_restore(void) {
+    recomp_context *ctx = port_ctx();
+    int n, k;
+    for (n = save_n - 1; n >= 0 && save_stack[n].ctx != ctx; n--)
+        ;
+    if (n < 0)
+        host_fatal("engine_restore: nothing saved");
+    for (k = 0; k < 32; k++) {
+        if (save_stack[n].gmask >> k & 1)
+            ctx->r[k] = save_stack[n].r[k];
+        if (save_stack[n].fmask >> k & 1)
+            ctx->f[k] = save_stack[n].f[k];
+    }
+    for (; n < save_n - 1; n++)
+        save_stack[n] = save_stack[n + 1];
+    save_n--;
+}
+
 /* engine.h's ENGINE_LEAVE: 0-31 a GPR (the word sign-extended, as the
    VR4300 holds one), 34-65 an FPR word */
-extern recomp_context *port_ctx(void);
 void engine_leave(unsigned int reg, uint32_t value) {
     recomp_context *ctx = port_ctx();
     if (reg < 32) {
