@@ -2662,6 +2662,9 @@ s32 func_802AC0BC(s32 x, s32 z, s32 y) {
             d = -(s32)d;
         }
         ENGINE_BLK(802AC164);
+        /* (the distance stays in $a0, and the delay slot's lui in $at) */
+        ENGINE_LEAVE(4, d);
+        ENGINE_LEAVE(1, ((u32)&D_803EBBFC + 0x8000) & 0xFFFF0000);
         if (dist < d)
             goto next;
         ENGINE_BLK(802AC170);
