@@ -13,7 +13,9 @@ a screenshot every 250 frames are hashed and compared with the committed
 references (port/tools/test_refs.json, by version), with --against another
 build's results, and within the build (the pthread backend against
 ucontext, --widescreen, --interpolate with either renderer against
-the plain run: the save and the sound must not change).  --update writes
+the plain run: the save and the sound must not change).  A build that takes
+its data from the ROM (PORT_ROM_DATA, the movable ones by default) is also
+searched for the ROM's data (rom_scan.py), and must carry none.  --update writes
 the build's hashes as the references for its version.
 
 tas: the TAS replay (docs/PORT.md, "The TAS"), several builds at once:
@@ -169,6 +171,7 @@ class Build:
         self.version = cache.get("PORT_VERSION", "us.v11")
         self.lp64, self.native, self.bits64, self.movable = (
             on("PORT_LP64"), on("PORT_NATIVE_ENDIAN"), on("PORT_64BIT"), on("PORT_MOVABLE"))
+        self.rom_data = on("PORT_ROM_DATA")
         self.gl = cache.get("EPOXY_FOUND", "") == "1"
         self.threads = cache.get("PORT_THREADS", "ucontext")
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
@@ -420,12 +423,32 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
                     fails += 1
                 else:
                     say("PASS", label, "identical" + (", the layout-dependent screenshots too" if exact else ""))
+    if build.rom_data:
+        fails += rom_scan(build)
     if update:
         refs.setdefault("quick", {})[build.version] = vref
     if update or known is not None:
         save_refs(refs)
     emit(f"   {build.name}: {fails} failed, {time.time() - t0:.0f}s")
     return fails
+
+
+def rom_scan(build):
+    """a PORT_ROM_DATA build carries none of the ROM (rom_scan.py: no
+    stretch of 24 bytes of it or of its inflated modules); the failures"""
+    files = [build.exe] + ([os.path.splitext(build.exe)[0] + ".wasm"] if build.wasm else [])
+    t = time.time()
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", "rom_scan.py"), "--version",
+                        build.version, "--max-bytes", "0", "--top", "5"] + files, capture_output=True, text=True)
+    label = f"{build.name} rom_scan ({time.time() - t:.0f}s)"
+    if r.returncode == 0:
+        say("PASS", label, "none of the ROM's data in " + ", ".join(os.path.basename(f) for f in files))
+        return 0
+    if r.returncode == SKIP:
+        say("SKIP", label, r.stderr.strip())
+        return 0
+    say("FAIL", label, "the ROM's data in the build:\n" + r.stdout + r.stderr)
+    return 1
 
 
 # ---- tas ---------------------------------------------------------------------
