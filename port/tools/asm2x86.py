@@ -504,8 +504,20 @@ def convert_native(src, label=None):
     return nat.emit()
 
 
-def native_blob(src, label):
+# The RSP microcode's text (hd_code's after ldiv, hd_front_end's at the end
+# of its .text): the port's HLE never runs it and nothing else reads it, so
+# the port carries zeros of its size (docs/DISTRIBUTION.md).  (Its data
+# segments are kept: aspmain.c reads the audio microcode's resampling table.)
+RSP_TEXT = {"hd_code_A0C30_bin", "hd_front_end_20090_bin"}
+
+
+def blob_bytes(src, label):
     data = open(src, "rb").read()
+    return bytes(len(data)) if label in RSP_TEXT else data
+
+
+def native_blob(src, label):
+    data = blob_bytes(src, label)
     widths = [1] * len(data)
     blob = BLOBS.get(label, [])
     for off, n, w in blob(data) if callable(blob) else blob:
@@ -581,7 +593,7 @@ def main():
     if src.endswith(".bin"):
         label = sys.argv[3]
         out = [f".section .n64.{label},\"aw\",@progbits", f".globl {label}", f"{label}:",
-               f".incbin \"{src}\""]
+               f".space {len(blob_bytes(src, label))}" if label in RSP_TEXT else f".incbin \"{src}\""]
     else:
         label = sys.argv[3] if len(sys.argv) > 3 else None
         out = convert(src, label)
