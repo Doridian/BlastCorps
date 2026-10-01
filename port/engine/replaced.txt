@@ -3,6 +3,29 @@
 # "Replacing the engine").  One name per line, us.v11's (the same in every
 # version); a version that has no such function ignores it.
 
+# 56040: the vehicles' parts
+func_8029FF2C
+func_802A0290
+func_802A02E4
+func_802A0320
+func_802A0360
+func_802A039C
+func_802A03D4
+func_802A040C
+func_802A0444
+func_802A0480
+func_802A04BC
+func_802A0508
+func_802A0540
+func_802A0570
+func_802A05A4
+func_802A05D0
+func_802A05F8
+func_802A0620
+func_802A0648
+func_802A0674
+func_802A06B4
+
 # 62740: the vehicles' shared physics
 func_802A6F00
 func_802A6F6C
