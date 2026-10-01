@@ -1351,8 +1351,9 @@ static s64 dword(u8 *p) {
 /* Whether (x, y, z) is within lim of the part's plane (a, b, c, d at
    0-0x18, the distance's scale at 0x20); if so, its foot on the plane
    (along the normal, over 0x24) in D_803A73FC-D_803A7404 ($v0) */
-REGS(s0, t3, t4, t5, t6 -> v0)
-s32 func_8029C160(u8 *pl, s32 x, s32 y, s32 z, s32 lim) {
+REGS(t3, t4, t5, t6, s0 -> v0, v1, a0, a1)
+s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, struct Piece *piece, s32 *px, s32 *py, s32 *pz) {
+    u8 *pl = (u8 *)piece;
     s64 a = dword(pl), b = dword(pl + 8), c = dword(pl + 0x10), d = dword(pl + 0x18);
     s64 s1, s2, s3, l2, l4, l6, rx, ry, rz;
     f32 f0, f2, f4, f6;
@@ -1379,6 +1380,10 @@ s32 func_8029C160(u8 *pl, s32 x, s32 y, s32 z, s32 lim) {
         ENGINE_LEAVE64(19, d);
         ENGINE_LEAVE_F(2, *(f32 *)(pl + 0x20));
         ENGINE_BLK(8029C270);
+        /* ($v1, $a0 as they were loaded, $a1 as it came) */
+        *px = (s32)b;
+        *py = (s32)c;
+        *pz = engine_ctx(5);
         return 0;
     }
     ENGINE_BLK(8029C1E4);
@@ -1411,6 +1416,9 @@ s32 func_8029C160(u8 *pl, s32 x, s32 y, s32 z, s32 lim) {
     ENGINE_LEAVE_FW(6, (u32)l6);
     ENGINE_LEAVE_FW(7, (u32)((u64)l6 >> 32));
     ENGINE_BLK(8029C270);
+    *px = (s32)rx;
+    *py = (s32)ry;
+    *pz = (s32)rz;
     return 1;
 }
 
@@ -2113,10 +2121,10 @@ done:
    on the same side of each edge as a point inside (between the third
    corner and the first edge's middle), an edge it lies on not counting
    ($t7) */
-REGS(v0, v1, a0, a1, a2, a3, t0, t1, f24 -> t7)
-s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz, f32 f24) {
-    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, f2 = 0.0f, f4, f14, f22 = 2.0f, f26 = 0.0f, f28;
-    s32 e = 4, in = 1, at = 3, ex, ez;
+REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t7)
+s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz) {
+    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, f2 = 0.0f, f4, f14, f22 = 2.0f, f24 = 0.0f, f26 = 0.0f, f28;
+    s32 e = 4, in = 1, at = 3, ex, ez, f24set = 0;
 
     ENGINE_BLK(8029BF64);
     cx = (f32)(x0 + x1) / 2.0f;
@@ -2157,6 +2165,7 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
         ENGINE_BLK(8029C080);
         f22 = (cx - f2) * f26;
         f24 = (cz - f4) * f28;
+        f24set = 1;
         f22 = f22 - f24;
         if (!(f14 > 0.0f)) {
             ENGINE_BLK(8029C09C);
@@ -2179,7 +2188,8 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
     ENGINE_LEAVE_F(2, f2);
     ENGINE_LEAVE_F(20, cz);
     ENGINE_LEAVE_F(22, f22);
-    ENGINE_LEAVE_F(24, f24);
+    if (f24set)
+        ENGINE_LEAVE_F(24, f24);
     ENGINE_LEAVE_F(26, f26);
     return in;
 }
@@ -2293,9 +2303,9 @@ s64 func_8029D90C(u8 *part, s64 *b_out, s64 *c_out, s64 *d_out) {
 /* Whether one of the part's triangle's edges (0x28 on: the corners 0-1,
    0-2, 1-2) passes within r of (x, y, z): the edge's line meets the
    sphere at a t in [0, 1] ($t7) */
-REGS(s0, t3, t4, t5, t6 -> t7)
-s32 func_8029BD0C(u8 *part, s32 x, s32 y, s32 z, s32 r) {
-    s32 *w = (s32 *)(part + 0x28), *a, *b;
+REGS(t3, t4, t5, t6, s0 -> t7)
+s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
+    s32 *w = (s32 *)((u8 *)piece + 0x28), *a, *b;
     s32 e = 4, hit = 0, at = 3, ex, ey, ez, px, py, pz, fsat = 0;
     u64 dd = 0, dot2 = 0, cc = 0, disc = 0, q = 0;
     f32 f0 = 0.0f, f2 = 0.0f, f4, f6;
