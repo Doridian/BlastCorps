@@ -4023,7 +4023,7 @@ done:
 REGS(t0, v0, v1)
 void func_8029E558(Part *parts, u8 *base, u8 *other) {
     u8 *p = (u8 *)parts;
-    s32 n, f = 0;
+    s32 n, f;
 
     engine_save(ENGINE_GPR(22) | ENGINE_GPR(23), 0);
     ENGINE_BLK(8029E558);
@@ -4031,6 +4031,7 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
     for (n = 0x20;;) {
         ENGINE_BLK(8029E578);
         f = (s8)p[0x10];
+        ENGINE_LEAVE(10, f);
         if (f != 0) {
             ENGINE_BLK(8029E584);
             func_8029E5AC(p, base, engine_ctx(7));
@@ -4043,7 +4044,6 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
     ENGINE_BLK(8029E598);
     ENGINE_LEAVE(8, (u32)p);
     ENGINE_LEAVE(9, 0);
-    ENGINE_LEAVE(10, f);
     engine_restore();
 }
 
@@ -4319,6 +4319,27 @@ extern u8 D_803A742A;
         goto MISS;                                                                                               \
     } while (0)
 
+/* the registers func_8029AA10, func_8029AB88 and func_8029B02C save and
+   load back (and t8 for the last two): what their callees leave there
+   (func_8029BF64's t8, say) doesn't get out */
+/* (and the inputs, in their registers: a native caller doesn't put them
+   there, and the original leaves them) */
+#define ENGINE_INPUTS9(a1, a2, a3, x, y, z, r, type, kind)                                                     \
+    do {                                                                                                       \
+        ENGINE_LEAVE(5, a1);                                                                                   \
+        ENGINE_LEAVE(6, a2);                                                                                   \
+        ENGINE_LEAVE(7, a3);                                                                                   \
+        ENGINE_LEAVE(11, x);                                                                                   \
+        ENGINE_LEAVE(12, y);                                                                                   \
+        ENGINE_LEAVE(13, z);                                                                                   \
+        ENGINE_LEAVE(14, r);                                                                                   \
+        ENGINE_LEAVE(24, type);                                                                                \
+        ENGINE_LEAVE(30, kind);                                                                                \
+    } while (0)
+#define B02C_SAVED                                                                                             \
+    (ENGINE_GPR(3) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(14) | ENGINE_GPR(15) |         \
+     ENGINE_GPR(16) | ENGINE_GPR(17) | ENGINE_GPR(18) | ENGINE_GPR(20) | ENGINE_GPR(23) | ENGINE_GPR(25))
+
 /* The vehicle (type, its sphere (x, y, z, r), kind) against the
    buildings: the objects of the level's kinds for this vehicle that its
    sphere meets (func_8029B514), their pieces; D_803F9330's pieces (not
@@ -4332,6 +4353,8 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
     u8 *o, *oend, *p, *pend;
     s16 *cell;
 
+    ENGINE_INPUTS9(a1, a2, a3, x, y, z, r, type, kind);
+    engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029B02C);
     /* the objects */
     for (;;) {
@@ -4527,6 +4550,7 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
         }
     }
     ENGINE_BLK(8029B4D4);
+    engine_restore();
 }
 
 /* Whether the sphere (x, y, z, r) meets any building piece func_8029B02C
@@ -4537,6 +4561,12 @@ s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
     u8 *o, *oend, *p, *pend;
     s16 *cell;
 
+    ENGINE_LEAVE(11, x);
+    ENGINE_LEAVE(12, y);
+    ENGINE_LEAVE(13, z);
+    ENGINE_LEAVE(14, r);
+    ENGINE_LEAVE(24, type);
+    engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029AB88);
     for (;;) {
         ENGINE_BLK(8029ABCC);
@@ -4699,10 +4729,12 @@ s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
     }
     ENGINE_BLK(8029AFE8);
     ENGINE_BLK(8029AFEC);
+    engine_restore();
     return 0;
 found:
     ENGINE_BLK(8029AFE0);
     ENGINE_BLK(8029AFEC);
+    engine_restore();
     return 1;
 }
 
@@ -4719,6 +4751,8 @@ void func_8029AA10(s32 type) {
     u8 *r = D_803A7300;
     s32 hit = 0, n = 0, x, y, z, rad;
 
+    ENGINE_LEAVE(24, type);
+    engine_save(B02C_SAVED, 0);
     ENGINE_BLK(8029AA10);
     D_803A742B = 0;
     for (;;) {
@@ -4781,4 +4815,5 @@ tail:
     ENGINE_LEAVE(1, HI(D_803A740C));
 out:
     ENGINE_BLK(8029AB4C);
+    engine_restore();
 }

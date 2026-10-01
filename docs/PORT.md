@@ -2949,6 +2949,17 @@ a native-endian build (n64, mn32) does.
   Native code calls translated code at the context's `$sp`, as Rare's
   `jal` leaves it.  The check build can't see this: it leaves out the
   dead stack.
+- A native called from another native gets its inputs as C arguments,
+  and nothing puts them in the context.  When its original keeps or
+  saves an input register, it leaves the input there itself at entry
+  (`func_8029B02C`, `func_802A8768`): 89250's call of `func_8029B02C`
+  left a stale `$t8`, and a translated `func_802A9CAC` later took
+  another branch.  So too it saves and loads back with `engine_save()`
+  the registers its native callees leave and its original reloads
+  (`func_8029BF64`'s `$t8` inside `func_8029B02C`), since no glue
+  between two natives does it.  The replay with `PORT_ICOUNT_LOG`
+  against a build without the replacement, then `PORT_BLKLOG` around
+  the first read that differs, finds such a register.
 
 **What else the native code has to do** (from the loaders, terrain and
 textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):

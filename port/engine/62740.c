@@ -4089,8 +4089,21 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
     s32 t4 = engine_ctx(12), i, t5, h, h0, h1, h2, s5, q, r, along, across, t2;
 
     ENGINE_BLK(802A8768);
+    /* (the inputs in their registers: a native caller doesn't put them there) */
     ENGINE_LEAVE(8, x);
     ENGINE_LEAVE(9, z);
+    ENGINE_LEAVE(15, (u32)px);
+    ENGINE_LEAVE(17, (u32)pz);
+    ENGINE_LEAVE(18, (u32)py);
+    ENGINE_LEAVE(24, type);
+    ENGINE_LEAVE(25, t9);
+    ENGINE_LEAVE(30, fp);
+    ENGINE_LEAVE(3, (u32)v1);
+    ENGINE_LEAVE(5, (u32)a1);
+    ENGINE_LEAVE(6, (u32)a2);
+    ENGINE_LEAVE(7, (u32)a3);
+    ENGINE_LEAVE(11, (u32)t3);
+    ENGINE_LEAVE(28, (u32)vs);
     func_802A8CCC(x, z, px, py, pz, type, vs, (u32)v1, engine_ctx(10), (u32)t3, t4, fp);
     x = engine_ctx(8);
     z = engine_ctx(9);
