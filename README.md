@@ -56,7 +56,27 @@ and is the one to use if you don't have multilib installed.
 
 ## Build it
 
-Put `baserom.us.v11.z64` in the repo's root, then, from the root:
+The quick way, from the repo's root, with your ROM wherever it is (`.z64`,
+`.v64` or `.n64`; us.v11, us.v10 or jp):
+
+```
+port/build.py path/to/rom.z64                  # the port for this machine: build/port-<version>
+port/build.py --wasm path/to/rom.z64           # the browser page: build/web-<version>
+port/build.py --wasm --serve path/to/rom.z64   # ... and serve it on http://localhost:8000
+```
+
+It identifies the ROM by its sha1. It sets up the submodules and the venv
+if they aren't there yet, builds the decompilation and the translated engine
+for that version, then the port. That's about a minute on a fast machine.
+Run it again after a `git pull` and it redoes only what changed.
+`--wasm` needs emsdk: `--emsdk DIR`, `$EMSDK`, emcmake on the `PATH`, or
+`--install-emsdk` to fetch it into `.emsdk/`.  `--variant 32|lp64|movable|native`
+builds the other native variants, and `--node` the headless WebAssembly
+build; `port/build.py --help` has the rest.  Building another version
+replaces the decompilation's output, but not the port builds already made.
+
+The steps it runs, by hand: put `baserom.us.v11.z64` in the repo's root,
+then, from the root:
 
 ```
 python3 -m venv .env                       # once (see "Set up Python for splat")

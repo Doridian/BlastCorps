@@ -19,3 +19,4 @@ permuter/
 .version
 !port/port_fixed.ld
 vgcore.*
+.emsdk/
