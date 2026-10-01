@@ -12,6 +12,7 @@
 #include "recomp.h"
 #include "host.h"
 #include "port.h"
+#include "port_recomp.h"
 
 int32_t engine_cvt_w_s(float x) { return (int32_t)recomp_f2w(recomp_rintf(x)); }
 int32_t engine_cvt_w_d(double x) { return (int32_t)recomp_f2w(recomp_rint(x)); }
@@ -173,6 +174,32 @@ void engine_leave64(unsigned int reg, uint32_t lo, uint32_t hi) {
     recomp_context *ctx = port_ctx();
     if (reg && reg < 32)
         ctx->r[reg] = (uint64_t)hi << 32 | lo;
+}
+
+/* engine.h's engine_frame and its stores: the original's stack frame, in
+   RDRAM as the translated code's addiu, sd, sdc1 and sw leave it */
+uint32_t engine_frame(int32_t n) {
+    recomp_context *ctx = port_ctx();
+    ctx->sp = S32((uint32_t)ctx->sp + (uint32_t)n);
+    return (uint32_t)ctx->sp;
+}
+
+void engine_frame_sd(uint32_t off, unsigned int reg) {
+    recomp_context *ctx = port_ctx();
+    uint8_t *rdram = RDRAM;
+    mem_w64(rdram, (uint32_t)ctx->sp + off, reg < 32 ? ctx->r[reg] : 0);
+}
+
+void engine_frame_sdc1(uint32_t off, unsigned int fpr) {
+    recomp_context *ctx = port_ctx();
+    uint8_t *rdram = RDRAM;
+    mem_w64(rdram, (uint32_t)ctx->sp + off, fpr_l(ctx, (int)fpr));
+}
+
+void engine_frame_sw(uint32_t off, uint32_t v) {
+    recomp_context *ctx = port_ctx();
+    uint8_t *rdram = RDRAM;
+    mem_w32(rdram, (uint32_t)ctx->sp + off, v);
 }
 
 /* engine.h's: a COP0 register, as the translated code's mfc0 reads it */

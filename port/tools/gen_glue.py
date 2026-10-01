@@ -787,10 +787,13 @@ def gen_entry_regs(name, sig, conv, cname=None, orig=False):
     rty = "void" if rc == "V" else (narrow_ctype(ret) if rc == "I" else cty(rc))
     fty = "uintptr_t" if rc == "I" else rty
     args = ", ".join(f"{pty(classify(p)) if k < len(ins) else 'uintptr_t'} p{k}" for k, p in enumerate(ps)) or "void"
+    # the callee runs at the context's $sp, as Rare's jal leaves it (the
+    # native code keeps the original's frame there where it matters:
+    # engine_frame(), docs/PORT.md "Replacing the engine")
     lines = [f"{fty} {cname or name}({args}) {{",
              "    recomp_context *ctx = port_ctx();",
              "    uint64_t sp = ctx->sp;",
-             "    ctx->sp = sp - 32;"]
+             "    ctx->sp = sp;"]
     stack = [r for r in ins if r[0] == "stack"]
     if stack:
         top = max(r[1] for r in stack) + 8

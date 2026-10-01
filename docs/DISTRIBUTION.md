@@ -183,13 +183,14 @@ against its translation.
   (`$s0`/`$s4`/`$s7` for `func_802A8768`'s and `func_8029C454`'s hidden reads, `func_802AA764`'s `$s2`).
 - Still translated in the vehicle modules: each one's two collision callbacks (they go native with 62740's
   dispatch, `func_802AB478`..), 69BB0 (the driver), 6E200 (Skyfall and Ramdozer), 80280 (J-Bomb).
-- Open: with 72B80's chopper native, the TAS still matches (the same save), but the game's C cost
-  (`__port_icount_c`) drifts from read 5591 of us.v10's TAS, starting 12 instructions low, while the
-  engine's count stays identical.  At the same time a 7×8 patch of pixels differs, and RDRAM is identical
-  apart from the stacks.  The drift goes away only with both `func_802B899C` and `func_802B9B4C`
-  translated; each one alone isn't enough.  The suspicion is what the original leaves on the N64 stack:
-  natives don't write the frames the original saves its registers in, and the entry glue places
-  translated callees at `$sp - 32`.
+- The chopper's C-cost drift (us.v10's TAS, read 5591, `__port_icount_c` 12 instructions low, a 7x8
+  patch of pixels) was the dead N64 stack.  The driver's shadow (69BB0's `func_802AF340`), which hd.c
+  runs right after the chopper at the same depth, passes `func_802582C4` three stack arguments it never
+  stores; the shadow's pitch is whatever `func_802ABBEC` saved there for the chopper (its `$t3`, the
+  model).  With the chopper native nothing wrote that slot, and the shadow tilted.  The fix keeps the
+  original's frames where the read reaches them (`engine_frame()`, docs/PORT.md), and native code now
+  calls translated code at the context's `$sp`, as Rare's `jal` does, not 32 bytes below it.  Both costs
+  are now the same as main's over the whole TAS.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).

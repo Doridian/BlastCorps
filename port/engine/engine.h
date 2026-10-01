@@ -129,6 +129,24 @@ void engine_break(u32 pc, u32 code) __attribute__((noreturn));
    original sees what the context holds; ENGINE_REG(25) is that. */
 u32 engine_reg(unsigned int reg);
 
+/* The original's stack frame.  What Rare's code stores on the N64 stack
+   stays there after it returns, and later code may read a slot it never
+   wrote itself (the driver's shadow takes its tilt from one: 69BB0's
+   func_802AF340 passes func_802582C4 three stack arguments it doesn't
+   store).  A native function whose frame such a read reaches keeps it as
+   the original does: engine_frame(-0x58) moves the context's $sp as its
+   addiu does and returns the new $sp, engine_frame_sd(off, reg) stores the
+   context's GPR at $sp + off as its sd does, engine_frame_sdc1(off, fpr)
+   an FPR pair as its sdc1, engine_frame_sw(off, v) a word.  Translated
+   callees run at the context's $sp, as the original's jal leaves it.  A
+   function the game's C calls directly starts ENGINE_C_FRAME below the
+   context's $sp, where the glue would have started its translation. */
+u32 engine_frame(s32 n);
+void engine_frame_sd(u32 off, unsigned int reg);
+void engine_frame_sdc1(u32 off, unsigned int fpr);
+void engine_frame_sw(u32 off, u32 v);
+#define ENGINE_C_FRAME 16
+
 /* a COP0 register (mfc0), as the translated code reads it */
 u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)

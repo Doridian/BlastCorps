@@ -2918,6 +2918,24 @@ engine's CPU time to the instruction ("Timing").
   `engine_restore()`, since a translated callee's inputs and leftovers
   stay in the context; `engine_ctx(reg)` reads what a translated callee
   left in a register.
+- What the original stores on the N64 stack stays there after it returns,
+  and later code may read a slot it never wrote.  The driver's shadow
+  (69BB0's `func_802AF340`) passes `func_802582C4` three stack arguments
+  it doesn't store.  hd.c runs it right after the chopper, at the same
+  depth, so the shadow's pitch is the chopper's model pointer, which
+  `func_802ABBEC` saved in its frame.  With the chopper native and no
+  frame, `__port_icount_c` drifted from read 5591 of the TAS, and a
+  patch of the shadow differed.  A native function whose frame such a
+  read reaches keeps it as the original does:
+  - `engine_frame(-n)` moves the context's `$sp` as its `addiu`;
+  - `engine_frame_sd(off, reg)`, `engine_frame_sdc1` and
+    `engine_frame_sw` store at `$sp + off` as its `sd`, `sdc1` and `sw`
+    (the context's registers);
+  - one the game's C calls starts `ENGINE_C_FRAME` (16) below, where the
+    glue would have started its translation.
+  Native code calls translated code at the context's `$sp`, as Rare's
+  `jal` leaves it.  The check build can't see this: it leaves out the
+  dead stack.
 
 **What else the native code has to do** (from the loaders, terrain and
 textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
