@@ -10,6 +10,7 @@
  */
 #include "engine.h"
 #include "game/vehicle.h"
+#include "game/game.h"
 
 typedef VehicleState VS;
 
@@ -417,4 +418,492 @@ void func_802A77D0(VS *vs) {
         vs->unk76 = v;
     }
     ENGINE_BLK(802A7820);
+}
+
+/* whether x is past the first gear row's (unk78[0]) speed scaled by the
+   stick (D_80370C2D / -80) */
+REGS(t2, s1 -> t4)
+s32 func_802A7A1C(s32 x, s16 *rows) {
+    s32 r = 0;
+
+    ENGINE_BLK(802A7A1C);
+    ENGINE_BLK(802A7A64);
+    ENGINE_BLK(802A7A7C);
+    if (x < rows[0] * D_80370C2D / -0x50) {
+        ENGINE_BLK(802A7A90);
+        r = 1;
+    }
+    ENGINE_BLK(802A7A94);
+    return r;
+}
+
+/* the same against the last row's (unk78[13]), / 80 */
+REGS(t2, s1 -> t4)
+s32 func_802A7AAC(s32 x, s16 *rows) {
+    s32 r = 0;
+
+    ENGINE_BLK(802A7AAC);
+    ENGINE_BLK(802A7AF4);
+    ENGINE_BLK(802A7B0C);
+    if (rows[13] * D_80370C2D / 0x50 < x) {
+        ENGINE_BLK(802A7B20);
+        r = 1;
+    }
+    ENGINE_BLK(802A7B24);
+    return r;
+}
+
+/* the gear (third value) of the row whose range [row[0], row[1]] holds x,
+   over the rows the vehicle's gears use (unk50); 0 if none.  The rows
+   pointer is left past the last row looked at. */
+REGS(t2, s1, gp -> t4, s1)
+s32 func_802A7C28(s32 x, s16 *rows, VS *vs, u32 *rows_out) {
+    s32 n, r = 0;
+
+    ENGINE_BLK(802A7C28);
+    if (vs->unk50 == 1) {
+        ENGINE_BLK(802A7C4C);
+        n = 5;
+    } else {
+        ENGINE_BLK(802A7C40);
+        n = 7 - vs->unk50;
+    }
+    ENGINE_BLK(802A7C50);
+    if ((s8)D_803ED40C != 0) {
+        ENGINE_BLK(802A7C64);
+        n -= 2;
+    }
+    for (;;) {
+        ENGINE_BLK(802A7C68);
+        if (n == 0)
+            break;
+        ENGINE_BLK(802A7C70);
+        n--;
+        rows += 3;
+        if (x < rows[-3])
+            continue;
+        ENGINE_BLK(802A7C88);
+        if (rows[-2] < x)
+            continue;
+        ENGINE_BLK(802A7C98);
+        r = rows[-1];
+        break;
+    }
+    ENGINE_BLK(802A7C9C);
+    *rows_out = (u32)rows;
+    return r;
+}
+
+/* whether the speed is within `range` of the current gear's top speed
+   (the first row's when reversing) */
+REGS(v1, gp -> v0)
+s32 func_802A7CB0(s32 range, VS *vs) {
+    s32 v = vs->unk76, g;
+
+    ENGINE_BLK(802A7CB0);
+    if (v >= 0) {
+        ENGINE_BLK(802A7CD0);
+        if (vs->unk50 == 1) {
+            ENGINE_BLK(802A7CEC);
+            g = 4;
+        } else {
+            ENGINE_BLK(802A7CE0);
+            g = 6 - vs->unk50;
+        }
+        ENGINE_BLK(802A7CF0);
+        v -= *(s16 *)((u8 *)vs->unk78 + (u32)g * 6 + 2);
+        if (v < 0) {
+            ENGINE_BLK(802A7D14);
+            v = -v;
+        }
+        ENGINE_BLK(802A7D18);
+        if (!(v < range))
+            goto no;
+        ENGINE_BLK(802A7D24);
+    } else {
+        ENGINE_BLK(802A7D2C);
+        v -= vs->unk78[0];
+        if (v < 0) {
+            ENGINE_BLK(802A7D3C);
+            v = -v;
+        }
+        ENGINE_BLK(802A7D40);
+        if (!(v < range))
+            goto no;
+    }
+    ENGINE_BLK(802A7D4C);
+    ENGINE_BLK(802A7D50);
+    return 1;
+no:
+    ENGINE_BLK(802A7D50);
+    return 0;
+}
+
+/* the gear the flags (unk96[0..2]) allow, for the gearbox's mode */
+REGS(t7, s0 -> t3)
+s32 func_802A7D68(s32 mode, u8 *flags) {
+    s32 n, r;
+
+    ENGINE_BLK(802A7D68);
+    if (mode == 0) {
+        ENGINE_BLK(802A7DCC);
+        if (flags[0] != 0) {
+            ENGINE_BLK(802A7DDC);
+            if (flags[1] == 0) {
+                ENGINE_BLK(802A7DEC);
+                r = 2;
+            } else {
+                ENGINE_BLK(802A7DE4);
+                r = 0;
+            }
+        } else {
+            ENGINE_BLK(802A7DF4);
+            if (flags[1] == 0) {
+                ENGINE_BLK(802A7E04);
+                r = 4;
+            } else {
+                ENGINE_BLK(802A7DFC);
+                r = 2;
+            }
+        }
+        goto done;
+    }
+    ENGINE_BLK(802A7D7C);
+    if (mode == 1) {
+        ENGINE_BLK(802A7E0C);
+        if (flags[2] == 0) {
+            ENGINE_BLK(802A7E20);
+            r = 4;
+        } else {
+            ENGINE_BLK(802A7E18);
+            r = 0;
+        }
+        goto done;
+    }
+    ENGINE_BLK(802A7D88);
+    if (mode == 2) {
+        ENGINE_BLK(802A7E28);
+        r = 0;
+        if (flags[0] == 0) {
+            ENGINE_BLK(802A7E38);
+            r += 1;
+        }
+        ENGINE_BLK(802A7E3C);
+        if (flags[1] == 0) {
+            ENGINE_BLK(802A7E48);
+            r += 1;
+        }
+        ENGINE_BLK(802A7E4C);
+        if (flags[2] == 0) {
+            ENGINE_BLK(802A7E58);
+            r += 2;
+        }
+        goto done;
+    }
+    ENGINE_BLK(802A7D90);
+    if (mode == 4) {
+        ENGINE_BLK(802A7DC4);
+        r = 4;
+        goto done;
+    }
+    ENGINE_BLK(802A7D98);
+    for (n = 3;;) {
+        ENGINE_BLK(802A7D9C);
+        if (*flags == 0) {
+            ENGINE_BLK(802A7DBC);
+            r = 4;
+            goto done;
+        }
+        ENGINE_BLK(802A7DA8);
+        flags++;
+        if (--n == 0)
+            break;
+    }
+    ENGINE_BLK(802A7DB4);
+    r = 0;
+done:
+    ENGINE_BLK(802A7E5C);
+    return r;
+}
+
+extern s8 D_80370C2C;           /* the stick's x */
+extern s8 D_80370C34;
+extern u16 D_80370C70;
+extern s16 D_80370C72;
+extern s8 D_803649EE;
+
+/* steering: the heading *h turned by the stick's x times the turn rate
+   (s3; a third less with D_80367C10, fixed with D_80370C75), / 80.
+   Returns the turn, and the stick's x and its address (t2, t0) as the
+   code leaves them for its callers. */
+REGS(s3, s4 -> s3, t0, t2)
+s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick) {
+    s32 x, a, t;
+
+    ENGINE_BLK(802A7E70);
+    if (D_80367C10 != 0) {
+        ENGINE_BLK(802A7E88);
+        ENGINE_BLK(802A7EA0);
+        ENGINE_BLK(802A7EB8);
+        rate -= rate / 3;
+    }
+    ENGINE_BLK(802A7EC4);
+    if (D_80370C75 != 0) {
+        ENGINE_BLK(802A7ED4);
+        if (D_80370C34 != 0) {
+            ENGINE_BLK(802A7EEC);
+            rate = 0x64;
+        } else {
+            ENGINE_BLK(802A7EE4);
+            rate = 0xC8;
+        }
+    }
+    ENGINE_BLK(802A7EF0);
+    D_80370C72 = rate;
+    x = D_80370C2C;
+    t = *h;
+    a = x;
+    if (x < 0) {
+        ENGINE_BLK(802A7F10);
+        a = -x;
+    }
+    ENGINE_BLK(802A7F14);
+    ENGINE_BLK(802A7F38);
+    ENGINE_BLK(802A7F50);
+    rate = a * rate / 0x50;
+    if (x != 0) {
+        ENGINE_BLK(802A7F60);
+        if (x >= 0) {
+            ENGINE_BLK(802A7F68);
+            t -= rate;
+        } else {
+            ENGINE_BLK(802A7F70);
+            t += rate;
+        }
+        ENGINE_BLK(802A7F74);
+        if (t < 0) {
+            ENGINE_BLK(802A7F7C);
+            t += 0x1000;
+        }
+        ENGINE_BLK(802A7F80);
+        if (t >= 0x1000) {
+            ENGINE_BLK(802A7F8C);
+            t -= 0x1000;
+        }
+        ENGINE_BLK(802A7F90);
+        *h = t;
+    }
+    ENGINE_BLK(802A7F94);
+    if (D_803ED40A != 0) {
+        ENGINE_BLK(802A7FA4);
+        if (D_803649EE == 0) {
+            ENGINE_BLK(802A7FB4);
+            t = D_803ED408;
+        }
+    }
+    ENGINE_BLK(802A7FBC);
+    *h = t;
+    D_80370C70 = t;
+    *stick_addr = (u32)&D_80370C2C;
+    *stick = x;
+    return rate;
+}
+
+/* whether (x, z) is inside the triangle (x1, z1), (x2, z2), (x3, z3): on
+   the same side of each edge as the point halfway between the first
+   corner and the middle of the opposite edge */
+REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
+s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
+    f32 fx, fz, cx, cz, ex, ez, d, c, a, b, dx, dz;
+    s32 edge, r = 1, tx, tz;
+
+    ENGINE_BLK(802AA460);
+    cx = (f32)(x2 + x3) / 2.0f;
+    cz = (f32)(z2 + z3) / 2.0f;
+    cx = ((f32)x1 + cx) / 2.0f;
+    cz = ((f32)z1 + cz) / 2.0f;
+    fx = (f32)x;
+    fz = (f32)z;
+    for (edge = 4;;) {
+        ENGINE_BLK(802AA4E4);
+        if (--edge == 0)
+            break;
+        ENGINE_BLK(802AA4F0);
+        if (edge == 3) {
+            ENGINE_BLK(802AA538);
+            ex = (f32)x1, ez = (f32)z1;
+            tx = z2 - z1, tz = x2 - x1;
+        } else {
+            ENGINE_BLK(802AA4F8);
+            if (edge == 2) {
+                ENGINE_BLK(802AA51C);
+                ex = (f32)x1, ez = (f32)z1;
+                tx = z3 - z1, tz = x3 - x1;
+            } else {
+                ENGINE_BLK(802AA500);
+                ex = (f32)x2, ez = (f32)z2;
+                tx = z3 - z2, tz = x3 - x2;
+            }
+        }
+        ENGINE_BLK(802AA550);
+        dx = (f32)tx;
+        dz = (f32)tz;
+        a = (fx - ex) * dx;
+        b = (fz - ez) * dz;
+        d = a - b;
+        if (d == 0.0f)
+            continue;
+        ENGINE_BLK(802AA580);
+        a = (cx - ex) * dx;
+        b = (cz - ez) * dz;
+        c = a - b;
+        if (d > 0.0f) {
+            ENGINE_BLK(802AA5B0);
+            if (c > 0.0f)
+                continue;
+        } else {
+            ENGINE_BLK(802AA59C);
+            if (c < 0.0f)
+                continue;
+            ENGINE_BLK(802AA5A8);
+        }
+        ENGINE_BLK(802AA5BC);
+        r = 0;
+        break;
+    }
+    ENGINE_BLK(802AA5C0);
+    return r;
+}
+
+/* whether (x, z) is inside the triangle's bounding box */
+REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
+s32 func_802AA5E0(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
+    s32 lox = x1, hix = x1, loz = z1, hiz = z1, r;
+
+    ENGINE_BLK(802AA5E0);
+    if (x2 < lox) {
+        ENGINE_BLK(802AA610);
+        lox = x2;
+    }
+    ENGINE_BLK(802AA614);
+    if (x3 < lox) {
+        ENGINE_BLK(802AA620);
+        lox = x3;
+    }
+    ENGINE_BLK(802AA624);
+    if (hix < x2) {
+        ENGINE_BLK(802AA630);
+        hix = x2;
+    }
+    ENGINE_BLK(802AA634);
+    if (hix < x3) {
+        ENGINE_BLK(802AA640);
+        hix = x3;
+    }
+    ENGINE_BLK(802AA644);
+    if (z2 < loz) {
+        ENGINE_BLK(802AA650);
+        loz = z2;
+    }
+    ENGINE_BLK(802AA654);
+    if (z3 < loz) {
+        ENGINE_BLK(802AA660);
+        loz = z3;
+    }
+    ENGINE_BLK(802AA664);
+    if (hiz < z2) {
+        ENGINE_BLK(802AA670);
+        hiz = z2;
+    }
+    ENGINE_BLK(802AA674);
+    if (hiz < z3) {
+        ENGINE_BLK(802AA680);
+        hiz = z3;
+    }
+    ENGINE_BLK(802AA684);
+    if (x < lox)
+        goto out;
+    ENGINE_BLK(802AA690);
+    if (hix < x)
+        goto out;
+    ENGINE_BLK(802AA698);
+    if (z < loz)
+        goto out;
+    ENGINE_BLK(802AA6A0);
+    if (hiz < z)
+        goto out;
+    ENGINE_BLK(802AA6A8);
+    r = 1;
+    goto done;
+out:
+    ENGINE_BLK(802AA6B0);
+    r = 0;
+done:
+    ENGINE_BLK(802AA6B4);
+    return r;
+}
+
+/* D_803ED390[3] (vehicle.h): the angles func_802AA764 rotates by: x, y, z */
+extern s32 D_803EBB58[16];      /* its scratch matrix */
+
+void func_802ACC68(s32 x, s32 y, s32 z, s32 *m);
+void func_802ACBDC(s32 angle, s32 *m);
+void func_802ACB50(s32 angle, s32 *m);
+void func_802ACAC4(s32 angle, s32 *m);
+void func_802ACA60(s32 x, s32 y, s32 z, s32 *m);
+void func_802ACCCC(s32 *b, s32 *a);
+void func_802AC8CC(u32 *m);
+
+/* the Mtx at m: scaled, rotated about x, z and y by D_803ED390's angles,
+   and moved to (x, y, z) << 5 */
+REGS(s4, s5, s6, s7, t8 -> s2)
+s32 *func_802AA764(s32 x, s32 y, s32 z, s32 scale, s32 *m) {
+    ENGINE_BLK(802AA764);
+    func_802ACC68(scale, scale, scale, m);
+    ENGINE_BLK(802AA780);
+    func_802ACBDC((u16)D_803ED390[0], D_803EBB58);
+    ENGINE_BLK(802AA798);
+    func_802ACCCC(D_803EBB58, m);
+    ENGINE_BLK(802AA7A8);
+    func_802ACB50((u16)D_803ED390[2], D_803EBB58);
+    ENGINE_BLK(802AA7C0);
+    func_802ACCCC(D_803EBB58, m);
+    ENGINE_BLK(802AA7D0);
+    func_802ACAC4((u16)D_803ED390[1], D_803EBB58);
+    ENGINE_BLK(802AA7E8);
+    func_802ACCCC(D_803EBB58, m);
+    ENGINE_BLK(802AA7F8);
+    func_802ACA60(x << 11, y << 11, z << 11, D_803EBB58);
+    ENGINE_BLK(802AA810);
+    func_802ACCCC(D_803EBB58, m);
+    ENGINE_BLK(802AA820);
+    func_802AC8CC((u32 *)m);
+    ENGINE_BLK(802AA828);
+    return m;
+}
+
+/* the same, with the angles as arguments */
+void func_802AA6D0(s32 x, s32 y, s32 z, s32 ax, s32 ay, s32 az, s32 scale, s32 *m) {
+    ENGINE_BLK(802AA6D0);
+    D_803ED390[1] = ay;
+    D_803ED390[0] = ax;
+    D_803ED390[2] = az;
+    func_802AA764(x, y, z, scale, m);
+    ENGINE_BLK(802AA730);
+}
+
+/* 64 bytes from a + off to b + off */
+REGS(t0, t1, t2)
+void func_802AA838(u8 *a, u8 *b, s32 off) {
+    u32 *s = (u32 *)(a + off), *d = (u32 *)(b + off);
+    s32 n;
+
+    ENGINE_BLK(802AA838);
+    for (n = 8; n != 0; n--) {
+        ENGINE_BLK(802AA85C);
+        d[0] = s[0];
+        d[1] = s[1];
+        s += 2, d += 2;
+    }
+    ENGINE_BLK(802AA874);
 }
