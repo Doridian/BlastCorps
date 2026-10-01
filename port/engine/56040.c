@@ -3574,3 +3574,93 @@ done:
     if (s1set)
         ENGINE_LEAVE(17, s1);
 }
+
+extern u8 D_803FBBB0[], D_803FB8B8[];   /* two lists of 0x14-byte spheres */
+extern u8 D_803FC1F0;                   /* the first's count */
+
+/* Kind's sphere (its D_803A7300 record, when active: 0x11 is 1) against
+   the spheres of D_803FBBB0: for each it meets, kind's row against that
+   one (func_8029C914) */
+REGS(t8)
+void func_8029C748(s32 kind) {
+    u8 *r = D_803A7300, *q;
+    s32 *s, n;
+
+    ENGINE_BLK(8029C748);
+    for (;;) {
+        ENGINE_BLK(8029C780);
+        if (r[0x10] == kind)
+            break;
+        r += 0x14;
+    }
+    ENGINE_BLK(8029C78C);
+    if ((s8)r[0x11] != 1)
+        goto done;
+    ENGINE_BLK(8029C79C);
+    s = (s32 *)r;
+    q = D_803FBBB0;
+    for (n = D_803FC1F0;; q += 0x14) {
+        s32 *w;
+
+        ENGINE_BLK(8029C7BC);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029C7C4);
+        n--;
+        w = (s32 *)q;
+        if (!func_8029CFA4(s[0], s[1], s[2], s[3], w[0], w[1], w[2], w[3])) {
+            ENGINE_BLK(8029C7DC);
+            continue;
+        }
+        ENGINE_BLK(8029C7DC);
+        ENGINE_BLK(8029C7E4);
+        func_8029C914(kind, w[0], w[1], w[2], w[3]);
+        ENGINE_BLK(8029C7EC);
+    }
+done:
+    ENGINE_BLK(8029C7F4);
+}
+
+/* the same against D_803FB8B8's 25 (word 0 -1 when free, the sphere 4 on) */
+REGS(t8)
+void func_8029C828(s32 kind) {
+    u8 *r = D_803A7300, *q;
+    s32 *s, n;
+
+    ENGINE_BLK(8029C828);
+    for (;;) {
+        ENGINE_BLK(8029C860);
+        if (r[0x10] == kind)
+            break;
+        r += 0x14;
+    }
+    ENGINE_BLK(8029C86C);
+    if ((s8)r[0x11] != 1)
+        goto done;
+    ENGINE_BLK(8029C87C);
+    s = (s32 *)r;
+    q = D_803FB8B8;
+    for (n = 0x19;; q += 0x14) {
+        s32 *w;
+
+        ENGINE_BLK(8029C898);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029C8A0);
+        n--;
+        w = (s32 *)q;
+        if (w[0] == -1)
+            continue;
+        ENGINE_BLK(8029C8B4);
+        if (!func_8029CFA4(s[0], s[1], s[2], s[3], w[1], w[2], w[3], w[4])) {
+            ENGINE_BLK(8029C8C8);
+            continue;
+        }
+        ENGINE_BLK(8029C8C8);
+        ENGINE_BLK(8029C8D0);
+        func_8029C914(kind, w[1], w[2], w[3], w[4]);
+        ENGINE_BLK(8029C8D8);
+    }
+done:
+    ENGINE_BLK(8029C8E0);
+}
