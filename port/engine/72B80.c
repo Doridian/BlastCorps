@@ -433,7 +433,7 @@ void func_802B7A88(void) {
     ENGINE_BLK(802B7E6C);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, vs, &a1);
 
         ENGINE_BLK(802B7E80);
         D_803EEF30 = a0;

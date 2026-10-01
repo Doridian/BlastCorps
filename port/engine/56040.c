@@ -1304,7 +1304,9 @@ extern u8 D_803A7300[];                 /* 0x14-byte records, free with byte 0x1
    size) and D_803A6B30's free records (then one per entry: half 8, and
    half 6 as the size), the sizes * 32 * scale / 0x10000, all of id */
 REGS(t0, t1, t2, t3)
-void func_8029C354(s32 id, u16 *p, u16 *end, u32 scale) {
+void func_8029C354(s32 id, u8 *p_, u8 *end_, s32 scale_) {
+    u16 *p = (u16 *)p_, *end = (u16 *)end_;
+    u32 scale = scale_;
     u8 *r = D_803A7300;
     u32 size;
 
@@ -2067,8 +2069,7 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
    three s16s, the matrices' count and offsets) into D_803A7300's record
    of id (the first, as it is) and D_803A6B30's from the first of id on
    (each through its matrices at base, func_802AA890) */
-REGS(t0, t1, t2, v0, v1, a0, s4, s0, s1, s2)
-void func_8029C454(s32 id, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0, s32 s1, s32 s2) {
+static void c454(s32 id, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0, s32 s1, s32 s2) {
     u8 *r = D_803A7300;
     s16 *h;
     s32 ry, rz, called = 0;
@@ -2796,8 +2797,7 @@ void func_8029D24C(u16 *data, s32 id, u8 *base) {
    (x, z) at y doesn't miss (by its triangles, func_8029DA90, or its part
    pairs, func_8029DB7C): the parts it lists (kind 0, then this id's)
    unflagged (func_8029D1D4) */
-REGS(t6, t2, s4, t0, t1, a1, a2)
-void func_8029D040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
+static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
     u8 *q, *end, *b, *part;
     s32 kind, n, miss, t7;
 
@@ -3001,8 +3001,7 @@ extern s16 D_803A7422, D_803F77FC;
    into D_803A742D; the building lists reset (func_802BCC10 when
    D_80358060 is clear or with a2 for a vehicle other than 0xFF, then
    func_802BCBD8).  Returns D_80358060 ($v0). */
-REGS(v0, v1, a0, a1, a2, a3, t0, t1, t2, t3, t8, gp -> v0)
-s32 func_8029A800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s32 t2, s32 t3, s32 type, VS *vs) {
+static s32 a800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s32 t2, s32 t3, s32 type, VS *vs) {
     s32 v;
 
     ENGINE_BLK(8029A800);
@@ -3067,7 +3066,8 @@ static u8 *anim_frame(u8 *p, u8 *rec, u8 *out, s32 *t5) {
    its frame in a and in b, built at D_803B67C0 and kept at D_803B37C0 for
    parts[31] (from its start) */
 REGS(v0, v1, a0)
-void func_8029F9D4(s32 a, s32 b, u8 *parts) {
+void func_8029F9D4(s32 a, s32 b, Part *parts_) {
+    u8 *parts = (u8 *)parts_;
     u8 *pa = parts + a * 0x18, *pb = parts + b * 0x18, *da = *(u8 *PTR32 *)pa, *db = *(u8 *PTR32 *)pb;
     u8 *ra, *rb, *rb0, *out = D_803B67C0 + 4, *p31;
     s32 na = da[da[0] + 1], nb = db[db[0] + 1], sa = da[0] * 0x14 + 8, sb = db[0] * 0x14 + 8, n = 0, j;
@@ -4746,8 +4746,7 @@ extern s32 D_803A740C, D_80358068;
    hit each of its D_803A6B30 records' spheres (func_8029B02C, numbered from
    1 in $fp).  D_803A742B is cleared, and D_803A740C set to the frame when
    the camera is turning (D_803A7410/D_803A7412). */
-REGS(t8)
-void func_8029AA10(s32 type) {
+static void aa10(s32 type) {
     u8 *r = D_803A7300;
     s32 hit = 0, n = 0, x, y, z, rad;
 
@@ -4817,3 +4816,54 @@ out:
     ENGINE_BLK(8029AB4C);
     engine_restore();
 }
+
+/* ---- the entry points as the vehicle modules declare them (shared.h) ----- */
+
+/* Each puts its inputs in their registers first, as the original has them
+   (a native caller doesn't), and takes what shared.h leaves out from the
+   context, where the vehicle modules leave it. */
+
+REGS(v0, v1, a0, t0, t1, t2, s4)
+void func_8029C454(s32 x, s32 y, s32 z, s32 type, u8 *a, u8 *b, u8 *buf) {
+    ENGINE_LEAVE(2, x);
+    ENGINE_LEAVE(3, y);
+    ENGINE_LEAVE(4, z);
+    ENGINE_LEAVE(8, type);
+    ENGINE_LEAVE(9, (u32)a);
+    ENGINE_LEAVE(10, (u32)b);
+    ENGINE_LEAVE(20, (u32)buf);
+    c454(type, a, b, x, y, z, buf, engine_ctx(16), engine_ctx(17), engine_ctx(18));
+}
+
+REGS(t0, t1, t2, t6, a1, a2, s4)
+void func_8029D040(s32 x, s32 z, s32 type, u8 *t6, s32 heading, Part *parts, u8 *buf) {
+    ENGINE_LEAVE(8, x);
+    ENGINE_LEAVE(9, z);
+    ENGINE_LEAVE(10, type);
+    ENGINE_LEAVE(14, (u32)t6);
+    ENGINE_LEAVE(5, heading);
+    ENGINE_LEAVE(6, (u32)parts);
+    ENGINE_LEAVE(20, (u32)buf);
+    d040((u16 *)t6, type, buf, x, z, heading, (u8 *)parts);
+}
+
+REGS(v0, v1, a0, a1, a2, a3, t1, t3, t8, gp)
+void func_8029A800(s32 x, s32 y, s32 z, u8 *a1, s32 a2, s32 a3, s32 speed, s32 t3, s32 type, VS *vs) {
+    ENGINE_LEAVE(2, x);
+    ENGINE_LEAVE(3, y);
+    ENGINE_LEAVE(4, z);
+    ENGINE_LEAVE(5, (u32)a1);
+    ENGINE_LEAVE(6, a2);
+    ENGINE_LEAVE(7, a3);
+    ENGINE_LEAVE(9, speed);
+    ENGINE_LEAVE(11, t3);
+    ENGINE_LEAVE(24, type);
+    ENGINE_LEAVE(28, (u32)vs);
+    ENGINE_LEAVE(2, a800(x, y, z, (u32)a1, a2, a3, engine_ctx(8), speed, engine_ctx(10), t3, type, vs));
+}
+
+REGS()
+void func_8029AA10(void) {
+    aa10(engine_ctx(24));
+}
+

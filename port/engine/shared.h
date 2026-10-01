@@ -105,8 +105,8 @@ REGS(t0, t1, t2, s4)
 void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf);
 REGS(t3, t4, s4, s1, s2)
 void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2);
-REGS(a0, a1, f0 -> a0, a1)
-s32 func_802A71DC(s32 h, s32 h2, f32 rate, s32 *a1);
+REGS(a0, a1, f0, gp -> a0, a1)
+s32 func_802A71DC(s32 h, s32 h2, f32 rate, VS *vs, s32 *a1);
 REGS(t5, t6, t1, s4, s5, s6, s7, gp)
 void func_802A7FD8(s32 rate, s16 *speed, u16 *angle, u16 *target, u16 *out, s8 *turning, s32 sound, VS *vs);
 REGS(t6, t8, t7, s0, s7, f2, gp -> t1)

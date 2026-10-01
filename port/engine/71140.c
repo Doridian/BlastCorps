@@ -468,7 +468,7 @@ level_over:
     ENGINE_BLK(802B675C);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.18f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.18f, vs, &a1);
 
         ENGINE_BLK(802B6770);
         D_803EEB5A = a0;

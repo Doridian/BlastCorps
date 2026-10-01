@@ -392,7 +392,7 @@ void func_802CFDE8(void) {
     ENGINE_BLK(802D01CC);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, vs, &a1);
 
         ENGINE_BLK(802D01E0);
         D_803FC5C0 = a0;
@@ -882,7 +882,7 @@ void func_802D0F98(void) {
     ENGINE_BLK(802D1248);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.25f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.25f, vs, &a1);
 
         ENGINE_BLK(802D125C);
         D_803FC994 = a0;

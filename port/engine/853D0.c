@@ -409,7 +409,7 @@ void func_802CA4E0(void) {
     ENGINE_BLK(802CA8A4);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.36f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.36f, vs, &a1);
 
         ENGINE_BLK(802CA8B8);
         D_803F8B74 = a0;

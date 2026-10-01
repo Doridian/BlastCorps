@@ -4014,12 +4014,19 @@ done:
    count and offsets) through their matrices at base (func_802AA890), into
    D_803EBC10's records of this id from the first of it (or its end) on.
    s0, s1 and s2 are func_802AA890's for a point with no matrices. */
-REGS(t0, t1, t2, s4, s0, s1, s2)
-void func_802ABBEC(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
+static void abbec(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
     u8 *r = D_803EBC10;
     s16 *h;
     s32 x, y, z, n, called = 0;
 
+    /* (its frame, as the original's: the driver's shadow later reads the
+       $t3 slot, func_802AF340's stack argument it never stores) */
+    engine_frame(-0x28);
+    engine_frame_sd(0x18, 11);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 5);
+    engine_frame_sd(0x10, 6);
+    engine_frame_sd(0x20, 12);
     ENGINE_BLK(802ABBEC);
     for (;;) {
         ENGINE_BLK(802ABC10);
@@ -4059,6 +4066,7 @@ void func_802ABBEC(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
         ENGINE_LEAVE(2, -1);
     }
     ENGINE_LEAVE(9, (u32)p);
+    engine_frame(0x28);
 }
 
 /* ---- a wheeled vehicle one step on the ground ---------------------------- */
@@ -4262,3 +4270,15 @@ out:
     ENGINE_BLK(802A8AFC);
     ENGINE_LEAVE(12, t4);
 }
+
+/* func_802ABBEC as the vehicle modules declare it (shared.h): s0, s1 and
+   s2 from the context, where they leave them */
+REGS(t0, t1, t2, s4)
+void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf) {
+    ENGINE_LEAVE(8, id);
+    ENGINE_LEAVE(9, (u32)verts);
+    ENGINE_LEAVE(10, (u32)end);
+    ENGINE_LEAVE(20, (u32)buf);
+    abbec(id, verts, end, buf, engine_ctx(16), engine_ctx(17), engine_ctx(18));
+}
+
