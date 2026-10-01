@@ -3301,3 +3301,130 @@ s32 func_802A8B10(s32 *across_out) {
     *across_out = t2;
     return t3;
 }
+
+/* ---- the angle to turn a vehicle on a moving object to ------------------- */
+
+extern s16 D_803ED3E8;                  /* an angle func_802A94A4 turns by */
+
+/* Of the angle *angle turned either way by the corner angle between the
+   two points (x, z) and (x2, z2) as object id's own (func_802AAE54 and
+   func_802ABB1C, in steps of 0x400 up to 0xC00), the one whose first
+   wheel (func_802A94A4 of pts) comes nearer the second point ($t0). */
+REGS(a3, t0, t1, s1, s2, v1, a2 -> t0)
+s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
+    s32 ox, oz, px, pz, dx, dz, s5 = 0, set5 = 0, a, t0, t1, s1, s2, s3, s4, s6;
+
+    ENGINE_BLK(802AB9A4);
+    ox = func_802AAE54(id, x, z, &oz);
+    ENGINE_BLK(802AB9B4);
+    px = func_802AAE54(id, x2, z2, &pz);
+    ENGINE_BLK(802AB9C8);
+    dx = func_802A94A4(0, pts, (s16 *)angle, &dz);
+    ENGINE_BLK(802AB9D4);
+    s6 = func_802ABB1C(px, pz, dx, dz, ox, oz);
+    ENGINE_BLK(802AB9DC);
+    if (s6 >= 0x401) {
+        ENGINE_BLK(802AB9E8);
+        s5 = *angle + 0x400;
+        if (s5 >= 0x1000) {
+            ENGINE_BLK(802ABA00);
+            s5 -= 0xFFF;
+        }
+        ENGINE_BLK(802ABA04);
+        D_803ED3E8 = s5;
+        set5 = 1;
+        dx = func_802A94A4(0, pts, &D_803ED3E8, &dz);
+        ENGINE_BLK(802ABA14);
+        s6 = func_802ABB1C(px, pz, dx, dz, ox, oz);
+        ENGINE_BLK(802ABA1C);
+        s6 += 0x400;
+        if (s6 >= 0x801) {
+            ENGINE_BLK(802ABA2C);
+            s5 = *angle + 0x800;
+            if (s5 >= 0x1000) {
+                ENGINE_BLK(802ABA44);
+                s5 -= 0xFFF;
+            }
+            ENGINE_BLK(802ABA48);
+            D_803ED3E8 = s5;
+            dx = func_802A94A4(0, pts, &D_803ED3E8, &dz);
+            ENGINE_BLK(802ABA58);
+            s6 = func_802ABB1C(px, pz, dx, dz, ox, oz);
+            ENGINE_BLK(802ABA60);
+            s6 += 0x800;
+        }
+    }
+    ENGINE_BLK(802ABA64);
+    a = *angle;
+    t0 = a + s6;
+    if (t0 >= 0x1000) {
+        ENGINE_BLK(802ABA78);
+        t0 -= 0xFFF;
+    }
+    ENGINE_BLK(802ABA7C);
+    D_803ED3E8 = t0;
+    dx = func_802A94A4(0, pts, &D_803ED3E8, &dz);
+    ENGINE_BLK(802ABA90);
+    t1 = a - s6;
+    s1 = dx + ox;
+    s2 = dz + oz;
+    if (t1 < 0) {
+        ENGINE_BLK(802ABAA0);
+        t1 += 0xFFF;
+    }
+    ENGINE_BLK(802ABAA4);
+    D_803ED3E8 = t1;
+    dx = func_802A94A4(0, pts, &D_803ED3E8, &dz);
+    ENGINE_BLK(802ABAAC);
+    s3 = dx + ox;
+    s4 = dz + oz;
+    s1 -= px;
+    s2 -= pz;
+    s3 -= px;
+    s4 -= pz;
+    if (s1 < 0) {
+        ENGINE_BLK(802ABACC);
+        s1 = -s1;
+    }
+    ENGINE_BLK(802ABAD0);
+    if (s2 < 0) {
+        ENGINE_BLK(802ABAD8);
+        s2 = -s2;
+    }
+    ENGINE_BLK(802ABADC);
+    s1 += s2;
+    if (s3 < 0) {
+        ENGINE_BLK(802ABAE8);
+        s3 = -s3;
+    }
+    ENGINE_BLK(802ABAEC);
+    if (s4 < 0) {
+        ENGINE_BLK(802ABAF4);
+        s4 = -s4;
+    }
+    ENGINE_BLK(802ABAF8);
+    s3 += s4;
+    if (!(s1 < s3)) {
+        ENGINE_BLK(802ABB08);
+        t0 = t1;
+    }
+    ENGINE_BLK(802ABB0C);
+    /* (what it leaves: everything it worked with) */
+    ENGINE_LEAVE(2, 0);
+    ENGINE_LEAVE(4, a);
+    ENGINE_LEAVE(9, t1);
+    ENGINE_LEAVE(11, px);
+    ENGINE_LEAVE(12, pz);
+    ENGINE_LEAVE(13, dx);
+    ENGINE_LEAVE(14, dz);
+    ENGINE_LEAVE(15, ox);
+    ENGINE_LEAVE(16, oz);
+    ENGINE_LEAVE(17, s1);
+    ENGINE_LEAVE(18, s2);
+    ENGINE_LEAVE(19, s3);
+    ENGINE_LEAVE(20, s4);
+    if (set5)
+        ENGINE_LEAVE(21, s5);
+    ENGINE_LEAVE(22, s6);
+    return t0;
+}
