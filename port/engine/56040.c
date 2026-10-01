@@ -1403,3 +1403,184 @@ s32 func_8029C160(u8 *pl, s32 x, s32 y, s32 z, s32 lim) {
     ENGINE_BLK(8029C270);
     return 1;
 }
+
+/* Whether the point (x, z) at height y misses all of the n triangles at
+   tris (0x18 bytes: three (x, z) words) and the height range after them
+   (two halves, the range wrapping when the second is lower) ($t4: 1 if
+   it misses, 0 if it is in) */
+REGS(s4, t5, t0, t1, a1 -> t4)
+s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
+    s32 *t = tris, lo, hi, r = 1, read = 0, found = 0;
+
+    ENGINE_BLK(8029DA90);
+    for (;;) {
+        ENGINE_BLK(8029DABC);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029DAC4);
+        n--;
+        read = 1;
+        t += 6;
+        if (!func_802AA5E0(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1])) {
+            ENGINE_BLK(8029DAE8);
+            continue;
+        }
+        ENGINE_BLK(8029DAE8);
+        ENGINE_BLK(8029DAF0);
+        if (!func_802AA460(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1])) {
+            ENGINE_BLK(8029DAF8);
+            continue;
+        }
+        ENGINE_BLK(8029DAF8);
+        ENGINE_BLK(8029DB00);
+        n = (u32)n * 0x18;
+        lo = *(u16 *)((u8 *)t + n);
+        hi = *(u16 *)((u8 *)t + n + 2);
+        if (hi < lo) {
+            ENGINE_BLK(8029DB24);
+            if (!(y < lo))
+                goto in;
+            ENGINE_BLK(8029DB2C);
+            if (!(hi < y))
+                goto in;
+            ENGINE_BLK(8029DB34);
+            goto hit;
+        }
+        ENGINE_BLK(8029DB3C);
+        if (y < lo)
+            goto hit;
+        ENGINE_BLK(8029DB48);
+        if (hi < y)
+            goto hit;
+    in:
+        ENGINE_BLK(8029DB50);
+        r = 0;
+    hit:
+        found = 1;
+        break;
+    }
+    ENGINE_BLK(8029DB54);
+    /* (what it leaves: the last triangle's words, or the range) */
+    if (found) {
+        ENGINE_LEAVE(1, hi < y);
+        ENGINE_LEAVE(17, lo);
+        ENGINE_LEAVE(19, hi);
+    } else if (read) {
+        ENGINE_LEAVE(17, t[-6]);
+        ENGINE_LEAVE(19, t[-5]);
+    }
+    if (read) {
+        ENGINE_LEAVE(22, t[-3]);
+        ENGINE_LEAVE(23, t[-2]);
+        ENGINE_LEAVE(25, t[-1]);
+    }
+    ENGINE_LEAVE(13, n);
+    return r;
+}
+
+extern u8 D_803A742D, D_803A742E;
+extern s32 D_80358064;
+
+/* The gears (unkA0): D_803A742D (to 0xC8) with D_803A742E set, else one
+   down to 1; unk76 10 when it is 0 and D_80358064; and with unk76
+   negative, the camera's headings turned half way round */
+REGS(gp)
+void func_8029A914(VS *vs) {
+    s32 g, h;
+
+    ENGINE_BLK(8029A914);
+    if (D_803A742E != 0) {
+        ENGINE_BLK(8029A93C);
+        g = D_803A742D;
+        if (g >= 0xC9) {
+            ENGINE_BLK(8029A950);
+            g = 0xC8;
+        }
+        ENGINE_BLK(8029A954);
+        vs->unkA0 = g;
+    } else {
+        ENGINE_BLK(8029A95C);
+        g = vs->unkA0;
+        if (g != 1) {
+            ENGINE_BLK(8029A96C);
+            vs->unkA0 = g - 1;
+        }
+    }
+    ENGINE_BLK(8029A974);
+    if (vs->unk76 == 0) {
+        ENGINE_BLK(8029A980);
+        if (D_80358064 != 0) {
+            ENGINE_BLK(8029A990);
+            vs->unk76 = 10;
+        }
+    }
+    ENGINE_BLK(8029A998);
+    if (vs->unk76 < 0) {
+        ENGINE_BLK(8029A9A4);
+        h = (u16)D_803A7410 - 0x800;
+        if (h < 0) {
+            ENGINE_BLK(8029A9C4);
+            h += 0xFFF;
+        }
+        ENGINE_BLK(8029A9C8);
+        D_803A7410 = h;
+        h = (u16)D_803A7412 + 0x800;
+        if (0xFFF < h) {
+            ENGINE_BLK(8029A9E8);
+            h -= 0xFFF;
+        }
+        ENGINE_BLK(8029A9EC);
+        D_803A7412 = h;
+    }
+    ENGINE_BLK(8029A9F0);
+}
+
+/* For each texture record of D_802C23B4 for this id (byte 0; its first
+   texture number, a half at 4 + byte 1 * 2), the display list's
+   G_SETTIMG commands (0xFD) from dl to end that load it: (record, the
+   command's offset + 4, 0) appended at D_803B35F0 */
+REGS(s2, s0, s1)
+void func_8029DF78(s32 id, u32 *dl, u32 *end) {
+    s32 *ids = D_802C23B4, k;
+    u8 *rec, *out = D_803B35F0;
+    u32 *p, w, tex;
+
+    ENGINE_BLK(8029DF78);
+    for (;;) {
+        ENGINE_BLK(8029DFC8);
+        if (*ids == -1)
+            break;
+        ENGINE_BLK(8029DFD8);
+        rec = *(u8 *PTR32 *)ids;
+        ids++;
+        if (rec[0] != id)
+            continue;
+        ENGINE_BLK(8029DFE8);
+        k = -1;
+        if (rec[2] == 0)
+            continue;
+        ENGINE_BLK(8029E008);
+        k++;
+        tex = *(u16 *)(rec + rec[1] * 2 + 4);
+        for (p = dl;;) {
+            ENGINE_BLK(8029E020);
+            if (p == end)
+                break;
+            ENGINE_BLK(8029E028);
+            w = p[0];
+            p += 2;
+            if ((w & 0xFF000000) >> 24 != 0xFD)
+                continue;
+            ENGINE_BLK(8029E044);
+            if (p[-1] != tex)
+                continue;
+            ENGINE_BLK(8029E050);
+            *(u8 *PTR32 *)out = rec;
+            ((u32 *)out)[1] = (u8 *)p - (u8 *)dl - 4;
+            ((u32 *)out)[2] = k;
+            out += 0xC;
+        }
+    }
+    ENGINE_BLK(8029E06C);
+    D_803B35F0 = out;
+}

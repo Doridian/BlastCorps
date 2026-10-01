@@ -4,6 +4,7 @@
 # version); a version that has no such function ignores it.
 
 # 56040: the vehicles' parts
+func_8029A914
 func_8029B514
 func_8029B5B8
 func_8029B930
@@ -19,6 +20,7 @@ func_8029D120
 func_8029D1D4
 func_8029D210
 func_8029D534
+func_8029DA90
 func_8029DB7C
 func_8029DBF0
 func_8029DC14
@@ -28,6 +30,7 @@ func_8029DD54
 func_8029DDC8
 func_8029DE50
 func_8029DEA0
+func_8029DF78
 func_8029E4E4
 func_8029E878
 func_8029E938
