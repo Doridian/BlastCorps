@@ -615,3 +615,186 @@ void func_8029DCD4(s32 a, s32 b) {
 done:
     ENGINE_BLK(8029DD3C);
 }
+
+/* The part's three points (0x28, 12 bytes each) seen along its axis
+   (byte 0x4E: 0 drops z, 1 y, else x), as v0-a3; and two of the point
+   (x, y, z) in t0, t1 likewise.  All in registers for the callers. */
+REGS(s0, v1, a0, a1)
+void func_8029C0DC(u8 *part, s32 x, s32 y, s32 z) {
+    s32 *w = (s32 *)(part + 0x28);
+    s32 axis = (s8)part[0x4E], i, j;
+
+    ENGINE_BLK(8029C0DC);
+    ENGINE_LEAVE(1, 1);
+    if (axis == 0) {
+        ENGINE_BLK(8029C138);
+        ENGINE_LEAVE(8, x);
+        ENGINE_LEAVE(9, y);
+        i = 0, j = 1;
+    } else if (axis == 1) {
+        ENGINE_BLK(8029C0E8);
+        ENGINE_BLK(8029C114);
+        ENGINE_LEAVE(8, x);
+        ENGINE_LEAVE(9, z);
+        i = 0, j = 2;
+    } else {
+        ENGINE_BLK(8029C0E8);
+        ENGINE_BLK(8029C0F0);
+        ENGINE_LEAVE(8, y);
+        ENGINE_LEAVE(9, z);
+        i = 1, j = 2;
+    }
+    ENGINE_BLK(8029C158);
+    ENGINE_LEAVE(2, w[i]);
+    ENGINE_LEAVE(3, w[j]);
+    ENGINE_LEAVE(4, w[3 + i]);
+    ENGINE_LEAVE(5, w[3 + j]);
+    ENGINE_LEAVE(6, w[6 + i]);
+    ENGINE_LEAVE(7, w[6 + j]);
+}
+
+/* D_803B7FC8's records (src, dst, flag): those whose flag is
+   D_8035805C copied (func_8029DE50) and cleared; D_803B8568 left at the
+   last other one */
+void func_8029DDC8(void) {
+    u8 *p = D_803B7FC8, *end = D_803B8568, *last = p;
+    u32 flag = D_8035805C;
+
+    ENGINE_BLK(8029DDC8);
+    for (;;) {
+        ENGINE_BLK(8029DDF0);
+        if (end < p)
+            break;
+        ENGINE_BLK(8029DDFC);
+        if (((u32 *)p)[0] == 0) {
+            p += 0xC;
+            continue;
+        }
+        ENGINE_BLK(8029DE08);
+        if (((u32 *)p)[2] != flag) {
+            ENGINE_BLK(8029DE14);
+            last = p;
+            p += 0xC;
+            continue;
+        }
+        ENGINE_BLK(8029DE20);
+        func_8029DE50(*(u32 *PTR32 *)(p + 4), *(u32 *PTR32 *)p);
+        ENGINE_BLK(8029DE28);
+        ((u32 *)p)[0] = 0;
+        ((u32 *)p)[1] = 0;
+        p += 0xC;
+    }
+    ENGINE_BLK(8029DE38);
+    D_803B8568 = last;
+}
+
+/* whether two spheres meet: centres (x1, y1, z1) and (x2, y2, z2), radii
+   r1 and r2 ($t2) */
+REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t2)
+s32 func_8029CFA4(s32 x1, s32 y1, s32 z1, s32 r1, s32 x2, s32 y2, s32 z2, s32 r2) {
+    s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, r = 0;
+    f32 d, rr;
+
+    ENGINE_BLK(8029CFA4);
+    rr = (f32)(r1 + r2);
+    d = __builtin_sqrtf((f32)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz));
+    if (d < rr) {
+        ENGINE_BLK(8029D020);
+        r = 1;
+    }
+    ENGINE_BLK(8029D024);
+    ENGINE_LEAVE_F(0, d);
+    ENGINE_LEAVE_F(2, rr);
+    return r;
+}
+
+/* whether the sphere (x, y, z), r meets the part's (0x10, its radius at
+   0xC, all / 4) ($v1) */
+REGS(s0, t3, t4, t5, t6 -> v1)
+s32 func_8029B514(u8 *part, s32 x, s32 y, s32 z, s32 r) {
+    s32 *w = (s32 *)part, hit;
+
+    ENGINE_BLK(8029B514);
+    hit = func_8029CFA4(x, y, z, r, w[4] >> 2, w[5] >> 2, w[6] >> 2, w[3] >> 2);
+    ENGINE_BLK(8029B57C);
+    return hit;
+}
+
+extern f32 D_803B3778[16];              /* the spline's basis */
+
+/* with fp 1, D_803B3778 = the cardinal spline basis of tension
+   *(f32 *)(t0 + 8) */
+REGS(t0, fp)
+void func_8029F110(u8 *spline, s32 mode) {
+    f32 a = *(f32 *)(spline + 8), na = -a, a2;
+    f32 *m = D_803B3778;
+
+    ENGINE_BLK(8029F110);
+    if (mode == 1) {
+        ENGINE_BLK(8029F148);
+        a2 = a * 2.0f;
+        m[0] = na;
+        m[2] = na;
+        m[3] = 0.0f;
+        m[6] = 0.0f;
+        m[7] = 1.0f;
+        m[10] = a;
+        m[11] = 0.0f;
+        m[12] = a;
+        m[1] = a2;
+        m[13] = na;
+        m[14] = 0.0f;
+        m[15] = 0.0f;
+        m[9] = 3.0f - a2;
+        m[4] = 2.0f - a;
+        m[5] = a - 3.0f;
+        m[8] = a - 2.0f;
+    }
+    ENGINE_BLK(8029F1A8);
+    ENGINE_LEAVE_F(20, 1.0f);
+}
+
+extern f32 D_803B37B8, D_803B37BC;      /* t^2 and t^3 */
+extern u8 D_803B7FC0, D_803B7FC1, D_803B7FC2, D_803B7FC3;
+
+/* the spline's step: t^2 and t^3 of t, and the four points' indices
+   around i of n, wrapping */
+REGS(f30, t2, t6)
+void func_8029F060(f32 t, s32 i, s32 n) {
+    s32 m = n - 1, v;
+    f32 t2 = t * t, t3 = t2 * t;
+
+    ENGINE_BLK(8029F060);
+    D_803B37B8 = t2;
+    D_803B37BC = t3;
+    v = i - 1;
+    if (v >= 0) {
+        ENGINE_BLK(8029F094);
+        D_803B7FC0 = v;
+    } else {
+        ENGINE_BLK(8029F0A0);
+        D_803B7FC0 = v + m;
+    }
+    ENGINE_BLK(8029F0AC);
+    D_803B7FC1 = i;
+    v = i + 1;
+    if (v < m) {
+        ENGINE_BLK(8029F0C4);
+        D_803B7FC2 = v;
+    } else {
+        ENGINE_BLK(8029F0CC);
+        D_803B7FC2 = v - m;
+    }
+    ENGINE_BLK(8029F0D8);
+    v = i + 2;
+    if (v < m) {
+        ENGINE_BLK(8029F0E8);
+        D_803B7FC3 = v;
+    } else {
+        ENGINE_BLK(8029F0F0);
+        D_803B7FC3 = v - m;
+    }
+    ENGINE_BLK(8029F0FC);
+    ENGINE_LEAVE(1, ((u32)&D_803B7FC3 + 0x8000) & 0xFFFF0000);
+    ENGINE_LEAVE_F(8, t3);
+}
