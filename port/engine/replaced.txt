@@ -529,3 +529,26 @@ func_802B28B8
 func_802B2900
 func_802B295C
 func_802B2988
+
+# 75490: the missile carrier and the crane
+func_802B9C50
+func_802BA074
+func_802BA104
+func_802BA148
+func_802BA354
+func_802BA5A4
+func_802BA638
+func_802BA6AC
+func_802BA91C
+func_802BA9A0
+func_802BABEC
+func_802BAD24
+func_802BAD80
+func_802BB054
+func_802BB170
+func_802BB1A0
+func_802BB230
+func_802BB274
+func_802BB4C0
+func_802BB868
+func_802BB8B8
