@@ -159,6 +159,10 @@ void engine_restore(void) {
     save_n--;
 }
 
+void engine_syscall(uint32_t pc) {
+    recomp_trap(port_ctx(), RECOMP_TRAP_SYSCALL, pc, 0);
+}
+
 /* engine.h's ENGINE_LEAVE: 0-31 a GPR (the word sign-extended, as the
    VR4300 holds one), 34-65 an FPR word */
 void engine_leave(unsigned int reg, uint32_t value) {

@@ -1772,3 +1772,158 @@ void func_8029E730(u8 *keys, s32 *acc, f32 t) {
     }
     ENGINE_BLK(8029E848);
 }
+
+/* An animation's step (its state at a: 4 the fraction, 0xC the loops so
+   far, 0xE their limit (-1 none), 0x10 running, 0x11 backwards, 0x12 the
+   mode (0 wraps, 1 stops at the end), 0x13 the key, 0x14 the speed):
+   the fraction t on by rate * speed, the key k on by its whole part, over
+   n keys.  At an end it wraps (mode 0) or stops there (1, and it turns
+   round), and when the loops reach their limit it stops (0x10 clear). */
+REGS(t0, t2, t6, f6, f30)
+void func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t) {
+    s32 speed = a[0x14], back = (s8)a[0x11], mode = a[0x12], w, c, lim, at = 1, s2set = 0;
+    f32 fspeed = (f32)speed, f, f2w;
+    u32 f2;
+
+    ENGINE_BLK(8029F1BC);
+    rate = rate * fspeed;
+    if (back != 1) {
+        ENGINE_BLK(8029F1E8);
+        t = t + rate;
+        w = engine_trunc_w_s(t);
+        f2 = w;
+        t = t - (f32)w;
+        k += w;
+        if (k < n - 1)
+            goto done;
+        ENGINE_BLK(8029F20C);
+        if (n - 1 == 0) {
+            ENGINE_BLK(8029F21C);
+            engine_break(0x8029F21C, 7);
+        }
+        ENGINE_BLK(8029F220);
+        c = *(s16 *)(a + 0xC) + (s32)((u32)k / (u32)(n - 1));
+        lim = *(s16 *)(a + 0xE);
+        *(s16 *)(a + 0xC) = c;
+        if (!(c < lim)) {
+            ENGINE_BLK(8029F244);
+            if (lim != -1) {
+                ENGINE_BLK(8029F24C);
+                t = 1.0f;
+                k = n - 2;
+                if (mode == 1) {
+                    ENGINE_BLK(8029F25C);
+                    back = 1;
+                }
+                ENGINE_BLK(8029F260);
+                s2set = 1;
+                a[0x10] = 0;
+                goto done;
+            }
+        }
+        ENGINE_BLK(8029F26C);
+        if (mode != 0) {
+            ENGINE_BLK(8029F274);
+            if (mode != 1) {
+                ENGINE_BLK(8029F27C);
+                engine_syscall(0x8029F27C);
+            }
+            ENGINE_BLK(8029F2A4);
+            t = 1.0f;
+            at = 0x3F800000;            /* (its lui) */
+            back = 1;
+            k = n - 2;
+            goto done;
+        }
+        ENGINE_BLK(8029F280);
+        if (n - 1 == 0) {
+            ENGINE_BLK(8029F298);
+            engine_break(0x8029F298, 7);
+        }
+        k = (u32)k % (u32)(n - 1);
+        ENGINE_BLK(8029F29C);
+        goto done;
+    }
+    ENGINE_BLK(8029F2B8);
+    t = t - rate;
+    f2 = 0;                             /* (0.0f) */
+    if (t <= 0.0f) {
+        ENGINE_BLK(8029F2D0);
+        f = (f32)engine_trunc_w_s(t);
+        f = f - 1.0f;
+        t = t - f;
+        w = engine_cvt_w_s(f);
+        f2 = w;
+        k += w;
+        at = 0x3F800000;
+    }
+    ENGINE_BLK(8029F2F8);
+    if (k >= 0)
+        goto done;
+    ENGINE_BLK(8029F300);
+    at = 1;
+    c = *(s16 *)(a + 0xC) + back;
+    lim = *(s16 *)(a + 0xE);
+    if (n == 0) {
+        ENGINE_BLK(8029F328);
+        engine_break(0x8029F328, 7);
+    }
+    ENGINE_BLK(8029F32C);
+    *(s16 *)(a + 0xC) = c;
+    if (!(c < lim)) {
+        ENGINE_BLK(8029F338);
+        if (lim != -1) {
+            ENGINE_BLK(8029F344);
+            t = 0.0f;
+            k = 0;
+            if (mode == 1) {
+                ENGINE_BLK(8029F354);
+                back = 0;
+            }
+            ENGINE_BLK(8029F358);
+            s2set = 1;
+            a[0x10] = 0;
+            goto done;
+        }
+    }
+    ENGINE_BLK(8029F364);
+    if (mode != 0) {
+        ENGINE_BLK(8029F36C);
+        if (mode != 1) {
+            ENGINE_BLK(8029F374);
+            engine_syscall(0x8029F374);
+        }
+        ENGINE_BLK(8029F3A8);
+        t = 0.0f;
+        back = 0;
+        k = 0;
+        goto done;
+    }
+    ENGINE_BLK(8029F378);
+    if (n - 1 == 0) {
+        ENGINE_BLK(8029F394);
+        engine_break(0x8029F394, 7);
+    }
+    k = (u32)(-k) % (u32)(n - 1);
+    ENGINE_BLK(8029F398);
+    if (k != 0) {
+        ENGINE_BLK(8029F3A0);
+        k = (n - 1) - k;
+    }
+done:
+    ENGINE_BLK(8029F3B4);
+    a[0x11] = back;
+    a[0x13] = k;
+    *(f32 *)(a + 4) = t;
+    /* (what it leaves) */
+    ENGINE_LEAVE(1, at);
+    ENGINE_LEAVE(10, k);
+    ENGINE_LEAVE(12, speed);
+    ENGINE_LEAVE(13, mode);
+    ENGINE_LEAVE(15, back);
+    if (s2set)
+        ENGINE_LEAVE(18, 0);
+    ENGINE_LEAVE_FW(2, f2);
+    ENGINE_LEAVE_F(8, fspeed);
+    ENGINE_LEAVE_F(30, t);
+}

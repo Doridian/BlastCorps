@@ -102,6 +102,8 @@ void engine_leave64(unsigned int reg, u32 lo, u32 hi);
    divisor, 6 for an overflow): it stops the port as the translation's
    recomp_trap does.  pc is us.v11's address of the block, for the report. */
 void engine_break(u32 pc, u32 code) __attribute__((noreturn));
+/* and its `syscall` (Rare's "can't happen" in a switch) */
+void engine_syscall(u32 pc) __attribute__((noreturn));
 /* q = n / d, as IDO's checked div: the blocks of its zero test (bz, its
    break), the -1 test (bm1) and the overflow test (bmin, its break bov) */
 #define ENGINE_DIV(q, n, d, bz, bm1, bmin, bov)                             \
