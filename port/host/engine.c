@@ -17,6 +17,8 @@ int32_t engine_cvt_w_s(float x) { return (int32_t)recomp_f2w(recomp_rintf(x)); }
 int32_t engine_cvt_w_d(double x) { return (int32_t)recomp_f2w(recomp_rint(x)); }
 int32_t engine_trunc_w_s(float x) { return (int32_t)recomp_f2w(truncf(x)); }
 int32_t engine_trunc_w_d(double x) { return (int32_t)recomp_f2w(trunc(x)); }
+int64_t engine_cvt_l_d(double x) { return (int64_t)recomp_f2l(recomp_rint(x)); }
+int64_t engine_cvt_l_s(float x) { return (int64_t)recomp_f2l_s(recomp_rintf(x)); }
 
 #ifdef PORT_ENGINE_CHECK
 /*

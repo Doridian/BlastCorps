@@ -552,8 +552,11 @@ def load_replaced(funcs):
 
 
 def reg_index(r):
-    """a REGS() name: ('g', n), ('f', n), ('hi',), ('lo',), ('stack', off)"""
+    """a REGS() name: ('g', n), ('f', n), ('hi',), ('lo',), ('stack', off);
+    an output `s1+f0` is one value in both (('multi', [...]))"""
     r = r.strip()
+    if "+" in r and not r.startswith("sp+"):
+        return ("multi", tuple(reg_index(x) for x in r.split("+")))
     if r in GPR:
         return ("g", GPR.index(r))
     if re.fullmatch(r"f([0-9]|[12][0-9]|3[01])", r):
@@ -622,6 +625,8 @@ def o32_convention(sig):
 def get_reg(reg, c, rd="rdram"):
     """C expression: the native value of class c in a register of the context"""
     k = reg[0]
+    if k == "multi":
+        return get_reg(reg[1][0], c, rd)
     if k == "g":
         r = f"ctx->r[{reg[1]}]"
         return {"I": f"(uintptr_t)(uint32_t){r}", "L": r, "F": f"f32_of((uint32_t){r})",
@@ -642,6 +647,8 @@ def get_reg(reg, c, rd="rdram"):
 def set_reg(reg, c, v, rd="RDRAM"):
     """C statement: put the native value v of class c in a register"""
     k = reg[0]
+    if k == "multi":
+        return " ".join(set_reg(r, c, v, rd) for r in reg[1])
     if k == "g":
         r = f"ctx->r[{reg[1]}]"
         return {"I": f"{r} = S32({v});", "L": f"{r} = {v};", "F": f"{r} = S32(bits_of_f32({v}));",
@@ -683,6 +690,8 @@ def reg_bits(reg, c):
     """the check's register numbers (engine_check.c): 0-31 GPRs, 32 hi, 33 lo,
     34-65 FPR words"""
     k = reg[0]
+    if k == "multi":
+        return [b for r in reg[1] for b in reg_bits(r, c)]
     if k == "g":
         return [reg[1]]
     if k == "pair":

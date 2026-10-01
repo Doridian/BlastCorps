@@ -907,3 +907,264 @@ void func_802AA838(u8 *a, u8 *b, s32 off) {
     }
     ENGINE_BLK(802AA874);
 }
+
+/* where the line through two points meets another (the four forms of the
+   same solve): f10 and f20 */
+REGS(v1, a0, a1, t0, t1, s7, t9 -> f10, f20)
+f32 func_802AB1B0(s32 v1, s32 a0, s32 a1, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
+    f32 a, b;
+
+    ENGINE_BLK(802AB1B0);
+    b = (f32)(t0 - s7) / (f32)v1;
+    a = (f32)a1 * b;
+    a = a + (f32)t9;
+    a = a - (f32)t1;
+    *f20 = b;
+    return a / (f32)a0;
+}
+
+REGS(v0, a0, a1, t0, t1, s7, t9 -> f10, f20)
+f32 func_802AB234(s32 v0, s32 a0, s32 a1, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
+    f32 a, b;
+
+    ENGINE_BLK(802AB234);
+    a = (f32)(s7 - t0) / (f32)v0;
+    b = (f32)a0 * a;
+    b = b + (f32)t1;
+    b = b - (f32)t9;
+    *f20 = b / (f32)a1;
+    return a;
+}
+
+REGS(v0, v1, a1, t0, t1, s7, t9 -> f10, f20)
+f32 func_802AB2B8(s32 v0, s32 v1, s32 a1, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
+    f32 a, b;
+
+    ENGINE_BLK(802AB2B8);
+    b = (f32)(t1 - t9) / (f32)a1;
+    a = (f32)v1 * b;
+    a = a + (f32)s7;
+    a = a - (f32)t0;
+    *f20 = b;
+    return a / (f32)v0;
+}
+
+REGS(v0, v1, a0, t0, t1, s7, t9 -> f10, f20)
+f32 func_802AB33C(s32 v0, s32 v1, s32 a0, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
+    f32 a, b;
+
+    ENGINE_BLK(802AB33C);
+    a = (f32)(t9 - t1) / (f32)a0;
+    b = (f32)v0 * a;
+    b = b + (f32)t0;
+    b = b - (f32)s7;
+    *f20 = b / (f32)v1;
+    return a;
+}
+
+/* D_803ED3B8: (type, flag) byte pairs in words, to a word of -1 */
+extern u8 D_803ED3B8[];
+
+/* the flag of the first record of this type */
+s32 func_802AB3C0(s32 type) {
+    u8 *p = D_803ED3B8;
+    s32 r = 0;
+
+    ENGINE_BLK(802AB3C0);
+    for (;;) {
+        ENGINE_BLK(802AB3DC);
+        if (*(s32 *)p == -1)
+            break;
+        ENGINE_BLK(802AB3EC);
+        if (p[0] != type) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802AB3F8);
+        if (p[1] != 0) {
+            ENGINE_BLK(802AB404);
+            r = 1;
+        }
+        break;
+    }
+    ENGINE_BLK(802AB408);
+    return r;
+}
+
+/* whether there is a record (a, b) */
+REGS(t4, t8 -> a2)
+s32 func_802AB41C(s32 a, s32 b) {
+    u8 *p = D_803ED3B8;
+    s32 r = 0;
+
+    ENGINE_BLK(802AB41C);
+    for (;;) {
+        ENGINE_BLK(802AB438);
+        if (*(s32 *)p == -1)
+            break;
+        ENGINE_BLK(802AB448);
+        if (p[1] != b) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802AB454);
+        if (p[0] != a) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802AB460);
+        r = 1;
+        break;
+    }
+    ENGINE_BLK(802AB464);
+    return r;
+}
+
+REGS(v1 -> fp)
+s32 func_802AD7FC(u32 x);
+
+/* the angle at (x2, z2) of the corner... (an arctangent of the ratio of
+   the two distances), in 1/8ths of func_802AD7FC's */
+REGS(t3, t4, t5, t6, t7, s0 -> s6)
+s32 func_802ABB1C(s32 x, s32 z, s32 dx, s32 dz, s32 x2, s32 z2) {
+    s32 a, b, ex, ez, r;
+    f32 d1, d2;
+
+    ENGINE_BLK(802ABB1C);
+    a = x - x2;
+    b = z - z2;
+    ex = x2 + dx;
+    ez = z2 + dz;
+    d1 = __builtin_sqrtf((f32)((s64)a * a + (s64)b * b));
+    a = ex - x;
+    b = ez - z;
+    d2 = __builtin_sqrtf((f32)((s64)a * a + (s64)b * b));
+    d2 = d2 / 2.0f;
+    d2 = d2 / d1;
+    d2 = d2 * 65536.0f;
+    r = engine_cvt_w_s(d2);
+    if (r >= 0x10000) {
+        ENGINE_BLK(802ABBCC);
+        r = 0xFFFF;
+    }
+    ENGINE_BLK(802ABBD0);
+    r = func_802AD7FC(r);
+    ENGINE_BLK(802ABBD8);
+    return (u32)r >> 3;
+}
+
+/* D_803EBC10: 16-byte records, the id in byte 12 */
+extern u8 D_803EBC10[];
+
+/* the n-th record from the first with this id */
+REGS(v0, v1 -> a0)
+void *func_802ABC88(s32 id, s32 n) {
+    u8 *p = D_803EBC10;
+
+    ENGINE_BLK(802ABC88);
+    for (;;) {
+        ENGINE_BLK(802ABC9C);
+        if (p[0xC] == id)
+            break;
+        p += 0x10;
+    }
+    ENGINE_BLK(802ABCA8);
+    if (--n != 0) {
+        ENGINE_BLK(802ABCB4);
+        p += (u32)n * 0x10;
+    }
+    ENGINE_BLK(802ABCC8);
+    return p;
+}
+
+/* the distance between two points, rounded (64 bits) */
+REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
+s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2) {
+    s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+
+    ENGINE_BLK(802ABCDC);
+    return engine_cvt_l_d(__builtin_sqrt((f64)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz)));
+}
+
+/* D_803BDFD8: the level's lights, 0x24-byte records up to D_803BDFD4 */
+extern u8 D_803BDFD8[];
+extern u8 *PTR32 D_803BDFD4;
+extern u8 D_80364A6E[];
+
+/* the light on the vehicle of this type at (x, y, z): the first light in
+   range that lists the type, faded with the distance, or the level's
+   ambient D_80364A6E; into its Vehicle's unk60 */
+REGS(a3, t3, t4, t5)
+void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
+    u8 *p = D_803BDFD8, *end = D_803BDFD4, *t;
+    s64 d;
+    s32 r, n, amb;
+    Vehicle *v;
+
+    ENGINE_BLK(802ABD54);
+    for (;; p += 0x24) {
+        ENGINE_BLK(802ABD70);
+        if (p == end) {
+            ENGINE_BLK(802ABEA0);
+            r = D_80364A6E[0];
+            break;
+        }
+        ENGINE_BLK(802ABD78);
+        d = func_802ABCDC(x, y, z, ((s32 *)p)[0], ((s32 *)p)[1], ((s32 *)p)[2]);
+        ENGINE_BLK(802ABD88);
+        r = ((s32 *)p)[3];
+        if ((s64)r < d)
+            goto next;
+        ENGINE_BLK(802ABD98);
+        if (p[0x12] == 0)
+            goto next;
+        ENGINE_BLK(802ABDA4);
+        n = p[0x13];
+        t = p + 0x15;
+        for (;;) {
+            ENGINE_BLK(802ABDAC);
+            if (n == 0)
+                goto next;
+            ENGINE_BLK(802ABDB4);
+            if (type == *t)
+                break;
+            ENGINE_BLK(802ABDC0);
+            t++, n--;
+        }
+        ENGINE_BLK(802ABDCC);
+        n = p[0x14];
+        amb = D_80364A6E[0];
+        if (n == 0) {
+            ENGINE_BLK(802ABDD8);
+            if (p[0x10] == 1) {
+                ENGINE_BLK(802ABE34);
+                r = 0xFF;
+            } else {
+                ENGINE_BLK(802ABDE8);
+                ENGINE_BLK(802ABE28);
+                r = 0xFF - amb - (u32)((0xFF - amb) * (u32)d) / (u32)r + amb;
+            }
+        } else {
+            ENGINE_BLK(802ABE3C);
+            if (p[0x10] == 1) {
+                ENGINE_BLK(802ABE90);
+                r = n;
+            } else {
+                ENGINE_BLK(802ABE4C);
+                ENGINE_BLK(802ABE88);
+                r = n + (u32)((amb - n) * (u32)d) / (u32)r;
+            }
+        }
+        break;
+    next:
+        ENGINE_BLK(802ABE98);
+    }
+    ENGINE_BLK(802ABEAC);
+    for (v = D_80364460;; v++) {
+        ENGINE_BLK(802ABEB4);
+        if (v->type == type)
+            break;
+    }
+    ENGINE_BLK(802ABEC4);
+    v->unk60 = r;
+}

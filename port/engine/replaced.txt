@@ -26,6 +26,16 @@ func_802AA5E0
 func_802AA6D0
 func_802AA764
 func_802AA838
+func_802AB1B0
+func_802AB234
+func_802AB2B8
+func_802AB33C
+func_802AB3C0
+func_802AB41C
+func_802ABB1C
+func_802ABC88
+func_802ABCDC
+func_802ABD54
 
 # 679E0: math (func_802AC284/func_802AC2A4 go with 71140; func_802ACDB8
 # and func_802ACEB8 are never called)

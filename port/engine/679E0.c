@@ -23,8 +23,8 @@ s32 func_802AE104(s32 angle);
 REGS(v1 -> fp)
 s32 func_802AE160(s32 angle);
 /* 62740: the distance between two points */
-REGS(t3, t4, t5, t6, t7, s0 -> s1)
-s32 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2);
+REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
+s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2);
 /* 62740: whether (x, z) is inside a quadrilateral */
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3);

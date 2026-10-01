@@ -55,5 +55,7 @@ s32 engine_cvt_w_s(f32 x);
 s32 engine_cvt_w_d(f64 x);
 s32 engine_trunc_w_s(f32 x);
 s32 engine_trunc_w_d(f64 x);
+s64 engine_cvt_l_d(f64 x);
+s64 engine_cvt_l_s(f32 x);
 
 #endif
