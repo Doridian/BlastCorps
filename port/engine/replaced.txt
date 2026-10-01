@@ -707,3 +707,36 @@ func_802CFC54
 func_802CFCE0
 func_802C59B4
 func_802C5A14
+
+# 80280: the level's status for the Controller Pak, and the J-Bomb (its two
+# callbacks for 62740's carrying are above)
+func_802C4A40
+func_802C4BF0
+func_802C4E58
+func_802C5120
+func_802C5508
+func_802C5688
+func_802C5714
+func_802C5860
+func_802C5970
+func_802C5AFC
+func_802C617C
+func_802C61F0
+func_802C6DAC
+func_802C6ECC
+func_802C6FD8
+func_802C70E8
+func_802C71FC
+func_802C7354
+func_802C7410
+func_802C7544
+func_802C770C
+func_802C7864
+func_802C7BC0
+func_802C7C1C
+func_802C7CB0
+func_802C7DFC
+func_802C7ECC
+func_802C7F28
+func_802C8074
+func_802C80A0
