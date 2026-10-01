@@ -735,7 +735,7 @@ def gen_adapter(name, sig, conv, cname, check=None):
     if check is None:
         return lines + body + ["}"]
     cid, mask = check
-    lines += [f"    if (engine_check_begin({cid}, ctx)) {{",
+    lines += [f"    if (engine_check_begin({cid}, ctx, __builtin_frame_address(0))) {{",
               f"        recomp_orig_{name}(rdram, ctx);",
               f"        engine_check_mid({cid}, ctx);",
               "    }"]
@@ -892,7 +892,7 @@ def gen_engine(check, funcs, report):
         cside.insert(1, f"const unsigned engine_check_count = {len(ids)};")
     called = set()
     for path in engine_files():
-        called |= set(re.findall(r"\bfunc_[0-9A-F]{8}\b", open(path).read()))
+        called |= set(re.findall(r"\bfunc_[0-9A-F]{8}\b", strip_comments(open(path).read())))
     return adapters, cside, called, check_hdr, regs, defs
 
 
@@ -910,7 +910,7 @@ def gen_c_check(name, sig, cid, mask):
     call = f"native_{name}({', '.join(f'p{k}' for k in range(len(ps)))})"
     lines += [f"{rty} {name}({args}) {{",
               "    recomp_context *ctx = port_ctx();",
-              f"    if (engine_check_begin({cid}, ctx)) {{",
+              f"    if (engine_check_begin({cid}, ctx, __builtin_frame_address(0))) {{",
               f"        orig_{name}({', '.join(f'p{k}' for k in range(len(ps)))});",
               f"        engine_check_mid({cid}, ctx);",
               "    }"]
@@ -987,7 +987,7 @@ def main():
             report.append(f"{name}: {w}")
     if check:
         out += ["/* PORT_ENGINE_CHECK (port/host/engine_check.c) */",
-                "int engine_check_begin(unsigned id, recomp_context *ctx);",
+                "int engine_check_begin(unsigned id, recomp_context *ctx, void *frame);",
                 "void engine_check_mid(unsigned id, recomp_context *ctx);",
                 "void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1, uint64_t m2);",
                 "int engine_checking(void);", ""] + cside + [""]
@@ -1000,7 +1000,7 @@ def main():
 
     out = [HEADER]
     if check:
-        out += ["int engine_check_begin(unsigned id, recomp_context *ctx);",
+        out += ["int engine_check_begin(unsigned id, recomp_context *ctx, void *frame);",
                 "void engine_check_mid(unsigned id, recomp_context *ctx);",
                 "void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1, uint64_t m2);",
                 ""]

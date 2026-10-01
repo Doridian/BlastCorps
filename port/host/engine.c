@@ -55,6 +55,10 @@ static uint32_t *trace_o, *trace_n, *trace_cur;
 static unsigned ntrace_o, ntrace_n, *ntrace_cur;
 static unsigned long *ncalls, *nchecked, *nfailed;
 static unsigned long first_n = 2000;
+/* the host stack above the glue's frame: the game's C's locals, which a
+   pointer argument may reach (a fiber stack, port.h) */
+static uintptr_t stk_lo, stk_hi;
+static uint8_t *stk0, *stk_o;
 
 extern uint32_t __port_icount, __port_icount_c;
 
@@ -76,6 +80,8 @@ static void init(void) {
     mem_o = malloc(PORT_RDRAM_SIZE);
     trace_o = malloc(TRACE_MAX * sizeof *trace_o);
     trace_n = malloc(TRACE_MAX * sizeof *trace_n);
+    stk0 = malloc(PORT_STACK_SIZE);
+    stk_o = malloc(PORT_STACK_SIZE);
     ncalls = calloc(engine_check_count + 1, sizeof *ncalls);
     nchecked = calloc(engine_check_count + 1, sizeof *nchecked);
     nfailed = calloc(engine_check_count + 1, sizeof *nfailed);
@@ -92,7 +98,7 @@ void engine_trace_blk(unsigned int id) {
 
 int engine_checking(void) { return active >= 0; }
 
-int engine_check_begin(unsigned id, recomp_context *ctx) {
+int engine_check_begin(unsigned id, recomp_context *ctx, void *frame) {
     if (!mem0)
         init();
     if (active >= 0)
@@ -103,6 +109,13 @@ int engine_check_begin(unsigned id, recomp_context *ctx) {
     active = (int)id;
     ctx0 = *ctx;
     memcpy(mem0, RDRAM_P, PORT_RDRAM_SIZE);
+    uintptr_t f = (uintptr_t)frame;
+    stk_lo = stk_hi = 0;
+    if (f - PORT_STACK_BASE < (uintptr_t)PORT_STACK_SIZE * PORT_MAX_THREADS) {
+        stk_lo = f;
+        stk_hi = PORT_STACK_BASE + ((f - PORT_STACK_BASE) / PORT_STACK_SIZE + 1) * PORT_STACK_SIZE;
+        memcpy(stk0, (void *)stk_lo, stk_hi - stk_lo);
+    }
     ic0 = __port_icount;
     icc0 = __port_icount_c;
     ntrace_o = ntrace_n = 0;
@@ -120,6 +133,10 @@ void engine_check_mid(unsigned id, recomp_context *ctx) {
     icc_o = __port_icount_c - icc0;
     *ctx = ctx0;
     memcpy(RDRAM_P, mem0, PORT_RDRAM_SIZE);
+    if (stk_hi) {
+        memcpy(stk_o, (void *)stk_lo, stk_hi - stk_lo);
+        memcpy((void *)stk_lo, stk0, stk_hi - stk_lo);
+    }
     __port_icount = ic0;
     __port_icount_c = icc0;
     trace_cur = trace_n;
@@ -179,6 +196,12 @@ void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1
     if (nbytes && len < sizeof what - 64)
         len += snprintf(what + len, sizeof what - len, " memory: %lu bytes, first %08X (%02X/%02X)", nbytes,
                         first | 0x80000000u, mem_o[first], RDRAM_P[first]);
+    if (stk_hi && memcmp(stk_o, (void *)stk_lo, stk_hi - stk_lo) && len < sizeof what - 64) {
+        uintptr_t k = 0;
+        while (stk_o[k] == ((uint8_t *)stk_lo)[k])
+            k++;
+        len += snprintf(what + len, sizeof what - len, " host stack: first %08lX", (unsigned long)(stk_lo + k));
+    }
     uint32_t ic_n = __port_icount - ic0, icc_n = __port_icount_c - icc0;
     if ((ic_n != ic_o || icc_n != icc_o) && len < sizeof what - 64)
         len += snprintf(what + len, sizeof what - len, " cost: %u+%u/%u+%u", ic_o, icc_o, ic_n, icc_n);

@@ -3,6 +3,23 @@
 # "Replacing the engine").  One name per line, us.v11's (the same in every
 # version); a version that has no such function ignores it.
 
-# 679E0: math
+# 679E0: math (func_802AC284/func_802AC2A4 go with 71140; func_802ACDB8
+# and func_802ACEB8 are never called)
+func_802AC1A0
+func_802AC3B8
+func_802AC4C4
+func_802AC544
+func_802AC61C
+func_802AC6FC
+func_802AC7DC
+func_802AC85C
+func_802AC8CC
+func_802ACA60
+func_802ACAC4
+func_802ACB50
+func_802ACBDC
+func_802ACC68
+func_802ACCCC
+func_802ACE38
 func_802ACF3C
 func_802ACF64
