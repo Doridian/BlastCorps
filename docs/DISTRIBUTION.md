@@ -151,17 +151,14 @@ against its translation.
   leaves behind for its translated callers (`ENGINE_LEAVE`).
 - That puts the whole engine at roughly 15–20 agent-hours.  The vehicle modules and the loaders are
   slower per function than the math, but each is checked the same way.
-- Native now: 183 functions. That's all of 69014 and 69944, 679E0 but four, 62740 but five, and 81
-  of 56040's 101: the parts, their planes and headings, the animation splines and key frames, and the
-  sphere, edge and triangle tests.
-- Still translated in 62740: `func_802A8768`, the per-frame wheel orchestrator (it hands a dozen
-  registers on to its callees and the vehicle modules call it), and the recursive dispatchers into the
-  vehicle modules (`func_802AB478` to `func_802AB714`).  In 56040: the collision walks over the
-  buildings' pieces (`func_8029AA10`, `func_8029AB88`, `func_8029B02C` and their helpers), the
-  part-tree checks in one shared-code group (`func_8029CB04`, `CB54`, `CD54`, `CF04`), the texture
-  loader path (`func_8029E0AC`, `E21C`, `E47C`), `func_8029E558` (it needs `engine_save()` for the
-  registers it reloads), and `func_8029F9D4`/`func_8029FC74`.  679E0's four are dead or go with
-  71140.
+- Native now: 204 functions. That's all of 69014, 69944 and 56040 (101: the parts, their planes and
+  headings, the animation splines and key frames, the sphere, edge and triangle tests, the collision
+  walks over the buildings' pieces and the texture animations), 62740 but four and 679E0 but four.
+  The last 21 took about 1.5 agent-hours, most of it in the collision walks' shared tests.
+- Still translated in 62740: the recursive dispatchers into the vehicle modules (`func_802AB478` to
+  `func_802AB714`), which call 17 of the vehicle modules' functions and save every register for
+  them; they belong with those modules.  679E0's four are dead (`func_802ACDB8`, `ACEB8`) or go with
+  71140 (`func_802AC284`, `AC2A4`).
 - Native too: all of 77E20 (68 functions), 89250 (13), 8A2E0 (7) and the front end's 1B100 (6),
   94 functions in about 3 agent-hours with the checks and the TAS (2026-10-01).  77E20 is long,
   branchy code that charges its blocks through tables of display-list copies and saves most of
