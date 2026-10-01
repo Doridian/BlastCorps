@@ -71,6 +71,7 @@ void func_802AFC60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s16 *r;
 
     ENGINE_BLK(802AFC60);
+    engine_save(ENGINE_T0_T5, 0);
     D_803EDBF4 = model;
     buf = D_80358070;
     D_803EDBF8 = buf;
@@ -141,6 +142,7 @@ void func_802AFC60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803EDBFC, D_803EDBF8, *(s32 *)(D_803EDBF4 + *(s32 *)(D_803EDBF4 + 0x18) + 4));
     ENGINE_BLK(802AFFA4);
     D_80364A6D = 1;
+    engine_restore();
     /* what the original leaves for its (translated) caller */
     ENGINE_LEAVE(28, T(vs));
     ENGINE_LEAVE(22, T(D_803EDBF8));
@@ -214,6 +216,7 @@ u8 func_802B01DC(void) {
     s32 v;
 
     ENGINE_BLK(802B01DC);
+    engine_save(0x10000000, 0);
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802B0200);
         if (vs->unk96[1] != 1) {
@@ -230,6 +233,7 @@ u8 func_802B01DC(void) {
         }
     }
     ENGINE_BLK(802B0240);
+    engine_restore();
     return r;
 }
 
@@ -238,11 +242,13 @@ void func_802B0254(void) {
     VS *vs = &D_803EDB40;
 
     ENGINE_BLK(802B0254);
+    engine_save(0x10000000, 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803EDBF8, (u32 *)D_803EDBFC, 0x800);
     ENGINE_BLK(802B0284);
     func_802C444C();
     ENGINE_BLK(802B028C);
+    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -250,12 +256,14 @@ void func_802B02A0(void) {
     VS *vs = &D_803EDB40;
 
     ENGINE_BLK(802B02A0);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803EDBEC, D_803EDBE8, D_803EDBF0, vs->unk4, &D_803EDBEC, &vs->unk4C, 1, vs);
     ENGINE_BLK(802B032C);
     func_802B0B3C(vs);
     ENGINE_BLK(802B0334);
     func_802A133C(D_803EDBE8, D_803EDBEC, D_803EDBF0, 1, vs);
     ENGINE_BLK(802B0360);
+    engine_restore();
 }
 
 /* its light */
@@ -272,6 +280,7 @@ void func_802B03F4(void) {
     f32 rate;
 
     ENGINE_BLK(802B03F4);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802B03B0();
     ENGINE_BLK(802B0450);
     if (vs->unk9A == 0) {
@@ -381,6 +390,7 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 1, vs);
     ENGINE_BLK(802B0788);
+    engine_restore();
 }
 
 /* the parts: the wheels' turn from the camera, the rams (A fires them while

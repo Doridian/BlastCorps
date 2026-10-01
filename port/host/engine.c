@@ -158,6 +158,56 @@ void engine_restore(void) {
     save_n--;
 }
 
+/* engine.h's ENGINE_SAVE/ENGINE_RESTORE: the registers the original saves
+   on its stack and loads back before it returns (gmask: GPRs, fmask: FPR
+   words), kept here for the thread's context, so that what its translated
+   callees leave in them is undone as the original undoes it.  Nested as
+   the calls are; each thread's own (a context switch inside one is
+   possible, through the game's C). */
+extern recomp_context *port_ctx(void);
+static struct {
+    recomp_context *ctx;
+    uint32_t gmask, fmask;
+    uint64_t r[32];
+    uint32_t f[32];
+} save_stack[256];
+static int save_n;
+
+void engine_save(uint32_t gmask, uint32_t fmask) {
+    recomp_context *ctx = port_ctx();
+    int k;
+    if (save_n >= (int)(sizeof save_stack / sizeof save_stack[0]))
+        host_fatal("engine_save: too deep");
+    save_stack[save_n].ctx = ctx;
+    save_stack[save_n].gmask = gmask;
+    save_stack[save_n].fmask = fmask;
+    for (k = 0; k < 32; k++) {
+        if (gmask >> k & 1)
+            save_stack[save_n].r[k] = ctx->r[k];
+        if (fmask >> k & 1)
+            save_stack[save_n].f[k] = ctx->f[k];
+    }
+    save_n++;
+}
+
+void engine_restore(void) {
+    recomp_context *ctx = port_ctx();
+    int n, k;
+    for (n = save_n - 1; n >= 0 && save_stack[n].ctx != ctx; n--)
+        ;
+    if (n < 0)
+        host_fatal("engine_restore: nothing saved");
+    for (k = 0; k < 32; k++) {
+        if (save_stack[n].gmask >> k & 1)
+            ctx->r[k] = save_stack[n].r[k];
+        if (save_stack[n].fmask >> k & 1)
+            ctx->f[k] = save_stack[n].f[k];
+    }
+    for (; n < save_n - 1; n++)
+        save_stack[n] = save_stack[n + 1];
+    save_n--;
+}
+
 /* engine.h's ENGINE_LEAVE: 0-31 a GPR (the word sign-extended, as the
    VR4300 holds one), 34-65 an FPR word */
 void engine_leave(unsigned int reg, uint32_t value) {

@@ -56,6 +56,7 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s16 *r;
 
     ENGINE_BLK(802BBA60);
+    engine_save(ENGINE_T0_T5, 0);
     D_803EFEA4 = model;
     buf = D_80358070;
     D_803EFEA8 = buf;
@@ -126,6 +127,7 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk9A = 0;
     func_802AA838(D_803EFEAC, D_803EFEA8, *(s32 *)(D_803EFEA4 + *(s32 *)(D_803EFEA4 + 0x18) + 4));
     ENGINE_BLK(802BBDA4);
+    engine_restore();
     /* what the original leaves for its (translated) caller */
     ENGINE_LEAVE(28, T(vs));
     ENGINE_LEAVE(18, T(&D_803EFE9C));
@@ -151,10 +153,12 @@ u8 func_802BBE10(void) {
 /* hd.c's: the player gets out */
 void func_802BBE2C(void) {
     ENGINE_BLK(802BBE2C);
+    engine_save(0x10000000, 0);
     func_802A7764((u32 *)D_803EFEA8, (u32 *)D_803EFEAC, 0x800);
     ENGINE_BLK(802BBE58);
     func_802C444C();
     ENGINE_BLK(802BBE60);
+    engine_restore();
 }
 
 /* its light */
@@ -172,6 +176,7 @@ void func_802BBEB8(void) {
     s32 near, far;
 
     ENGINE_BLK(802BBEB8);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802BBE74();
     ENGINE_BLK(802BBF08);
     if (vs->unk9A == 0) {
@@ -276,6 +281,7 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 7, vs);
     ENGINE_BLK(802BC278);
+    engine_restore();
 }
 
 /* the wheels' sparks and sound */

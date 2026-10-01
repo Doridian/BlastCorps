@@ -65,6 +65,7 @@ void func_802CC920(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s16 *r;
 
     ENGINE_BLK(802CC920);
+    engine_save(ENGINE_T0_T5, 0);
     D_803F9304 = model;
     buf = D_80358070;
     D_803F9308 = buf;
@@ -133,6 +134,7 @@ void func_802CC920(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk9A = 0;
     func_802AA838(D_803F930C, D_803F9308, *(s32 *)(D_803F9304 + *(s32 *)(D_803F9304 + 0x18) + 4));
     ENGINE_BLK(802CCC68);
+    engine_restore();
     /* what the original leaves for its (translated) caller */
     ENGINE_LEAVE(28, T(vs));
     ENGINE_LEAVE(18, T(&D_803F92FC));
@@ -158,6 +160,7 @@ u8 func_802CCCD8(void) {
     u8 r = 0;
 
     ENGINE_BLK(802CCCD8);
+    engine_save(0x10000000, 0);
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802CCCFC);
         if (vs->unk96[1] != 1) {
@@ -169,6 +172,7 @@ u8 func_802CCCD8(void) {
         }
     }
     ENGINE_BLK(802CCD20);
+    engine_restore();
     return r;
 }
 
@@ -177,11 +181,13 @@ void func_802CCD34(void) {
     VS *vs = &D_803F9250;
 
     ENGINE_BLK(802CCD34);
+    engine_save(0x10000000, 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803F9308, (u32 *)D_803F930C, 0x100);
     ENGINE_BLK(802CCD64);
     func_802C444C();
     ENGINE_BLK(802CCD6C);
+    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -189,12 +195,14 @@ void func_802CCD80(void) {
     VS *vs = &D_803F9250;
 
     ENGINE_BLK(802CCD80);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803F92FC, D_803F92F8, D_803F9300, vs->unk4, &D_803F92FC, &vs->unk4C, 0xE, vs);
     ENGINE_BLK(802CCE0C);
     func_802CD800(vs);
     ENGINE_BLK(802CCE14);
     func_802A133C(D_803F92F8, D_803F92FC, D_803F9300, 0xE, vs);
     ENGINE_BLK(802CCE40);
+    engine_restore();
 }
 
 /* its light */
@@ -214,6 +222,7 @@ void func_802CD068(void) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802CD068);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802CCE90();
     ENGINE_BLK(802CD0BC);
     func_802A75DC((u8 *)D_803F8F50, &D_803F92F8, &D_803F92FC, &D_803F9300, (u8 *)vs);
@@ -388,6 +397,7 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0xE, vs);
     ENGINE_BLK(802CD524);
+    engine_restore();
 }
 
 /* the wheels' sparks off rough ground, and the engine's sound */
@@ -432,6 +442,7 @@ sound:
 REGS(gp)
 void func_802CD660(VS *vs) {
     ENGINE_BLK(802CD660);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_T0_T5 | 0x0F00C0FE, 0);
     if (vs->unk96[3] == 0)
         goto done;
     ENGINE_BLK(802CD6F0);
@@ -448,6 +459,7 @@ void func_802CD660(VS *vs) {
     ENGINE_BLK(802CD778);
 done:
     ENGINE_BLK(802CD77C);
+    engine_restore();
 }
 
 /* the van's matrix, its vertices and its collision */
