@@ -1444,8 +1444,10 @@ s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
         ENGINE_BLK(8029DAF8);
         ENGINE_BLK(8029DB00);
         n = (u32)n * 0x18;
-        lo = *(u16 *)((u8 *)t + n);
-        hi = *(u16 *)((u8 *)t + n + 2);
+        /* (the halves of a word func_802A3F80 stores: through the word,
+           which is how they are in native-endian memory) */
+        lo = *(u32 *)((u8 *)t + n) >> 16;
+        hi = *(u32 *)((u8 *)t + n) & 0xFFFF;
         if (hi < lo) {
             ENGINE_BLK(8029DB24);
             if (!(y < lo))
