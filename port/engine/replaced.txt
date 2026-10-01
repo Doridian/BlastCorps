@@ -1,0 +1,8 @@
+# The engine's functions that are native C now (port/engine/*.c), which
+# tools/recomp no longer translates for the port (docs/PORT.md,
+# "Replacing the engine").  One name per line, us.v11's (the same in every
+# version); a version that has no such function ignores it.
+
+# 679E0: math
+func_802ACF3C
+func_802ACF64

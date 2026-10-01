@@ -113,7 +113,15 @@ extern uint32_t recomp_cov[];
 #elif defined(RECOMP_COUNT)
 /* the port charges the CPU's time by instructions executed */
 extern uint32_t __port_icount;
+#ifdef PORT_ENGINE_CHECK
+/* (the engine check, port/host/engine.c, compares the blocks the native
+   code charges with the ones the translation runs) */
+extern int engine_tracing;
+void engine_trace_blk(unsigned int id);
+#define BB(id, n) (__port_icount += (n), engine_tracing ? engine_trace_blk(id) : (void)0)
+#else
 #define BB(id, n) (__port_icount += (n))
+#endif
 #define CHECK_RA(pc) do { } while (0)
 #define ENTRY_RA do { } while (0)
 #else

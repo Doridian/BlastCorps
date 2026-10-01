@@ -25,7 +25,7 @@ HERE    := $(ROOT)/tools/recomp
 # -ffp-contract=off: no fused multiply-add, the VR4300 rounds every step
 CFLAGS  := -O1 -fPIC -ffp-contract=off -fno-strict-aliasing -Wall -Wno-unused-label \
            -I$(HERE)/runtime -I$(GEN)
-TESTFLAGS := -DRECOMP_TEST -DRECOMP_QEMU_COMPAT
+TESTFLAGS := -DRECOMP_TEST -DRECOMP_QEMU_COMPAT -DRECOMP_ORIG
 
 ASM     := $(wildcard $(ROOT)/blastcorps/asm/hd_code/*.s $(ROOT)/blastcorps/asm/hd_front_end/*.s)
 ELFS    := $(ROOT)/blastcorps/build/hd_code.$(VERSION).elf $(ROOT)/blastcorps/build/hd_front_end.$(VERSION).elf
@@ -33,7 +33,7 @@ TOOLS   := $(wildcard $(HERE)/*.py)
 
 all: $(GEN)/.stamp
 
-$(GEN)/.stamp: $(ASM) $(ELFS) $(TOOLS) $(HERE)/native_sites.txt
+$(GEN)/.stamp: $(ASM) $(ELFS) $(TOOLS) $(HERE)/native_sites.txt $(wildcard $(ROOT)/port/engine/replaced.txt)
 	rm -rf $(GEN)
 	$(PYTHON) $(HERE)/translate.py --version $(VERSION) $(GEN)
 	touch $@

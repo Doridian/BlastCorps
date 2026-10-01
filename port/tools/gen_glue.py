@@ -515,11 +515,443 @@ void recomp_extern_sprintf(uint8_t *rdram, recomp_context *ctx) {
 }
 
 
+# ---- the engine's replacement (docs/PORT.md, "Replacing the engine") ------
+#
+# port/engine/replaced.txt lists the translated functions that are native C
+# now (port/engine/*.c).  The translated code calls each of them through
+# recomp_extern_X like any call out, and the glue for it is made here from
+# its definition and its register convention: REGS(in... -> out...) before
+# the definition, or o32 by the prototype.  The native code calls the
+# translated functions through entry.c's wrappers, whose conventions come
+# the same way from its declarations (a REGS() before one).  With --check
+# (PORT_ENGINE_CHECK), every call of a replaced function from the
+# translated code or the game's C also runs the original's translation on
+# the same state and compares (port/host/engine_check.c).
+
+ENGINE = os.path.join(ROOT, "port", "engine")
+GPR = ["zero", "at", "v0", "v1", "a0", "a1", "a2", "a3", "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7",
+       "s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7", "t8", "t9", "k0", "k1", "gp", "sp", "fp", "ra"]
+REGS_RE = re.compile(r"\bREGS\(([^)]*)\)")
+
+
+def engine_files():
+    if not os.path.isdir(ENGINE):
+        return []
+    return [os.path.join(ENGINE, f) for f in sorted(os.listdir(ENGINE)) if f.endswith((".c", ".h"))]
+
+
+def load_replaced(funcs):
+    path = os.path.join(ENGINE, "replaced.txt")
+    out = []
+    if os.path.exists(path):
+        for line in open(path):
+            line = line.split("#", 1)[0].split()
+            if line and line[0] in funcs:
+                out.append(line[0])
+    return out
+
+
+def reg_index(r):
+    """a REGS() name: ('g', n), ('f', n), ('hi',), ('lo',), ('stack', off)"""
+    r = r.strip()
+    if r in GPR:
+        return ("g", GPR.index(r))
+    if re.fullmatch(r"f([0-9]|[12][0-9]|3[01])", r):
+        return ("f", int(r[1:]))
+    if r in ("hi", "lo"):
+        return (r,)
+    m = re.fullmatch(r"sp\+(0x[0-9A-Fa-f]+|\d+)", r)
+    if m:
+        return ("stack", int(m.group(1), 0))
+    sys.exit(f"gen_glue.py: REGS(): no register {r!r}")
+
+
+def parse_regs(text):
+    """name -> (inputs, outputs) of every REGS() before a declaration"""
+    out = {}
+    for m in REGS_RE.finditer(text):
+        spec = m.group(1)
+        ins, _, outs = spec.partition("->")
+        ins = [x for x in (s.strip() for s in ins.split(",")) if x]
+        outs = [x for x in (s.strip() for s in outs.split(",")) if x]
+        d = DECL_RE.search(text, m.end())
+        if not d:
+            sys.exit(f"gen_glue.py: REGS({spec}) before no declaration")
+        name = d.group(3)
+        conv = ([reg_index(r) for r in ins], [reg_index(r) for r in outs])
+        if name in out and out[name] != conv:
+            sys.exit(f"gen_glue.py: {name}: two different REGS()")
+        out[name] = conv
+    return out
+
+
+def engine_conventions():
+    regs = {}
+    for path in engine_files():
+        for k, v in parse_regs(strip_comments_keep_regs(open(path).read())).items():
+            if k in regs and regs[k] != v:
+                sys.exit(f"gen_glue.py: {k}: two different REGS() in port/engine")
+            regs[k] = v
+    return regs
+
+
+def strip_comments_keep_regs(s):
+    s = re.sub(r"/\*.*?\*/", " ", s, flags=re.S)
+    s = re.sub(r"//[^\n]*", " ", s)
+    return re.sub(r"^\s*#.*$", " ", s, flags=re.M)
+
+
+def o32_convention(sig):
+    """(inputs, outputs) as REGS() would give them, for an o32 prototype"""
+    ret, params = sig
+    pcs = [classify(p) for p in params if p != "..."]
+    placed, _ = slots(pcs)
+    ins = []
+    for c, loc, off in placed:
+        if loc[0] == "f":
+            ins.append(("f", loc[1]))
+        elif loc[0] == "a":
+            ins.append(("pair", 4 + loc[1]) if c in "DL" else ("g", 4 + loc[1]))
+        else:
+            ins.append(("stack", loc[1]) if c not in "DL" else ("stack64", loc[1]))
+    rc = classify(ret)
+    outs = {"V": [], "I": [("g", 2)], "F": [("f", 0)], "D": [("f", 0)], "L": [("pair", 2)]}[rc]
+    return ins, outs
+
+
+def get_reg(reg, c, rd="rdram"):
+    """C expression: the native value of class c in a register of the context"""
+    k = reg[0]
+    if k == "g":
+        r = f"ctx->r[{reg[1]}]"
+        return {"I": f"(uintptr_t)(uint32_t){r}", "L": r, "F": f"f32_of((uint32_t){r})",
+                "D": f"f64_of({r})"}[c]
+    if k == "pair":         # o32's 64-bit argument in two registers
+        v = f"(((uint64_t)(uint32_t)ctx->r[{reg[1]}] << 32) | (uint32_t)ctx->r[{reg[1] + 1}])"
+        return v if c == "L" else f"f64_of({v})"
+    if k == "f":
+        return {"F": f"fpr_s(ctx, {reg[1]})", "D": f"fpr_d(ctx, {reg[1]})",
+                "I": f"(uintptr_t)ctx->f[{reg[1]}]", "L": f"fpr_l(ctx, {reg[1]})"}[c]
+    if k in ("hi", "lo"):
+        return f"(uintptr_t)(uint32_t)ctx->{k}" if c == "I" else f"ctx->{k}"
+    a = f"(uint32_t)ctx->sp + {reg[1]}"
+    return {"I": f"(uintptr_t)mem_r32({rd}, {a})", "F": f"f32_of(mem_r32({rd}, {a}))",
+            "D": f"f64_of(mem_r64({rd}, {a}))", "L": f"mem_r64({rd}, {a})"}[c]
+
+
+def set_reg(reg, c, v, rd="RDRAM"):
+    """C statement: put the native value v of class c in a register"""
+    k = reg[0]
+    if k == "g":
+        r = f"ctx->r[{reg[1]}]"
+        return {"I": f"{r} = S32({v});", "L": f"{r} = {v};", "F": f"{r} = S32(bits_of_f32({v}));",
+                "D": f"{r} = bits_of_f64({v});"}[c]
+    if k == "pair":
+        w = f"bits_of_f64({v})" if c == "D" else v
+        return (f"ctx->r[{reg[1]}] = S32((uint32_t)({w} >> 32)); "
+                f"ctx->r[{reg[1] + 1}] = S32((uint32_t)({w}));")
+    if k == "f":
+        return {"F": f"set_fpr_s(ctx, {reg[1]}, {v});", "D": f"set_fpr_d(ctx, {reg[1]}, {v});",
+                "I": f"ctx->f[{reg[1]}] = (uint32_t)({v});", "L": f"set_fpr_l(ctx, {reg[1]}, {v});"}[c]
+    if k in ("hi", "lo"):
+        return f"ctx->{k} = S32({v});" if c == "I" else f"ctx->{k} = {v};"
+    a = f"(uint32_t)ctx->sp + {reg[1]}"
+    return {"I": f"mem_w32({rd}, {a}, (uint32_t)({v}));", "F": f"mem_w32({rd}, {a}, bits_of_f32({v}));",
+            "D": f"mem_w64({rd}, {a}, bits_of_f64({v}));", "L": f"mem_w64({rd}, {a}, {v});"}[c]
+
+
+def split_sig(name, sig, conv):
+    """the parameters' classes, which are inputs and which are results
+    through a pointer; the return's class"""
+    ret, params = sig
+    ins, outs = conv
+    ps = [p for p in params if p != "..."]
+    rc = classify(ret)
+    nres = len(outs) - (rc != "V")
+    if len(ps) != len(ins) + nres:
+        sys.exit(f"gen_glue.py: {name}: REGS() has {len(ins)} inputs and {len(outs)} outputs, "
+                 f"the prototype {len(ps)} parameters and returns {ret}")
+    in_c = [classify(p) for p in ps[:len(ins)]]
+    out_c = ([rc] if rc != "V" else []) + [classify(p.replace("*", "", 1)) for p in ps[len(ins):]]
+    for p in ps[len(ins):]:
+        if "*" not in p:
+            sys.exit(f"gen_glue.py: {name}: result parameter {p!r} isn't a pointer")
+    return in_c, out_c, rc
+
+
+def reg_bits(reg, c):
+    """the check's register numbers (engine_check.c): 0-31 GPRs, 32 hi, 33 lo,
+    34-65 FPR words"""
+    k = reg[0]
+    if k == "g":
+        return [reg[1]]
+    if k == "pair":
+        return [reg[1], reg[1] + 1]
+    if k == "f":
+        return [34 + reg[1]] + ([35 + reg[1]] if c in "DL" else [])
+    if k in ("hi", "lo"):
+        return [32 if k == "hi" else 33]
+    return []
+
+
+def native_decl(name, sig, cname=None):
+    ret, params = sig
+    rc = classify(ret)
+    rty = "void" if rc == "V" else cty(rc)
+    if rc == "I" and narrow_ctype(ret) != "uintptr_t":
+        rty = narrow_ctype(ret)
+    elif rc == "I":
+        rty = "uintptr_t"
+    args = ", ".join(pty(classify(p)) for p in params if p != "...") or "void"
+    return f"extern {rty} {cname or name}({args});", rty
+
+
+def gen_adapter(name, sig, conv, cname, check=None):
+    """recomp_extern_X: the translated code calls the native X"""
+    in_c, out_c, rc = split_sig(name, sig, conv)
+    ins, outs = conv
+    decl, rty = native_decl(name, sig, cname)
+    lines = [decl, f"void recomp_extern_{name}(uint8_t *rdram, recomp_context *ctx) {{"]
+    body = ["    recomp_context saved = *ctx;"]
+    args = [get_reg(r, c) for r, c in zip(ins, in_c)]
+    res_slots = out_c[1:] if rc != "V" else out_c
+    if res_slots:
+        # results through pointers: slots below the N64 stack, which the
+        # native code's own calls into translated code then stay below
+        body.append(f"    uint32_t res = (uint32_t)ctx->sp - {8 * len(res_slots)};")
+        body.append(f"    ctx->sp -= {(8 * len(res_slots) + 15) // 16 * 16};")
+        args += [f"(uintptr_t)(res + {8 * k})" for k in range(len(res_slots))]
+    call = f"{cname}({', '.join(args)})"
+    body.append(f"    {call};" if rc == "V" else f"    {rty} r = {call};")
+    body.append("    *ctx = saved;")
+    vals = []
+    if rc != "V":
+        vals.append("r")
+    for k, c in enumerate(res_slots):
+        vals.append({"I": f"mem_r32(rdram, res + {8 * k})", "F": f"f32_of(mem_r32(rdram, res + {8 * k}))",
+                     "D": f"f64_of(mem_r64(rdram, res + {8 * k}))", "L": f"mem_r64(rdram, res + {8 * k})"}[c])
+    for reg, c, v in zip(outs, out_c, vals):
+        body.append("    " + set_reg(reg, c, v, "rdram"))
+    if check is None:
+        return lines + body + ["}"]
+    cid, mask = check
+    lines += [f"    if (engine_check_begin({cid}, ctx)) {{",
+              f"        recomp_orig_{name}(rdram, ctx);",
+              f"        engine_check_mid({cid}, ctx);",
+              "    }"]
+    lines += body
+    lines += [f"    engine_check_end({cid}, ctx, {mask[0]:#x}ull, {mask[1]:#x}ull, {mask[2]:#x}ull);", "}"]
+    return lines
+
+
+def gen_entry_regs(name, sig, conv, cname=None, orig=False):
+    """the native code calls a translated function (or, with orig, the
+    check's wrapper of a replaced one runs its translation) with REGS()"""
+    in_c, out_c, rc = split_sig(name, sig, conv)
+    ins, outs = conv
+    ret, params = sig
+    ps = [p for p in params if p != "..."]
+    rty = "void" if rc == "V" else (narrow_ctype(ret) if rc == "I" else cty(rc))
+    fty = "uintptr_t" if rc == "I" else rty
+    args = ", ".join(f"{pty(classify(p)) if k < len(ins) else 'uintptr_t'} p{k}" for k, p in enumerate(ps)) or "void"
+    lines = [f"{fty} {cname or name}({args}) {{",
+             "    recomp_context *ctx = port_ctx();",
+             "    uint64_t sp = ctx->sp;",
+             "    ctx->sp = sp - 32;"]
+    stack = [r for r in ins if r[0] == "stack"]
+    if stack:
+        top = max(r[1] for r in stack) + 8
+        lines[-1] = f"    ctx->sp = sp - {(top + 15) // 16 * 16};"
+    for k, (reg, c) in enumerate(zip(ins, in_c)):
+        lines.append("    " + set_reg(reg, c, f"p{k}"))
+    lines.append(f"    recomp_{'orig_' if orig else ''}{name}(RDRAM, ctx);")
+    lines.append("    ctx->sp = sp;")
+    res_ps = list(range(len(ins), len(ps)))
+    res_regs = outs[1:] if rc != "V" else outs
+    res_cls = out_c[1:] if rc != "V" else out_c
+    for k, reg, c in zip(res_ps, res_regs, res_cls):
+        v = get_reg(reg, c)
+        w = {"I": f"mem_w32(RDRAM, (uint32_t)p{k}, (uint32_t){v});",
+             "F": f"mem_w32(RDRAM, (uint32_t)p{k}, bits_of_f32({v}));",
+             "D": f"mem_w64(RDRAM, (uint32_t)p{k}, bits_of_f64({v}));",
+             "L": f"mem_w64(RDRAM, (uint32_t)p{k}, {v});"}[c]
+        lines.append(f"    if (p{k}) {w}")
+    if rc != "V":
+        v = get_reg(outs[0], out_c[0])
+        if rc == "I":
+            lines.append(f"    return ({rty})(uint32_t){v};" if rty == "uintptr_t" else
+                         f"    return (uintptr_t)(uint32_t)({rty}){v};")
+        else:
+            lines.append(f"    return {v};")
+    lines.append("}")
+    return lines
+
+
+def check_mask(name, conv_regs, analysis):
+    """the registers the check compares: the declared results and what the
+    analysis says a caller reads"""
+    bits = set()
+    for reg, c in conv_regs:
+        bits |= set(reg_bits(reg, c))
+    if analysis is not None:
+        for r in analysis.outputs:
+            if isinstance(r, int):
+                bits.add(r)
+            elif r in ("hi", "lo"):
+                bits.add(32 if r == "hi" else 33)
+            elif r.startswith("f"):
+                bits.add(34 + int(r[1:]))
+    m = [0, 0, 0]
+    for b in bits:
+        m[b // 64] |= 1 << (b % 64)
+    return m
+
+
+def reaches_extern(funcs):
+    """name -> whether its translation calls (at any depth) something that
+    isn't translated: the check only runs those that don't (an original
+    that calls the game's C, or libultra, can't be run twice)"""
+    calls = {n: {ln.target for ln in fn.lines if ln.insn.op in ("jal", "j")} for n, fn in funcs.items()}
+    memo = {}
+
+    def go(n, stack):
+        if n in memo:
+            return memo[n]
+        if n not in funcs:
+            return True
+        if n in stack:
+            return False
+        stack.add(n)
+        r = any(go(c, stack) for c in calls[n])
+        stack.discard(n)
+        memo[n] = r
+        return r
+    return {n: go(n, set()) for n in funcs}
+
+
+def gen_engine(check, funcs, report):
+    """the engine's glue: returns (adapters by name, C-side lines, names the
+    native code calls, the check's header lines)"""
+    replaced = load_replaced(funcs)
+    regs = engine_conventions()
+    if not replaced and not regs:
+        return {}, [], set(), [], {}, {}
+    import conventions as convmod
+    analysis = convmod.conventions(funcs) if replaced else {}
+    defs = scan_engine(set(replaced) | set(regs))
+    adapters, cside, check_hdr = {}, [], []
+    ext = reaches_extern(funcs)
+    ids = []
+    for cid, name in enumerate(replaced):
+        sig = defs.get(name)
+        if sig is None:
+            sys.exit(f"gen_glue.py: {name} is in port/engine/replaced.txt but port/engine defines it nowhere")
+        conv = regs.get(name) or o32_convention(sig)
+        in_c, out_c, rc = split_sig(name, sig, conv)
+        a = analysis.get(name)
+        if a is not None:
+            declared = set()
+            for reg, c in zip(conv[1], out_c):
+                declared |= set(reg_bits(reg, c))
+            missing = []
+            for r in sorted(a.outputs, key=convmod.reg_order):
+                b = r if isinstance(r, int) else (32 if r == "hi" else 33 if r == "lo" else
+                                                   34 + int(r[1:]) if r[0] == "f" and r[1:].isdigit() else None)
+                if b is not None and b not in declared:
+                    missing.append(convmod.regname(r))
+            if missing:
+                report.append(f"{name}: a translated caller may read {', '.join(missing)} afterwards, "
+                              f"which REGS() doesn't give back")
+            ins_decl = {r for r in conv[0]}
+            extra_in = [convmod.regname(r) for r in sorted(a.inputs - {29}, key=convmod.reg_order)
+                        if (("g", r) if isinstance(r, int) else ("f", int(r[1:])) if r[0] == "f" and r[1:].isdigit()
+                            else (r,)) not in ins_decl and r != "fcc"]
+            if extra_in:
+                report.append(f"{name}: reads {', '.join(extra_in)} as well (left as the caller has them)")
+        mask = check_mask(name, list(zip(conv[1], out_c)), a)
+        checked = check and not ext.get(name, True)
+        cname = f"native_{name}" if check else name
+        adapters[name] = gen_adapter(name, sig, conv, cname, (cid, mask) if checked else None)
+        ids.append((cid, name, checked))
+        if check:
+            check_hdr.append(f"#define {name} native_{name}")
+            # the game's C (and the translated code's glue) calls func_X: here
+            # it runs the original first when the check wants it
+            if checked and conv == o32_convention(sig):
+                cside += gen_c_check(name, sig, cid, mask)
+            else:
+                decl, rty = native_decl(name, sig, cname)
+                ps = [p for p in sig[1] if p != "..."]
+                args = ", ".join(f"{pty(classify(p))} p{k}" for k, p in enumerate(ps)) or "void"
+                call = f"{cname}({', '.join(f'p{k}' for k in range(len(ps)))})"
+                cside += [decl, f"{rty} {name}({args}) {{",
+                          f"    {'return ' if classify(sig[0]) != 'V' else ''}{call};", "}"]
+    if check:
+        cside.insert(0, "const char *const engine_check_names[] = {" +
+                     ", ".join(f'"{n}"' for _, n, _ in ids) + "};")
+        cside.insert(1, f"const unsigned engine_check_count = {len(ids)};")
+    called = set()
+    for path in engine_files():
+        called |= set(re.findall(r"\bfunc_[0-9A-F]{8}\b", open(path).read()))
+    return adapters, cside, called, check_hdr, regs, defs
+
+
+def gen_c_check(name, sig, cid, mask):
+    """the check's func_X for the game's C: the translation on the same
+    state first, then the native function"""
+    ret, params = sig
+    rc = classify(ret)
+    decl, rty = native_decl(name, sig, f"native_{name}")
+    ps = [p for p in params if p != "..."]
+    args = ", ".join(f"{pty(classify(p))} p{k}" for k, p in enumerate(ps)) or "void"
+    conv = o32_convention(sig)
+    ent = gen_entry_regs(name, sig, conv, f"orig_{name}", orig=True)
+    lines = [decl] + ["static " + ent[0]] + ent[1:]
+    call = f"native_{name}({', '.join(f'p{k}' for k in range(len(ps)))})"
+    lines += [f"{rty} {name}({args}) {{",
+              "    recomp_context *ctx = port_ctx();",
+              f"    if (engine_check_begin({cid}, ctx)) {{",
+              f"        orig_{name}({', '.join(f'p{k}' for k in range(len(ps)))});",
+              f"        engine_check_mid({cid}, ctx);",
+              "    }"]
+    if rc == "V":
+        lines.append(f"    {call};")
+    else:
+        lines.append(f"    {rty} r = {call};")
+        lines.append("    if (engine_checking())")
+        lines.append("        " + set_reg(conv[1][0], rc, "r"))
+    lines.append(f"    engine_check_end({cid}, ctx, {mask[0]:#x}ull, {mask[1]:#x}ull, {mask[2]:#x}ull);")
+    if rc != "V":
+        lines.append("    return r;")
+    lines.append("}")
+    return lines
+
+
+def scan_engine(names):
+    """name -> (ret, params) from port/engine's definitions and declarations"""
+    out = {}
+    for path in engine_files():
+        text = strip_comments(open(path).read())
+        text = REGS_RE.sub(" ", text)
+        for m in DECL_RE.finditer(text):
+            ret, star, name, params, end = (m.group(k) for k in range(1, 6))
+            if name not in names:
+                continue
+            ret = (ret.strip() + " " + star).strip()
+            ret = re.sub(r"^(static|extern|inline)\s+", "", ret)
+            sig = (ret, tuple(param_type(p) for p in split_params(params)))
+            if end == "{" or name not in out:
+                out[name] = sig
+    return out
+
+
 def main():
     outdir = sys.argv[1]
     wraps = set()
-    if len(sys.argv) > 3 and sys.argv[2] == "--wrap":
-        wraps = {w for w in sys.argv[3].split(",") if w}
+    check = "--check" in sys.argv
+    if "--wrap" in sys.argv:
+        k = sys.argv.index("--wrap")
+        wraps = {w for w in sys.argv[k + 1].split(",") if w}
     os.makedirs(outdir, exist_ok=True)
     gen = os.path.join(BLAST, "build", "recomp", "src")
     rfuncs = re.findall(r"recomp_(func_[0-9A-F]{8})\(", open(os.path.join(gen, "recomp_funcs.h")).read())
@@ -529,14 +961,23 @@ def main():
         for f in os.listdir(d):
             if f.endswith(".c"):
                 cnames |= set(re.findall(r"\bfunc_[0-9A-F]{8}\b", open(os.path.join(d, f)).read()))
-    entries = sorted(set(rfuncs) & cnames)
-    info = scan(set(entries) | set(externs))
     funcs = liveness.load_functions()
+    report = []
+    adapters, cside, ecalled, check_hdr, eregs, edefs = gen_engine(check, funcs, report) \
+        if engine_files() else ({}, [], set(), [], {}, {})
+    entries = sorted(set(rfuncs) & (cnames | ecalled))
+    info = scan(set(entries) | set(externs))
     live = {n: {liveness.regname(r) for r in s} for n, s in liveness.liveness(funcs).items()}
 
     out = [HEADER]
-    report = []
     for name in entries:
+        if name in eregs:
+            # the native code calls it with a convention of its own
+            sig = edefs.get(name)
+            if sig is None:
+                sys.exit(f"gen_glue.py: REGS() for {name} but no declaration")
+            out += gen_entry_regs(name, sig, eregs[name]) + [""]
+            continue
         sig, notes = signature(name, info[name])
         if sig is None:
             sys.exit(f"gen_glue.py: no prototype for {name}")
@@ -544,11 +985,29 @@ def main():
         out += lines + [""]
         for w in notes + warn:
             report.append(f"{name}: {w}")
+    if check:
+        out += ["/* PORT_ENGINE_CHECK (port/host/engine_check.c) */",
+                "int engine_check_begin(unsigned id, recomp_context *ctx);",
+                "void engine_check_mid(unsigned id, recomp_context *ctx);",
+                "void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1, uint64_t m2);",
+                "int engine_checking(void);", ""] + cside + [""]
     with open(os.path.join(outdir, "entry.c"), "w") as f:
         f.write("\n".join(out))
+    with open(os.path.join(outdir, "engine_check_names.h"), "w") as f:
+        f.write("/* Generated by port/tools/gen_glue.py: with PORT_ENGINE_CHECK the native\n"
+                "   functions get other names, and the glue's func_X runs the check. */\n")
+        f.write("\n".join(check_hdr) + "\n")
 
     out = [HEADER]
+    if check:
+        out += ["int engine_check_begin(unsigned id, recomp_context *ctx);",
+                "void engine_check_mid(unsigned id, recomp_context *ctx);",
+                "void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1, uint64_t m2);",
+                ""]
     for name in externs:
+        if name in adapters:
+            out += adapters[name] + [""]
+            continue
         if name in BY_HAND:
             out += [BY_HAND[name], ""]
             continue

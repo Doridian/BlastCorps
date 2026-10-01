@@ -484,6 +484,48 @@ if(N64_LAUNCHER)
     set_target_properties(game_c PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
 
+# ---- the engine's replacement (N64 side; docs/PORT.md, "Replacing the engine") --
+# Rare's handwritten functions as native C (port/engine; the translator
+# leaves out the ones replaced.txt lists).  Built like the game's C, but it
+# charges the original's MIPS instructions itself (ENGINE_BLK), so BEPass
+# neither counts nor polls in it (BEPASS_ENGINE=1).  PORT_ENGINE_CHECK runs
+# each replaced function's translation first on the same state and
+# compares (port/host/engine_check.c); the 32-bit build only.
+option(PORT_ENGINE_CHECK "check the engine's native functions against their translation as they run" OFF)
+if(PORT_ENGINE_CHECK AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN))
+    message(FATAL_ERROR "PORT_ENGINE_CHECK is the 32-bit build's")
+endif()
+file(GLOB ENGINE_C ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.c)
+set(ENGINE_GLUE_FLAGS)
+if(PORT_ENGINE_CHECK)
+    set(ENGINE_GLUE_FLAGS --check)
+endif()
+if(ENGINE_C)
+    add_library(engine_c OBJECT ${ENGINE_C})
+    target_include_directories(engine_c PRIVATE ${N64_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/engine ${RECOMP_GEN})
+    target_compile_definitions(engine_c PRIVATE ${N64_DEFINES})
+    target_compile_options(engine_c PRIVATE ${N64_FLAGS})
+    add_dependencies(engine_c BEPass)
+    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS "${BEPASS};${RECOMP_GEN}/engine_blocks.h")
+    set(ENGINE_LAUNCHER ${N64_LAUNCHER})
+    list(FIND ENGINE_LAUNCHER env ENV_AT)
+    if(ENV_AT EQUAL 0)
+        list(INSERT ENGINE_LAUNCHER 1 BEPASS_ENGINE=1 BEPASS_PORT_SRC=1)
+    else()
+        list(PREPEND ENGINE_LAUNCHER env BEPASS_ENGINE=1 BEPASS_PORT_SRC=1)
+    endif()
+    set_target_properties(engine_c PROPERTIES C_COMPILER_LAUNCHER "${ENGINE_LAUNCHER}")
+    if(PORT_ENGINE_CHECK)
+        target_compile_definitions(engine_c PRIVATE PORT_ENGINE_CHECK)
+        target_compile_options(engine_c PRIVATE "SHELL:-include ${GEN}/engine_check_names.h")
+        set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS
+            "${BEPASS};${RECOMP_GEN}/engine_blocks.h;${GEN}/engine_check_names.h")
+    endif()
+    set(ENGINE_OBJECTS $<TARGET_OBJECTS:engine_c>)
+else()
+    set(ENGINE_OBJECTS)
+endif()
+
 # ---- the libultra replacement (N64 side, BEPass too) --------------------------
 file(GLOB PORT_N64_C ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
 add_library(port_n64 OBJECT ${PORT_N64_C})
@@ -573,16 +615,28 @@ file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
 add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h)
+file(GLOB ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.c ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.h
+                     ${CMAKE_CURRENT_SOURCE_DIR}/engine/replaced.txt)
 add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt ${GEN}/fn_values.txt
-    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN} --wrap ${PORT_WRAPS_LIST}
+                          ${GEN}/engine_check_names.h
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${GEN} --wrap ${PORT_WRAPS_LIST} ${ENGINE_GLUE_FLAGS}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_glue.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/liveness.py
-            ${RECOMP_GEN}/recomp_funcs.h ${RECOMP_GEN}/recomp_externs.h ${GAME_C})
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/conventions.py
+            ${RECOMP_GEN}/recomp_funcs.h ${RECOMP_GEN}/recomp_externs.h ${GAME_C} ${ENGINE_SRC})
+add_custom_target(engine_glue DEPENDS ${GEN}/engine_check_names.h)
+if(TARGET engine_c)
+    add_dependencies(engine_c engine_glue)
+endif()
 add_custom_target(recomp_headers DEPENDS ${GEN}/port_recomp_syms.h)
 
 set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
 add_library(recomp OBJECT ${RECOMP_C} ${GEN}/entry.c ${GEN}/externs.c)
 target_include_directories(recomp PRIVATE ${ROOT}/tools/recomp/runtime ${RECOMP_GEN} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(recomp PRIVATE RECOMP_COUNT)
+if(PORT_ENGINE_CHECK)
+    # the replaced functions' translations, which the check runs first
+    target_compile_definitions(recomp PRIVATE RECOMP_ORIG PORT_ENGINE_CHECK)
+endif()
 target_compile_options(recomp PRIVATE ${HOST_FLAGS} -O1 -Wno-unused-label -Wno-unused-variable)
 if(NOT PORT_MOVABLE)
     # SYM() is where the port's link put a name; in the movable build it is
@@ -758,11 +812,11 @@ if(PORT_MOVABLE)
         list(APPEND ARENA_FLAGS -port-arena-no-runs)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h ${GEN}/arena.img ${GEN}/arena_map.txt
-        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${NOPOLL_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${NOPOLL_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${ENGINE_OBJECTS} ${DATA_LL}
         COMMAND ${CMAKE_COMMAND} -E env PORT_ARENA_MAP=${GEN}/arena_map.txt
                 ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
-        DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
+        DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS} BEPass ${DATA_LL} ${GEN}/n64_syms.txt
                 ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
@@ -780,9 +834,9 @@ if(PORT_MOVABLE)
     set(GAME_OBJECTS ${GEN}/n64.o)
     set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)
 else()
-    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64>)
+    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS})
     set(GAME_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_GAME_OBJECTS})
-    set(N64_OBJECTS_DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS})
+    set(N64_OBJECTS_DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} ${ENGINE_OBJECTS})
 endif()
 
 # ---- link ----------------------------------------------------------------------
@@ -825,6 +879,9 @@ endif()
 if(PORT_64BIT)
     target_compile_definitions(host PRIVATE PORT_64BIT)
     target_compile_definitions(recomp PRIVATE PORT_64BIT)
+endif()
+if(PORT_ENGINE_CHECK)
+    target_compile_definitions(host PRIVATE PORT_ENGINE_CHECK)
 endif()
 if(EMSCRIPTEN)
     # (the fibers' stacks are in the arena; -O2 at the link too: without it

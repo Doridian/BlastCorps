@@ -43,7 +43,9 @@
  * the MIPS instructions the N64 would execute there: the port charges the
  * CPU's time from it (docs/PORT.md, "Timing").  The size is the optimised
  * IR's, without what is free or doesn't exist on the N64 (phis, casts,
- * constant address arithmetic, the byte swaps, debug intrinsics).
+ * constant address arithmetic, the byte swaps, debug intrinsics).  Not
+ * with BEPASS_ENGINE=1: the engine's native replacement (port/engine)
+ * charges what the original MIPS would have, block by block, itself.
  */
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
@@ -464,10 +466,15 @@ struct BEPass : PassInfoMixin<BEPass> {
                                                                             {Type::getInt32Ty(m.getContext())}, false));
         FunctionCallee poll = m.getOrInsertFunction(
             "__port_poll", FunctionType::get(Type::getVoidTy(m.getContext()), false));
+        /* (not in the engine's replacement, BEPASS_ENGINE=1: the translated
+           code it stands in for never polls, and a poll is a host_cpu_sync) */
+        const char *eng = getenv("BEPASS_ENGINE");
+        bool polls = !(eng && *eng == '1');
         for (Function &f : m)
             if (!f.isDeclaration()) {
                 runOnFunction(f, dl);
-                addPolls(f, poll);
+                if (polls)
+                    addPolls(f, poll);
                 if (trace)
                     addTrace(f, trace);
             }
@@ -510,6 +517,11 @@ struct ICount : PassInfoMixin<ICount> {
     }
 
     PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
+        /* BEPASS_ENGINE=1: the engine's replacement (port/engine), which
+           charges the original's MIPS instructions itself (ENGINE_BLK) */
+        const char *nc = getenv("BEPASS_ENGINE");
+        if (nc && *nc == '1')
+            return PreservedAnalyses::all();
         LLVMContext &c = m.getContext();
         Type *i32 = Type::getInt32Ty(c);
         GlobalVariable *cnt = m.getGlobalVariable("__port_icount_c");
