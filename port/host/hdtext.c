@@ -170,8 +170,9 @@ typedef struct {
     float aa;                   /* field pixels per hd pixel */
 } Fit;
 
-/* coverage at hd pixel (px, py), the outline moved out by e field pixels */
-static float cover(const Fit *f, int px, int py, float e) {
+/* the signed distance to the outline at hd pixel (px, py), in field
+   pixels; 0: outside the box (no coverage) */
+static int dist_at(const Fit *f, int px, int py, float *d) {
     float u = (px + 0.5f - f->box[0]) / (f->box[2] - f->box[0]);
     float v = (py + 0.5f - f->box[1]) / (f->box[3] - f->box[1]);
     if (u < -0.2f || u > 1.2f || v < -0.2f || v > 1.2f)
@@ -179,18 +180,29 @@ static float cover(const Fit *f, int px, int py, float e) {
     /* (the texture's rows run up the glyph: the box's first row is its
        bottom) */
     float x = f->gx0 + u * (f->gx1 - f->gx0), y = f->gy1 - v * (f->gy1 - f->gy0);
-    float d = (sdf_at(f->sdf, f->w, f->h, x, y) - 128.0f) / SDF_SCALE + e;
-    float c = d / f->aa + 0.5f;
+    *d = (sdf_at(f->sdf, f->w, f->h, x, y) - 128.0f) / SDF_SCALE;
+    return 1;
+}
+
+/* the coverage at distance d, the outline moved out by e field pixels */
+static float cover_d(const Fit *f, float d, float e) {
+    float c = (d + e) / f->aa + 0.5f;
     return c < 0 ? 0 : c > 1 ? 1 : c;
 }
 
-static float area_at(const Fit *f, float e, int step) {
+static float cover(const Fit *f, int px, int py, float e) {
+    float d;
+    return dist_at(f, px, py, &d) ? cover_d(f, d, e) : 0;
+}
+
+/* the ink area with the outline moved by e, from every AREA_STEP-th
+   pixel's distance (in[]: inside the box) */
+enum { AREA_STEP = 4, AREA_N = HDTEXT_K * 32 / AREA_STEP };
+static float area_at(const Fit *f, const float *ds, const uint8_t *in, float e) {
     float s = 0;
-    int n = HDTEXT_K * 32;
-    for (int y = 0; y < n; y += step)
-        for (int x = 0; x < n; x += step)
-            s += cover(f, x, y, e);
-    return s * step * step / (float)(HDTEXT_K * HDTEXT_K);
+    for (int k = 0; k < AREA_N * AREA_N; k++)
+        s += in[k] ? cover_d(f, ds[k], e) : 0;
+    return s * AREA_STEP * AREA_STEP / (float)(HDTEXT_K * HDTEXT_K);
 }
 
 static double secs(void) {
@@ -253,9 +265,14 @@ static float draw(uint8_t *img, int i, const float box[4], float area, float pea
        glyph's (a bisection; the area grows with e) */
     float lo = -SDF_PAD * 0.5f, hi = SDF_PAD * 0.9f, e = 0;
     float want = area / peak * hdtext_weight;
+    static float ds[AREA_N * AREA_N];   /* (the distances once, not every step) */
+    static uint8_t in[AREA_N * AREA_N];
+    for (int y = 0; y < AREA_N; y++)
+        for (int x = 0; x < AREA_N; x++)
+            in[y * AREA_N + x] = (uint8_t)dist_at(&f, x * AREA_STEP, y * AREA_STEP, &ds[y * AREA_N + x]);
     for (int it = 0; it < 12; it++) {
         e = (lo + hi) / 2;
-        if (area_at(&f, e, 4) < want)
+        if (area_at(&f, ds, in, e) < want)
             lo = e;
         else
             hi = e;
