@@ -389,3 +389,13 @@ func_802A6DE8
 func_802A6EB8
 func_802A68D4
 func_802A64A4
+# 86ED0: getting in
+func_802CB690
+
+# 8DDB0: the BCT chopper
+func_802D2570
+func_802D291C
+func_802D2A40
+func_802D2A74
+func_802D2C20
+func_802D2FA4

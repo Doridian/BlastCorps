@@ -59,6 +59,27 @@ void func_802A0648(void *key, s32 v);
 REGS(v0)
 void func_802A0674(void *key);
 
+/* 56040, still translated */
+REGS(t0, t1, v1, a0)
+void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2);
+REGS(t0, v0, v1)
+void func_8029E558(Part *parts, u8 *buf, u8 *other);
+
+/* 5CB60 (engine-B's), still translated: the Vehicle record for a type,
+   from its model file (s2) and buffers */
+REGS(a0, a1, v0, v1, s2)
+void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model);
+
+/* 60F60 (engine-B's), still translated: start an effect (a debris or smoke
+   particle) */
+REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
+s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
+                  s32 s3, s32 s4, s32 s5, s32 a3);
+
+/* 62740, still translated */
+REGS(t0, t1, t2, s4)
+void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf);
+
 /* 62740 */
 REGS(gp)
 void func_802A6F00(VS *vs);
