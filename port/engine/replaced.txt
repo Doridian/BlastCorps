@@ -576,3 +576,30 @@ func_802B8D04
 func_802B988C
 func_802B98E0
 func_802B9B4C
+
+# 8AEE0: the other hotrod and the Cyclone Suit (func_802CFC54 and func_802CFCE0 go
+# with 62740's collision dispatch; func_802D0E44, func_802D24F8 and func_802D2550
+# are never called)
+func_802CF6A0
+func_802CFA0C
+func_802CFA58
+func_802CFAB4
+func_802CFB00
+func_802CFC10
+func_802CFDE8
+func_802D02F8
+func_802D0438
+func_802D05D8
+func_802D0710
+func_802D0784
+func_802D07E0
+func_802D0B90
+func_802D0BF8
+func_802D0C68
+func_802D0F54
+func_802D0F98
+func_802D1360
+func_802D22F4
+func_802D2444
+func_802D249C
+func_802D2524
