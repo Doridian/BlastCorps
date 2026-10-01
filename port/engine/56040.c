@@ -2625,3 +2625,155 @@ done:
     LEAVE_FPAIR(6, (u64)l6);
     LEAVE_FPAIR(8, f64_bits(100.0));
 }
+
+/* a doubleword into game memory, the high word first */
+static void put_dword(u8 *p, s64 v) {
+    ((u32 *)p)[0] = (u32)((u64)v >> 32);
+    ((u32 *)p)[1] = (u32)v;
+}
+
+/* The parts of kind id from a model's triangles (data: their count, the
+   matrices' count and offsets, then 0x14-byte triangles of three s16
+   points): each part (D_803B9890's of (id, its number), new ones past
+   D_803BD300's end) gets the triangle's corners through the matrices at
+   base (func_802AA890, / 4), its plane (the normal at 0, 8, 0x10, d at
+   0x18, 64 bits; |n|^2 and |n| at 0x24 and 0x20), the axis the normal is
+   most along (0x4E: 0 z, 1 y, 2 x), its heading (func_8029D56C) and
+   func_8029D534 */
+REGS(t6, t2, s4)
+void func_8029D24C(u16 *data, s32 id, u8 *base) {
+    s32 count = data[0], idx = 1, n = data[1], x, y, z, *pw;
+    s32 *offs = (s32 *)(data + 2);
+    s16 *t;
+    u8 *p, *end;
+    s32 s1, s2, y1, z1, x1, y2, x2, z2, x3, y3, z3;
+    s32 dy2, dz3, dz2, dy3, dx3, dx2;
+    s64 nx, ny, nz, d, ax, ay, az;
+    f32 f0, f2;
+
+    ENGINE_BLK(8029D24C);
+    for (;;) {
+        ENGINE_BLK(8029D278);
+        if (count == 0)
+            break;
+        ENGINE_BLK(8029D280);
+        p = D_803B9890;
+        end = D_803BD300;
+        for (;;) {
+            ENGINE_BLK(8029D294);
+            if (p == end) {
+                end += 0x60;
+                break;
+            }
+            ENGINE_BLK(8029D29C);
+            if (p[0x4F] != id) {
+                p += 0x60;
+                continue;
+            }
+            ENGINE_BLK(8029D2A8);
+            if (p[0x50] == idx)
+                break;
+            p += 0x60;
+        }
+        ENGINE_BLK(8029D2B4);
+        D_803BD300 = end;
+        p[0x4F] = id;
+        p[0x50] = idx;
+        t = (s16 *)((u8 *)data + 4 + n * 4 + (idx - 1) * 0x14);
+        pw = (s32 *)(p + 0x28);
+        s1 = (u32)end;
+        s2 = (u32)&D_803BD300;
+        x = func_802AA890(t[0], t[1], t[2], n, offs, base, (u32)p, s1, s2, &y, &z, &s1, &s2);
+        ENGINE_BLK(8029D2F8);
+        pw[0] = x >> 2, pw[1] = y >> 2, pw[2] = z >> 2;
+        x = func_802AA890(t[3], t[4], t[5], n, offs, base, (u32)p, s1, s2, &y, &z, &s1, &s2);
+        ENGINE_BLK(8029D320);
+        pw[3] = x >> 2, pw[4] = y >> 2, pw[5] = z >> 2;
+        x = func_802AA890(t[6], t[7], t[8], n, offs, base, (u32)p, s1, s2, &y, &z, &s1, &s2);
+        ENGINE_BLK(8029D348);
+        x3 = pw[6] = x >> 2, y3 = pw[7] = y >> 2, z3 = pw[8] = z >> 2;
+        x1 = pw[0], y1 = pw[1], z1 = pw[2], x2 = pw[3], y2 = pw[4], z2 = pw[5];
+        dz3 = z1 - z3, dy2 = y1 - y2, dy3 = y1 - y3, dz2 = z1 - z2, dx3 = x1 - x3, dx2 = x1 - x2;
+        nx = (s64)((u64)(s64)dy2 * (u64)(s64)dz3 - (u64)(s64)dz2 * (u64)(s64)dy3);
+        put_dword(p, nx);
+        f0 = (f32)nx;
+        f0 = f0 * f0;
+        ny = (s64)((u64)(s64)dz2 * (u64)(s64)dx3 - (u64)(s64)dx2 * (u64)(s64)dz3);
+        put_dword(p + 8, ny);
+        f2 = (f32)ny;
+        f2 = f2 * f2;
+        f0 = f0 + f2;
+        nz = (s64)((u64)(s64)dx2 * (u64)(s64)dy3 - (u64)(s64)dy2 * (u64)(s64)dx3);
+        put_dword(p + 0x10, nz);
+        f2 = (f32)nz;
+        f2 = f2 * f2;
+        f0 = f0 + f2;
+        *(f32 *)(p + 0x24) = f0;
+        f0 = __builtin_sqrtf(f0);
+        d = (s64)(0 - ((u64)nx * (u64)(s64)x2 + (u64)ny * (u64)(s64)y2 + (u64)nz * (u64)(s64)z2));
+        put_dword(p + 0x18, d);
+        *(f32 *)(p + 0x20) = f0;
+        ax = nx;
+        if (nx < 0) {
+            ENGINE_BLK(8029D47C);
+            ax = -nx;
+        }
+        ENGINE_BLK(8029D480);
+        ay = ny;
+        if (ny < 0) {
+            ENGINE_BLK(8029D488);
+            ay = -ny;
+        }
+        ENGINE_BLK(8029D48C);
+        az = nz;
+        if (nz < 0) {
+            ENGINE_BLK(8029D494);
+            az = -nz;
+        }
+        ENGINE_BLK(8029D498);
+        /* (what it leaves for this triangle, before its two calls) */
+        ENGINE_LEAVE(7, z1);
+        ENGINE_LEAVE(15, x3);
+        ENGINE_LEAVE(19, dx2);
+        ENGINE_LEAVE(22, dx3);
+        ENGINE_LEAVE(23, dy3);
+        ENGINE_LEAVE(24, dz3);
+        ENGINE_LEAVE64(25, ax);
+        ENGINE_LEAVE64(30, d);
+        ENGINE_LEAVE_F(0, f0);
+        ENGINE_LEAVE_F(2, f2);
+        if (!(az < ax)) {
+            ENGINE_BLK(8029D4A4);
+            if (!(az < ay)) {
+                ENGINE_BLK(8029D4AC);
+                p[0x4E] = 0;
+                ENGINE_LEAVE(1, 0);
+                goto axis;
+            }
+        }
+        ENGINE_BLK(8029D4B4);
+        if (!(ay < ax)) {
+            ENGINE_BLK(8029D4C0);
+            if (!(ay < az)) {
+                ENGINE_BLK(8029D4C8);
+                p[0x4E] = 1;
+                ENGINE_LEAVE(1, 0);
+                goto axis;
+            }
+        }
+        ENGINE_BLK(8029D4D4);
+        p[0x4E] = 2;
+        ENGINE_LEAVE(1, ay < az);
+    axis:
+        ENGINE_BLK(8029D4DC);
+        func_8029D56C(p);
+        ENGINE_BLK(8029D4E4);
+        func_8029D534(id, p);
+        ENGINE_BLK(8029D4EC);
+        idx++;
+        count--;
+    }
+    ENGINE_BLK(8029D50C);
+    ENGINE_LEAVE(12, idx);
+    ENGINE_LEAVE(13, 0);
+}
