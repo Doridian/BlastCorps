@@ -1670,7 +1670,8 @@ extern f32 D_803EBBF4;
 extern u8 D_803BE738;
 extern u8 D_803ED3F7, D_803ED3EE, D_803ED3EF, D_803ED3F2, D_803ED3F3, D_803ED3F4;
 extern u8 D_803ED3EA, D_803ED3EB, D_803ED3EC, D_803ED410;
-extern s32 D_803ED398, D_803ED39C, D_803ED3A0, D_803ED3A8, D_803ED3AC, D_803ED3B0;
+extern s32 D_803ED398, D_803ED39C, D_803ED3A0, D_803ED3AC, D_803ED3B0;
+extern s32 D_803ED3A8[];
 
 /* D_803EBBF4 tripled when D_803ED3F5 */
 void func_802A8FB4(void) {
@@ -1709,7 +1710,7 @@ void func_802A9038(VS *vs) {
     w = D_803ED398;
     D_803ED39C = w;
     D_803ED3A0 = w;
-    w = D_803ED3A8;
+    w = D_803ED3A8[0];
     D_803ED3AC = w;
     D_803ED3B0 = w;
     w = vs->unk28[3];
@@ -1895,4 +1896,402 @@ void func_802A9540(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 v) {
     ENGINE_LEAVE(16, 1);
     ENGINE_LEAVE(11, i << 2);
     ENGINE_LEAVE(15, (u32)&D_803ED3EE + i);
+}
+
+/* ---- the ground under a point: triangles, nearest in height ------------- */
+
+extern f64 D_80305C50;
+
+static u64 double_bits(f64 v) {
+    union { f64 d; u64 u; } l;
+
+    l.d = v;
+    return l.u;
+}
+
+/* the height at (x, z) of the plane through three points (x1, y1, z1)...,
+   in the world's units; -9999999 for a vertical one */
+REGS(t0, t1, s1, s2, s3, s4, s5, s6, s7, t8, t9 -> v0)
+s32 func_802AA2E4(s32 x, s32 z, s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2, s32 x3, s32 y3, s32 z3) {
+    s32 a = y1 - y2, b = z1 - z3, c = z1 - z2, d = y1 - y3, e = x1 - x3, g = x1 - x2;
+    s64 nx, ny, nz, w, t, l;
+    f64 f0, f2, f4;
+    s32 r = -9999999;
+
+    ENGINE_BLK(802AA2E4);
+    nx = (s64)((u64)((s64)a * b) - (u64)((s64)c * d));
+    ny = (s64)((u64)((s64)c * e) - (u64)((s64)g * b));
+    nz = (s64)((u64)((s64)g * d) - (u64)((s64)a * e));
+    w = -(s64)((u64)nx * (u64)(s64)x2 + (u64)ny * (u64)(s64)y2 + (u64)nz * (u64)(s64)z2);
+    t = (s64)((u64)nx * (u64)(s64)x + (u64)ny * (u64)(s64)-1000 + (u64)nz * (u64)(s64)z + (u64)w);
+    f0 = (f64)t;
+    /* (what it leaves: three of the differences, and the doubles) */
+    ENGINE_LEAVE(12, c);
+    ENGINE_LEAVE(13, e);
+    ENGINE_LEAVE(14, d);
+    if (ny != 0) {
+        ENGINE_BLK(802AA3F8);
+        f2 = (f64)(s64)((u64)ny * 2000);
+        f0 = f0 / f2;
+        f2 = D_80305C50;
+        f0 = __builtin_fabs(f0);
+        f4 = f2 * f0;
+        l = engine_cvt_l_d(f4);
+        r = (s32)l - 1000;
+        ENGINE_LEAVE_FW(2, (u32)double_bits(f2));
+        ENGINE_LEAVE_FW(3, (u32)(double_bits(f2) >> 32));
+        ENGINE_LEAVE_FW(4, (u32)l);
+        ENGINE_LEAVE_FW(5, (u32)((u64)l >> 32));
+    }
+    ENGINE_LEAVE_FW(0, (u32)double_bits(f0));
+    ENGINE_LEAVE_FW(1, (u32)(double_bits(f0) >> 32));
+    ENGINE_LEAVE64(7, (u64)nz * (u64)(s64)z2);
+    ENGINE_BLK(802AA438);
+    return r;
+}
+
+extern u8 *PTR32 D_803F7828, *PTR32 D_803F782C;   /* the static triangles, 0x28 bytes each */
+extern u8 D_803EBDB0[];                         /* the moving ones, 0x38 bytes each ... */
+extern u8 *PTR32 D_803EBBEC;                     /* ... to here */
+extern s32 D_803BE718, D_803BE71C;              /* the triangle grid's cell sizes */
+extern u16 D_803BE720;                          /* its width in cells */
+extern u32 D_803BDB10[];                        /* each cell's first triangle (0x14 bytes each) */
+extern u8 *PTR32 D_803EBC00, *PTR32 D_803EBC04;   /* the cell looked in last */
+extern u8 *PTR32 D_803EBC08;                     /* the triangle found there */
+extern u8 D_803EBBD8[];
+
+/* Of the static triangles (D_803F7828) under (x, z), the height nearest
+   y (99999999 if none) and its material (*mat, unchanged if none). */
+REGS(t0, t1, t2, fp -> t3, fp)
+s32 func_802A9DC0(s32 x, s32 z, s32 y, s32 mat, s32 *mat_out) {
+    u8 *p = D_803F7828, *end = D_803F782C;
+    s32 best = 99999999, h;
+    u32 dist = 99999999, a;
+    s32 *w;
+
+    ENGINE_BLK(802A9DC0);
+    for (;;) {
+        ENGINE_BLK(802A9E44);
+        if (p == end)
+            break;
+        ENGINE_BLK(802A9E4C);
+        w = (s32 *)p;
+        p += 0x28;
+        if (!func_802AA5E0(x, z, w[0], w[2], w[3], w[5], w[6], w[8])) {
+            ENGINE_BLK(802A9E78);
+            continue;
+        }
+        ENGINE_BLK(802A9E78);
+        ENGINE_BLK(802A9E80);
+        if (!func_802AA460(x, z, w[0], w[2], w[3], w[5], w[6], w[8])) {
+            ENGINE_BLK(802A9E88);
+            continue;
+        }
+        ENGINE_BLK(802A9E88);
+        ENGINE_BLK(802A9E90);
+        h = func_802AA2E4(x, z, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8]);
+        ENGINE_BLK(802A9E98);
+        a = y - h;
+        if ((s32)a < 0) {
+            ENGINE_BLK(802A9EA4);
+            a = -(s32)a;
+        }
+        ENGINE_BLK(802A9EA8);
+        if (dist < a)
+            continue;
+        ENGINE_BLK(802A9EB4);
+        best = h;
+        dist = a;
+        mat = p[-4];
+    }
+    ENGINE_BLK(802A9EC4);
+    ENGINE_LEAVE(14, 0);                /* ($t6) */
+    *mat_out = mat;
+    return best;
+}
+
+/* the same over the moving objects' triangles (D_803EBDB0), but those of
+   object `self`: the height, and the object's id (0 if none) */
+REGS(t0, t1, t2, t8 -> t3, t6)
+s32 func_802A9F24(s32 x, s32 z, s32 y, s32 self, s32 *id_out) {
+    u8 *p = D_803EBDB0, *end = D_803EBBEC;
+    s32 best = 99999999, h, id = 0, k;
+    u32 dist = 99999999, a;
+    s32 *w;
+
+    ENGINE_BLK(802A9F24);
+    for (;;) {
+        ENGINE_BLK(802A9FA8);
+        if (p == end)
+            break;
+        ENGINE_BLK(802A9FB0);
+        k = *(u16 *)(p + 0x36);
+        if (k == self) {
+            p += 0x38;
+            continue;
+        }
+        ENGINE_BLK(802A9FBC);
+        w = (s32 *)p;
+        p += 0x38;
+        if (!func_802AA5E0(x, z, w[0], w[2], w[3], w[5], w[6], w[8])) {
+            ENGINE_BLK(802A9FE8);
+            continue;
+        }
+        ENGINE_BLK(802A9FE8);
+        ENGINE_BLK(802A9FF0);
+        if (!func_802AA460(x, z, w[0], w[2], w[3], w[5], w[6], w[8])) {
+            ENGINE_BLK(802A9FF8);
+            continue;
+        }
+        ENGINE_BLK(802A9FF8);
+        ENGINE_BLK(802AA000);
+        h = func_802AA2E4(x, z, w[0], w[1], w[2], w[3], w[4], w[5], w[6], w[7], w[8]);
+        ENGINE_BLK(802AA008);
+        a = y - h;
+        if ((s32)a < 0) {
+            ENGINE_BLK(802AA014);
+            a = -(s32)a;
+        }
+        ENGINE_BLK(802AA018);
+        if (dist < a)
+            continue;
+        ENGINE_BLK(802AA024);
+        best = h;
+        dist = a;
+        id = k;
+    }
+    ENGINE_BLK(802AA034);
+    ENGINE_LEAVE(6, self);              /* ($a2) */
+    *id_out = id;
+    return best;
+}
+
+/* the same over the level's triangles in the grid cell of (x, z), which it
+   remembers (D_803EBC00..08); stops at the first good one that is solid
+   (byte 0x13).  Returns whether it found one; the height (*h, unchanged if
+   none) and its material (*mat). */
+REGS(t0, t1, t2, t3, fp -> a1, t3, fp)
+s32 func_802AA094(s32 x, s32 z, s32 y, s32 h, s32 mat, s32 *h_out, s32 *mat_out) {
+    s32 cx, cz, found = 0, hh;
+    u32 dist = 99999999, a;
+    u8 *p, *end;
+    s16 *w;
+    u32 *cell;
+
+    ENGINE_BLK(802AA094);
+    if (D_803BE718 == -1) {
+        ENGINE_BLK(802AA140);
+        ENGINE_BLK(802AA14C);
+    } else
+        ENGINE_BLK(802AA140);
+    ENGINE_BLK(802AA158);
+    cx = x / D_803BE718;
+    if (D_803BE71C == -1) {
+        ENGINE_BLK(802AA178);
+        ENGINE_BLK(802AA184);
+    } else
+        ENGINE_BLK(802AA178);
+    ENGINE_BLK(802AA190);
+    cz = z / D_803BE71C;
+    cell = &D_803BDB10[D_803BE720 * cz + cx];
+    p = (u8 *)cell[0];
+    end = (u8 *)cell[1] - 4;
+    D_803EBC00 = p;
+    D_803EBC04 = end;
+    for (;;) {
+        ENGINE_BLK(802AA1CC);
+        if (p == end)
+            break;
+        ENGINE_BLK(802AA1D4);
+        w = (s16 *)p;
+        p += 0x14;
+        if (!func_802AA5E0(x, z, w[0] << 5, w[2] << 5, w[3] << 5, w[5] << 5, w[6] << 5, w[8] << 5)) {
+            ENGINE_BLK(802AA224);
+            continue;
+        }
+        ENGINE_BLK(802AA224);
+        ENGINE_BLK(802AA22C);
+        if (!func_802AA460(x, z, w[0] << 5, w[2] << 5, w[3] << 5, w[5] << 5, w[6] << 5, w[8] << 5)) {
+            ENGINE_BLK(802AA234);
+            continue;
+        }
+        ENGINE_BLK(802AA234);
+        ENGINE_BLK(802AA23C);
+        hh = func_802AA2E4(x, z, w[0] << 5, w[1] << 5, w[2] << 5, w[3] << 5, w[4] << 5, w[5] << 5,
+                           w[6] << 5, w[7] << 5, w[8] << 5);
+        ENGINE_BLK(802AA244);
+        a = y - hh;
+        if ((s32)a < 0) {
+            ENGINE_BLK(802AA250);
+            a = -(s32)a;
+        }
+        ENGINE_BLK(802AA254);
+        if (dist < a)
+            continue;
+        ENGINE_BLK(802AA260);
+        D_803EBC08 = p - 0x14;
+        found = 1;
+        h = hh;
+        dist = a;
+        mat = p[-2];
+        if (p[-1] != 0)
+            break;
+    }
+    ENGINE_BLK(802AA284);
+    *h_out = h;
+    *mat_out = mat;
+    return found;
+}
+
+/* the triangle found in the cell (D_803EBC08) moved to the cell's first
+   places (index i, or i + 3 for the player's vehicle), swapping with the
+   one there, so that it's found first next time */
+REGS(v0, t8)
+void func_802A9CAC(s32 i, s32 who) {
+    u8 *first = D_803EBC00, *q;
+    u32 *s, *d;
+    s32 n, k;
+
+    ENGINE_BLK(802A9CAC);
+    if (D_803EBC04 - first < 0x8C)
+        goto done;
+    ENGINE_BLK(802A9CE4);
+    k = 0;
+    if (who == 0xFF) {
+        ENGINE_BLK(802A9CF0);
+        k = 3;
+    }
+    ENGINE_BLK(802A9CF4);
+    q = first + (u32)(k + i) * 0x14;
+    if (D_803EBC08 == q)
+        goto done;
+    ENGINE_BLK(802A9D18);
+    s = (u32 *)D_803EBC08, d = (u32 *)D_803EBBD8;
+    for (n = 0x14;; n -= 4) {
+        ENGINE_BLK(802A9D24);
+        if (n == 0)
+            break;
+        ENGINE_BLK(802A9D2C);
+        *d++ = *s++;
+    }
+    ENGINE_BLK(802A9D44);
+    s = (u32 *)q, d = (u32 *)D_803EBC08;
+    for (n = 0x14;; n -= 4) {
+        ENGINE_BLK(802A9D54);
+        if (n == 0)
+            break;
+        ENGINE_BLK(802A9D5C);
+        *d++ = *s++;
+    }
+    ENGINE_BLK(802A9D74);
+    s = (u32 *)D_803EBBD8, d = (u32 *)q;
+    for (n = 0x14;; n -= 4) {
+        ENGINE_BLK(802A9D80);
+        if (n == 0)
+            break;
+        ENGINE_BLK(802A9D88);
+        *d++ = *s++;
+    }
+done:
+    ENGINE_BLK(802A9DA0);
+}
+
+/* Wheel i's ground height at (x, y, z), y raised by 0x78: the nearest of
+   the static triangles, the moving objects' (not the vehicle's own, self)
+   and the level grid's; with none, y.  Its material and object in
+   D_803ED3F2[i] and D_803ED3EA[i], the height (0 or more) in
+   D_803ED3A8[i]; unk9B set when the static one won. */
+REGS(v0, t0, t1, t2, t8, gp, fp -> t3)
+s32 func_802A9B1C(s32 i, s32 x, s32 z, s32 y, s32 self, VS *vs, s32 mat) {
+    s32 s0, s1, t3, t4, t5, t6, t7, s2, at, fp, a1;
+
+    ENGINE_BLK(802A9B1C);
+    y += 0x78;
+    s0 = func_802A9DC0(x, z, y, mat, &s1);
+    ENGINE_BLK(802A9B58);
+    t4 = func_802A9F24(x, z, y, self, &t6);
+    ENGINE_BLK(802A9B64);
+    a1 = func_802AA094(x, z, y, t4, s1, &t3, &fp);
+    ENGINE_BLK(802A9B6C);
+    if (a1 == 0) {
+        ENGINE_BLK(802A9B74);
+        if (s0 == 99999999) {
+            ENGINE_BLK(802A9B80);
+            if (t4 == 99999999) {
+                ENGINE_BLK(802A9B8C);
+                t3 = y - 0x78;
+                fp = 1;
+                ENGINE_BLK(802A9C34);
+                t6 = 0;
+                goto store;
+            }
+        }
+        ENGINE_BLK(802A9B98);
+        t7 = t4 - y;
+        s2 = s0 - y;
+        if (t7 < 0) {
+            ENGINE_BLK(802A9BA8);
+            t7 = -t7;
+        }
+        ENGINE_BLK(802A9BAC);
+        if (s2 < 0) {
+            ENGINE_BLK(802A9BB4);
+            s2 = -s2;
+        }
+        ENGINE_BLK(802A9BB8);
+    } else {
+        ENGINE_BLK(802A9BC0);
+        t7 = t4 - y;
+        t5 = t3 - y;
+        if (t7 < 0) {
+            ENGINE_BLK(802A9BD0);
+            t7 = -t7;
+        }
+        ENGINE_BLK(802A9BD4);
+        if (t5 < 0) {
+            ENGINE_BLK(802A9BDC);
+            t5 = -t5;
+        }
+        ENGINE_BLK(802A9BE0);
+        s2 = s0 - y;
+        if (s2 < 0) {
+            ENGINE_BLK(802A9BEC);
+            s2 = -s2;
+        }
+        ENGINE_BLK(802A9BF0);
+        if (!(t7 < t5)) {
+            ENGINE_BLK(802A9BFC);
+            if (!(s2 < t5)) {
+                ENGINE_BLK(802A9C2C);
+                func_802A9CAC(i, self);
+                ENGINE_BLK(802A9C34);
+                t6 = 0;
+                goto store;
+            }
+        }
+    }
+    ENGINE_BLK(802A9C04);
+    if (t7 < s2) {
+        ENGINE_BLK(802A9C0C);
+        t3 = t4;
+        fp = 1;
+    } else {
+        ENGINE_BLK(802A9C18);
+        vs->unk9B = 1;
+        t3 = s0;
+        fp = s1;
+        ENGINE_BLK(802A9C34);
+        t6 = 0;
+    }
+store:
+    ENGINE_BLK(802A9C38);
+    *(u8 *)((u32)&D_803ED3EA + i) = t6;
+    *(u8 *)((u32)&D_803ED3F2 + i) = fp;
+    if (t3 < 0) {
+        ENGINE_BLK(802A9C5C);
+        t3 = 0;
+    }
+    ENGINE_BLK(802A9C60);
+    D_803ED3A8[i] = t3;
+    return t3;
 }
