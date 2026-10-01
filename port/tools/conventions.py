@@ -205,9 +205,10 @@ def values(F, may, must):
                         for n in range(len(rts)):
                             v = slots.get(s + 4 * n)
                             # (a word reloaded as a word: lw sign-extends what sw
-                            # stored, which a 32-bit value already is)
-                            got.append(v[0] if v and v[1] == 4 and isinstance(rts[n], str) == (
-                                isinstance(v[0], tuple) and isinstance(v[0][1], str)) else W_)
+                            # stored, which a 32-bit value already is; a stored
+                            # $zero reloads as zero into either kind of register)
+                            got.append(v[0] if v and v[1] == 4 and (v[0] == ("zero",) or isinstance(rts[n], str) == (
+                                isinstance(v[0], tuple) and isinstance(v[0][1], str))) else W_)
                 for n, r in enumerate(rts):
                     if r == 0:
                         continue
