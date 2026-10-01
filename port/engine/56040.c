@@ -2269,3 +2269,23 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
     ENGINE_LEAVE(17, 0);
     ENGINE_LEAVE_F(0, 0.0f);
 }
+
+/* The plane through the part's three points (0x28 on, each / 8): its
+   normal (a, b, c) as the cross product of two edges, and d (64 bits) */
+REGS(s0 -> a1, a2, a3, t0)
+s64 func_8029D90C(u8 *part, s64 *b_out, s64 *c_out, s64 *d_out) {
+    s32 *w = (s32 *)(part + 0x28);
+    s32 x1 = w[0] >> 3, y1 = w[1] >> 3, z1 = w[2] >> 3, x2 = w[3] >> 3, y2 = w[4] >> 3, z2 = w[5] >> 3;
+    s32 x3 = w[6] >> 3, y3 = w[7] >> 3, z3 = w[8] >> 3;
+    s64 dy2 = y1 - y2, dz3 = z1 - z3, dz2 = z1 - z2, dy3 = y1 - y3, dx3 = x1 - x3, dx2 = x1 - x2;
+    s64 a, b, c;
+
+    ENGINE_BLK(8029D90C);
+    a = (s64)((u64)dy2 * (u64)dz3 - (u64)dz2 * (u64)dy3);
+    b = (s64)((u64)dz2 * (u64)dx3 - (u64)dx2 * (u64)dz3);
+    c = (s64)((u64)dx2 * (u64)dy3 - (u64)dy2 * (u64)dx3);
+    *d_out = (s64)(0 - ((u64)a * (u64)(s64)x2 + (u64)b * (u64)(s64)y2 + (u64)c * (u64)(s64)z2));
+    *b_out = b;
+    *c_out = c;
+    return a;
+}
