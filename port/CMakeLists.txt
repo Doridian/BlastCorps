@@ -625,7 +625,8 @@ endif()
 file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
 add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h)
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/engine/replaced.txt)
 file(GLOB ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.c ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.h
                      ${CMAKE_CURRENT_SOURCE_DIR}/engine/replaced.txt)
 add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt ${GEN}/fn_values.txt

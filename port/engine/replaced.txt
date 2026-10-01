@@ -270,3 +270,122 @@ func_80202270
 func_802022EC
 func_80202380
 func_802025D0
+
+# 7F8B0: the LZSS, the loaders gzip, the engine sound (engine-B)
+func_802C4070
+func_802C4108
+func_802C41C0
+func_802C42CC inlined
+func_802C4310
+func_802C444C
+func_802C4584
+func_802C4724
+
+# 60D50: the height boxes (engine-B)
+func_802A5510
+func_802A5604
+func_802A56C4
+
+# 8A080: the moving objects table, the holes triangles (engine-B)
+func_802CE840
+func_802CE880
+func_802CE90C
+func_802CE958
+func_802CE9A4
+func_802CE9C8
+func_802CEA68
+
+# 60F60: the texture decoders and their queue (engine-B)
+func_802A5720
+func_802A5764
+func_802A57AC
+func_802A57DC
+func_802A5958
+func_802A5A2C
+func_802A5AE0
+func_802A5B90
+func_802A5C5C
+func_802A5D34
+func_802A5E10
+
+# 5BF40: the texture loader (engine-B)
+func_802A0700
+func_802A08B4
+func_802A08E4
+func_802A0B00
+func_802A0B34
+func_802A0CC8
+func_802A0CFC
+func_802A0EE0
+func_802A0F0C
+func_802A1040
+func_802A1074
+func_802A11C4
+
+# 5FD50: the terrain visibility walk and display lists (engine-B)
+func_802A4510
+func_802A45D4
+func_802A467C
+func_802A4CDC
+func_802A470C inlined
+func_802A484C inlined
+func_802A49A8 inlined
+func_802A4A50 inlined
+func_802A4B0C inlined
+func_802A4DE8 inlined
+func_802A4E4C inlined
+func_802A5020 inlined
+func_802A50DC inlined
+func_802A51FC inlined
+func_802A5334 inlined
+
+# 5CB60: the level loader's parts (engine-B)
+func_802A1934
+func_802A1A9C
+func_802A1C88
+func_802A2C54
+func_802A2D68
+func_802A4464
+func_802A44E4
+func_802A3D54
+func_802A3DF8
+func_802A3E9C
+func_802A3F80
+func_802A41B0
+func_802A4168 inlined
+func_802A1C20
+func_802A1EC8
+func_802A20F4
+func_802A2164
+func_802A23E0
+func_802A2458
+func_802A24BC
+func_802A2608
+func_802A26A8
+func_802A3008
+func_802A1D54
+func_802A21AC
+func_802A2A98
+func_802A2BB0
+func_802A1388
+func_802A133C
+func_802A1558 inlined
+func_802A396C
+func_802A32CC
+func_802A3824
+func_802A1320
+
+# 60F60: the effects' sprite slots (engine-B)
+func_802A5E60
+func_802A5ED0
+func_802A5F30
+func_802A5FA8
+func_802A6274
+func_802A6748
+func_802A67C4
+func_802A6C10
+func_802A6D34
+func_802A6DE8
+func_802A6EB8
+func_802A68D4
+func_802A64A4

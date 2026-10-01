@@ -24,6 +24,7 @@ this project's own pace (2026-09-29/30), not from human-calendar guesses:
 | The SDK's gu, sinf/fcos, sins/coss, crc and `ll.c` out of the port (`port/src/gu.c`, `sdk_check`) | about 2 agent-hours | 1.5 agent-hours, the exhaustive and traced checks and the quick tier included; the TAS another half hour |
 | The SDK headers and gbi.h (`port/include/sdk`, `sdk_identity.py`) | 1–2 agent-hours | half an agent-hour, the identity check on five variants included |
 | `--hd-text` made fast (shared R8 glyph textures, distance fields between retraces) | — | 40 agent-minutes, measured natively and in headless Chromium |
+| The engine's loaders, terrain and textures (7F8B0, 5BF40, 60D50, 8A080, 5FD50, 60F60; most of 5CB60; 103 functions) | — | about 11 agent-hours: 2.5 drafting before the mechanism, 1.5 for the native-endian, LP64 and port-arena fixes, 7 converting and checking (5CB60's leftovers most of that) |
 
 So a piece with an exact oracle (the difftest, the TAS, object identity) takes about an agent-hour
 where a person's estimate said a week.  Work checked by eye or ear, or whose design is still open, goes
@@ -161,6 +162,16 @@ against its translation.
   branchy code that charges its blocks through tables of display-list copies and saves most of
   its callers' registers, so it went at about 30 an hour; the block trace (`PORT_BLKLOG`, below)
   is what found the last differences, where the cost logs only showed a frame.
+- The loaders, terrain and textures (engine-B's): native now are all of 7F8B0 (the LZSS, the
+  loaders' gzip call, the engine sound), 5BF40 (the texture loader), 60D50 (the height boxes), 8A080
+  (the collision objects' table) and 5FD50 (the visibility walk and the terrain's display lists),
+  all of 60F60 (the texture decoders and their queue, the effects' sprite slots and their drawing)
+  and 34 of 5CB60's 41 (the level tables, the collision triangles, the buildings, the vehicle
+  records, the vehicle and cargo model loaders, the starting vehicle): 89 functions and 14 inlined
+  into them, about 6,750 instructions.  Still translated: 5CB60's loader itself (`func_802A1674`),
+  `func_802A19F4`, the carrier, chopper and extra models (`func_802A303C` to `func_802A3198`)
+  and `func_802A350C`: they call the vehicle modules' inits (and the loader the game's C), which
+  read and leave dozens of registers, so each wants its REGS() settled with the vehicles' owner.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
