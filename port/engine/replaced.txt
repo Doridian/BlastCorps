@@ -552,3 +552,27 @@ func_802BB274
 func_802BB4C0
 func_802BB868
 func_802BB8B8
+
+# 72B80: the American Dream and the BCT chopper (func_802B78F4 and
+# func_802B7980 go with 62740's collision dispatch)
+func_802B7340
+func_802B76AC
+func_802B76F8
+func_802B7754
+func_802B77A0
+func_802B78B0
+func_802B7A88
+func_802B7F98
+func_802B80D8
+func_802B8278
+func_802B83B0
+func_802B8424
+func_802B8480
+func_802B8794
+func_802B899C
+func_802B8AE4
+func_802B8C18
+func_802B8D04
+func_802B988C
+func_802B98E0
+func_802B9B4C
