@@ -2764,6 +2764,101 @@ registers; the generator checks the prototypes against them (no entry reads
 an argument outside `a0`-`a3`/`f12`/`f14`) and lists disagreements in
 `glue_report.txt`.
 
+## Replacing the engine
+
+The translated engine is derived from the ROM, so a port that's published
+needs Rare's handwritten engine written as C (docs/DISTRIBUTION.md, "The engine
+rewrite").  That rewrite happens one function at a time, and every step is
+checked and must keep the TAS.
+
+**The mechanism.**
+- `port/engine/replaced.txt` lists the functions that are native now, and
+  `port/engine/<object>.c` defines them.  The code is readable C over the
+  game's types (`#include "engine.h"`; `PTR32` on pointers that live in
+  shared memory), built like the game's C: the N64 side, through BEPass,
+  port-ilp32 and port-arena, so it works in every variant.
+- `tools/recomp/translate.py` keeps a replaced function's translation as
+  `recomp_orig_X` under `RECOMP_ORIG`, for the checks.  The port doesn't
+  compile it.  Translated code calls the native function as `recomp_extern_X`,
+  the same way it calls the game's C.  Functions that share code (one
+  branches into another) are replaced together.
+- The game's C calls the native function directly.  `gen_glue.py` makes
+  the translated code's adapter from the C definition: it saves the
+  context, passes the inputs, puts the whole context back except the
+  outputs, and sets those.  For the other direction, native code calling
+  a translated function goes through `entry.c`'s wrappers, as the game's
+  C does.
+
+**Register conventions.**
+- Rare's code passes values in whatever registers suit it.  `REGS(t0, t3
+  -> v0, a1)` before a definition or declaration names them, inputs then
+  outputs.  The parameters map to the inputs in order.  The first output
+  is the return value, and the others come back through trailing pointer
+  parameters.
+- A register name can be any GPR, `f0`-`f31` (`f64` takes the pair), `hi`,
+  `lo`, or `sp+0x10` (a stack word).  `s64`/`u64` types move whole 64-bit
+  registers, which Rare's fixed point uses (`dmult`, `dsra`).  Without
+  `REGS()`, the convention is o32's from the prototype.
+- `port/tools/conventions.py FUNC|OBJECT` works out what each function
+  really takes and gives back: its inputs, and its outputs, the
+  registers it may write that a translated caller reads afterwards.  It
+  tracks stack slots, so saves and restores don't count, and it counts
+  stores as uses.  It also lists pass-through outputs, which aren't
+  written on every path.
+- `gen_glue.py` reports in `glue_report.txt` the outputs a `REGS()` leaves
+  out, and the extra inputs.  An input the C doesn't take keeps the value
+  the caller left in the context, and so does every register the native
+  code's calls into translated code don't set.  So a translated callee
+  sees what it would have.
+- Some functions have conventions that are all pass-through: everything
+  their translated caller saves and restores looks like an output.  These
+  go native together with their callers, and then the conventions don't
+  matter.  679E0's `func_802AC284` and `func_802AC2A4` wait for the truck's
+  71140 this way.
+
+**The cost model.**  The game's pace, and with it the TAS, depends on the
+engine's CPU time to the instruction ("Timing").
+- The native code charges exactly what the original would have.
+  `ENGINE_BLK(802AC1E4)` adds the size of the translator's basic block at
+  that address, which is us.v11's in every version (the function's name
+  plus the offset).  The size comes from the generated `engine_blocks.h`.
+  The code calls it once each time the original would have run that
+  block, and before any call where the original charges before the call.
+- Blocks start at the function's entry, at labels, and after each branch's
+  delay slot.  A block includes its branch and the delay slot, likely or
+  not.
+- `port/tools/engine_asm.py FUNC|OBJECT` prints the asm with each block
+  and its size, plus the convention.  That's what to write from.
+- BEPass neither counts (ICount) nor polls in this code (`BEPASS_ENGINE=1`):
+  the translation polls nowhere, and a poll is a `host_cpu_sync`.  It also
+  leaves `__port_` globals unswapped, which is what lets
+  `__port_icount += n` work.
+- Float to int: `engine_cvt_w_s` and its siblings, which follow
+  `recomp_round_half_up` as the translation does.
+
+**Checking.**
+- `-DPORT_ENGINE_CHECK=ON` (32-bit builds only) checks every call of a
+  replaced function from translated code or the game's C, if the
+  original's translation calls nothing but translated code.
+- On each checked call, RDRAM, the host stack above the glue and the
+  context are saved.  The translation runs, its results are kept and
+  everything is put back.  Then the native function runs.
+- The check compares RDRAM (except the dead stack below `$sp`), the host
+  stack, the output registers (both the declared ones and the analysis's)
+  and the instructions charged.
+- On a difference it prints where, and the first block where the two
+  runs part (ids from `blocks.tsv`).  The game continues with the native
+  results.
+- `PORT_ENGINE_CHECK=N` in the environment checks the first N calls of
+  each function and every 64th after that (default 2000).  `=0` checks
+  every call.  It prints a summary at exit.
+- The quick tier runs with `PORT_COUNT_PER_OP=0`, so it can't see cost
+  errors.  The check build sees them, and so does the TAS.
+- For functions that call the game's C or libultra, which can't run twice,
+  the TAS is the check.  Comparing `__port_icount` at every controller
+  read between a build with the replacement and one without also finds
+  where the cost first differs.
+
 ## Other versions
 
 `PORT_VERSION` is `us.v11` (the default), `us.v10` or `jp` (Blastdozer).
