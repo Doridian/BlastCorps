@@ -1888,6 +1888,13 @@ texel (this pixel's here).  The TVs' video (a 40x40 RGBA16 image the CPU
 decodes each frame, drawn with TEXEL1 * SHADE in the second cycle plus
 NOISE * PRIM_ALPHA static) depends on it; without it they showed tile 1.
 
+`--hd-text` (OpenGL) draws the game's text from a font at the internal
+resolution: the stencil font's glyph textures are recognized by the
+font.c slot their LoadBlock came from and replaced, in the texture cache,
+by glyphs drawn from Stardos Stencil (SIL OFL) fitted to the game's; the
+quads, colours and shadows stay the game's.  docs/FONTS.md has the
+inventory of the game's fonts and the details.
+
 Not done: anti-aliasing (the coverage the blender uses on edges; rendering
 above 1x and scaling down is the substitute) and the VI's filters, dither,
 the combiner's chroma key (its noise input is a hash, not the RDP's

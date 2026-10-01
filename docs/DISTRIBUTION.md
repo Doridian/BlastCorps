@@ -31,6 +31,7 @@ movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
 | 4a | the port's own code | host renderer, audio HLE, loaders, replay, fibers | ~140 K | `port/host`, `port/src` |
 | 4b | third-party, native | SDL2 (zlib), libepoxy (MIT), glibc (LGPL), libgcc_s: dynamic | — | system |
 | 4c | third-party, wasm | emscripten's SDL2 (zlib), musl (MIT), emscripten runtime (MIT/UIUC), compiler-rt (Apache-2.0 with LLVM exception) | in .wasm/.js | emsdk |
+| 4d | third-party, all builds | Stardos Stencil Bold (SIL OFL 1.1, Vernon Adams; `--hd-text`'s built-in font, docs/FONTS.md), stb_truetype 1.26 (public domain or MIT) | 33 K font in the executable; hdtext.c with stb_truetype ~28 K x86 | `port/fonts/` via `port/tools/embed.cmake`, `port/third_party/stb/` |
 
 **Also:**
 - The native builds carry about 7.5 MB of DWARF and symbols, with the decomp's names and build paths.
@@ -63,7 +64,7 @@ movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
 4. **`gu_extra.c`** replaced by a clean implementation.  The gzip driver's GPLv2+ is fine: the project
    is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
 5. **Strip releases**, and drop `PORT_N64_FUNCS`.
-6. **Notices** for SDL2, libepoxy, musl and emscripten, and a root LICENSE for the project's code: the
+6. **Notices** for SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`) and stb_truetype, and a root LICENSE for the project's code: the
    owner's intent is **AGPL-3.0**, or plain GPL where that can't work.  The third-party licenses above
    (zlib, MIT, Apache-2.0 with the LLVM exception, LGPL for dynamic glibc) are all compatible with it.
    What can't be relicensed by the project is what isn't its own: the decompiled SDK parts (3b/3c/3d,
