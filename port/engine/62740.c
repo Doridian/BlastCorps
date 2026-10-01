@@ -3717,3 +3717,179 @@ done:
     ENGINE_LEAVE(10, t2);
     ENGINE_LEAVE(11, t3);
 }
+
+/* whether h lies inside the camera's range from lo to hi (12-bit, the
+   range wrapping when hi < lo) narrowed by 0x78 at each end (the
+   original's two copies of the test, which differ in where they're
+   charged; a narrowed range that's empty holds nothing) */
+#define IN_RANGE(h, lo, hi, B_WRAP, B_WRAP_LO, B_WRAP_HI0, B_WRAP_HI, B_CMP, B_LO, B_HI, B_OUT, B_NOWRAP,      \
+                 B_NW_LO, B_NW_HI, IN, OUT)                                                                       \
+    do {                                                                                                         \
+        s32 t1_, t2_;                                                                                            \
+        if ((hi) < (lo)) {                                                                                       \
+            ENGINE_BLK(B_WRAP);                                                                                  \
+            t1_ = (lo) + 0x78;                                                                                   \
+            t2_ = (hi) - 0x78;                                                                                   \
+            if (t1_ >= 0x1000) {                                                                                 \
+                ENGINE_BLK(B_WRAP_LO);                                                                           \
+                t1_ -= 0x1000;                                                                                   \
+            }                                                                                                    \
+            ENGINE_BLK(B_WRAP_HI0);                                                                              \
+            if (t2_ < 0) {                                                                                       \
+                ENGINE_BLK(B_WRAP_HI);                                                                           \
+                t2_ += 0x1000;                                                                                   \
+            }                                                                                                    \
+            ENGINE_BLK(B_CMP);                                                                                   \
+            if (!(t2_ < t1_))                                                                                    \
+                goto OUT;                                                                                        \
+            ENGINE_BLK(B_LO);                                                                                    \
+            if (!((h) < t1_))                                                                                    \
+                goto IN;                                                                                         \
+            ENGINE_BLK(B_HI);                                                                                    \
+            if (!(t2_ < (h)))                                                                                    \
+                goto IN;                                                                                         \
+            ENGINE_BLK(B_OUT);                                                                                   \
+            goto OUT;                                                                                            \
+        }                                                                                                        \
+        ENGINE_BLK(B_NOWRAP);                                                                                    \
+        t1_ = (lo) + 0x78;                                                                                       \
+        t2_ = (hi) - 0x78;                                                                                       \
+        if (!(t1_ < t2_))                                                                                        \
+            goto OUT;                                                                                            \
+        ENGINE_BLK(B_NW_LO);                                                                                     \
+        if ((h) < t1_)                                                                                           \
+            goto OUT;                                                                                            \
+        ENGINE_BLK(B_NW_HI);                                                                                     \
+        if (t2_ < (h))                                                                                           \
+            goto OUT;                                                                                            \
+        goto IN;                                                                                                 \
+    } while (0)
+
+/* The camera's turn toward h2 (or toward h, kept inside the headings'
+   range D_803A7410-D_803A7412 less 0x78 at each end, or the nearer end,
+   or the middle when the range is too narrow): the heading ($a0) and the
+   rate (the speed unk76 times rate, signed toward it, $a1) */
+REGS(a0, a1, f0, gp -> a0, a1)
+s32 func_802A71DC(s32 h, s32 h2, f32 rate, VS *vs, s32 *rate_out) {
+    s32 lo = (u16)D_803A7410, hi = (u16)D_803A7412, dl, dh, s, d, at;
+    f32 f;
+
+    ENGINE_BLK(802A71DC);
+    IN_RANGE(h2, lo, hi, 802A7218, 802A7228, 802A722C, 802A7234, 802A7238, 802A7244, 802A724C, 802A7254, 802A725C,
+             802A7270, 802A7278, h2_in, h2_out);
+h2_in:
+    ENGINE_BLK(802A7280);
+    *rate_out = 0;
+    ENGINE_BLK(802A7444);
+    return h2;
+h2_out:
+    ENGINE_BLK(802A728C);
+    IN_RANGE(h, lo, hi, 802A7298, 802A72A8, 802A72AC, 802A72B4, 802A72B8, 802A72C4, 802A72CC, 802A72D4, 802A72DC,
+             802A72F0, 802A72F8, h_in, h_out);
+h_out:
+    /* to the nearer end of the range */
+    ENGINE_BLK(802A7300);
+    dl = lo - h;
+    if (dl < 0) {
+        ENGINE_BLK(802A730C);
+        dl = -dl;
+    }
+    ENGINE_BLK(802A7310);
+    if (dl >= 0x801) {
+        ENGINE_BLK(802A731C);
+        dl = 0xFFF - dl;
+    }
+    ENGINE_BLK(802A7324);
+    dh = hi - h;
+    if (dh < 0) {
+        ENGINE_BLK(802A7330);
+        dh = -dh;
+    }
+    ENGINE_BLK(802A7334);
+    if (dh >= 0x801) {
+        ENGINE_BLK(802A7340);
+        dh = 0xFFF - dh;
+    }
+    ENGINE_BLK(802A7348);
+    if (dh < dl) {
+        ENGINE_BLK(802A7354);
+        h = hi - 0x78;
+        if (h < 0) {
+            ENGINE_BLK(802A7360);
+            h += 0xFFF;
+        }
+    } else {
+        ENGINE_BLK(802A7368);
+        h = lo + 0x78;
+        if (h >= 0x1000) {
+            ENGINE_BLK(802A7378);
+            h -= 0xFFF;
+        }
+    }
+    /* and when that end is outside the range itself, the middle */
+    ENGINE_BLK(802A737C);
+    if (hi < lo) {
+        ENGINE_BLK(802A7388);
+        if (!(h < lo))
+            goto h_in;
+        ENGINE_BLK(802A7390);
+        if (!(hi < h))
+            goto h_in;
+        ENGINE_BLK(802A7398);
+        goto mid;
+    }
+    ENGINE_BLK(802A73A0);
+    if (h < lo)
+        goto mid;
+    ENGINE_BLK(802A73AC);
+    if (hi < h)
+        goto mid;
+    ENGINE_BLK(802A73B4);
+    goto h_in;
+mid:
+    ENGINE_BLK(802A73BC);
+    h = func_802A6F6C();
+    ENGINE_BLK(802A73C4);
+h_in:
+    ENGINE_BLK(802A73C8);
+    s = vs->unk76;
+    at = h < h2;
+    if (s < 0) {
+        ENGINE_BLK(802A73D8);
+        s = -s;
+    }
+    ENGINE_BLK(802A73DC);
+    f = (f32)s;
+    rate = rate * f;
+    s = engine_cvt_w_s(rate);
+    ENGINE_LEAVE_FW(0, s);
+    ENGINE_LEAVE_F(2, f);
+    if (at) {
+        ENGINE_BLK(802A73FC);
+        d = h - h2;
+        if (d < 0) {
+            ENGINE_BLK(802A7408);
+            d = -d;
+        }
+        ENGINE_BLK(802A740C);
+        if (d < 0x801)
+            goto neg;
+        ENGINE_BLK(802A7418);
+        goto pos;
+    }
+    ENGINE_BLK(802A7420);
+    d = h - h2;
+    if (d < 0x801)
+        goto pos;
+    ENGINE_BLK(802A7430);
+neg:
+    ENGINE_BLK(802A7440);
+    *rate_out = -s;
+    goto done;
+pos:
+    ENGINE_BLK(802A7438);
+    *rate_out = s;
+done:
+    ENGINE_BLK(802A7444);
+    return h;
+}
