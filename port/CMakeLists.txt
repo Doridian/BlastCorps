@@ -334,9 +334,13 @@ foreach(r ${REPLACED} ${REPLACED_SDK})
     list(REMOVE_ITEM GAME_C ${BLAST}/src/${r}.c)
 endforeach()
 
-# libaudio (src/libultra/audio, through these objects): built apart from the
-# rest of the game's C (nopoll_c, below), with no polls on its loops
-# (BEPASS_NOPOLL=1; docs/PORT.md, "Timing")
+# libaudio (docs/PORT.md, "libaudio"): the port's own (port/libaudio), or
+# the decompiled original (src/libultra/audio, through these objects), which
+# the libaudio oracle records with and replays into.  Either is built apart
+# from the rest of the game's C, with no polls on its loops (BEPASS_NOPOLL=1;
+# docs/PORT.md, "Timing"): the original as the game's (nopoll_c, below), the
+# port's own as the port's (libaudio_c).
+option(PORT_LIBAUDIO_ORIGINAL "the decompiled original libaudio, not the port's own (port/libaudio)" OFF)
 set(LIBAUDIO_ORIG
     hd_code/90390 hd_code/92350 hd_code/923B0 hd_code/926F0 hd_code/927B0 hd_code/92800
     hd_code/92A30 hd_code/92AD0 hd_code/92B60 hd_code/92BF0 hd_code/92C80 hd_code/92D20
@@ -348,7 +352,9 @@ set(LIBAUDIO_ORIG
 set(NOPOLL_C)
 foreach(f ${LIBAUDIO_ORIG})
     list(REMOVE_ITEM GAME_C ${BLAST}/src/${f}.c)
-    list(APPEND NOPOLL_C ${BLAST}/src/${f}.c)
+    if(PORT_LIBAUDIO_ORIGINAL)
+        list(APPEND NOPOLL_C ${BLAST}/src/${f}.c)
+    endif()
 endforeach()
 
 # The SDK's headers are the port's own (port/include/sdk); PORT_SDK_2_0I puts
@@ -426,13 +432,6 @@ endif()
 # clock, so without them a replacement's loops needn't have the original's
 # shape for the game to keep its timing.  Its data is the game's, like
 # game_c's.
-add_library(nopoll_c OBJECT ${NOPOLL_C})
-target_compile_options(nopoll_c PRIVATE -fdata-sections)
-target_include_directories(nopoll_c PRIVATE ${N64_INCLUDES})
-target_compile_definitions(nopoll_c PRIVATE ${N64_DEFINES})
-target_compile_options(nopoll_c PRIVATE ${N64_FLAGS})
-add_dependencies(nopoll_c BEPass)
-set_source_files_properties(${NOPOLL_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
 set(NOPOLL_LAUNCHER ${N64_LAUNCHER})
 list(FIND NOPOLL_LAUNCHER env NOPOLL_ENV_AT)
 if(NOPOLL_ENV_AT EQUAL 0)
@@ -440,7 +439,39 @@ if(NOPOLL_ENV_AT EQUAL 0)
 else()
     list(PREPEND NOPOLL_LAUNCHER env BEPASS_NOPOLL=1)
 endif()
-set_target_properties(nopoll_c PROPERTIES C_COMPILER_LAUNCHER "${NOPOLL_LAUNCHER}")
+set(NOPOLL_TARGETS)
+set(NOPOLL_GAME_OBJECTS)
+if(NOPOLL_C)
+    add_library(nopoll_c OBJECT ${NOPOLL_C})
+    target_compile_options(nopoll_c PRIVATE -fdata-sections)
+    target_include_directories(nopoll_c PRIVATE ${N64_INCLUDES})
+    target_compile_definitions(nopoll_c PRIVATE ${N64_DEFINES})
+    target_compile_options(nopoll_c PRIVATE ${N64_FLAGS})
+    add_dependencies(nopoll_c BEPass)
+    set_source_files_properties(${NOPOLL_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+    set_target_properties(nopoll_c PROPERTIES C_COMPILER_LAUNCHER "${NOPOLL_LAUNCHER}")
+    list(APPEND NOPOLL_TARGETS nopoll_c)
+    set(NOPOLL_GAME_OBJECTS $<TARGET_OBJECTS:nopoll_c>)
+endif()
+# the port's own libaudio: N64 side, its data the port's (like port_n64's)
+set(NOPOLL_PORT_OBJECTS)
+if(NOT PORT_LIBAUDIO_ORIGINAL)
+    file(GLOB LIBAUDIO_C ${CMAKE_CURRENT_SOURCE_DIR}/libaudio/*.c)
+    add_library(libaudio_c OBJECT ${LIBAUDIO_C})
+    target_include_directories(libaudio_c PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libaudio ${N64_INCLUDES})
+    target_compile_definitions(libaudio_c PRIVATE ${N64_DEFINES})
+    target_compile_options(libaudio_c PRIVATE ${N64_FLAGS})
+    add_dependencies(libaudio_c BEPass)
+    set_source_files_properties(${LIBAUDIO_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+    set(LIBAUDIO_LAUNCHER ${NOPOLL_LAUNCHER})
+    if(PORT_MOVABLE)
+        list(INSERT LIBAUDIO_LAUNCHER 1 BEPASS_PORT_SRC=1)
+    endif()
+    set_target_properties(libaudio_c PROPERTIES C_COMPILER_LAUNCHER "${LIBAUDIO_LAUNCHER}")
+    list(APPEND NOPOLL_TARGETS libaudio_c)
+    set(NOPOLL_PORT_OBJECTS $<TARGET_OBJECTS:libaudio_c>)
+endif()
+set(NOPOLL_OBJECTS ${NOPOLL_GAME_OBJECTS} ${NOPOLL_PORT_OBJECTS})
 
 add_library(game_c OBJECT ${GAME_C})
 target_compile_options(game_c PRIVATE -fdata-sections)
@@ -727,11 +758,11 @@ if(PORT_MOVABLE)
         list(APPEND ARENA_FLAGS -port-arena-no-runs)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h ${GEN}/arena.img ${GEN}/arena_map.txt
-        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:nopoll_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${NOPOLL_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
         COMMAND ${CMAKE_COMMAND} -E env PORT_ARENA_MAP=${GEN}/arena_map.txt
                 ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
-        DEPENDS game_c nopoll_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
+        DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
                 ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
@@ -749,9 +780,9 @@ if(PORT_MOVABLE)
     set(GAME_OBJECTS ${GEN}/n64.o)
     set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)
 else()
-    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c> $<TARGET_OBJECTS:port_n64>)
-    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c>)
-    set(N64_OBJECTS_DEPENDS game_c nopoll_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c>)
+    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64>)
+    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_GAME_OBJECTS})
+    set(N64_OBJECTS_DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS})
 endif()
 
 # ---- link ----------------------------------------------------------------------

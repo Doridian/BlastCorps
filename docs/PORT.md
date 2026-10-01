@@ -1923,6 +1923,76 @@ the intro story ran about 3% slower than `--deterministic` here.
   SDL's device clock and the host clock drift apart slowly; the queue cap
   drops a buffer if the host fell far behind.
 
+### libaudio
+
+The port's libaudio is its own (`port/libaudio`), written from the library's
+public description (the programming manual's audio chapters and function
+reference), what the game uses of it, and the oracle's results (below):
+the synthesizer and its voices (`synth.c`), a voice's decoding, resampling
+and envelope (`voice.c`), the reverb (`reverb.c`), compact sequences
+(`cseq.c`) and their player (`cseqplayer.c`), the heap, event queues and
+bank files (`core.c`).  Its public header is `port/include/sdk/PR/libaudio.h`.
+`-DPORT_LIBAUDIO_ORIGINAL=ON` builds the port with the decompiled original
+(`blastcorps/src/libultra/audio`) instead; the oracle's recordings are made
+with it.
+
+It is exact: every audio frame's command list, every answer the game gets
+(`alCSPGetState`, `alCSeqGetLoc`, voice allocation, the events it reads
+back) and every byte of the memory the game shares with it are the
+original's.  What that takes:
+- the heap blocks in the original's order and sizes (the RSP's state
+  blocks' addresses are in the command list, and the game's own
+  allocations come after the library's), and the public structures' layouts
+  (the game copies `ALChanState`s as words and reads `ALCSPlayer.state`);
+- the same float and double steps where the original rounds (the
+  envelope's ramp, the resampler's pitch quantization, the tick and sample
+  conversions, the reverb's chorus);
+- the original's corner cases, kept: a stolen voice's updates wait 512
+  samples, the percussion setup writes the channel state just past the
+  last, the reverb's "same tap" test compares with the previous section's
+  output tap ahead of the write position, a tempo change re-queues the note
+  offs in the order the original's relinking leaves them.
+
+Like the original it is built without loop polls (`BEPASS_NOPOLL`, "Memory
+model"), and ICount charges its own instructions: the TAS's "retraces given
+anyway" move, nothing the suite checks does.
+
+### The libaudio oracle
+
+`port/tools/audio_oracle`: a recorder in the port and a replay outside it.
+
+- **Recording.**  `-DPORT_AUDIO_RECORD=ON` (a native-endian ILP32 build:
+  `-DPORT_64BIT=ON -DPORT_NATIVE_ENDIAN=ON`, with
+  `-DPORT_LIBAUDIO_ORIGINAL=ON`) wraps every libaudio function the game
+  calls (`port/src/audio_record.c`), and `PORT_AUDIO_LOG=FILE` writes the
+  log (`port/host/audiolog.c`, format in `port/include/audio_log.h`):
+  each call's arguments and the structures handed over and back, its
+  result, each frame's command list (by hash), the library's calls back
+  into the game (the sound player's voice handler, the DMA routine) with
+  what they returned, and everything the game, the RSP and the PI changed
+  in the memory they share (the audio heap and the audio objects' data)
+  since the library last had it.  Interrupts are masked while the library
+  runs, so that no thread runs in the middle of a call.
+- **Replaying.**  `make -C port/tools/audio_oracle VERSION=...` builds
+  `replay` and the two libraries for i386 (the N64's layouts) with the
+  game's memory at its N64 addresses; `replay LIB.so LOG` plays the game's
+  side from the log and checks everything the library gives back against
+  the recording, stopping at the first difference (`-k` goes on).
+  `--hashes FILE` writes a hash of the shared memory after each call (the
+  library's own heap blocks left out) for comparing two libraries;
+  `--dump-acmd N FILE` and `--dump-mem N FILE` write a frame's command list
+  or the memory after a call, which `acmd_diff.py` and `mem_diff.py`
+  compare; `alog_dump.py` prints a log.
+
+Checked on 2026-10-01 (us.v10): the quick tier's four scenarios and the
+attract mode's 12,000 frames (8,940 audio frames, 359,000 calls) and the
+whole TAS (3,578,841 calls, 137,421 audio frames), the port's libaudio identical to the original in
+every frame's commands, every answer and every call's shared memory.
+What those runs never reach (line coverage of `port/libaudio` over them:
+86%) is what the game's data and calls don't use: 16-bit wave tables, unity
+pitch, loops with a count, oscillators, the sustain pedal and aftertouch,
+and the API the game doesn't call.
+
 ## Graphics
 
 The RSP's graphics tasks are Fast3D (gbi 2.0D) display lists.
