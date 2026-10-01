@@ -318,9 +318,24 @@ foreach(r ${REPLACED} ${REPLACED_SDK})
     list(REMOVE_ITEM GAME_C ${BLAST}/src/${r}.c)
 endforeach()
 
+# The SDK's headers are the port's own (port/include/sdk); PORT_SDK_2_0I puts
+# the decompilation's 2.0I back, for port/tools/sdk_identity.py, which checks
+# that every object comes out the same with either.
+option(PORT_SDK_2_0I "the N64 side with blastcorps/include/2.0I instead of port/include/sdk" OFF)
+if(PORT_SDK_2_0I)
+    set(SDK_INCLUDES ${BLAST}/include/2.0I ${BLAST}/include/2.0I/PR)
+else()
+    set(SDK_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/include/sdk ${CMAKE_CURRENT_SOURCE_DIR}/include/sdk/PR)
+    if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/include/sdk/PR/libaudio.h)
+        # (until the port's own libaudio.h is there: 2.0I's, over these)
+        file(WRITE ${GEN}/sdk_libaudio/PR/libaudio.h.tmp "#include \"${BLAST}/include/2.0I/PR/libaudio.h\"\n")
+        file(COPY_FILE ${GEN}/sdk_libaudio/PR/libaudio.h.tmp ${GEN}/sdk_libaudio/PR/libaudio.h ONLY_IF_DIFFERENT)
+        list(APPEND SDK_INCLUDES ${GEN}/sdk_libaudio ${GEN}/sdk_libaudio/PR)
+    endif()
+endif()
 set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${BLAST} ${BLAST}/include ${BLAST}/include/2.0I ${BLAST}/include/2.0I/PR)
+    ${BLAST} ${BLAST}/include ${SDK_INCLUDES})
 set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
 if(PORT_64BIT)
     list(APPEND N64_DEFINES PORT_64BIT)
