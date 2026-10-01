@@ -2181,3 +2181,89 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
     ENGINE_LEAVE_F(26, f26);
     return in;
 }
+
+/* An object's 32 parts from its model file (their data at the offsets of
+   the u16 list at model + its word 0x10), then its matrix block (model +
+   its word 0x18: a size, a length, the words) into both buffers, the rest
+   of the size as identity matrices */
+REGS(t0, t1, v1, a0)
+void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
+    u8 *p = (u8 *)parts, *base = model + *(s32 *)(model + 0x10), *blk, *end;
+    u16 *off = (u16 *)base;
+    s32 n, size;
+    u32 w = 0, *s;
+
+    ENGINE_BLK(8029F85C);
+    for (n = 0x20; n != 0;) {
+        ENGINE_BLK(8029F888);
+        n--;
+        *(f32 *)(p + 4) = 0.0f;
+        *(u8 *PTR32 *)p = base + *off;
+        *(s16 *)(p + 0xC) = 0;
+        *(s16 *)(p + 0xE) = 0;
+        p[0x10] = 0;
+        p[0x11] = 0;
+        p[0x12] = 0;
+        p[0x13] = 0;
+        p[0x14] = 0;
+        p[0x15] = 0;
+        p += 0x18;
+        off++;
+    }
+    ENGINE_BLK(8029F8C8);
+    blk = model + *(s32 *)(model + 0x18);
+    size = *(s32 *)blk;
+    end = blk + 8 + *(s32 *)(blk + 4);
+    for (s = (u32 *)(blk + 8);;) {
+        ENGINE_BLK(8029F8E4);
+        if ((u8 *)s == end)
+            break;
+        ENGINE_BLK(8029F8EC);
+        w = *s++;
+        *(u32 *)buf1 = w;
+        *(u32 *)buf2 = w;
+        buf1 += 4, buf2 += 4;
+        size -= 4;
+    }
+    for (;;) {
+        ENGINE_BLK(8029F90C);
+        if (size == 0)
+            break;
+        ENGINE_BLK(8029F914);
+        /* (the identity Mtx; by words, since its halves are a word's in
+           native-endian memory, tools/recomp/native_sites.txt) */
+        for (n = 0; n < 2; n++) {
+            u8 *m = n == 0 ? buf1 : buf2;
+
+            *(u32 *)(m + 0x00) = 0x00010000;
+            *(u32 *)(m + 0x04) = 0;
+            *(u32 *)(m + 0x08) = 0x00000001;
+            *(u32 *)(m + 0x0C) = 0;
+            *(u32 *)(m + 0x10) = 0;
+            *(u32 *)(m + 0x14) = 0x00010000;
+            *(u32 *)(m + 0x18) = 0;
+            *(u32 *)(m + 0x1C) = 0x00000001;
+            *(u32 *)(m + 0x20) = 0;
+            *(u32 *)(m + 0x24) = 0;
+            *(u32 *)(m + 0x28) = 0;
+            *(u32 *)(m + 0x2C) = 0;
+            *(u32 *)(m + 0x30) = 0;
+            *(u32 *)(m + 0x34) = 0;
+            *(u32 *)(m + 0x38) = 0;
+            *(u32 *)(m + 0x3C) = 0;
+        }
+        buf1 += 0x40, buf2 += 0x40;
+        size -= 0x40;
+    }
+    ENGINE_BLK(8029F9C4);
+    ENGINE_LEAVE(8, (u32)p);
+    ENGINE_LEAVE(10, (u32)base);
+    ENGINE_LEAVE(11, (u32)end);
+    ENGINE_LEAVE(12, (u32)end);
+    ENGINE_LEAVE(13, 0);
+    ENGINE_LEAVE(14, w);
+    ENGINE_LEAVE(15, 0);
+    ENGINE_LEAVE(16, 1);
+    ENGINE_LEAVE(17, 0);
+    ENGINE_LEAVE_F(0, 0.0f);
+}
