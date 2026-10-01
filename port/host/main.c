@@ -511,6 +511,23 @@ void host_controller_poll(void) {
             fprintf(pace, "poll,retraces,frames,mode,audio_samples\n");
     }
     polls++;
+    {
+        /* PORT_ICOUNT_LOG=FILE: the instructions charged so far at every
+           read, the translated code's (and native engine code's) and the
+           C's: two builds that should cost the same give the same file
+           (docs/PORT.md, "Replacing the engine") */
+        static FILE *ic;
+        static int ic_init;
+        extern uint32_t __port_icount, __port_icount_c;
+        if (!ic_init) {
+            const char *p = getenv("PORT_ICOUNT_LOG");
+            ic_init = 1;
+            if (p)
+                ic = fopen(p, "w");
+        }
+        if (ic)
+            fprintf(ic, "%u %u %u\n", polls, __port_icount, __port_icount_c);
+    }
     if (pace)
         fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(D_803156C4),
                 port_be32(D_80358064), port_be32(D_80364A90),
