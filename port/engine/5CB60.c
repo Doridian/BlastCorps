@@ -1537,3 +1537,99 @@ void func_802A1D54(u32 h_) {
     }
     ENGINE_BLK(802A1EB8);
 }
+
+/* ---- the vehicles' records --------------------------------------------- */
+
+#include "shared.h"
+
+void func_80278BF0(void *, void *, void *);
+
+/* func_802A1388 (the vehicle modules'): the next Vehicle, from its model
+   file `model`: the model's pointers, and its display lists copied to the
+   heap with pointers into the copy; then its heap block (hd.c's
+   func_80278BF0, through 802A1558), unless in the attract mode without
+   `a1` */
+REGS(a0, a1, v0, v1, s2)
+void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
+    Vehicle *v = D_803649D0;
+    u8 *src, *end, *dst;
+    s32 delta;
+
+    ENGINE_BLK(802A1388);
+    D_803649D0 = v + 1;
+    v->unk70 = 0;
+    v->unk4 = buf1;
+    v->unk8 = buf2;
+    v->type = type;
+    v->unk0 = AT(model, 0x14);
+    v->unkC = AT(model, 0x24);
+    v->unk10 = AT(model, 0x28);
+    v->unk14 = AT(model, 0x2C);
+    v->unk18 = AT(model, 0x30);
+    v->unk1C = AT(model, 0x34);
+    v->unk20 = AT(model, 0x38);
+    v->unk24 = AT(model, 0x3C);
+    v->unk28 = AT(model, 0x40);
+    v->unk2C = AT(model, 0x44);
+    v->unk54 = (Gfx *)AT(model, 0x48);
+    src = AT(model, 0x1C);
+    end = AT(model, 0x20);
+    dst = D_80358070;
+    delta = dst - (u8 *)v->unkC;
+    for (;;) {
+        ENGINE_BLK(802A1478);
+        if (src == end) {
+            break;
+        }
+        ENGINE_BLK(802A1480);
+        ((u32 *)dst)[0] = ((u32 *)src)[0];
+        ((u32 *)dst)[1] = ((u32 *)src)[1];
+        src += 8;
+        dst += 8;
+    }
+    ENGINE_BLK(802A1494);
+    D_80358070 = dst;
+    v->unk30 = (u8 *)v->unkC + delta;
+    v->unk34 = (u8 *)v->unk10 + delta;
+    v->unk38 = (u8 *)v->unk14 + delta;
+    v->unk3C = (u8 *)v->unk18 + delta;
+    v->unk40 = (u8 *)v->unk1C + delta;
+    v->unk44 = (u8 *)v->unk20 + delta;
+    v->unk48 = (u8 *)v->unk24 + delta;
+    v->unk4C = (u8 *)v->unk28 + delta;
+    v->unk50 = (u8 *)v->unk2C + delta;
+    ENGINE_LEAVE(R_AT, 1);
+    if (D_80364AA8 == 1) {
+        ENGINE_BLK(802A1518);
+        if (a1 == 0) {
+            ENGINE_BLK(802A1530);
+            return;
+        }
+    }
+    ENGINE_BLK(802A1520);
+    ENGINE_BLK(802A1558);
+    func_80278BF0(v->unkC, v->unk18, &v->unk58);
+    ENGINE_BLK(802A15EC);
+    ENGINE_BLK(802A1530);
+}
+
+/* func_802A133C (the vehicle modules'): the Vehicle of `type` moves to
+   (x, y, z), with the state's byte 0x9B */
+REGS(v0, v1, a0, a1, gp)
+void func_802A133C(s32 x, s32 y, s32 z, s32 type, VS *vs) {
+    Vehicle *v = D_80364460;
+
+    ENGINE_BLK(802A133C);
+    for (;;) {
+        ENGINE_BLK(802A1354);
+        if (v->type == type) {
+            break;
+        }
+        v++;
+    }
+    ENGINE_BLK(802A1360);
+    v->x = x;
+    v->y = y;
+    v->z = z;
+    v->unk70 = ((u8 *)vs)[0x9B];
+}
