@@ -4009,3 +4009,54 @@ done:
     ENGINE_LEAVE(12, t4);
     ENGINE_LEAVE(30, fp);
 }
+
+/* The points of a part list (p to end: (x, y, z) s16s, the matrices'
+   count and offsets) through their matrices at base (func_802AA890), into
+   D_803EBC10's records of this id from the first of it (or its end) on.
+   s0, s1 and s2 are func_802AA890's for a point with no matrices. */
+REGS(t0, t1, t2, s4, s0, s1, s2)
+void func_802ABBEC(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
+    u8 *r = D_803EBC10;
+    s16 *h;
+    s32 x, y, z, n, called = 0;
+
+    ENGINE_BLK(802ABBEC);
+    for (;;) {
+        ENGINE_BLK(802ABC10);
+        if (*(s32 *)r == -1)
+            break;
+        ENGINE_BLK(802ABC1C);
+        if (r[0xC] == id)
+            break;
+        r += 0x10;
+    }
+    for (;;) {
+        ENGINE_BLK(802ABC28);
+        if (p == end)
+            break;
+        ENGINE_BLK(802ABC30);
+        h = (s16 *)p;
+        n = (u16)h[3];
+        x = func_802AA890(h[0], h[1], h[2], n, (s32 *)(p + 8), base, s0, s1, s2, &y, &z, &s1, &s2);
+        called = 1;
+        ENGINE_BLK(802ABC48);
+        ((s32 *)r)[0] = x;
+        ((s32 *)r)[1] = y;
+        ((s32 *)r)[2] = z;
+        r[0xC] = id;
+        p += n * 4 + 8;
+        r += 0x10;
+    }
+    ENGINE_BLK(802ABC6C);
+    /* (what it leaves: the last point, the end) */
+    if (called) {
+        ENGINE_LEAVE(2, x);
+        ENGINE_LEAVE(3, y);
+        ENGINE_LEAVE(4, z);
+        ENGINE_LEAVE(17, s1);
+        ENGINE_LEAVE(18, s2);
+    } else {
+        ENGINE_LEAVE(2, -1);
+    }
+    ENGINE_LEAVE(9, (u32)p);
+}
