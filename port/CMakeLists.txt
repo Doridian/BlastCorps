@@ -318,6 +318,23 @@ foreach(r ${REPLACED} ${REPLACED_SDK})
     list(REMOVE_ITEM GAME_C ${BLAST}/src/${r}.c)
 endforeach()
 
+# libaudio (src/libultra/audio, through these objects): built apart from the
+# rest of the game's C (nopoll_c, below), with no polls on its loops
+# (BEPASS_NOPOLL=1; docs/PORT.md, "Timing")
+set(LIBAUDIO_ORIG
+    hd_code/90390 hd_code/92350 hd_code/923B0 hd_code/926F0 hd_code/927B0 hd_code/92800
+    hd_code/92A30 hd_code/92AD0 hd_code/92B60 hd_code/92BF0 hd_code/92C80 hd_code/92D20
+    hd_code/92DA0 hd_code/92F00 hd_code/92F30 hd_code/939F0 hd_code/93A30 hd_code/93AA0
+    hd_code/93B50 hd_code/93B60 hd_code/93BA0 hd_code/93DF0 hd_code/95020 hd_code/95460
+    hd_code/99620 hd_code/996A0 hd_code/996B0 hd_code/9AFF0 hd_code/9B470 hd_code/9BBF0
+    hd_code/9BC90 hd_code/9BDE0 hd_code/9C930 hd_code/9CC30 hd_code/9D810 hd_code/9D920
+    hd_code/9F7D0 hd_code/9FDF0 hd_code/9FE00 hd_code/9FE20)
+set(NOPOLL_C)
+foreach(f ${LIBAUDIO_ORIG})
+    list(REMOVE_ITEM GAME_C ${BLAST}/src/${f}.c)
+    list(APPEND NOPOLL_C ${BLAST}/src/${f}.c)
+endforeach()
+
 # The SDK's headers are the port's own (port/include/sdk); PORT_SDK_2_0I puts
 # the decompilation's 2.0I back, for port/tools/sdk_identity.py, which checks
 # that every object comes out the same with either.
@@ -383,6 +400,28 @@ set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrap
 if(PORT_MOVABLE)
     list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link
 endif()
+
+# The game's C that never waits on another thread (NOPOLL_C): BEPass puts no
+# polls on its loops (BEPASS_NOPOLL=1).  The polls are where a thread that
+# busy-waits lets time pass, and every 64th advances --deterministic's
+# clock, so without them a replacement's loops needn't have the original's
+# shape for the game to keep its timing.  Its data is the game's, like
+# game_c's.
+add_library(nopoll_c OBJECT ${NOPOLL_C})
+target_compile_options(nopoll_c PRIVATE -fdata-sections)
+target_include_directories(nopoll_c PRIVATE ${N64_INCLUDES})
+target_compile_definitions(nopoll_c PRIVATE ${N64_DEFINES})
+target_compile_options(nopoll_c PRIVATE ${N64_FLAGS})
+add_dependencies(nopoll_c BEPass)
+set_source_files_properties(${NOPOLL_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+set(NOPOLL_LAUNCHER ${N64_LAUNCHER})
+list(FIND NOPOLL_LAUNCHER env NOPOLL_ENV_AT)
+if(NOPOLL_ENV_AT EQUAL 0)
+    list(INSERT NOPOLL_LAUNCHER 1 BEPASS_NOPOLL=1)
+else()
+    list(PREPEND NOPOLL_LAUNCHER env BEPASS_NOPOLL=1)
+endif()
+set_target_properties(nopoll_c PROPERTIES C_COMPILER_LAUNCHER "${NOPOLL_LAUNCHER}")
 
 add_library(game_c OBJECT ${GAME_C})
 target_compile_options(game_c PRIVATE -fdata-sections)
@@ -666,11 +705,11 @@ if(PORT_MOVABLE)
         list(APPEND ARENA_FLAGS -port-arena-no-runs)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h ${GEN}/arena.img ${GEN}/arena_map.txt
-        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:nopoll_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
         COMMAND ${CMAKE_COMMAND} -E env PORT_ARENA_MAP=${GEN}/arena_map.txt
                 ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
-        DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
+        DEPENDS game_c nopoll_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
                 ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
@@ -688,9 +727,9 @@ if(PORT_MOVABLE)
     set(GAME_OBJECTS ${GEN}/n64.o)
     set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)
 else()
-    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64>)
-    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c>)
-    set(N64_OBJECTS_DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c>)
+    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c> $<TARGET_OBJECTS:port_n64>)
+    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c>)
+    set(N64_OBJECTS_DEPENDS game_c nopoll_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:nopoll_c>)
 endif()
 
 # ---- link ----------------------------------------------------------------------

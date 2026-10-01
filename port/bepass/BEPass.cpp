@@ -22,7 +22,8 @@
  * busy-waits on counters other threads or interrupts advance (on the N64
  * something preempts it); the port runs its threads one at a time, and
  * the poll is where it lets time pass.  Being an opaque call, it also
- * makes such a loop reload what it waits on, as IDO's code did.
+ * makes such a loop reload what it waits on, as IDO's code did.  Not
+ * with BEPASS_NOPOLL=1 (libaudio, which never waits).
  *
  * BEPASS_NATIVE=1 when compiling (the native-endian build, PORT_NATIVE_ENDIAN;
  * docs/PORT.md "Native-endian memory"): memory is in host order, so nothing
@@ -415,6 +416,14 @@ struct BEPass : PassInfoMixin<BEPass> {
     }
 
     static void addPolls(Function &f, FunctionCallee poll) {
+        /* BEPASS_NOPOLL=1 (CMakeLists.txt's NOPOLL_C; BEPASS_ENGINE=1 implies
+           it): code that never waits on another thread needs no polls, and
+           without them its loops' shape doesn't move --deterministic's
+           clock (every 64th poll advances it), so a replacement needn't
+           have the original's (docs/PORT.md, "Timing") */
+        const char *np = getenv("BEPASS_NOPOLL");
+        if (np && *np == '1')
+            return;
         DominatorTree dt(f);
         std::vector<Instruction *> at;
         for (BasicBlock &bb : f) {

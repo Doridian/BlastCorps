@@ -201,6 +201,17 @@ threads one at a time, and the poll is where it lets a due event in.  As an
 opaque call it also stops clang from hoisting the load out of the loop, as
 IDO never would.
 
+Every 64th poll also moves `--deterministic`'s clock on by 2 µs (with
+`PORT_COUNT_PER_OP=0`, the quick tier's, it is the only thing that does
+while the game computes), so the number of loop iterations the N64 side
+runs is part of the game's timing: one poll more per audio frame changes
+the attract mode's sound.  Code that never waits on another thread is
+built without the polls (`BEPASS_NOPOLL=1`; the `nopoll_c` objects in
+`port/CMakeLists.txt`, libaudio's for now), so that a replacement of it
+needn't loop the way the original does.  Add a file to that list only
+after checking it doesn't busy-wait.  (The quick tier's references were
+recorded again when libaudio's objects went in, on 2026-10-01.)
+
 ## The 64-bit build
 
 `-DPORT_64BIT=ON` makes the port an ordinary 64-bit program (x86-64; the
