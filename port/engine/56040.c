@@ -979,3 +979,169 @@ void func_8029C284(s32 x, s32 z) {
     D_803A7418[1] = -1;
     ENGINE_LEAVE(15, -1);
 }
+
+extern u8 *PTR32 D_803B35F0;
+extern u8 D_803B3500[];
+extern s32 D_802C23B4[];                /* their ids, to -1 */
+
+/* D_803A7440's records unused; D_803B35F8's set up from D_802C23B4 */
+void func_8029DEA0(void) {
+    u8 *p = D_803A7440;
+    s32 n = 12, *id = D_802C23B4, w;
+
+    ENGINE_BLK(8029DEA0);
+    for (;;) {
+        ENGINE_BLK(8029DECC);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029DED4);
+        p[6] = 0;
+        p += 0x1010;
+        n--;
+    }
+    ENGINE_BLK(8029DEE4);
+    D_803B35F0 = D_803B3500;
+    for (p = (u8 *)D_803B35F8;; p += 0x18) {
+        ENGINE_BLK(8029DF18);
+        w = *id;
+        *(s32 *)p = w;
+        if (w == -1)
+            break;
+        ENGINE_BLK(8029DF28);
+        id++;
+        *(f32 *)(p + 4) = 0.0f;
+        *(s16 *)(p + 0xC) = 0;
+        *(s16 *)(p + 0xE) = 0;
+        p[0x10] = 0;
+        p[0x11] = 0;
+        p[0x12] = 0;
+        p[0x13] = 0;
+        p[0x14] = 0;
+    }
+    ENGINE_BLK(8029DF54);
+    ENGINE_LEAVE_F(0, 0.0f);
+}
+
+extern s32 D_803B3730[16];              /* a part's matrix (16.16) */
+
+/* D_803B3730 = the translation from (x0, y0, z0) the fraction t of the
+   way to (x1, y1, z1), unless that is 0 ($a0: 0x10000, or 0) */
+REGS(a0, a1, a2, a3, t0, t1, f30)
+void func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
+    s32 x, y, z, *m = D_803B3730;
+    f32 fx;
+
+    ENGINE_BLK(8029F3D0);
+    fx = (f32)(x1 - x0) * t;
+    x = engine_cvt_w_s(fx);
+    ENGINE_LEAVE_FW(2, x);
+    y = engine_cvt_w_s((f32)(y1 - y0) * t) + y0;
+    z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
+    x += x0;
+    if (x == 0) {
+        ENGINE_BLK(8029F434);
+        if (y == 0) {
+            ENGINE_BLK(8029F43C);
+            if (z == 0) {
+                ENGINE_BLK(8029F444);
+                ENGINE_LEAVE(4, 0);
+                goto done;
+            }
+        }
+    }
+    ENGINE_BLK(8029F44C);
+    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
+    m[12] = (u32)x << 16, m[13] = (u32)y << 16, m[14] = (u32)z << 16, m[15] = 0x10000;
+    ENGINE_LEAVE(4, 0x10000);
+done:
+    ENGINE_BLK(8029F4A4);
+}
+
+/* D_803B3730 = the rotation about x (F4B8), y (F560) or z (F608) by the
+   angle from a to b the fraction t of the way (func_8029F6B0), unless
+   that is 0 ($a0: 0x10000, or 0) */
+REGS(a0, a1, f30)
+void func_8029F4B8(s32 a, s32 b, f32 t) {
+    s32 r, c, s, *m = D_803B3730;
+
+    ENGINE_BLK(8029F4B8);
+    r = func_8029F6B0(a, b, t);
+    ENGINE_BLK(8029F4D4);
+    if (r == 0) {
+        ENGINE_BLK(8029F4DC);
+        ENGINE_LEAVE(4, 0);
+        goto done;
+    }
+    ENGINE_BLK(8029F4E4);
+    c = func_802AE160((u32)r >> 4);
+    ENGINE_BLK(8029F4EC);
+    s = func_802AE104((u32)r >> 4);
+    ENGINE_BLK(8029F4F4);
+    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = s, m[6] = c, m[7] = 0;
+    m[8] = 0, m[9] = -c, m[10] = s, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_LEAVE(3, (u32)r >> 4);
+    ENGINE_LEAVE(4, 0x10000);
+    ENGINE_LEAVE(30, s);
+done:
+    ENGINE_BLK(8029F544);
+}
+
+REGS(a0, a1, f30)
+void func_8029F560(s32 a, s32 b, f32 t) {
+    s32 r, c, s, *m = D_803B3730;
+
+    ENGINE_BLK(8029F560);
+    r = func_8029F6B0(a, b, t);
+    ENGINE_BLK(8029F57C);
+    if (r == 0) {
+        ENGINE_BLK(8029F584);
+        ENGINE_LEAVE(4, 0);
+        goto done;
+    }
+    ENGINE_BLK(8029F58C);
+    c = func_802AE160((u32)r >> 4);
+    ENGINE_BLK(8029F594);
+    s = func_802AE104((u32)r >> 4);
+    ENGINE_BLK(8029F59C);
+    m[0] = s, m[1] = 0, m[2] = -c, m[3] = 0;
+    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
+    m[8] = c, m[9] = 0, m[10] = s, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_LEAVE(3, (u32)r >> 4);
+    ENGINE_LEAVE(4, 0x10000);
+    ENGINE_LEAVE(30, s);
+done:
+    ENGINE_BLK(8029F5EC);
+}
+
+REGS(a0, a1, f30)
+void func_8029F608(s32 a, s32 b, f32 t) {
+    s32 r, c, s, *m = D_803B3730;
+
+    ENGINE_BLK(8029F608);
+    r = func_8029F6B0(a, b, t);
+    ENGINE_BLK(8029F624);
+    if (r == 0) {
+        ENGINE_BLK(8029F62C);
+        ENGINE_LEAVE(4, 0);
+        goto done;
+    }
+    ENGINE_BLK(8029F634);
+    c = func_802AE160((u32)r >> 4);
+    ENGINE_BLK(8029F63C);
+    s = func_802AE104((u32)r >> 4);
+    ENGINE_BLK(8029F644);
+    m[0] = s, m[1] = c, m[2] = 0, m[3] = 0;
+    m[4] = -c, m[5] = s, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_LEAVE(3, (u32)r >> 4);
+    ENGINE_LEAVE(4, 0x10000);
+    ENGINE_LEAVE(30, s);
+done:
+    ENGINE_BLK(8029F694);
+}
