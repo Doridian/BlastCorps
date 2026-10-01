@@ -4012,3 +4012,34 @@ void func_8029C52C(s32 kind, VS *vs) {
 done:
     ENGINE_BLK(8029C5B4);
 }
+
+/* An object's 32 parts' animations one frame on (func_8029E5AC for each
+   running one, 0x10), with base the parts' matrices and D_803B3770 the
+   records' base.  The original reloads s6 and s7, which func_8029E5AC
+   leaves (engine_save); each part gets the $a3 the last one left. */
+REGS(t0, v0, v1)
+void func_8029E558(Part *parts, u8 *base, u8 *other) {
+    u8 *p = (u8 *)parts;
+    s32 n, f = 0;
+
+    engine_save(ENGINE_GPR(22) | ENGINE_GPR(23), 0);
+    ENGINE_BLK(8029E558);
+    D_803B3770 = (u32)other;
+    for (n = 0x20;;) {
+        ENGINE_BLK(8029E578);
+        f = (s8)p[0x10];
+        if (f != 0) {
+            ENGINE_BLK(8029E584);
+            func_8029E5AC(p, base, engine_ctx(7));
+        }
+        ENGINE_BLK(8029E58C);
+        p += 0x18;
+        if (--n == 0)
+            break;
+    }
+    ENGINE_BLK(8029E598);
+    ENGINE_LEAVE(8, (u32)p);
+    ENGINE_LEAVE(9, 0);
+    ENGINE_LEAVE(10, f);
+    engine_restore();
+}
