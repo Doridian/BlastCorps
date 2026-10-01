@@ -3390,3 +3390,130 @@ effect:
 done:
     ENGINE_BLK(8029B7A4);
 }
+
+extern u8 D_803BD310[];                 /* the walls: 0xFC bytes, kinds from 0, pieces from 8 */
+extern u8 D_803ED825;
+extern s32 D_802E8BDC;                  /* the level */
+
+/* a wall's piece count (0xF8) and its flag (0xF9): the high bytes of the
+   word there, which native-endian memory keeps as one (native_sites.txt's
+   x3) */
+#define WALL_COUNT(w) (*(u32 *)((w) + 0xF8) >> 24)
+#define WALL_FLAG(w) ((*(u32 *)((w) + 0xF8) >> 16) & 0xFF)
+
+/* Building piece p hit by vehicle kind: through its wall (D_803BD310's
+   that lists it), a hit (func_8029B614, $a1 1) when the wall is solid to
+   that kind; otherwise, for a wall with sides (0xF9; kinds below 0x13, or
+   any on level 9), the side of its plane the vehicle is on (1 or 2) kept
+   in p[0x54], and when it changes, D_803ED825 toggled and every piece's
+   side swapped ($a1 0) */
+REGS(s0, t8, fp -> a1)
+s32 func_8029BB28(u8 *p, s32 kind, s32 fp) {
+    u8 *w = D_803BD310, *k;
+    u32 n, *pc;
+    s64 a, b, c, d, side;
+    s32 s, cur;
+
+    ENGINE_BLK(8029BB28);
+    for (;; w += 0xFC) {
+        ENGINE_BLK(8029BB48);
+        n = WALL_COUNT(w);
+        pc = (u32 *)(w + 8);
+        for (;;) {
+            ENGINE_BLK(8029BB50);
+            if (n == 0)
+                break;
+            ENGINE_BLK(8029BB58);
+            n--;
+            if (*pc++ == (u32)p)
+                goto found;
+            ENGINE_BLK(8029BB6C);
+        }
+        ENGINE_BLK(8029BB74);
+    }
+found:
+    ENGINE_BLK(8029BB7C);
+    n = w[0];
+    for (k = w + 1;;) {
+        ENGINE_BLK(8029BB84);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029BB8C);
+        n--;
+        if (*k++ == kind) {
+            ENGINE_BLK(8029BCE4);
+            func_8029B614(p, fp);
+            ENGINE_BLK(8029BCEC);
+            ENGINE_BLK(8029BCF0);
+            return 1;
+        }
+        ENGINE_BLK(8029BBA0);
+    }
+    ENGINE_BLK(8029BBA8);
+    if (D_802E8BDC != 9) {
+        ENGINE_BLK(8029BBC0);
+        if (!(kind < 0x13))
+            goto done;
+    }
+    ENGINE_BLK(8029BBC8);
+    if (WALL_FLAG(w) == 0)
+        goto done;
+    ENGINE_BLK(8029BBD4);
+    a = dword(p), b = dword(p + 8), c = dword(p + 0x10), d = dword(p + 0x18);
+    side = (s64)((u64)(s64)(D_803A73F0 >> 2) * (u64)a + (u64)(s64)(D_803A73F4 >> 2) * (u64)b +
+                 (u64)(s64)(D_803A73F8 >> 2) * (u64)c + (u64)d);
+    if (d > 0) {
+        ENGINE_BLK(8029BC54);
+        if (side > 0)
+            goto same;
+    } else {
+        ENGINE_BLK(8029BC44);
+        if (side < 0)
+            goto same;
+        ENGINE_BLK(8029BC4C);
+    }
+    ENGINE_BLK(8029BC5C);
+    s = 2;
+    goto have;
+same:
+    ENGINE_BLK(8029BC64);
+    s = 1;
+have:
+    ENGINE_BLK(8029BC68);
+    cur = p[0x54];
+    if (cur == 0) {
+        ENGINE_BLK(8029BCDC);
+        p[0x54] = s;
+        goto done;
+    }
+    ENGINE_BLK(8029BC74);
+    if (cur == s)
+        goto done;
+    ENGINE_BLK(8029BC7C);
+    D_803ED825 ^= 1;
+    n = WALL_COUNT(w);
+    for (pc = (u32 *)(w + 8);;) {
+        u8 *q;
+
+        ENGINE_BLK(8029BC98);
+        if (n == 0)
+            break;
+        ENGINE_BLK(8029BCA0);
+        n--;
+        q = *(u8 *PTR32 *)pc;
+        pc++;
+        if (q[0x54] == 0)
+            continue;
+        ENGINE_BLK(8029BCB8);
+        if (q[0x54] != 1) {
+            ENGINE_BLK(8029BCC4);
+            q[0x54] = 1;
+        } else {
+            ENGINE_BLK(8029BCD0);
+            q[0x54] = 2;
+        }
+    }
+done:
+    ENGINE_BLK(8029BCF0);
+    return 0;
+}
