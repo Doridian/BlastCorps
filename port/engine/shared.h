@@ -91,6 +91,8 @@ REGS(t0, t1, t2, t6, a1, a2, s4)
 void func_8029D040(s32 x, s32 z, s32 type, u8 *t6, s32 heading, Part *parts, u8 *buf);
 REGS(v0 -> v1)
 s32 func_8029DC14(s32 type);
+REGS(gp)
+void func_8029A914(VS *vs);
 
 /* 5CB60 (engine-B's), still translated */
 REGS(v0, v1, a0, a1, gp)
@@ -103,6 +105,10 @@ REGS(t3, t4, s4)
 void func_802AABE4(s32 id, u8 *t4, u8 *buf);
 REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp)
 void func_802A992C(s16 *v1, s32 y, s32 x, s32 z, s32 *s1, s32 *s2, u16 *s4, s32 type, VS *vs);
+REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp)
+void func_802A9A60(s16 *v1, s32 y, s32 x, s32 z, s32 *s1, s32 *s2, u16 *s4, s32 type, VS *vs);
+REGS(a0, a1, f0 -> a0, a1)
+s32 func_802A71DC(s32 h, s32 h2, f32 rate, s32 *a1);
 REGS(t1, t5, t6, s4, s5, s6, s7, gp)
 void func_802A7FD8(s16 *t1, s32 t5, s16 *speed, u16 *s4, u16 *s5, u8 *s6, s32 s7, VS *vs);
 REGS(t6, t7, s0, s7, t8, f2, gp)
@@ -110,6 +116,10 @@ void func_802A843C(s16 *speed, s32 type, u8 *flags, s32 *pos, s32 t8, f32 f2, VS
 REGS(t0, t1, t7, s1, s2, t8, t9, fp, v1, a1, a2, a3, t3, gp)
 void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s32 fp, s16 *v1, s32 *a1, s32 *a2,
                    s32 *a3, s16 *t3, VS *vs);
+
+/* 60F60 (engine-B's), still translated */
+REGS(-> t0)
+s32 func_802A5ED0(void);
 
 /* 77E20 (engine-B's), still translated */
 REGS(t8, gp)

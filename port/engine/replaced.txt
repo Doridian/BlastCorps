@@ -410,3 +410,18 @@ func_802BBEB8
 func_802BC2C8
 func_802BC3D0
 func_802BC578
+
+# 88160: the A-Team van (func_802CCED4 and func_802CCF60 go with 62740's
+# collision dispatch)
+func_802CC920
+func_802CCC8C
+func_802CCCD8
+func_802CCD34
+func_802CCD80
+func_802CCE90
+func_802CD068
+func_802CD578
+func_802CD660
+func_802CD800
+func_802CD938
+func_802CD9AC
