@@ -3893,3 +3893,119 @@ done:
     ENGINE_BLK(802A7444);
     return h;
 }
+
+/* ---- out of the level's bounds ------------------------------------------- */
+
+extern s16 D_803BE730, D_803BE732, D_803BE734, D_803BE736; /* the level's bounds (game/level.h) */
+extern s32 D_802E8BDC;                  /* the level */
+extern u8 *PTR32 D_803BE6F8;            /* the start points: 9-byte records, a key, then (x, y, z) as s16 pairs of bytes */
+extern u8 D_80364412;
+void func_80277EDC(s32 a, s32 b, s32 c, s32 d);
+
+/* us.v10 has no first check, so its blocks are 0x64 earlier from there on */
+#ifdef VERSION_US_V10
+#define A8CCC_BLK(v11, v10) ENGINE_BLK(v10)
+#else
+#define A8CCC_BLK(v11, v10) ENGINE_BLK(v11)
+#endif
+
+/* With (x, z) outside the level's bounds (D_803BE730-D_803BE736, in 32s;
+   and in us.v11 and jp, vehicle 7 short of a line on levels 0, 0x12 and
+   0xD): the vehicle back at its start point (D_803BE6F8's record of key
+   type, or 1, or the vehicle when D_80364AA8 is 1 or 0x80) in *xo, *yo,
+   *zo, its state at rest (func_802A754C, the nine words from 4 the
+   height), the matrices (func_802AC6FC) and a sound (func_80277EDC).
+   The original saves and reloads every register around that, so v1, t2,
+   t3, t4 and fp are put back as they came. */
+REGS(t0, t1, t7, s2, s1, t8, gp, v1, t2, t3, t4, fp)
+void func_802A8CCC(s32 x, s32 z, s32 *xo, s32 *yo, s32 *zo, s32 type, VS *vs, s32 v1, s32 t2, s32 t3, s32 t4,
+                   s32 fp) {
+    s32 cx = x >> 5, cz = z >> 5, key, rx, ry, rz, i;
+    u8 *r;
+
+    ENGINE_BLK(802A8CCC);
+#ifndef VERSION_US_V10
+    if (type == 7) {
+        ENGINE_BLK(802A8CF8);
+        if (D_802E8BDC == 0) {
+            ENGINE_BLK(802A8D08);
+            if (cx < 0x3E8)
+                goto respawn;
+            ENGINE_BLK(802A8D10);
+        } else {
+            ENGINE_BLK(802A8D18);
+            if (D_802E8BDC == 0x12) {
+                ENGINE_BLK(802A8D24);
+                if (cz < 0x384)
+                    goto respawn;
+                ENGINE_BLK(802A8D2C);
+            } else {
+                ENGINE_BLK(802A8D34);
+                if (D_802E8BDC == 0xD) {
+                    ENGINE_BLK(802A8D40);
+                    if (cz < 0x44C)
+                        goto respawn;
+                    ENGINE_BLK(802A8D48);
+                }
+            }
+        }
+    }
+    ENGINE_BLK(802A8D50);
+#endif
+    if (cx < D_803BE730)
+        goto respawn;
+    A8CCC_BLK(802A8D64, 802A8D00);
+    if (D_803BE732 < cx)
+        goto respawn;
+    A8CCC_BLK(802A8D78, 802A8D14);
+    if (cz < D_803BE734)
+        goto respawn;
+    A8CCC_BLK(802A8D8C, 802A8D28);
+    if (!(D_803BE736 < cz))
+        goto done;
+respawn:
+    A8CCC_BLK(802A8DA0, 802A8D3C);
+    key = D_80364AA8;
+    if (key != 1) {
+        A8CCC_BLK(802A8DB4, 802A8D50);
+        if (key != 0x80) {
+            A8CCC_BLK(802A8DBC, 802A8D58);
+            key = 1;
+            goto have;
+        }
+    }
+    A8CCC_BLK(802A8DC4, 802A8D60);
+    key = type;
+have:
+    A8CCC_BLK(802A8DC8, 802A8D64);
+    for (r = D_803BE6F8;; r += 9) {
+        A8CCC_BLK(802A8DD0, 802A8D6C);
+        if (r[0] == key)
+            break;
+    }
+    A8CCC_BLK(802A8DDC, 802A8D78);
+    D_80364412 = 1;
+    rx = (s32)(((u32)((s8)r[1] << 8) | r[2]) << 5);
+    ry = (s32)(((u32)((s8)r[3] << 8) | r[4]) << 5);
+    rz = (s32)(((u32)((s8)r[5] << 8) | r[6]) << 5);
+    *xo = rx;
+    *yo = ry;
+    *zo = rz;
+    func_802A754C(vs);
+    A8CCC_BLK(802A8E34, 802A8DD0);
+    for (i = 1; i <= 9; i++)
+        ((s32 *)vs)[i] = ry;
+    func_802AC6FC(rx, ry, rz, 0x13, 1000000);
+    A8CCC_BLK(802A8EFC, 802A8E98);
+    func_80277EDC(1, 1, 4, 0x6C);
+    A8CCC_BLK(802A8F10, 802A8EAC);
+    ENGINE_LEAVE(8, rx);
+    ENGINE_LEAVE(9, rz);
+done:
+    A8CCC_BLK(802A8F94, 802A8F30);
+    ENGINE_LEAVE(3, v1);
+    ENGINE_LEAVE(10, t2);
+    ENGINE_LEAVE(11, t3);
+    ENGINE_LEAVE(12, t4);
+    ENGINE_LEAVE(30, fp);
+}
