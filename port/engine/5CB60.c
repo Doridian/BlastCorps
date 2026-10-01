@@ -1858,3 +1858,9 @@ void func_802A3824(u32 h_) {
     }
     ENGINE_BLK(802A3940);
 }
+
+/* func_802A1320 (the scheduler's): the COP0 Status register */
+u32 func_802A1320(void) {
+    ENGINE_BLK(802A1320);
+    return engine_mfc0(12);
+}
