@@ -2161,9 +2161,12 @@ at change.
 Not done: anti-aliasing (the coverage the blender uses on edges; rendering
 above 1x and scaling down is the substitute) and the VI's filters, dither,
 the combiner's chroma key (its noise input is a hash, not the RDP's
-generator), the far plane (depth is
-clamped instead), and triangle edges follow GL's and the software
-renderer's pixel-center rule rather than the RDP's.
+generator), the far plane (depth is clamped instead; without
+`EXT_depth_clamp`, in Firefox, the GPU clips at the far plane, which over
+the whole TAS changes a few hundred pixels in a handful of frames:
+`PORT_GL_DEPTH_CLAMP=0` draws that way anywhere, and the log says `gl: no
+depth clamp` where it happens), and triangle edges follow GL's and the
+software renderer's pixel-center rule rather than the RDP's.
 
 ## Frame rate
 

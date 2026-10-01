@@ -1405,7 +1405,16 @@ int gfx_gl_init(SDL_Window *w) {
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GLVtx), (void *)(6 * sizeof(float)));
     glEnableVertexAttribArray(3);
     glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(GLVtx), (void *)(10 * sizeof(float)));
-    glEnable(GL_DEPTH_CLAMP);
+    /* depth clamped rather than clipped at the far plane (in WebGL only
+       with EXT_depth_clamp, which Firefox hasn't); PORT_GL_DEPTH_CLAMP=0
+       leaves it off, to see what a browser without it draws */
+    e = getenv("PORT_GL_DEPTH_CLAMP");
+    if (!e || *e != '0')
+        glEnable(GL_DEPTH_CLAMP);
+    if (!glIsEnabled(GL_DEPTH_CLAMP))
+        host_log("gl: no depth clamp: clipped at the far plane\n");
+    while (glGetError() != GL_NO_ERROR)     /* (the enum, where it is unknown) */
+        ;
     glClearColor(0, 0, 0, 1);       /* (every clear's) */
     glClearDepth(1.0);
     GLC_DIRTY();
