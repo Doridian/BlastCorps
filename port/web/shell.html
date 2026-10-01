@@ -35,6 +35,7 @@
     <button id="play" hidden>Play</button>
     <label><input type="checkbox" id="widescreen"> widescreen</label>
     <label><input type="checkbox" id="interp"> 60 fps (--interpolate)</label>
+    <label><input type="checkbox" id="hdtext"> high-res text (--hd-text)</label>
   </div>
   <div id="status">Loading...</div>
   <div id="keys">Arrows/WASD stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C buttons, TFGH = D-pad; a gamepad works too.</div>
@@ -102,6 +103,7 @@
       args.push('--widescreen');
     }
     if (document.getElementById('interp').checked) args.push('--interpolate');
+    if (document.getElementById('hdtext').checked) args.push('--hd-text');
     /* more from the address: ?args=--aspect%20window&env=PORT_AUTOSTART=1 */
     var q = new URLSearchParams(location.search);
     if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));

@@ -1734,8 +1734,8 @@ on Linux.
 fetched) and is kept in IndexedDB with the save (IDBFS at `/save`,
 synced after the game writes the EEPROM), so the next visit only needs
 "Play"; `?args=` and `?env=` pass options and environment (`?args=-v`,
-`?env=PORT_AUTOSTART=3`), and the page has widescreen and
-`--interpolate` checkboxes.  The OpenGL renderer runs on WebGL 2
+`?env=PORT_AUTOSTART=3`), and the page has widescreen,
+`--interpolate` and `--hd-text` checkboxes.  The OpenGL renderer runs on WebGL 2
 (`gfx_gl.c`: GLSL ES 3.00, `EXT_depth_clamp` where the browser has it),
 SDL's keyboard and gamepads are the input, and the sound goes through
 SDL's WebAudio (a `ScriptProcessorNode`, whose callback runs on the
