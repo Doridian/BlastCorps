@@ -2295,3 +2295,231 @@ store:
     D_803ED3A8[i] = t3;
     return t3;
 }
+
+/* ---- the three wheels on the ground -------------------------------------- */
+
+#define WHEEL_BYTE(base, i) (*(u8 *)((u32)&(base) + (i)))
+
+REGS(v0, v1, s4 -> t5, t6)
+s32 func_802A94A4(s32 i, s16 *pts, s16 *a, s32 *z_out);
+REGS(v0, t0, t1, t2, t8, gp, fp -> t3)
+s32 func_802A9B1C(s32 i, s32 x, s32 z, s32 y, s32 self, VS *vs, s32 mat);
+REGS(v0, a1, a2, a3, t2, s3)
+void func_802A9540(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 v);
+REGS(s3 -> s3)
+s32 func_802A9514(s32 v);
+
+/* The three wheels (pts, rotated by *a, from (x, z)) on the ground: the
+   moving objects' triangles first (not the vehicle's own), then the
+   level's.  Each height three times at out[3 * i], the average of the
+   last two in *avg; the gears (unk50) from the materials; the vehicle's
+   record in D_803ED3B8 gets the wheels' objects.  Returns the out table
+   ($s3) and the average ($s5). */
+REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp, fp -> s3, s5)
+s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s32 self, VS *vs, s32 mat,
+                   s32 *avg_out) {
+    s32 i, dx, dz, h, id, found = -1, s5, s6, at = 3;
+    s32 *o = out;
+    u8 *p;
+
+    ENGINE_BLK(802A992C);
+    for (i = 0; i != 3;) {
+        ENGINE_BLK(802A9944);
+        dx = func_802A94A4(i, pts, a, &dz);
+        ENGINE_BLK(802A994C);
+        h = func_802A9F24(x + dx, z + dz, y, self, &id);
+        ENGINE_BLK(802A9958);
+        if (id == 0) {
+            ENGINE_BLK(802A9960);
+            found = func_802AA094(x + dx, z + dz, y, h, mat, &h, &mat);
+            ENGINE_BLK(802A9968);
+            id = 0;
+        }
+        ENGINE_BLK(802A996C);
+        WHEEL_BYTE(D_803ED3EA, i) = id;
+        o[0] = h, o[1] = h, o[2] = h;
+        WHEEL_BYTE(D_803ED3F2, i) = mat;
+        i++;
+        o += 3;
+    }
+    ENGINE_BLK(802A99A8);
+    s5 = out[3];
+    s6 = out[6];
+    s5 = (u32)(s5 + s6) >> 1;
+    *avg = s5;
+    vs->unk50 = (u32)(D_803ED3F2 + D_803ED3F3 + D_803ED3F4) / 3;
+    ENGINE_BLK(802A9A00);
+    for (p = D_803ED3B8;;) {
+        ENGINE_BLK(802A9A04);
+        if (p[0] == self)
+            break;
+        ENGINE_BLK(802A9A10);
+        at = 0xFF;
+        if (p[0] != 0xFF) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802A9A1C);
+        if (*(s32 *)p != -1) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802A9A28);
+        p[0] = self;
+        break;
+    }
+    ENGINE_BLK(802A9A2C);
+    p[1] = D_803ED3EA;
+    p[2] = D_803ED3EB;
+    p[3] = D_803ED3EC;
+    /* (what it leaves: the last value's registers) */
+    ENGINE_LEAVE(1, at);
+    if (found >= 0)
+        ENGINE_LEAVE(5, found);         /* (func_802AA094's, last) */
+    ENGINE_LEAVE(2, 3);
+    ENGINE_LEAVE(8, (u32)p);
+    ENGINE_LEAVE(9, (u32)&D_803ED3EA);
+    ENGINE_LEAVE(10, D_803ED3EC);
+    ENGINE_LEAVE(11, h);
+    ENGINE_LEAVE(13, dx);
+    ENGINE_LEAVE(14, id);
+    ENGINE_LEAVE(22, s6);
+    *avg_out = s5;
+    return out;
+}
+
+/* the same, each wheel through func_802A9B1C; returns the out table past
+   its end ($s1) */
+REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp, fp -> s1)
+s32 *func_802A9A60(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s32 self, VS *vs, s32 mat) {
+    s32 i, dx, dz, h, s5, s6;
+    s32 *o = out;
+
+    ENGINE_BLK(802A9A60);
+    for (i = 0; i != 3;) {
+        ENGINE_BLK(802A9A70);
+        dx = func_802A94A4(i, pts, a, &dz);
+        ENGINE_BLK(802A9A78);
+        vs->unk9B = 0;
+        h = func_802A9B1C(i, x + dx, z + dz, y, self, vs, mat);
+        ENGINE_BLK(802A9A88);
+        o[0] = h, o[1] = h, o[2] = h;
+        WHEEL_BYTE(D_803ED3F2, i) = mat;
+        i++;
+        o += 3;
+    }
+    ENGINE_BLK(802A9AB4);
+    s5 = out[3];
+    s6 = out[6];
+    s5 = (u32)(s5 + s6) >> 1;
+    *avg = s5;
+    vs->unk50 = (u32)(D_803ED3F2 + D_803ED3F3 + D_803ED3F4) / 3;
+    ENGINE_BLK(802A9B10);
+    D_803ED390[0] = 0;
+    D_803ED390[2] = 0;
+    ENGINE_LEAVE(2, 3);
+    ENGINE_LEAVE(8, (u32)&D_803ED3F2);
+    ENGINE_LEAVE(9, (u32)(D_803ED3F2 + D_803ED3F3 + D_803ED3F4) / 3);
+    ENGINE_LEAVE(10, 3);
+    ENGINE_LEAVE(11, h);
+    ENGINE_LEAVE(13, dx);
+    ENGINE_LEAVE(14, dz);
+    ENGINE_LEAVE(19, (u32)out);
+    ENGINE_LEAVE(21, s5);
+    ENGINE_LEAVE(22, s6);
+    return o;
+}
+
+/* the three wheels (pts at *a's angle around (x, z)) on the ground through
+   func_802A9B1C, each at its own height (heights[3 * i]); then the
+   vehicle's record in D_803ED3B8 */
+REGS(t0, t1, t3, s4, s7, t8, gp, fp)
+void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *vs, s32 mat) {
+    s32 i, dx, dz, t3, at = 3;
+    u8 *p;
+
+    ENGINE_BLK(802A92C8);
+    for (i = 0;;) {
+        ENGINE_BLK(802A92FC);
+        dx = func_802A94A4(i, pts, a, &dz);
+        ENGINE_BLK(802A9304);
+        func_802A9B1C(i, x + dx, z + dz, heights[3 * i], self, vs, mat);
+        ENGINE_BLK(802A9324);
+        if (++i == 3)
+            break;
+    }
+    ENGINE_BLK(802A9334);
+    for (p = D_803ED3B8;;) {
+        ENGINE_BLK(802A9340);
+        t3 = p[0];
+        if (p[0] == self)
+            break;
+        ENGINE_BLK(802A934C);
+        at = 0xFF;
+        if (p[0] != 0xFF) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802A9358);
+        t3 = *(s32 *)p;
+        if (*(s32 *)p != -1) {
+            p += 4;
+            continue;
+        }
+        ENGINE_BLK(802A9364);
+        p[0] = self;
+        break;
+    }
+    ENGINE_BLK(802A9368);
+    p[1] = D_803ED3EA;
+    p[2] = D_803ED3EB;
+    p[3] = D_803ED3EC;
+    ENGINE_LEAVE(1, at);
+    ENGINE_LEAVE(2, 3);
+    ENGINE_LEAVE(3, (u32)pts);
+    ENGINE_LEAVE(10, -1);
+    ENGINE_LEAVE(11, t3);
+    ENGINE_LEAVE(12, (u32)&D_803ED3EA);
+    ENGINE_LEAVE(13, D_803ED3EA);
+    ENGINE_LEAVE(14, D_803ED3EB);
+    ENGINE_LEAVE(21, x);
+    ENGINE_LEAVE(22, z);
+}
+
+/* One wheel (i) on the ground: its height above its last
+   (heights[3 * i] - heights[3 * i + 1], clamped) plus D_803EBBF4 gives
+   where it would be; when that is at or below the ground, it lands there
+   (func_802A9540), otherwise it is in the air (D_803ED3EE[i] = 0).  The
+   result in D_803ED398[i]; returns the clamped height ($s3). */
+REGS(v0, v1, a1, a2, a3, t0, t1, s4, s7, t8, gp, fp -> s3)
+s32 func_802A93B0(s32 i, s16 *pts, s32 *h, s32 *state, s32 *ground, s32 x, s32 z, s16 *a, s32 *heights,
+                  s32 self, VS *vs, s32 mat) {
+    s32 dx, dz, t2, s1, s3, s4, t3;
+
+    ENGINE_BLK(802A93B0);
+    dx = func_802A94A4(i, pts, a, &dz);
+    ENGINE_BLK(802A93E0);
+    t2 = heights[3 * i];
+    s1 = heights[3 * i + 1];
+    s3 = func_802A9514(t2 - s1);
+    ENGINE_BLK(802A9408);
+    s4 = engine_cvt_w_s(D_803EBBF4);
+    ENGINE_LEAVE_FW(0, s4);             /* (cvt.w.s's $f0, unless the ground's left another) */
+    s4 = s3 + s4 + t2;
+    t3 = func_802A9B1C(i, x + dx, z + dz, t2, self, vs, mat);
+    ENGINE_BLK(802A942C);
+    if (!(s4 - 0x1E < t3)) {
+        ENGINE_BLK(802A943C);
+        func_802A9540(i, h, state, ground, t2, s3);
+        ENGINE_BLK(802A9444);
+        t3 = s4;
+    } else {
+        ENGINE_BLK(802A944C);
+        WHEEL_BYTE(D_803ED3EE, i) = 0;
+    }
+    ENGINE_BLK(802A9460);
+    *(s32 *)((u32)&D_803ED398 + 4 * i) = t3;
+    ENGINE_LEAVE(10, t2);
+    ENGINE_LEAVE(13, dx);
+    return s3;
+}
