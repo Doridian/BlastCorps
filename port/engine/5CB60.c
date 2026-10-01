@@ -39,7 +39,10 @@ extern u8 D_803ED3B8[12][4];
 extern s32 D_803EBC10[26][4];
 extern u8 *PTR32 D_803BE6F8;    /* the vehicles' records */
 extern u8 D_803A7426, D_803F7805, D_803F780A, D_803F780B, D_803F780C, D_803F7810;
-extern u8 D_803F7804, D_803F7812;
+extern u8 D_803F7804;
+#ifndef VERSION_US_V10
+extern u8 D_803F7812;
+#endif
 extern s32 D_803A740C, D_803F77F8;
 extern u8 D_80364A6E;
 extern u8 D_803BDFD8[][0x24];
@@ -122,7 +125,9 @@ void func_802A2D68(u32 h_) {
     D_803F780C = 0;
     D_803F7810 = 0;
     D_803F7804 = 0;
-    D_803F7812 = 0;
+#ifndef VERSION_US_V10
+    D_803F7812 = 0;         /* (us.v10 doesn't) */
+#endif
     ENGINE_LEAVE_F(0, (f32)h->gravity);
     ENGINE_LEAVE(9, h->unk1C);
     ENGINE_LEAVE(10, (s32)b[3]);
