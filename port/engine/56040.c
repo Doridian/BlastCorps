@@ -3517,3 +3517,60 @@ done:
     ENGINE_BLK(8029BCF0);
     return 0;
 }
+
+/* The sphere (x, y, z, r) against kind's records of D_803A6B30 (spheres
+   in a row of that kind): each one it meets (func_8029CFA4) through
+   func_802CE204 and into the frame's list by its number in the row
+   (func_802BCCD4, 1 on) */
+REGS(t8, a2, a3, t0, t1)
+void func_8029C914(s32 kind, s32 x, s32 y, s32 z, s32 r) {
+    u8 *p = D_803A6B30;
+    s32 n = 0, s0, s1 = 0, s1set = 0;
+
+    ENGINE_BLK(8029C914);
+    for (;;) {
+        ENGINE_BLK(8029C940);
+        s0 = (s8)p[0x13];
+        if (s0 == -1)
+            goto done;
+        ENGINE_BLK(8029C94C);
+        s0 = p[0x12];
+        if (s0 == kind)
+            break;
+        p += 0x14;
+    }
+    ENGINE_BLK(8029C958);
+    for (;;) {
+        s32 *w;
+
+        ENGINE_BLK(8029C95C);
+        s1 = (s8)p[0x13], s1set = 1;
+        if (s1 == -1)
+            break;
+        ENGINE_BLK(8029C968);
+        s1 = p[0x12];
+        if (s1 != kind)
+            break;
+        ENGINE_BLK(8029C974);
+        n++;
+        w = (s32 *)p;
+        p += 0x14;
+        if (!func_8029CFA4(w[0], w[1], w[2], w[3], x, y, z, r)) {
+            ENGINE_BLK(8029C990);
+            continue;
+        }
+        ENGINE_BLK(8029C990);
+        ENGINE_BLK(8029C998);
+        func_802CE204(w[0], w[2], x, z);
+        ENGINE_BLK(8029C9A0);
+        func_802BCCD4(n);
+        ENGINE_BLK(8029C9A8);
+    }
+    ENGINE_LEAVE(30, n);
+done:
+    ENGINE_BLK(8029C9B0);
+    ENGINE_LEAVE(15, (u32)p);
+    ENGINE_LEAVE(16, s0);
+    if (s1set)
+        ENGINE_LEAVE(17, s1);
+}
