@@ -84,6 +84,9 @@ func_802ABB1C
 func_802ABC88
 func_802ABCDC
 func_802ABD54
+func_802ABEDC
+func_802ABFC8
+func_802AC0BC
 
 # 679E0: math (func_802AC284/func_802AC2A4 go with 71140; func_802ACDB8
 # and func_802ACEB8 are never called)

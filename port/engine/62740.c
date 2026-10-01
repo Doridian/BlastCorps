@@ -2523,3 +2523,169 @@ s32 func_802A93B0(s32 i, s16 *pts, s32 *h, s32 *state, s32 *ground, s32 x, s32 z
     ENGINE_LEAVE(13, dx);
     return s3;
 }
+
+/* ---- the ground of the level's objects and of the water ---------------- */
+
+extern s32 D_803EBBF8, D_803EBBFC;
+extern u8 *PTR32 D_803BDAF4, *PTR32 D_803BDAF8;
+
+/* Of an object model's solid triangles (byte 0x13 clear; the model's list
+   at its offsets 0x24 to 0x28) under (x, z), the nearest at or below y: its
+   height in D_803EBBF8.  Returns whether one was found (`found` if not). */
+REGS(a1, t0, t1, t2, s0 -> a1)
+s32 func_802ABFC8(s32 found, s32 x, s32 z, s32 y, u8 *model) {
+    u8 *p = model + *(s32 *)(model + 0x24), *end = model + *(s32 *)(model + 0x28);
+    u32 dist = 99999999;
+    s32 h, d;
+    s16 *w;
+
+    ENGINE_BLK(802ABFC8);
+    for (;; p += 0x14) {
+        ENGINE_BLK(802ABFF0);
+        if (p == end)
+            break;
+        ENGINE_BLK(802ABFF8);
+        if (p[0x13] != 0)
+            goto next;
+        ENGINE_BLK(802AC004);
+        w = (s16 *)p;
+        if (!func_802AA5E0(x, z, w[0] << 5, w[2] << 5, w[3] << 5, w[5] << 5, w[6] << 5, w[8] << 5)) {
+            ENGINE_BLK(802AC050);
+            goto next;
+        }
+        ENGINE_BLK(802AC050);
+        ENGINE_BLK(802AC058);
+        if (!func_802AA460(x, z, w[0] << 5, w[2] << 5, w[3] << 5, w[5] << 5, w[6] << 5, w[8] << 5)) {
+            ENGINE_BLK(802AC060);
+            goto next;
+        }
+        ENGINE_BLK(802AC060);
+        ENGINE_BLK(802AC068);
+        h = func_802AA2E4(x, z, w[0] << 5, w[1] << 5, w[2] << 5, w[3] << 5, w[4] << 5, w[5] << 5, w[6] << 5,
+                          w[7] << 5, w[8] << 5);
+        ENGINE_BLK(802AC070);
+        d = y - h;
+        if (d < 0)
+            goto next;
+        ENGINE_BLK(802AC07C);
+        ENGINE_BLK(802AC088);
+        if (dist < (u32)d)
+            goto next;
+        ENGINE_BLK(802AC094);
+        found = 1;
+        D_803EBBF8 = h;
+        dist = d;
+    next:
+        ENGINE_BLK(802AC0A0);
+    }
+    ENGINE_BLK(802AC0A8);
+    return found;
+}
+
+extern u8 D_803F4030[];
+extern u8 *PTR32 D_803F7654;
+
+/* whether (x, z) is in one of the level's objects (D_803F4030's records:
+   their model's rectangle, as two triangles) with ground under it at or
+   below y (func_802ABFC8) */
+s32 func_802ABEDC(s32 x, s32 y, s32 z) {
+    u8 *p = D_803F4030, *end = D_803F7654, *model;
+    s16 *r;
+    s32 found = 0, x1, z1, x2, z2;
+
+    ENGINE_BLK(802ABEDC);
+    for (;; p += 0xFC) {
+        ENGINE_BLK(802ABF28);
+        if (p == end)
+            break;
+        ENGINE_BLK(802ABF30);
+        model = *(u8 *PTR32 *)p;
+        r = (s16 *)(model + *(s32 *)(model + 0x20));
+        z1 = r[1] << 5;
+        x2 = r[2] << 5;
+        x1 = r[0] << 5;
+        z2 = r[3] << 5;
+        if (func_802AA5E0(x, z, x1, z1, x2, z2, x2, z1)) {
+            ENGINE_BLK(802ABF68);
+        } else {
+            ENGINE_BLK(802ABF68);
+            ENGINE_BLK(802ABF70);
+            if (!func_802AA5E0(x, z, x1, z1, x2, z2, x1, z2)) {
+                ENGINE_BLK(802ABF7C);
+                goto next;
+            }
+            ENGINE_BLK(802ABF7C);
+        }
+        ENGINE_BLK(802ABF84);
+        found = func_802ABFC8(found, x, z, y, model);
+    next:
+        ENGINE_BLK(802ABF8C);
+    }
+    ENGINE_BLK(802ABF94);
+    return found;
+}
+
+/* the same as func_802ABFC8 over the water's triangles (D_803BDAF4 to
+   D_803BDAF8), at any height: the nearest's in D_803EBBFC */
+REGS(t0, t1, t2 -> a1)
+s32 func_802AC0BC(s32 x, s32 z, s32 y) {
+    u8 *p = D_803BDAF4, *end = D_803BDAF8;
+    u32 dist = 99999999, d;
+    s32 h, found = 0;
+    s16 *w = NULL;
+
+    ENGINE_BLK(802AC0BC);
+    for (;; p += 0x14) {
+        ENGINE_BLK(802AC0E0);
+        if (p == end)
+            break;
+        ENGINE_BLK(802AC0E8);
+        w = (s16 *)p;
+        if (!func_802AA5E0(x, z, w[0] << 5, w[2] << 5, w[3] << 5, w[5] << 5, w[6] << 5, w[8] << 5)) {
+            ENGINE_BLK(802AC134);
+            goto next;
+        }
+        ENGINE_BLK(802AC134);
+        ENGINE_BLK(802AC13C);
+        if (!func_802AA460(x, z, w[0] << 5, w[2] << 5, w[3] << 5, w[5] << 5, w[6] << 5, w[8] << 5)) {
+            ENGINE_BLK(802AC144);
+            goto next;
+        }
+        ENGINE_BLK(802AC144);
+        ENGINE_BLK(802AC14C);
+        h = func_802AA2E4(x, z, w[0] << 5, w[1] << 5, w[2] << 5, w[3] << 5, w[4] << 5, w[5] << 5, w[6] << 5,
+                          w[7] << 5, w[8] << 5);
+        ENGINE_BLK(802AC154);
+        d = y - h;
+        if ((s32)d < 0) {
+            ENGINE_BLK(802AC160);
+            d = -(s32)d;
+        }
+        ENGINE_BLK(802AC164);
+        if (dist < d)
+            goto next;
+        ENGINE_BLK(802AC170);
+        found = 1;
+        D_803EBBFC = h;
+        dist = d;
+    next:
+        ENGINE_BLK(802AC17C);
+    }
+    ENGINE_BLK(802AC184);
+    /* (it saves nothing: the vehicle modules read on what the last
+       triangle's loads and the loop left) */
+    ENGINE_LEAVE(15, (u32)end);
+    ENGINE_LEAVE(30, (u32)end);
+    if (w != NULL) {
+        ENGINE_LEAVE(17, w[0] << 5);
+        ENGINE_LEAVE(18, w[1] << 5);
+        ENGINE_LEAVE(19, w[2] << 5);
+        ENGINE_LEAVE(20, w[3] << 5);
+        ENGINE_LEAVE(21, w[4] << 5);
+        ENGINE_LEAVE(22, w[5] << 5);
+        ENGINE_LEAVE(23, w[6] << 5);
+        ENGINE_LEAVE(24, w[7] << 5);
+        ENGINE_LEAVE(25, w[8] << 5);
+    }
+    return found;
+}
