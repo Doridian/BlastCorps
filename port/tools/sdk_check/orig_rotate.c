@@ -1,15 +1,11 @@
 /*
- * libultra code the port needs from stubs it doesn't build whole:
- * guRotateF/guRotate (hd_code/90C50.c is still GLOBAL_ASM; this is the SDK
- * source, which the N64 build doesn't match only by one scheduled lui) and
- * guMtxCatL (hd_code/96800.c, which also holds osSpTaskYield).
+ * The SDK's guRotateF and guRotate (gu/rotate.c), the oracle for
+ * port/src/gu.c's: the source port/src/gu_extra.c had (the N64 build still
+ * has them as asm).  Test tool only; never in the port.
  */
 #include "common.h"
 
 f32 fcos(f32);
-
-/* .bss of hd_code/90C50.c */
-u8 D_803FDF60[0x10];
 
 void guRotateF(float mf[4][4], float a, float x, float y, float z) {
     static float dtor = 3.1415926 / 180.0;
@@ -44,8 +40,3 @@ void guRotate(Mtx *m, float a, float x, float y, float z) {
     guRotateF(mf, a, x, y, z);
     guMtxF2L(mf, m);
 }
-
-#include "src/libultra/gu/mtxcatl.c"
-
-/* the Controller Pak's CRC, which the front end also uses for its saves */
-#include "src/libultra/io/crc.c"

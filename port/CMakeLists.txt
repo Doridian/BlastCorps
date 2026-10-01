@@ -28,6 +28,7 @@ option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in
 # game's C (PORT_TRACE=FILE,FROM,TO), the access-width profiler (PORT_ACCESS=FILE)
 option(PORT_TRACE_CALLS "the game's C calls __port_trace on every function entry" OFF)
 option(PORT_ACCESS_PROFILE "record the width every byte of RDRAM is written and read at" OFF)
+option(PORT_SDK_TRACE "port/src/gu.c logs its calls to $PORT_SDK_TRACE (port/tools/sdk_check)" OFF)
 # native-endian memory (docs/PORT.md, "Native-endian memory"): every datum in
 # host order where the N64 has it, the ROM's data converted by type as it
 # is loaded; BEPass then swaps nothing but the words of 64-bit scalars
@@ -308,7 +309,12 @@ set(REPLACED
     hd_front_end/1D2D0 hd_front_end/1D410 hd_front_end/1D550 hd_front_end/1D710
     hd_front_end/1DC10 hd_front_end/1E3F0 hd_front_end/1F5C0 hd_front_end/1F970
     hd_front_end/1FD20)
-foreach(r ${REPLACED})
+# the SDK's graphics utilities, sine tables and libc pieces: the port's own
+# (port/src/gu.c; docs/DISTRIBUTION.md, "Replacing the SDK parts")
+set(REPLACED_SDK
+    hd_code/90760 hd_code/90800 hd_code/909C0 hd_code/90E40 hd_code/91050 hd_code/912C0
+    hd_code/91360 hd_code/91830 hd_code/92130 hd_code/950E0 hd_code/95070 hd_code/97140)
+foreach(r ${REPLACED} ${REPLACED_SDK})
     list(REMOVE_ITEM GAME_C ${BLAST}/src/${r}.c)
 endforeach()
 
@@ -383,6 +389,17 @@ target_compile_options(port_n64 PRIVATE ${N64_FLAGS} -Wno-implicit-function-decl
 target_compile_definitions(port_n64 PRIVATE PORT_FE_DATA=${PORT_FE_DATA} PORT_FE_BSS=${PORT_FE_BSS})
 add_dependencies(port_n64 BEPass)
 set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+# sins()'s table, generated
+add_custom_command(OUTPUT ${GEN}/sdk/sintable.h
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_sintable.py ${GEN}/sdk/sintable.h
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_sintable.py VERBATIM)
+file(MAKE_DIRECTORY ${GEN}/sdk)
+target_include_directories(port_n64 PRIVATE ${GEN}/sdk)
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/gu.c PROPERTIES
+    OBJECT_DEPENDS "${BEPASS};${GEN}/sdk/sintable.h")
+if(PORT_SDK_TRACE)
+    target_compile_definitions(port_n64 PRIVATE PORT_SDK_TRACE)
+endif()
 if(PORT_MOVABLE)
     # (the port's own data: not at N64 addresses, as in the other builds)
     set(PORT_N64_LAUNCHER ${N64_LAUNCHER})
@@ -527,6 +544,9 @@ target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CUR
     ${CMAKE_CURRENT_SOURCE_DIR}/host ${SDL2_INCLUDE_DIRS})
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
 target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE} PORT_ROM_SHA1="${PORT_ROM_SHA1}")
+if(PORT_SDK_TRACE)
+    target_compile_definitions(host PRIVATE PORT_SDK_TRACE)
+endif()
 if(PORT_ROM_DATA)
     target_compile_definitions(host PRIVATE PORT_ROM_DATA)
 endif()

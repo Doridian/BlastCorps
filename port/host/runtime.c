@@ -234,6 +234,32 @@ void __port_trace(uint32_t id) {
         fwrite(&id, 4, 1, trace_f);
 }
 
+#ifdef PORT_SDK_TRACE
+/* -DPORT_SDK_TRACE=ON builds: port/src/gu.c's calls and their arguments, to
+   $PORT_SDK_TRACE (port/tools/sdk_check checks the replacements on them).
+   A record is the function's number and its argument words, host order. */
+static FILE *sdk_trace_f;
+
+void port_sdk_trace(int fn, int nwords) {
+    static int init;
+    uint32_t w = (uint32_t)fn;
+    (void)nwords;
+    if (!init) {
+        init = 1;
+        const char *s = getenv("PORT_SDK_TRACE");
+        if (s)
+            sdk_trace_f = fopen(s, "wb");
+    }
+    if (sdk_trace_f)
+        fwrite(&w, 4, 1, sdk_trace_f);
+}
+
+void port_sdk_trace_word(uint32_t w) {
+    if (sdk_trace_f)
+        fwrite(&w, 4, 1, sdk_trace_f);
+}
+#endif
+
 #ifdef PORT_TRACE_ASM
 /* PORT_TRACE_ASM builds (the translated code built with RECOMP_TRACE): before
    every instruction, PORT_ITRACE=FILE,FROM,TO writes its address and the
