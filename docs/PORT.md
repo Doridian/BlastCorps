@@ -42,7 +42,8 @@ cmake --build build/port64
 
 Keys: arrows or
 WASD for the stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C
-buttons, TFGH = D-pad; an SDL game controller works too.  `--help` lists
+buttons, TFGH = D-pad; an SDL game controller works too.  On the name
+entry the keyboard types ("Typing the name", below).  `--help` lists
 the options: `--headless`, `--deterministic` (virtual time: as fast as the
 host can, identical every run), `--frames N`, `--screenshot PREFIX`,
 `--save PATH` (the 4 Kbit EEPROM, default `blastcorps.eep`; runs meant to
@@ -73,6 +74,51 @@ copies its framebuffers back to RDRAM after every task (see "Graphics").
 `PORT_PACE=FILE` logs the pacing at every controller read (see "Timing").
 `PORT_THREADS=ucontext|pthread` picks how the game's threads switch
 (`-DPORT_THREADS=` sets the default; see "Threads without ucontext").
+
+### Typing the name
+
+The name entry (`hd_front_end/1C40.c`: `func_801EA93C` sets it up,
+`func_801EAA7C` runs it each frame) is a wheel of 33 characters turned
+with the stick: A to Z, 1 to 4, `/`, `.` and a delete entry (0x7F; the
+characters are `D_80208314[i]` for i below `D_80208350[0]`, then
+`D_802082FC`).  `D_802154B4` is the wheel's angle, `D_802154B2` the one it
+eases to (0x7FFF − i·1986 for character i), and the game works out the
+character in front, `D_802154B6`, from the angle each frame before it
+looks at the pad.  A takes that character (`D_802154BE` is 1 while it
+flies into the name, `D_802154BC` counts the name's characters, at most
+`D_80215924`), B takes the last one back or leaves the screen when there
+is none, Start confirms.
+
+In the port the keyboard types there (`port/host/video.c`, "typing the
+name"), from the host alone: the game's C is unchanged, so the CPU
+model's counts and the TAS are too.  The screen is up while the menu's
+screen `D_8036BB18` is 0xB and its state `D_8036BB1C` isn't 1 (when
+`17990.c` calls `func_801EAA7C`); it takes the pad in state 2.  There
+SDL's text events (and Backspace and Escape) fill a queue, and each
+controller read takes the next character: the host turns the wheel to it
+(writes both angles, two characters a read the short way round, so the
+game ticks for each one it passes as it does for the stick), presses A for
+one read, then waits until the character is in the name (`D_802154BE`
+back to 0) before the next; if the game didn't take the press (the
+length didn't change and nothing flew within 10 reads) it tries again.
+Backspace presses B, but only while the name has a character, so it
+never leaves the screen; Escape presses B whatever the name holds.  A
+character the wheel hasn't (0, 5-9, space, anything else) or one past the
+seventh is dropped.  While the queue is busy the typing has the pad (the
+stick still, no other button); on the screen the letter and digit keys
+aren't their pad buttons at all, and the arrows, Enter and a controller
+work as before.  `--replay` and `--deterministic` runs never type from the
+keyboard.
+
+`PORT_TYPE=TEXT` types TEXT when the name entry first comes up (`<` is a
+Backspace), in any run, headless too; with `PORT_AUTOSTART` its taps of A
+and B are dropped on that screen, so its Start confirms what was typed:
+
+```
+PORT_AUTOSTART=1 PORT_TYPE='blXy<<ast' build/port-us.v10/blastcorps --headless \
+    --deterministic --frames 2000 --save /tmp/t.eep
+port/tools/tas_check.py /tmp/t.eep            # name 'BLAST'
+```
 
 ## Memory model
 

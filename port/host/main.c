@@ -174,6 +174,7 @@ uint32_t host_rom_word(uint32_t addr) {
    (threads.c): it jumps to the next event; runs as fast as the host can and
    the same every time */
 static int deterministic;
+int host_is_deterministic(void) { return deterministic; }
 static uint64_t virtual_ns;
 
 /* PORT_PACED=1 (the page's default): virtual time between retraces, real

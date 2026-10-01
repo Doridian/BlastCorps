@@ -166,6 +166,12 @@ directory, or wherever `--save PATH` says.
 | I, J, K, L          | C buttons      |
 | T, F, G, H          | D-pad          |
 
+On the name entry the keyboard types the name: a letter (or 1-4, `/`,
+`.`, the wheel's other characters) turns the wheel to it and takes it,
+Backspace deletes the last one, Escape is B (back out), Enter confirms.
+The letter keys don't act as buttons there; the arrows and a controller
+still turn the wheel as on the N64.
+
 An SDL game controller works too.  Some options (`--help` lists them all):
 
 | option                       | what                                                      |

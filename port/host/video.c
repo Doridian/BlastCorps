@@ -9,6 +9,7 @@
 #ifdef PORT_WASM_WEB
 #include <emscripten.h>
 #endif
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -228,6 +229,8 @@ static void count_image(int twin) {
     host_perf_presented(gfx_st_images);
 }
 
+static void type_event(const SDL_Event *e);     /* (the name entry's typing, below) */
+
 void host_video_frame(void) {
     SDL_Event e;
     while (sdl_up && SDL_PollEvent(&e)) {
@@ -235,6 +238,7 @@ void host_video_frame(void) {
             quit = 1;
         if (e.type == SDL_CONTROLLERDEVICEADDED && !pad)
             pad = SDL_GameControllerOpen(e.cdevice.which);
+        type_event(&e);
     }
     frame++;
     if (host_verbose && frame % 300 == 0) {
@@ -346,15 +350,195 @@ static uint16_t scripted_buttons(int *sy) {
     return 0;
 }
 
+/* ---- typing the name ------------------------------------------------------
+   The name entry (hd_front_end/1C40.c: func_801EA93C sets it up,
+   func_801EAA7C runs it) picks characters off a wheel of 33 (A to Z, 1 to
+   4, '/', '.' and a delete entry), turned with the stick: A takes the one
+   in front, B the last one back (or leaves the screen when there is
+   none), Start confirms.  There the keyboard types instead: a character
+   typed turns the wheel to it (a quick spin by the host, with the game's
+   own tick for each one it passes) and presses A for one read;
+   Backspace presses B while the name has a character, Escape presses B
+   whatever it holds (so it can go back).  The letter and digit keys
+   aren't their pad buttons on that screen; the arrows, Enter and a game
+   controller still are.  It is all the host's: the game's C is as it was,
+   and --replay and --deterministic runs never type from the keyboard
+   (PORT_TYPE=TEXT types TEXT in any run, for a test). */
+
+/* (us.v11's names: the menu's screen and its state are hd_code's, the
+   wheel the front end's, loaded whenever that screen is up) */
+extern char D_8036BB18[], D_8036BB1C[], D_802154B2[], D_802154B4[], D_802154BC[], D_802154BE[],
+    D_80215924[], D_802082FC[], D_80208314[], D_80208350[];
+#ifdef PORT_MOVABLE
+#define D_8036BB18 PORT_VAR(D_8036BB18)
+#define D_8036BB1C PORT_VAR(D_8036BB1C)
+#define D_802154B2 PORT_VAR(D_802154B2)
+#define D_802154B4 PORT_VAR(D_802154B4)
+#define D_802154BC PORT_VAR(D_802154BC)
+#define D_802154BE PORT_VAR(D_802154BE)
+#define D_80215924 PORT_VAR(D_80215924)
+#define D_802082FC PORT_VAR(D_802082FC)
+#define D_80208314 PORT_VAR(D_80208314)
+#define D_80208350 PORT_VAR(D_80208350)
+#endif
+
+enum { WHEEL_N = 33, WHEEL_STEP = 1986, WHEEL_SPIN = 2 * WHEEL_STEP };
+
+/* the name entry is up: the menu's screen (D_8036BB18) is 0xB and its
+   state (D_8036BB1C) isn't 1, which is when 17990.c runs func_801EAA7C;
+   it takes the pad in state 2 */
+static int name_screen(void) {
+    return (int16_t)port_g16(D_8036BB18) == 0xB && (int16_t)port_g16(D_8036BB1C) != 1;
+}
+
+/* the keyboard types (there, and not in a replay or a deterministic run) */
+static int keys_type(void) {
+    return sdl_up && !host_replay_active() && !host_is_deterministic() && name_screen();
+}
+
+/* where c is on the wheel (the game's own tables, read as func_801EAA7C
+   reads them), or -1; 0x7F is the delete entry */
+static int wheel_index(int c) {
+    uint32_t n0 = port_g32(D_80208350);
+    for (int i = 0; i < WHEEL_N; i++) {
+        int w = (uint32_t)i < n0 ? (uint8_t)D_80208314[i] : (uint8_t)D_802082FC[i - n0];
+        if (w == c && w != 0x7F)
+            return i;
+    }
+    return -1;
+}
+
+static char type_q[64];             /* typed, not yet in the name: '\b' Backspace, 0x1B Escape */
+static unsigned type_head, type_n;
+static enum { TY_IDLE, TY_SPIN, TY_PRESS, TY_WAIT } type_state;
+static int type_idx, type_reads, type_seen, type_len0;
+static uint16_t type_button;
+static int type_env;                /* PORT_TYPE was queued: 1, 2 if it had something */
+
+static void type_push(int c) {
+    if (type_n < sizeof type_q)
+        type_q[(type_head + type_n++) % sizeof type_q] = (char)c;
+}
+
+static void type_pop(void) {
+    type_head = (type_head + 1) % sizeof type_q;
+    type_n--;
+    type_state = TY_IDLE;
+}
+
+/* SDL's key and text events (host_video_frame) */
+static void type_event(const SDL_Event *e) {
+    if ((e->type != SDL_TEXTINPUT && e->type != SDL_KEYDOWN) || !keys_type())
+        return;
+    if (e->type == SDL_TEXTINPUT) {
+        for (const char *p = e->text.text; *p; p++)
+            if ((unsigned char)*p > 0x20 && (unsigned char)*p < 0x7F)
+                type_push(toupper((unsigned char)*p));
+    } else if (e->key.keysym.sym == SDLK_BACKSPACE) {
+        type_push('\b');
+    } else if (e->key.keysym.sym == SDLK_ESCAPE && !e->key.repeat) {
+        type_push(0x1B);
+    }
+}
+
+/* this read's buttons while typing: 1 if the typing has the pad (*b is
+   all that's pressed, the stick is still), 0 if not */
+static int type_poll(uint16_t *b) {
+    *b = 0;
+    if (!name_screen()) {
+        type_n = 0;
+        type_state = TY_IDLE;
+        return 0;
+    }
+    if (keys_type() && !SDL_IsTextInputActive())
+        SDL_StartTextInput();
+    if (!type_env) {
+        const char *s = getenv("PORT_TYPE");
+        type_env = s && *s ? 2 : 1;
+        for (; s && *s; s++)
+            type_push(*s == '<' ? '\b' : toupper((unsigned char)*s));    /* '<': Backspace */
+    }
+    if (type_state == TY_IDLE && !type_n)
+        return 0;
+    if ((int16_t)port_g16(D_8036BB1C) != 2)         /* still coming in */
+        return 1;
+    int busy = port_g16(D_802154BE) != 0;           /* a character on its way into the name */
+    int len = (uint8_t)D_802154BC[0];
+    int c = (uint8_t)type_q[type_head];
+    switch (type_state) {
+    case TY_IDLE:
+        if (busy)
+            return 1;
+        type_reads = type_seen = 0;
+        type_len0 = len;
+        if (c == '\b' || c == 0x1B) {
+            if (c == '\b' && !len) {                /* nothing to delete: don't leave */
+                type_pop();
+                return 1;
+            }
+            type_button = B_B;
+            type_state = TY_PRESS;
+            break;
+        }
+        type_idx = wheel_index(c);
+        if (type_idx < 0 || len >= (uint8_t)D_80215924[0]) {    /* not on the wheel, or the name is full */
+            type_pop();
+            return 1;
+        }
+        type_button = B_A;
+        type_state = TY_SPIN;
+        /* fall through */
+    case TY_SPIN: {
+        /* turn the wheel (its angle D_802154B4, and D_802154B2, the one
+           it eases to) by up to WHEEL_SPIN a read, the short way round;
+           there, A: func_801EAA7C works out the character in front
+           (D_802154B6) from the angle before it looks at the pad */
+        int16_t target = (int16_t)(0x7FFF - type_idx * WHEEL_STEP);
+        int16_t at = (int16_t)port_g16(D_802154B4);
+        int d = (int16_t)(target - at);
+        port_wg16(D_802154B2, (uint16_t)target);
+        if (d > WHEEL_SPIN || d < -WHEEL_SPIN) {
+            port_wg16(D_802154B4, (uint16_t)(at + (d > 0 ? WHEEL_SPIN : -WHEEL_SPIN)));
+            return 1;
+        }
+        port_wg16(D_802154B4, (uint16_t)target);
+        type_state = TY_PRESS;
+        break;
+    }
+    case TY_PRESS:                                  /* released: the press was one read */
+        type_state = TY_WAIT;
+        return 1;
+    case TY_WAIT:
+        if (busy || len != type_len0)
+            type_seen = 1;
+        if (type_seen && !busy)
+            type_pop();
+        else if (!type_seen && ++type_reads > 10)   /* the game didn't take it: again */
+            type_state = TY_IDLE;
+        return 1;
+    }
+    *b = type_button;
+    return 1;
+}
+
 static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
-    uint16_t b = 0;
-    int sx = 0, sy = 0;
+    uint16_t b = 0, tb = 0;
+    int sx = 0, sy = 0, typing = 0;
+    if (n == 0 && !host_replay_active())
+        typing = type_poll(&tb);
     if (n == 0 && host_replay_active()) {
         host_replay_pad(&b, &sx, &sy);
     } else if (n == 0 && !sdl_up) {
         b |= scripted_buttons(&sy);
     } else if (n == 0) {
-        const Uint8 *k = SDL_GetKeyboardState(NULL);
+        int nk = 0;
+        const Uint8 *k = SDL_GetKeyboardState(&nk);
+        static Uint8 kt[SDL_NUM_SCANCODES];
+        if (keys_type() && nk <= SDL_NUM_SCANCODES) {   /* the letters and digits type there */
+            memcpy(kt, k, (size_t)nk);
+            memset(kt + SDL_SCANCODE_A, 0, SDL_SCANCODE_0 - SDL_SCANCODE_A + 1);
+            k = kt;
+        }
         if (k[SDL_SCANCODE_X]) b |= B_A;
         if (k[SDL_SCANCODE_C]) b |= B_B;
         if (k[SDL_SCANCODE_Z]) b |= B_Z;
@@ -398,6 +582,12 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
             if (cy > 16000) b |= B_CD;
             if (cy < -16000) b |= B_CU;
         }
+    }
+    if (typing) {
+        b = tb;
+        sx = sy = 0;
+    } else if (type_env == 2 && name_screen()) {
+        b &= ~(B_A | B_B);          /* PORT_TYPE's name, as typed: PORT_AUTOSTART only confirms it */
     }
     port_wbe16(buttons, b);         /* N64-side memory: big-endian */
     *x = (int8_t)sx;
