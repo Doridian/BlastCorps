@@ -57,6 +57,7 @@
 
 #include "host.h"
 #include "gfx.h"
+#include "hdtext.h"
 
 int gfx_gl_enabled;
 int gfx_gl_scale;               /* internal resolution: 320x240 times this; 0: from the window */
@@ -386,6 +387,7 @@ typedef struct {
     uint64_t key;
     GLuint tex;
     uint32_t used;
+    int hd;                     /* --hd-text: a font glyph's, HDTEXT_K times the tile's size (0: the tile's) */
 } TexEnt;
 
 #define TC_SIZE 16384
@@ -440,11 +442,25 @@ static void tc_sweep(void) {
 
 static uint8_t decode_buf[1024 * 1024 * 4];
 
-/* the GL texture for a tile as TMEM holds it now */
-static GLuint tile_texture(int tile) {
+/* --hd-text: the font glyph a tile holds (hdtext.c), or -1: a 32x32 I4
+   tile whose 512 bytes one LoadBlock brought from one of font.c's slots */
+static int tile_glyph(const GfxTile *t, int w, int h) {
+    if (!hdtext_on || t->fmt != 4 || t->siz != 0 || w != 32 || h != 32 || t->line != 2)
+        return -1;
+    int at = t->tmem & 511;
+    uint32_t src = gfx_tmem_src[at];
+    if (!src || at + 63 > 511 || gfx_tmem_src[at + 63] != src + 504)
+        return -1;
+    return hdtext_glyph_at(src);
+}
+
+/* the GL texture for a tile as TMEM holds it now; *hd: HDTEXT_K for a
+   font glyph drawn from the font (--hd-text), else 0 */
+static GLuint tile_texture(int tile, int *hd) {
     const GfxTile *t = &gs.tile[tile & 7];
     int w, h;
     gfx_tile_dims(t, &w, &h);
+    int glyph = tile_glyph(t, w, h);
     /* what the tile reads: its rows of TMEM (and the palette) */
     uint64_t k = 0xCBF29CE484222325ull;
     int params[8] = { t->fmt, t->siz, t->line, t->tmem, t->pal, w, h, t->fmt == 2 ? (int)(gs.om_h >> 14 & 3) : 0 };
@@ -474,6 +490,8 @@ static GLuint tile_texture(int tile) {
     }
     if (t->fmt == 2)
         k = hash_words(k, gfx_tmem + 0x800, 512);
+    if (glyph >= 0)             /* (not the tile's own texture) */
+        k = (k ^ (uint64_t)glyph << 40 ^ 0x48442D74657874ull) * 0x9E3779B97F4A7C15ull;
     if (!k)
         k = 1;
     unsigned i = (unsigned)(k ^ (k >> 32)) & (TC_SIZE - 1);
@@ -482,28 +500,47 @@ static GLuint tile_texture(int tile) {
     if (tcache[i].key == k) {
         tcache[i].used = frame_no;
         st_tex_hits++;
+        *hd = tcache[i].hd;
         return tcache[i].tex;
     }
     if (tc_count > TC_SIZE / 2) {
         tc_sweep();
-        return tile_texture(tile);
+        return tile_texture(tile, hd);
     }
     st_tex_decoded++;
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++)
             gfx_fetch_texel(t, x, y, decode_buf + 4 * (y * w + x));
+    /* --hd-text: the glyph from the font instead, as the I4 texels would
+       be (the intensity in all four channels), with mipmaps for when it
+       is drawn small */
+    const uint8_t *img = glyph >= 0 ? hdtext_image(glyph, decode_buf) : NULL;
     GLuint tex;
     GLC_DIRTY();
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_buf);
+    if (img) {
+        enum { N = 32 * HDTEXT_K };
+        static uint8_t hd_buf[N * N * 4];
+        for (int j = 0; j < N * N; j++)
+            memset(hd_buf + 4 * j, img[j], 4);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, N, N, 0, GL_RGBA, GL_UNSIGNED_BYTE, hd_buf);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, decode_buf);
+    }
     tcache[i].key = k;
     tcache[i].tex = tex;
     tcache[i].used = frame_no;
+    tcache[i].hd = *hd = img ? HDTEXT_K : 0;
     tc_count++;
     return tex;
 }
@@ -514,20 +551,22 @@ enum { K_TRI, K_FILL, K_TEXRECT };
 
 typedef struct {
     uint32_t cc0, cc1, om_l;
-    uint8_t cyc, textured, tex1, lod, filt, kind, quant, pad;
+    uint8_t cyc, textured, tex1, lod, filt, kind, quant, hd;      /* hd: --hd-text's font glyphs */
 } ProgKey;
 
 typedef struct {
     ProgKey key;
     GLuint prog;
     int blend;                  /* 0 none, 1 (ONE, SRC_ALPHA), 2 keep the destination */
-    GLint u_vp, u_zbias, u_prim, u_env, u_blend, u_fog, u_primlod, u_seed, u_tA, u_tB, u_tul, u_levels, u_lodscale;
+    GLint u_vp, u_zbias, u_prim, u_env, u_blend, u_fog, u_primlod, u_seed, u_tA, u_tB, u_tul, u_levels, u_lodscale,
+        u_hd;
     /* what its uniforms were last set to (uv: they were) */
     int uv;
     struct {
         float vp[2], zbias, prim[4], env[4], blend[4], fog[4], primlod, seed, lodscale;
         int levels, ntex, tA[8][4], tB[8][4];
         float tul[8][2];
+        float hd[8];
     } u;
 } Prog;
 
@@ -538,7 +577,7 @@ static int16_t prog_hash[2048];         /* index + 1, open addressing by the key
 static unsigned prog_slot(const ProgKey *key) {
     uint32_t h = key->cc0 * 0x9E3779B1u ^ key->cc1 * 0x85EBCA77u ^ key->om_l * 0xC2B2AE3Du;
     h ^= (uint32_t)(key->cyc | key->textured << 4 | key->tex1 << 8 | key->lod << 12 | key->filt << 16 |
-                    key->kind << 20 | key->quant << 24) * 0x27D4EB2Fu;
+                    key->kind << 20 | key->quant << 24 | (uint32_t)key->hd << 28) * 0x27D4EB2Fu;
     return (h ^ h >> 15) & 2047;
 }
 
@@ -620,6 +659,29 @@ static const char *fs_common =
     "    return c11 + (1.0 - fr.x) * (c01 - c11) + (1.0 - fr.y) * (c10 - c11);\n"
     "}\n";
 
+/* --hd-text: a unit whose u_hd is set holds a font glyph HDTEXT_K times
+   the tile's size, sampled with GL's filtering and mipmaps; the texel
+   centres line up with the tile's (the RDP's texel c is at c, not c + 0.5) */
+static const char *fs_hd =
+    "uniform float u_hd[8];\n"
+    "vec4 hdfetch(int i, vec2 px) {\n"
+    "    switch (i) {\n"
+    "    case 0: return texture(u_tex[0], px / vec2(textureSize(u_tex[0], 0)));\n"
+    "    case 1: return texture(u_tex[1], px / vec2(textureSize(u_tex[1], 0)));\n"
+    "    case 2: return texture(u_tex[2], px / vec2(textureSize(u_tex[2], 0)));\n"
+    "    case 3: return texture(u_tex[3], px / vec2(textureSize(u_tex[3], 0)));\n"
+    "    case 4: return texture(u_tex[4], px / vec2(textureSize(u_tex[4], 0)));\n"
+    "    case 5: return texture(u_tex[5], px / vec2(textureSize(u_tex[5], 0)));\n"
+    "    case 6: return texture(u_tex[6], px / vec2(textureSize(u_tex[6], 0)));\n"
+    "    default: return texture(u_tex[7], px / vec2(textureSize(u_tex[7], 0)));\n"
+    "    }\n"
+    "}\n"
+    "vec4 texel_hd(int i, vec2 st, int filt) {\n"
+    "    if (u_hd[i] <= 0.0) return texel(i, st, filt);\n"
+    "    vec2 f = vec2(shiftc(st.x, u_tA[i].x), shiftc(st.y, u_tA[i].y)) - u_tul[i];\n"
+    "    return hdfetch(i, (f + 0.5) * u_hd[i]);\n"
+    "}\n";
+
 static const char *cc_rgb(int k) {
     static const char *m[] = { "comb.rgb", "t0.rgb", "t1.rgb", "u_prim.rgb", "shade.rgb", "u_env.rgb",
                                "vec3(1.0)", "vec3(0.0)", "vec3(comb.a)", "vec3(t0.a)", "vec3(t1.a)",
@@ -690,6 +752,8 @@ static Prog *get_prog(const ProgKey *key) {
     p->key = *key;
     sb_len = 0;
     cat("%s", fs_common);
+    if (key->hd)
+        cat("%s", fs_hd);
     cat("void main() {\n");
     cat("    vec4 shade = v_col, t0 = vec4(0.0), t1 = vec4(0.0), comb = vec4(0.0);\n");
     cat("    float lodf = 1.0;\n");
@@ -708,9 +772,10 @@ static Prog *get_prog(const ProgKey *key) {
         goto done;
     }
     if (key->textured) {
-        cat("    t0 = texel(s0, v_st, %d);\n", key->filt);
+        const char *fn = key->hd ? "texel_hd" : "texel";
+        cat("    t0 = %s(s0, v_st, %d);\n", fn, key->filt);
         if (key->tex1)
-            cat("    t1 = texel(s1, v_st, %d);\n", key->filt);
+            cat("    t1 = %s(s1, v_st, %d);\n", fn, key->filt);
     }
     if (key->cyc == 2) {                            /* copy */
         if ((key->om_l & 3) == 1)
@@ -802,7 +867,7 @@ done:;
     }
 #define U(n) p->n = glGetUniformLocation(p->prog, #n)
     U(u_vp); U(u_zbias); U(u_prim); U(u_env); U(u_blend); U(u_fog); U(u_primlod); U(u_seed);
-    U(u_tA); U(u_tB); U(u_tul); U(u_levels); U(u_lodscale);
+    U(u_tA); U(u_tB); U(u_tul); U(u_levels); U(u_lodscale); U(u_hd);
 #undef U
     if (host_verbose > 1)
         host_log("gl: program %d: cc %06X %08X om_l %08X cyc %d\n", nprogs, key->cc0, key->cc1, key->om_l, key->cyc);
@@ -835,6 +900,7 @@ typedef struct {
     int tA[8][4], tB[8][4];
     float tul[8][2];
     int levels;
+    float hd[8];                /* --hd-text: HDTEXT_K for a font glyph's unit (tile_texture) */
 } DrawState;
 
 /* what a draw state is built from: when this doesn't change, neither does it */
@@ -934,6 +1000,10 @@ static void apply_and_draw(const DrawState *d, int first, int count) {
             memcpy(p->u.tul, d->tul, d->ntex * sizeof d->tul[0]);
             glUniform2fv(p->u_tul, d->ntex, &d->tul[0][0]);
         }
+        if (p->key.hd && (!p->uv || p->u.ntex != d->ntex || memcmp(p->u.hd, d->hd, d->ntex * sizeof d->hd[0]))) {
+            memcpy(p->u.hd, d->hd, d->ntex * sizeof d->hd[0]);
+            glUniform1fv(p->u_hd, d->ntex, d->hd);
+        }
         p->u.ntex = d->ntex;
     }
     p->uv = 1;
@@ -1015,6 +1085,24 @@ static int build_state(int kind, int tile) {
     }
     if (key.cyc == 3 && kind != K_FILL)
         key.cyc = 0;
+    /* (the textures first: a font glyph's, --hd-text, needs its program) */
+    if (key.textured) {
+        int base = kind == K_TEXRECT ? tile : gs.tex_tile;
+        int n = key.lod ? gs.tex_levels + 2 : key.tex1 ? 2 : 1;
+        if (n > 8) n = 8;
+        d.ntex = n;
+        for (int i = 0; i < n; i++) {
+            int ti = (base + i) & 7, hd;
+            const GfxTile *t = &gs.tile[ti];
+            d.tex[i] = tile_texture(ti, &hd);
+            d.hd[i] = (float)hd;
+            key.hd |= hd != 0;
+            d.tA[i][0] = t->shifts; d.tA[i][1] = t->shiftt; d.tA[i][2] = t->masks; d.tA[i][3] = t->maskt;
+            d.tB[i][0] = t->cms; d.tB[i][1] = t->cmt;
+            d.tB[i][2] = (t->lrs - t->uls) >> 2; d.tB[i][3] = (t->lrt - t->ult) >> 2;
+            d.tul[i][0] = t->uls * 0.25f; d.tul[i][1] = t->ult * 0.25f;
+        }
+    }
     d.prog = get_prog(&key);
     d.target = cur_target;
     if (kind == K_TRI) {
@@ -1037,21 +1125,6 @@ static int build_state(int kind, int tile) {
     }
     d.primlod = gs.prim_lod / 255.0f;
     d.levels = gs.tex_levels;
-    if (key.textured) {
-        int base = kind == K_TEXRECT ? tile : gs.tex_tile;
-        int n = key.lod ? gs.tex_levels + 2 : key.tex1 ? 2 : 1;
-        if (n > 8) n = 8;
-        d.ntex = n;
-        for (int i = 0; i < n; i++) {
-            int ti = (base + i) & 7;
-            const GfxTile *t = &gs.tile[ti];
-            d.tex[i] = tile_texture(ti);
-            d.tA[i][0] = t->shifts; d.tA[i][1] = t->shiftt; d.tA[i][2] = t->masks; d.tA[i][3] = t->maskt;
-            d.tB[i][0] = t->cms; d.tB[i][1] = t->cmt;
-            d.tB[i][2] = (t->lrs - t->uls) >> 2; d.tB[i][3] = (t->lrt - t->ult) >> 2;
-            d.tul[i][0] = t->uls * 0.25f; d.tul[i][1] = t->ult * 0.25f;
-        }
-    }
     ds_cur = d;
     return 1;
 }

@@ -87,6 +87,11 @@ SCENARIOS = {
     "auto3.gl": ("3", 3000, ["--renderer", "gl", "--scale", "1"], {}, "auto3", "game"),
     "auto3.gl.interp": ("3", 3000, ["--renderer", "gl", "--scale", "1", "--interpolate", "--widescreen"],
                         {}, "auto3", "game"),
+    # --hd-text (docs/FONTS.md) draws the text from a font: render-side only
+    # (auto2 ends at a hint box, auto3 has the level's numbers)
+    "auto2.gl.hdtext": ("2", 2000, ["--renderer", "gl", "--scale", "2", "--hd-text"], {}, "auto2", "game"),
+    "auto3.gl.hdtext": ("3", 3000, ["--renderer", "gl", "--scale", "2", "--hd-text", "--interpolate"],
+                        {}, "auto3", "game"),
     # the attract mode's story and several of its demo levels (about 70s):
     # the coverage of a version the movie isn't
     "attract.long": ("0", 12000, [], {}, None, None),

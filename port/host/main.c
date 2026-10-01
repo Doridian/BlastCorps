@@ -30,6 +30,7 @@
 #include "port.h"
 #include "fiber.h"
 #include "host.h"
+#include "hdtext.h"
 
 /* the version this port is built from (CMake's PORT_VERSION) */
 #if defined(VERSION_US_V10)
@@ -542,6 +543,17 @@ extern void port_boot(void);
 extern void port_fixups(void);
 extern void port_arena_init(void);   /* runtime.c, PORT_MOVABLE */
 
+/* --hd-text's optional FONT: a name ending in a font's extension (so that
+   "--hd-text ROM" still takes ROM as the ROM) */
+static int hdtext_font_arg(const char *a) {
+    size_t n = strlen(a);
+    static const char *ext[] = { ".ttf", ".otf", ".TTF", ".OTF", ".ttc", ".TTC" };
+    for (unsigned k = 0; k < sizeof ext / sizeof ext[0]; k++)
+        if (n > 4 && !strcmp(a + n - 4, ext[k]))
+            return 1;
+    return 0;
+}
+
 static void usage(const char *argv0) {
     fprintf(stderr,
             "usage: %s [options] [ROM]\n"
@@ -564,6 +576,8 @@ static void usage(const char *argv0) {
             "  --aspect W:H         widescreen: show the 3D world W:H wide (e.g. 16:9; 4:3,\n"
             "                       the default, is the N64's), or 'window' to follow it\n"
             "  --widescreen         --aspect 16:9\n"
+            "  --hd-text [FONT]     gl: the game's text drawn from a font at the internal\n"
+            "                       resolution (built in: Stardos Stencil; FONT: a .ttf/.otf)\n"
             "  --display-hz N|auto  --interpolate for a display this fast (default 60; auto:\n"
             "                       the display's): more in-between images, shown between\n"
             "                       retraces by the host clock (not with --deterministic)\n"
@@ -622,6 +636,11 @@ int main(int argc, char **argv) {
                 usage(argv[0]);
         } else if (!strcmp(argv[i], "--widescreen"))
             gfx_aspect = 16.0f / 9;
+        else if (!strcmp(argv[i], "--hd-text")) {
+            hdtext_on = 1;
+            if (i + 1 < argc && argv[i + 1][0] != '-' && hdtext_font_arg(argv[i + 1]))
+                hdtext_font_path = argv[++i];
+        }
         else if (!strcmp(argv[i], "--aspect") && i + 1 < argc) {
             const char *a = argv[++i];
             double w, h;
@@ -648,6 +667,17 @@ int main(int argc, char **argv) {
         host_paced = *pe && *pe != '0';
     if (deterministic)
         host_paced = 0;
+    /* PORT_HD_TEXT=1 (or a font file), PORT_HD_TEXT_WEIGHT=W: --hd-text, the
+       glyphs' ink W times the game's (the page has no command line) */
+    const char *hd = getenv("PORT_HD_TEXT");
+    if (hd && *hd && strcmp(hd, "0")) {
+        hdtext_on = 1;
+        if (strcmp(hd, "1"))
+            hdtext_font_path = hd;
+    }
+    const char *hw = getenv("PORT_HD_TEXT_WEIGHT");
+    if (hw && atof(hw) > 0)
+        hdtext_weight = (float)atof(hw);
     const char *rs = getenv("PORT_RDP_SCALE");
     if (rs)
         rdp_scale = atof(rs);
@@ -686,6 +716,7 @@ int main(int argc, char **argv) {
     port_fixups();
 #endif
     host_video_init();
+    hdtext_init();
     if (deterministic && gfx_interp_hz > 60) {
         host_log("--display-hz: presents between retraces follow the host clock; not with --deterministic\n");
         gfx_interp_hz = 60;

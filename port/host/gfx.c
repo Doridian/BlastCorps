@@ -31,6 +31,7 @@
 #include "host.h"
 #include "fiber.h"
 #include "gfx.h"
+#include "hdtext.h"
 
 /* ---- state ------------------------------------------------------------------- */
 
@@ -668,6 +669,15 @@ static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
         tmem_put(a + i, odd, px + i, 0);
 }
 
+/* --hd-text: the RDRAM address each TMEM word was loaded from by a
+   LoadBlock (0: not one), for the OpenGL renderer to recognize the font's
+   glyphs by (hdtext.c) */
+uint32_t gfx_tmem_src[512];
+static void tmem_src_set(uint32_t dst, uint32_t src, uint32_t bytes) {
+    for (uint32_t i = 0; i < bytes; i += 8)
+        gfx_tmem_src[((dst + i) >> 3) & 511] = src ? src + i : 0;
+}
+
 NOINLINE static void load_block(uint32_t w0, uint32_t w1) {
     Tile *t = &gs.tile[(w1 >> 24) & 7];
     int uls = (w0 >> 12) & 0xFFF, ult = w0 & 0xFFF, lrs = (w1 >> 12) & 0xFFF, dxt = w1 & 0xFFF;
@@ -679,6 +689,8 @@ NOINLINE static void load_block(uint32_t w0, uint32_t w1) {
     if (bytes > 4096)
         bytes = 4096;
     PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
+    if (hdtext_on)
+        tmem_src_set(dst, src, bytes);
     /* the RDP counts rows by adding dxt for every 8-byte word */
     if (gs.timg_siz == 3) {
         for (uint32_t i = 0; i < bytes; i += 4)
@@ -698,6 +710,8 @@ NOINLINE static void load_tile(uint32_t w0, uint32_t w1) {
     int bpt2 = bytes_per_texel_x2(gs.timg_siz);
     t->uls = uls << 2; t->ult = ult << 2; t->lrs = lrs << 2; t->lrt = lrt << 2;
     uint32_t rowbytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
+    if (hdtext_on)
+        tmem_src_set(t->tmem * 8, 0, (uint32_t)(lrt - ult + 1) * t->line * 8);
     for (int y = ult; y <= lrt; y++) {
         const uint8_t *p = port_ptr(gs.timg_addr + ((uint32_t)y * gs.timg_w + uls) * bpt2 / 2);
         int odd = (y - ult) & 1;
@@ -720,6 +734,8 @@ NOINLINE static void load_tlut(uint32_t w0, uint32_t w1) {
     const uint8_t *p = port_ptr(gs.timg_addr + (uint32_t)uls * 2);
     uint32_t dst = t->tmem * 8;
     PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
+    if (hdtext_on)
+        tmem_src_set(dst, 0, 2 * (uint32_t)(lrs - uls + 1));
     for (int i = 0; i <= lrs - uls && dst + 2 * i + 1 < 4096; i++) {
         gfx_tmem[dst + 2 * i] = p[2 * i];
         gfx_tmem[dst + 2 * i + 1] = p[2 * i + 1];

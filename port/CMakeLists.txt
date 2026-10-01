@@ -460,7 +460,13 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 pkg_check_modules(EPOXY epoxy)
 endif()
 file(GLOB HOST_C ${CMAKE_CURRENT_SOURCE_DIR}/host/*.c)
-add_library(host OBJECT ${HOST_C})
+# --hd-text's built-in font (host/hdtext.c; SIL OFL 1.1, port/fonts/OFL.txt)
+set(HDTEXT_FONT ${CMAKE_CURRENT_SOURCE_DIR}/fonts/StardosStencil-Bold.ttf)
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c
+    COMMAND ${CMAKE_COMMAND} -DIN=${HDTEXT_FONT} -DOUT=${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c
+            -DNAME=hdtext_builtin_ttf -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake
+    DEPENDS ${HDTEXT_FONT} ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake)
+add_library(host OBJECT ${HOST_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
 # the game's threads' context switch (host/fiber.h): ucontext on the one OS
 # thread, or a host thread each, one running at a time.  ucontext is the
 # cheaper switch; macOS has deprecated it and WebAssembly has none.  Where

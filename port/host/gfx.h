@@ -56,6 +56,8 @@ typedef struct {
 
 extern GfxState gs;
 extern uint8_t gfx_tmem[4096];
+/* --hd-text: each TMEM word's RDRAM source, by the LoadBlock that wrote it (0: none) */
+extern uint32_t gfx_tmem_src[512];
 
 /* a vertex after clipping: screen position (pixels, z 0..1), clip w, and
    the attributes (texels, 0..255), not divided by w */
