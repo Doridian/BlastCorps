@@ -593,9 +593,15 @@ static void usage(const char *argv0) {
             "  --filter F           textures: n64 (3-point, default), bilinear or point\n"
             "  --interpolate        gl: 60 frames a second where the game draws 30, by\n"
             "                       showing a frame between each two (the game is unchanged)\n"
-            "  --aspect W:H         widescreen: show the 3D world W:H wide (e.g. 16:9; 4:3,\n"
-            "                       the default, is the N64's), or 'window' to follow it\n"
+            "  --aspect A           the picture's shape: W:H (e.g. 16:9, 21:9; 4:3 is the\n"
+            "                       N64's) or 'window', the window's as it is resized (the\n"
+            "                       default with a window; 4:3 headless, --deterministic\n"
+            "                       and --replay); wider than 4:3 shows more of the 3D world\n"
             "  --widescreen         --aspect 16:9\n"
+            "  --hud edges|centre   wider than 4:3: the HUD at the picture's sides (default)\n"
+            "                       or where the game puts it, in the 4:3 middle\n"
+            "  --max-pixels N       gl: lower the internal resolution until a picture has\n"
+            "                       at most N pixels (the page passes 1300000)\n"
             "  --hd-text [FONT]     gl: the game's text drawn from a font at the internal\n"
             "                       resolution (built in: Stardos Stencil; FONT: a .ttf/.otf)\n"
             "  --display-hz N|auto  --interpolate for a display this fast (default 60; auto:\n"
@@ -615,6 +621,7 @@ static void usage(const char *argv0) {
 
 int main(int argc, char **argv) {
     const char *rom_path = ROM_DEFAULT;
+    int aspect_set = 0;
     main_argv = argv;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v"))
@@ -654,8 +661,15 @@ int main(int argc, char **argv) {
             gfx_interp_hz = !strcmp(argv[i], "auto") ? -1 : atoi(argv[i]);
             if (gfx_interp_hz == 0 || gfx_interp_hz > 1000)
                 usage(argv[0]);
-        } else if (!strcmp(argv[i], "--widescreen"))
+        } else if (!strcmp(argv[i], "--widescreen")) {
             gfx_aspect = 16.0f / 9;
+            aspect_set = 1;
+        } else if (!strcmp(argv[i], "--hud") && i + 1 < argc) {
+            i++;
+            gfx_hud_edges = !strcmp(argv[i], "edges") ? 1
+                          : !strcmp(argv[i], "centre") || !strcmp(argv[i], "center") ? 0 : (usage(argv[0]), 0);
+        } else if (!strcmp(argv[i], "--max-pixels") && i + 1 < argc)
+            gfx_gl_max_pixels = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--hd-text")) {
             hdtext_on = 1;
             if (i + 1 < argc && argv[i + 1][0] != '-' && hdtext_font_arg(argv[i + 1]))
@@ -664,6 +678,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--aspect") && i + 1 < argc) {
             const char *a = argv[++i];
             double w, h;
+            aspect_set = 1;
             if (!strcmp(a, "window"))
                 gfx_aspect = GFX_ASPECT_WINDOW;
             else if (sscanf(a, "%lf:%lf", &w, &h) == 2 && w > 0 && h > 0)
@@ -679,6 +694,10 @@ int main(int argc, char **argv) {
     }
     if (deterministic || host_headless)
         host_audio_enabled = 0;
+    /* a window's picture follows its shape, unless asked otherwise; runs
+       that are compared (headless, deterministic, replays) stay 4:3 */
+    if (!aspect_set && !deterministic && !host_headless)
+        gfx_aspect = GFX_ASPECT_WINDOW;
 #ifdef PORT_WASM_WEB
     host_paced = 1;
 #endif

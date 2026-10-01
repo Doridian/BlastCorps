@@ -89,6 +89,9 @@ SCENARIOS = {
     "auto3.gl": ("3", 3000, ["--renderer", "gl", "--scale", "1"], {}, "auto3", "game"),
     "auto3.gl.interp": ("3", 3000, ["--renderer", "gl", "--scale", "1", "--interpolate", "--widescreen"],
                         {}, "auto3", "game"),
+    # the HUD at the sides (the default when wider than 4:3) and in the middle
+    "auto3.gl.hud": ("3", 3000, ["--renderer", "gl", "--scale", "1", "--aspect", "32:9"], {}, "auto3", "game"),
+    "auto3.hud.centre": ("3", 3000, ["--aspect", "21:9", "--hud", "centre"], {}, "auto3", "game"),
     # --hd-text (docs/FONTS.md) draws the text from a font: render-side only
     # (auto2 ends at a hint box, auto3 has the level's numbers)
     "auto2.gl.hdtext": ("2", 2000, ["--renderer", "gl", "--scale", "2", "--hd-text"], {}, "auto2", "game"),

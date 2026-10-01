@@ -119,7 +119,11 @@ cd build/wasm-web && python3 -m http.server 8000   # then open http://localhost:
 ```
 
 The page asks for your ROM once and keeps it, and the save, in the
-browser's IndexedDB; `?args=--widescreen` and the like pass options.
+browser's IndexedDB; `?args=--aspect%204:3` and the like pass options.
+The picture fills the page and takes its shape as it is resized (and the
+screen's, with the Full screen button), from 4:3 up to 32:9, with the
+HUD at its sides; a page narrower than 4:3 (a phone held upright) gets
+the 4:3 picture with bars above and below.
 It keeps to the display's frames, draws at most about 1.3 million pixels
 (`?args=--scale%203` picks for itself), and when the GPU can't keep up
 it draws smaller, when the CPU can't it drops `--interpolate`'s
@@ -180,11 +184,12 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | option                       | what                                                      |
 | ---                          | ---                                                       |
 | `--renderer gl` / `sw`       | OpenGL (the default with a window) or the software renderer |
-| `--scale N`                  | OpenGL: render at 320x240 times N (default: the window's size) |
+| `--scale N`                  | OpenGL: render at 320x240 times N (default: the window's size; `--max-pixels N` caps that) |
 | `--filter n64` / `bilinear` / `point` | texture filtering (default: the N64's 3-point filter) |
 | `--interpolate`              | gameplay at 60 frames a second (either renderer), with in-between images drawn between the game's frames: 3D, texture and fill rectangles (docs/PORT.md, "Frame rate") |
 | `--display-hz N` / `auto`    | with `--interpolate`: make in-between images for an N Hz display (e.g. 120, 144; `auto`: the display's) and show them between retraces (not with `--deterministic`) |
-| `--widescreen`, `--aspect W:H` / `window` | show the 3D world 16:9, W:H (up to 32:9) or as wide as the window (default: the N64's 4:3); the 2D stays 4:3 in the middle |
+| `--aspect window` / `W:H`, `--widescreen` | the picture's shape: the window's, followed as it is resized (the default with a window), or a fixed W:H (`4:3`, the N64's, is the default headless and with `--deterministic` or `--replay`; `--widescreen` is `16:9`).  Wider than 4:3 (up to 32:9) shows more of the 3D world; narrower gets bars above and below |
+| `--hud edges` / `centre`     | wider than 4:3: the levels' HUD (radar, money, counters, timer, TV) at the picture's sides (the default), or where the game puts it, in the 4:3 middle; menus, panels and full-screen pictures stay centred either way |
 | `--hd-text [FONT]`           | OpenGL: the game's text drawn from a font at the internal resolution (built in: Stardos Stencil, SIL OFL; docs/FONTS.md) |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |

@@ -43,6 +43,7 @@ uint8_t gfx_tmem[4096];
 int gfx_filter;
 float gfx_aspect;
 int gfx_wide_off;
+int gfx_hud_edges = 1;
 
 /* the aspect to render at: gfx_aspect, or the window's, from 4:3 (the
    game's own) up to 32:9 */
@@ -74,12 +75,21 @@ void gfx_gl_texture_source(uint32_t addr) { (void)addr; }
 void gfx_gl_interp(int k) { (void)k; }
 unsigned gfx_gl_interp_swap(uint32_t fb) { (void)fb; return 0; }
 int gfx_gl_scale;
+int gfx_gl_max_pixels;
 unsigned gfx_gl_window_flags(void) { return 0; }
 int gfx_gl_init(struct SDL_Window *win) { (void)win; return 0; }
 void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
     (void)vi_fb; (void)vi_width; (void)shot; (void)twin;
 }
 #endif
+
+/* --hud edges (below, "the HUD at the sides"): what the RSP side records for it */
+static int hud_task;                    /* this task's HUD goes to the wide frame's sides */
+static uint32_t hud_proj;               /* the projection's address (the last G_MTX of one) */
+static uint32_t hud_vsrc[16];           /* each vertex's RDRAM address */
+static float hud_vx0[16], hud_vx1[16];  /* the screen extent of the load it came in */
+static int hud_proj_kind(void);
+static void hud_load(int v0, int n);
 
 static float zbuf[640 * 480];
 static float *zb = zbuf;        /* the z-buffer drawn with: zbuf, or an in-between pass's */
@@ -330,6 +340,7 @@ NOINLINE static void do_mtx(uint32_t w0, uint32_t w1) {
     float m[4][4];
     load_mtx(m, seg_to_k0(w1));
     if (p & 1) {                        /* projection */
+        hud_proj = seg_to_k0(w1);
         if (p & 2)
             memcpy(gs.proj, m, sizeof m);
         else
@@ -609,6 +620,11 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
             iblend(v0, m);
         else
             irecord(w1, v0, m);
+    }
+    if (hud_task) {
+        for (int i = 0; i < n && v0 + i < 16; i++)
+            hud_vsrc[v0 + i] = seg_to_k0(w1) + 16 * i;
+        hud_load(v0, n < 16 - v0 ? n : 16 - v0);
     }
 }
 
@@ -1302,6 +1318,274 @@ static void wide_2d(GfxVtx *s, int n) {
     }
 }
 
+/* ---- the HUD at the sides (--hud edges; docs/PORT.md, "Widescreen") -------------------
+ *
+ * In a wide frame the game's HUD would stay where it puts it, in the 4:3
+ * middle, ever further from the edges as the frame widens.  With --hud
+ * edges (the default) the elements of the levels' HUD move by off columns
+ * towards the side they are on, so that they keep their distance from the
+ * picture's edges: the radar and its arrow, the counters, the timer, the
+ * money, the TV, the bonus amounts.  The rest stays as the game has it.
+ *
+ * What is HUD is told from what the game draws, not from where:
+ *
+ * - The mode (D_80364A90): a level being played, its intro (the traffic
+ *   lights) and its end (LEVEL COMPLETE, MISSION COMPLETE) (HUD_MODES).
+ *   The pause screen (0x100), the map, the front end, the results and the
+ *   stories are never moved.
+ * - The projection: the gameplay frame's 2D one (its buffer's mtx[3], at
+ *   segment 2 + 0xC0), and its mtx[2] perspective, which only the radar's
+ *   arrow uses.  The hint panels and the level's goal ("DESTROY BUILDINGS
+ *   IN ...") are drawn by the panel code (26570.c) through mtx[73]: they
+ *   stay centred.
+ * - The vertices: the frame's own (segment 2: the green markers around
+ *   targets, which are placed in the world) stay put; text (drawtext.c's
+ *   vertex buffers, D_80365348) goes by its string; models (the radar,
+ *   the TV, the icons) by the extent of the vertex load they come in.
+ * - Texture rectangles go by the group of touching ones they belong to,
+ *   found by a pass over the display list before it runs (the traffic
+ *   lights' strip over the top is eight of them, and stays centred).
+ *
+ * An element then moves by -off if its middle is left of 112, +off right
+ * of 208, and in between by the same ramp (a centred one doesn't move, and
+ * one that slides across, LEVEL COMPLETE, doesn't jump).  None of it
+ * reaches the game: the geometry is moved after the RDP's time was
+ * charged from it, and RDRAM is untouched. */
+#define HUD_MODES 0x000000100400220Cull     /* the levels' modes with the HUD */
+#define HUD_RAMP 48.0f
+
+extern char D_80364A90[], D_80365348[], D_80365350[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_80364A90 PORT_VAR(D_80364A90)
+#define D_80365348 PORT_VAR(D_80365348)
+#define D_80365350 PORT_VAR(D_80365350)
+#endif
+
+enum { HUD_NO, HUD_FLAT, HUD_PERSP };
+static uint32_t hud_txt[2], hud_txt_n;          /* drawtext.c's vertex buffers, characters each */
+static uint32_t hud_stamp;                      /* per task, for the memo below */
+static struct { uint32_t stamp; float x0, x1; } hud_str[2][0x200];
+#define HUD_RECTS 256
+static struct { float x0, x1, y0, y1, gx0, gx1; int up; } hud_rect[HUD_RECTS];
+static int hud_nrects, hud_rect_i;
+
+static uint32_t hud_base(void) { return 0x80000000u | gs.seg[2]; }
+
+static int hud_proj_kind(void) {
+    uint32_t o = hud_proj - hud_base();
+    return o == 0xC0 ? HUD_FLAT : o == 0x80 ? HUD_PERSP : HUD_NO;
+}
+
+/* how far an element from x0 to x1 moves */
+static float hud_dx(float x0, float x1) {
+    float c = (x0 + x1) * 0.5f, off = (float)gfx_wide_off;
+    if (c <= 160 - HUD_RAMP)
+        return -off;
+    if (c >= 160 + HUD_RAMP)
+        return off;
+    return off * (c - 160) / HUD_RAMP;
+}
+
+static float hud_screen_x(float x, float y, float z) {
+    float cx = x * gs.mvp[0][0] + y * gs.mvp[1][0] + z * gs.mvp[2][0] + gs.mvp[3][0];
+    float cw = x * gs.mvp[0][3] + y * gs.mvp[1][3] + z * gs.mvp[2][3] + gs.mvp[3][3];
+    return gs.vp_trans[0] + (cw > 1e-6f ? cx / cw : cx) * gs.vp_scale[0];
+}
+
+/* a vertex load under a HUD projection: its screen extent, for each vertex */
+static void hud_load(int v0, int n) {
+    if (hud_proj_kind() == HUD_NO || n <= 0)
+        return;
+    float x0 = 1e9f, x1 = -1e9f;
+    for (int i = 0; i < n; i++) {
+        const Vtx4 *v = &gs.v[v0 + i];
+        if (v->w <= 1e-6f)
+            continue;
+        float x = gs.vp_trans[0] + v->x / v->w * gs.vp_scale[0];
+        x0 = x < x0 ? x : x0;
+        x1 = x > x1 ? x : x1;
+    }
+    for (int i = 0; i < n; i++) {
+        hud_vx0[v0 + i] = x0;
+        hud_vx1[v0 + i] = x1;
+    }
+}
+
+/* drawtext.c's character k of buffer base: its quad's corner, width and height */
+static void hud_char(uint32_t base, int k, int *x, int *y, int *w, int *h) {
+    const uint8_t *p = port_ptr(base + 64 * (uint32_t)k);
+    *x = (int16_t)port_g16(p);
+    *y = (int16_t)port_g16(p + 2);
+    *w = (int16_t)port_g16(p + 16) - *x;
+    *h = (int16_t)port_g16(p + 32 + 2) - *y;
+}
+
+/* j and k are neighbours in one string: on one line, the same size, an
+   advance or two apart (a space draws nothing; a right-aligned string is
+   laid out backwards) */
+static int hud_same_string(uint32_t base, int j, int k) {
+    int xj, yj, wj, hj, xk, yk, wk, hk;
+    hud_char(base, j, &xj, &yj, &wj, &hj);
+    hud_char(base, k, &xk, &yk, &wk, &hk);
+    int d = xj > xk ? xj - xk : xk - xj;
+    return yj == yk && hj == hk && wj == wk && d > 0 && d <= 2 * (wj < 0 ? -wj : wj);
+}
+
+/* the screen extent of the string the character at address a is in; 0 if
+   a isn't drawtext.c's */
+static int hud_text(uint32_t a, float *x0, float *x1) {
+    int b = a - hud_txt[0] < hud_txt_n * 64 ? 0 : a - hud_txt[1] < hud_txt_n * 64 ? 1 : -1;
+    if (b < 0)
+        return 0;
+    int k = (int)((a - hud_txt[b]) / 64);
+    if (k >= 0x200)
+        return 0;
+    if (hud_str[b][k].stamp != hud_stamp) {
+        uint32_t base = hud_txt[b];
+        int lo = k, hi = k;
+        while (lo > 0 && hud_same_string(base, lo - 1, lo))
+            lo--;
+        while (hi + 1 < (int)hud_txt_n && hi + 1 < 0x200 && hud_same_string(base, hi, hi + 1))
+            hi++;
+        float m0 = 1e9f, m1 = -1e9f;
+        int x, y = 0, w, h;
+        for (int i = lo; i <= hi; i++) {
+            hud_char(base, i, &x, &y, &w, &h);
+            m0 = x < m0 ? x : m0;
+            m0 = x + w < m0 ? x + w : m0;
+            m1 = x > m1 ? x : m1;
+            m1 = x + w > m1 ? x + w : m1;
+        }
+        float s0 = hud_screen_x(m0, (float)y, -10), s1 = hud_screen_x(m1, (float)y, -10);
+        for (int i = lo; i <= hi; i++) {
+            hud_str[b][i].stamp = hud_stamp;
+            hud_str[b][i].x0 = s0 < s1 ? s0 : s1;
+            hud_str[b][i].x1 = s0 < s1 ? s1 : s0;
+        }
+    }
+    *x0 = hud_str[b][k].x0;
+    *x1 = hud_str[b][k].x1;
+    return 1;
+}
+
+/* a triangle of vertices i0, i1, i2: how far it moves */
+static float hud_tri_dx(int i0, int i1, int i2) {
+    if (hud_proj_kind() == HUD_NO)
+        return 0;
+    uint32_t a = hud_vsrc[i0 & 15];
+    if (a - hud_base() < 0x21498)           /* the frame's own: placed in the world */
+        return 0;
+    float x0, x1;
+    if (!hud_text(a, &x0, &x1)) {
+        int v[3] = { i0 & 15, i1 & 15, i2 & 15 };
+        x0 = 1e9f;
+        x1 = -1e9f;
+        for (int i = 0; i < 3; i++) {
+            x0 = hud_vx0[v[i]] < x0 ? hud_vx0[v[i]] : x0;
+            x1 = hud_vx1[v[i]] > x1 ? hud_vx1[v[i]] : x1;
+        }
+        if (x1 < x0)
+            return 0;
+    }
+    return hud_dx(x0, x1);
+}
+
+static int hud_find(int i) {
+    while (hud_rect[i].up != i)
+        i = hud_rect[i].up = hud_rect[hud_rect[i].up].up;
+    return i;
+}
+
+/* the pass before the display list runs: its texture rectangles under the
+   2D projection, in order, as groups of touching ones (the segments and
+   the projection followed as run() follows them) */
+static void hud_scan(uint32_t dl, int depth, uint32_t *proj) {
+    for (int n = 0; n < 1000000; n++, dl += 8) {
+        const uint8_t *p = port_ptr(dl);
+        uint32_t w0 = port_g32(p), w1 = port_g32(p + 4);
+        switch (w0 >> 24) {
+        case 0x01:                                              /* G_MTX */
+            if ((w0 >> 16) & 1)
+                *proj = seg_to_k0(w1);
+            break;
+        case 0x06:                                              /* G_DL */
+            if (depth < 16) {
+                hud_scan(seg_to_k0(w1), depth + 1, proj);
+                if ((w0 >> 16) & 1)
+                    return;
+            }
+            break;
+        case 0xB8:                                              /* G_ENDDL */
+            return;
+        case 0xBC:                                              /* G_MOVEWORD: a segment */
+            if ((w0 & 0xFF) == 0x06)
+                gs.seg[(((w0 >> 8) & 0xFFFF) / 4) & 15] = w1 & 0x1FFFFFFFu;
+            break;
+        case 0xE4: case 0xE5:                                   /* texture rectangle */
+            if (*proj - hud_base() == 0xC0 && hud_nrects < HUD_RECTS) {
+                int k = hud_nrects++;
+                hud_rect[k].x0 = ((w1 >> 12) & 0xFFF) / 4.0f;
+                hud_rect[k].y0 = (w1 & 0xFFF) / 4.0f;
+                hud_rect[k].x1 = ((w0 >> 12) & 0xFFF) / 4.0f + 1;
+                hud_rect[k].y1 = (w0 & 0xFFF) / 4.0f + 1;
+                hud_rect[k].up = k;
+            }
+            dl += 16;
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+static void hud_begin(uint32_t dl, int rdp) {
+    uint64_t mode = (uint64_t)port_g32(D_80364A90) << 32 | port_g32(D_80364A90 + 4);
+    hud_task = rdp && gfx_hud_edges && gfx_wide_off > 0 && (mode & HUD_MODES) && !(mode & (mode - 1));
+    if (!hud_task)
+        return;
+    hud_stamp++;
+    hud_txt[0] = port_g32(D_80365348);
+    hud_txt[1] = port_g32(D_80365348 + 4);
+    hud_txt_n = port_g32(D_80365350);
+    if (hud_txt_n > 0x200)
+        hud_txt_n = 0x200;
+    hud_proj = 0;
+    hud_nrects = 0;
+    uint32_t seg[16], proj = 0;
+    memcpy(seg, gs.seg, sizeof seg);
+    hud_scan(dl, 0, &proj);
+    memcpy(gs.seg, seg, sizeof seg);
+    /* touching (to within a pixel) is one group */
+    for (int i = 0; i < hud_nrects; i++)
+        for (int j = 0; j < i; j++)
+            if (hud_rect[i].x0 <= hud_rect[j].x1 + 1 && hud_rect[j].x0 <= hud_rect[i].x1 + 1 &&
+                hud_rect[i].y0 <= hud_rect[j].y1 + 1 && hud_rect[j].y0 <= hud_rect[i].y1 + 1)
+                hud_rect[hud_find(i)].up = hud_find(j);
+    float gx0[HUD_RECTS], gx1[HUD_RECTS];
+    for (int i = 0; i < hud_nrects; i++) {
+        gx0[i] = 1e9f;
+        gx1[i] = -1e9f;
+    }
+    for (int i = 0; i < hud_nrects; i++) {
+        int r = hud_find(i);
+        gx0[r] = hud_rect[i].x0 < gx0[r] ? hud_rect[i].x0 : gx0[r];
+        gx1[r] = hud_rect[i].x1 > gx1[r] ? hud_rect[i].x1 : gx1[r];
+    }
+    for (int i = 0; i < hud_nrects; i++) {      /* each rectangle: its group's extent */
+        int r = hud_find(i);
+        hud_rect[i].gx0 = gx0[r];
+        hud_rect[i].gx1 = gx1[r];
+    }
+}
+
+/* a texture rectangle (in run()'s order): how far it moves */
+static float hud_rect_dx(void) {
+    if (hud_proj - hud_base() != 0xC0)
+        return 0;
+    int k = hud_rect_i++;
+    return k < hud_nrects ? hud_dx(hud_rect[k].gx0, hud_rect[k].gx1) : 0;
+}
+
 /* A task whose microcode writes the RDP's commands to memory instead of
    handing them to the RDP (ultra.c, host_gfx_task's rdp): nothing is drawn.
    Nor are the commands written: the RSP the TAS was made with (mupen64plus's
@@ -1356,6 +1640,11 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
     }
     charge_poly(s, n);
     int gl = gl_target();
+    if (hud_task && (gl || cur_wfb)) {
+        float dx = hud_tri_dx(i0, i1, i2);
+        for (int i = 0; dx != 0 && i < n; i++)
+            s[i].x += dx;
+    }
     if (gfx_wide_off && (gl || cur_wfb))
         wide_2d(s, n);
     if (gl) {
@@ -1506,6 +1795,7 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
     int tile = (w1 >> 24) & 7;
     float s0 = (int16_t)(h2 >> 16) / 32.0f, t0 = (int16_t)(h2 & 0xFFFF) / 32.0f;
     float dsdx = (int16_t)(hc >> 16) / 1024.0f, dtdy = (int16_t)(hc & 0xFFFF) / 1024.0f;
+    float hdx = hud_task ? hud_rect_dx() : 0;  /* (every rectangle counts, as hud_scan's) */
     int cyc = gfx_cycle_type();
     if (cyc == 2) {                     /* copy mode: 4 texels per step, inclusive */
         dsdx /= 4;
@@ -1529,7 +1819,24 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
         return;
     st_cover += (double)(x1 - x0) * (y1 - y0) * (cyc == 2 ? 0.25 : 1);
     int gl = gl_target();
-    if (gfx_wide_off && (gl || cur_wfb)) {
+    if (hdx != 0 && (gl || cur_wfb)) {
+        /* the HUD at the sides: moved, and clipped by the wide frame's
+           scissor (a full-width one covers it) */
+        int sx0, sx1;
+        gfx_wide_span(gs.sc_x0, gs.sc_x1, &sx0, &sx1);
+        ulx += hdx;
+        lrx += hdx;
+        x0 = (int)floorf(ulx);
+        x1 = (int)floorf(lrx);
+        y0 = (int)uly;
+        y1 = (int)lry;
+        if (x0 < sx0) x0 = sx0;
+        if (y0 < gs.sc_y0) y0 = gs.sc_y0;
+        if (x1 > sx1) x1 = sx1;
+        if (y1 > gs.sc_y1) y1 = gs.sc_y1;
+        if (x1 <= x0 || y1 <= y0)
+            return;
+    } else if (gfx_wide_off && (gl || cur_wfb)) {
         /* widescreen: a rectangle at an edge of the game's frame (the tiles
            of a full-screen picture) blacks out the side beyond it, so a
            2D screen is pillarboxed rather than framed by stale pixels */
@@ -1817,6 +2124,8 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     if (gfx_gl_enabled)
         gfx_gl_task_begin();
     double cover = st_cover;
+    hud_begin(dl, rdp);
+    hud_rect_i = 0;
     run(dl, 0);
     if (gfx_gl_enabled)
         gfx_gl_task_end();
@@ -1838,6 +2147,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
             ik = k;
             interp_t = (float)(k + 1) / (frame_k + 1);
             tk_i = 0;
+            hud_rect_i = 0;
             sw_target();
             if (gfx_gl_enabled) {
                 gfx_gl_interp(k);
@@ -1860,6 +2170,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         st_tris = st[0]; st_raster = st[1]; st_tested = st[2]; st_drawn = st[3];
     }
     itrack = 0;
+    hud_task = 0;
     gfx_host_ms += now_ms() - t0;
     /* --deterministic: the RDP's time, roughly (a pixel per 2 cycles), from
        the geometry, so that both renderers see the same timeline */

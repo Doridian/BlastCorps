@@ -310,6 +310,23 @@ static Target *get_target(uint32_t addr) {
     return t;
 }
 
+int gfx_gl_max_pixels;
+
+/* the scale for a dw x dh drawable at aspect: --scale's, or the lines the
+   picture has there (the nearest multiple of 240: the window's height, or
+   less in a window narrower than the picture, which is letterboxed),
+   lowered until a picture has at most --max-pixels */
+static int want_scale(int dw, int dh, float aspect) {
+    long cols = TW + 2 * gfx_wide_off_for(aspect);
+    int lines = dh;
+    if ((long)dw * TH < (long)dh * cols)            /* narrower: as wide as the window */
+        lines = (int)((long)dw * TH / cols);
+    int s = gfx_gl_scale ? gfx_gl_scale : (lines + TH / 2) / TH;
+    while (s > 1 && gfx_gl_max_pixels > 0 && cols * s * TH * s > gfx_gl_max_pixels)
+        s--;
+    return s < 1 ? 1 : s;
+}
+
 /* the internal resolution: 240 * s lines, and aspect (gfx_aspect_of) wide */
 static void set_geometry(int s, float aspect) {
     if (s < 1) s = 1;
@@ -1327,7 +1344,13 @@ unsigned gfx_gl_window_flags(void) {
 #endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+#ifdef __EMSCRIPTEN__
+    /* the canvas in the display's pixels (the page sizes it by CSS), so
+       that the scale follows those */
+    return SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
+#else
     return SDL_WINDOW_OPENGL;
+#endif
 }
 
 int gfx_gl_init(SDL_Window *w) {
@@ -1364,7 +1387,7 @@ int gfx_gl_init(SDL_Window *w) {
     GLC_DIRTY();
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
-    set_geometry(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH, gfx_aspect_of(dw, dh));
+    set_geometry(want_scale(dw, dh, gfx_aspect_of(dw, dh)), gfx_aspect_of(dw, dh));
     glGenFramebuffers(1, &view.fbo);
     glGenTextures(1, &view.tex);
     target_storage(&view);
@@ -1451,7 +1474,7 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
     GLC_DIRTY();
     int dw, dh;
     SDL_GL_GetDrawableSize(win, &dw, &dh);
-    set_geometry(adapt_scale(gfx_gl_scale ? gfx_gl_scale : (dh + TH / 2) / TH), gfx_aspect_of(dw, dh));
+    set_geometry(adapt_scale(want_scale(dw, dh, gfx_aspect_of(dw, dh))), gfx_aspect_of(dw, dh));
     /* the game's shader programs, a few a retrace (at most 4 ms of them,
        at least one) until all are there: compiling one when it is first
        drawn with stalls that frame, by tens of milliseconds in a browser

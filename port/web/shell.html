@@ -15,9 +15,12 @@
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
                font: 14px/1.4 system-ui, sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; }
-  #stage { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
-  /* (sized by fit() below, as wide as the game draws) */
-  canvas { background: #000; outline: none; }
+  #stage { flex: 1; width: 100%; min-height: 0; position: relative; background: #000; }
+  /* the canvas fills the stage: SDL makes its pixels the stage's (in the
+     display's pixels), and the picture takes the stage's shape (the port's
+     --aspect window), letterboxed where that is narrower than 4:3 */
+  canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block;
+           background: #000; outline: none; }
   #panel { padding: 0.6em 16px; text-align: center; }
   #panel label { margin: 0 0.6em; white-space: nowrap; }
   button, .file { background: var(--accent); color: #111; border: 0; border-radius: 4px;
@@ -33,11 +36,11 @@
   <div id="start">
     <label class="file">Choose ROM (.z64/.v64/.n64)<input type="file" id="rom" accept=".z64,.v64,.n64,.rom,.bin"></label>
     <button id="play" hidden>Play</button>
-    <label><input type="checkbox" id="widescreen"> widescreen</label>
     <label><input type="checkbox" id="interp"> 60 fps (--interpolate)</label>
     <label><input type="checkbox" id="hdtext"> high-res text (--hd-text)</label>
   </div>
   <div id="status">Loading...</div>
+  <button id="full" hidden>Full screen</button>
   <div id="keys">Arrows/WASD stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C buttons, TFGH = D-pad; a gamepad works too.</div>
 </div>
 <script>
@@ -99,35 +102,31 @@
     started = true;
     document.getElementById('start').hidden = true;
     var args = ['--save', SAVE];
-    if (document.getElementById('widescreen').checked) {
-      args.push('--widescreen');
-    }
     if (document.getElementById('interp').checked) args.push('--interpolate');
     if (document.getElementById('hdtext').checked) args.push('--hd-text');
     /* more from the address: ?args=--aspect%20window&env=PORT_AUTOSTART=1 */
     var q = new URLSearchParams(location.search);
     if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));
-    /* a window (and so a picture) as many times 320x240 as the page has
-       room for (the canvas keeps the size SDL gives it), but not more than
-       about 1.3 million pixels (each drawn twice with --interpolate): a
-       high-DPI laptop's integrated GPU otherwise draws 4 million, and the
-       browser scales the picture up as well as the GPU would.  The port
-       lowers it further if the GPU can't keep up (PORT_ADAPT). */
-    if (args.indexOf('--scale') < 0) {
-      var cols = args.indexOf('--aspect') >= 0 ? 568 : args.indexOf('--widescreen') >= 0 ? 426 : 320;
-      var s = Math.max(2, Math.min(6, Math.round(room() * (devicePixelRatio || 1) / 240)));
-      s = Math.max(1, Math.min(s, Math.floor(Math.sqrt(1.3e6 / (cols * 240)))));
-      args.push('--scale', String(s));
-    }
+    /* the picture follows the page's shape (the port's default with a
+       window, --aspect window); its internal resolution is as many times
+       240 lines as the canvas has display pixels, but not more than about
+       1.3 million pixels (each drawn twice with --interpolate): a high-DPI
+       laptop's integrated GPU otherwise draws 4 million, and the browser
+       scales the picture up as well as the GPU would.  The port lowers it
+       further if the GPU can't keep up (PORT_ADAPT). */
+    if (args.indexOf('--scale') < 0 && args.indexOf('--max-pixels') < 0)
+      args.push('--max-pixels', '1300000');
     /* --display-hz auto: the display's rate, as the animation frames have it
        (measured before starting: SDL can't tell in a browser) */
     var dh = args.indexOf('--display-hz');
     if (dh >= 0 && args[dh + 1] === 'auto' && displayHz) args[dh + 1] = String(displayHz);
     args.push(ROM);
     status('Running. Click the picture for the keyboard.');
+    /* (the panel as it stays, before SDL reads the canvas's size) */
+    document.getElementById('full').hidden = !document.fullscreenEnabled;
     Module.canvas.focus();
     Module.callMain(args);
-    fit();
+    dispatchEvent(new Event('resize'));
   }
   document.getElementById('play').onclick = start;
   /* the display's rate: the median of 60 animation frames' spacing */
@@ -160,18 +159,20 @@
     if (ac && ac.state !== 'running' && ac.state !== 'closed') ac.resume();
   }
   ['keydown', 'pointerdown', 'touchstart'].forEach(function (e) { addEventListener(e, resumeAudio, true); });
-  /* the picture as big as the page has room for, in the shape of the window
-     SDL made (its size is --scale's, start() above) */
-  function room() { return innerHeight - document.getElementById('panel').offsetHeight - 8; }
-  function fit() {
-    if (!started) return;     /* (before, SDL would take the size for its window's) */
-    var c = Module.canvas, ar = c.width && c.height ? c.width / c.height : 4 / 3;
-    var w = Math.floor(Math.min(innerWidth, room() * ar));
-    c.style.setProperty('width', w + 'px', 'important');
-    c.style.setProperty('height', Math.floor(w / ar) + 'px', 'important');
-  }
-  addEventListener('resize', fit);
-  setInterval(fit, 500);
+  /* SDL takes the canvas's size from its CSS size on the window's resize
+     events only: the stage also changes when the panel does (a status line
+     that wraps) and in and out of full screen, so any change of it is
+     passed on as one */
+  if (window.ResizeObserver)
+    new ResizeObserver(function () {
+      if (started) dispatchEvent(new Event('resize'));
+    }).observe(document.getElementById('stage'));
+  /* full screen: the stage (the canvas fills it, in the screen's shape) */
+  document.getElementById('full').onclick = function () {
+    document.getElementById('stage').requestFullscreen().then(function () {
+      Module.canvas.focus();
+    }).catch(function (e) { status('Full screen: ' + e.message); });
+  };
 </script>
 {{{ SCRIPT }}}
 </body>

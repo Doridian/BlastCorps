@@ -50,13 +50,15 @@ host can, identical every run), `--frames N`, `--screenshot PREFIX`,
 be compared should each start from the same one, or none),
 `--renderer gl|sw` (default: OpenGL with a window, software headless),
 `--scale N` (OpenGL: render at 320x240 times N; by default it follows the
-window's height, so resizing the window changes it) and
+picture's height in the window, so resizing the window changes it;
+`--max-pixels N` caps it) and
 `--filter n64|bilinear|point` (textures: the N64's 3-point filter where
 the game asks for bilinear filtering, which is the default, a 4-tap
 bilinear one, or point sampling throughout), `--interpolate` (60 frames a
 second where the game draws 30, and `--display-hz N|auto` for faster
-displays, see "Frame rate"), `--aspect
-W:H`, `--widescreen` (16:9) and `--aspect window` (see "Widescreen"),
+displays, see "Frame rate"), `--aspect window` (the window's shape, the
+default with a window), `--aspect W:H`, `--widescreen` (16:9) and `--hud
+edges|centre` (see "Widescreen"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
 `PORT_AUTOSTART=1` taps Start and A, which is enough to get from the title
@@ -395,9 +397,10 @@ the executable is the same, `=3` again must give the same:
 
 - with the other thread backend (`PORT_THREADS`): every hash;
 - with `--widescreen`, with `--interpolate --widescreen`, with
-  `--renderer gl --scale 1`, and with `--renderer gl --interpolate
-  --widescreen` (SDL's offscreen driver; the OpenGL ones left out without
-  libepoxy): the save and the sound.
+  `--renderer gl --scale 1`, with `--renderer gl --interpolate
+  --widescreen`, with `--renderer gl --aspect 32:9` (the HUD at the
+  sides) and with `--aspect 21:9 --hud centre` (SDL's offscreen driver;
+  the OpenGL ones left out without libepoxy): the save and the sound.
 
 What's exact: with the timing taken out, every variant plays the same game,
 so the save and the sound are the same in all of them, and so are the
@@ -1734,16 +1737,20 @@ on Linux.
 fetched) and is kept in IndexedDB with the save (IDBFS at `/save`,
 synced after the game writes the EEPROM), so the next visit only needs
 "Play"; `?args=` and `?env=` pass options and environment (`?args=-v`,
-`?env=PORT_AUTOSTART=3`), and the page has widescreen,
-`--interpolate` and `--hd-text` checkboxes.  The OpenGL renderer runs on WebGL 2
+`?env=PORT_AUTOSTART=3`), and the page has `--interpolate` and
+`--hd-text` checkboxes and a Full screen button.  The OpenGL renderer runs on WebGL 2
 (`gfx_gl.c`: GLSL ES 3.00, `EXT_depth_clamp` where the browser has it),
 SDL's keyboard and gamepads are the input, and the sound goes through
 SDL's WebAudio (a `ScriptProcessorNode`, whose callback runs on the
 page's thread between the loop's turns: 1024-sample buffers; the page
-resumes a suspended `AudioContext` on any key or click).  The window is
-`--scale`d to the room the page has, as far as about 1.3 million pixels
-(chosen by the page; "Performance"), and the canvas's style follows the
-page's size.
+resumes a suspended `AudioContext` on any key or click).  The canvas
+fills the page above its panel, by CSS; SDL (`SDL_WINDOW_ALLOW_HIGHDPI`)
+makes its pixels the display's for that size on each of the window's
+resize events, and the page passes on any other change of its stage
+(the panel's, full screen's) as one (a `ResizeObserver`).  The picture
+then takes the canvas's shape (`--aspect window`, "Widescreen") and as
+many times 240 lines as the canvas has, as far as about 1.3 million
+pixels (`--max-pixels 1300000`, the page's; "Performance").
 
 **How it was checked**, us.v10:
 
@@ -2252,10 +2259,28 @@ What it doesn't do:
 
 ## Widescreen
 
-`--aspect W:H` (`16:9`, `21:9`, up to 32:9), `--widescreen` (16:9) or
-`--aspect window` (the window's shape, followed as it is resized) shows
-the 3D world wider than the N64's 4:3, with either renderer.  The default
-is 4:3, and then the output is what it was before, pixel for pixel.
+With a window the picture takes the window's shape, and follows it as
+the window is resized or goes full screen (`--aspect window`, the
+default there); `--aspect W:H` (`16:9`, `21:9`, up to 32:9) or
+`--widescreen` (16:9) fix it instead.  Wider than the N64's 4:3, it shows
+more of the 3D world, with either renderer.  Headless runs and
+`--deterministic` and `--replay` ones (the suite's and the TAS's) are 4:3
+unless asked, and at 4:3 the output is what it was before, pixel for
+pixel.
+
+A window narrower than 4:3 (a portrait one, a phone's page held
+upright) gets the 4:3 picture, as wide as the window, with black bars
+above and below: the internal resolution is then the picture's lines,
+not the window's (`want_scale`).  Showing more of the world above and
+below instead would be the same trick on the other axis (taller
+framebuffers, full-height scissors and fills widened, the 2D picked out
+the same way), but every row of the game's 240 is spoken for by its
+320x240 framebuffer addresses (the software renderer and the
+framebuffer reads), the levels' cameras look down at the player from a
+fixed distance, so what a taller view would show above and below is
+mostly ground the game doesn't expect to be seen, and the HUD's top and
+bottom rows would then need the same treatment as its sides; it isn't
+done.  Wider than 32:9 is pillarboxed.
 
 The game doesn't know: it still draws its 320x240 frame with its own
 projection.  The renderers' framebuffers are `off` columns wider on each
@@ -2281,12 +2306,18 @@ What else decides what is drawn out there (`gfx.c`, shared by both):
   pixels wide (a hair short of 320): the test used to want 0 and 319
   exactly, so it wasn't widened, and the sides above the horizon were
   black or showed what was behind.  The rest of the
-  2D (the HUD and its arrows at the edges pointing at what is off screen,
-  text, menus, the pause screen) stays in the middle, as does every
-  texture rectangle.  A texture rectangle at an edge (the tiles of a
+  2D (text, menus, the pause screen, the hint panels) stays in the
+  middle, as does every texture rectangle, but for the HUD (below).  A
+  texture rectangle at an edge (the tiles of a
   full-screen picture: the story, results and promotion screens) blacks
   out the side beyond it, in its rows, so those screens are pillarboxed
   instead of framed by whatever the sides held.
+- **The HUD** (`--hud edges`, the default) moves to the sides: the
+  levels' radar and its arrow, the money, the counters and the timer,
+  the TV in a corner and the bonus amounts keep their distance from the
+  wide picture's edges instead of staying where the 4:3 edges were
+  ("The HUD at the sides", below).  `--hud centre` leaves it in the
+  middle.
 - **`--interpolate`** composes with it: the twins are the wide size too,
   and the in-between pass goes through the same rules (the positions are
   blended in clip space, before the frame is widened).  Every second image
@@ -2320,17 +2351,87 @@ isn't drawn) the background: over the TAS at 32:9 (a screenshot every 600
 retraces, the first 90,000) no black patch showed at the sides but the
 intros' sky above.
 
-**As defaults** (a proposal; not done): in a windowed run that is neither
-`--deterministic` nor `--replay`, `--interpolate --display-hz auto` and
-`--aspect window` could be the defaults, with `--no-interpolate` and
-`--aspect 4:3` to turn them off.  Nothing the suite or the TAS checks would
-change (they run headless and deterministic), and the game doesn't see
-either.  `--aspect window` changes nothing until the window is made wider
-than 4:3 (the default window is 640x480), and then shows what the window
-has room for.  Against `--interpolate` by default: a retrace (17 ms) more
-latency, the rare mispaired instance or rectangle for one image, and with
-the software renderer (headless and where OpenGL is missing) twice the
+**As defaults.**  In a run with a window that is neither
+`--deterministic` nor `--replay`, `--aspect window` is the default
+(`--aspect 4:3` turns it off): nothing the suite or the TAS checks
+changes (they run headless and deterministic), and the game doesn't see
+it.  The default window is still 640x480, so nothing changes until it is
+made wider; then it shows what the window has room for, and its
+internal resolution follows (the window's lines, as before, or
+`--max-pixels`' cap).  The browser's page is such a run: its canvas
+fills the page, so the picture takes the page's shape ("WebAssembly").
+`--interpolate --display-hz auto` could be a default the same way (with a
+`--no-interpolate`), but isn't: it costs a retrace (17 ms) more latency,
+the rare mispaired instance or rectangle for one image, and with the
+software renderer (headless and where OpenGL is missing) twice the
 drawing.
+
+### The HUD at the sides
+
+In a wide picture the game's HUD would stay where the game puts it,
+inside the 4:3 middle, further from the edges the wider the picture: at
+32:9 the money sits a third of the way in from the right.  With `--hud
+edges` (the default) the front end moves each HUD element by `off`
+columns towards the side it is on, so that it keeps its distance from
+the picture's edge, as the window is resized too (`off` is the current
+frame's).  It is all the renderers' front end (`gfx.c`, "the HUD at the
+sides"): the display lists, RDRAM and the RDP's time (charged from the
+geometry before it is moved) are the game's, so the game's timeline and
+the TAS are as they were.
+
+What is HUD is told from what the game draws, not from where it is on
+the screen (a position rule alone would split a centred element made of
+several pieces, and move the markers the game places in the world):
+
+- **The mode** (`D_80364A90`, read as the replay and the name entry
+  read it): a level being played (4, and the bonus levels' 0x4000000),
+  its intro with the traffic lights (0x2000), its end (LEVEL COMPLETE,
+  0x8; MISSION COMPLETE, 0x200) and 0x1000000000.  The pause screen
+  (0x100), the map, the world map (0x4000), the front end, the results,
+  the promotion and the stories are never moved: their 2D is drawn with
+  the same projection, but they stay centred.
+- **The projection** a draw is made with (the address of the last
+  `G_MTX` that loaded one, against segment 2, which points at the frame's
+  buffer, `frame.h`): the gameplay frame's 2D projection (its `mtx[3]`,
+  + 0xC0), and its `mtx[2]` (+ 0x80), a perspective one that only the
+  radar's 3D arrow is drawn with (the world is `mtx[5]`).  The hint
+  panels and the levels' goals ("DESTROY BUILDINGS IN ...") come from
+  the panel code (26570.c), through `mtx[73]`: they stay centred.
+- **The vertices' address** says what the element is.  The frame's own
+  (in segment 2's buffer) are the green markers around targets, placed
+  where the target is in the world: they stay put, and in a wide picture
+  they mark targets out at the sides where the game put them.  Text
+  comes from drawtext.c's vertex buffers (`D_80365348`, a quad of four
+  vertices a character, in the order the strings were laid out; the
+  display list draws them sorted by glyph): an element is the string a
+  character is in, its neighbours in the buffer on the same line and of
+  the same size, an advance or two apart (a right-aligned string, the
+  money, is laid out backwards).  Anything else is a model (the radar,
+  the TV, the counters' icons, from hd_code's data or the level's): an
+  element is the vertex load it comes in.
+- **Texture rectangles** (the counters' icons, the traffic lights) go by
+  groups of touching ones, found by a pass over the display list before
+  it runs, which follows the segments and the projection as it will:
+  the traffic lights' strip over the top is eight rectangles from 32 to
+  288, one element, and stays centred.
+
+An element then moves by `-off` if its middle is left of x = 112, by
+`+off` if right of 208, and in between by a ramp: a centred element
+(the banners) doesn't move, and one that slides or types across (the
+LEVEL COMPLETE and RDUS COLLECTED banners) doesn't jump.  The money and
+the bonus amounts go right and left; the radar, the counters, the timer
+and the TV in the top left corner left; the TV of the levels' intros,
+bottom right, right.  `--interpolate` composes: the in-between passes
+move the same elements (the texture rectangles' groups are the current
+frame's), and so does the software renderer, whose frames are drawn wide
+on the host (a moved rectangle is clipped by the wide frame's scissor
+and blacks out no side band).
+
+Not moved: the pause screen's map and its arrows (the yellow one points
+at the carrier from where it is on the map), and nothing of the world
+map or the front end.  The game never draws a HUD arrow clamped to the
+4:3 edges for something off screen: the markers it places stay with what
+they mark, and so show it in the wide sides.
 
 None of this reaches the game: the display lists are the game's, the
 RDP's time comes from the 4:3 geometry, and RDRAM is the same but for the
@@ -2338,7 +2439,8 @@ two color framebuffers, which the OpenGL renderer never writes anyway.
 With `--widescreen` the TAS still beats the game (OpenGL, with and
 without `--interpolate`: all 125,297 reads matched, none skipped, 57
 platinum, the same report and save as without widescreen; also with the
-software renderer at 21:9).  The LP64 build's replay, which drifts on its
+software renderer at 21:9, and with OpenGL at 21:9 with `--interpolate`
+and the HUD at the sides).  The LP64 build's replay, which drifts on its
 own (3,993 of the log's reads skipped), gives the same report and save
 with widescreen as without, either renderer.  `PORT_COUNT_PER_OP=0
 --deterministic` runs (the TAS's first 30,000 frames, `PORT_AUTOSTART=1`,
@@ -2485,7 +2587,7 @@ neither was work.
   choice of twins), and come back twice as many at a time after a while
   without (a step holds 20 s, twice as long each time it had to be taken
   again soon after the step back): the game never slows for them.  The page caps its picture at about 1.3 million
-  pixels (3x widescreen, 4x at 4:3).
+  pixels (`--max-pixels`: 3x at 16:9, 4x at 4:3, 2x at 32:9).
 - All of this leaves the game as it was: the GL screenshots (20 over
   3,000 frames of `PORT_AUTOSTART=3 --interpolate --widescreen`) and the
   software ones are byte for byte what they were; under node the wasm

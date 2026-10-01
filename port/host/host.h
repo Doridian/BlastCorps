@@ -77,6 +77,8 @@ void host_gfx_interp_report(void);
 void host_gfx_frame_shown(uint32_t fb);     /* the VI shows fb from this retrace on */
 extern float gfx_aspect;            /* widescreen: 0 4:3, GFX_ASPECT_WINDOW, or width / height */
 #define GFX_ASPECT_WINDOW (-1.0f)
+extern int gfx_hud_edges;          /* --hud: 1 the HUD at a wide picture's sides, 0 in the 4:3 middle */
+extern int gfx_gl_max_pixels;      /* --max-pixels: the internal resolution's cap (0: none) */
 struct SDL_Window;
 unsigned gfx_gl_window_flags(void);
 int gfx_gl_init(struct SDL_Window *win);
