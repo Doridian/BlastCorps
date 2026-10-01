@@ -295,11 +295,12 @@ void func_802B03F4(void) {
     ENGINE_BLK(802B0474);
     func_802A7834(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0x14, rate_i, &vs->unk4C, vs, &t3, &turn);
     ENGINE_BLK(802B0490);
-    func_802A7FD8(&vs->unk74, 0x4650, &vs->unk76, &vs->unk4C, &vs->unk4E, &vs->unk96[3], 1, vs);
+    func_802A7FD8(0x4650, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802B04A8);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802B04B4);
-    func_802A843C(&vs->unk76, 1, vs->unk96, vs->unk4, 1, 720.0f, vs);
+    func_802A843C(&vs->unk76, 1, 1, (s8 *)vs->unk96, vs->unk4, 720.0f, vs);
     ENGINE_BLK(802B04C8);
     if (D_803EDC04 != 0) {
         ENGINE_BLK(802B04D8);
@@ -309,6 +310,9 @@ void func_802B03F4(void) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EDBE8, &D_803EDBF0, rate, &z);
     ENGINE_BLK(802B04FC);
     D_803ED40B = 1;
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EDBE8, &D_803EDBF0, &D_803EDBEC, 1, 0x2D0, 0x2D0, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802B0530);
@@ -575,6 +579,7 @@ void func_802B0B3C(VS *vs) {
     ENGINE_BLK(802B0B90);
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803EDBE8, D_803EDBEC, D_803EDBF0, 0x1B58, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B0BCC);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B0BE0);

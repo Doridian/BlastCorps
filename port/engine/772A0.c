@@ -189,11 +189,12 @@ void func_802BBEB8(void) {
     ENGINE_BLK(802BBF2C);
     t2 = func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
     ENGINE_BLK(802BBF44);
-    func_802A7FD8(&vs->unk74, 0x2328, &vs->unk76, &vs->unk4C, &vs->unk4E, &vs->unk96[3], 0, vs);
+    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802BBF60);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802BBF6C);
-    func_802A843C(&vs->unk76, 7, vs->unk96, vs->unk4, 1, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 7, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
     ENGINE_BLK(802BBF80);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EFE98, &D_803EFEA0, rate, &z);
     ENGINE_BLK(802BBF98);
@@ -208,6 +209,9 @@ void func_802BBEB8(void) {
     }
     ENGINE_BLK(802BC02C);
     D_803ED40B = 0;
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EFE98, &D_803EFEA0, &D_803EFE9C, 7, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802BC060);
@@ -349,6 +353,7 @@ void func_802BC3D0(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     m = func_802AA764(D_803EFE98, D_803EFE9C, D_803EFEA0, 15000, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802BC468);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BC47C);
@@ -364,7 +369,7 @@ void func_802BC3D0(VS *vs) {
     ENGINE_BLK(802BC4E0);
     func_802ABBEC(7, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802BC500);
-    func_802AABE4(7, model + *(s32 *)(model + 8), buf);
+    func_802AABE4(7, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
     ENGINE_BLK(802BC51C);
     func_8029D040(D_803EFE98, D_803EFEA0, 7, model + *(s32 *)(model + 0xC), vs->unk4C, D_803EFAF0, buf);
     ENGINE_BLK(802BC55C);

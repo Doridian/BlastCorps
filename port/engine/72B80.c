@@ -349,11 +349,12 @@ void func_802B7A88(void) {
         D_803EEF34--;
     }
     ENGINE_BLK(802B7B94);
-    func_802A7FD8(&vs->unk74, 0x1770, &vs->unk76, &vs->unk4C, &vs->unk4E, &vs->unk96[3], 1, vs);
+    func_802A7FD8(0x1770, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802B7BAC);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802B7BB8);
-    func_802A843C(&vs->unk76, 8, vs->unk96, vs->unk4, 1, 700.0f, vs);
+    func_802A843C(&vs->unk76, 1, 8, (s8 *)vs->unk96, vs->unk4, 700.0f, vs);
     ENGINE_BLK(802B7BCC);
     if (D_803EEF33 != 0) {
         ENGINE_BLK(802B7BDC);
@@ -363,6 +364,9 @@ void func_802B7A88(void) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EEF18, &D_803EEF20, rate, &z);
     ENGINE_BLK(802B7C00);
     D_803ED40B = 1;
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EEF18, &D_803EEF20, &D_803EEF1C, 8, 0x2BC, 0x190, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802B7C38);
@@ -586,6 +590,7 @@ void func_802B8278(VS *vs) {
     ENGINE_LEAVE(22, D_803EEF20);
     ENGINE_LEAVE(23, 0x32C8);
     func_802AA764(D_803EEF18, D_803EEF1C, D_803EEF20, 0x32C8, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B8308);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B831C);
@@ -658,6 +663,7 @@ void func_802B8480(u8 *model) {
     /* ($a1: what func_802A396C left) */
     func_802A1388(0xFE, engine_ctx(5), D_803EF2FC, D_803EF300, model);
     ENGINE_BLK(802B84FC);
+    ENGINE_LEAVE(28, T(vs));
     vs->unk4C = 0;
     vs->unk4E = 0;
     D_803EF32A = 0;
@@ -712,7 +718,6 @@ void func_802B8480(u8 *model) {
     D_803EF31C = 0;
     func_80258230(0xFE, 0x78, 0x2D, 0x2D);
     ENGINE_BLK(802B8734);
-    ENGINE_LEAVE(28, T(vs));    /* (func_802B899C works on the $gp it finds) */
     func_802B899C();
     ENGINE_BLK(802B873C);
     model = D_803EF2F8;
@@ -774,8 +779,7 @@ done:
 /* hd.c's, each frame: its flight, its rotors, its matrix, where the player
    would get out, and its shadow */
 void func_802B899C(void) {
-    /* (on the $gp it finds: the setup's, or what hd.c's caller left) */
-    VS *vs = (VS *)engine_ctx(28);
+    VS *vs = &D_803EF240;       /* (the $gp func_802B8D04 sets) */
     s32 *p;
 
     ENGINE_BLK(802B899C);
@@ -879,7 +883,7 @@ void func_802B8D04(void) {
     f32 f0;
 
     ENGINE_BLK(802B8D04);
-    engine_save(0x5FFFFFFE, 0);
+    ENGINE_LEAVE(28, T(vs));    /* (its $gp, which func_802B899C goes on with) */
     t0 = D_803EF32C;
     if (t0 == 0)
         goto hover;
@@ -1382,7 +1386,6 @@ rest:
     D_803EF2F0 = t1;
 done:
     ENGINE_BLK(802B987C);
-    engine_restore();
 }
 
 /* how far it is from D_803EF308/30C (x and z) */
@@ -1475,6 +1478,7 @@ void func_802B9B4C(VS *vs) {
     ENGINE_LEAVE(22, D_803EF2F4);
     ENGINE_LEAVE(23, 0x5208);
     func_802AA764(D_803EF2EC, D_803EF2F0, D_803EF2F4, 0x5208, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B9BE4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B9BF8);

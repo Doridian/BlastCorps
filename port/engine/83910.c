@@ -152,15 +152,19 @@ void func_802C8C90(u8 type) {
     ENGINE_BLK(802C8CF0);
     func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
     ENGINE_BLK(802C8D08);
-    func_802A7FD8(&vs->unk74, 0x2328, &vs->unk76, &vs->unk4C, &vs->unk4E, &vs->unk96[3], 0, vs);
+    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C8D24);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C8D30);
-    func_802A843C(&vs->unk76, 0xB, vs->unk96, vs->unk4, 1, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0xB, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
     ENGINE_BLK(802C8D44);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[0], &D_803F8748[2], rate, &z);
     ENGINE_BLK(802C8D5C);
     D_803ED40B = 0;
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8748[0], &D_803F8748[2], &D_803F8748[1], 0xB, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6, vs->unk28 + 3,
                   vs->unk5E, vs);
     ENGINE_BLK(802C8D90);
@@ -246,6 +250,7 @@ void func_802C9624(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8748[0], D_803F8748[1], D_803F8748[2], 0x88B8, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802C96BC);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C96D0);
@@ -260,7 +265,7 @@ void func_802C9624(VS *vs) {
     ENGINE_BLK(802C9734);
     func_802ABBEC(0xB, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C9754);
-    func_802AABE4(0xB, model + *(s32 *)(model + 8), buf);
+    func_802AABE4(0xB, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
     ENGINE_BLK(802C9770);
     func_8029D040(D_803F8748[0], D_803F8748[2], 0xB, model + *(s32 *)(model + 0xC), vs->unk4C, D_803F7C50 + 32 * 0, buf);
     ENGINE_BLK(802C97B0);
@@ -378,15 +383,19 @@ void func_802C8FA8(u8 type) {
     ENGINE_BLK(802C9008);
     func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
     ENGINE_BLK(802C9020);
-    func_802A7FD8(&vs->unk74, 0x2328, &vs->unk76, &vs->unk4C, &vs->unk4E, &vs->unk96[3], 0, vs);
+    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C903C);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C9048);
-    func_802A843C(&vs->unk76, 0x11, vs->unk96, vs->unk4, 1, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0x11, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
     ENGINE_BLK(802C905C);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[3], &D_803F8748[5], rate, &z);
     ENGINE_BLK(802C9074);
     D_803ED40B = 0;
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8748[3], &D_803F8748[5], &D_803F8748[4], 0x11, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6, vs->unk28 + 3,
                   vs->unk5E, vs);
     ENGINE_BLK(802C90A8);
@@ -472,6 +481,7 @@ void func_802C97C0(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8748[3], D_803F8748[4], D_803F8748[5], 0x88B8, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802C9858);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C986C);
@@ -486,7 +496,7 @@ void func_802C97C0(VS *vs) {
     ENGINE_BLK(802C98D0);
     func_802ABBEC(0x11, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C98F0);
-    func_802AABE4(0x11, model + *(s32 *)(model + 8), buf);
+    func_802AABE4(0x11, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
     ENGINE_BLK(802C990C);
     func_8029D040(D_803F8748[3], D_803F8748[5], 0x11, model + *(s32 *)(model + 0xC), vs->unk4C, D_803F7C50 + 32 * 1, buf);
     ENGINE_BLK(802C994C);
@@ -604,15 +614,19 @@ void func_802C92C0(u8 type) {
     ENGINE_BLK(802C9320);
     func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
     ENGINE_BLK(802C9338);
-    func_802A7FD8(&vs->unk74, 0x2328, &vs->unk76, &vs->unk4C, &vs->unk4E, &vs->unk96[3], 0, vs);
+    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C9354);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C9360);
-    func_802A843C(&vs->unk76, 0x12, vs->unk96, vs->unk4, 1, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0x12, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
     ENGINE_BLK(802C9374);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[6], &D_803F8748[8], rate, &z);
     ENGINE_BLK(802C938C);
     D_803ED40B = 0;
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8748[6], &D_803F8748[8], &D_803F8748[7], 0x12, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6, vs->unk28 + 3,
                   vs->unk5E, vs);
     ENGINE_BLK(802C93C0);
@@ -698,6 +712,7 @@ void func_802C995C(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8748[6], D_803F8748[7], D_803F8748[8], 0x88B8, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802C99F4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C9A08);
@@ -712,7 +727,7 @@ void func_802C995C(VS *vs) {
     ENGINE_BLK(802C9A6C);
     func_802ABBEC(0x12, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C9A8C);
-    func_802AABE4(0x12, model + *(s32 *)(model + 8), buf);
+    func_802AABE4(0x12, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
     ENGINE_BLK(802C9AA8);
     func_8029D040(D_803F8748[6], D_803F8748[8], 0x12, model + *(s32 *)(model + 0xC), vs->unk4C, D_803F7C50 + 32 * 2, buf);
     ENGINE_BLK(802C9AE8);

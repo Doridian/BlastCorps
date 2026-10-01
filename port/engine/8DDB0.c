@@ -366,6 +366,7 @@ void func_802D2FA4(VS *vs) {
     D_803ED390[1] = h;
     D_803ED390[2] = D_803FCD6E;
     func_802AA764(D_803FCD48, D_803FCD4C, D_803FCD50, 0x11558, m);
+    ENGINE_LEAVE(18, (s32)m);         /* (its $s2, as the glue would) */
     ENGINE_BLK(802D3060);
     if (D_8035805C != 0) {
         ENGINE_BLK(802D3074);

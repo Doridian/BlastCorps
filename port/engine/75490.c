@@ -80,8 +80,8 @@ REGS()
 void func_802C049C(void);
 REGS()
 void func_8029C5EC(void);
-REGS()
-void func_8029C6E4(void);
+REGS(-> s4)
+s32 func_8029C6E4(void);
 REGS(t0, t1, t3, s4, s7, t8, gp, fp)
 void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *vs, s32 mat);
 REGS(t0, t1, t2 -> a1)
@@ -412,14 +412,17 @@ void func_802BA354(void) {
     vs->unk76 = s;
     func_802BAD24();
     ENGINE_BLK(802BA42C);
+    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802BA440);
-    func_802A843C(&vs->unk76, 0xFF, vs->unk96, vs->unk4, 0, 2400.0f, vs);
+    func_802A843C(&vs->unk76, 0, 0xFF, (s8 *)vs->unk96, vs->unk4, 2400.0f, vs);
     ENGINE_BLK(802BA454);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EF6DC, &D_803EF6E4, rate, &z);
     ENGINE_BLK(802BA46C);
     D_803ED40B = 1;
-    ENGINE_LEAVE(20, T(&vs->unk4C));    /* ($s4, which func_802A8768 reads too) */
+    /* ($s4 and $s7, which func_802A8768 reads too) */
+    ENGINE_LEAVE(20, T(&vs->unk4C));
+    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EF6DC, &D_803EF6E4, &D_803EF6E0, 0xFF, 0x960, 0x320, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
 placed:
@@ -705,6 +708,7 @@ void func_802BABEC(VS *vs) {
     ENGINE_LEAVE(22, D_803EF6E4);
     ENGINE_LEAVE(23, 0x59D8);
     func_802AA764(D_803EF6DC, D_803EF6E0, D_803EF6E4, 0x59D8, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802BAC7C);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BAC90);
@@ -1112,9 +1116,9 @@ s32 func_802BB868(void) {
     if (D_802E8BDC != 0x11)
         goto done;
     ENGINE_BLK(802BB884);
-    func_8029C6E4();
+    r = func_8029C6E4();
     ENGINE_BLK(802BB88C);
-    if (engine_ctx(20) == 0)
+    if (r == 0)
         goto done;
     ENGINE_BLK(802BB894);
     ENGINE_LEAVE(8, engine_ctx(16));
@@ -1152,6 +1156,7 @@ void func_802BB8B8(VS *vs) {
     ENGINE_LEAVE(22, D_803EFAD0);
     ENGINE_LEAVE(23, 0x1B58);
     func_802AA764(D_803EFAC8, D_803EFACC, D_803EFAD0, 0x1B58, m);
+    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802BB950);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BB964);
@@ -1169,7 +1174,7 @@ void func_802BB8B8(VS *vs) {
     ENGINE_LEAVE(11, T(model));
     func_802ABBEC(6, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802BB9E8);
-    func_802AABE4(6, model + *(s32 *)(model + 8), buf);
+    func_802AABE4(6, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
     ENGINE_BLK(802BBA04);
     func_8029D040(D_803EFAC8, D_803EFAD0, 6, model + *(s32 *)(model + 0xC), vs->unk4C, Q, buf);
     ENGINE_BLK(802BBA44);
