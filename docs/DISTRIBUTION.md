@@ -172,6 +172,24 @@ against its translation.
   `func_802A19F4`, the carrier, chopper and extra models (`func_802A303C` to `func_802A3198`)
   and `func_802A350C`: they call the vehicle modules' inits (and the loader the game's C), which
   read and leave dozens of registers, so each wants its REGS() settled with the vehicles' owner.
+- Native too: 13 of the vehicle modules (181 functions): 86ED0, 8DDB0, 772A0, 88160, 6B4A0, 86F60,
+  83910, 853D0, 71140, 6C5E0, 75490, 72B80 and 8AEE0, in about 14 agent-hours including the
+  infrastructure (`engine_save()`, `engine_ctx()`, `PORT_ICOUNT_LOG`, `PORT_BLKLOG`), so about 13 an
+  hour.  Many modules come in twins: 8AEE0's hotrod is 72B80's with other numbers, its Cyclone Suit is
+  Thunderfist with a third leg, and the police car is the A-Team van.  Those went at about 40 an hour,
+  through block-by-block diffs of the two dumps.  The slow part is registers: whenever a callee goes
+  native, the registers the glue used to write disappear (a native-to-native call leaves nothing in the
+  context).  So each caller puts back what the original left for the translated code after it
+  (`$s0`/`$s4`/`$s7` for `func_802A8768`'s and `func_8029C454`'s hidden reads, `func_802AA764`'s `$s2`).
+- Still translated in the vehicle modules: each one's two collision callbacks (they go native with 62740's
+  dispatch, `func_802AB478`..), 69BB0 (the driver), 6E200 (Skyfall and Ramdozer), 80280 (J-Bomb).
+- Open: with 72B80's chopper native, the TAS still matches (the same save), but the game's C cost
+  (`__port_icount_c`) drifts from read 5591 of us.v10's TAS, starting 12 instructions low, while the
+  engine's count stays identical.  At the same time a 7×8 patch of pixels differs, and RDRAM is identical
+  apart from the stacks.  The drift goes away only with both `func_802B899C` and `func_802B9B4C`
+  translated; each one alone isn't enough.  The suspicion is what the original leaves on the N64 stack:
+  natives don't write the frames the original saves its registers in, and the entry glue places
+  translated callees at `$sp - 32`.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
