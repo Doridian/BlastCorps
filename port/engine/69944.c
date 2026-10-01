@@ -4,7 +4,7 @@
  * (engine.h).  Rare's own: range reduction by subtraction and an even or
  * odd polynomial, with its constants (D_80305C70...) in .rodata.
  */
-#include "engine.h"
+#include "shared.h"
 
 extern f32 D_80305C70;          /* 2 pi */
 extern f32 D_80305C74;          /* pi */

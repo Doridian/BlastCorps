@@ -4,7 +4,7 @@
  * samples in 64ths, sits in hd_code's .text right after it (690C0); the
  * game's C uses it for angles from a ratio (an arctangent).
  */
-#include "engine.h"
+#include "shared.h"
 
 extern u16 D_802AD880[];
 extern u16 D_802AE084[];        /* (the table's last samples, read flat) */

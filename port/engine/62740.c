@@ -8,11 +8,10 @@
  * Still translated: the functions whose register conventions are all
  * pass-through, which go native with their callers (the vehicle modules).
  */
-#include "engine.h"
+#include "shared.h"
 #include "game/vehicle.h"
 #include "game/game.h"
 
-typedef VehicleState VS;
 
 extern u8 D_80367C10;
 extern s16 D_803A7410, D_803A7412;      /* the camera's headings (12-bit) */

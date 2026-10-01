@@ -11,7 +11,7 @@
  * (they go with 71140), and func_802ACDB8/func_802ACEB8, which nothing
  * calls.
  */
-#include "engine.h"
+#include "shared.h"
 #include "game/game.h"
 #include "game/audio.h"
 

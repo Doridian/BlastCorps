@@ -4,10 +4,9 @@
  * records (vehicle.h); the vehicle modules set their fields through these
  * helpers by index, or by their first word through D_803B35F8's list.
  */
-#include "engine.h"
+#include "shared.h"
 #include "game/vehicle.h"
 
-typedef UnkStruct_803ED460 Part;
 
 extern Part D_803B35F8[];
 
