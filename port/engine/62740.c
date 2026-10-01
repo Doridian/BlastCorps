@@ -2689,3 +2689,442 @@ s32 func_802AC0BC(s32 x, s32 z, s32 y) {
     }
     return found;
 }
+
+/* ---- a point's place in another triangle (the moving objects' two
+   shapes: their world triangle and their own) ------------------------------ */
+
+/* The point (x, z) of triangle A ((x1, z1), (x2, z2), (x3, z3)) at the
+   same place in triangle B ((u1, v1), ...): by the corners exactly, else
+   by solving for its two coordinates along A's edges (f10, f20).
+   Returns u ($t3), and v ($t4). */
+REGS(t0, t1, s1, s3, s4, s6, s7, t9, t3, t4, t5, t6, t7, s0 -> t3, t4)
+s32 func_802AAF64(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3, s32 u1, s32 v1, s32 u2,
+                  s32 v2, s32 u3, s32 v3, s32 *v_out) {
+    s32 dx, ex, dz, ez;
+    f32 f0, f2, f4, f6, f8, f10, f12, f14, f16, f18, f20;
+
+    ENGINE_BLK(802AAF64);
+    if (x == x1) {
+        ENGINE_BLK(802AAF70);
+        if (z == z1)
+            goto done;
+    }
+    ENGINE_BLK(802AAF78);
+    if (x == x2) {
+        ENGINE_BLK(802AAF80);
+        if (z == z2) {
+            ENGINE_BLK(802AAF88);
+            u1 = u2, v1 = v2;
+            goto done;
+        }
+    }
+    ENGINE_BLK(802AAF94);
+    if (x == x3) {
+        ENGINE_BLK(802AAF9C);
+        if (z == z3) {
+            ENGINE_BLK(802AAFA4);
+            u1 = u3, v1 = v3;
+            goto done;
+        }
+    }
+    ENGINE_BLK(802AAFB0);
+    dx = x1 - x;
+    ex = x2 - x3;
+    dz = z1 - z;
+    ez = z2 - z3;
+    if (dx == 0) {
+        ENGINE_BLK(802AB0B0);
+        f10 = func_802AB1B0(ex, dz, ez, x, z, x3, z3, &f20);
+        ENGINE_BLK(802AB0B8);
+        goto map;
+    }
+    ENGINE_BLK(802AAFC4);
+    if (ex == 0) {
+        ENGINE_BLK(802AB0C0);
+        f10 = func_802AB234(dx, dz, ez, x, z, x3, z3, &f20);
+        ENGINE_BLK(802AB0C8);
+        goto map;
+    }
+    ENGINE_BLK(802AAFCC);
+    if (dz == 0) {
+        ENGINE_BLK(802AB0D0);
+        f10 = func_802AB2B8(dx, ex, ez, x, z, x3, z3, &f20);
+        ENGINE_BLK(802AB0D8);
+        goto map;
+    }
+    ENGINE_BLK(802AAFD4);
+    if (ez == 0) {
+        ENGINE_BLK(802AB0E0);
+        f10 = func_802AB33C(dx, ex, dz, x, z, x3, z3, &f20);
+        goto map;
+    }
+    ENGINE_BLK(802AAFDC);
+    f14 = (f32)dx;
+    f6 = 1.0f;
+    f18 = (f32)x;
+    f0 = (f32)((s64)ex * dz);
+    f2 = (f32)((s64)ez * dx);
+    f4 = f0 / f2;
+    f8 = (f32)((s64)ex * z);
+    f4 = f6 - f4;
+    f12 = (f32)((s64)ex * z3);
+    f10 = f8 / f2;
+    f12 = f12 / f2;
+    f10 = f10 - f12;
+    f12 = (f32)x3;
+    f12 = f12 / f14;
+    f10 = f10 + f12;
+    f12 = (f32)x;
+    f12 = f12 / f14;
+    f10 = f10 - f12;
+    f10 = f10 / f4;
+    f16 = f14 * f10;
+    f20 = f16 + f18;
+    f18 = (f32)x3;
+    f20 = f20 - f18;
+    f18 = (f32)ex;
+    f20 = f20 / f18;
+map:
+    ENGINE_BLK(802AB0E8);
+    f16 = (f32)dx * f10;
+    f0 = (f32)(u2 - u3);
+    f2 = (f32)u3;
+    f8 = (f32)u1;
+    f14 = (f32)v1;
+    f4 = (f32)v3;
+    f6 = 1.0f;
+    f12 = f6 - f10;
+    f0 = f0 * f20;
+    f0 = f0 + f2;
+    f2 = (f32)(v2 - v3);
+    f2 = f2 * f20;
+    f8 = f8 * f10;
+    f14 = f14 * f10;
+    f2 = f2 + f4;
+    f8 = f0 - f8;
+    f14 = f2 - f14;
+    f8 = f8 / f12;
+    f14 = f14 / f12;
+    u1 = engine_cvt_w_s(f8);
+    v1 = engine_cvt_w_s(f14);
+    /* what the callers read on: the point on the first triangle (f22,
+       f24), and the last temporaries */
+    ENGINE_LEAVE_F(0, f0);
+    ENGINE_LEAVE_F(2, f2);
+    ENGINE_LEAVE_FW(8, u1);
+    ENGINE_LEAVE_F(20, f20);
+    ENGINE_LEAVE_F(22, f16 + (f32)x);
+    ENGINE_LEAVE_F(24, (f32)dz * f10 + (f32)z);
+    ENGINE_LEAVE_F(26, (f32)z);
+done:
+    ENGINE_BLK(802AB1A0);
+    *v_out = v1;
+    return u1;
+}
+
+/* where (x, z), on object id's world triangle (D_803EBDB0's words), is
+   on its own one (the halves at 0x24) */
+REGS(a3, t0, t1 -> t3, t4)
+s32 func_802AAD0C(s32 id, s32 x, s32 z, s32 *v_out) {
+    u8 *p = D_803EBDB0 - 0x38;
+    s32 *w;
+    s16 *h;
+
+    ENGINE_BLK(802AAD0C);
+    for (;;) {
+        ENGINE_BLK(802AAD68);
+        p += 0x38;
+        if (*(u16 *)(p + 0x36) != id)
+            continue;
+        ENGINE_BLK(802AAD78);
+        w = (s32 *)p;
+        if (!func_802AA5E0(x, z, w[0], w[2], w[3], w[5], w[6], w[8])) {
+            ENGINE_BLK(802AAD94);
+            continue;
+        }
+        ENGINE_BLK(802AAD94);
+        ENGINE_BLK(802AAD9C);
+        if (!func_802AA460(x, z, w[0], w[2], w[3], w[5], w[6], w[8])) {
+            ENGINE_BLK(802AADA4);
+            continue;
+        }
+        ENGINE_BLK(802AADA4);
+        break;
+    }
+    ENGINE_BLK(802AADAC);
+    h = (s16 *)(p + 0x24);
+    w = (s32 *)p;
+    {
+        s32 r = func_802AAF64(x, z, w[0], w[2], w[3], w[5], w[6], w[8], h[0], h[2], h[3], h[5], h[6], h[8], v_out);
+
+        ENGINE_BLK(802AADC8);
+        return r;
+    }
+}
+
+/* the reverse: from its own triangle to the world's */
+REGS(a3, t0, t1 -> t3, t4)
+s32 func_802AAE54(s32 id, s32 x, s32 z, s32 *v_out) {
+    u8 *p = D_803EBDB0 - 0x38;
+    s32 *w;
+    s16 *h;
+
+    ENGINE_BLK(802AAE54);
+    for (;;) {
+        ENGINE_BLK(802AAEB0);
+        p += 0x38;
+        if (*(u16 *)(p + 0x36) != id)
+            continue;
+        ENGINE_BLK(802AAEC0);
+        h = (s16 *)(p + 0x24);
+        if (!func_802AA5E0(x, z, h[0], h[2], h[3], h[5], h[6], h[8])) {
+            ENGINE_BLK(802AAEDC);
+            continue;
+        }
+        ENGINE_BLK(802AAEDC);
+        ENGINE_BLK(802AAEE4);
+        if (!func_802AA460(x, z, h[0], h[2], h[3], h[5], h[6], h[8])) {
+            ENGINE_BLK(802AAEEC);
+            continue;
+        }
+        ENGINE_BLK(802AAEEC);
+        break;
+    }
+    ENGINE_BLK(802AAEF4);
+    w = (s32 *)p;
+    {
+        s32 r = func_802AAF64(x, z, h[0], h[2], h[3], h[5], h[6], h[8], w[0], w[2], w[3], w[5], w[6], w[8], v_out);
+
+        ENGINE_BLK(802AAF10);
+        return r;
+    }
+}
+
+void func_802AACD4(s32 id, s32 x, s32 z, s16 *u, s16 *v) {
+    s32 vv;
+
+    ENGINE_BLK(802AACD4);
+    *u = func_802AAD0C(id, x, z, &vv);
+    ENGINE_BLK(802AACF0);
+    *v = vv;
+}
+
+void func_802AAE1C(s32 id, s32 x, s32 z, s32 *u, s32 *v) {
+    s32 vv;
+
+    ENGINE_BLK(802AAE1C);
+    *u = func_802AAE54(id, x, z, &vv);
+    ENGINE_BLK(802AAE38);
+    *v = vv;
+}
+
+/* ---- D_803ED3B8's tree: whether a record's parts reach another --------- */
+
+/* Whether any record (type, three part bytes) has id among its parts but
+   not as all three, or, where all three are id, whether its type's
+   records do (recursively).  Returns 1 or 0 ($t0). */
+REGS(s2 -> t0)
+s32 func_802AB8D8(s32 id) {
+    u8 *p = D_803ED3B8;
+    s32 r;
+
+    ENGINE_BLK(802AB8D8);
+    for (;; p += 4) {
+        ENGINE_BLK(802AB8FC);
+        if (*(s32 *)p == -1) {
+            ENGINE_BLK(802AB980);
+            r = 0;
+            break;
+        }
+        ENGINE_BLK(802AB90C);
+        if (p[1] == id) {
+            ENGINE_BLK(802AB938);
+            if (p[2] != id)
+                goto yes;
+            ENGINE_BLK(802AB940);
+            if (p[3] != id)
+                goto yes;
+            ENGINE_BLK(802AB948);
+            if (p[0] != 0) {
+                ENGINE_BLK(802AB958);
+                r = func_802AB8D8(p[0]);
+                ENGINE_BLK(802AB960);
+                if (r == 1)
+                    break;
+            }
+            ENGINE_BLK(802AB96C);
+        } else {
+            ENGINE_BLK(802AB920);
+            if (p[2] == id)
+                goto yes;
+            ENGINE_BLK(802AB928);
+            if (p[3] == id)
+                goto yes;
+            ENGINE_BLK(802AB930);
+        }
+        ENGINE_BLK(802AB970);
+        continue;
+    yes:
+        ENGINE_BLK(802AB978);
+        r = 1;
+        break;
+    }
+    ENGINE_BLK(802AB984);
+    return r;
+}
+
+s32 func_802AB878(s32 id) {
+    s32 r;
+
+    ENGINE_BLK(802AB878);
+    r = func_802AB8D8(id);
+    ENGINE_BLK(802AB8A8);
+    return r;
+}
+
+/* ---- a point through a chain of matrices -------------------------------- */
+
+extern u8 D_803EBB98[];                 /* the product's scratch matrix */
+
+/* a 4x4 16.16 matrix's element at this offset (the integer halves first,
+   the fractions 0x20 on) */
+static s32 mtx_el(u8 *m, s32 off) {
+    return (s32)(((u32) * (u16 *)(m + off) << 16) | *(u16 *)(m + off + 0x20));
+}
+
+/* (x, y, z) through the n matrices at base + offs[i], multiplied in
+   order (D_803EBB58, with D_803EBB98 for each product): the result >> 11
+   in v0, v1 and a0.  The x row's translation is only its integer part.
+   With no matrices it is s0, s1 and s2 >> 11 (whatever the caller has
+   there).  The sums stay in s1 and s2. */
+REGS(v0, v1, a0, a1, a2, s4, s0, s1, s2 -> v0, v1, a0, s1, s2)
+s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s1, s32 s2, s32 *y_out, s32 *z_out,
+                  s32 *s1_out, s32 *s2_out) {
+    u8 *cur = (u8 *)D_803EBB58, *m;
+    u32 *s, *d;
+    s32 i, j, k, prod = 0;
+    u64 sum;
+
+    ENGINE_BLK(802AA890);
+    if (n != 0) {
+        ENGINE_BLK(802AA8C4);
+        s = (u32 *)(base + offs[0]);
+        d = (u32 *)cur;
+        for (k = 16; k != 0; k--) {
+            ENGINE_BLK(802AA8DC);
+            *d++ = *s++;
+        }
+        ENGINE_BLK(802AA8F4);
+        m = (u8 *)s;
+        offs++, n--;
+        for (;;) {
+            ENGINE_BLK(802AA8FC);
+            if (n == 0)
+                break;
+            ENGINE_BLK(802AA904);
+            m = base + *offs;
+            for (i = 0; i != 4; i++) {
+                ENGINE_BLK(802AA918);
+                for (j = 0; j != 4; j++) {
+                    ENGINE_BLK(802AA924);
+                    sum = 0;
+                    for (k = 0; k < 4; k++)
+                        sum += (u64)((s64)mtx_el(cur, i * 8 + k * 2) * mtx_el(m, k * 8 + j * 2));
+                    sum >>= 16;
+                    *(u16 *)(D_803EBB98 + 0x20 + (i * 4 + j) * 2) = (u16)sum;
+                    *(u16 *)(D_803EBB98 + (i * 4 + j) * 2) = (u16)(sum >> 16);
+                }
+                ENGINE_BLK(802AAA18);
+            }
+            ENGINE_BLK(802AAA28);
+            s = (u32 *)D_803EBB98;
+            d = (u32 *)cur;
+            for (k = 16; k != 0; k--) {
+                ENGINE_BLK(802AAA3C);
+                *d++ = *s++;
+            }
+            ENGINE_BLK(802AAA54);
+            prod = 1;
+            offs++, n--;
+        }
+        ENGINE_BLK(802AAA60);
+        s0 = (u32)mtx_el(cur, 0x00) * x + (u32)mtx_el(cur, 0x08) * y + (u32)mtx_el(cur, 0x10) * z +
+             ((u32) * (u16 *)(cur + 0x18) << 16);
+        s1 = (u32)mtx_el(cur, 0x02) * x + (u32)mtx_el(cur, 0x0A) * y + (u32)mtx_el(cur, 0x12) * z +
+             (u32)mtx_el(cur, 0x1A);
+        s2 = (u32)mtx_el(cur, 0x04) * x + (u32)mtx_el(cur, 0x0C) * y + (u32)mtx_el(cur, 0x14) * z +
+             (u32)mtx_el(cur, 0x1C);
+        ENGINE_LEAVE(7, (u32)m);
+        if (prod)
+            ENGINE_LEAVE(1, 4);
+    }
+    ENGINE_BLK(802AABA4);
+    *y_out = s1 >> 11;
+    *z_out = s2 >> 11;
+    *s1_out = s1;
+    *s2_out = s2;
+    return s0 >> 11;
+}
+
+/* An object's triangles (data: their count, the matrices' count n and
+   offsets, then 0x14-byte triangles of three s16 points) into
+   D_803EBDB0's 0x38-byte records of this id (new ones past D_803EBBEC's
+   end): each point as it is (the halves at 0x24) and through the
+   matrices at base (the words). */
+REGS(t3, t4, s4, s1, s2)
+void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2) {
+    s32 n = data[1], count = data[0], x, y = 0, z = 0, ran = 0;
+    s32 *offs = (s32 *)(data + 2);
+    s16 *t = (s16 *)((u8 *)data + 4 + n * 4);
+    u8 *end = D_803EBBEC, *r = D_803EBDB0;
+    s16 *h;
+    s32 *w;
+
+    ENGINE_BLK(802AABE4);
+    for (;;) {
+        ENGINE_BLK(802AAC18);
+        if (count == 0)
+            break;
+        ENGINE_BLK(802AAC20);
+        count--;
+        for (;;) {
+            ENGINE_BLK(802AAC24);
+            if (r == end) {
+                end += 0x38;
+                break;
+            }
+            ENGINE_BLK(802AAC2C);
+            if (*(u16 *)(r + 0x36) == id)
+                break;
+            r += 0x38;
+        }
+        ENGINE_BLK(802AAC38);
+        *(u16 *)(r + 0x36) = id;
+        h = (s16 *)(r + 0x24);
+        w = (s32 *)r;
+        h[0] = t[0], h[1] = t[1], h[2] = t[2];
+        x = func_802AA890(t[0], t[1], t[2], n, offs, base, (u32)r, s1, s2, &y, &z, &s1, &s2);
+        ENGINE_BLK(802AAC58);
+        w[0] = x, w[1] = y, w[2] = z;
+        h[3] = t[3], h[4] = t[4], h[5] = t[5];
+        x = func_802AA890(t[3], t[4], t[5], n, offs, base, (u32)r, s1, s2, &y, &z, &s1, &s2);
+        ENGINE_BLK(802AAC80);
+        w[3] = x, w[4] = y, w[5] = z;
+        h[6] = t[6], h[7] = t[7], h[8] = t[8];
+        x = func_802AA890(t[6], t[7], t[8], n, offs, base, (u32)r, s1, s2, &y, &z, &s1, &s2);
+        ENGINE_BLK(802AACA8);
+        w[6] = x, w[7] = y, w[8] = z;
+        t += 10;
+        r += 0x38;
+        ran = 1;
+    }
+    ENGINE_BLK(802AACC0);
+    D_803EBBEC = end;
+    /* (what it leaves: the last point's y and z, the loop's end) */
+    if (ran) {
+        ENGINE_LEAVE(3, y);
+        ENGINE_LEAVE(4, z);
+    }
+    ENGINE_LEAVE(15, 0);
+    ENGINE_LEAVE(19, (u32)t);
+}
