@@ -168,3 +168,11 @@ func_802AE104
 func_802AE160
 func_802AE1BC
 func_802AE290
+# 7F8B0: the LZSS, the loaders gzip, the engine sound (engine-B)
+func_802C4070
+func_802C4108
+func_802C41C0
+func_802C4310
+func_802C444C
+func_802C4584
+func_802C4724
