@@ -2089,6 +2089,14 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
     ENGINE_LEAVE(25, (u32)b);
 }
 
+/* us.v10's func_802BEBB0 lacks the check of D_803F7812 (802BED4C), and
+   its blocks after it are named 0x10 lower */
+#ifdef VERSION_US_V10
+#define BLK_V10(v11, v10) ENGINE_BLK(v10)
+#else
+#define BLK_V10(v11, v10) ENGINE_BLK(v11)
+#endif
+
 /* Piece p of building b hit by vehicle type `type`: if a part of the
    type's (D_803A6B30) touches it, the group takes its damage (by the
    type's power and the model's strength, func_802BFF6C), once a frame,
@@ -2108,7 +2116,7 @@ void func_802BEBB0(Piece *p, s32 type, Building *b) {
     for (;;) {
         ENGINE_BLK(802BEBF4);
         if (k->end == -1) {
-            ENGINE_BLK(802BEF5C);
+            BLK_V10(802BEF5C, 802BEF4C);
             goto out;
         }
         ENGINE_BLK(802BEC04);
@@ -2196,125 +2204,125 @@ hit:
     if (D_803F7812 != 0)
         goto seen;
 #endif
-    ENGINE_BLK(802BED5C);
+    BLK_V10(802BED5C, 802BED4C);
     func_802BEFF4();
-    ENGINE_BLK(802BED64);
+    BLK_V10(802BED64, 802BED54);
     if (D_803F780C != 0)
         goto add;
 #ifndef VERSION_US_V10
 seen:
 #endif
-    ENGINE_BLK(802BED74);
+    BLK_V10(802BED74, 802BED64);
     if (func_802BCDE0(n)) {
-        ENGINE_BLK(802BED7C);
+        BLK_V10(802BED7C, 802BED6C);
         goto turn;
     }
-    ENGINE_BLK(802BED7C);
+    BLK_V10(802BED7C, 802BED6C);
 add:
-    ENGINE_BLK(802BED84);
+    BLK_V10(802BED84, 802BED74);
     func_802BEA30(g, b);
-    ENGINE_BLK(802BED8C);
+    BLK_V10(802BED8C, 802BED7C);
     if (b->unk30 == 0x38) {
-        ENGINE_BLK(802BED9C);
+        BLK_V10(802BED9C, 802BED8C);
         if (type == 0) {
-            ENGINE_BLK(802BEDA4);
+            BLK_V10(802BEDA4, 802BED94);
             D_803F7805 = 1;
         }
-        ENGINE_BLK(802BEDB0);
+        BLK_V10(802BEDB0, 802BEDA0);
         d = 0;
     } else {
-        ENGINE_BLK(802BEDB8);
+        BLK_V10(802BEDB8, 802BEDA8);
         d = func_802BFF6C(g, k->power, type, b, B_MODEL(b)[4], n);
     }
-    ENGINE_BLK(802BEDC8);
+    BLK_V10(802BEDC8, 802BEDB8);
     D_802E8BE4 = 10;
     if (d < 0x1F5) {
-        ENGINE_BLK(802BEDE8);
+        BLK_V10(802BEDE8, 802BEDD8);
         D_802E8BE8 = d;
     } else {
-        ENGINE_BLK(802BEDF0);
+        BLK_V10(802BEDF0, 802BEDE0);
         D_802E8BE8 = 500;
     }
-    ENGINE_BLK(802BEDF8);
+    BLK_V10(802BEDF8, 802BEDE8);
     pd = &B_DAMAGE(b)[g - 1];
     dmg = *pd + d;
     if (!(dmg < 100)) {
-        ENGINE_BLK(802BEE18);
+        BLK_V10(802BEE18, 802BEE08);
         dmg = 100;
     }
-    ENGINE_BLK(802BEE1C);
+    BLK_V10(802BEE1C, 802BEE0C);
     *pd = dmg;
     D_803F77FE = d;
     func_802BF898(g, dmg, b);
-    ENGINE_BLK(802BEE2C);
+    BLK_V10(802BEE2C, 802BEE1C);
     if (dmg != 100)
         goto turn;
-    ENGINE_BLK(802BEE38);
+    BLK_V10(802BEE38, 802BEE28);
     func_802BF1F0(g, b);
-    ENGINE_BLK(802BEE40);
+    BLK_V10(802BEE40, 802BEE30);
     func_802C1438(g, b);
-    ENGINE_BLK(802BEE48);
+    BLK_V10(802BEE48, 802BEE38);
     func_802C09B8(g, b);
-    ENGINE_BLK(802BEE50);
+    BLK_V10(802BEE50, 802BEE40);
     func_802C0E8C(g, b);
-    ENGINE_BLK(802BEE58);
+    BLK_V10(802BEE58, 802BEE48);
     func_802BF384(b);
-    ENGINE_BLK(802BEE60);
+    BLK_V10(802BEE60, 802BEE50);
     D_802E8BE4 = 15;
     D_802E8BE8 = 400;
     q = b->unk4;
     end = b->unk8;
     for (;;) {
-        ENGINE_BLK(802BEE88);
+        BLK_V10(802BEE88, 802BEE78);
         if (q == end)
             break;
-        ENGINE_BLK(802BEE90);
+        BLK_V10(802BEE90, 802BEE80);
         if (q->group == g) {
-            ENGINE_BLK(802BEE9C);
+            BLK_V10(802BEE9C, 802BEE8C);
             q->active = 0;
         }
-        ENGINE_BLK(802BEEA0);
+        BLK_V10(802BEEA0, 802BEE90);
         if (q->group2 == g) {
-            ENGINE_BLK(802BEEAC);
+            BLK_V10(802BEEAC, 802BEE9C);
             if (B_DAMAGE(b)[q->group - 1] != 100) {
-                ENGINE_BLK(802BEEC8);
+                BLK_V10(802BEEC8, 802BEEB8);
                 q->active = 1;
             }
         }
-        ENGINE_BLK(802BEED0);
+        BLK_V10(802BEED0, 802BEEC0);
         q++;
     }
 turn:
     /* the camera turned by the piece, for the kinds listed (D_803A7408) */
-    ENGINE_BLK(802BEED8);
+    BLK_V10(802BEED8, 802BEEC8);
     D_803F7803 = 1;
     c = D_803A7408;
     for (;;) {
-        ENGINE_BLK(802BEEF0);
+        BLK_V10(802BEEF0, 802BEEE0);
         if (*c == n)
             goto done;
-        ENGINE_BLK(802BEEFC);
+        BLK_V10(802BEEFC, 802BEEEC);
         if (*c++ < 0)
             break;
     }
-    ENGINE_BLK(802BEF04);
+    BLK_V10(802BEF04, 802BEEF4);
     if (B_DAMAGE(b)[g - 1] != 100) {
-        ENGINE_BLK(802BEF20);
+        BLK_V10(802BEF20, 802BEF10);
         D_803A7424 = 1;
         func_802BF264(p);
-        ENGINE_BLK(802BEF30);
+        BLK_V10(802BEF30, 802BEF20);
     } else {
-        ENGINE_BLK(802BEF38);
+        BLK_V10(802BEF38, 802BEF28);
         D_803F7802 = 1;
     }
 done:
-    ENGINE_BLK(802BEF44);
+    BLK_V10(802BEF44, 802BEF34);
     func_802BF668(b);
-    ENGINE_BLK(802BEF4C);
+    BLK_V10(802BEF4C, 802BEF3C);
     func_802BF534(b);
-    ENGINE_BLK(802BEF54);
+    BLK_V10(802BEF54, 802BEF44);
 out:
-    ENGINE_BLK(802BEF60);
+    BLK_V10(802BEF60, 802BEF50);
     ENGINE_RESTORE();
 }
 
