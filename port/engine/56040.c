@@ -3917,3 +3917,98 @@ done:
         ENGINE_LEAVE(10, t2);
     ENGINE_LEAVE(13, -1);
 }
+
+extern s32 D_803649E8;
+
+/* Kind's sphere (its D_803A7300 record, when active) against every other
+   kind's (their radius over the gears, func_8029CB04): for a kind 6 not
+   where func_802AB41C says, and not kind 0 with D_803649E8, the two rows
+   against each other (func_8029CD54) where they meet */
+REGS(t8, gp)
+void func_8029C9D4(s32 kind, VS *vs) {
+    u8 *r = D_803A7300, *q;
+    s32 *s, *w, k, rr;
+
+    ENGINE_BLK(8029C9D4);
+    for (;;) {
+        ENGINE_BLK(8029CA10);
+        if (r[0x10] == kind)
+            break;
+        r += 0x14;
+    }
+    ENGINE_BLK(8029CA1C);
+    if ((s8)r[0x11] != 1)
+        goto done;
+    ENGINE_BLK(8029CA2C);
+    s = (s32 *)r;
+    for (q = D_803A7300;;) {
+        ENGINE_BLK(8029CA48);
+        if ((s8)q[0x11] == -1)
+            break;
+        ENGINE_BLK(8029CA54);
+        k = q[0x10];
+        if (k == kind) {
+            q += 0x14;
+            continue;
+        }
+        ENGINE_BLK(8029CA60);
+        if (kind == 6) {
+            ENGINE_BLK(8029CA6C);
+            if (func_802AB41C(k, kind) != 0) {
+                ENGINE_BLK(8029CA74);
+                q += 0x14;
+                continue;
+            }
+            ENGINE_BLK(8029CA74);
+        }
+        ENGINE_BLK(8029CA7C);
+        if (D_803649E8 != 0) {
+            ENGINE_BLK(8029CA90);
+            if (k == 0) {
+                q += 0x14;
+                continue;
+            }
+        }
+        ENGINE_BLK(8029CA98);
+        w = (s32 *)q;
+        rr = func_8029CB04(k, w[3], vs);
+        ENGINE_BLK(8029CAAC);
+        q += 0x14;
+        if (!func_8029CFA4(s[0], s[1], s[2], s[3], w[0], w[1], w[2], rr)) {
+            ENGINE_BLK(8029CAB4);
+            continue;
+        }
+        ENGINE_BLK(8029CAB4);
+        ENGINE_BLK(8029CABC);
+        func_8029CD54(kind, k, vs);
+        ENGINE_BLK(8029CAC4);
+    }
+done:
+    ENGINE_BLK(8029CACC);
+}
+
+/* A vehicle kind's collisions with the others, the sphere lists and its
+   own row (func_8029C9D4, func_8029C828, func_8029C748); D_803A7424 and
+   D_803A7425 set when the camera's headings were moved */
+REGS(t8, gp)
+void func_8029C52C(s32 kind, VS *vs) {
+    ENGINE_BLK(8029C52C);
+    func_8029C9D4(kind, vs);
+    ENGINE_BLK(8029C564);
+    func_8029C828(kind);
+    ENGINE_BLK(8029C56C);
+    func_8029C748(kind);
+    ENGINE_BLK(8029C574);
+    if ((u16)D_803A7410 == 0) {
+        ENGINE_BLK(8029C588);
+        ENGINE_LEAVE(1, 0xFFF);
+        if ((u16)D_803A7412 == 0xFFF)
+            goto done;
+    }
+    ENGINE_BLK(8029C5A0);
+    D_803A7425 = 1;
+    D_803A7424 = 1;
+    ENGINE_LEAVE(1, HI(D_803A7424));
+done:
+    ENGINE_BLK(8029C5B4);
+}
