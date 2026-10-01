@@ -18,6 +18,7 @@ this project's own pace (2026-09-29/30), not from human-calendar guesses:
 | The results screen's black boxes and the medal's seam | — | 2 agent-hours, with a 20,000-frame screenshot sweep |
 | Typing the name on the name entry | — | 1 agent-hour |
 | The path-tracing investigation | — | 8 agent-minutes |
+| The picture following the window's shape, and the HUD to the sides (`--hud`) | — | 1 agent-hour, with the TAS at 21:9 |
 
 So a piece with an exact oracle (the difftest, the TAS, object identity) takes about an agent-hour
 where a person's estimate said a week.  Work checked by eye or ear, or whose design is still open, goes
