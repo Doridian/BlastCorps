@@ -651,6 +651,9 @@ struct Arena : PassInfoMixin<Arena> {
         IRBuilder<> tb(then);
         tb.CreateCall(bad, {tb.CreateZExt(sp, IP)});
         IRBuilder<> nb(at);
+        /* (the markers go after the loop: `at` may be one of them, a
+           lifetime.start just after the allocas) */
+        std::vector<Instruction *> dead;
         for (size_t k = 0; k < as.size(); k++) {
             Value *a = as[k];
             Value *np = nb.CreateIntToPtr(nb.CreateZExt(nb.CreateAdd(sp, ConstantInt::get(i32, offs[k])), IP),
@@ -661,17 +664,16 @@ struct Arena : PassInfoMixin<Arena> {
             a->replaceUsesWithIf(np, [&](Use &u) { return u.getUser() != copy; });
             if (auto *ai = dyn_cast<AllocaInst>(a)) {
                 /* what is left of it: lifetime markers */
-                std::vector<Instruction *> dead;
                 for (User *u : np->users())
                     if (auto *ii = dyn_cast<IntrinsicInst>(u))
                         if (ii->isLifetimeStartOrEnd())
                             dead.push_back(ii);
-                for (Instruction *d : dead)
-                    d->eraseFromParent();
                 ai->eraseFromParent();
             }
             escaped++;
         }
+        for (Instruction *d : dead)
+            d->eraseFromParent();
         for (BasicBlock &bb : f)
             if (auto *r = dyn_cast<ReturnInst>(bb.getTerminator()))
                 IRBuilder<>(r).CreateStore(old, lsp);
