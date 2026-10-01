@@ -2897,3 +2897,71 @@ void func_8029C5EC(void) {
     ENGINE_BLK(8029C680);
     ENGINE_LEAVE(20, found);
 }
+
+/* The animation a's nine values (the halves of its four current keys,
+   D_803B7FC0-D_803B7FC3 of the 0x14-byte records 8 on from keys) on the
+   spline at its fraction, into out; the basis set up for its mode
+   (func_8029F110, func_8029F060).  $t1 is out's end + 2. */
+REGS(t4, t5, t1)
+void func_8029FFA0(u8 *a, u8 *keys, s16 *out) {
+    u8 *d = *(u8 *PTR32 *)a, *k = keys + 8;
+    s16 *p0, *p1, *p2, *p3;
+    s32 i, v = 0;
+    f32 t = *(f32 *)(a + 4), k0 = 0.0f, k1 = 0.0f;
+
+    ENGINE_BLK(8029FFA0);
+    func_8029F110(a, a[0x15]);
+    ENGINE_BLK(8029FFFC);
+    func_8029F060(t, a[0x13], d[0]);
+    ENGINE_BLK(802A0004);
+    p0 = (s16 *)(k + D_803B7FC0 * 0x14);
+    p1 = (s16 *)(k + D_803B7FC1 * 0x14);
+    p2 = (s16 *)(k + D_803B7FC2 * 0x14);
+    p3 = (s16 *)(k + D_803B7FC3 * 0x14);
+    for (i = 9;;) {
+        ENGINE_BLK(802A0070);
+        if (i == 0)
+            break;
+        ENGINE_BLK(802A0078);
+        k0 = (f32)*p0;
+        k1 = (f32)*p1;
+        v = engine_cvt_w_s(func_8029E878(k0, k1, (f32)*p2, (f32)*p3, t));
+        ENGINE_BLK(802A00AC);
+        p0++, p1++, p2++, p3++;
+        *out++ = v;
+        i--;
+    }
+    ENGINE_BLK(802A00D4);
+    ENGINE_LEAVE(9, (u32)(out + 1));
+    ENGINE_LEAVE_F(0, k0);
+    ENGINE_LEAVE_F(2, k1);
+    ENGINE_LEAVE_FW(8, v);
+    ENGINE_LEAVE_F(30, t);
+}
+
+/* The key k (nine s16s: scale or position, three angles, position) the
+   fraction t of the way to the next (0x14 on), into out: the six
+   positions straight, the angles the short way round (func_8029F6B0) */
+REGS(t5, t1, f30)
+void func_802A0118(s16 *k, s16 *out, f32 t) {
+    s32 w0, w;
+
+    ENGINE_BLK(802A0118);
+    w0 = engine_cvt_w_s((f32)(k[10] - k[0]) * t);
+    out[0] = k[0] + w0;
+    out[1] = k[1] + engine_cvt_w_s((f32)(k[11] - k[1]) * t);
+    out[2] = k[2] + engine_cvt_w_s((f32)(k[12] - k[2]) * t);
+    ENGINE_LEAVE_FW(0, w0);
+    out[3] = func_8029F6B0(k[3], k[13], t);
+    ENGINE_BLK(802A01C4);
+    out[4] = func_8029F6B0(k[4], k[14], t);
+    ENGINE_BLK(802A01D4);
+    out[5] = func_8029F6B0(k[5], k[15], t);
+    ENGINE_BLK(802A01E4);
+    w = engine_cvt_w_s((f32)(k[16] - k[6]) * t);
+    out[6] = k[6] + w;
+    out[7] = k[7] + engine_cvt_w_s((f32)(k[17] - k[7]) * t);
+    out[8] = k[8] + engine_cvt_w_s((f32)(k[18] - k[8]) * t);
+    ENGINE_LEAVE_FW(2, w);
+    ENGINE_LEAVE(9, (u32)(out + 10));
+}
