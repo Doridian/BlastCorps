@@ -109,6 +109,24 @@ void gfx_fetch_texel(const GfxTile *t, int s, int tt, uint8_t *o);  /* s, t alre
 /* LOD: the tiles and the fraction for a level of detail (texels per pixel) */
 void gfx_lod_tiles(float lod, int base, int *tile0, int *tile1, float *frac);
 int gfx_lod_on(void);
+/* Coverage from alpha (othermode L's CVG_X_ALPHA, 0x1000): the RDP
+   multiplies the pixel's coverage by the combined alpha, and with AA_EN
+   (0x8) a pixel left with no coverage isn't written, whatever the blender
+   would do.  A covered pixel's coverage is 8 eighths, alpha / 256 of it is
+   kept to the eighth, so alpha below 32 drops it: the game's 2D sprites
+   once faded in (G_RM_OPA_SURF with FORCE_BL, AA_EN, CVG_X_ALPHA and
+   ALPHA_CVG_SEL, 0x0F0A7008), whose transparent texels would otherwise
+   be drawn black.  Without FORCE_BL the anti-aliased blend that softens
+   such an edge isn't emulated, and the edge is put at alpha 128.  The
+   alpha (0..255) below which a pixel is dropped, 0 for none. */
+static inline int gfx_cvg_alpha_min(uint32_t om_l) {
+    if (!(om_l & 0x1000))
+        return 0;
+    if (!(om_l & 0x4000))
+        return 128;
+    return (om_l & 0x8) ? 32 : 0;
+}
+static inline int gfx_cvg_drops(uint32_t om_l, float alpha) { return alpha < gfx_cvg_alpha_min(om_l); }
 
 /* the OpenGL back end (gfx_gl.c); gfx_gl_enabled is 0 without it */
 extern int gfx_gl_enabled;

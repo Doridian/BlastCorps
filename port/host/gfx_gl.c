@@ -592,22 +592,26 @@ static const char *vs_src =
     "layout(location = 0) in vec4 a_pos;\n"
     "layout(location = 1) in vec2 a_st;\n"
     "layout(location = 2) in vec4 a_col;\n"
+    "layout(location = 3) in vec4 a_box;\n"
     "uniform vec2 u_vp;\n"
     "uniform float u_zbias;\n"
     "out vec4 v_col;\n"
     "out vec2 v_st;\n"
+    "flat out vec4 v_box;\n"
     "void main() {\n"
     "    float w = a_pos.w;\n"
     "    gl_Position = vec4((a_pos.x / u_vp.x * 2.0 - 1.0) * w, (1.0 - a_pos.y / u_vp.y * 2.0) * w,\n"
     "                       ((a_pos.z - u_zbias) * 2.0 - 1.0) * w, w);\n"
     "    v_col = a_col * (1.0 / 255.0);\n"
     "    v_st = a_st;\n"
+    "    v_box = a_box;\n"
     "}\n";
 
 static const char *fs_common =
     GLSL_VERSION
     "in vec4 v_col;\n"
     "in vec2 v_st;\n"
+    "flat in vec4 v_box;        /* where s, t may go (gfx_gl_tex_rect) */\n"
     "out vec4 o_col;\n"
     "uniform sampler2D u_tex[8];\n"
     "uniform ivec4 u_tA[8];     /* shift s, shift t, mask s, mask t */\n"
@@ -773,9 +777,10 @@ static Prog *get_prog(const ProgKey *key) {
     }
     if (key->textured) {
         const char *fn = key->hd ? "texel_hd" : "texel";
-        cat("    t0 = %s(s0, v_st, %d);\n", fn, key->filt);
+        cat("    vec2 st = clamp(v_st, v_box.xy, v_box.zw);\n");
+        cat("    t0 = %s(s0, st, %d);\n", fn, key->filt);
         if (key->tex1)
-            cat("    t1 = %s(s1, v_st, %d);\n", fn, key->filt);
+            cat("    t1 = %s(s1, st, %d);\n", fn, key->filt);
     }
     if (key->cyc == 2) {                            /* copy */
         if ((key->om_l & 3) == 1)
@@ -806,8 +811,8 @@ static Prog *get_prog(const ProgKey *key) {
         uint32_t l = key->om_l;
         if ((l & 3) == 1)
             cat("    if (comb.a * 255.0 < u_blend.a * 255.0) discard;\n");
-        if ((l & 0x1000) && !(l & 0x4000))
-            cat("    if (comb.a * 255.0 < 128.0) discard;\n");
+        if (gfx_cvg_alpha_min(l))                   /* coverage from alpha */
+            cat("    if (comb.a * 255.0 < %d.0) discard;\n", gfx_cvg_alpha_min(l));
         int bcyc = ncyc - ((l & 0x4000) ? 0 : 1);
         cat("    vec3 inp = comb.rgb;\n");
         cat("    o_col = vec4(inp, 1.0);\n");
@@ -920,8 +925,11 @@ static DrawState ds_cur, ds_batch;
 static int batch_valid;
 
 typedef struct {
-    float x, y, z, w, s, t, r, g, b, a;
+    float x, y, z, w, s, t, r, g, b, a;     /* GfxVtx's */
+    float box[4];                           /* s, t kept within: low s, t, high s, t */
 } GLVtx;
+
+static const float no_box[4] = { -1e9f, -1e9f, 1e9f, 1e9f };
 
 static GLVtx *vbuf;
 static int vcount, vcap;
@@ -1078,6 +1086,8 @@ static int build_state(int kind, int tile) {
         key.cc0 = gs.cc0;
         key.cc1 = gs.cc1;
         key.om_l = gs.om_l & 0xFFFF5003u;           /* blender, FORCE_BL, CVG_X_ALPHA, alpha compare */
+        if ((gs.om_l & 0x5000) == 0x5000)
+            key.om_l |= gs.om_l & 0x8;              /* and AA_EN, where gfx_cvg_alpha_min reads it */
         key.textured = kind == K_TEXRECT || (kind == K_TRI && gs.tex_on);
         key.tex1 = key.textured && key.cyc < 2 && gfx_uses_tex1();
         key.lod = key.textured && key.cyc < 2 && gfx_lod_on();
@@ -1167,7 +1177,8 @@ void gfx_gl_tri(const GfxVtx *s, int n, const float *flat) {
     for (int i = 1; i + 1 < n; i++) {
         const GfxVtx *p[3] = { &s[0], &s[i], &s[i + 1] };
         for (int j = 0; j < 3; j++, v++) {
-            memcpy(v, p[j], sizeof *v);
+            memcpy(v, p[j], sizeof *p[j]);
+            memcpy(v->box, no_box, sizeof v->box);
             v->x += wide_off;
             if (flat) {
                 v->r = flat[0]; v->g = flat[1]; v->b = flat[2]; v->a = flat[3];
@@ -1177,15 +1188,15 @@ void gfx_gl_tri(const GfxVtx *s, int n, const float *flat) {
 }
 
 static void quad(float x0, float y0, float x1, float y1, float s00, float t00, float s10, float t10,
-                 float s01, float t01, float s11, float t11, const float *col) {
+                 float s01, float t01, float s11, float t11, const float *col, const float *box) {
     GLVtx *v = push(6);
     x0 += wide_off;
     x1 += wide_off;
     GLVtx c[4] = {
-        { x0, y0, 0, 1, s00, t00, col[0], col[1], col[2], col[3] },
-        { x1, y0, 0, 1, s10, t10, col[0], col[1], col[2], col[3] },
-        { x0, y1, 0, 1, s01, t01, col[0], col[1], col[2], col[3] },
-        { x1, y1, 0, 1, s11, t11, col[0], col[1], col[2], col[3] },
+        { x0, y0, 0, 1, s00, t00, col[0], col[1], col[2], col[3], { box[0], box[1], box[2], box[3] } },
+        { x1, y0, 0, 1, s10, t10, col[0], col[1], col[2], col[3], { box[0], box[1], box[2], box[3] } },
+        { x0, y1, 0, 1, s01, t01, col[0], col[1], col[2], col[3], { box[0], box[1], box[2], box[3] } },
+        { x1, y1, 0, 1, s11, t11, col[0], col[1], col[2], col[3], { box[0], box[1], box[2], box[3] } },
     };
     v[0] = c[0]; v[1] = c[1]; v[2] = c[2];
     v[3] = c[1]; v[4] = c[3]; v[5] = c[2];
@@ -1201,7 +1212,7 @@ void gfx_gl_fill_rect(int x0, int y0, int x1, int y1) {
         col[2] = ((c >> 1) & 31) * 255 / 31;
         col[3] = 255;
     }
-    quad(x0, y0, x1, y1, 0, 0, 0, 0, 0, 0, 0, 0, col);
+    quad(x0, y0, x1, y1, 0, 0, 0, 0, 0, 0, 0, 0, col, no_box);
 }
 
 void gfx_gl_tex_rect(int x0, int y0, int x1, int y1, int tile, float sa, float ta, float dsdx, float dtdy,
@@ -1218,7 +1229,16 @@ void gfx_gl_tex_rect(int x0, int y0, int x1, int y1, int tile, float sa, float t
         s[i] = sa + (flip ? dy : dx) * dsdx + e;
         t[i] = ta + (flip ? dx : dy) * dtdy + e;
     }
-    quad(x0, y0, x1, y1, s[0], t[0], s[1], t[1], s[2], t[2], s[3], t[3], c);
+    /* Above 1x the pixels at a rectangle's edges sample between its first
+       or last texel and the one beyond, which the RDP never reads there: a
+       picture drawn as rectangles (the results screen's medal, two 64x32
+       halves whose tile wraps at 64 rows) shows a seam where the last row
+       of a half is filtered with what lies past it.  So s and t stay within
+       what the 1x pixels sample. */
+    float sn = (float)((flip ? y1 - y0 : x1 - x0) - 1), tn = (float)((flip ? x1 - x0 : y1 - y0) - 1);
+    float s_end = sa + sn * dsdx, t_end = ta + tn * dtdy;
+    float box[4] = { fminf(sa, s_end) + e, fminf(ta, t_end) + e, fmaxf(sa, s_end) + e, fmaxf(ta, t_end) + e };
+    quad(x0, y0, x1, y1, s[0], t[0], s[1], t[1], s[2], t[2], s[3], t[3], c, box);
 }
 
 void gfx_gl_zclear(int x0, int y0, int x1, int y1) {
@@ -1336,6 +1356,8 @@ int gfx_gl_init(SDL_Window *w) {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(GLVtx), (void *)(4 * sizeof(float)));
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(GLVtx), (void *)(6 * sizeof(float)));
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(GLVtx), (void *)(10 * sizeof(float)));
     glEnable(GL_DEPTH_CLAMP);
     glClearColor(0, 0, 0, 1);       /* (every clear's) */
     glClearDepth(1.0);

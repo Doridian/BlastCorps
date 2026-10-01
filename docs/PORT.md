@@ -1895,6 +1895,28 @@ by glyphs drawn from Stardos Stencil (SIL OFL) fitted to the game's; the
 quads, colours and shadows stay the game's.  docs/FONTS.md has the
 inventory of the game's fonts and the details.
 
+Coverage from alpha (`CVG_X_ALPHA`) multiplies the pixel's coverage by
+the combined alpha, and with `AA_EN` the RDP doesn't write a pixel left
+with none: alpha below 32, for a fully covered pixel, whatever the blender
+says (`gfx_cvg_alpha_min`).  The game's 2D sprites rely on it once they
+have faded in: they fade in translucent (`0x00504240`, the blend with
+memory hides their transparent texels) and then switch to
+`G_RM_OPA_SURF` with `FORCE_BL`, `AA_EN`, `CVG_X_ALPHA` and
+`ALPHA_CVG_SEL` (`0x0F0A7008`), where only the coverage drops those
+texels.  Without the rule the results screen's money and waving-man
+icons, the medals, the bottom bar's medal and star icons and the
+highlighted EXIT were drawn on black rectangles, in both renderers (the
+GL program key keeps `AA_EN` where it matters).  It also drops the
+starfield's faintest texels, which were drawn black over brighter stars.
+
+Above 1x the OpenGL renderer keeps a texture rectangle's s and t within
+the range its 1x pixels sample (`v_box`): the pixels on the edges would
+otherwise filter the first or last texel with the one beyond it, which the
+RDP never reads there.  The results screen's medal is two 64x32
+rectangles whose tile wraps at 64 rows, so its halves' last rows were
+filtered with their first, a dark seam across it; the title's tiled logos
+had fainter seams at every tile edge.
+
 Not done: anti-aliasing (the coverage the blender uses on edges; rendering
 above 1x and scaling down is the substitute) and the VI's filters, dither,
 the combiner's chroma key (its noise input is a hash, not the RDP's

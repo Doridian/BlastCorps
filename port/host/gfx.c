@@ -1063,12 +1063,12 @@ static void write_pixel(int x, int y, const float *c) {
    from alpha first; then the blend equation (P * A + M * B) / (A + B) for
    each cycle.  Without FORCE_BL the last cycle only blends partly covered
    pixels on the hardware (anti-aliasing), which isn't emulated: the pixel
-   is the input.  gfx_gl.c compiles the same rules. */
+   is the input.  gfx_gl.c compiles the same rules (gfx_cvg_drops). */
 static int blend(int x, int y, float *c, const float *shade) {
     uint32_t l = gs.om_l;
     if ((l & 3) == 1 && c[3] < gs.blend[3])         /* alpha compare: threshold */
         return 0;
-    if ((l & 0x1000) && !(l & 0x4000) && c[3] < 128) /* coverage from alpha */
+    if (gfx_cvg_drops(l, c[3]))                     /* coverage from alpha */
         return 0;
     int cyc = gfx_cycles();
     if (!(l & 0x4000))                              /* no FORCE_BL: the last cycle passes */
