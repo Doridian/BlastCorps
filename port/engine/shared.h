@@ -284,6 +284,17 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 REGS(t6, s1, fp)
 void func_802A1074(u32 id, u32 dst, u32 param);
 
+/* 77E20 and 89250 (engine-D's): a building kind into this frame's list,
+   two list resets, and the angle test (it leaves f0 and f2) */
+REGS(fp)
+void func_802BCCD4(s32 kind);
+REGS()
+void func_802BCBD8(void);
+REGS()
+void func_802BCC10(void);
+REGS(v0, a0, a2, t0)
+void func_802CE204(s32 x, s32 z, s32 tx, s32 tz);
+
 /* 69944 */
 REGS(f12 -> f0)
 f32 func_802AE1BC(f32 x);
