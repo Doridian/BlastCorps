@@ -124,20 +124,23 @@ s32 func_8029CFA4(s32 x, s32 y, s32 z, s32 r, s32 bx, s32 by, s32 bz, s32 br);
    the point on the plane (*px, *py, *pz) */
 REGS(t3, t4, t5, t6, s0 -> v0, v1, a0, a1)
 s32 func_8029C160(s32 x, s32 y, s32 z, s32 r, Piece *p, s32 *px, s32 *py, s32 *pz);
-/* that point and piece p's corners, flattened along its axis: the corners
-   in 2D (*v0, *v1 ... *a3) and the point (*t0, *t1) */
-REGS(v1, a0, a1, s0 -> v0, v1, a0, a1, a2, a3, t0, t1)
-s32 func_8029C0DC(s32 px, s32 py, s32 pz, Piece *p, s32 *v1, s32 *a0, s32 *a1, s32 *a2, s32 *a3, s32 *t0,
-                  s32 *t1);
+/* that point and piece p's corners, flattened along its axis (56040.c,
+   native): the corners in 2D left in $v0-$a3, the point in $t0, $t1 */
+REGS(s0, v1, a0, a1)
+void func_8029C0DC(u8 *part, s32 x, s32 y, s32 z);
 /* whether the 2D point (x, z) is inside the triangle */
 REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t7)
 s32 func_8029BF64(s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3, s32 x, s32 z);
 /* whether the sphere crosses one of piece p's edges */
 REGS(t3, t4, t5, t6, s0 -> t7)
 s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, Piece *p);
-/* whether the sphere holds piece p's first corner */
-REGS(t3, t4, t5, t6, s0 -> t7)
-s32 func_8029BEE4(s32 x, s32 y, s32 z, s32 r, Piece *p);
+/* whether the sphere holds piece p's first corner (56040.c, native) */
+REGS(s0, t3, t4, t5, t6 -> t7)
+s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r);
+
+/* what func_8029C0DC leaves, for func_8029BF64 */
+#define C0DC_LEFT engine_ctx(2), engine_ctx(3), engine_ctx(4), engine_ctx(5), engine_ctx(6), engine_ctx(7), \
+                  engine_ctx(8), engine_ctx(9)
 /* the camera's heading kept between two angles */
 REGS(a0, a1)
 void func_8029B7CC(s32 a, s32 b);

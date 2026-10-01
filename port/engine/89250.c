@@ -137,9 +137,9 @@ s32 func_802CDC7C(Building *b, s32 x, s32 y, s32 z, s32 r, s32 hit) {
         ENGINE_BLK(802CDCD8);
         if (in) {
             ENGINE_BLK(802CDCE0);
-            in = func_8029C0DC(px, py, pz, p, &v1, &a0, &a1, &a2, &a3, &t0, &t1);
+            func_8029C0DC((u8 *)p, px, py, pz);
             ENGINE_BLK(802CDCE8);
-            in = func_8029BF64(in, v1, a0, a1, a2, a3, t0, t1);
+            in = func_8029BF64(C0DC_LEFT);
             ENGINE_BLK(802CDCF0);
             if (!in) {
                 ENGINE_BLK(802CDCF8);
@@ -147,7 +147,7 @@ s32 func_802CDC7C(Building *b, s32 x, s32 y, s32 z, s32 r, s32 hit) {
                 ENGINE_BLK(802CDD00);
                 if (!in) {
                     ENGINE_BLK(802CDD08);
-                    in = func_8029BEE4(x, y, z, r, p);
+                    in = func_8029BEE4((u8 *)p, x, y, z, r);
                     ENGINE_BLK(802CDD10);
                 }
             }
@@ -190,7 +190,7 @@ void func_802CDD74(Building *b, Piece *p, s32 damage) {
     ENGINE_BLK(802CDE24);
     g = p->group;
     if (B_MODEL(b)[4] == 0) {
-        ENGINE_BLK(802CDE40);
+        { ENGINE_BLK(802CDE40); engine_break(0x802CDE40, 7); }
     }
     ENGINE_BLK(802CDE44);
     dmg = &B_DAMAGE(b)[g - 1];

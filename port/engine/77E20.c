@@ -1559,19 +1559,19 @@ loop:
             U16_(a, 0xE) = t;
             S32_(a, 8) = engine_divu((u32)t * 255, n);
             if (n == 0)
-                ENGINE_BLK(802BE1DC);
+                { ENGINE_BLK(802BE1DC); engine_break(0x802BE1DC, 7); }
         } else if (kind == 1) {
             ENGINE_BLK(802BDE58);
             ENGINE_BLK(802BE114);
             t = (u32)D_803649D8 >> 4;
             n = U16_(a, 0xC);
             if (n == 0)
-                ENGINE_BLK(802BE140);
+                { ENGINE_BLK(802BE140); engine_break(0x802BE140, 7); }
             ENGINE_BLK(802BE144);
             if (engine_remu(t, n) == 0) {
                 ENGINE_BLK(802BE14C);
                 if (U8_(a, 4) == 0)
-                    ENGINE_BLK(802BE160);
+                    { ENGINE_BLK(802BE160); engine_break(0x802BE160, 7); }
                 ENGINE_BLK(802BE164);
                 U8_(a, 5) = engine_remu((u32)t >> 8, U8_(a, 4));
             }
@@ -1592,7 +1592,7 @@ loop:
                 ENGINE_BLK(802BDFE0);
                 t = engine_divu((u32)(h - lo) * (U8_(a, 4) - 1) * 255, hi - lo);
                 if (hi - lo == 0)
-                    ENGINE_BLK(802BE028);
+                    { ENGINE_BLK(802BE028); engine_break(0x802BE028, 7); }
                 ENGINE_BLK(802BE02C);
                 U8_(a, 5) = (u32)t / 255;
                 ENGINE_BLK(802BE048);
@@ -1617,7 +1617,7 @@ loop:
                 ENGINE_BLK(802BE08C);
                 t = engine_divu((u32)t * (U8_(a, 4) - 1) * 255, n + hi);
                 if (n + hi == 0)
-                    ENGINE_BLK(802BE0CC);
+                    { ENGINE_BLK(802BE0CC); engine_break(0x802BE0CC, 7); }
                 ENGINE_BLK(802BE0D0);
                 U8_(a, 5) = (u32)t / 255;
                 ENGINE_BLK(802BE0F0);
@@ -2058,9 +2058,9 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
         ENGINE_BLK(802BEB38);
         if (in) {
             ENGINE_BLK(802BEB40);
-            in = func_8029C0DC(px, py, pz, p, &v1, &a0, &a1, &a2, &a3, &t0, &t1);
+            func_8029C0DC((u8 *)p, px, py, pz);
             ENGINE_BLK(802BEB48);
-            in = func_8029BF64(in, v1, a0, a1, a2, a3, t0, t1);
+            in = func_8029BF64(C0DC_LEFT);
             ENGINE_BLK(802BEB50);
             if (!in) {
                 ENGINE_BLK(802BEB58);
@@ -2068,7 +2068,7 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
                 ENGINE_BLK(802BEB60);
                 if (!in) {
                     ENGINE_BLK(802BEB68);
-                    in = func_8029BEE4(x, y, z, r, p);
+                    in = func_8029BEE4((u8 *)p, x, y, z, r);
                     ENGINE_BLK(802BEB70);
                 }
             }
@@ -2137,9 +2137,9 @@ void func_802BEBB0(Piece *p, s32 type, Building *b) {
         if (!in)
             continue;
         ENGINE_BLK(802BEC4C);
-        in = func_8029C0DC(px, py, pz, p, &v1, &a0, &a1, &a2, &a3, &t0, &t1);
+        func_8029C0DC((u8 *)p, px, py, pz);
         ENGINE_BLK(802BEC54);
-        in = func_8029BF64(in, v1, a0, a1, a2, a3, t0, t1);
+        in = func_8029BF64(C0DC_LEFT);
         ENGINE_BLK(802BEC5C);
         if (in)
             break;
@@ -2149,7 +2149,7 @@ void func_802BEBB0(Piece *p, s32 type, Building *b) {
         if (in)
             break;
         ENGINE_BLK(802BEC74);
-        in = func_8029BEE4(k[-1].x >> 2, k[-1].y >> 2, k[-1].z >> 2, k[-1].r >> 2, p);
+        in = func_8029BEE4((u8 *)p, k[-1].x >> 2, k[-1].y >> 2, k[-1].z >> 2, k[-1].r >> 2);
         ENGINE_BLK(802BEC7C);
         if (in)
             break;
@@ -3177,7 +3177,7 @@ divide:
     D_8036CB2A = d;
     d = engine_divu(d, strength);
     if (strength == 0)
-        ENGINE_BLK(802C0244);
+        { ENGINE_BLK(802C0244); engine_break(0x802C0244, 7); }
     ENGINE_BLK(802C0248);
     D_8036CB2C = d;
 out:
@@ -3382,7 +3382,7 @@ void func_802C0574(void) {
         kinds = (u8 *)(u32)U32_(D_80306270, FX_B(fx, 0x31) * 4);
         k = kinds[1 + engine_remu((u32)D_803649D8 >> 4, kinds[0])];
         if (kinds[0] == 0)
-            ENGINE_BLK(802C0638);
+            { ENGINE_BLK(802C0638); engine_break(0x802C0638, 7); }
         ENGINE_BLK(802C063C);
         big = 1;
         if (FX_B(fx, 0x31) != 0x15) {
@@ -4209,7 +4209,7 @@ void func_802C18D4(s32 r, s32 x, s32 y, s32 z, s32 amount) {
             }
             ENGINE_BLK(802C199C);
             if (B_MODEL(b)[4] == 0)
-                ENGINE_BLK(802C19B4);
+                { ENGINE_BLK(802C19B4); engine_break(0x802C19B4, 7); }
             ENGINE_BLK(802C19B8);
             a = engine_divu(amount, B_MODEL(b)[4]);
             func_802BC888(a, g, b);
