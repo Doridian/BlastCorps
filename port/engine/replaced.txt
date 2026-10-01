@@ -217,3 +217,9 @@ func_802A0F0C
 func_802A1040
 func_802A1074
 func_802A11C4
+
+# 5FD50: the terrain visibility walk and display lists (engine-B)
+func_802A4510
+func_802A45D4
+func_802A467C
+func_802A4CDC
