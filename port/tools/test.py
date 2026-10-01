@@ -594,6 +594,7 @@ def emsdk_cmake(given):
     """how to configure a WebAssembly build: the cmake command's start, or None"""
     root = given or os.environ.get("EMSDK")
     if root:
+        root = os.path.abspath(root)
         tc = os.path.join(root, "upstream", "emscripten", "cmake", "Modules", "Platform", "Emscripten.cmake")
         if not os.path.exists(tc):
             return None

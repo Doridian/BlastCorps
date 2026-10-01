@@ -14,7 +14,9 @@ where it is in the ROM's modules (the N64 link's symbols, from
 blastcorps/build/*.elf) and in FILE (its symbols, where llvm-nm reads
 them).  Stretches of one repeated byte or of a short repeated pattern
 don't count, nor stretches of counting numbers (an alphabet, a table of
-0, 1, 2, ...), which any program has.
+0, 1, 2, ...), which any program has, nor ones with fewer than 16 bytes
+that aren't zero (a few float constants padded with zeros, which a
+compiler's constant pool has as well).
 
 --max-bytes: exit 1 when a file carries more than N bytes of it (the test
 suite's check; default: report only).
@@ -103,8 +105,10 @@ def repeated(b):
 
 
 def boring(b):
-    """nothing that says where it came from: repeated, mostly one byte, or
-    counting"""
+    """nothing that says where it came from: repeated, mostly one byte,
+    mostly zeros, or counting"""
+    if len(b) - b.count(0) < 16:
+        return True
     if repeated(b) or max(b.count(x) for x in set(b)) * 10 >= len(b) * 9:
         return True
     return progression(b)
