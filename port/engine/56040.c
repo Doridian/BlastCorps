@@ -1026,8 +1026,9 @@ extern s32 D_803B3730[16];              /* a part's matrix (16.16) */
 
 /* D_803B3730 = the translation from (x0, y0, z0) the fraction t of the
    way to (x1, y1, z1), unless that is 0 ($a0: 0x10000, or 0) */
-REGS(a0, a1, a2, a3, t0, t1, f30)
-void func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
+REGS(a0, a1, a2, a3, t0, t1, f30 -> a0)
+s32 func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
+    s32 res;
     s32 x, y, z, *m = D_803B3730;
     f32 fx;
 
@@ -1044,7 +1045,7 @@ void func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
             ENGINE_BLK(8029F43C);
             if (z == 0) {
                 ENGINE_BLK(8029F444);
-                ENGINE_LEAVE(4, 0);
+                res = 0;
                 goto done;
             }
         }
@@ -1054,16 +1055,18 @@ void func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
     m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
     m[12] = (u32)x << 16, m[13] = (u32)y << 16, m[14] = (u32)z << 16, m[15] = 0x10000;
-    ENGINE_LEAVE(4, 0x10000);
+    res = 0x10000;
 done:
     ENGINE_BLK(8029F4A4);
+    return res;
 }
 
 /* D_803B3730 = the rotation about x (F4B8), y (F560) or z (F608) by the
    angle from a to b the fraction t of the way (func_8029F6B0), unless
    that is 0 ($a0: 0x10000, or 0) */
-REGS(a0, a1, f30)
-void func_8029F4B8(s32 a, s32 b, f32 t) {
+REGS(a0, a1, f30 -> a0)
+s32 func_8029F4B8(s32 a, s32 b, f32 t) {
+    s32 res;
     s32 r, c, s, *m = D_803B3730;
 
     ENGINE_BLK(8029F4B8);
@@ -1071,7 +1074,7 @@ void func_8029F4B8(s32 a, s32 b, f32 t) {
     ENGINE_BLK(8029F4D4);
     if (r == 0) {
         ENGINE_BLK(8029F4DC);
-        ENGINE_LEAVE(4, 0);
+        res = 0;
         goto done;
     }
     ENGINE_BLK(8029F4E4);
@@ -1084,14 +1087,16 @@ void func_8029F4B8(s32 a, s32 b, f32 t) {
     m[8] = 0, m[9] = -c, m[10] = s, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
     ENGINE_LEAVE(3, (u32)r >> 4);
-    ENGINE_LEAVE(4, 0x10000);
+    res = 0x10000;
     ENGINE_LEAVE(30, s);
 done:
     ENGINE_BLK(8029F544);
+    return res;
 }
 
-REGS(a0, a1, f30)
-void func_8029F560(s32 a, s32 b, f32 t) {
+REGS(a0, a1, f30 -> a0)
+s32 func_8029F560(s32 a, s32 b, f32 t) {
+    s32 res;
     s32 r, c, s, *m = D_803B3730;
 
     ENGINE_BLK(8029F560);
@@ -1099,7 +1104,7 @@ void func_8029F560(s32 a, s32 b, f32 t) {
     ENGINE_BLK(8029F57C);
     if (r == 0) {
         ENGINE_BLK(8029F584);
-        ENGINE_LEAVE(4, 0);
+        res = 0;
         goto done;
     }
     ENGINE_BLK(8029F58C);
@@ -1112,14 +1117,16 @@ void func_8029F560(s32 a, s32 b, f32 t) {
     m[8] = c, m[9] = 0, m[10] = s, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
     ENGINE_LEAVE(3, (u32)r >> 4);
-    ENGINE_LEAVE(4, 0x10000);
+    res = 0x10000;
     ENGINE_LEAVE(30, s);
 done:
     ENGINE_BLK(8029F5EC);
+    return res;
 }
 
-REGS(a0, a1, f30)
-void func_8029F608(s32 a, s32 b, f32 t) {
+REGS(a0, a1, f30 -> a0)
+s32 func_8029F608(s32 a, s32 b, f32 t) {
+    s32 res;
     s32 r, c, s, *m = D_803B3730;
 
     ENGINE_BLK(8029F608);
@@ -1127,7 +1134,7 @@ void func_8029F608(s32 a, s32 b, f32 t) {
     ENGINE_BLK(8029F624);
     if (r == 0) {
         ENGINE_BLK(8029F62C);
-        ENGINE_LEAVE(4, 0);
+        res = 0;
         goto done;
     }
     ENGINE_BLK(8029F634);
@@ -1140,10 +1147,11 @@ void func_8029F608(s32 a, s32 b, f32 t) {
     m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
     ENGINE_LEAVE(3, (u32)r >> 4);
-    ENGINE_LEAVE(4, 0x10000);
+    res = 0x10000;
     ENGINE_LEAVE(30, s);
 done:
     ENGINE_BLK(8029F694);
+    return res;
 }
 
 /* the angle of four keys' halves at off on the spline at t (func_8029E878),
@@ -1247,8 +1255,9 @@ s32 func_8029EB58(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
 /* D_803B3730 = the scale (in 256ths) from (x0, y0, z0) the fraction t of
    the way to (x1, y1, z1), unless that is (0x100, 0x100, 0x100) ($a0:
    0x10000, or 0) */
-REGS(a0, a1, a2, a3, t0, t1, f30)
-void func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
+REGS(a0, a1, a2, a3, t0, t1, f30 -> a0)
+s32 func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
+    s32 res;
     s32 x, y, z, *m = D_803B3730;
 
     ENGINE_BLK(8029F760);
@@ -1265,7 +1274,7 @@ void func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
             ENGINE_BLK(8029F7D4);
             if (z == 0x100) {
                 ENGINE_BLK(8029F7DC);
-                ENGINE_LEAVE(4, 0);
+                res = 0;
                 goto done;
             }
         }
@@ -1278,12 +1287,13 @@ void func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     m[4] = 0, m[5] = y, m[6] = 0, m[7] = 0;
     m[8] = 0, m[9] = 0, m[10] = z, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_LEAVE(4, 0x10000);
+    res = 0x10000;
 done:
     ENGINE_BLK(8029F848);
     ENGINE_LEAVE(7, x);
     ENGINE_LEAVE(8, y);
     ENGINE_LEAVE(9, z);
+    return res;
 }
 
 extern u8 D_803A7300[];                 /* 0x14-byte records, free with byte 0x11 -1 */
@@ -1658,4 +1668,107 @@ s32 func_8029EDEC(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
     ENGINE_BLK(8029EF54);
     return 1;
+}
+
+/* A part's frame from its two key frames (k: scale, rotation x, y, z,
+   translation as s16s, the second key 0x14 on), the fraction t of the way:
+   each matrix that isn't the identity into acc (func_802ACCCC) in the
+   order scale, z, y, x, translation */
+REGS(s3, s2, f30)
+void func_8029EF80(s16 *k, s32 *acc, f32 t) {
+    s32 r;
+
+    ENGINE_BLK(8029EF80);
+    r = func_8029F760(k[0], k[1], k[2], k[10], k[11], k[12], t);
+    ENGINE_BLK(8029EFA8);
+    if (r != 0) {
+        ENGINE_BLK(8029EFB0);
+        func_802ACCCC(D_803B3730, acc);
+    }
+    ENGINE_BLK(8029EFBC);
+    r = func_8029F608(k[5], k[15], t);
+    ENGINE_BLK(8029EFC8);
+    if (r != 0) {
+        ENGINE_BLK(8029EFD0);
+        func_802ACCCC(D_803B3730, acc);
+    }
+    ENGINE_BLK(8029EFDC);
+    r = func_8029F560(k[4], k[14], t);
+    ENGINE_BLK(8029EFE8);
+    if (r != 0) {
+        ENGINE_BLK(8029EFF0);
+        func_802ACCCC(D_803B3730, acc);
+    }
+    ENGINE_BLK(8029EFFC);
+    r = func_8029F4B8(k[3], k[13], t);
+    ENGINE_BLK(8029F008);
+    if (r != 0) {
+        ENGINE_BLK(8029F010);
+        func_802ACCCC(D_803B3730, acc);
+    }
+    ENGINE_BLK(8029F01C);
+    r = func_8029F3D0(k[6], k[7], k[8], k[16], k[17], k[18], t);
+    ENGINE_BLK(8029F038);
+    if (r != 0) {
+        ENGINE_BLK(8029F040);
+        func_802ACCCC(D_803B3730, acc);
+        ENGINE_LEAVE(4, (u32)D_803B3730);
+    } else {
+        /* (what the last call was given) */
+        ENGINE_LEAVE(4, 0);
+        ENGINE_LEAVE(5, k[7]);
+        ENGINE_LEAVE(6, k[8]);
+    }
+    ENGINE_BLK(8029F04C);
+}
+
+/* the same along a spline: the four keys (D_803B7FC0-D_803B7FC3 of the
+   0x14-byte records 8 on from s1) at t, in the order scale, z, y, x,
+   translation */
+REGS(s1, s2, f30)
+void func_8029E730(u8 *keys, s32 *acc, f32 t) {
+    u8 *k = keys + 8, *p0 = k + D_803B7FC0 * 0x14, *p1 = k + D_803B7FC1 * 0x14, *p2 = k + D_803B7FC2 * 0x14,
+       *p3 = k + D_803B7FC3 * 0x14;
+
+    ENGINE_BLK(8029E730);
+    if (func_8029EDEC(p0, p1, p2, p3, t)) {
+        ENGINE_BLK(8029E7C4);
+        ENGINE_BLK(8029E7CC);
+        func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029E7C4);
+    }
+    ENGINE_BLK(8029E7D8);
+    if (func_8029EB58(p0, p1, p2, p3, t)) {
+        ENGINE_BLK(8029E7E0);
+        ENGINE_BLK(8029E7E8);
+        func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029E7E0);
+    }
+    ENGINE_BLK(8029E7F4);
+    if (func_8029EA48(p0, p1, p2, p3, t)) {
+        ENGINE_BLK(8029E7FC);
+        ENGINE_BLK(8029E804);
+        func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029E7FC);
+    }
+    ENGINE_BLK(8029E810);
+    if (func_8029E938(p0, p1, p2, p3, t)) {
+        ENGINE_BLK(8029E818);
+        ENGINE_BLK(8029E820);
+        func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029E818);
+    }
+    ENGINE_BLK(8029E82C);
+    if (func_8029EC68(p0, p1, p2, p3, t)) {
+        ENGINE_BLK(8029E834);
+        ENGINE_BLK(8029E83C);
+        func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029E834);
+    }
+    ENGINE_BLK(8029E848);
 }
