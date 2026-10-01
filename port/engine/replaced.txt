@@ -181,3 +181,12 @@ func_802C4724
 func_802A5510
 func_802A5604
 func_802A56C4
+
+# 8A080: the moving objects table, the holes triangles (engine-B)
+func_802CE840
+func_802CE880
+func_802CE90C
+func_802CE958
+func_802CE9A4
+func_802CE9C8
+func_802CEA68
