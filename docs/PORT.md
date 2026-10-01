@@ -120,6 +120,18 @@ PORT_AUTOSTART=1 PORT_TYPE='blXy<<ast' build/port-us.v10/blastcorps --headless \
 port/tools/tas_check.py /tmp/t.eep            # name 'BLAST'
 ```
 
+Checked that way in us.v10, us.v11 and jp (jp's wheel has the same Latin
+characters; only the screen's title is in kana), with doubled letters,
+Backspaces before anything was typed (the screen stays), and more than
+seven characters; and in the page (headless Chromium, Playwright's
+`page.keyboard`): typed, deleted, skipped characters, Escape deleting and
+then going back, and the save holding the name.  The variants' quick tier
+and the TAS on all of them, wasm's included, are unchanged.  Not tried: a
+person at a real keyboard, an IME.  (A key pressed and released between
+two controller reads is missed, as before: the pad comes from SDL's
+keyboard state, and Playwright's `press` without `delay` is that fast; a
+typed character isn't, since it goes through the queue.)
+
 ## Memory model
 
 The decompiled C, the translated asm, the game's data and whatever the ROM
