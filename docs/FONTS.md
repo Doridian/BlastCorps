@@ -194,8 +194,9 @@ spacing stay the game's, so it works on every screen at once.
   texture are unchanged, so with the option off every program and every
   pixel is the same as before.
 
-Not covered: the small "DEL" glyph keeps the game's texture (the font has
-no such ligature); the cursor block is drawn as an exact box.  jp's gothic
+The small "DEL" glyph is split into its three pieces of ink (connected
+texels), and D, E and L are each fitted to theirs; the cursor block is
+drawn as an exact box.  Not covered: jp's gothic
 keeps its textures: it needs a table from the 512 glyph indices to
 Unicode (a character table, which could be written by hand from the
 glyphs) and a Japanese font (above).  The software renderer is 320x240
@@ -256,7 +257,8 @@ hint panel), against the same frames without it:
   bilinear-smeared 32-pixel glyphs; same positions, colours, gradient and
   black drop shadows.  GO/REPLAY/EXIT are images and unchanged.
 - **Name entry** (1200): the ring of letters (quads under a rotation)
-  sharp at every angle; "DEL" is the game's.
+  sharp at every angle, "DEL" as three small letters in the game's
+  places.
 - **Hint panel** (`PORT_AUTOSTART=2`, 2100): "PRESSING START WILL ALLOW
   YOU TO VIEW THE MISSILE CARRIER'S PATH." crisp at the small size, the
   panel's soft shadow (drawn in software into an 8-bit texture) as before.
@@ -270,12 +272,16 @@ Checks: without the option every screenshot (GL, `--scale 4`, eight frames
 of the TAS) is byte for byte the build's before the change, and the quick
 tier passes; with it the saves are the same, and the quick tier has two
 scenarios for it (`auto2.gl.hdtext`, `auto3.gl.hdtext` with
-`--interpolate`) whose save and sound must equal the plain runs'.
+`--interpolate`) whose save and sound must equal the plain runs' (all
+seven standard variants pass them, and their hint-box screenshots
+change with the option: the glyphs are found in every memory layout).
+The TAS with `--hd-text --renderer gl --scale 2` on the 64-bit build:
+125297 of the log's 125297 reads matched, none skipped, no mode forced,
+57 platinum, the same report as without it.
 
 ## What's next
 
 - jp: the gothic's index-to-Unicode table and a Japanese OFL font (Noto
   Sans JP 500, subset), same mechanism.
-- The "DEL" ligature: three small letters from the font in its box.
 - Optional: a texture-pack directory (c) on the same hook, for the image
   text, with packs made by users.

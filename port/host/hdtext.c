@@ -54,9 +54,8 @@ extern char D_8039CAF0[], D_803653B0[];
 #define SLOT_BYTES 0x200
 
 /* The stencil font: texture table entries 0xF4C-0xF7E, in drawtext.c's
-   order.  0 marks a glyph the font doesn't have (14, the small "DEL" of
-   the name entry), 1 one drawn as a solid box (49, the name entry's
-   cursor). */
+   order.  0 marks the small "DEL" of the name entry (14), drawn as its
+   three letters, 1 a solid box (49, the name entry's cursor). */
 #define STENCIL_FIRST 0xF4C
 static const char stencil_chars[51] = {
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 0, 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L',
@@ -115,15 +114,15 @@ int hdtext_glyph_at(uint32_t addr) {
     return tex >= STENCIL_FIRST && tex < STENCIL_FIRST + (int)sizeof stencil_chars ? tex : -1;
 }
 
-/* the game glyph's ink box in texel units (x right, y down the texture's
-   rows), to a fraction of a texel from its edge texels' coverage; and its
-   ink area */
-static int ink_box(const uint8_t *rgba, float box[4], float *area, float *peak) {
+/* the box the ink a[] covers in texel units (x right, y down the
+   texture's rows), to a fraction of a texel from its edge texels'
+   coverage; its ink area and its peak */
+static int ink_box(const float *a32, float box[4], float *area, float *peak) {
     float colmax[32] = { 0 }, rowmax[32] = { 0 };
     float sum = 0;
     for (int y = 0; y < 32; y++)
         for (int x = 0; x < 32; x++) {
-            float a = rgba[4 * (y * 32 + x) + 3] / 255.0f;
+            float a = a32[y * 32 + x];
             sum += a;
             if (a > colmax[x]) colmax[x] = a;
             if (a > rowmax[y]) rowmax[y] = a;
@@ -207,6 +206,68 @@ typedef struct {
 } Field;
 static Field fields[sizeof stencil_chars];
 
+static const Field *field(int i);
+
+/* the ink's connected pieces (8-neighbours), up to max: each one's ink in
+   out[k] (zero elsewhere); how many there are */
+static int pieces(const float *a32, float (*out)[1024], int max) {
+    int lab[1024] = { 0 }, n = 0, stack[1024];
+    for (int s0 = 0; s0 < 1024; s0++) {
+        if (a32[s0] == 0 || lab[s0])
+            continue;
+        if (++n > max)
+            return n;
+        memset(out[n - 1], 0, sizeof out[0]);
+        int sp = 0;
+        stack[sp++] = s0;
+        lab[s0] = n;
+        while (sp) {
+            int p = stack[--sp];
+            out[n - 1][p] = a32[p];
+            for (int dy = -1; dy <= 1; dy++)
+                for (int dx = -1; dx <= 1; dx++) {
+                    int x = p % 32 + dx, y = p / 32 + dy;
+                    if (x < 0 || y < 0 || x > 31 || y > 31 || a32[y * 32 + x] == 0 || lab[y * 32 + x])
+                        continue;
+                    lab[y * 32 + x] = n;
+                    stack[sp++] = y * 32 + x;
+                }
+        }
+    }
+    return n;
+}
+
+/* font character i (stencil_chars' index) into img over box, as heavy as
+   area; returns the outline's offset */
+static float draw(uint8_t *img, int i, const float box[4], float area, float peak) {
+    int n = HDTEXT_K * 32;
+    const Field *fd = field(i);
+    if (!fd)
+        return 0;
+    Fit f = { fd->sdf, fd->w, fd->h, fd->gx0, fd->gy0, fd->gx1, fd->gy1,
+              { box[0] * HDTEXT_K, box[1] * HDTEXT_K, box[2] * HDTEXT_K, box[3] * HDTEXT_K }, 1 };
+    float ax = (f.gx1 - f.gx0) / (f.box[2] - f.box[0]), ay = (f.gy1 - f.gy0) / (f.box[3] - f.box[1]);
+    f.aa = ax > ay ? ax : ay;
+    /* as heavy as the game's: the outline's offset whose ink area is the
+       glyph's (a bisection; the area grows with e) */
+    float lo = -SDF_PAD * 0.5f, hi = SDF_PAD * 0.9f, e = 0;
+    float want = area / peak * hdtext_weight;
+    for (int it = 0; it < 12; it++) {
+        e = (lo + hi) / 2;
+        if (area_at(&f, e, 4) < want)
+            lo = e;
+        else
+            hi = e;
+    }
+    for (int y = 0; y < n; y++)
+        for (int x = 0; x < n; x++) {
+            uint8_t v = (uint8_t)(cover(&f, x, y, e) * peak * 255 + 0.5f);
+            if (v > img[y * n + x])
+                img[y * n + x] = v;
+        }
+    return e;
+}
+
 static const Field *field(int i) {
     Field *fd = &fields[i];
     if (fd->done)
@@ -226,16 +287,26 @@ static const Field *field(int i) {
     return fd->sdf ? fd : NULL;
 }
 
+static int char_index(int ch) {
+    for (unsigned i = 0; i < sizeof stencil_chars; i++)
+        if (stencil_chars[i] == ch)
+            return (int)i;
+    return -1;
+}
+
 static uint8_t *make(int i, const uint8_t *rgba) {
     double t0 = secs();
     int ch = stencil_chars[i];
-    float box[4], area, peak;
-    if (!ink_box(rgba, box, &area, &peak))
+    float a32[1024], box[4], area, peak;
+    for (int k = 0; k < 1024; k++)
+        a32[k] = rgba[4 * k + 3] / 255.0f;
+    if (!ink_box(a32, box, &area, &peak))
         return NULL;
     /* (the ink at the game's intensity: its I4 glyphs have 3 bits, 14/15
        at most, which the text's colours are made with) */
     int n = HDTEXT_K * 32;
     uint8_t *img = calloc((size_t)n * n, 1);
+    float e = 0;
     if (ch == 1) {                      /* the cursor: a box */
         for (int y = 0; y < n; y++)
             for (int x = 0; x < n; x++) {
@@ -245,32 +316,29 @@ static uint8_t *make(int i, const uint8_t *rgba) {
             }
         return img;
     }
-    const Field *fd = field(i);
-    if (!fd) {
-        free(img);
-        return NULL;
+    if (ch == 0) {                      /* "DEL": its three letters, each in its own box */
+        static float part[4][1024];
+        float pb[3][4], pa[3], pp;
+        int order[3] = { 0, 1, 2 };
+        if (pieces(a32, part, 3) != 3) {
+            free(img);
+            return NULL;
+        }
+        for (int k = 0; k < 3; k++)
+            ink_box(part[k], pb[k], &pa[k], &pp);
+        for (int k = 0; k < 2; k++)     /* (left to right) */
+            for (int j = 0; j < 2 - k; j++)
+                if (pb[order[j]][0] > pb[order[j + 1]][0]) {
+                    int t = order[j]; order[j] = order[j + 1]; order[j + 1] = t;
+                }
+        for (int k = 0; k < 3; k++)
+            draw(img, char_index("DEL"[k]), pb[order[k]], pa[order[k]], peak);
+    } else {
+        e = draw(img, i, box, area, peak);
     }
-    Fit f = { fd->sdf, fd->w, fd->h, fd->gx0, fd->gy0, fd->gx1, fd->gy1,
-              { box[0] * HDTEXT_K, box[1] * HDTEXT_K, box[2] * HDTEXT_K, box[3] * HDTEXT_K }, 1 };
-    float ax = (f.gx1 - f.gx0) / (f.box[2] - f.box[0]), ay = (f.gy1 - f.gy0) / (f.box[3] - f.box[1]);
-    f.aa = ax > ay ? ax : ay;
-    /* as heavy as the game's: the outline's offset whose ink area is the
-       glyph's (a bisection; the area grows with e) */
-    float lo = -SDF_PAD * 0.5f, hi = SDF_PAD * 0.9f, e = 0;
-    float want = area / peak * hdtext_weight;
-    for (int it = 0; it < 12; it++) {
-        e = (lo + hi) / 2;
-        if (area_at(&f, e, 4) < want)
-            lo = e;
-        else
-            hi = e;
-    }
-    for (int y = 0; y < n; y++)
-        for (int x = 0; x < n; x++)
-            img[y * n + x] = (uint8_t)(cover(&f, x, y, e) * peak * 255 + 0.5f);
     if (host_verbose)
-        host_log("hd-text: glyph '%c': box %.2f,%.2f-%.2f,%.2f, outline %+.2f px, %.1f ms\n", ch, box[0], box[1],
-                 box[2], box[3], e, (secs() - t0) * 1e3);
+        host_log("hd-text: glyph '%s': box %.2f,%.2f-%.2f,%.2f, outline %+.2f px, %.1f ms\n",
+                 ch ? (char[]){ (char)ch, 0 } : "DEL", box[0], box[1], box[2], box[3], e, (secs() - t0) * 1e3);
     return img;
 }
 
@@ -292,7 +360,7 @@ const uint8_t *hdtext_image(int tex, const uint8_t *rgba) {
     if (!load_font())
         return NULL;
     int i = tex - STENCIL_FIRST;
-    if (i < 0 || i >= (int)sizeof stencil_chars || !stencil_chars[i])
+    if (i < 0 || i >= (int)sizeof stencil_chars)
         return NULL;
     uint64_t h = 0xCBF29CE484222325ull;
     for (int k = 0; k < 32 * 32 * 4; k += 4)
