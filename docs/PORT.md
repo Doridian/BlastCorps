@@ -2880,6 +2880,19 @@ engine's CPU time to the instruction ("Timing").
   `__port_icount += n` work.
 - Float to int: `engine_cvt_w_s` and its siblings, which follow
   `recomp_round_half_up` as the translation does.
+- IDO's checked division is `ENGINE_DIV`, and a `break` or Rare's
+  "can't happen" `syscall` is `engine_break`/`engine_syscall`.  They stop
+  the port as the translation's `recomp_trap` does.
+
+**Native-endian memory.**  The native code accesses memory at the widths
+the original does, and in native-endian builds that is right everywhere
+except where `tools/recomp/native_sites.txt` lists the function.  A
+listed `x2` is a halfword inside a word (an Mtx's elements, a word stored
+over two halves), and the native code reaches it through the word:
+`func_802AC8CC`, `func_802AA890`'s `mtx_half`, `func_8029F85C`'s
+identity matrices, `func_8029DA90`.  Look the function up there before
+writing it.  The 32-bit check build can't see this, but `test.py quick` on
+a native-endian build (n64, mn32) does.
 
 **Checking.**
 - `-DPORT_ENGINE_CHECK=ON` (32-bit builds only) checks every call of a
