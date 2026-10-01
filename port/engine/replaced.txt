@@ -190,3 +190,16 @@ func_802CE958
 func_802CE9A4
 func_802CE9C8
 func_802CEA68
+
+# 60F60: the texture decoders and their queue (engine-B)
+func_802A5720
+func_802A5764
+func_802A57AC
+func_802A57DC
+func_802A5958
+func_802A5A2C
+func_802A5AE0
+func_802A5B90
+func_802A5C5C
+func_802A5D34
+func_802A5E10
