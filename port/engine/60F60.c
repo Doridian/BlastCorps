@@ -904,3 +904,251 @@ void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) 
     ENGINE_BLK(802A6E64);
     *dl = g;
 }
+
+/* func_802A68D4: slot `s`'s sprite matrix at `m`: loaded by its display
+   list (G_MTX), scaled by unk4, turned to face the camera (pitch from the
+   height difference over the distance, yaw the camera's), and moved to the
+   sprite's position, which moves on by its velocity (and, falling, slows
+   at the ground: unk2C) unless it follows a point (mode 1).  Every
+   register is kept but the floats its callees leave. */
+extern s32 D_803643F8, D_803643FC, D_80364400;     /* the camera, << 16 */
+extern u16 D_80364452;                              /* its yaw */
+extern s32 D_803C4F30[16];                          /* a matrix to build in */
+REGS(v1 -> fp)
+s32 func_802AD7FC(u32 x);
+
+REGS(t4, t0)
+void func_802A68D4(u32 s_, u32 m_) {
+    EffectSlot *s = (EffectSlot *)s_;
+    s32 *m = (s32 *)m_;
+    Gfx *PTR32 *dl;
+    Gfx *g;
+    s32 x, y, z, scale, step, cx, cy, cz, angle, pitch;
+    s64 dist, q, num;
+
+    ENGINE_BLK(802A68D4);
+    dl = (Gfx *PTR32 *)func_802A6EB8(s_);
+    ENGINE_BLK(802A6958);
+    g = *dl;
+    ((u32 *)g)[1] = m_ & 0x1FFFFFFF;
+    ((u32 *)g)[0] = 0x01040040;
+    *dl = g + 1;
+    scale = s->unk4;
+    func_802ACC68(scale, scale, scale, m);
+    ENGINE_BLK(802A699C);
+    if (s->mode != 1) {
+        ENGINE_BLK(802A69AC);
+        step = s->unk36;
+        if (s->unk2C >= s->pos[1]) {
+            s32 v;
+
+            ENGINE_BLK(802A69C4);
+            v = s->vel[1] + s->unk14[1] * step;
+            if (v < 0) {
+                ENGINE_BLK(802A69E0);
+                v = -v;
+            }
+            ENGINE_BLK(802A69E4);
+            s->vel[1] = v - (v >> 2);
+            step = 0;
+        }
+        ENGINE_BLK(802A69F4);
+        s->unk36 = step + 1;
+        s->pos[0] = s->pos[0] + s->unk14[0] * step + s->vel[0];
+        x = s->pos[0] >> 11;
+        s->pos[1] = s->pos[1] + s->unk14[1] * step + s->vel[1];
+        y = s->pos[1] >> 11;
+        s->pos[2] = s->pos[2] + s->unk14[2] * step + s->vel[2];
+        z = s->pos[2] >> 11;
+    } else {
+        s32 *pt;
+
+        ENGINE_BLK(802A6A68);
+        pt = (s32 *)func_802ABC88(s->unk30, s->unk31);
+        ENGINE_BLK(802A6A74);
+        x = pt[0];
+        y = pt[1];
+        z = pt[2];
+    }
+    ENGINE_BLK(802A6A80);
+    cx = (u32)D_803643F8 >> 11;
+    cy = (u32)D_803643FC >> 11;
+    cz = (u32)D_80364400 >> 11;
+    dist = func_802ABCDC(cx, cy, cz, x, y, z);
+    ENGINE_LEAVE_FW(0, (u32)dist);
+    ENGINE_LEAVE_FW(1, (u32)((u64)dist >> 32));
+    ENGINE_BLK(802A6AB4);
+    if (dist == 0) {
+        ENGINE_BLK(802A6ABC);
+        dist = 1;
+    }
+    ENGINE_BLK(802A6AC0);
+    dist = (s32)((u32)dist << 11);
+    num = (s64)(s32)(cy - y) << 27;
+    ENGINE_BLK(802A6AE0);
+    if (dist == -1) {
+        ENGINE_BLK(802A6AEC);
+    }
+    q = num / dist;
+    ENGINE_BLK(802A6AFC);
+    if (q < 0) {
+        ENGINE_BLK(802A6B08);
+    }
+    ENGINE_BLK(802A6B0C);
+    angle = func_802AD7FC((u32)(q < 0 ? -(s32)q : (s32)q));
+    ENGINE_BLK(802A6B14);
+    pitch = angle >> 4;
+    if (q >= 0) {
+        ENGINE_BLK(802A6B1C);
+        pitch = 0xFFF - pitch;
+    }
+    ENGINE_BLK(802A6B24);
+    func_802ACBDC(pitch, D_803C4F30);
+    ENGINE_BLK(802A6B30);
+    func_802ACCCC(D_803C4F30, m);
+    ENGINE_BLK(802A6B3C);
+    func_802ACAC4(D_80364452, D_803C4F30);
+    ENGINE_BLK(802A6B54);
+    func_802ACCCC(D_803C4F30, m);
+    ENGINE_BLK(802A6B60);
+    func_802ACA60(x << 11, y << 11, z << 11, D_803C4F30);
+    ENGINE_BLK(802A6B78);
+    func_802ACCCC(D_803C4F30, m);
+    ENGINE_BLK(802A6B84);
+    func_802AC8CC((u32 *)m);
+    ENGINE_BLK(802A6B8C);
+}
+
+/* func_802A64A4 (00000.c's, every frame): the effects' sprites drawn: for
+   each slot in use its matrix, then a quad per texture cell (w x h of
+   them) with the current frame's textures, then the frame advanced (the
+   slot freed after the last); the buffers alternate with D_8035805C. */
+extern u8 D_8035805C;
+extern u8 D_803C4F70[], D_803C5370[], D_803C5770[], D_803C6370[], D_803C6F70[], D_803C7B70[];
+extern u8 D_803C8770[], D_803C9770[], D_803CA770[], D_803DA770[];
+
+void func_802A64A4(void) {
+    u8 *mtx, *vtx, *cells;
+    EffectSlot *s;
+    u8 *fp;
+    s32 n;
+    u32 t6 = ENGINE_REG(14);
+
+    ENGINE_BLK(802A64A4);
+    if (D_8035805C != 0) {
+        ENGINE_BLK(802A64E8);
+        D_803EB780 = (Gfx *)D_803C6370;
+        D_803EB784 = (Gfx *)D_803C7B70;
+        mtx = D_803C5370;
+        vtx = D_803C9770;
+        cells = D_803DA770;
+    } else {
+        ENGINE_BLK(802A6524);
+        D_803EB780 = (Gfx *)D_803C5770;
+        D_803EB784 = (Gfx *)D_803C6F70;
+        mtx = D_803C4F70;
+        vtx = D_803C8770;
+        cells = D_803CA770;
+    }
+    ENGINE_BLK(802A655C);
+    s = D_803C4B70;
+    fp = D_803EA770[0];
+    func_802A6D34();
+    for (n = 16;; s++, fp += 0x100) {
+        u8 *anim, *cell;
+        u32 stream, w, h, cw, rows, cols, frames;
+        s32 x, y, x0;
+
+        ENGINE_BLK(802A6574);
+        if (n == 0) {
+            break;
+        }
+        ENGINE_BLK(802A657C);
+        n--;
+        t6 = s->active;
+        if (t6 == 0) {
+            ENGINE_BLK(802A66D8);
+            continue;
+        }
+        ENGINE_BLK(802A658C);
+        func_802A68D4((u32)s, (u32)mtx);
+        ENGINE_BLK(802A6594);
+        anim = s->anim;
+        cell = s->cells;
+        rows = anim[3];
+        h = *(u16 *)(anim + 0xC);
+        w = *(u16 *)(anim + 0xA);
+        stream = (u32)anim + 0x10 + anim[2] * anim[3] * s->frame * 2;
+        cw = anim[2];
+        x0 = (s32)(cw * w) >> 1;
+        y = -((s32)(rows * h) >> 1);
+        for (;;) {
+            ENGINE_BLK(802A6604);
+            if (rows == 0) {
+                break;
+            }
+            ENGINE_BLK(802A660C);
+            rows--;
+            x = x0;
+            for (cols = cw;; cols--) {
+                u32 dst;
+
+                ENGINE_BLK(802A6618);
+                if (cols == 0) {
+                    y += h;
+                    break;
+                }
+                ENGINE_BLK(802A6620);
+                func_802A6C10((u32)vtx, (u32)anim, x, y, w, h);
+                ENGINE_BLK(802A6628);
+                dst = func_802A67C4((u32)cell, (u32)cells, (u32)s, stream, t6, (u32)fp, &stream, &t6);
+                ENGINE_BLK(802A6630);
+                cell++;
+                func_802A6DE8((u32)s, (u32)vtx, dst, *(u16 *)(anim + 4), w, h, s->unk35);
+                ENGINE_BLK(802A6638);
+                vtx += 0x40;
+                x -= w;
+            }
+        }
+        ENGINE_BLK(802A6644);
+        mtx += 0x40;
+        {
+            Gfx *PTR32 *dl = (Gfx *PTR32 *)func_802A6EB8((u32)s);
+            u32 *g = (u32 *)*dl;
+
+            ENGINE_BLK(802A664C);
+            g[0] = 0xBD000000;      /* G_POPMTX */
+            g[1] = 0;
+            *dl = (Gfx *)(g + 2);
+        }
+        frames = *(u16 *)(anim + 0xE);
+        t6 = s->frame + 1;
+        if (t6 != frames) {
+            ENGINE_BLK(802A6684);
+            s->frame = t6;
+        } else {
+            u32 k;
+
+            ENGINE_BLK(802A668C);
+            s->active = 0;
+            cell = s->cells;
+            for (k = anim[2] * anim[3];;) {
+                ENGINE_BLK(802A66B8);
+                if (k == 0) {
+                    break;
+                }
+                ENGINE_BLK(802A66C0);
+                k--;
+                D_803EB770[*cell++] = 0;
+            }
+        }
+        ENGINE_BLK(802A66D8);
+    }
+    ENGINE_BLK(802A66E4);
+    ((u32 *)D_803EB780)[0] = 0xB8000000;    /* G_ENDDL */
+    ((u32 *)D_803EB780)[1] = 0;
+    ((u32 *)D_803EB784)[0] = 0xB8000000;
+    ((u32 *)D_803EB784)[1] = 0;
+    func_802A6748();
+    ENGINE_BLK(802A6714);
+}
