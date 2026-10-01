@@ -1665,3 +1665,186 @@ done:
     ENGINE_BLK(802A7C10);
     D_803ED400 = *speed;
 }
+
+extern f32 D_803EBBF4;
+extern u8 D_803BE738;
+extern u8 D_803ED3F7, D_803ED3EE, D_803ED3EF, D_803ED3F2, D_803ED3F3, D_803ED3F4;
+extern u8 D_803ED3EA, D_803ED3EB, D_803ED3EC, D_803ED410;
+extern s32 D_803ED398, D_803ED39C, D_803ED3A0, D_803ED3A8, D_803ED3AC, D_803ED3B0;
+
+/* D_803EBBF4 tripled when D_803ED3F5 */
+void func_802A8FB4(void) {
+    ENGINE_BLK(802A8FB4);
+    if (D_803ED3F5 != 0) {
+        ENGINE_BLK(802A8FCC);
+        D_803EBBF4 = D_803EBBF4 * 3.0f;
+    }
+    ENGINE_BLK(802A8FE4);
+}
+
+/* D_803ED3F7 = 8 when the state's unk9F is 0x67 on level 12 */
+REGS(gp)
+void func_802A8FF4(VS *vs) {
+    ENGINE_BLK(802A8FF4);
+    if (vs->unk9F == 0x67) {
+        ENGINE_BLK(802A9008);
+        if (D_802E8BDC == 0xC) {
+            ENGINE_BLK(802A901C);
+            D_803ED3F7 = 8;
+        }
+    }
+    ENGINE_BLK(802A9028);
+}
+
+/* the state's previous values set from its current ones */
+REGS(gp)
+void func_802A9038(VS *vs) {
+    u8 b;
+    s32 w;
+
+    ENGINE_BLK(802A9038);
+    b = D_803ED3EE;
+    D_803ED3EF = b;
+    *(u8 *)((u32)&D_803ED3EF + 1) = b;   /* (the byte after it, which has no name) */
+    w = D_803ED398;
+    D_803ED39C = w;
+    D_803ED3A0 = w;
+    w = D_803ED3A8;
+    D_803ED3AC = w;
+    D_803ED3B0 = w;
+    w = vs->unk28[3];
+    vs->unk28[4] = w;
+    vs->unk28[5] = w;
+    w = vs->unk28[0];
+    vs->unk28[1] = w;
+    vs->unk28[2] = w;
+    w = vs->unk28[6];
+    vs->unk28[7] = w;
+    vs->unk28[8] = w;
+    b = D_803ED3F2;
+    D_803ED3F3 = b;
+    D_803ED3F4 = b;
+    b = D_803ED3EA;
+    D_803ED3EB = b;
+    D_803ED3EC = b;
+}
+
+/* D_803ED410: whether all six of a group are 0 */
+REGS(v1)
+void func_802A90E4(u16 *g) {
+    ENGINE_BLK(802A90E4);
+    if (g[0] != 0)
+        goto no;
+    ENGINE_BLK(802A90FC);
+    if (g[1] != 0)
+        goto no;
+    ENGINE_BLK(802A9108);
+    if (g[2] != 0)
+        goto no;
+    ENGINE_BLK(802A9114);
+    if (g[3] != 0)
+        goto no;
+    ENGINE_BLK(802A9120);
+    if (g[4] != 0)
+        goto no;
+    ENGINE_BLK(802A912C);
+    if (g[5] != 0)
+        goto no;
+    ENGINE_BLK(802A9138);
+    D_803ED410 = 1;
+    goto done;
+no:
+    ENGINE_BLK(802A9148);
+    D_803ED410 = 0;
+done:
+    ENGINE_BLK(802A9150);
+}
+
+/* the gears (unk50): the average of the three gearboxes' (D_803ED3F2[3],
+   100 and up counting as 2); unk9F and D_803ED40D: the highest; and
+   D_803BE738 set on 0x66, or 0x64 with D_80358064, unless the first flag */
+REGS(s0, t8, gp)
+void func_802A9164(u8 *flags, s32 type, VS *vs) {
+
+    s32 a, b, m, t2;
+
+    ENGINE_BLK(802A9164);
+    a = D_803ED3F2;
+    if (!(a < 100)) {
+        ENGINE_BLK(802A9184);
+        a = 2;
+    }
+    ENGINE_BLK(802A9188);
+    b = D_803ED3F3;
+    if (!(b < 100)) {
+        ENGINE_BLK(802A9198);
+        b = 2;
+    }
+    ENGINE_BLK(802A919C);
+    a += b;
+    b = D_803ED3F4;
+    if (!(b < 100)) {
+        ENGINE_BLK(802A91B0);
+        b = 2;
+    }
+    ENGINE_BLK(802A91B4);
+    a += b;
+    vs->unk50 = (u32)a / 3;
+    ENGINE_BLK(802A91DC);
+    m = 0;
+    if (m < D_803ED3F2) {
+        ENGINE_BLK(802A91EC);
+        m = D_803ED3F2;
+    }
+    ENGINE_BLK(802A91F0);
+    if (m < D_803ED3F3) {
+        ENGINE_BLK(802A9200);
+        m = D_803ED3F3;
+    }
+    ENGINE_BLK(802A9204);
+    if (m < D_803ED3F4) {
+        ENGINE_BLK(802A9214);
+        m = D_803ED3F4;
+    }
+    ENGINE_BLK(802A9218);
+    vs->unk9F = m;
+    D_803ED40D = m;
+    t2 = D_803ED40D;
+    if (D_803ED40D == 0x66) {
+        ENGINE_BLK(802A9238);
+        t2 = flags[0];
+        if (flags[0] != 1) {
+            ENGINE_BLK(802A9248);
+            D_803BE738 = t2 = 1;
+        }
+    }
+    ENGINE_BLK(802A9254);
+    if (type == 9)
+        goto done;
+    ENGINE_BLK(802A9260);
+    if (type == 0xB)
+        goto done;
+    ENGINE_BLK(802A9268);
+    if (type == 0x11)
+        goto done;
+    ENGINE_BLK(802A9270);
+    if (type == 0x12)
+        goto done;
+    ENGINE_BLK(802A9278);
+    t2 = D_80358064;
+    if (D_80358064 == 0)
+        goto done;
+    ENGINE_BLK(802A9288);
+    t2 = D_803ED40D;
+    if (D_803ED40D != 0x64)
+        goto done;
+    ENGINE_BLK(802A929C);
+    t2 = flags[0];
+    if (flags[0] == 1)
+        goto done;
+    ENGINE_BLK(802A92AC);
+    D_803BE738 = t2 = 1;
+done:
+    ENGINE_BLK(802A92B8);
+    ENGINE_LEAVE(10, t2);               /* ($t2, as it leaves it) */
+}
