@@ -490,8 +490,8 @@ License, version 3 or (at your option) any later version: see `LICENSE`.
 That covers what this project wrote. It doesn't cover:
 - the game, its ROM, or anything extracted or translated from it;
 - the Nintendo SDK parts in the tree, which are decompiled or kept as they
-  are (`blastcorps/include/2.0I`, `blastcorps/src/libultra`,
-  `port/src/gu_extra.c`);
+  are (`blastcorps/include/2.0I`, `blastcorps/src/libultra`, and
+  `port/tools/sdk_check/orig_rotate.c`, which only that test tool builds);
 - the submodules and third-party libraries, which carry their own licenses;
 - the bundled font `port/fonts/StardosStencil-Bold.ttf` (SIL Open Font
   License 1.1, `port/fonts/OFL.txt`) and `port/third_party/stb/stb_truetype.h`

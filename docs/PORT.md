@@ -2804,6 +2804,13 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   through `IMG_RD`/`IMG_WR`, byte-swapping only in the native-endian build
   (`TARGET_PC && PORT_NATIVE_ENDIAN`; plain accesses otherwise, so IDO's
   output is unchanged).
+- `hd_code/90390.c`: `ll.c`'s `__ll_*` aren't built (clang does 64-bit
+  arithmetic itself).
+- The SDK's graphics utilities, sines and pak CRC aren't built at all:
+  `port/src/gu.c` is the port's own (docs/DISTRIBUTION.md, "Replacing the
+  SDK parts"), checked against them by `port/tools/sdk_check/sdk_check.py`
+  (sinf and fcos over every float, the rest on random arguments and on
+  what a `-DPORT_SDK_TRACE=ON` build logs to `$PORT_SDK_TRACE`).
 - `tools/recomp/runtime/recomp.h`: `dmult`/`dmultu` without `__int128` on a
   32-bit host (checked against the `__int128` version); the
   `RECOMP_ACCESS` hooks for the profiler and the mirrored unaligned pairs
