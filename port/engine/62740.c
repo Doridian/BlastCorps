@@ -89,6 +89,7 @@ void func_802A6FE4(s32 limit, VS *vs) {
         if (v >= 0) {
             ENGINE_BLK(802A7028);
             v -= 3;
+            ENGINE_LEAVE(1, limit < v);         /* ($at, the compare's) */
             if (!(limit < v)) {
                 ENGINE_BLK(802A7038);
                 v = limit;
@@ -96,6 +97,7 @@ void func_802A6FE4(s32 limit, VS *vs) {
         } else {
             ENGINE_BLK(802A7040);
             v += 3;
+            ENGINE_LEAVE(1, v < -limit);
             if (!(v < -limit)) {
                 ENGINE_BLK(802A7050);
                 v = -limit;
@@ -855,12 +857,16 @@ s32 func_802AA5E0(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
         hiz = z3;
     }
     ENGINE_BLK(802AA684);
+    /* ($at as the compares in the delay slots leave it) */
+    ENGINE_LEAVE(1, hix < x);
     if (x < lox)
         goto out;
     ENGINE_BLK(802AA690);
+    ENGINE_LEAVE(1, z < loz);
     if (hix < x)
         goto out;
     ENGINE_BLK(802AA698);
+    ENGINE_LEAVE(1, hiz < z);
     if (z < loz)
         goto out;
     ENGINE_BLK(802AA6A0);
@@ -1085,6 +1091,12 @@ s32 func_802ABB1C(s32 x, s32 z, s32 dx, s32 dz, s32 x2, s32 z2) {
     }
     ENGINE_BLK(802ABBD0);
     r = func_802AD7FC(r);
+    /* (what it leaves: the second point, the squares, the arctangent) */
+    ENGINE_LEAVE(17, ex);
+    ENGINE_LEAVE(18, ez);
+    ENGINE_LEAVE64(19, (s64)a * a + (s64)b * b);
+    ENGINE_LEAVE64(20, (s64)b * b);
+    ENGINE_LEAVE(30, r);
     ENGINE_BLK(802ABBD8);
     return (u32)r >> 3;
 }
@@ -1108,6 +1120,9 @@ void *func_802ABC88(s32 id, s32 n) {
     if (--n != 0) {
         ENGINE_BLK(802ABCB4);
         p += (u32)n * 0x10;
+        ENGINE_LEAVE(3, (u32)n * 0x10);      /* ($v1, as it leaves it) */
+    } else {
+        ENGINE_LEAVE(3, 0);
     }
     ENGINE_BLK(802ABCC8);
     return p;
@@ -1138,7 +1153,9 @@ REGS(a3, t3, t4, t5)
 void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
     u8 *p = D_803BDFD8, *end = D_803BDFD4, *t;
     s64 d;
-    s32 r, n, amb;
+    s32 r, n, amb, at = 0, q;
+    s32 seen = 0, s3set = 0, s4set = 0, s5set = 0, atset = 0;
+    s32 s3 = 0, s4 = 0, s5 = 0;
     Vehicle *v;
 
     ENGINE_BLK(802ABD54);
@@ -1151,48 +1168,72 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
         }
         ENGINE_BLK(802ABD78);
         d = func_802ABCDC(x, y, z, ((s32 *)p)[0], ((s32 *)p)[1], ((s32 *)p)[2]);
+        seen = 1;
+        ENGINE_LEAVE(17, (s32)d);           /* ($s1: the distance) */
+        ENGINE_LEAVE(14, ((s32 *)p)[0]);    /* ($t6, $t7, $s0: the light's position) */
+        ENGINE_LEAVE(15, ((s32 *)p)[1]);
+        ENGINE_LEAVE(16, ((s32 *)p)[2]);
         ENGINE_BLK(802ABD88);
         r = ((s32 *)p)[3];
-        if ((s64)r < d)
+        ENGINE_LEAVE(18, r);                /* ($s2: its range) */
+        at = (s64)r < d, atset = 1;
+        if (at)
             goto next;
         ENGINE_BLK(802ABD98);
-        if (p[0x12] == 0)
+        s3 = p[0x12], s3set = 1;
+        if (s3 == 0)
             goto next;
         ENGINE_BLK(802ABDA4);
         n = p[0x13];
         t = p + 0x15;
+        s3 = n, s4 = (u32)t, s4set = 1;
         for (;;) {
             ENGINE_BLK(802ABDAC);
             if (n == 0)
                 goto next;
             ENGINE_BLK(802ABDB4);
+            s5 = *t, s5set = 1;
             if (type == *t)
                 break;
             ENGINE_BLK(802ABDC0);
             t++, n--;
+            s3 = n, s4 = (u32)t;
         }
         ENGINE_BLK(802ABDCC);
         n = p[0x14];
+        s3 = n;
         amb = D_80364A6E[0];
         if (n == 0) {
             ENGINE_BLK(802ABDD8);
+            at = 1;
+            s3 = p[0x10];
             if (p[0x10] == 1) {
                 ENGINE_BLK(802ABE34);
                 r = 0xFF;
             } else {
                 ENGINE_BLK(802ABDE8);
                 ENGINE_BLK(802ABE28);
-                r = 0xFF - amb - (u32)((0xFF - amb) * (u32)d) / (u32)r + amb;
+                s5 = amb;
+                q = (u32)((0xFF - amb) * (u32)d) / (u32)r;
+                ENGINE_LEAVE(17, q);
+                ENGINE_LEAVE(18, r);
+                r = 0xFF - amb - q + amb;
             }
         } else {
             ENGINE_BLK(802ABE3C);
+            at = 1;
+            s4 = p[0x10];
             if (p[0x10] == 1) {
                 ENGINE_BLK(802ABE90);
                 r = n;
             } else {
                 ENGINE_BLK(802ABE4C);
                 ENGINE_BLK(802ABE88);
-                r = n + (u32)((amb - n) * (u32)d) / (u32)r;
+                s5 = amb - n;
+                q = (u32)((amb - n) * (u32)d) / (u32)r;
+                ENGINE_LEAVE(17, q);
+                ENGINE_LEAVE(18, r);
+                r = n + q;
             }
         }
         break;
@@ -1207,4 +1248,18 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
     }
     ENGINE_BLK(802ABEC4);
     v->unk60 = r;
+    /* (what it leaves for the vehicle modules, which read on) */
+    ENGINE_LEAVE(2, (u32)p);
+    ENGINE_LEAVE(3, (u32)end);
+    ENGINE_LEAVE(8, (u32)v);
+    ENGINE_LEAVE(9, type);
+    ENGINE_LEAVE(22, r);
+    if (atset)
+        ENGINE_LEAVE(1, at);
+    if (s3set)
+        ENGINE_LEAVE(19, s3);
+    if (s4set)
+        ENGINE_LEAVE(20, s4);
+    if (s5set)
+        ENGINE_LEAVE(21, s5);
 }

@@ -73,5 +73,8 @@ void engine_leave(unsigned int reg, u32 value);
         engine_leave(34 + (fpr), leave_.u);                                 \
     } while (0)
 #define ENGINE_LEAVE_FW(fpr, w) engine_leave(34 + (fpr), (u32)(w))
+/* a whole 64-bit GPR (Rare's dmult/dadd leave some) */
+void engine_leave64(unsigned int reg, u32 lo, u32 hi);
+#define ENGINE_LEAVE64(gpr, v) engine_leave64((gpr), (u32)(v), (u32)((u64)(v) >> 32))
 
 #endif

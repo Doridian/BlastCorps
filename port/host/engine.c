@@ -32,6 +32,12 @@ void engine_leave(unsigned int reg, uint32_t value) {
         ctx->f[reg - 34] = value;
 }
 
+void engine_leave64(unsigned int reg, uint32_t lo, uint32_t hi) {
+    recomp_context *ctx = port_ctx();
+    if (reg && reg < 32)
+        ctx->r[reg] = (uint64_t)hi << 32 | lo;
+}
+
 #ifdef PORT_ENGINE_CHECK
 /*
  * Each call of a replaced function, from the translated code (its glue,
