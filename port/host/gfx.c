@@ -558,17 +558,21 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
         gs.mvp_dirty = 0;
     }
     float (*mv)[4] = gs.mv[gs.mv_top];
-    float ldir[8][3];
-    if (gs.geom & 0x20000) {            /* G_LIGHTING: lights into model space */
-        for (int l = 0; l < gs.nlights; l++) {
-            float d[3];
+    /* G_LIGHTING: the lights, and for G_TEXTURE_GEN the look-at vectors
+       (gSPLookAt: the camera's x and y axes), into model space, as the RSP
+       takes them: by the modelview (the game keeps its view in the
+       projection), normalized */
+    float ldir[8][3], ladir[2][3];
+    if (gs.geom & 0x20000) {
+        for (int l = 0; l < gs.nlights + 2; l++) {
+            const float *src = l < gs.nlights ? gs.ldir[l] : gs.lookat[l - gs.nlights];
+            float *d = l < gs.nlights ? ldir[l] : ladir[l - gs.nlights];
             for (int j = 0; j < 3; j++)
-                d[j] = mv[j][0] * gs.ldir[l][0] + mv[j][1] * gs.ldir[l][1] + mv[j][2] * gs.ldir[l][2];
+                d[j] = mv[j][0] * src[0] + mv[j][1] * src[1] + mv[j][2] * src[2];
             float len = sqrtf(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
             if (len > 0)
                 for (int j = 0; j < 3; j++)
                     d[j] /= len;
-            memcpy(ldir[l], d, sizeof d);
         }
     }
     for (int i = 0; i < n && v0 + i < 16; i++, p += 16) {
@@ -594,12 +598,16 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
             v->g = c[1] > 255 ? 255 : c[1];
             v->b = c[2] > 255 ? 255 : c[2];
             if (gs.geom & 0x40000) {    /* G_TEXTURE_GEN: sphere map */
-                float ex = nx * mv[0][0] + ny * mv[1][0] + nz * mv[2][0];
-                float ey = nx * mv[0][1] + ny * mv[1][1] + nz * mv[2][1];
-                float el = sqrtf(ex * ex + ey * ey + 1e-9f);
-                if (el > 1) { ex /= el; ey /= el; }
-                s = (ex * 0.5f + 0.5f) * 32 * 32 * 64;
-                t = (ey * 0.5f + 0.5f) * 32 * 32 * 64;
+                /* the normal's projections on the look-at vectors, -1..1,
+                   to 0..1 of the texture scale in units of 1/64 texel:
+                   a 32-texel map takes gSPTexture(0x07C0, 0x07C0), and
+                   its texels 0..31 are the whole hemisphere (rather than
+                   wrapping it twice, which put the Rare logo's map's dark
+                   texels on the back of the logo) */
+                float ex = nx * ladir[0][0] + ny * ladir[0][1] + nz * ladir[0][2];
+                float ey = nx * ladir[1][0] + ny * ladir[1][1] + nz * ladir[1][2];
+                s = (ex * 0.5f + 0.5f) * 32 * 32 * 32;
+                t = (ey * 0.5f + 0.5f) * 32 * 32 * 32;
             }
         } else {
             v->r = p[12];

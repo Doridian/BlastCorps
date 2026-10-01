@@ -2130,11 +2130,26 @@ rectangles whose tile wraps at 64 rows, so its halves' last rows were
 filtered with their first, a dark seam across it; the title's tiled logos
 had fainter seams at every tile edge.
 
+Reflection mapping (`G_TEXTURE_GEN`, the Rare logo, the chrome of the
+vehicles, the promotion badge) takes the vertex normal's projections on
+the look-at vectors (`gSPLookAt`: the camera's x and y axes, which the
+game sets with `guLookAtReflect`), brought into model space by the
+modelview and normalized as the lights are, and maps their -1..1 to 0..1
+of the texture scale in 1/64 texels: the game's maps are 32x32 sphere
+maps with `gSPTexture(0x07C0, 0x07C0)`, texels 0 to 31.  The port used to
+take the modelview's x and y axes (the world's, since the game keeps its
+view in the projection) and twice the range, so the coordinates wrapped
+around the map and reached its dark corners outside the sphere: the back
+of the Rare logo went black with gold streaks (issue #3), the J-Bomb's
+silver boosters dark blue (#2), the promotion badge grey.  In
+mupen64plus (rice) the back of the logo is plain gold and the boosters
+silver, as they are now.  (`G_TEXTURE_GEN_LINEAR` isn't used and is
+mapped the same way.)
+
 Not done: anti-aliasing (the coverage the blender uses on edges; rendering
 above 1x and scaling down is the substitute) and the VI's filters, dither,
 the combiner's chroma key (its noise input is a hash, not the RDP's
-generator), texgen from the look-at
-vectors (the port uses the modelview's axes), the far plane (depth is
+generator), the far plane (depth is
 clamped instead), and triangle edges follow GL's and the software
 renderer's pixel-center rule rather than the RDP's.
 
