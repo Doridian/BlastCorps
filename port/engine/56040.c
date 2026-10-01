@@ -3288,3 +3288,105 @@ void func_8029FC74(s32 a, s32 b, u8 *parts) {
     ENGINE_LEAVE(13, t5);
     ENGINE_LEAVE_F(0, 0.0f);
 }
+
+extern u8 D_803BE738;
+
+/* A vehicle hitting building piece p of this kind: the kind into the
+   frame's list (func_802BCCD4); unless D_803A7408's list (to a negative
+   byte) has it, D_803A7424 set and the camera turned to take in the
+   piece's heading +-0x400, the way round given by which side of its plane
+   the vehicle (D_803A73F0-D_803A73F8, / 4) is on, when the piece is
+   one-sided (0x55) or faces it (0x56) (func_8029B7CC; its sound 0x59 into
+   D_803BE738).  Then, once (D_803A7429), when |D_803F77FC| reaches
+   |D_803A7422| with D_803A7427, the hit effect (func_8029B994). */
+REGS(s0, fp)
+void func_8029B614(u8 *p, s32 kind) {
+    s8 *list;
+    s64 a, b, c, d, side;
+    s32 h, lo, hi, v, w;
+
+    ENGINE_BLK(8029B614);
+    func_802BCCD4(kind);
+    ENGINE_BLK(8029B63C);
+    for (list = *(s8 *PTR32 *)&D_803A7408;;) {
+        ENGINE_BLK(8029B648);
+        v = *list;
+        if (v == kind)
+            goto effect;
+        ENGINE_BLK(8029B654);
+        list++;
+        if (v < 0)
+            break;
+    }
+    ENGINE_BLK(8029B65C);
+    D_803A7424 = 1;
+    a = dword(p), b = dword(p + 8), c = dword(p + 0x10), d = dword(p + 0x18);
+    side = (s64)((u64)a * (u64)(s64)(D_803A73F0 >> 2) + (u64)b * (u64)(s64)(D_803A73F4 >> 2) +
+                 (u64)c * (u64)(s64)(D_803A73F8 >> 2) + (u64)d);
+    h = *(u16 *)(p + 0x4C);
+    ENGINE_LEAVE(1, 1);
+    if (d > 0) {
+        ENGINE_BLK(8029B6E8);
+        if (side > 0)
+            goto front;
+    } else {
+        ENGINE_BLK(8029B6D8);
+        if (side < 0)
+            goto front;
+        ENGINE_BLK(8029B6E0);
+    }
+    ENGINE_BLK(8029B6F0);
+    lo = h + 0x400, hi = h - 0x400;
+    if (p[0x55] == 1)
+        goto turn;
+    ENGINE_BLK(8029B6FC);
+    if (p[0x56] == 0)
+        goto turn;
+    ENGINE_BLK(8029B708);
+    goto effect;
+front:
+    ENGINE_BLK(8029B710);
+    lo = h - 0x400, hi = h + 0x400;
+    if (p[0x55] == 1)
+        goto turn;
+    ENGINE_BLK(8029B720);
+    if (p[0x56] == 0)
+        goto effect;
+turn:
+    ENGINE_BLK(8029B72C);
+    func_8029B7CC(lo, hi);
+    ENGINE_BLK(8029B734);
+    ENGINE_LEAVE(1, HI(D_803BE738));
+    if (p[0x59] != 0) {
+        ENGINE_BLK(8029B740);
+        D_803BE738 = p[0x59];
+    }
+effect:
+    ENGINE_BLK(8029B744);
+    if (D_803A7429 != 0)
+        goto done;
+    ENGINE_BLK(8029B758);
+    v = D_803F77FC;
+    w = D_803A7422;
+    if (v < 0) {
+        ENGINE_BLK(8029B770);
+        v = -v;
+    }
+    ENGINE_BLK(8029B774);
+    if (w < 0) {
+        ENGINE_BLK(8029B77C);
+        w = -w;
+    }
+    ENGINE_BLK(8029B780);
+    ENGINE_LEAVE(1, v < w);
+    if (v < w)
+        goto done;
+    ENGINE_BLK(8029B78C);
+    if (D_803A7427 == 0)
+        goto done;
+    ENGINE_BLK(8029B79C);
+    D_803A7429 = D_803A7427;
+    func_8029B994();
+done:
+    ENGINE_BLK(8029B7A4);
+}
