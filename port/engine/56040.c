@@ -1561,8 +1561,9 @@ void func_8029A914(VS *vs) {
    texture number, a half at 4 + byte 1 * 2), the display list's
    G_SETTIMG commands (0xFD) from dl to end that load it: (record, the
    command's offset + 4, 0) appended at D_803B35F0 */
-REGS(s2, s0, s1)
-void func_8029DF78(s32 id, u32 *dl, u32 *end) {
+REGS(s0, s1, s2)
+void func_8029DF78(u32 dl_, u32 end_, u32 id) {
+    u32 *dl = (u32 *)(__UINTPTR_TYPE__)dl_, *end = (u32 *)(__UINTPTR_TYPE__)end_;
     s32 *ids = D_802C23B4, k;
     u8 *rec, *out = D_803B35F0;
     u32 *p, w, tex;
