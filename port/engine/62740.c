@@ -3483,3 +3483,67 @@ s32 func_802A9710(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 y) {
     ENGINE_BLK(802A9918);
     return y;
 }
+
+/* ---- one wheel's step ---------------------------------------------------- */
+
+extern u8 D_803F7C49;
+
+REGS(v0, a1, a2, a3, t3, s6 -> s6)
+s32 func_802A9710(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 y);
+
+/* Wheel i one step on (its state counts up): where it would be (ground[i]
+   plus the drop its state gives), against the ground under it
+   (func_802A9B1C).  Above the ground it falls on (D_803ED398[i], flag
+   D_803ED3EE[i]); otherwise it lands on it (func_802A9710).  Vehicle 9
+   with D_803F7C49 set also falls when the ground is 0x6A5 or more above.
+   Returns the drop, or func_802A9710's distance ($s6). */
+REGS(v0, a1, a2, a3, t0, t1, s7, v1, s4, t8, gp, fp -> s6)
+s32 func_802A95A4(s32 i, s32 *h, s32 *state, s32 *ground, s32 x, s32 z, s32 *heights, s16 *pts, s16 *a,
+                  s32 self, VS *vs, s32 mat) {
+    s32 t2, t5, s1, s6, dx, dz, g;
+    u32 t4;
+    s32 *p;
+    f32 f;
+
+    ENGINE_BLK(802A95A4);
+    t2 = state[i];
+    t4 = (u32)h[i] * (u32)t2;
+    state[i] = t2 + 1;
+    s1 = ground[i];
+    f = D_803EBBF4 * (f32)(s32)((u32)t2 * (u32)t2);
+    t5 = engine_cvt_w_s(f);
+    s6 = (s32)(t4 + t5);
+    s1 += s6;
+    dx = func_802A94A4(i, pts, a, &dz);
+    ENGINE_BLK(802A9648);
+    g = func_802A9B1C(i, x + dx, z + dz, heights[3 * i], self, vs, mat);
+    ENGINE_BLK(802A9668);
+    p = (s32 *)((u32)&D_803ED398 + 4 * i);
+    if (self == 9) {
+        ENGINE_BLK(802A9680);
+        if (D_803F7C49 != 0) {
+            ENGINE_BLK(802A9690);
+            if ((s32)((u32)g - s1) >= 0x6A5)
+                goto fall;
+        }
+    }
+    ENGINE_BLK(802A96A0);
+    if (!(g < s1)) {
+        ENGINE_BLK(802A96D0);
+        *p = g;
+        s6 = func_802A9710(i, h, state, ground, g, s6);
+        goto done;
+    }
+fall:
+    ENGINE_BLK(802A96A8);
+    if (s1 < 0) {
+        ENGINE_BLK(802A96B0);
+        s1 = 0;
+    }
+    ENGINE_BLK(802A96B4);
+    *p = s1;
+    WHEEL_BYTE(D_803ED3EE, i) = 1;
+done:
+    ENGINE_BLK(802A96D8);
+    return s6;
+}
