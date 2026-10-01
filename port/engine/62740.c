@@ -203,9 +203,13 @@ done:
 /* unk4C turned by `turn` toward unk4E, not past it */
 REGS(a1, gp)
 void func_802A746C(s32 turn, VS *vs) {
-    s32 h = vs->unk4C, target = vs->unk4E, n;
+    s32 h = vs->unk4C, target = vs->unk4E, n, at;
 
     ENGINE_BLK(802A746C);
+    /* (what it leaves in $v0, $a0 and $at, $v1, which the vehicle modules
+       read on) */
+    ENGINE_LEAVE(2, h);
+    ENGINE_LEAVE(4, target);
     if (h == target)
         goto done;
     ENGINE_BLK(802A7484);
@@ -219,11 +223,13 @@ void func_802A746C(s32 turn, VS *vs) {
         ENGINE_BLK(802A74A0);
         n -= 0xFFF;
     }
+    ENGINE_LEAVE(3, n);
     ENGINE_BLK(802A74A4);
     if (turn >= 0) {
         ENGINE_BLK(802A74AC);
         if (h < target) {
             ENGINE_BLK(802A74B4);
+            at = n < h;
             if (target < n)
                 goto clamp;
             ENGINE_BLK(802A74BC);
@@ -233,9 +239,11 @@ void func_802A746C(s32 turn, VS *vs) {
             goto set;
         }
         ENGINE_BLK(802A74CC);
+        at = n < h;
         if (!(target < h))
             goto set;
         ENGINE_BLK(802A74D8);
+        at = target < n;
         if (!(n < h))
             goto set;
         ENGINE_BLK(802A74E0);
@@ -247,6 +255,7 @@ void func_802A746C(s32 turn, VS *vs) {
     ENGINE_BLK(802A74F0);
     if (target < h) {
         ENGINE_BLK(802A74FC);
+        at = n < h;
         if (!(target < n))
             goto clamp;
         ENGINE_BLK(802A7504);
@@ -256,9 +265,11 @@ void func_802A746C(s32 turn, VS *vs) {
         goto set;
     }
     ENGINE_BLK(802A7514);
+    at = n < target;
     if (!(h < target))
         goto set;
     ENGINE_BLK(802A7520);
+    at = h < n;
     if (!(n < target))
         goto set;
     ENGINE_BLK(802A7528);
@@ -267,10 +278,12 @@ void func_802A746C(s32 turn, VS *vs) {
 clamp:
     ENGINE_BLK(802A7530);
     vs->unk4C = target;
+    ENGINE_LEAVE(1, at);
     goto done;
 set:
     ENGINE_BLK(802A7538);
     vs->unk4C = n;
+    ENGINE_LEAVE(1, at);
 done:
     ENGINE_BLK(802A753C);
 }
@@ -300,6 +313,7 @@ void func_802A754C(VS *vs) {
     vs->unkA4 = 0;
     vs->unkA5 = 0;
     vs->unk0 = 0.0f;
+    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 /* the current vehicle's parts (0x300 bytes), state (0xA6) and position
@@ -714,8 +728,8 @@ s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick) {
    corner and the middle of the opposite edge */
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
-    f32 fx, fz, cx, cz, ex, ez, d, c, a, b, dx, dz;
-    s32 edge, r = 1, tx, tz;
+    f32 fx, fz, cx, cz, ex, ez, d, c = 2.0f, a, b, b2, dx, dz;
+    s32 edge, r = 1, tx, tz, at, set = 0;
 
     ENGINE_BLK(802AA460);
     cx = (f32)(x2 + x3) / 2.0f;
@@ -726,9 +740,11 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
     fz = (f32)z;
     for (edge = 4;;) {
         ENGINE_BLK(802AA4E4);
+        at = 3;
         if (--edge == 0)
             break;
         ENGINE_BLK(802AA4F0);
+        at = 2;
         if (edge == 3) {
             ENGINE_BLK(802AA538);
             ex = (f32)x1, ez = (f32)z1;
@@ -755,8 +771,9 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
             continue;
         ENGINE_BLK(802AA580);
         a = (cx - ex) * dx;
-        b = (cz - ez) * dz;
-        c = a - b;
+        b2 = (cz - ez) * dz;
+        c = a - b2;
+        set = 1;
         if (d > 0.0f) {
             ENGINE_BLK(802AA5B0);
             if (c > 0.0f)
@@ -772,6 +789,24 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
         break;
     }
     ENGINE_BLK(802AA5C0);
+    /* (the floats it leaves, which the vehicle modules' code reads on) */
+    ENGINE_LEAVE(1, at);
+    ENGINE_LEAVE_F(0, 0.0f);
+    ENGINE_LEAVE_F(10, fx);
+    ENGINE_LEAVE_F(12, fz);
+    ENGINE_LEAVE_F(18, cx);
+    ENGINE_LEAVE_F(20, cz);
+    ENGINE_LEAVE_F(22, c);
+    {
+        ENGINE_LEAVE_F(2, ex);
+        ENGINE_LEAVE_F(4, ez);
+        ENGINE_LEAVE_F(26, dx);
+        ENGINE_LEAVE_F(28, dz);
+        ENGINE_LEAVE_F(14, d);
+        ENGINE_LEAVE_F(16, b);
+    }
+    if (set)
+        ENGINE_LEAVE_F(24, b2);
     return r;
 }
 
@@ -988,6 +1023,7 @@ s32 func_802AB3C0(s32 type) {
         break;
     }
     ENGINE_BLK(802AB408);
+    ENGINE_LEAVE(1, -1);
     return r;
 }
 
@@ -1017,6 +1053,7 @@ s32 func_802AB41C(s32 a, s32 b) {
         break;
     }
     ENGINE_BLK(802AB464);
+    ENGINE_LEAVE(1, -1);
     return r;
 }
 
@@ -1081,9 +1118,13 @@ void *func_802ABC88(s32 id, s32 n) {
 REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
 s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2) {
     s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+    s64 r;
 
     ENGINE_BLK(802ABCDC);
-    return engine_cvt_l_d(__builtin_sqrt((f64)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz)));
+    r = engine_cvt_l_d(__builtin_sqrt((f64)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz)));
+    ENGINE_LEAVE_FW(0, (u32)r);         /* (cvt.l.d left it in $f0/$f1 too) */
+    ENGINE_LEAVE_FW(1, (u32)(r >> 32));
+    return r;
 }
 
 /* D_803BDFD8: the level's lights, 0x24-byte records up to D_803BDFD4 */

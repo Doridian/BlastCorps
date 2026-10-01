@@ -20,6 +20,18 @@ int32_t engine_trunc_w_d(double x) { return (int32_t)recomp_f2w(trunc(x)); }
 int64_t engine_cvt_l_d(double x) { return (int64_t)recomp_f2l(recomp_rint(x)); }
 int64_t engine_cvt_l_s(float x) { return (int64_t)recomp_f2l_s(recomp_rintf(x)); }
 
+/* engine.h's ENGINE_LEAVE: 0-31 a GPR (the word sign-extended, as the
+   VR4300 holds one), 34-65 an FPR word */
+extern recomp_context *port_ctx(void);
+void engine_leave(unsigned int reg, uint32_t value) {
+    recomp_context *ctx = port_ctx();
+    if (reg < 32) {
+        if (reg)
+            ctx->r[reg] = S32(value);
+    } else if (reg >= 34 && reg < 66)
+        ctx->f[reg - 34] = value;
+}
+
 #ifdef PORT_ENGINE_CHECK
 /*
  * Each call of a replaced function, from the translated code (its glue,

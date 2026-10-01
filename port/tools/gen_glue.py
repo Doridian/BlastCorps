@@ -715,8 +715,12 @@ def native_decl(name, sig, cname=None):
     return f"extern {rty} {cname or name}({args});", rty
 
 
-def gen_adapter(name, sig, conv, cname, check=None):
-    """recomp_extern_X: the translated code calls the native X"""
+def gen_adapter(name, sig, conv, cname, check=None, may_write=None):
+    """recomp_extern_X: the translated code calls the native X.  The context
+    is put back as it was but for the registers the original may write
+    (conventions.py): those keep what the native code's calls into
+    translated code left in them, as the original's callees would have,
+    and the declared results are set."""
     in_c, out_c, rc = split_sig(name, sig, conv)
     ins, outs = conv
     decl, rty = native_decl(name, sig, cname)
@@ -732,7 +736,21 @@ def gen_adapter(name, sig, conv, cname, check=None):
         args += [f"(uintptr_t)(res + {8 * k})" for k in range(len(res_slots))]
     call = f"{cname}({', '.join(args)})"
     body.append(f"    {call};" if rc == "V" else f"    {rty} r = {call};")
-    body.append("    *ctx = saved;")
+    if may_write:
+        body.append("    recomp_context now = *ctx;")
+        body.append("    *ctx = saved;")
+        for r in sorted(may_write, key=lambda r: (isinstance(r, str), str(r) if isinstance(r, str) else r)):
+            if isinstance(r, int):
+                if r not in (0, 29, 31):
+                    body.append(f"    ctx->r[{r}] = now.r[{r}];")
+            elif r in ("hi", "lo"):
+                body.append(f"    ctx->{r} = now.{r};")
+            elif r == "fcc":
+                body.append("    ctx->fcr31 = now.fcr31;")
+            elif r.startswith("f") and r[1:].isdigit():
+                body.append(f"    ctx->f[{r[1:]}] = now.f[{r[1:]}];")
+    else:
+        body.append("    *ctx = saved;")
     vals = []
     if rc != "V":
         vals.append("r")
@@ -890,7 +908,8 @@ def gen_engine(check, funcs, report):
         mask = check_mask(name, list(zip(conv[1], out_c)), a)
         checked = check and not ext.get(name, True)
         cname = f"native_{name}" if check else name
-        adapters[name] = gen_adapter(name, sig, conv, cname, (cid, mask) if checked else None)
+        adapters[name] = gen_adapter(name, sig, conv, cname, (cid, mask) if checked else None,
+                                     a.may_write if a is not None else None)
         ids.append((cid, name, checked))
         if check:
             check_hdr.append(f"#define {name} native_{name}")

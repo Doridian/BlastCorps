@@ -58,4 +58,20 @@ s32 engine_trunc_w_d(f64 x);
 s64 engine_cvt_l_d(f64 x);
 s64 engine_cvt_l_s(f32 x);
 
+/* Registers the original leaves behind besides its results, which some
+   translated code reads afterwards (conventions.py's outputs that REGS()
+   doesn't name: a float temporary, a constant it loaded): the native code
+   puts them in the thread's context itself, wherever it is called from,
+   and the glue keeps them (port/host/engine.c).  ENGINE_LEAVE_F(2, x)
+   leaves the float x in $f2, ENGINE_LEAVE(1, 3) the word 3 in $at. */
+void engine_leave(unsigned int reg, u32 value);
+#define ENGINE_LEAVE(gpr, v) engine_leave((gpr), (u32)(v))
+#define ENGINE_LEAVE_F(fpr, x)                                              \
+    do {                                                                    \
+        union { f32 f; u32 u; } leave_;                                     \
+        leave_.f = (x);                                                     \
+        engine_leave(34 + (fpr), leave_.u);                                 \
+    } while (0)
+#define ENGINE_LEAVE_FW(fpr, w) engine_leave(34 + (fpr), (u32)(w))
+
 #endif

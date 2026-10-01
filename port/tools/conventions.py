@@ -141,7 +141,7 @@ class Func:
 
     def slot(self, k, i):
         """(entry-relative address, width) of an $sp-relative access at node k"""
-        if not self.sp_known or i.rs != 29 or node_insn(self.fn, k).lo is not None:
+        if i.rs != 29 or node_insn(self.fn, k).lo is not None:
             return None
         d = self.delta.get(k)
         return None if d is None else d + i.imm
@@ -292,6 +292,9 @@ def liveness(F, conv_in, stack_in, must, live_out):
             out = set()
             for s in succs:
                 if s[0] == "exit":
+                    # what the callers read afterwards (so that a call just
+                    # before the return gives it its callers' readers too)
+                    out |= live_out[F.fn.name]
                     continue
                 if s[0] == "tail":
                     out |= conv_in.get(s[1], set())
@@ -309,7 +312,7 @@ def liveness(F, conv_in, stack_in, must, live_out):
                 else:
                     new = {4, 5, 6, 7, 29} | (out - EXTERN_CLOBBER)
                     args = EXTERN_STACK_ARGS
-                if d is not None and F.sp_known:
+                if d is not None:
                     new |= {("s", d + o) for o in args}
                 # the callee's frames are below the $sp: the slots there die
                 if d is not None:

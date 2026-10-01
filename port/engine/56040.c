@@ -60,6 +60,7 @@ void func_802A0320(s32 i, Part *parts) {
     ENGINE_BLK(802A0320);
     parts[i].unk13 = 0;
     parts[i].unk4 = 0.0f;
+    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 REGS(v0, v1, a0, f0)
@@ -150,6 +151,7 @@ void func_802A0570(void *key) {
     ENGINE_BLK(802A0584);
     p->unk13 = 0;
     p->unk4 = 0.0f;
+    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 REGS(v0, v1, f0)
