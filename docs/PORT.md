@@ -2783,11 +2783,16 @@ checked and must keep the TAS.
   the same way it calls the game's C.  Functions that share code (one
   branches into another) are replaced together.
 - The game's C calls the native function directly.  `gen_glue.py` makes
-  the translated code's adapter from the C definition: it saves the
-  context, passes the inputs, puts the whole context back except the
-  outputs, and sets those.  For the other direction, native code calling
-  a translated function goes through `entry.c`'s wrappers, as the game's
-  C does.
+  the translated code's adapter from the C definition.  It saves the
+  context, passes the inputs, and calls the native function.  Then it puts
+  the context back, except for the registers the original may write
+  (conventions.py), which keep what the native code's calls and leaves
+  put there.  Last it sets the declared outputs.  For the other direction,
+  native code calling a translated function goes through `entry.c`'s
+  wrappers, as the game's C does.
+- `port/engine/shared.h` declares every native function that another
+  object calls, with its `REGS()`, so the call sites in all the objects
+  agree.
 
 **Register conventions.**
 - Rare's code passes values in whatever registers suit it.  `REGS(t0, t3
@@ -2797,8 +2802,18 @@ checked and must keep the TAS.
   parameters.
 - A register name can be any GPR, `f0`-`f31` (`f64` takes the pair), `hi`,
   `lo`, or `sp+0x10` (a stack word).  `s64`/`u64` types move whole 64-bit
-  registers, which Rare's fixed point uses (`dmult`, `dsra`).  Without
-  `REGS()`, the convention is o32's from the prototype.
+  registers, which Rare's fixed point uses (`dmult`, `dsra`).  An output
+  `s1+f0` puts one value in both registers.  Without `REGS()`, the
+  convention is o32's from the prototype.
+- Leftovers are what the original leaves in registers besides its results
+  (a float temporary, a loop pointer, a constant in `$at`) when some
+  translated code reads them afterwards.  The native code puts them in
+  the context itself: `ENGINE_LEAVE(gpr, v)`, `ENGINE_LEAVE_F(fpr, float)`,
+  `ENGINE_LEAVE_FW(fpr, word)` and `ENGINE_LEAVE64`.  This works wherever
+  the native code is called from.  gen_glue reads these, through the
+  native callees too, so a register left that way doesn't count as a
+  missing output.  A pointer left this way is `(u32)p`, its N64 address
+  in every variant.
 - `port/tools/conventions.py FUNC|OBJECT` works out what each function
   really takes and gives back: its inputs, and its outputs, the
   registers it may write that a translated caller reads afterwards.  It

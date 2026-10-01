@@ -141,8 +141,21 @@ unidentified.
   that decides how many retraces a frame takes. A rewrite needs a cost model, e.g. each function charged
   its original instruction counts, or the 30 fps pacing and the TAS drift.
 
-**Effort:** not estimated yet.  It is 688 functions (220 K of MIPS), far more than anything above.  Time
-the first module, e.g. 679E0's math (3.6 K), and scale from that.
+**Effort:** 688 functions (220 K of MIPS).  The mechanism is `port/engine` (docs/PORT.md, "Replacing
+the engine"): one function at a time, each charged its original blocks and checked call by call
+against its translation.
+- The 679E0 pilot (18 functions of math and matrices) took about 25 minutes, checks included.
+- The pace since then: about 70 functions an hour for straight math, and 25–30 an hour for branchy
+  physics with Rare's register conventions.  Most of the time goes into the registers the original
+  leaves behind for its translated callers (`ENGINE_LEAVE`).
+- That puts the whole engine at roughly 15–20 agent-hours.  The vehicle modules and the loaders are
+  slower per function than the math, but each is checked the same way.
+- Native now: 105 functions, all of 679E0 but four, 69014's and 69944's, the part setters in 56040,
+  and most of 62740's ground, wheel and triangle code.
+- Still translated in 62740: its orchestrators (`func_802A7FD8`, `func_802A8768`, `func_802A8CCC`,
+  which us.v10 has differently, `func_802A95A4`, `func_802A9710`), the recursive dispatchers into the
+  vehicle modules (`func_802AB478` to `func_802AB714`), and the moving objects' matrix chain
+  (`func_802AA890` and its callers).
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
