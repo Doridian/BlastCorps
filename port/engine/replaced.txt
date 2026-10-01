@@ -6,6 +6,7 @@
 # 56040: the vehicles' parts
 func_8029A800
 func_8029A914
+func_8029B02C
 func_8029B514
 func_8029B5B8
 func_8029B614

@@ -4266,3 +4266,262 @@ void func_8029E0AC(s32 fp) {
     }
     ENGINE_BLK(8029E17C);
 }
+
+REGS(-> t1)
+s32 func_802BD8C8(void);
+extern s32 D_803059F0[];                /* (level or 0xFFFF, object kind, vehicle mask) triples, to a zero mask */
+extern u8 D_803F4030[];                 /* the level's objects: 0xFC bytes, their pieces from word 1 to word 2 */
+extern u8 *PTR32 D_803F7654;
+extern u8 D_803F9330[];
+extern u8 *PTR32 D_803FB8B0;
+extern u8 *PTR32 D_803BD308, *PTR32 D_803BD30C;
+extern u32 D_803BDE40[], D_803BDCA8[];  /* the grid's cells: their pieces from one word to the next */
+extern u8 D_803A742A;
+
+/* The vehicle's sphere against one building piece p: across its plane
+   (func_8029C160), and then inside its triangle there (func_8029C0DC,
+   func_8029BF64), across one of its edges (func_8029BD0C) or holding its
+   first corner (func_8029BEE4).  Each step's blocks are the section's
+   own; HIT and MISS are where it goes. */
+#define PIECE_TEST(p, B_C160, B_PLANE, B_C0DC, B_BF64, B_IN, B_BD0C, B_EDGE, B_BEE4, B_CORNER, HIT, MISS)        \
+    do {                                                                                                         \
+        s32 px_, py_, pz_;                                                                                       \
+        ENGINE_BLK(B_C160);                                                                                      \
+        if (!func_8029C160(x, y, z, r, (struct Piece *)(p), &px_, &py_, &pz_)) {                                 \
+            ENGINE_BLK(B_PLANE);                                                                                 \
+            goto MISS;                                                                                           \
+        }                                                                                                        \
+        ENGINE_BLK(B_PLANE);                                                                                     \
+        ENGINE_BLK(B_C0DC);                                                                                      \
+        func_8029C0DC((p), px_, py_, pz_);                                                                       \
+        ENGINE_BLK(B_BF64);                                                                                      \
+        if (func_8029BF64(engine_ctx(2), engine_ctx(3), engine_ctx(4), engine_ctx(5), engine_ctx(6),             \
+                          engine_ctx(7), engine_ctx(8), engine_ctx(9))) {                                        \
+            ENGINE_BLK(B_IN);                                                                                    \
+            goto HIT;                                                                                            \
+        }                                                                                                        \
+        ENGINE_BLK(B_IN);                                                                                        \
+        ENGINE_BLK(B_BD0C);                                                                                      \
+        if (func_8029BD0C(x, y, z, r, (struct Piece *)(p))) {                                                    \
+            ENGINE_BLK(B_EDGE);                                                                                  \
+            goto HIT;                                                                                            \
+        }                                                                                                        \
+        ENGINE_BLK(B_EDGE);                                                                                      \
+        ENGINE_BLK(B_BEE4);                                                                                      \
+        if (func_8029BEE4((p), x, y, z, r)) {                                                                    \
+            ENGINE_BLK(B_CORNER);                                                                                \
+            goto HIT;                                                                                            \
+        }                                                                                                        \
+        ENGINE_BLK(B_CORNER);                                                                                    \
+        goto MISS;                                                                                               \
+    } while (0)
+
+/* The vehicle (type, its sphere (x, y, z, r), kind) against the
+   buildings: the objects of the level's kinds for this vehicle that its
+   sphere meets (func_8029B514), their pieces; D_803F9330's pieces (not
+   the one a vehicle 0xC8 stands on); the walls' (func_8029BB28 on a hit);
+   the parts not of its own kind (func_8029B5B8 after a hit); and the
+   pieces in its grid cells (func_8029C284; the first table not for
+   vehicle 9).  A hit is func_8029B614. */
+REGS(a1, a2, a3, t3, t4, t5, t6, t8, fp)
+void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type, s32 kind) {
+    s32 *e = D_803059F0, v;
+    u8 *o, *oend, *p, *pend;
+    s16 *cell;
+
+    ENGINE_BLK(8029B02C);
+    /* the objects */
+    for (;;) {
+        ENGINE_BLK(8029B070);
+        if (e[2] == 0)
+            break;
+        ENGINE_BLK(8029B07C);
+        if ((e[2] & (1u << (type & 31))) == 0) {
+            e += 3;
+            continue;
+        }
+        ENGINE_BLK(8029B090);
+        if (e[0] != 0xFFFF) {
+            ENGINE_BLK(8029B0A0);
+            if (e[0] != D_802E8BDC) {
+                e += 3;
+                continue;
+            }
+        }
+        ENGINE_BLK(8029B0B0);
+        if (e[1] == 0x38) {
+            ENGINE_BLK(8029B0C0);
+            v = func_802BD8C8();
+            ENGINE_BLK(8029B0C8);
+            if (v != 0) {
+                ENGINE_BLK(8029B0D0);
+                e += 3;
+                continue;
+            }
+        }
+        ENGINE_BLK(8029B0D8);
+        v = e[1];
+        e += 3;
+        oend = D_803F7654;
+        for (o = D_803F4030;; o += 0xFC) {
+            ENGINE_BLK(8029B0F0);
+            if (o == oend)
+                break;
+            ENGINE_BLK(8029B0F8);
+            if (*(s32 *)(o + 0x30) != v)
+                continue;
+            ENGINE_BLK(8029B104);
+            if (!func_8029B514(o, x, y, z, r)) {
+                ENGINE_BLK(8029B10C);
+                continue;
+            }
+            ENGINE_BLK(8029B10C);
+            ENGINE_BLK(8029B114);
+            pend = ((u8 *PTR32 *)o)[2];
+            for (p = ((u8 *PTR32 *)o)[1];; p += 0x60) {
+                ENGINE_BLK(8029B130);
+                if (p == pend)
+                    break;
+                ENGINE_BLK(8029B138);
+                if (p[0x51] == 0)
+                    continue;
+                PIECE_TEST(p, 8029B144, 8029B14C, 8029B154, 8029B15C, 8029B164, 8029B16C, 8029B174, 8029B17C,
+                           8029B184, hit1, miss1);
+            hit1:
+                ENGINE_BLK(8029B194);
+                func_8029B614(p, kind);
+                ENGINE_BLK(8029B19C);
+                continue;
+            miss1:
+                ENGINE_BLK(8029B18C);
+            }
+            ENGINE_BLK(8029B1A4);
+        }
+    }
+    /* D_803F9330's pieces */
+    ENGINE_BLK(8029B1C0);
+    pend = D_803FB8B0;
+    for (p = D_803F9330;; p += 0x60) {
+        ENGINE_BLK(8029B1D4);
+        if (p == pend)
+            break;
+        ENGINE_BLK(8029B1DC);
+        if (p[0x51] == 0)
+            continue;
+        ENGINE_BLK(8029B1E8);
+        if (type == 0xC8) {
+            ENGINE_BLK(8029B1F4);
+            if (*(u16 *)(p + 0x52) == D_803A742A)
+                continue;
+        }
+        PIECE_TEST(p, 8029B208, 8029B210, 8029B218, 8029B220, 8029B228, 8029B230, 8029B238, 8029B240, 8029B248,
+                   hit2, miss2);
+    hit2:
+        ENGINE_BLK(8029B258);
+        func_8029B614(p, kind);
+        ENGINE_BLK(8029B260);
+        continue;
+    miss2:
+        ENGINE_BLK(8029B250);
+    }
+    /* the walls' pieces */
+    ENGINE_BLK(8029B268);
+    pend = D_803BD30C;
+    for (p = D_803BD308;; p += 0x60) {
+        ENGINE_BLK(8029B27C);
+        if (p == pend)
+            break;
+        PIECE_TEST(p, 8029B284, 8029B28C, 8029B294, 8029B29C, 8029B2A4, 8029B2AC, 8029B2B4, 8029B2BC, 8029B2C4,
+                   hit3, miss3);
+    hit3:
+        ENGINE_BLK(8029B2D4);
+        func_8029BB28(p, type, kind);
+        ENGINE_BLK(8029B2DC);
+        continue;
+    miss3:
+        ENGINE_BLK(8029B2CC);
+    }
+    /* the parts */
+    ENGINE_BLK(8029B2E4);
+    pend = D_803BD300;
+    for (p = D_803B9890;; p += 0x60) {
+        ENGINE_BLK(8029B2F8);
+        if (p == pend)
+            break;
+        ENGINE_BLK(8029B300);
+        if (p[0x51] == 0)
+            continue;
+        ENGINE_BLK(8029B30C);
+        if (p[0x4F] != 0) {
+            ENGINE_BLK(8029B318);
+            if (p[0x4F] == type)
+                continue;
+        }
+        PIECE_TEST(p, 8029B320, 8029B328, 8029B330, 8029B338, 8029B340, 8029B348, 8029B350, 8029B358, 8029B360,
+                   hit4, miss4);
+    hit4:
+        ENGINE_BLK(8029B370);
+        func_8029B614(p, kind);
+        ENGINE_BLK(8029B378);
+        func_8029B5B8(p);
+        ENGINE_BLK(8029B380);
+        continue;
+    miss4:
+        ENGINE_BLK(8029B368);
+    }
+    /* the grid cells */
+    ENGINE_BLK(8029B388);
+    func_8029C284(x, z);
+    ENGINE_BLK(8029B390);
+    if (type != 9) {
+        ENGINE_BLK(8029B39C);
+        for (cell = (s16 *)D_803A7418;;) {
+            ENGINE_BLK(8029B3A4);
+            if (*cell == -1)
+                break;
+            ENGINE_BLK(8029B3B4);
+            p = *(u8 *PTR32 *)&D_803BDE40[*cell];
+            pend = *(u8 *PTR32 *)&D_803BDE40[*cell + 1];
+            cell++;
+            for (;; p += 0x60) {
+                ENGINE_BLK(8029B3D0);
+                if (p == pend)
+                    break;
+                PIECE_TEST(p, 8029B3D8, 8029B3E0, 8029B3E8, 8029B3F0, 8029B3F8, 8029B400, 8029B408, 8029B410,
+                           8029B418, hit5, miss5);
+            hit5:
+                ENGINE_BLK(8029B428);
+                func_8029B614(p, kind);
+                ENGINE_BLK(8029B430);
+                continue;
+            miss5:
+                ENGINE_BLK(8029B420);
+            }
+        }
+    }
+    ENGINE_BLK(8029B438);
+    for (cell = (s16 *)D_803A7418;;) {
+        ENGINE_BLK(8029B440);
+        if (*cell == -1)
+            break;
+        ENGINE_BLK(8029B450);
+        p = *(u8 *PTR32 *)&D_803BDCA8[*cell];
+        pend = *(u8 *PTR32 *)&D_803BDCA8[*cell + 1];
+        cell++;
+        for (;; p += 0x60) {
+            ENGINE_BLK(8029B46C);
+            if (p == pend)
+                break;
+            PIECE_TEST(p, 8029B474, 8029B47C, 8029B484, 8029B48C, 8029B494, 8029B49C, 8029B4A4, 8029B4AC, 8029B4B4,
+                       hit6, miss6);
+        hit6:
+            ENGINE_BLK(8029B4C4);
+            func_8029B614(p, kind);
+            ENGINE_BLK(8029B4CC);
+            continue;
+        miss6:
+            ENGINE_BLK(8029B4BC);
+        }
+    }
+    ENGINE_BLK(8029B4D4);
+}
