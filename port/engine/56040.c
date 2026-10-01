@@ -2965,3 +2965,16 @@ void func_802A0118(s16 *k, s16 *out, f32 t) {
     ENGINE_LEAVE_FW(2, w);
     ENGINE_LEAVE(9, (u32)(out + 10));
 }
+
+extern u8 D_803A7428, D_80370C3C;
+extern u8 D_802C2984[];                 /* the effect's description */
+
+/* An effect (func_802A6274: D_802C2984, D_803A7428 * 7000 long) at the
+   point D_803A73FC-D_803A7404, and D_80370C3C set */
+void func_8029B994(void) {
+    ENGINE_BLK(8029B994);
+    func_802A6274((s32)(u32)D_802C2984, D_803A7428 * 0x1B58, 0, (u32)D_803A73FC << 13, (u32)D_803A7400 << 13,
+                  (u32)D_803A7404 << 13, 0, 0, 0, 0, 0, 0, 0, 1, 0);
+    ENGINE_BLK(8029BA98);
+    D_80370C3C = 1;
+}
