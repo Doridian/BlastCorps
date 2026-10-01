@@ -652,3 +652,34 @@ func_802D22F4
 func_802D2444
 func_802D249C
 func_802D2524
+
+# 6E200: Skyfall and Ramdozer (func_802B30F4, func_802B3180, func_802B4818 and
+# func_802B48A4 go with 62740's collision dispatch)
+func_802B29C0
+func_802B2D7C
+func_802B2EF8
+func_802B2F54
+func_802B2FA0
+func_802B30B0
+func_802B327C
+func_802B37B0
+func_802B3C68
+func_802B3E40
+func_802B3F78
+func_802B3FF0
+func_802B40A8
+func_802B40D4
+func_802B4100
+func_802B448C
+func_802B45FC
+func_802B4658
+func_802B46C4
+func_802B47D4
+func_802B49AC
+func_802B4EF8
+func_802B54EC
+func_802B568C
+func_802B57C4
+func_802B5814
+func_802B589C
+func_802B58C8
