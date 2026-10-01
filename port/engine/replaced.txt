@@ -399,3 +399,14 @@ func_802D2A40
 func_802D2A74
 func_802D2C20
 func_802D2FA4
+
+# 772A0: the train
+func_802BBA60
+func_802BBDC8
+func_802BBE10
+func_802BBE2C
+func_802BBE74
+func_802BBEB8
+func_802BC2C8
+func_802BC3D0
+func_802BC578
