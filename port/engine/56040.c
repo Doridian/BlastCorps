@@ -2777,3 +2777,90 @@ void func_8029D24C(u16 *data, s32 id, u8 *base) {
     ENGINE_LEAVE(12, idx);
     ENGINE_LEAVE(13, 0);
 }
+
+/* An object's parts set up (func_8029D24C, flagged by func_8029D120),
+   then each train stop of this id (D_803BC1D0's records) that the point
+   (x, z) at y doesn't miss (by its triangles, func_8029DA90, or its part
+   pairs, func_8029DB7C): the parts it lists (kind 0, then this id's)
+   unflagged (func_8029D1D4) */
+REGS(t6, t2, s4, t0, t1, a1, a2)
+void func_8029D040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
+    u8 *q, *end, *b, *part;
+    s32 kind, n, miss, t7;
+
+    ENGINE_BLK(8029D040);
+    func_8029D24C(data, id, base);
+    ENGINE_BLK(8029D050);
+    func_8029D120(id);
+    ENGINE_BLK(8029D058);
+    end = D_803BD304;
+    ENGINE_LEAVE(21, (u32)end);
+    for (q = D_803BC1D0;;) {
+        ENGINE_BLK(8029D06C);
+        if (q == end)
+            break;
+        ENGINE_BLK(8029D074);
+        ENGINE_LEAVE(12, q[0xC4]);
+        if (q[0xC4] != id) {
+            q += 0xDC;
+            continue;
+        }
+        ENGINE_BLK(8029D080);
+        kind = q[0xC5];
+        n = q[0xC6];
+        ENGINE_LEAVE(20, (u32)q);
+        if (kind == 0) {
+            ENGINE_BLK(8029D090);
+            miss = func_8029DA90((s32 *)q, n, x, z, y);
+            ENGINE_BLK(8029D098);
+        } else {
+            ENGINE_BLK(8029D0A0);
+            miss = func_8029DB7C(q, n, parts);
+        }
+        ENGINE_LEAVE(12, miss);
+        ENGINE_BLK(8029D0A8);
+        if (miss != 0) {
+            q += 0xDC;
+            continue;
+        }
+        ENGINE_BLK(8029D0B0);
+        b = q + 0xC8;
+        n = q[0xC7];
+        t7 = 0;
+        for (;;) {
+            ENGINE_BLK(8029D0BC);
+            if (n == 0)
+                break;
+            ENGINE_BLK(8029D0C4);
+            n--;
+            ENGINE_LEAVE(14, *b);
+            part = func_8029D1D4(t7, *b);
+            ENGINE_LEAVE(16, (u32)part);
+            b++;
+            ENGINE_BLK(8029D0D4);
+        }
+        ENGINE_BLK(8029D0DC);
+        b = q + 0xD1;
+        n = q[0xD0];
+        t7 = q[0xC4];
+        for (;;) {
+            ENGINE_BLK(8029D0E8);
+            if (n == 0)
+                break;
+            ENGINE_BLK(8029D0F0);
+            n--;
+            ENGINE_LEAVE(14, *b);
+            part = func_8029D1D4(t7, *b);
+            ENGINE_LEAVE(16, (u32)part);
+            b++;
+            ENGINE_BLK(8029D100);
+        }
+        ENGINE_LEAVE(12, (u32)b);
+        ENGINE_LEAVE(13, 0);
+        ENGINE_LEAVE(15, t7);
+        ENGINE_BLK(8029D108);
+        q += 0xDC;
+    }
+    ENGINE_BLK(8029D110);
+    ENGINE_LEAVE(20, (u32)q);
+}
