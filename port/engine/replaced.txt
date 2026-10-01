@@ -4,6 +4,7 @@
 # version); a version that has no such function ignores it.
 
 # 56040: the vehicles' parts
+func_8029A800
 func_8029A914
 func_8029B514
 func_8029B5B8

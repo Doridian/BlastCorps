@@ -2988,3 +2988,55 @@ void func_8029B994(void) {
     ENGINE_BLK(8029BA98);
     D_80370C3C = 1;
 }
+
+extern s32 D_803A73F0, D_803A73F4, D_803A73F8, D_803A7408, D_80358060;
+extern u8 D_803F7811, D_803F7801, D_803A7427, D_803A7429, D_803A7424, D_803A7425;
+extern s16 D_803A7422, D_803F77FC;
+
+/* A vehicle's collision state for the frame: the camera's headings
+   unset, its point and settings from the caller's registers, the gears
+   into D_803A742D; the building lists reset (func_802BCC10 when
+   D_80358060 is clear or with a2 for a vehicle other than 0xFF, then
+   func_802BCBD8).  Returns D_80358060 ($v0). */
+REGS(v0, v1, a0, a1, a2, a3, t0, t1, t2, t3, t8, gp -> v0)
+s32 func_8029A800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s32 t2, s32 t3, s32 type, VS *vs) {
+    s32 v;
+
+    ENGINE_BLK(8029A800);
+    D_803A7410 = 0;
+    D_803A7412 = 0xFFF;
+    D_803A73F0 = x;
+    D_803A73F4 = y;
+    D_803A73F8 = z;
+    D_803F7811 = a2;
+    D_803A742C = 0;
+    D_803A742E = 0;
+    D_803A742D = vs->unkA0;
+    D_803A742F = 0;
+    D_803F7801 = t3;
+    D_803A7427 = a3;
+    D_803A7428 = t0;
+    D_803A7429 = 0;
+    D_803A7422 = t2;
+    D_803F77FC = t1;
+    D_803A7408 = a1;
+    D_803A7424 = 0;
+    D_803A7425 = 0;
+    v = D_80358060;
+    if (v == 0) {
+        ENGINE_BLK(8029A8D8);
+        func_802BCC10();
+    }
+    ENGINE_BLK(8029A8E0);
+    if (a2 != 0) {
+        ENGINE_BLK(8029A8E8);
+        if (type != 0xFF) {
+            ENGINE_BLK(8029A8F0);
+            func_802BCC10();
+        }
+    }
+    ENGINE_BLK(8029A8F8);
+    func_802BCBD8();
+    ENGINE_BLK(8029A900);
+    return v;
+}
