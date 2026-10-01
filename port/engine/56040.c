@@ -7,6 +7,8 @@
 #include "shared.h"
 #include "game/vehicle.h"
 
+struct Piece; /* buildings.h's 0x60-byte building piece */
+
 
 extern Part D_803B35F8[];
 
@@ -4524,4 +4526,258 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
         }
     }
     ENGINE_BLK(8029B4D4);
+}
+
+/* Whether the sphere (x, y, z, r) meets any building piece func_8029B02C
+   would test, for this vehicle type ($a1) */
+REGS(t3, t4, t5, t6, t8 -> a1)
+s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
+    s32 *e = D_803059F0, v;
+    u8 *o, *oend, *p, *pend;
+    s16 *cell;
+
+    ENGINE_BLK(8029AB88);
+    for (;;) {
+        ENGINE_BLK(8029ABCC);
+        if (e[2] == 0)
+            break;
+        ENGINE_BLK(8029ABD8);
+        if ((e[2] & (1u << (type & 31))) == 0) {
+            e += 3;
+            continue;
+        }
+        ENGINE_BLK(8029ABEC);
+        if (e[0] != 0xFFFF) {
+            ENGINE_BLK(8029ABFC);
+            if (e[0] != D_802E8BDC) {
+                e += 3;
+                continue;
+            }
+        }
+        ENGINE_BLK(8029AC0C);
+        if (e[1] == 0x38) {
+            ENGINE_BLK(8029AC1C);
+            v = func_802BD8C8();
+            ENGINE_BLK(8029AC24);
+            if (v != 0) {
+                ENGINE_BLK(8029AC2C);
+                e += 3;
+                continue;
+            }
+        }
+        ENGINE_BLK(8029AC34);
+        v = e[1];
+        e += 3;
+        oend = D_803F7654;
+        for (o = D_803F4030;; o += 0xFC) {
+            ENGINE_BLK(8029AC4C);
+            if (o == oend)
+                break;
+            ENGINE_BLK(8029AC54);
+            if (*(s32 *)(o + 0x30) != v)
+                continue;
+            ENGINE_BLK(8029AC60);
+            if (!func_8029B514(o, x, y, z, r)) {
+                ENGINE_BLK(8029AC68);
+                continue;
+            }
+            ENGINE_BLK(8029AC68);
+            ENGINE_BLK(8029AC70);
+            pend = ((u8 *PTR32 *)o)[2];
+            for (p = ((u8 *PTR32 *)o)[1];; p += 0x60) {
+                ENGINE_BLK(8029AC8C);
+                if (p == pend)
+                    break;
+                ENGINE_BLK(8029AC94);
+                if (p[0x51] == 0)
+                    continue;
+                PIECE_TEST(p, 8029ACA0, 8029ACA8, 8029ACB0, 8029ACB8, 8029ACC0, 8029ACC8, 8029ACD0, 8029ACD8,
+                           8029ACE0, hit1, miss1);
+            hit1:
+                ENGINE_BLK(8029AD0C);
+                goto found;
+            miss1:
+                ENGINE_BLK(8029ACE8);
+            }
+            ENGINE_BLK(8029ACF0);
+        }
+    }
+    ENGINE_BLK(8029AD24);
+    pend = D_803FB8B0;
+    for (p = D_803F9330;; p += 0x60) {
+        ENGINE_BLK(8029AD38);
+        if (p == pend)
+            break;
+        ENGINE_BLK(8029AD40);
+        if (p[0x51] == 0)
+            continue;
+        ENGINE_BLK(8029AD4C);
+        if (type == 0xC8) {
+            ENGINE_BLK(8029AD58);
+            if (*(u16 *)(p + 0x52) == D_803A742A)
+                continue;
+        }
+        PIECE_TEST(p, 8029AD6C, 8029AD74, 8029AD7C, 8029AD84, 8029AD8C, 8029AD94, 8029AD9C, 8029ADA4, 8029ADAC,
+                   found, miss2);
+    miss2:
+        ENGINE_BLK(8029ADB4);
+    }
+    ENGINE_BLK(8029ADBC);
+    pend = D_803BD30C;
+    for (p = D_803BD308;; p += 0x60) {
+        ENGINE_BLK(8029ADD0);
+        if (p == pend)
+            break;
+        PIECE_TEST(p, 8029ADD8, 8029ADE0, 8029ADE8, 8029ADF0, 8029ADF8, 8029AE00, 8029AE08, 8029AE10, 8029AE18,
+                   found, miss3);
+    miss3:
+        ENGINE_BLK(8029AE20);
+    }
+    ENGINE_BLK(8029AE28);
+    pend = D_803BD300;
+    for (p = D_803B9890;; p += 0x60) {
+        ENGINE_BLK(8029AE3C);
+        if (p == pend)
+            break;
+        ENGINE_BLK(8029AE44);
+        if (p[0x51] == 0)
+            continue;
+        ENGINE_BLK(8029AE50);
+        if (p[0x4F] != 0) {
+            ENGINE_BLK(8029AE5C);
+            if (p[0x4F] == type)
+                continue;
+        }
+        PIECE_TEST(p, 8029AE64, 8029AE6C, 8029AE74, 8029AE7C, 8029AE84, 8029AE8C, 8029AE94, 8029AE9C, 8029AEA4,
+                   found, miss4);
+    miss4:
+        ENGINE_BLK(8029AEAC);
+    }
+    ENGINE_BLK(8029AEB4);
+    func_8029C284(x, z);
+    ENGINE_BLK(8029AEBC);
+    if (type != 9) {
+        ENGINE_BLK(8029AEC8);
+        for (cell = (s16 *)D_803A7418;;) {
+            ENGINE_BLK(8029AED0);
+            if (*cell == -1)
+                break;
+            ENGINE_BLK(8029AEE0);
+            p = *(u8 *PTR32 *)&D_803BDE40[*cell];
+            pend = *(u8 *PTR32 *)&D_803BDE40[*cell + 1];
+            cell++;
+            for (;; p += 0x60) {
+                ENGINE_BLK(8029AEFC);
+                if (p == pend)
+                    break;
+                PIECE_TEST(p, 8029AF04, 8029AF0C, 8029AF14, 8029AF1C, 8029AF24, 8029AF2C, 8029AF34, 8029AF3C,
+                           8029AF44, found, miss5);
+            miss5:
+                ENGINE_BLK(8029AF4C);
+            }
+        }
+    }
+    ENGINE_BLK(8029AF54);
+    for (cell = (s16 *)D_803A7418;;) {
+        ENGINE_BLK(8029AF5C);
+        if (*cell == -1)
+            break;
+        ENGINE_BLK(8029AF6C);
+        p = *(u8 *PTR32 *)&D_803BDCA8[*cell];
+        pend = *(u8 *PTR32 *)&D_803BDCA8[*cell + 1];
+        cell++;
+        for (;; p += 0x60) {
+            ENGINE_BLK(8029AF88);
+            if (p == pend)
+                break;
+            PIECE_TEST(p, 8029AF90, 8029AF98, 8029AFA0, 8029AFA8, 8029AFB0, 8029AFB8, 8029AFC0, 8029AFC8, 8029AFD0,
+                       found, miss6);
+        miss6:
+            ENGINE_BLK(8029AFD8);
+        }
+    }
+    ENGINE_BLK(8029AFE8);
+    ENGINE_BLK(8029AFEC);
+    return 0;
+found:
+    ENGINE_BLK(8029AFE0);
+    ENGINE_BLK(8029AFEC);
+    return 1;
+}
+
+extern u8 D_803A7425;
+extern s32 D_803A740C, D_80358068;
+
+/* The vehicle of this type ($t8) against the buildings: its D_803A7300
+   record's sphere first (func_8029AB88, when the record is live), and on a
+   hit each of its D_803A6B30 records' spheres (func_8029B02C, numbered from
+   1 in $fp).  D_803A742B is cleared, and D_803A740C set to the frame when
+   the camera is turning (D_803A7410/D_803A7412). */
+REGS(t8)
+void func_8029AA10(s32 type) {
+    u8 *r = D_803A7300;
+    s32 hit = 0, n = 0, x, y, z, rad;
+
+    ENGINE_BLK(8029AA10);
+    D_803A742B = 0;
+    for (;;) {
+        ENGINE_BLK(8029AA58);
+        if (r[0x10] == type)
+            break;
+        r += 0x14;
+    }
+    ENGINE_BLK(8029AA64);
+    ENGINE_LEAVE(5, 0);
+    if ((s8)r[0x11] == 0)
+        goto tail;
+    ENGINE_BLK(8029AA74);
+    x = ((s32 *)r)[0] >> 2, y = ((s32 *)r)[1] >> 2, z = ((s32 *)r)[2] >> 2, rad = ((s32 *)r)[3] >> 2;
+    ENGINE_LEAVE(12, y);
+    ENGINE_LEAVE(13, z);
+    hit = func_8029AB88(x, y, z, rad, type);
+    ENGINE_LEAVE(5, hit);
+    ENGINE_BLK(8029AA98);
+    if (hit == 0)
+        goto tail;
+    ENGINE_BLK(8029AAA0);
+    ENGINE_LEAVE(30, 0);
+    for (r = D_803A6B30;;) {
+        ENGINE_BLK(8029AAAC);
+        if ((s8)r[0x13] == -1)
+            break;
+        ENGINE_BLK(8029AABC);
+        if ((s8)r[0x13] == 0) {
+            r += 0x14;
+            continue;
+        }
+        ENGINE_BLK(8029AAC4);
+        if (r[0x12] != type) {
+            r += 0x14;
+            continue;
+        }
+        ENGINE_BLK(8029AAD0);
+        x = ((s32 *)r)[0] >> 2, y = ((s32 *)r)[1] >> 2, z = ((s32 *)r)[2] >> 2, rad = ((s32 *)r)[3] >> 2;
+        r += 0x14;
+        n++;
+        ENGINE_LEAVE(12, y);
+        ENGINE_LEAVE(13, z);
+        ENGINE_LEAVE(30, n);
+        func_8029B02C(engine_ctx(5), engine_ctx(6), engine_ctx(7), x, y, z, rad, type, n);
+        ENGINE_BLK(8029AAFC);
+    }
+tail:
+    ENGINE_BLK(8029AB04);
+    if (D_803A7410 == 0) {
+        ENGINE_BLK(8029AB18);
+        if ((u16)D_803A7412 == 0xFFF) {
+            ENGINE_LEAVE(1, 0xFFF);
+            goto out;
+        }
+    }
+    ENGINE_BLK(8029AB30);
+    D_803A7425 = 1;
+    D_803A740C = D_80358068;
+    ENGINE_LEAVE(1, HI(D_803A740C));
+out:
+    ENGINE_BLK(8029AB4C);
 }
