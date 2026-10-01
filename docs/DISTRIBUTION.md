@@ -156,6 +156,11 @@ against its translation.
   which us.v10 has differently, `func_802A95A4`, `func_802A9710`), the recursive dispatchers into the
   vehicle modules (`func_802AB478` to `func_802AB714`), and the moving objects' matrix chain
   (`func_802AA890` and its callers).
+- Native too: all of 77E20 (68 functions), 89250 (13), 8A2E0 (7) and the front end's 1B100 (6),
+  94 functions in about 3 agent-hours with the checks and the TAS (2026-10-01).  77E20 is long,
+  branchy code that charges its blocks through tables of display-list copies and saves most of
+  its callers' registers, so it went at about 30 an hour; the block trace (`PORT_BLKLOG`, below)
+  is what found the last differences, where the cost logs only showed a frame.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).

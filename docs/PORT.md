@@ -2872,7 +2872,19 @@ engine's CPU time to the instruction ("Timing").
 - For functions that call the game's C or libultra, which can't run twice,
   the TAS is the check.  Comparing `__port_icount` at every controller
   read between a build with the replacement and one without also finds
-  where the cost first differs.
+  where the cost first differs.  `PORT_ICOUNT_LOG=FILE` writes it, one
+  line per read.
+- `-DPORT_BLKLOG=ON` and `PORT_BLKLOG=FILE:FROM:TO:IDS` log every
+  translated block run, and every `ENGINE_BLK`, between controller reads
+  FROM and TO.  Two such builds, with and without the replacement, give
+  the same file exactly when the native code charges what the original
+  does, in its order; the first line that differs is the block to look
+  at.  It found what the cost logs only narrowed to a frame in 77E20.
+- A replaced function that saves registers and loads them back (77E20's,
+  the front end's 1B100) does so with `engine_save(gmask, fmask)` and
+  `engine_restore()`, since a translated callee's inputs and leftovers
+  stay in the context; `engine_ctx(reg)` reads what a translated callee
+  left in a register.
 
 ## Other versions
 
