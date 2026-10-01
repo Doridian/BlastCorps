@@ -4060,3 +4060,192 @@ void func_802ABBEC(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
     }
     ENGINE_LEAVE(9, (u32)p);
 }
+
+/* ---- a wheeled vehicle one step on the ground ---------------------------- */
+
+extern s16 D_803ED406;                  /* *$s4 (the heading) */
+extern u8 D_803ED40E, D_803ED40F;
+void func_802582C4(u8 type, s32 x, s32 y, s32 z, s32 h, s32 along, s32 across, s32 heading);
+
+#define CTX_PTR(T, reg) ((T *)(__UINTPTR_TYPE__)engine_ctx(reg))
+
+/* The wheeled vehicle (type, at (x, z), vs) one step on: back in the
+   level's bounds (func_802A8CCC), the spans (t9 along, fp across), its
+   heading (*$s4) and first flag (*$s0) kept; then each of its three
+   wheels on the ground (func_802A93B0) or stepping (func_802A95A4) as its
+   flag in $s0 says (from the second on only when D_803ED410 is clear, else
+   func_802A9038).  The wheels' heights (D_803ED398) go into $s7's three
+   triples and the flags back into $s0; *px and *pz are (x, z), *py the
+   average of the two rear wheels; D_803ED390's angles from the height
+   differences over the spans (func_802ACF64); the sound (func_802582C4
+   with the angles of func_802A8B10); the gears (func_802A9164); and the
+   wheels on a moving object (func_802A92C8). */
+REGS(t0, t1, t7, s1, s2, t8, t9, fp, v1, a1, a2, a3, t3, gp)
+void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s32 fp, s16 *v1, s32 *a1, s32 *a2,
+                   s32 *a3, s16 *t3, VS *vs) {
+    u8 *s0 = CTX_PTR(u8, 16);
+    s16 *s4 = CTX_PTR(s16, 20);
+    s32 *s7 = CTX_PTR(s32, 23);
+    s32 t4 = engine_ctx(12), i, t5, h, h0, h1, h2, s5, q, r, along, across, t2;
+
+    ENGINE_BLK(802A8768);
+    ENGINE_LEAVE(8, x);
+    ENGINE_LEAVE(9, z);
+    func_802A8CCC(x, z, px, py, pz, type, vs, (u32)v1, engine_ctx(10), (u32)t3, t4, fp);
+    x = engine_ctx(8);
+    z = engine_ctx(9);
+    ENGINE_BLK(802A8778);
+    D_803ED402 = t9;
+    D_803ED404 = fp;
+    D_803ED406 = *s4;
+    D_803ED40E = *s0;
+    vs->unk9B = 0;
+    func_802A90E4((u16 *)v1);
+    ENGINE_BLK(802A87A8);
+    func_802A8FF4(vs);
+    ENGINE_BLK(802A87B0);
+    func_802A8FB4();
+    ENGINE_BLK(802A87B8);
+    for (i = 0;;) {
+        ENGINE_BLK(802A87BC);
+        if (D_803ED410 != 0) {
+            ENGINE_BLK(802A87CC);
+            if (i != 0) {
+                ENGINE_BLK(802A87D4);
+                func_802A9038(vs);
+                ENGINE_BLK(802A87DC);
+                break;
+            }
+        }
+        ENGINE_BLK(802A87E4);
+        t5 = (s8)s0[i];
+        ENGINE_LEAVE(4, (u32)(s0 + i));
+        ENGINE_LEAVE(13, t5);
+        if (t5 == 1) {
+            ENGINE_BLK(802A87F4);
+            ENGINE_BLK(802A8820);
+            r = func_802A95A4(i, a1, a2, a3, x, z, s7, v1, s4, type, vs, fp);
+            ENGINE_LEAVE(22, r);
+            ENGINE_BLK(802A8828);
+            if (++i == 3)
+                break;
+            continue;
+        }
+        if (t5 != 0) {
+            ENGINE_BLK(802A87F4);
+            ENGINE_BLK(802A87FC);
+            engine_syscall(0x802A87FC);
+        }
+        ENGINE_BLK(802A8800);
+        r = func_802A93B0(i, v1, a1, a2, a3, x, z, s4, s7, type, vs, fp);
+        ENGINE_LEAVE(19, r);
+        ENGINE_BLK(802A8808);
+        if (++i == 3) {
+            ENGINE_BLK(802A8818);
+            break;
+        }
+    }
+    ENGINE_BLK(802A8838);
+    s0[0] = (&D_803ED3EE)[0];
+    s0[1] = (&D_803ED3EE)[1];
+    s0[2] = (&D_803ED3EE)[2];
+    h0 = (&D_803ED398)[0], h1 = (&D_803ED398)[1], h2 = (&D_803ED398)[2];
+    s7[2] = s7[1];
+    s7[1] = s7[0];
+    s7[0] = h0;
+    s7[5] = s7[4];
+    s7[4] = s7[3];
+    s7[3] = h1;
+    t2 = s7[6];
+    s7[8] = s7[7];
+    s7[7] = t2;
+    s7[6] = h2;
+    *px = x;
+    *pz = z;
+    *py = ((u32)h1 + (u32)h2) >> 1;
+    ENGINE_LEAVE(2, (u32)&D_803ED398);
+    ENGINE_LEAVE(10, t2);
+    /* the pitch (D_803ED390[2]) from the second wheel's height over fp */
+    s5 = h1 - h0;
+    if (s5 >= 0) {
+        ENGINE_BLK(802A88C4);
+        ENGINE_DIV(q, (s32)((u32)s5 << 16), fp, 802A88D4, 802A88D8, 802A88E4, 802A88EC);
+        ENGINE_BLK(802A88F0);
+        r = func_802ACF64(q);
+        ENGINE_BLK(802A8900);
+        r = -(s32)((u32)r >> 4);
+    } else {
+        ENGINE_BLK(802A8918);
+        ENGINE_BLK(802A8920);
+        s5 = -s5;
+        ENGINE_BLK(802A8924);
+        ENGINE_DIV(q, (s32)((u32)s5 << 16), fp, 802A8934, 802A8938, 802A8944, 802A894C);
+        ENGINE_BLK(802A8950);
+        r = func_802ACF64(q);
+        ENGINE_BLK(802A8960);
+        r = (u32)r >> 4;
+    }
+    D_803ED390[2] = r;
+    /* the roll (D_803ED390[0]) from the third's over t9 */
+    ENGINE_BLK(802A8970);
+    s5 = h2 - h0;
+    if (s5 >= 0) {
+        ENGINE_BLK(802A897C);
+        ENGINE_DIV(q, (s32)((u32)s5 << 16), t9, 802A898C, 802A8990, 802A899C, 802A89A4);
+        ENGINE_BLK(802A89A8);
+        r = func_802ACF64(q);
+        ENGINE_BLK(802A89B8);
+        r = (u32)r >> 4;
+    } else {
+        ENGINE_BLK(802A89CC);
+        ENGINE_BLK(802A89D4);
+        s5 = -s5;
+        ENGINE_BLK(802A89D8);
+        ENGINE_DIV(q, (s32)((u32)s5 << 16), t9, 802A89E8, 802A89EC, 802A89F8, 802A8A00);
+        ENGINE_BLK(802A8A04);
+        r = func_802ACF64(q);
+        ENGINE_BLK(802A8A14);
+        r = -(s32)((u32)r >> 4);
+    }
+    D_803ED390[0] = r;
+    fp = r;
+    ENGINE_LEAVE(3, q);
+    ENGINE_LEAVE(8, (u32)D_803ED390);
+    ENGINE_LEAVE(21, q);
+    ENGINE_LEAVE(30, fp);
+    /* the sound */
+    ENGINE_BLK(802A8A28);
+    h = ((u32)D_803ED3A8[1] + (u32)D_803ED3A8[2]) >> 1;
+    h1 = ((u32)h1 + (u32)h2) >> 1;
+    along = func_802A8B10(&across);
+    ENGINE_BLK(802A8A78);
+    ENGINE_LEAVE(4, type);
+    ENGINE_LEAVE(5, *px);
+    ENGINE_LEAVE(6, h);
+    ENGINE_LEAVE(7, *pz);
+    func_802582C4(type, *px, h, *pz, h1, along, across, D_803ED406);
+    ENGINE_BLK(802A8A9C);
+    func_802A9164(s0, type, vs);
+    ENGINE_BLK(802A8AB8);
+    ENGINE_LEAVE(1, 0xFF);
+    ENGINE_LEAVE(5, (u8)D_803ED3F5);
+    if (D_803ED3F5 != 0)
+        goto out;
+    ENGINE_BLK(802A8ACC);
+    if (type == 0xFF)
+        goto out;
+    ENGINE_BLK(802A8AD4);
+    ENGINE_LEAVE(11, D_803ED40F);
+    if (D_803ED40F == 0)
+        goto out;
+    ENGINE_BLK(802A8AE4);
+    ENGINE_LEAVE(11, (u32)vs->unk5E);
+    ENGINE_LEAVE(8, *px);
+    ENGINE_LEAVE(9, *pz);
+    ENGINE_LEAVE(23, (u32)vs->unk4);
+    ENGINE_LEAVE(20, (u32)&vs->unk4C);
+    func_802A92C8(*px, *pz, vs->unk5E, (s16 *)&vs->unk4C, vs->unk4, type, vs, fp);
+out:
+    ENGINE_BLK(802A8AFC);
+    ENGINE_LEAVE(12, t4);
+}
