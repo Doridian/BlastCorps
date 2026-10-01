@@ -798,3 +798,184 @@ void func_8029F060(f32 t, s32 i, s32 n) {
     ENGINE_LEAVE(1, ((u32)&D_803B7FC3 + 0x8000) & 0xFFFF0000);
     ENGINE_LEAVE_F(8, t3);
 }
+
+extern f32 D_8030D870;                  /* a full turn, in 16ths */
+
+/* the angle from a to b (12-bit) the fraction t of the way, the short way
+   round ($t4) */
+REGS(a0, a1, f30 -> t4)
+s32 func_8029F6B0(s32 a, s32 b, f32 t) {
+    f32 turn = D_8030D870, fa, d;
+    s32 r;
+
+    ENGINE_BLK(8029F6B0);
+    fa = (f32)a / 16.0f;
+    d = (f32)b / 16.0f;
+    d = d - fa;
+    if (d < -2048.0f) {
+        ENGINE_BLK(8029F704);
+        d = d + turn;
+    } else {
+        ENGINE_BLK(8029F70C);
+        if (!(d <= 2048.0f)) {
+            ENGINE_BLK(8029F718);
+            d = d - turn;
+        }
+    }
+    ENGINE_BLK(8029F71C);
+    d = d * t;
+    d = d + fa;
+    if (d < 0.0f) {
+        ENGINE_BLK(8029F730);
+        d = d + turn;
+    }
+    ENGINE_BLK(8029F734);
+    if (!(d <= turn)) {
+        ENGINE_BLK(8029F740);
+        d = d - turn;
+    }
+    ENGINE_BLK(8029F744);
+    r = engine_cvt_w_s(d * 16.0f);
+    ENGINE_LEAVE(1, 0x41800000);
+    ENGINE_LEAVE_F(2, fa);
+    ENGINE_LEAVE_F(8, 0.0f);
+    return r;
+}
+
+extern u8 *PTR32 D_803BD304;            /* the end of D_803BC1D0's records */
+extern u8 D_803BC1D0[];                 /* 0xDC-byte records: an id at 0xC4, a count at 0xC7 of bytes from 0xC8 */
+
+/* The parts of kind id, and those of kind 0 whose byte 0x50 is listed in
+   a D_803BC1D0 record of that id: flagged (0x51) */
+REGS(t2)
+void func_8029D120(s32 id) {
+    u8 *p = D_803B9890, *end = D_803BD300, *q, *qend, *b;
+    s32 k, n, c, t4 = 0, t5 = 0, t6 = 0, t7 = 0, set4 = 0, set5 = 0, set6 = 0, set7 = 0;
+
+    ENGINE_BLK(8029D120);
+    for (;; p += 0x60) {
+        ENGINE_BLK(8029D140);
+        if (p == end)
+            break;
+        ENGINE_BLK(8029D148);
+        k = p[0x4F];
+        if (k == id)
+            goto flag;
+        ENGINE_BLK(8029D154);
+        if (k != 0)
+            goto next;
+        ENGINE_BLK(8029D15C);
+        t7 = p[0x50], set7 = 1;
+        qend = D_803BD304;
+        for (q = D_803BC1D0;; q += 0xDC) {
+            ENGINE_BLK(8029D174);
+            if (q == qend)
+                goto next;
+            ENGINE_BLK(8029D17C);
+            t4 = q[0xC4], set4 = 1;
+            if (t4 != id)
+                goto nextq;
+            ENGINE_BLK(8029D188);
+            b = q + 0xC8;
+            t4 = (u32)b;
+            t5 = n = q[0xC7], set5 = 1;
+            for (;;) {
+                ENGINE_BLK(8029D190);
+                if (n == 0)
+                    break;
+                ENGINE_BLK(8029D198);
+                t6 = c = *b, set6 = 1;
+                t5 = --n;
+                if (c == t7)
+                    goto flag;
+                ENGINE_BLK(8029D1A8);
+                b++;
+                t4 = (u32)b;
+            }
+        nextq:
+            ENGINE_BLK(8029D1B0);
+        }
+    flag:
+        ENGINE_BLK(8029D1B8);
+        p[0x51] = 1;
+    next:
+        ENGINE_BLK(8029D1BC);
+    }
+    ENGINE_BLK(8029D1C4);
+    if (set4)
+        ENGINE_LEAVE(12, t4);
+    if (set5)
+        ENGINE_LEAVE(13, t5);
+    if (set6)
+        ENGINE_LEAVE(14, t6);
+    if (set7)
+        ENGINE_LEAVE(15, t7);
+    ENGINE_LEAVE(16, (u32)p);
+    ENGINE_LEAVE(17, (u32)end);
+    ENGINE_LEAVE(18, 1);
+}
+
+/* the spline at t: D_803B3778's columns weighted by the four points
+   (f0, f2, f4, f6), times t^3, t^2, t and 1, summed ($f8) */
+REGS(f0, f2, f4, f6, f30 -> f8)
+f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
+    f32 *m = D_803B3778, s, a, r = 0.0f;
+    s32 c;
+
+    ENGINE_BLK(8029E878);
+    for (c = 3;; c--, m++) {
+        ENGINE_BLK(8029E894);
+        s = m[0] * p0;
+        a = m[4] * p1;
+        s = s + a;
+        a = m[8] * p2;
+        s = s + a;
+        a = m[12] * p3;
+        s = s + a;
+        if (c == 3) {
+            ENGINE_BLK(8029E8E8);
+            r = s * D_803B37BC;
+        } else {
+            ENGINE_BLK(8029E8CC);
+            if (c == 2) {
+                ENGINE_BLK(8029E8FC);
+                s = s * D_803B37B8;
+                r = r + s;
+            } else {
+                ENGINE_BLK(8029E8D8);
+                if (c != 1) {
+                    ENGINE_BLK(8029E8E0);
+                    r = r + s;
+                    break;
+                }
+                ENGINE_BLK(8029E910);
+                s = s * t;
+                r = r + s;
+            }
+        }
+        ENGINE_BLK(8029E918);
+    }
+    ENGINE_BLK(8029E924);
+    ENGINE_LEAVE(1, 1);
+    return r;
+}
+
+extern s32 D_803BE724, D_803BE728;
+extern s16 D_803BE72C;
+extern s16 D_803A7418[2];
+
+/* D_803A7418 = the cell of (x, z): x * 4 / D_803BE724 plus the row
+   (z * 4 / D_803BE728) times D_803BE72C; then -1 */
+REGS(t3, t5)
+void func_8029C284(s32 x, s32 z) {
+    s32 cx, cz;
+
+    ENGINE_BLK(8029C284);
+    ENGINE_DIV(cx, (s32)((u32)x << 2), D_803BE724, 8029C2AC, 8029C2B0, 8029C2BC, 8029C2C4);
+    ENGINE_BLK(8029C2C8);
+    ENGINE_DIV(cz, (s32)((u32)z << 2), D_803BE728, 8029C2F0, 8029C2F4, 8029C300, 8029C308);
+    ENGINE_BLK(8029C30C);
+    D_803A7418[0] = cx + (s32)((u32)cz * (u32)(s32)D_803BE72C);
+    D_803A7418[1] = -1;
+    ENGINE_LEAVE(15, -1);
+}
