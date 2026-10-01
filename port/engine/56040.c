@@ -1285,3 +1285,121 @@ done:
     ENGINE_LEAVE(8, y);
     ENGINE_LEAVE(9, z);
 }
+
+extern u8 D_803A7300[];                 /* 0x14-byte records, free with byte 0x11 -1 */
+
+/* An object's list (u16s from p to end) into D_803A7300 (its first, the
+   size) and D_803A6B30's free records (then one per entry: half 8, and
+   half 6 as the size), the sizes * 32 * scale / 0x10000, all of id */
+REGS(t0, t1, t2, t3)
+void func_8029C354(s32 id, u16 *p, u16 *end, u32 scale) {
+    u8 *r = D_803A7300;
+    u32 size;
+
+    ENGINE_BLK(8029C354);
+    size = ((u32)p[0] << 5) * scale / 0x10000;
+    for (;;) {
+        ENGINE_BLK(8029C3A8);
+        if ((s8)r[0x11] == -1)
+            break;
+        r += 0x14;
+    }
+    ENGINE_BLK(8029C3B4);
+    *(u32 *)(r + 0xC) = size;
+    r[0x10] = id;
+    r[0x11] = 0;
+    p += 2;
+    for (r = D_803A6B30;;) {
+        ENGINE_BLK(8029C3CC);
+        if ((s8)r[0x13] == -1)
+            break;
+        r += 0x14;
+    }
+    for (;;) {
+        ENGINE_BLK(8029C3D8);
+        if (p == end)
+            break;
+        ENGINE_BLK(8029C3E0);
+        r[0x12] = id;
+        r[0x13] = 0;
+        *(u16 *)(r + 0x10) = p[4];
+        *(u32 *)(r + 0xC) = ((u32)p[3] << 5) * scale / 0x10000;
+        r += 0x14;
+        ENGINE_BLK(8029C42C);
+        p = (u16 *)((u8 *)p + (u32)p[5] * 4 + 0xC);
+    }
+    ENGINE_BLK(8029C43C);
+}
+
+extern s32 D_803A73FC, D_803A7400, D_803A7404;
+
+/* a doubleword of game memory */
+static s64 dword(u8 *p) {
+    return (s64)((u64) * (u32 *)p << 32 | *(u32 *)(p + 4));
+}
+
+/* Whether (x, y, z) is within lim of the part's plane (a, b, c, d at
+   0-0x18, the distance's scale at 0x20); if so, its foot on the plane
+   (along the normal, over 0x24) in D_803A73FC-D_803A7404 ($v0) */
+REGS(s0, t3, t4, t5, t6 -> v0)
+s32 func_8029C160(u8 *pl, s32 x, s32 y, s32 z, s32 lim) {
+    s64 a = dword(pl), b = dword(pl + 8), c = dword(pl + 0x10), d = dword(pl + 0x18);
+    s64 s1, s2, s3, l2, l4, l6, rx, ry, rz;
+    f32 f0, f2, f4, f6;
+
+    ENGINE_BLK(8029C160);
+    s1 = (s64)((u64)a * (u64)(s64)x + (u64)b * (u64)(s64)y + (u64)c * (u64)(s64)z);
+    s2 = (s64)((u64)s1 + (u64)d);
+    f0 = (f32)s2 / *(f32 *)(pl + 0x20);
+    s2 = engine_cvt_l_s(f0);
+    /* ($f0:$f1, unless it goes on) */
+    ENGINE_LEAVE_FW(0, (u32)s2);
+    ENGINE_LEAVE_FW(1, (u32)((u64)s2 >> 32));
+    if (s2 < 0) {
+        ENGINE_BLK(8029C1D4);
+        s2 = -s2;
+    }
+    ENGINE_BLK(8029C1D8);
+    ENGINE_LEAVE64(18, s2);
+    if (lim < s2) {
+        ENGINE_BLK(8029C26C);
+        ENGINE_LEAVE(1, 1);
+        ENGINE_LEAVE64(3, b);
+        ENGINE_LEAVE64(4, c);
+        ENGINE_LEAVE64(19, d);
+        ENGINE_LEAVE_F(2, *(f32 *)(pl + 0x20));
+        ENGINE_BLK(8029C270);
+        return 0;
+    }
+    ENGINE_BLK(8029C1E4);
+    s3 = (s64)(0 - (u64)d - (u64)s1);
+    f0 = (f32)s3 / *(f32 *)(pl + 0x24);
+    f2 = f0 * (f32)a;
+    f4 = f0 * (f32)b;
+    f6 = f0 * (f32)c;
+    l2 = engine_cvt_l_s(f2);
+    l4 = engine_cvt_l_s(f4);
+    l6 = engine_cvt_l_s(f6);
+    rx = (s64)((u64)l2 + (u64)(s64)x);
+    ry = (s64)((u64)l4 + (u64)(s64)y);
+    rz = (s64)((u64)l6 + (u64)(s64)z);
+    D_803A73FC = (s32)rx;
+    D_803A7400 = (s32)ry;
+    D_803A7404 = (s32)rz;
+    /* (what it leaves: the foot as 64 bits, the conversions) */
+    ENGINE_LEAVE(1, ((u32)&D_803A7404 + 0x8000) & 0xFFFF0000);
+    ENGINE_LEAVE64(3, rx);
+    ENGINE_LEAVE64(4, ry);
+    ENGINE_LEAVE64(5, rz);
+    ENGINE_LEAVE64(19, s3);
+    ENGINE_LEAVE_F(0, f0);
+    ENGINE_LEAVE_FW(1, (u32)((u64)s3 >> 32));
+    ENGINE_LEAVE_FW(2, (u32)l2);
+    ENGINE_LEAVE_FW(3, (u32)((u64)l2 >> 32));
+    ENGINE_LEAVE_FW(4, (u32)l4);
+    ENGINE_LEAVE_FW(5, (u32)((u64)l4 >> 32));
+    ENGINE_LEAVE_FW(6, (u32)l6);
+    ENGINE_LEAVE_FW(7, (u32)((u64)l6 >> 32));
+    ENGINE_BLK(8029C270);
+    return 1;
+}
