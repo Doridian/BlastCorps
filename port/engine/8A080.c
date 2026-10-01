@@ -158,7 +158,8 @@ void func_802CE9C8(LevelCollisionTri *tris, u8 n, u8 arg2) {
         t->unk51 = 1;
         /* the triangle's 0x4F, 0x50, 0x57 and 0x58 get what $t9, $v0, $t6
            and $s1 hold: the caller's, left in the context */
-        t = (CollisionTri *)func_802A41B0((u32)t, (u32)tris, arg2, tris->unk14, 0);
+        t = (CollisionTri *)func_802A41B0((u32)t, (u32)tris, arg2, tris->unk14, 0, ENGINE_REG(25),
+                                          ENGINE_REG(2), ENGINE_REG(14), ENGINE_REG(17));
         ENGINE_BLK(802CEA28);
         tris = (LevelCollisionTri *)((u8 *)tris + 0x16);
     }

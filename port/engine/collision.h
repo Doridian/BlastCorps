@@ -32,11 +32,10 @@ typedef struct CollisionTri {
 SIZE_CHECK(CollisionTri, 0x60);
 
 /* func_802A41B0 (5CB60): the triangle at $t4 from the file's at $t5;
-   0x52 from $t2, 0x56 from $t7, 0x55 from $gp (and 0x4F, 0x50, 0x57, 0x58
-   from $t9, $v0, $t6, $s1).  Returns $t4 advanced past it; leaves $s1 one
-   of its differences (it is the next one's 0x58 where callers don't set
-   it). */
-REGS(t4, t5, t2, t7, gp -> t4)
-u32 func_802A41B0(u32 t, u32 src, u32 h52, u32 b56, u32 b55);
+   0x52 from $t2, 0x56 from $t7, 0x55 from $gp, 0x4F, 0x50, 0x57 and 0x58
+   from $t9, $v0, $t6 and $s1.  Returns $t4 advanced past it. */
+REGS(t4, t5, t2, t7, gp, t9, v0, t6, s1 -> t4)
+u32 func_802A41B0(u32 t, u32 src, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50, u32 b57,
+                  u32 b58);
 
 #endif
