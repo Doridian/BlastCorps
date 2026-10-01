@@ -788,6 +788,9 @@ void func_802B899C(void) {
     ENGINE_BLK(802B89EC);
     func_802B98E0(vs);
     ENGINE_BLK(802B89F4);
+    /* (the registers the original loads here, which the code after reads) */
+    ENGINE_LEAVE(4, T(D_803EF2FC));
+    ENGINE_LEAVE(5, T(D_803EF300));
     if (D_8035805C != 0) {
         ENGINE_BLK(802B8A1C);
         func_8029E558(Q, D_803EF2FC, D_803EF300);
@@ -799,11 +802,17 @@ void func_802B899C(void) {
     ENGINE_BLK(802B8A4C);
     func_802B9B4C(vs);
     ENGINE_BLK(802B8A54);
+    ENGINE_LEAVE(2, 0xFE);
     p = (s32 *)func_802ABC88(0xFE, 1);
+    ENGINE_LEAVE(4, T(p));
     ENGINE_BLK(802B8A60);
     D_803EF310 = p[0];
     D_803EF314 = p[1];
     D_803EF318 = p[2];
+    ENGINE_LEAVE(5, p[0]);
+    ENGINE_LEAVE(6, p[1]);
+    ENGINE_LEAVE(7, p[2]);
+    ENGINE_LEAVE(8, T(&D_803EF318));
     func_802B8C18(vs);
     ENGINE_BLK(802B8A94);
     engine_restore();
@@ -1477,6 +1486,8 @@ void func_802B9B4C(VS *vs) {
     ENGINE_LEAVE(21, D_803EF2F0);
     ENGINE_LEAVE(22, D_803EF2F4);
     ENGINE_LEAVE(23, 0x5208);
+    ENGINE_LEAVE(10, (u16)vs->unk4C);
+    ENGINE_LEAVE(24, T(m));
     func_802AA764(D_803EF2EC, D_803EF2F0, D_803EF2F4, 0x5208, m);
     ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B9BE4);
@@ -1489,6 +1500,7 @@ void func_802B9B4C(VS *vs) {
     }
     ENGINE_BLK(802B9C14);
     model = D_803EF2F8;
+    ENGINE_LEAVE(2, D_8035805C);
     ENGINE_LEAVE(11, T(model));
     func_802ABBEC(0xFE, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802B9C38);
