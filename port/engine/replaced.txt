@@ -183,3 +183,16 @@ func_802CE4F0
 func_802CE5BC
 func_802CE65C
 func_802CE6F8
+
+# 8A2E0: the communication points (engine-D)
+func_802CEAA0
+func_802CEE14
+func_802CEEFC
+func_802CF1A4
+func_802CF3E0
+func_802CF5B0
+func_802CF628
+
+# 77E20: the buildings and their destruction (engine-D)
+func_802C049C
+func_802C04F0
