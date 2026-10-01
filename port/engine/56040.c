@@ -3664,3 +3664,256 @@ void func_8029C828(s32 kind) {
 done:
     ENGINE_BLK(8029C8E0);
 }
+
+/* v over the vehicle's unkA0 (when it isn't 1), unless id is 0xFF: the
+   two forms, which share their end ($t1) */
+REGS(t4, t1, gp -> t1)
+s32 func_8029CB04(s32 id, u32 v, VS *vs) {
+    s32 d;
+
+    ENGINE_BLK(8029CB04);
+    if (id == 0xFF) {
+        ENGINE_BLK(8029CF40);
+        ENGINE_LEAVE(1, 0xFF);
+        return v;
+    }
+    ENGINE_BLK(8029CB18);
+    d = vs->unkA0;
+    ENGINE_LEAVE(1, 1);
+    if (d != 1) {
+        ENGINE_BLK(8029CB28);
+        if (d == 0) {
+            ENGINE_BLK(8029CB3C);
+            engine_break(0x8029CB3C, 7);
+        }
+        v /= (u32)d;
+    }
+    ENGINE_BLK(8029CB40);
+    return v;
+}
+
+REGS(s1, t1, gp -> t1)
+s32 func_8029CF04(s32 id, u32 v, VS *vs) {
+    s32 d;
+
+    ENGINE_BLK(8029CF04);
+    if (id == 0xFF) {
+        ENGINE_LEAVE(1, 0xFF);
+        goto done;
+    }
+    ENGINE_BLK(8029CF18);
+    d = vs->unkA0;
+    ENGINE_LEAVE(1, 1);
+    if (d != 1) {
+        ENGINE_BLK(8029CF28);
+        if (d == 0) {
+            ENGINE_BLK(8029CF3C);
+            engine_break(0x8029CF3C, 7);
+        }
+        v /= (u32)d;
+    }
+done:
+    ENGINE_BLK(8029CF40);
+    return v;
+}
+
+extern u8 D_803A7426;
+
+/* the angle (12-bit) of (n, d) in its quadrant: func_802AD7FC of n over
+   the distance, scaled to 16 bits, / 16 */
+static s32 quad_angle(s32 n, f32 dist) {
+    f32 q = (f32)n / dist;
+    s32 w;
+
+    ENGINE_LEAVE_F(2, q);
+    q = 65536.0f * q;
+    w = engine_cvt_w_s(q);
+    ENGINE_LEAVE_FW(0, w);
+    return (u32)func_802AD7FC(w) >> 4;
+}
+
+/* A vehicle (type, at (x, z)) hitting object kind at (ox, oz), the object's
+   record at rec: the kind into the frame's list (func_802BCCD4);
+   D_803A7426 set when a vehicle of type 0xFF hits a marked object
+   (rec[-2]) or another vehicle an object marked 0xFF; the camera turned
+   to take in the direction from the vehicle to the object +-0x400
+   (func_8029B7CC), and D_803A742C set */
+REGS(fp, t8, s0, v0, a0, a2, t0)
+void func_8029CB54(s32 kind, s32 type, u8 *rec, s32 x, s32 z, s32 ox, s32 oz) {
+    s32 dx, dz, h = 0;
+    f32 d;
+
+    ENGINE_BLK(8029CB54);
+    func_802BCCD4(kind);
+    ENGINE_BLK(8029CB84);
+    if (type == 0xFF) {
+        ENGINE_BLK(8029CB90);
+        if (rec[-2] == 0)
+            goto angle;
+        ENGINE_BLK(8029CB9C);
+    } else {
+        ENGINE_BLK(8029CBA4);
+        if (type == 0)
+            goto angle;
+        ENGINE_BLK(8029CBAC);
+        if (rec[-2] != 0xFF)
+            goto angle;
+    }
+    ENGINE_BLK(8029CBBC);
+    D_803A7426 = 1;
+angle:
+    ENGINE_BLK(8029CBC8);
+    dx = ox - x;
+    dz = oz - z;
+    if (dx == 0) {
+        ENGINE_BLK(8029CBD8);
+        if (dz == 0)
+            goto turn;
+    }
+    ENGINE_BLK(8029CBE0);
+    d = (f32)dx * (f32)dx;
+    d = d + (f32)dz * (f32)dz;
+    d = __builtin_sqrtf(d);
+    if (!(ox < x)) {
+        ENGINE_BLK(8029CC0C);
+        if (!(oz < z)) {
+            ENGINE_BLK(8029CC18);
+            h = quad_angle(ox - x, d);
+            ENGINE_BLK(8029CC48);
+        } else {
+            ENGINE_BLK(8029CC50);
+            h = quad_angle(z - oz, d);
+            ENGINE_BLK(8029CC80);
+            h += 0x400;
+        }
+    } else {
+        ENGINE_BLK(8029CC8C);
+        if (oz < z) {
+            ENGINE_BLK(8029CC98);
+            h = quad_angle(x - ox, d);
+            ENGINE_BLK(8029CCC8);
+            h += 0x800;
+        } else {
+            ENGINE_BLK(8029CCD4);
+            h = quad_angle(oz - z, d);
+            ENGINE_BLK(8029CD04);
+            h += 0xC00;
+        }
+    }
+turn:
+    ENGINE_BLK(8029CD0C);
+    func_8029B7CC(h + 0x400, h - 0x400);
+    ENGINE_BLK(8029CD18);
+    D_803A742C = 1;
+}
+
+/* Kind a's row of spheres (D_803A6B30) against kind b's: each pair that
+   meets (b's radius over the gears, func_8029CF04; func_8029CFA4), but
+   not a 6's 0x30E nor a 6's 0x3BD, counts a 7's hit (D_803A7430, to 0xC9)
+   and, unless func_802AB41C(b, a) says otherwise, is a hit
+   (func_8029CB54, func_8029CF54) */
+REGS(t8, t4, gp)
+void func_8029CD54(s32 a, s32 b, VS *vs) {
+    u8 *ra = D_803A6B30, *rb0, *rb;
+    s32 n = 0, t1 = 0, t2 = 0, r, hit, set1 = 0, set2 = 0;
+    s32 *wa, *wb;
+
+    ENGINE_BLK(8029CD54);
+    for (;;) {
+        ENGINE_BLK(8029CD94);
+        if ((s8)ra[0x13] == -1)
+            goto done;
+        ENGINE_BLK(8029CDA0);
+        if (ra[0x12] == a)
+            break;
+        ra += 0x14;
+    }
+    ENGINE_BLK(8029CDAC);
+    for (rb0 = D_803A6B30;;) {
+        ENGINE_BLK(8029CDB4);
+        if ((s8)rb0[0x13] == -1)
+            goto done;
+        ENGINE_BLK(8029CDC0);
+        if (rb0[0x12] == b)
+            break;
+        rb0 += 0x14;
+    }
+    ENGINE_BLK(8029CDCC);
+    for (;;) {
+        ENGINE_BLK(8029CDD0);
+        rb = rb0;
+        if ((s8)ra[0x13] == -1)
+            break;
+        ENGINE_BLK(8029CDE0);
+        if (ra[0x12] != a)
+            break;
+        ENGINE_BLK(8029CDEC);
+        n++;
+        wa = (s32 *)ra;
+        ra += 0x14;
+        for (;;) {
+            ENGINE_BLK(8029CE04);
+            if ((s8)rb[0x13] == -1)
+                break;
+            ENGINE_BLK(8029CE10);
+            if (rb[0x12] != b)
+                break;
+            ENGINE_BLK(8029CE1C);
+            wb = (s32 *)rb;
+            r = func_8029CF04(b, wb[3], vs);
+            t1 = r, set1 = 1;
+            ENGINE_BLK(8029CE30);
+            rb += 0x14;
+            if (a == 6) {
+                ENGINE_BLK(8029CE3C);
+                if (wa[3] == 0x30E)
+                    continue;
+            }
+            ENGINE_BLK(8029CE48);
+            if (b == 6) {
+                ENGINE_BLK(8029CE54);
+                if (r == 0x3BD)
+                    continue;
+            }
+            ENGINE_BLK(8029CE5C);
+            hit = func_8029CFA4(wa[0], wa[1], wa[2], wa[3], wb[0], wb[1], wb[2], r);
+            t2 = hit, set2 = 1;
+            ENGINE_BLK(8029CE64);
+            if (hit == 0)
+                continue;
+            ENGINE_BLK(8029CE6C);
+            if (b == 7) {
+                ENGINE_BLK(8029CE78);
+                t2 = D_803A7430;
+                if (D_803A7430 < 0xC9) {
+                    ENGINE_BLK(8029CE8C);
+                    t2 = ++D_803A7430;
+                }
+            }
+            ENGINE_BLK(8029CE98);
+            if (a != 0) {
+                ENGINE_BLK(8029CEA0);
+                t2 = wb[0];
+                if (func_802AB41C(b, a) != 0) {
+                    ENGINE_BLK(8029CEA8);
+                    continue;
+                }
+                ENGINE_BLK(8029CEA8);
+                ENGINE_BLK(8029CEB0);
+            }
+            ENGINE_BLK(8029CEB4);
+            func_8029CB54(n, a, rb, wa[0], wa[2], wb[0], wb[2]);
+            ENGINE_BLK(8029CEBC);
+            func_8029CF54(b);
+            ENGINE_BLK(8029CEC4);
+        }
+    }
+    ENGINE_LEAVE(30, n);
+done:
+    ENGINE_BLK(8029CECC);
+    if (set1)
+        ENGINE_LEAVE(9, t1);
+    if (set2)
+        ENGINE_LEAVE(10, t2);
+    ENGINE_LEAVE(13, -1);
+}
