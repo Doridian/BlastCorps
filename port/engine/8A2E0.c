@@ -32,6 +32,7 @@ extern s16 D_803FBAB0[];                        /* each one's box, 8 Vtx (0x80 b
 extern s32 D_803643E0, D_803643E4, D_803643E8;  /* the player's position */
 extern u8 D_803F3FF8[];                         /* a debris record being made (77E20) */
 
+SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 void func_80285AB0(u8 i);
 s32 func_80285B10(u8 i);
 void func_80285B68(s32 i);
@@ -48,11 +49,6 @@ REGS(t0, t1, v1, a0)
 void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2);
 REGS(t0, v0, v1)
 void func_8029E558(Part *parts, u8 *buf, u8 *other);
-/* 77E20 */
-REGS()
-void func_802C049C(void);
-REGS(v1)
-void func_802C04F0(u8 *d);
 
 REGS(t4, t5, t6)
 void func_802CEE14(s32 x, s32 y, s32 z);
@@ -364,27 +360,27 @@ void func_802CF3E0(CommPoint *c) {
         if (n == 0)
             break;
         ENGINE_BLK(802CF49C);
-        *(s32 *)(d + 0x4) = y;
+        FX_W(d, 0x4) = y;
         y += 0xA0000;
-        *(s32 *)(d + 0x28) = 0xFC180000;
-        *(s32 *)(d + 0xC) = speed;
-        *(s16 *)(d + 0x2C) = k;
+        FX_W(d, 0x28) = 0xFC180000;
+        FX_W(d, 0xC) = speed;
+        FX_H(d, 0x2C) = k;
         n--;
-        *(s32 *)(d + 0x0) = x;
-        *(s32 *)(d + 0x8) = z;
+        FX_W(d, 0x0) = x;
+        FX_W(d, 0x8) = z;
         speed += 0x36B0;
-        *(s32 *)(d + 0x10) = 0;
-        *(s32 *)(d + 0x14) = 0;
-        *(s32 *)(d + 0x18) = 0;
-        *(s32 *)(d + 0x1C) = 0;
-        *(s32 *)(d + 0x20) = 0;
-        *(s32 *)(d + 0x24) = 0;
+        FX_W(d, 0x10) = 0;
+        FX_W(d, 0x14) = 0;
+        FX_W(d, 0x18) = 0;
+        FX_W(d, 0x1C) = 0;
+        FX_W(d, 0x20) = 0;
+        FX_W(d, 0x24) = 0;
         k++;
-        d[0x2E] = 0;
-        d[0x30] = 0;
-        d[0x31] = 0x15;
-        d[0x34] = 0;
-        d[0x35] = 0;
+        FX_B(d, 0x2E) = 0;
+        FX_B(d, 0x30) = 0;
+        FX_B(d, 0x31) = 0x15;
+        FX_B(d, 0x34) = 0;
+        FX_B(d, 0x35) = 0;
         func_802C04F0(d);
         ENGINE_BLK(802CF50C);
     }

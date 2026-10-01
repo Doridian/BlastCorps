@@ -46,6 +46,71 @@ SIZE_CHECK(Piece, 0x60);
 #define B_SECTION(b, off) (B_MODEL(b) + *(s32 *)(B_MODEL(b) + (off)))
 #define B_DAMAGE(b) ((u8 *)(b) + 0xEC)
 
+/* Native-endian memory (docs/PORT.md): where the original reaches a field
+   at another width than its type's (tools/recomp/native_sites.txt), a byte
+   of a word (x3) or a half of one (x2) is at the address ^ 3 or ^ 2, and a
+   table kept big-endian is swapped.  The identity in big-endian memory. */
+#ifdef PORT_NATIVE_ENDIAN
+#define NE_X3(off) ((off) ^ 3)
+#define NE_X2(off) ((off) ^ 2)
+#define NE_BE16(v) ((u16)__builtin_bswap16((u16)(v)))
+#define NE_BE32(v) ((u32)__builtin_bswap32((u32)(v)))
+#else
+#define NE_X3(off) (off)
+#define NE_X2(off) (off)
+#define NE_BE16(v) ((u16)(v))
+#define NE_BE32(v) ((u32)(v))
+#endif
+
+/* The effect records (debris, sparks): 0x38 bytes, a model's (sections
+   0x30 and 0x34), D_803F3968[30] and D_803F3FF8 (the one being made).
+   Fourteen words, which func_802C04F0 copies as such, and whose halves
+   (0x2C, 0x2E) and bytes (0x2E's high one, 0x30-0x37) are read and
+   written as the N64 has them. */
+#define FX_W(d, off) (*(s32 *)((u8 *)(d) + (off)))
+#define FX_H(d, off) (*(u16 *)((u8 *)(d) + NE_X2(off)))
+#define FX_B(d, off) (*(u8 *)((u8 *)(d) + NE_X3(off)))
+
+/* The collision tests' state (89250): the player's position, the
+   camera's limits (12-bit headings) and what narrows them. */
+extern s32 D_803A73F0, D_803A73F4, D_803A73F8;
+extern u16 D_803A7410, D_803A7412;
+extern u8 D_803A742F;                           /* limits off */
+extern u8 D_803A7424, D_803A7425, D_803A7427, D_803A742A;
+extern s8 *PTR32 D_803A7408;                    /* the kinds that turn the camera, to -1 */
+
+/* the level's other solid objects: 0x14-byte records, to an `end` of -1 */
+typedef struct Solid {
+    /* 0x00 */ s32 x, y, z, r;
+    /* 0x10 */ u8 kind;
+    /* 0x11 */ s8 end;           /* -1 after the last; 0: not solid */
+    /* 0x12 */ u8 pad12[2];
+} Solid;
+SIZE_CHECK(Solid, 0x14);
+extern Solid D_803A7300[];
+
+/* the kinds' parts: 0x14-byte records, to an `end` of -1 */
+typedef struct KindPart {
+    /* 0x00 */ s32 x, y, z, r;
+    /* 0x10 */ u16 power;        /* the damage it does (func_802BEBB0) */
+    /* 0x12 */ u8 kind;
+    /* 0x13 */ s8 end;
+} KindPart;
+SIZE_CHECK(KindPart, 0x14);
+extern KindPart D_803A6B30[];
+
+/* the registers by number, for engine_save()'s masks (engine.h) */
+enum {
+    rAT = 1, rV0, rV1, rA0, rA1, rA2, rA3, rT0, rT1, rT2, rT3, rT4, rT5, rT6, rT7,
+    rS0, rS1, rS2, rS3, rS4, rS5, rS6, rS7, rT8, rT9, rK0, rK1, rGP, rSP, rFP, rRA
+};
+#define G(r) ENGINE_GPR(r)
+/* what the original saves and loads back, undone in the thread's context
+   as it undoes it (the registers its translated callees, and their REGS(),
+   leave there) */
+#define ENGINE_SAVE(gmask) engine_save((gmask), 0)
+#define ENGINE_RESTORE() engine_restore()
+
 /* divu, as the VR4300 (and the translation) gives it for 0 */
 static inline u32 engine_divu(u32 n, u32 d) { return d != 0 ? n / d : 0xFFFFFFFFu; }
 static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }
@@ -93,8 +158,8 @@ REGS(t3, t9)
 void func_802C1438(s32 group, Building *b);
 REGS(t3, t9)
 void func_802C09B8(s32 group, Building *b);
-REGS(t9)
-void func_802C0E8C(Building *b);
+REGS(t3, t9)
+void func_802C0E8C(s32 group, Building *b);
 REGS(t9)
 void func_802BF384(Building *b);
 REGS(t9)
@@ -105,5 +170,9 @@ REGS()
 void func_802BCBD8(void);
 REGS(a1, t3, t4, t5, t6)
 void func_802C18D4(s32 a1, s32 x, s32 y, s32 z, s32 t6);
+REGS()
+void func_802C049C(void);
+REGS(v1)
+void func_802C04F0(u8 *fx);
 
 #endif

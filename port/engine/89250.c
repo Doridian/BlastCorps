@@ -8,11 +8,6 @@
 #include "buildings.h"
 #include "game/game.h"
 
-extern s32 D_803A73F0, D_803A73F4, D_803A73F8;  /* the player's position */
-extern u16 D_803A7410, D_803A7412;              /* the camera's limits */
-extern u8 D_803A742F;                           /* limits off */
-extern u8 D_803A7424, D_803A7425, D_803A7427, D_803A742A;
-extern void *PTR32 D_803A7408;
 extern u8 D_80306450[];
 extern u16 D_803F932A;                          /* the damage a hit does */
 extern u8 D_803F932C;                           /* the object under the last ground test */
@@ -25,25 +20,6 @@ extern u8 D_802C382C[];
 extern u8 D_80364456;                           /* the player's vehicle type */
 extern u32 D_803649E8;
 
-/* the level's other solid objects: 0x14-byte records, to a type of -1 */
-typedef struct Solid {
-    /* 0x00 */ s32 x, y, z, r;
-    /* 0x10 */ u8 kind;
-    /* 0x11 */ s8 end;           /* -1 after the last */
-    /* 0x12 */ u8 pad12[2];
-} Solid;
-SIZE_CHECK(Solid, 0x14);
-extern Solid D_803A7300[];
-
-/* the kinds' parts: 0x14-byte records, to a 0x13 of -1 */
-typedef struct KindPart {
-    /* 0x00 */ s32 x, y, z, r;
-    /* 0x10 */ u8 pad10[2];
-    /* 0x12 */ u8 kind;
-    /* 0x13 */ s8 end;
-} KindPart;
-SIZE_CHECK(KindPart, 0x14);
-extern KindPart D_803A6B30[];
 
 /* 60F60: start an effect */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
@@ -80,13 +56,15 @@ void func_802CDAE8(s16 a, s16 b) {
     ENGINE_BLK(802CDB40);
 }
 
-static void limits_off(void) {
-    if (D_803A742F != 0) {
-        ENGINE_BLK(802CDC40);
-        D_803A7410 = 0;
-        D_803A7412 = 0;
-    }
-}
+/* the camera's limits off, if D_803A742F says (block id/size `blk`) */
+#define LIMITS_OFF(blk)                                                     \
+    do {                                                                    \
+        if (D_803A742F != 0) {                                              \
+            ENGINE_BLK(blk);                                                \
+            D_803A7410 = 0;                                                 \
+            D_803A7412 = 0;                                                 \
+        }                                                                   \
+    } while (0)
 
 /* The buildings the player's sphere (radius r) touches, each piece of them
    it hits doing `damage` (to the first); returns whether any. */
@@ -125,7 +103,7 @@ s32 func_802CDB70(s16 r, s16 damage) {
         b++;
     }
     ENGINE_BLK(802CDC2C);
-    limits_off();
+    LIMITS_OFF(802CDC40);
     ENGINE_BLK(802CDC4C);
     return hit;
 }
@@ -234,7 +212,7 @@ void func_802CDD74(Building *b, Piece *p, s32 damage) {
     ENGINE_BLK(802CDE90);
     func_802C09B8(g, b);
     ENGINE_BLK(802CDE98);
-    func_802C0E8C(b);
+    func_802C0E8C(g, b);
     ENGINE_BLK(802CDEA0);
     func_802BF384(b);
     ENGINE_BLK(802CDEA8);
@@ -530,7 +508,7 @@ void func_802CE4F0(s32 x, s32 y, s32 z) {
     D_803A73F8 = z;
     D_803A742F = 0;
     D_803A7427 = 0;
-    D_803A7408 = D_80306450;
+    D_803A7408 = (s8 *)D_80306450;
     D_803A7424 = 0;
     D_803A7425 = 0;
     func_802BCBD8();
@@ -543,7 +521,7 @@ void func_802CE5BC(s32 x, s32 y, s32 z, s16 r, s32 t8, s32 flag) {
     D_803A742A = flag;
     func_8029B02C(y, z, r, x >> 2, y >> 2, z >> 2, r >> 2, t8, 0);
     ENGINE_BLK(802CE610);
-    limits_off();
+    LIMITS_OFF(802CE620);
     ENGINE_BLK(802CE62C);
 }
 
