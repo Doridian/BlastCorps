@@ -1145,3 +1145,143 @@ void func_8029F608(s32 a, s32 b, f32 t) {
 done:
     ENGINE_BLK(8029F694);
 }
+
+/* the angle of four keys' halves at off on the spline at t (func_8029E878),
+   as a word; the keys' first two as floats in *k0, *k1 */
+static s32 spline_angle(u8 *p0, u8 *p1, u8 *p2, u8 *p3, s32 off, f32 t, f32 *k0, f32 *k1) {
+    *k0 = (f32) * (s16 *)(p0 + off);
+    *k1 = (f32) * (s16 *)(p1 + off);
+    return engine_cvt_w_s(func_8029E878(*k0, *k1, (f32) * (s16 *)(p2 + off), (f32) * (s16 *)(p3 + off), t));
+}
+
+/* D_803B3730 = the rotation about x (E938), y (EA48) or z (EB58) by the
+   keys' angle (halves 6, 8 and 0xA) on the spline at t; $a3 whether it
+   isn't 0 (then D_803B3730 is as it was) */
+REGS(t5, t6, t7, s0, f30 -> a3)
+s32 func_8029E938(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
+    s32 a, c, s, *m = D_803B3730;
+    f32 k0, k1;
+
+    ENGINE_BLK(8029E938);
+    a = spline_angle(p0, p1, p2, p3, 6, t, &k0, &k1);
+    ENGINE_BLK(8029E998);
+    if (a == 0) {
+        ENGINE_BLK(8029E9AC);
+        ENGINE_LEAVE_F(0, k0);
+        ENGINE_LEAVE_F(2, k1);
+        ENGINE_LEAVE_FW(8, 0);
+        ENGINE_BLK(8029EA18);
+        return 0;
+    }
+    ENGINE_BLK(8029E9B4);
+    c = func_802AE160((u32)a >> 4);
+    ENGINE_BLK(8029E9BC);
+    s = func_802AE104((u32)a >> 4);
+    ENGINE_BLK(8029E9C4);
+    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = s, m[6] = c, m[7] = 0;
+    m[8] = 0, m[9] = -c, m[10] = s, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_BLK(8029EA18);
+    return 1;
+}
+
+REGS(t5, t6, t7, s0, f30 -> a3)
+s32 func_8029EA48(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
+    s32 a, c, s, *m = D_803B3730;
+    f32 k0, k1;
+
+    ENGINE_BLK(8029EA48);
+    a = spline_angle(p0, p1, p2, p3, 8, t, &k0, &k1);
+    ENGINE_BLK(8029EAA8);
+    if (a == 0) {
+        ENGINE_BLK(8029EABC);
+        ENGINE_LEAVE_F(0, k0);
+        ENGINE_LEAVE_F(2, k1);
+        ENGINE_LEAVE_FW(8, 0);
+        ENGINE_BLK(8029EB28);
+        return 0;
+    }
+    ENGINE_BLK(8029EAC4);
+    c = func_802AE160((u32)a >> 4);
+    ENGINE_BLK(8029EACC);
+    s = func_802AE104((u32)a >> 4);
+    ENGINE_BLK(8029EAD4);
+    m[0] = s, m[1] = 0, m[2] = -c, m[3] = 0;
+    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
+    m[8] = c, m[9] = 0, m[10] = s, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_BLK(8029EB28);
+    return 1;
+}
+
+REGS(t5, t6, t7, s0, f30 -> a3)
+s32 func_8029EB58(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
+    s32 a, c, s, *m = D_803B3730;
+    f32 k0, k1;
+
+    ENGINE_BLK(8029EB58);
+    a = spline_angle(p0, p1, p2, p3, 0xA, t, &k0, &k1);
+    ENGINE_BLK(8029EBB8);
+    if (a == 0) {
+        ENGINE_BLK(8029EBCC);
+        ENGINE_LEAVE_F(0, k0);
+        ENGINE_LEAVE_F(2, k1);
+        ENGINE_LEAVE_FW(8, 0);
+        ENGINE_BLK(8029EC38);
+        return 0;
+    }
+    ENGINE_BLK(8029EBD4);
+    c = func_802AE160((u32)a >> 4);
+    ENGINE_BLK(8029EBDC);
+    s = func_802AE104((u32)a >> 4);
+    ENGINE_BLK(8029EBE4);
+    m[0] = s, m[1] = c, m[2] = 0, m[3] = 0;
+    m[4] = -c, m[5] = s, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_BLK(8029EC38);
+    return 1;
+}
+
+/* D_803B3730 = the scale (in 256ths) from (x0, y0, z0) the fraction t of
+   the way to (x1, y1, z1), unless that is (0x100, 0x100, 0x100) ($a0:
+   0x10000, or 0) */
+REGS(a0, a1, a2, a3, t0, t1, f30)
+void func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
+    s32 x, y, z, *m = D_803B3730;
+
+    ENGINE_BLK(8029F760);
+    x = engine_cvt_w_s((f32)(x1 - x0) * t);
+    y = engine_cvt_w_s((f32)(y1 - y0) * t);
+    ENGINE_LEAVE_FW(0, x);
+    ENGINE_LEAVE_FW(2, y);
+    z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
+    x += x0;
+    y += y0;
+    if (x == 0x100) {
+        ENGINE_BLK(8029F7C8);
+        if (y == 0x100) {
+            ENGINE_BLK(8029F7D4);
+            if (z == 0x100) {
+                ENGINE_BLK(8029F7DC);
+                ENGINE_LEAVE(4, 0);
+                goto done;
+            }
+        }
+    }
+    ENGINE_BLK(8029F7E4);
+    x = (s32)((u32)x << 16) >> 8;
+    y = (s32)((u32)y << 16) >> 8;
+    z = (s32)((u32)z << 16) >> 8;
+    m[0] = x, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = y, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = z, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_LEAVE(4, 0x10000);
+done:
+    ENGINE_BLK(8029F848);
+    ENGINE_LEAVE(7, x);
+    ENGINE_LEAVE(8, y);
+    ENGINE_LEAVE(9, z);
+}
