@@ -203,3 +203,17 @@ func_802A5B90
 func_802A5C5C
 func_802A5D34
 func_802A5E10
+
+# 5BF40: the texture loader (engine-B)
+func_802A0700
+func_802A08B4
+func_802A08E4
+func_802A0B00
+func_802A0B34
+func_802A0CC8
+func_802A0CFC
+func_802A0EE0
+func_802A0F0C
+func_802A1040
+func_802A1074
+func_802A11C4
