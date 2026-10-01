@@ -19,6 +19,9 @@
  *     __bepass_fixup did at run time), or native with 64-bit scalars' words
  *     exchanged (-port-arena-native); a pointer to a function or to the
  *     host's data is left to startup (__port_arena_relocs);
+ *     -port-arena-image writes the contents to a file too, and
+ *     -port-arena-no-runs leaves them out of the module: PORT_ROM_DATA's
+ *     host makes them from the ROM (tools/rom_data.py, host/romdata.c);
  *   - maps every access (loads, stores, atomics, memory intrinsics, and the
  *     pointer arguments of calls into the host, which dereferences them) to
  *     port_arena + (p & 0x1FFFFFFF);
@@ -82,6 +85,11 @@ static cl::opt<std::string> RetargetLayout("port-arena-datalayout", cl::desc("..
 static cl::opt<std::string> FnValues("port-arena-fn-values",
                                      cl::desc("functions the translated code takes as values (gen_glue.py's "
                                               "fn_values.txt: one name a line)"));
+static cl::opt<std::string> ImageFile("port-arena-image",
+                                      cl::desc("also write the arena's initial contents to FILE, as bytes from 0"));
+static cl::opt<bool> NoRuns("port-arena-no-runs",
+                            cl::desc("leave the initial contents out of the module (__port_arena_runs empty): "
+                                     "the host makes them from the ROM (PORT_ROM_DATA, tools/rom_data.py)"));
 static cl::opt<std::string> SymsHeader("port-arena-header",
                                        cl::desc("where the moved variables went, as a header (SYM_, PORT_N64_)"));
 
@@ -468,12 +476,21 @@ struct Arena : PassInfoMixin<Arena> {
                 fail(p.g->getName() + " is still used");
             p.g->eraseFromParent();
         }
+        if (!ImageFile.empty()) {
+            std::error_code ec;
+            raw_fd_ostream os(ImageFile, ec, sys::fs::OF_None);
+            if (ec)
+                fail("can't write " + ImageFile);
+            os.write((const char *)image.data(), image.size());
+        }
         /* runs of non-zero bytes (zero runs of 64 or more between them) */
         Type *i32 = Type::getInt32Ty(*C), *i64 = Type::getInt64Ty(*C);
         PointerType *ptr = PointerType::get(*C, 0);
         StructType *runT = StructType::get(*C, {i32, i32, ptr});
         std::vector<Constant *> runs;
         size_t k = 0, n = image.size();
+        if (NoRuns)
+            k = n;
         while (k < n) {
             while (k < n && !image[k])
                 k++;

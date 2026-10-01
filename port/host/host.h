@@ -2,8 +2,16 @@
 #ifndef HOST_H
 #define HOST_H
 
+#include <stddef.h>
+
 #include "port.h"
 #include "recomp.h"
+
+/* main.c: the ROM as loaded (big-endian), romdata.c: its sha1, and the
+   arena's contents made from it (PORT_ROM_DATA) */
+const uint8_t *host_rom(void);
+void host_sha1_hex(const uint8_t *p, size_t n, char out[41]);
+void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
 
 /* threads.c */
 int host_run_one(void);             /* run the best runnable thread; 0 if none */

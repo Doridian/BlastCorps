@@ -100,6 +100,10 @@ void port_arena_init(void) {
     uint8_t *a = m + off;
     if (__port_arena_data_end > PORT_ARENA_STACKS)
         host_fatal("the arena's data runs into its stacks");
+#ifdef PORT_ROM_DATA
+    /* (the arena link's runs are empty: the contents come from the ROM) */
+    port_romdata_apply(a, host_rom(), host_rom_size());
+#endif
     for (uint32_t i = 0; i < __port_arena_runs_n; i++)
         memcpy(a + __port_arena_runs[i].off, __port_arena_runs[i].data, __port_arena_runs[i].len);
     for (uint32_t i = 0; i < __port_arena_relocs_n; i++) {

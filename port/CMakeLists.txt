@@ -77,6 +77,16 @@ if(EMSCRIPTEN)
     endif()
 endif()
 
+# the game's data from the user's ROM at startup (docs/PORT.md, "The data from
+# the ROM"; docs/DISTRIBUTION.md): the movable build's arena image isn't
+# carried, only the operations that make it from the ROM's code modules
+# (tools/rom_data.py, checked at build time against the image)
+if(PORT_MOVABLE)
+    option(PORT_ROM_DATA "the movable build's data from the ROM at startup, not from the executable" ON)
+elseif(PORT_ROM_DATA)
+    message(FATAL_ERROR "PORT_ROM_DATA is the movable build's (-DPORT_MOVABLE=ON)")
+endif()
+
 if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
 endif()
@@ -118,6 +128,22 @@ file(READ ${BLAST}/.version STAGE2_VERSION)
 string(STRIP "${STAGE2_VERSION}" STAGE2_VERSION)
 if(NOT STAGE2_VERSION STREQUAL PORT_VERSION)
     message(FATAL_ERROR "blastcorps/ is extracted for ${STAGE2_VERSION}, not ${PORT_VERSION}")
+endif()
+
+# the ROM this port is for, exactly (host/main.c checks it at startup), and,
+# for PORT_ROM_DATA, the ROM the build makes its data operations from
+file(READ ${ROOT}/blastcorps.${PORT_VERSION}.sha1 PORT_ROM_SHA1)
+string(STRIP "${PORT_ROM_SHA1}" PORT_ROM_SHA1)
+set(PORT_BASEROM ${ROOT}/baserom.${PORT_VERSION}.z64 CACHE FILEPATH "the version's ROM (PORT_ROM_DATA's build)")
+if(PORT_ROM_DATA)
+    if(NOT EXISTS ${PORT_BASEROM})
+        message(FATAL_ERROR "${PORT_BASEROM} is missing: PORT_ROM_DATA makes the data's operations from it "
+            "(-DPORT_BASEROM=..., or -DPORT_ROM_DATA=OFF to carry the data in the executable)")
+    endif()
+    file(SHA1 ${PORT_BASEROM} BASEROM_SHA1)
+    if(NOT BASEROM_SHA1 STREQUAL PORT_ROM_SHA1)
+        message(FATAL_ERROR "${PORT_BASEROM} isn't ${PORT_VERSION}'s ROM (sha1 ${BASEROM_SHA1}, not ${PORT_ROM_SHA1})")
+    endif()
 endif()
 
 # Addresses that differ between versions, from the version's N64 link: the
@@ -500,7 +526,10 @@ message(STATUS "game threads: ${PORT_THREADS}")
 target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/host ${SDL2_INCLUDE_DIRS})
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
-target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE})
+target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE} PORT_ROM_SHA1="${PORT_ROM_SHA1}")
+if(PORT_ROM_DATA)
+    target_compile_definitions(host PRIVATE PORT_ROM_DATA)
+endif()
 # --replay names the function behind each of the movie's reads of the
 # counts by its address (port/host/replay.c): the version's functions
 add_custom_command(OUTPUT ${GEN}/n64_funcs.txt
@@ -595,14 +624,31 @@ if(PORT_MOVABLE)
         list(APPEND ARENA_FLAGS -port-arena-triple=wasm32-unknown-emscripten "-port-arena-datalayout=${WASM_DATALAYOUT}"
              -port-arena-typed-calls -port-arena-x86-fptoint)
     endif()
-    add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h
+    # the image to the build directory either way (the scan, tools/rom_scan.py,
+    # and rom_data.py's check), and out of the module with PORT_ROM_DATA
+    list(APPEND ARENA_FLAGS -port-arena-image=${GEN}/arena.img)
+    if(PORT_ROM_DATA)
+        list(APPEND ARENA_FLAGS -port-arena-no-runs)
+    endif()
+    add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h ${GEN}/arena.img ${GEN}/arena_map.txt
         COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" "$<TARGET_OBJECTS:port_n64>" ${DATA_LL}
-        COMMAND ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
+        COMMAND ${CMAKE_COMMAND} -E env PORT_ARENA_MAP=${GEN}/arena_map.txt
+                ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
         DEPENDS game_c port_n64 $<TARGET_OBJECTS:game_c> $<TARGET_OBJECTS:port_n64> BEPass ${DATA_LL} ${GEN}/n64_syms.txt
                 ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
+    if(PORT_ROM_DATA)
+        add_custom_command(OUTPUT ${GEN}/romdata_ops.c ${GEN}/romdata_report.txt
+            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_data.py ${GEN}/arena.img ${PORT_BASEROM}
+                    ${ROOT}/build/blastcorps.${PORT_VERSION}.map ${GEN}/romdata_ops.c --version ${PORT_VERSION}
+                    --arena-map ${GEN}/arena_map.txt --report ${GEN}/romdata_report.txt
+            DEPENDS ${GEN}/arena.img ${GEN}/arena_map.txt ${PORT_BASEROM} ${ROOT}/build/blastcorps.${PORT_VERSION}.map
+                    ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_data.py)
+        set_source_files_properties(${GEN}/romdata_ops.c PROPERTIES GENERATED TRUE)
+        target_sources(host PRIVATE ${GEN}/romdata_ops.c)
+    endif()
     set(N64_OBJECTS ${GEN}/n64.o)
     set(GAME_OBJECTS ${GEN}/n64.o)
     set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)

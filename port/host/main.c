@@ -144,9 +144,28 @@ static void load_rom(const char *path) {
     } else if (magic != 0x80371240u) {
         host_fatal("%s is not an N64 ROM", path);
     }
-    if (memcmp(rom + 0x3B, ROM_CODE, 4) != 0 || rom[0x3F] != ROM_REVISION)
-        host_log("warning: %s doesn't look like " ROM_TITLE "; expect trouble\n", path);
+    /* the version this port was built for, exactly (CMake's PORT_ROM_SHA1,
+       from blastcorps.<version>.sha1).  The movable build takes the game's
+       data from it (PORT_ROM_DATA), and checks what it made against what it
+       was built with besides; PORT_ROM_ANY=1 lets another ROM through
+       (an edited one) with a warning. */
+    char sha1[41];
+    host_sha1_hex(rom, rom_size, sha1);
+    if (strcmp(sha1, PORT_ROM_SHA1) != 0) {
+        const char *any = getenv("PORT_ROM_ANY");
+        const char *code = memcmp(rom + 0x3B, ROM_CODE, 4) == 0 && rom[0x3F] == ROM_REVISION
+            ? "it has " ROM_TITLE "'s header but other contents"
+            : "it isn't " ROM_TITLE;
+        if (any && atoi(any))
+            host_log("warning: %s (sha1 %s): %s; this port is built for sha1 %s\n", path, sha1, code,
+                     PORT_ROM_SHA1);
+        else
+            host_fatal("%s (sha1 %s): %s; this port is built for " ROM_TITLE ", sha1 %s "
+                       "(PORT_ROM_ANY=1 tries it anyway)", path, sha1, code, PORT_ROM_SHA1);
+    }
 }
+
+const uint8_t *host_rom(void) { return rom; }
 
 uint32_t host_rom_size(void) { return rom_size; }
 
