@@ -1584,3 +1584,78 @@ void func_8029DF78(s32 id, u32 *dl, u32 *end) {
     ENGINE_BLK(8029E06C);
     D_803B35F0 = out;
 }
+
+/* D_803B3730 = the translation by the keys' point (halves 0xC, 0xE,
+   0x10) on the spline at t; $a3 whether it isn't 0 (then D_803B3730 is
+   as it was) */
+REGS(t5, t6, t7, s0, f30 -> a3)
+s32 func_8029EC68(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
+    s32 x, y, z, *m = D_803B3730;
+    f32 k0, k1;
+
+    ENGINE_BLK(8029EC68);
+    x = spline_angle(p0, p1, p2, p3, 0xC, t, &k0, &k1);
+    ENGINE_BLK(8029ECC4);
+    y = spline_angle(p0, p1, p2, p3, 0xE, t, &k0, &k1);
+    ENGINE_BLK(8029ED00);
+    z = spline_angle(p0, p1, p2, p3, 0x10, t, &k0, &k1);
+    ENGINE_BLK(8029ED3C);
+    ENGINE_LEAVE_F(0, k0);
+    ENGINE_LEAVE_F(2, k1);
+    ENGINE_LEAVE_FW(8, z);
+    if (x == 0) {
+        ENGINE_BLK(8029ED4C);
+        if (y == 0) {
+            ENGINE_BLK(8029ED54);
+            if (z == 0) {
+                ENGINE_BLK(8029ED5C);
+                ENGINE_BLK(8029EDC0);
+                return 0;
+            }
+        }
+    }
+    ENGINE_BLK(8029ED64);
+    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
+    m[12] = (u32)x << 16, m[13] = (u32)y << 16, m[14] = (u32)z << 16, m[15] = 0x10000;
+    ENGINE_BLK(8029EDC0);
+    return 1;
+}
+
+/* D_803B3730 = the scale (in 256ths) by the keys' halves 0, 2 and 4 on
+   the spline at t; $a3 whether it isn't 0x100 each way */
+REGS(t5, t6, t7, s0, f30 -> a3)
+s32 func_8029EDEC(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
+    s32 x, y, z, *m = D_803B3730;
+    f32 k0, k1;
+
+    ENGINE_BLK(8029EDEC);
+    x = spline_angle(p0, p1, p2, p3, 0, t, &k0, &k1);
+    ENGINE_BLK(8029EE48);
+    y = spline_angle(p0, p1, p2, p3, 2, t, &k0, &k1);
+    ENGINE_BLK(8029EE84);
+    z = spline_angle(p0, p1, p2, p3, 4, t, &k0, &k1);
+    ENGINE_BLK(8029EEC0);
+    ENGINE_LEAVE_F(0, k0);
+    ENGINE_LEAVE_F(2, k1);
+    ENGINE_LEAVE_FW(8, z);
+    if (x == 0x100) {
+        ENGINE_BLK(8029EED4);
+        if (y == 0x100) {
+            ENGINE_BLK(8029EEDC);
+            if (z == 0x100) {
+                ENGINE_BLK(8029EEE4);
+                ENGINE_BLK(8029EF54);
+                return 0;
+            }
+        }
+    }
+    ENGINE_BLK(8029EEEC);
+    m[0] = (s32)((u32)x << 16) >> 8, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = (s32)((u32)y << 16) >> 8, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = (s32)((u32)z << 16) >> 8, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    ENGINE_BLK(8029EF54);
+    return 1;
+}
