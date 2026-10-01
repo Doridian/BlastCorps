@@ -3428,3 +3428,58 @@ s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
     ENGINE_LEAVE(22, s6);
     return t0;
 }
+
+/* ---- a wheel landing hard ------------------------------------------------ */
+
+#include "game/audio.h"
+
+extern u8 D_803ED3F6, D_803ED40B;
+SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
+
+/* Wheel i's fall: y less the drop its state predicts (h[i] times
+   state[i] - 2, plus D_803EBBF4 times its square), as a distance.  Past
+   D_803ED3F6 the wheel lands (func_802A9540 at the ground g, the distance
+   over D_803ED3F7), with a sound (12) when D_803ED40B; otherwise it's in
+   the air (D_803ED3EE[i] = 0).  Returns the distance ($s6). */
+REGS(v0, a1, a2, a3, t3, s6 -> s6)
+s32 func_802A9710(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 y) {
+    s32 t2 = state[i] - 2, t5;
+    u32 t4 = (u32)h[i] * (u32)t2;
+    f32 f;
+
+    ENGINE_BLK(802A9710);
+    f = D_803EBBF4 * (f32)(s32)((u32)t2 * (u32)t2);
+    t5 = engine_cvt_w_s(f);
+    y -= (s32)(t4 + t5);
+    if (y < 0) {
+        ENGINE_BLK(802A9790);
+        y = -y;
+    }
+    ENGINE_BLK(802A9794);
+    if (D_803ED3F6 < y) {
+        ENGINE_BLK(802A97A0);
+        if (D_803ED40B != 0) {
+            ENGINE_BLK(802A97B0);
+            func_80260650(D_80367738, 0xC, NULL);
+            ENGINE_BLK(802A984C);
+        }
+        ENGINE_BLK(802A98CC);
+        if (D_803ED3F7 == 0) {
+            ENGINE_BLK(802A98F0);
+            engine_break(0x802A98F0, 7);
+        }
+        y = (u32)y / D_803ED3F7;
+        ENGINE_BLK(802A98F4);
+        func_802A9540(i, h, state, ground, g, y);
+        ENGINE_BLK(802A98FC);
+        /* (what it leaves: the distance in $s3 too, the ground in $t2) */
+        ENGINE_LEAVE(19, y);
+        ENGINE_LEAVE(10, g);
+    } else {
+        ENGINE_BLK(802A9904);
+        WHEEL_BYTE(D_803ED3EE, i) = 0;
+        ENGINE_LEAVE(16, 0);
+    }
+    ENGINE_BLK(802A9918);
+    return y;
+}
