@@ -388,7 +388,9 @@ frames; for us.v11 and jp, which the TAS doesn't cover, also the attract
 mode for 12,000 frames (`attract.long`: the story and several of its demo
 levels, about 70 seconds).  Their hashes (16 digits of sha1) are compared with
 `port/tools/test_refs.json`'s for the build's version; with `--against
-BUILD` also with another build's last results.  Within the build, where
+BUILD` also with another build's last results.  A `PORT_ROM_DATA` build is also
+searched for the ROM's data (`rom_scan.py`, "The data from the ROM"), and
+fails on any.  Within the build, where
 the executable is the same, `=3` again must give the same:
 
 - with the other thread backend (`PORT_THREADS`): every hash;
@@ -1280,6 +1282,68 @@ how it was checked without a Mac is under "Other hosts", "macOS".
 The LP64 build doesn't finish the TAS at the moment, with or without
 this: it stops with SIGFPE at about the movie's read 1,620 (main's
 `build/p10lp` too), which is being looked at separately.
+
+### The data from the ROM (`PORT_ROM_DATA`)
+
+The arena image is all of the game's data a movable build carries (the
+asm data, the islands, the decompiled C's initializers: docs/DISTRIBUTION.md,
+1a-1e), and nearly all of it is the ROM's.  With `PORT_ROM_DATA` (on by
+default in a movable build; `-DPORT_ROM_DATA=OFF` carries the image as
+before) the executable has none of it: it carries a list of operations
+that make the image from the user's ROM at startup, which the port needs
+anyway.
+
+- **The build.**  port-arena writes the image to `gen/arena.img`
+  (`-port-arena-image`, in every movable build) and leaves its runs out of
+  the module (`-port-arena-no-runs`).  `tools/rom_data.py` lays the ROM's
+  code modules out at their N64 addresses as the game loads them (init as
+  it is at `0x8021ED00`; hd_code's `.text` and `.data` gzip members
+  inflated at `0x802447C0`, hd_front_end's at `0x801E7000`, each `.data`
+  right after its `.text`), from the version's `baserom.<version>.z64`
+  (`PORT_BASEROM`, sha1-checked) and the top-level map's `_ROM_START`s.
+  It covers the image greedily with copies from that source: from the
+  same address first, as it is or with every 2-, 4- or 8-byte unit
+  reversed (native-endian data, 64-bit scalars' words); from elsewhere
+  (at least 8 bytes, searched: the string literals and statics port-arena
+  moved above `0x400000`, LP64's outgrown variables); and literal bytes
+  for what neither gives.  It decodes the result as the host will, fails
+  the build unless that is the image to the byte, and writes
+  `gen/romdata_ops.c` (the operations, the members' ROM ranges and a hash
+  of the image) and `gen/romdata_report.txt` (the literal bytes by
+  variable, from `PORT_ARENA_MAP`).
+- **At startup** (`port_arena_init`, `host/romdata.c`): the ROM's sha1
+  has been checked (`main.c`, every build: `PORT_ROM_ANY=1` lets another
+  ROM through with a warning); the four members are inflated (an inflate
+  of the port's own, RFC 1951, its tables computed rather than written
+  out), the operations applied into the arena, and the hash (FNV-1a over
+  8-byte words) compared, so a ROM that inflates to other data stops the
+  port there rather than playing wrong.  7 ms on a desktop.
+- **What is literal**, us.v10 (64-bit big-endian, 32-bit native-endian,
+  LP64): 2,932, 3,164 and 3,444 bytes, in operations of 11 K, 24 K and
+  26 K (the image's runs were about 190 K); 1.24 MB of the image comes from
+  the ROM (zeros between included), 21-24 K of it from other addresses.
+  The literal bytes are the port's: pointer words to the data port-arena
+  moved (the game's string tables, 1.7 K), clang's lookup tables for the
+  game's switches (`switch.table.*`, 0.5-0.7 K), `port/src`'s strings and
+  `__func__`s (0.7 K), LP64's native pointer tables (0.4 K) and a few
+  words of `port/src`'s own variables.
+- **The RSP microcode's text** (hd_code's after `ldiv`, hd_front_end's
+  last 0xFB0 bytes of `.text`, 18.3 K) is zeros in every build now
+  (`asm2x86.py`'s `RSP_TEXT`): the HLE never runs it and nothing reads
+  it.  Its data segments stay, as the ROM's: `aspmain.c` reads the audio
+  microcode's resampling table.
+- **Checked** with `tools/rom_scan.py` (`test.py quick` runs it on every
+  `PORT_ROM_DATA` build and fails on any hit): no stretch of 24 bytes or
+  more of the ROM, or of its inflated modules as they are or with 2- or
+  4-byte units reversed, is in the executables, the .wasm or the .js.  The
+  quick tier and the TAS play as without it (the image is the same, byte
+  for byte).
+
+The non-movable builds still carry the data (about 158 K in stretches of
+24 bytes or more in the 32-bit build's executable): their game variables
+are the executable's own sections at N64 addresses, initialized by the
+loader, and the C's are swapped by constructors before `main` has the ROM;
+see docs/DISTRIBUTION.md.
 
 ## The platform layer
 

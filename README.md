@@ -151,7 +151,10 @@ and, with `--interpolate`, how many of them were the game's own frames, e.g.
 The ROM argument may be left out: it defaults to `baserom.us.v11.z64` (the
 us.v10 and jp builds' to `baserom.us.v10.z64` and `baserom.jp.z64`) in the
 current directory.  The port reads everything else from the ROM, so the
-binary can be run from anywhere.
+binary can be run from anywhere.  It must be the exact ROM the port was
+built for (its sha1, above, is checked at startup): the movable builds,
+port/build.py's and the page's, make the game's data from it rather than
+carrying it (docs/PORT.md, "The data from the ROM").
 
 The save (the 4 Kbit EEPROM) goes to `blastcorps.eep` in the current
 directory, or wherever `--save PATH` says.

@@ -3,13 +3,21 @@
 For now the PC port is **built by its users** from their own ROM (README, "The PC port"): no binary or
 hosted page is published. This file records what a built port contains, so that publishing later can be
 planned. It is an inventory by origin, not legal advice. Measured on us.v10 builds (32-bit, LP64,
-movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
+movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.  `port/tools/rom_scan.py
+FILE...` checks a build for the ROM's data.
 
 ## What a built port contains
 
 **Not embedded:**
 - The ROM file itself: 3,000 random 32-byte chunks of it and its IPL3 were searched for in the
   executables, the .wasm and the .js, with no hits.
+- **In the movable builds (64-bit, LP64, wasm), none of the ROM's data** (1a–1e below): with
+  `PORT_ROM_DATA`, their default, the arena image is made from the user's ROM at startup (docs/PORT.md,
+  "The data from the ROM").  `port/tools/rom_scan.py` searches a build for every stretch of 24 bytes or
+  more of the ROM and of its code modules as the game loads them (hd_code and hd_front_end inflated from
+  their gzip members, as they are and with 2- or 4-byte units reversed for native-endian data): on
+  2026-09-30, us.v10, none in the m64, mn32 and mlp64 executables or in the web build's .wasm, .js and
+  .html.  `test.py quick` runs it on every such build.
 - The TAS data (`polls.csv`, `checkpoints.csv`, `switches.csv`...), which `--replay` reads beside its file
   at run time.
 - `test_refs.json` and the mupen64plus tools.
@@ -19,9 +27,9 @@ movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
 |---|---|---|---|---|
 | 1a | ROM bytes | hd_code and hd_front_end `.data`/`.rodata` from splat's extraction: menu structures, display lists, text tables, libultra's VI modes | ~38 K (+353 K bss) | `blastcorps/asm/data/**` → `asm2x86.py` / `asm2ll.py` |
 | 1b | ROM bytes | the two pointer-bearing data islands (7D9D0, 800DC) | 8.6 K | same |
-| 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode text (18.3 K) and ucode data (6.8 K) | 33 K | `blastcorps/assets/<module>/*.bin`, `.incbin`'d |
+| 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K); the microcode's text (18.3 K) is zeros in every build now (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin`, `.incbin`'d |
 | 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs ~62 K, struct tables ~46 K, strings, Vtx/Gfx | ~206 K of sections | `blastcorps/src/**/*.c` |
-| 1e | all of 1a–1d as carried | the movable/wasm build's arena image, 106 runs | 192 K | `bepass/Arena.cpp` `writeImage()` |
+| 1e | all of 1a–1d as carried | the movable/wasm build's arena image, 106 runs; **not carried with `PORT_ROM_DATA`** (the default), which carries operations instead (row 4e) | 192 K (`PORT_ROM_DATA=OFF`) | `bepass/Arena.cpp` `writeImage()` |
 | 2 | translated ROM code | Rare's handwritten engine, 688 functions (220 K of MIPS), and jp's 17 IDO `GLOBAL_ASM` functions | ~1.1–1.4 MB of host code | `tools/recomp` → `blastcorps/build/recomp/src` |
 | 3a | decompiled C | the game's own code | 370 K x86 | `blastcorps/src/**` |
 | 3b | decompiled SDK | libaudio (~40 files), gu, `ll.c`, decompiled from/with ultralib | 53 K x86 | `blastcorps/src/libultra/**` |
@@ -32,6 +40,13 @@ movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
 | 4b | third-party, native | SDL2 (zlib), libepoxy (MIT), glibc (LGPL), libgcc_s: dynamic | — | system |
 | 4c | third-party, wasm | emscripten's SDL2 (zlib), musl (MIT), emscripten runtime (MIT/UIUC), compiler-rt (Apache-2.0 with LLVM exception) | in .wasm/.js | emsdk |
 | 4d | third-party, all builds | Stardos Stencil Bold (SIL OFL 1.1, Vernon Adams; `--hd-text`'s built-in font, docs/FONTS.md), stb_truetype 1.26 (public domain or MIT) | 33 K font in the executable; hdtext.c with stb_truetype ~28 K x86 | `port/fonts/` via `port/tools/embed.cmake`, `port/third_party/stb/` |
+| 4e | the port's own, movable builds | `PORT_ROM_DATA`'s operations: copies from the ROM's modules by address, and 2.9–3.4 K of literal bytes, all the port's (pointer words to data port-arena moved, clang's switch tables of the game's C, `port/src`'s strings; `gen/romdata_report.txt` lists them); an inflate of its own | 11–26 K, inflate ~3 K x86 | `port/tools/rom_data.py` → `gen/romdata_ops.c`, `port/host/romdata.c` |
+
+In the movable builds, rows 1a–1d reach the executable only through 1e, so with `PORT_ROM_DATA` none of
+them does.  The non-movable builds (32, 64, n64, lp64) still carry 1a–1d: `rom_scan.py` finds 158 K of
+the ROM's data in the 32-bit executable (the C's data in host order there, which BEPass's constructors
+swap at startup).  Sizes, us.v10, `PORT_ROM_DATA` off and on (`.text`, which holds the image): m64 2,231 K
+to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,002 K, the web build's .wasm 3,568 K to 3,450 K.
 
 **Also:**
 - The native builds carry about 7.5 MB of DWARF and symbols, with the decomp's names and build paths.
@@ -43,21 +58,25 @@ movable 64-bit, wasm web) on 2026-09-30; us.v11's sizes are near-identical.
 
 1. **Movable builds only** (wasm, 64-bit native). They are the macOS and wasm path anyway, and their
    data is a single image.
-2. **The data from the user's ROM at run time.**
-   - At startup, inflate hd_code and hd_front_end from the ROM with the game's own inflate, as
-     `port/src/overlay.c` already does for the front end, and copy their data and island ranges into the
-     arena.
-   - Then apply a patch list made at build time by port-arena. It holds only:
-     - copies: the ~20.6 K moved above 0x400000;
-     - byte swaps for native endian (BEPass's tables);
-     - words set to symbol addresses;
-     - zero ranges.
-   - The build fails unless every difference between that reconstruction and the real image is one of
-     those operations. The ~1.8 K of differing bytes each need explaining; there is a short audited list of
-     port-owned constants.
-   - The ROM's sha1 is checked at startup.
-   - The RSP microcode text can be zero-filled, since the HLE never runs it.
-   - Estimate: 1–2 weeks. The inflate costs under 5 ms at startup.
+2. **The data from the user's ROM at run time: done** for the movable builds (`PORT_ROM_DATA`, their
+   default; docs/PORT.md, "The data from the ROM").
+   - At startup the port inflates hd_code and hd_front_end from the ROM (an inflate of its own, not the
+     game's, whose tables are themselves the ROM's data), lays them and init out at their N64 addresses,
+     and applies operations `port/tools/rom_data.py` made at build time from port-arena's image: copies
+     from the same address (as they are, or with 2-, 4- or 8-byte units reversed for native endian),
+     copies from elsewhere (what port-arena moved above 0x400000, LP64's outgrown variables), and literal
+     bytes.
+   - The build fails unless the operations, applied to the build machine's ROM, give the image byte for
+     byte; the port checks a hash of what it made.  The literal bytes (2.9–3.4 K) are listed by variable
+     in `gen/romdata_report.txt`, and are all the port's (row 4e).
+   - The ROM's sha1 is checked at startup, in every build (`PORT_ROM_ANY=1` downgrades it to a warning).
+   - The RSP microcode text is zeros, in every build.
+   - It costs about 7 ms at startup.
+   - **Not done: the non-movable builds**, which keep carrying 1a–1d.  There the game's variables are the
+     executable's own sections at their N64 addresses, filled by the loader, and the C's are byte-swapped
+     by BEPass's constructors before `main` has read the ROM, so taking them from the ROM would mean
+     blanking ranges of the linked executable after the link and reordering the startup.  Since only the
+     movable builds would be published (item 1), it wasn't worth it.
 3. **The engine rewrite (category 2).** The translation is ROM-derived by construction, so a published
    binary needs Rare's engine as hand-written C. The alternative is an interpreter, estimated 5–20× slower
    on that third of the code. See below.
