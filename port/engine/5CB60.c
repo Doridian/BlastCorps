@@ -173,7 +173,7 @@ void func_802A4464(u32 h_) {
     s32 n = (s16)h->unk8[0] * (s16)h->unk8[1];
     u8 *base = (u8 *)h + h->terrain;
     u8 *p = base;
-    u8 **out = (u8 **)D_803BDB10;
+    u32 *out = (u32 *)D_803BDB10;
 
     ENGINE_BLK(802A4464);
     for (;;) {
@@ -183,12 +183,12 @@ void func_802A4464(u32 h_) {
         }
         ENGINE_BLK(802A44A4);
         p += 4;
-        *out++ = p;
+        *out++ = (u32)p;
         p = base + UNALIGNED_W(p - 4);
         n--;
     }
     ENGINE_BLK(802A44C8);
-    *out = p + 4;
+    *out = (u32)(p + 4);
 }
 
 /* func_802A44E4: a size rounded up to 8, if it isn't a multiple of 4 */
@@ -943,7 +943,7 @@ void func_802A2164(u32 n, u32 m_) {
    (Model.unk30..unk38): byte 0x31 through D_8030631F */
 REGS(v1)
 void func_802A23E0(u32 b_) {
-    u8 *m = *(u8 **)b_;
+    u8 *m = (u8 *)((Building *)b_)->model;
     u8 *p = AT(m, 0x30), *end = AT(m, 0x38);
 
     ENGINE_BLK(802A23E0);
