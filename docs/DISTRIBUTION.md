@@ -151,12 +151,17 @@ against its translation.
   leaves behind for its translated callers (`ENGINE_LEAVE`).
 - That puts the whole engine at roughly 15–20 agent-hours.  The vehicle modules and the loaders are
   slower per function than the math, but each is checked the same way.
-- Native now: 105 functions, all of 679E0 but four, 69014's and 69944's, the part setters in 56040,
-  and most of 62740's ground, wheel and triangle code.
-- Still translated in 62740: its orchestrators (`func_802A7FD8`, `func_802A8768`, `func_802A8CCC`,
-  which us.v10 has differently, `func_802A95A4`, `func_802A9710`), the recursive dispatchers into the
-  vehicle modules (`func_802AB478` to `func_802AB714`), and the moving objects' matrix chain
-  (`func_802AA890` and its callers).
+- Native now: 183 functions. That's all of 69014 and 69944, 679E0 but four, 62740 but five, and 81
+  of 56040's 101: the parts, their planes and headings, the animation splines and key frames, and the
+  sphere, edge and triangle tests.
+- Still translated in 62740: `func_802A8768`, the per-frame wheel orchestrator (it hands a dozen
+  registers on to its callees and the vehicle modules call it), and the recursive dispatchers into the
+  vehicle modules (`func_802AB478` to `func_802AB714`).  In 56040: the collision walks over the
+  buildings' pieces (`func_8029AA10`, `func_8029AB88`, `func_8029B02C` and their helpers), the
+  part-tree checks in one shared-code group (`func_8029CB04`, `CB54`, `CD54`, `CF04`), the texture
+  loader path (`func_8029E0AC`, `E21C`, `E47C`), `func_8029E558` (it needs `engine_save()` for the
+  registers it reloads), and `func_8029F9D4`/`func_8029FC74`.  679E0's four are dead or go with
+  71140.
 - Native too: all of 77E20 (68 functions), 89250 (13), 8A2E0 (7) and the front end's 1B100 (6),
   94 functions in about 3 agent-hours with the checks and the TAS (2026-10-01).  77E20 is long,
   branchy code that charges its blocks through tables of display-list copies and saves most of
