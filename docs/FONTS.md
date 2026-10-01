@@ -176,7 +176,12 @@ spacing stay the game's, so it works on every screen at once.
   hashes, which is ROM-derived.
 - *Making the image*: stb_truetype (public domain or MIT, Sean Barrett,
   v1.26, `port/third_party/stb/`) makes a signed distance field for each
-  character once (at startup, about 0.35 s for the 50 characters).  When
+  character once: one a retrace from the first (the boot screens have no
+  text), about 0.2 s for the 50 characters in all natively and 0.3 s in a
+  browser, and at once for a glyph wanted before its turn.  (stb's SDF
+  starts its search from the distance where the value clamps to 0 or 255
+  anyway, which lets it skip more of the outline's curves: the same bytes,
+  1.3-1.9 times faster.)  When
   a glyph is first drawn its 32x32 texels give the box its ink covers (to
   a fraction of a texel, from the coverage of the edge texels), its ink
   area and its peak intensity.  The font's glyph is stretched to that box
@@ -186,6 +191,16 @@ spacing stay the game's, so it works on every screen at once.
   written at the game's peak intensity (14/15: the I4 glyphs' 3 bits), at
   256x256 (`HDTEXT_K` = 8 times the tile), rows bottom up like the
   game's.  Under 1 ms a glyph.
+- *Uploading it*: one GL texture a glyph, whatever TMEM it came through
+  (the game loads the same glyph into many places, each a texture-cache
+  entry of its own), kept across the cache's flushes, holding the coverage
+  in one channel (R8; the shader reads `.rrrr`, which samples the same as
+  the four equal channels did).  Before that, a screen of new text was
+  hundreds of 256x256 RGBA uploads with their mipmaps: in a browser on
+  SwiftShader one retrace took 2.8 s (`PORT_PERF`, retraces 600-1200 of the
+  web page's `PORT_AUTOSTART=3` run: max 2,825 ms and 9.1 ms of presenting
+  a retrace; now 712 ms and 1.6 ms, against 605 ms and 1.3 ms without
+  `--hd-text`).
 - *Drawing it*: the cache entry is marked high-resolution, the draw's
   program gets a `texel_hd` that samples it with GL's filtering and
   mipmaps (so it stays smooth when the game draws small text) at the

@@ -2021,8 +2021,11 @@ NOISE * PRIM_ALPHA static) depends on it; without it they showed tile 1.
 resolution: the stencil font's glyph textures are recognized by the
 font.c slot their LoadBlock came from and replaced, in the texture cache,
 by glyphs drawn from Stardos Stencil (SIL OFL) fitted to the game's; the
-quads, colours and shadows stay the game's.  docs/FONTS.md has the
-inventory of the game's fonts and the details.
+quads, colours and shadows stay the game's.  Each glyph is one GL texture
+(R8, shared by every cache entry that holds it), and the font's distance
+fields are made one a retrace from the first (`hdtext_idle`), so neither
+the start nor a screen of new text waits on them.  docs/FONTS.md has the
+inventory of the game's fonts and the details, with the timings.
 
 Coverage from alpha (`CVG_X_ALPHA`) multiplies the pixel's coverage by
 the combined alpha, and with `AA_EN` the RDP doesn't write a pixel left
