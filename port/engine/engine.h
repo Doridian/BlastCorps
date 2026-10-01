@@ -75,6 +75,30 @@ void engine_leave(unsigned int reg, u32 value);
 #define ENGINE_LEAVE_FW(fpr, w) engine_leave(34 + (fpr), (u32)(w))
 /* a whole 64-bit GPR (Rare's dmult/dadd leave some) */
 void engine_leave64(unsigned int reg, u32 lo, u32 hi);
+
+/* the original's `break` (IDO's division checks: code 7 for a zero
+   divisor, 6 for an overflow): it stops the port as the translation's
+   recomp_trap does.  pc is us.v11's address of the block, for the report. */
+void engine_break(u32 pc, u32 code) __attribute__((noreturn));
+/* q = n / d, as IDO's checked div: the blocks of its zero test (bz, its
+   break), the -1 test (bm1) and the overflow test (bmin, its break bov) */
+#define ENGINE_DIV(q, n, d, bz, bm1, bmin, bov)                             \
+    do {                                                                    \
+        s32 n_ = (n), d_ = (d);                                             \
+        if (d_ == 0) {                                                      \
+            ENGINE_BLK(bz);                                                 \
+            engine_break(0x##bz, 7);                                        \
+        }                                                                   \
+        ENGINE_BLK(bm1);                                                    \
+        if (d_ == -1) {                                                     \
+            ENGINE_BLK(bmin);                                               \
+            if (n_ == (s32)0x80000000) {                                    \
+                ENGINE_BLK(bov);                                            \
+                engine_break(0x##bov, 6);                                   \
+            }                                                               \
+        }                                                                   \
+        (q) = n_ / d_;                                                      \
+    } while (0)
 #define ENGINE_LEAVE64(gpr, v) engine_leave64((gpr), (u32)(v), (u32)((u64)(v) >> 32))
 
 #endif

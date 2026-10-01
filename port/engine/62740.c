@@ -3131,3 +3131,173 @@ void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2) {
     ENGINE_LEAVE(15, 0);
     ENGINE_LEAVE(19, (u32)t);
 }
+
+/* ---- the speed on a slope ------------------------------------------------ */
+
+/* The speed *speed: held to 1.5 times the vehicle's top speeds (unk78[13]
+   forward, unk78[0] in reverse) when `limit`, then, with all three wheels
+   on the ground (none of wheels[] 1), pushed by the slope (func_802A8590
+   of the heights h, over f2, times -4) and brought toward 0 by 3 (in
+   modes 0, 2, 9 and 0x10) or 1.  Not at all with D_80370C22 set and the
+   vehicle stopped.  Returns the speed, or 1 with a wheel off the ground
+   ($t1). */
+REGS(t6, t8, t7, s0, s7, f2, gp -> t1)
+s32 func_802A843C(s16 *speed, s32 limit, s32 mode, s8 *wheels, s32 *h, f32 div, VS *vs) {
+    s32 t1, t2, lim;
+    f32 f;
+
+    ENGINE_BLK(802A843C);
+    if (D_80370C22 != 0) {
+        ENGINE_BLK(802A8454);
+        t1 = *speed;
+        if (t1 == 0)
+            goto done;
+    }
+    ENGINE_BLK(802A8460);
+    if (limit != 0) {
+        ENGINE_BLK(802A8468);
+        t1 = *speed;
+        if (t1 >= 0) {
+            ENGINE_BLK(802A8474);
+            lim = vs->unk78[13];
+            ENGINE_LEAVE(24, lim >> 1);
+            lim += lim >> 1;
+            ENGINE_LEAVE(10, lim);
+            if (lim < t1) {
+                ENGINE_BLK(802A848C);
+                *speed = lim;
+            }
+        } else {
+            ENGINE_BLK(802A8494);
+            lim = vs->unk78[0];
+            ENGINE_LEAVE(24, lim >> 1);
+            lim += lim >> 1;
+            ENGINE_LEAVE(10, lim);
+            if (t1 < lim) {
+                ENGINE_BLK(802A84AC);
+                *speed = lim;
+            }
+        }
+    }
+    ENGINE_BLK(802A84B0);
+    t1 = 1;
+    if (wheels[0] == 1)
+        goto done;
+    ENGINE_BLK(802A84C0);
+    if (wheels[1] == 1)
+        goto done;
+    ENGINE_BLK(802A84D0);
+    if (wheels[2] == 1)
+        goto done;
+    ENGINE_BLK(802A84E0);
+    t1 = func_802A8590(h);
+    ENGINE_BLK(802A84E8);
+    f = (f32)t1 / div;
+    f = f * -4.0f;
+    t2 = engine_cvt_w_s(f);
+    t1 = *speed + t2;
+    if (mode == 0)
+        goto three;
+    ENGINE_BLK(802A8518);
+    if (mode == 2)
+        goto three;
+    ENGINE_BLK(802A8524);
+    if (mode == 0x10)
+        goto three;
+    ENGINE_BLK(802A852C);
+    if (mode == 9)
+        goto three;
+    ENGINE_BLK(802A8534);
+    t2 = 1;
+    goto have;
+three:
+    ENGINE_BLK(802A853C);
+    t2 = 3;
+have:
+    ENGINE_BLK(802A8540);
+    ENGINE_LEAVE(10, t2);
+    if (t1 != 0) {
+        ENGINE_BLK(802A8548);
+        if (t1 <= 0) {
+            ENGINE_BLK(802A8550);
+            t1 += t2;
+            if (t1 > 0)
+                goto zero;
+            ENGINE_BLK(802A855C);
+        } else {
+            ENGINE_BLK(802A8564);
+            t1 -= t2;
+            if (t1 < 0)
+                goto zero;
+            ENGINE_BLK(802A8570);
+        }
+        goto store;
+    zero:
+        ENGINE_BLK(802A8578);
+        t1 = 0;
+    }
+store:
+    ENGINE_BLK(802A857C);
+    *speed = t1;
+done:
+    ENGINE_BLK(802A8580);
+    return t1;
+}
+
+/* ---- the vehicle's pitch and roll from its wheels' heights --------------- */
+
+extern s16 D_803ED402, D_803ED404;     /* the wheels' spans: along, across */
+
+/* The angles of the wheels' heights (D_803ED3A8: the front wheel's, then
+   the two others), each difference over its span through func_802ACF64,
+   / 16: across ($a3, negative when the second is higher) and along
+   ($a1, negative when the third is lower). */
+REGS(-> a1, a3)
+s32 func_802A8B10(s32 *across_out) {
+    s32 h0 = D_803ED3A8[0], h1 = D_803ED3A8[1], h2 = D_803ED3A8[2];
+    s32 along = D_803ED402, span = D_803ED404, d, q, a, t2, t3;
+
+    ENGINE_BLK(802A8B10);
+    d = h1 - h0;
+    if (d >= 0) {
+        ENGINE_BLK(802A8B64);
+        ENGINE_DIV(q, (s32)((u32)d << 16), span, 802A8B74, 802A8B78, 802A8B84, 802A8B8C);
+        ENGINE_BLK(802A8B90);
+        a = func_802ACF64(q);
+        ENGINE_BLK(802A8BA0);
+        t2 = -(s32)((u32)a >> 4);
+    } else {
+        ENGINE_BLK(802A8BAC);
+        ENGINE_BLK(802A8BB4);
+        d = -d;
+        ENGINE_BLK(802A8BB8);
+        ENGINE_DIV(q, (s32)((u32)d << 16), span, 802A8BC8, 802A8BCC, 802A8BD8, 802A8BE0);
+        ENGINE_BLK(802A8BE4);
+        a = func_802ACF64(q);
+        ENGINE_BLK(802A8BF4);
+        t2 = (u32)a >> 4;
+    }
+    ENGINE_BLK(802A8BF8);
+    d = h2 - h0;
+    if (d >= 0) {
+        ENGINE_BLK(802A8C04);
+        ENGINE_DIV(q, (s32)((u32)d << 16), along, 802A8C14, 802A8C18, 802A8C24, 802A8C2C);
+        ENGINE_BLK(802A8C30);
+        a = func_802ACF64(q);
+        ENGINE_BLK(802A8C40);
+        t3 = (u32)a >> 4;
+    } else {
+        ENGINE_BLK(802A8C48);
+        ENGINE_BLK(802A8C50);
+        d = -d;
+        ENGINE_BLK(802A8C54);
+        ENGINE_DIV(q, (s32)((u32)d << 16), along, 802A8C64, 802A8C68, 802A8C74, 802A8C7C);
+        ENGINE_BLK(802A8C80);
+        a = func_802ACF64(q);
+        ENGINE_BLK(802A8C90);
+        t3 = -(s32)((u32)a >> 4);
+    }
+    ENGINE_BLK(802A8C98);
+    *across_out = t2;
+    return t3;
+}

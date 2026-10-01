@@ -20,6 +20,12 @@ int32_t engine_trunc_w_d(double x) { return (int32_t)recomp_f2w(trunc(x)); }
 int64_t engine_cvt_l_d(double x) { return (int64_t)recomp_f2l(recomp_rint(x)); }
 int64_t engine_cvt_l_s(float x) { return (int64_t)recomp_f2l_s(recomp_rintf(x)); }
 
+extern recomp_context *port_ctx(void);
+
+void engine_break(uint32_t pc, uint32_t code) {
+    recomp_trap(port_ctx(), RECOMP_TRAP_BREAK, pc, code);
+}
+
 /* engine.h's ENGINE_LEAVE: 0-31 a GPR (the word sign-extended, as the
    VR4300 holds one), 34-65 an FPR word */
 extern recomp_context *port_ctx(void);
