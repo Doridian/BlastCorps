@@ -399,3 +399,298 @@ void func_802A57AC(void) {
     ENGINE_BLK(802A57C4);
     D_803C4B54 = q + 1;
 }
+
+/* ---- the effects' sprite slots ------------------------------------------ */
+
+#include "game/game.h"
+#include "shared.h"
+
+/* An effect's animated sprite: 16 slots of 0x3C bytes (D_803C4B70), each
+   with its frames' texture cells (up to four of the 16 in D_803EB770, 0x100
+   bytes each in D_803EA770). */
+typedef struct EffectSlot {
+    /* 0x00 */ u8 *PTR32 anim;      /* w at 2, h at 3, frames at 0xE, its texture at 0 */
+    /* 0x04 */ s32 unk4;
+    /* 0x08 */ s32 pos[3];          /* << 11 */
+    /* 0x14 */ s32 unk14[3];
+    /* 0x20 */ s32 vel[3];
+    /* 0x2C */ s32 unk2C;
+    /* 0x30 */ u8 unk30, unk31;
+    /* 0x32 */ u8 frame;
+    /* 0x33 */ u8 active;
+    /* 0x34 */ u8 mode;
+    /* 0x35 */ u8 unk35;
+    /* 0x36 */ u8 unk36;
+    /* 0x37 */ u8 cells[4];
+    /* 0x3B */ u8 unk3B;
+} EffectSlot;
+
+extern EffectSlot D_803C4B70[16];
+extern u8 D_803EA770[16][0x100];
+extern u8 D_803EB770[16];       /* the cells in use */
+extern u8 *PTR32 D_803EB788, *PTR32 D_803EB78C;    /* the effects' heap */
+extern s16 D_803EB790;          /* ... in 0x1010-byte pieces */
+extern u8 D_803EB792;
+extern u8 D_8020ED00[], D_8021DD00[];
+extern char D_80305C34[], D_80305C48[];
+void func_8029A7E4(char *, ...);
+REGS(t6, s1)
+void func_802A11C4(u32 id, u32 dst);
+
+#define R_AT 1
+#define R_A3 7
+#define HI16(p) (((u32)(p) + 0x8000) & 0xFFFF0000)
+
+/* func_802A5E60 (the carrier's and the comm point's): each sprite back
+   at its last frame */
+REGS()
+void func_802A5E60(void) {
+    EffectSlot *s = D_803C4B70;
+    s32 n = 16;
+
+    ENGINE_BLK(802A5E60);
+    for (;;) {
+        ENGINE_BLK(802A5E84);
+        if (n == 0) {
+            break;
+        }
+        ENGINE_BLK(802A5E8C);
+        n--;
+        if (s->active != 0) {
+            ENGINE_BLK(802A5E9C);
+            s->frame = *(u16 *)(s->anim + 0xE) - 1;
+        }
+        ENGINE_BLK(802A5EAC);
+        s++;
+    }
+    ENGINE_BLK(802A5EB4);
+}
+
+/* func_802A5ED0 (the vehicle modules'): how many slots are in use */
+REGS(-> t0)
+s32 func_802A5ED0(void) {
+    EffectSlot *s = D_803C4B70;
+    s32 n = 16, used = 0;
+
+    ENGINE_BLK(802A5ED0);
+    for (;;) {
+        ENGINE_BLK(802A5EF4);
+        if (n == 0) {
+            break;
+        }
+        ENGINE_BLK(802A5EFC);
+        n--;
+        if (s->active != 0) {
+            ENGINE_BLK(802A5F0C);
+            used++;
+        }
+        ENGINE_BLK(802A5F10);
+        s++;
+    }
+    ENGINE_BLK(802A5F18);
+    return used;
+}
+
+/* func_802A5F30 (the level loader's): no effects */
+REGS()
+void func_802A5F30(void) {
+    s32 n = 16, i = 0;
+
+    ENGINE_BLK(802A5F30);
+    D_803EB788 = NULL;
+    D_803EB78C = NULL;
+    D_803EB790 = 0;
+    for (;;) {
+        ENGINE_BLK(802A5F70);
+        if (n == 0) {
+            break;
+        }
+        ENGINE_BLK(802A5F78);
+        D_803C4B70[i].active = 0;
+        n--;
+        D_803EB770[i] = 0;
+        i++;
+    }
+    ENGINE_BLK(802A5F90);
+}
+
+/* func_802A5FA8 (00000.c's): the effects' heap: what is left below the
+   allocator's limit (0x8020ED00, or 0x8021DD00 outside mode 0x20), in
+   0x1010-byte pieces, each marked free at 0x1000 */
+void func_802A5FA8(void) {
+    u8 *heap = D_80358070, *limit, *end, *p;
+    s32 left;
+    u32 n;
+
+    ENGINE_BLK(802A5FA8);
+    if (D_80364AA8 & 0x20) {
+        ENGINE_BLK(802A5FC8);
+        limit = D_8020ED00;
+    } else {
+        ENGINE_BLK(802A5FD4);
+        limit = D_8021DD00;
+    }
+    ENGINE_BLK(802A5FDC);
+    left = limit - heap;
+    if (left < 0) {
+        ENGINE_BLK(802A5FE8);
+        left = 0;
+    }
+    ENGINE_BLK(802A5FEC);
+    n = (u32)left / 0x1010;
+    D_803EB788 = heap;
+    ENGINE_BLK(802A6014);
+    D_803EB790 = n;
+    func_8029A7E4(D_80305C34);
+    ENGINE_BLK(802A60A4);
+    func_8029A7E4(D_80305C48, n);
+    ENGINE_BLK(802A61B4);
+    end = heap + n * 0x1010;
+    D_803EB78C = end;
+    D_80358070 = end;
+    for (p = heap;; p += 0x1010) {
+        ENGINE_BLK(802A6250);
+        if (p == end) {
+            break;
+        }
+        ENGINE_BLK(802A6258);
+        *(u32 *)(p + 0x1000) = 0;
+    }
+    ENGINE_BLK(802A6264);
+}
+
+/* func_802A6274 (everyone's): start an effect's sprite: a free slot and
+   anim's w * h free texture cells, its frames' texture DMA'd (802A11C4)
+   unless its number is -1.  Mode 1 with a target ($t5) starts it at the
+   point $t3/$t4 name (679E0's func_802ABC88), still.  Returns 1, or 0 when
+   there is no room. */
+REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
+s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1,
+                  s32 s2, s32 s3, s32 s4, s32 s5, s32 a3) {
+    u8 *anim = (u8 *)t0;
+    EffectSlot *s = D_803C4B70;
+    u8 *dest = D_803EA770[0];
+    s32 n = 16, need, k;
+    u8 *cell, *c;
+
+    ENGINE_BLK(802A6274);
+    D_803EB792 = a3;
+    ENGINE_LEAVE(R_AT, HI16(&D_803EB792));
+    for (;;) {
+        ENGINE_BLK(802A62B4);
+        if (n == 0) {
+            goto fail;
+        }
+        ENGINE_BLK(802A62BC);
+        n--;
+        if (s->active == 0) {
+            break;
+        }
+        ENGINE_BLK(802A62CC);
+        s++;
+        dest += 0x100;
+    }
+    ENGINE_BLK(802A62D8);
+    need = anim[2] * anim[3];
+    c = s->cells;
+    cell = D_803EB770;
+    n = 16;
+    for (k = 0;; k++) {
+        ENGINE_BLK(802A6304);
+        if (need == 0) {
+            break;
+        }
+        ENGINE_BLK(802A630C);
+        if (n == 0) {
+            goto fail;
+        }
+        ENGINE_BLK(802A6314);
+        ENGINE_LEAVE(R_A3, *cell);
+        n--;
+        if (*cell == 0) {
+            ENGINE_BLK(802A6324);
+            *c++ = k;
+            need--;
+        }
+        ENGINE_BLK(802A6330);
+        cell++;
+    }
+    ENGINE_BLK(802A633C);
+    need = anim[2] * anim[3];
+    for (c = s->cells;;) {
+        ENGINE_BLK(802A6364);
+        if (need == 0) {
+            break;
+        }
+        ENGINE_BLK(802A636C);
+        need--;
+        D_803EB770[*c++] = 1;
+    }
+    ENGINE_BLK(802A6384);
+    s->active = 1;
+    s->anim = anim;
+    s->unk4 = t1;
+    s->mode = t2;
+    s->frame = 0;
+    s->unk35 = s5;
+    s->unk3B = D_803EB792;
+    ENGINE_LEAVE(R_AT, 1);
+    if (t2 != 1) {
+        ENGINE_BLK(802A63B4);
+        s->pos[0] = t3;
+        s->pos[1] = t4;
+        s->pos[2] = t5;
+        s->vel[0] = t6;
+        s->vel[1] = t7;
+        s->vel[2] = s0;
+        s->unk14[0] = s1;
+        s->unk14[1] = s2;
+        s->unk14[2] = s3;
+        s->unk2C = s4;
+        s->unk36 = 0;
+    } else {
+        ENGINE_BLK(802A63E4);
+        if (t5 != 0) {
+            s32 *pt;
+
+            ENGINE_BLK(802A63EC);
+            pt = (s32 *)func_802ABC88(t3, t4);
+            ENGINE_BLK(802A63FC);
+            s->mode = 0;
+            t3 = pt[0] << 11;
+            t4 = pt[1] << 11;
+            t5 = pt[2] << 11;
+            s->pos[0] = t3;
+            s->pos[1] = t4;
+            s->pos[2] = t5;
+            s->vel[0] = s->vel[1] = s->vel[2] = 0;
+            s->unk14[0] = s->unk14[1] = s->unk14[2] = 0;
+            s->unk2C = 0xFC180000;
+            s->unk36 = 0;
+            ENGINE_LEAVE(10, 0xFC180000);
+            ENGINE_LEAVE(11, t3);
+            ENGINE_LEAVE(12, t4);
+            ENGINE_LEAVE(13, t5);
+        } else {
+            ENGINE_BLK(802A6450);
+            s->unk30 = t3;
+            s->unk31 = t4;
+        }
+    }
+    ENGINE_BLK(802A6458);
+    t6 = *(s16 *)anim;
+    ENGINE_LEAVE(14, t6);
+    ENGINE_LEAVE(R_AT, -1);
+    if (t6 != -1) {
+        ENGINE_BLK(802A6468);
+        ENGINE_LEAVE(17, (u32)dest);
+        func_802A11C4(t6, (u32)dest);
+    }
+    ENGINE_BLK(802A6470);
+    ENGINE_BLK(802A647C);
+    return 1;
+fail:
+    ENGINE_BLK(802A6478);
+    ENGINE_BLK(802A647C);
+    return 0;
+}
