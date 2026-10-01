@@ -49,6 +49,7 @@ void func_802C9624(VS *vs);
    heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
 void func_802C8150(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
+    s32 avg;
     VS *vs = &D_803F8550[0];
     Part *parts = D_803F7C50 + 32 * 0;
     u8 *buf;
@@ -83,7 +84,7 @@ void func_802C8150(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8748[1], x, z, vs->unk4, &D_803F8748[1], &vs->unk4C, 0xB, vs);
+    func_802A992C(vs->unk52, D_803F8748[1], x, z, vs->unk4, &D_803F8748[1], (s16 *)&vs->unk4C, 0xB, vs, engine_ctx(30), &avg);
     ENGINE_BLK(802C826C);
     func_8029F85C(parts, D_803F876C[0], D_803F8778[0], D_803F8778[1]);
     ENGINE_BLK(802C82A8);
@@ -274,6 +275,7 @@ void func_802C97C0(VS *vs);
    heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
 void func_802C8470(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
+    s32 avg;
     VS *vs = &D_803F8550[1];
     Part *parts = D_803F7C50 + 32 * 1;
     u8 *buf;
@@ -308,7 +310,7 @@ void func_802C8470(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8748[4], x, z, vs->unk4, &D_803F8748[4], &vs->unk4C, 0x11, vs);
+    func_802A992C(vs->unk52, D_803F8748[4], x, z, vs->unk4, &D_803F8748[4], (s16 *)&vs->unk4C, 0x11, vs, engine_ctx(30), &avg);
     ENGINE_BLK(802C858C);
     func_8029F85C(parts, D_803F876C[1], D_803F8778[2], D_803F8778[3]);
     ENGINE_BLK(802C85C8);
@@ -499,6 +501,7 @@ void func_802C995C(VS *vs);
    heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
 void func_802C8790(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
+    s32 avg;
     VS *vs = &D_803F8550[2];
     Part *parts = D_803F7C50 + 32 * 2;
     u8 *buf;
@@ -533,7 +536,7 @@ void func_802C8790(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8748[7], x, z, vs->unk4, &D_803F8748[7], &vs->unk4C, 0x12, vs);
+    func_802A992C(vs->unk52, D_803F8748[7], x, z, vs->unk4, &D_803F8748[7], (s16 *)&vs->unk4C, 0x12, vs, engine_ctx(30), &avg);
     ENGINE_BLK(802C88AC);
     func_8029F85C(parts, D_803F876C[2], D_803F8778[4], D_803F8778[5]);
     ENGINE_BLK(802C88E8);

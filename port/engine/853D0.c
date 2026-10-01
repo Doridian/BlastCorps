@@ -77,6 +77,7 @@ void func_802CB5D8(void);
    in $t7, $s3, $s0 and the heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
 void func_802C9B90(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
+    s32 avg;
     VS *vs = &D_803F8AA0;
     Part *p = D_803F87A0;
     u8 *buf;
@@ -114,7 +115,7 @@ void func_802C9B90(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8B4C, x, z, vs->unk4, &D_803F8B4C, &vs->unk4C, 0xA, vs);
+    func_802A992C(vs->unk52, D_803F8B4C, x, z, vs->unk4, &D_803F8B4C, (s16 *)&vs->unk4C, 0xA, vs, engine_ctx(30), &avg);
     ENGINE_BLK(802C9CF0);
     func_8029F85C(p, D_803F8B54, D_803F8B58, D_803F8B5C);
     ENGINE_BLK(802C9D2C);
@@ -266,7 +267,7 @@ void func_802CA1F8(void) {
 
     ENGINE_BLK(802CA1F8);
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
-    func_802A9A60(vs->unk52, D_803F8B4C, D_803F8B48, D_803F8B50, vs->unk4, &D_803F8B4C, &vs->unk4C, 0xA, vs);
+    func_802A9A60(vs->unk52, D_803F8B4C, D_803F8B48, D_803F8B50, vs->unk4, &D_803F8B4C, (s16 *)&vs->unk4C, 0xA, vs, engine_ctx(30));
     ENGINE_BLK(802CA284);
     func_802CB42C(vs);
     ENGINE_BLK(802CA28C);

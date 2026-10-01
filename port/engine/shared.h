@@ -103,10 +103,6 @@ REGS(t0, t1, t2, s4)
 void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf);
 REGS(t3, t4, s4)
 void func_802AABE4(s32 id, u8 *t4, u8 *buf);
-REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp)
-void func_802A992C(s16 *v1, s32 y, s32 x, s32 z, s32 *s1, s32 *s2, u16 *s4, s32 type, VS *vs);
-REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp)
-void func_802A9A60(s16 *v1, s32 y, s32 x, s32 z, s32 *s1, s32 *s2, u16 *s4, s32 type, VS *vs);
 REGS(a0, a1, f0 -> a0, a1)
 s32 func_802A71DC(s32 h, s32 h2, f32 rate, s32 *a1);
 REGS(t1, t5, t6, s4, s5, s6, s7, gp)
@@ -142,6 +138,11 @@ REGS(a1)
 void func_802C4724(s32 a1);
 
 /* 62740 */
+REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp, fp -> s3, s5)
+s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s32 self, VS *vs, s32 mat,
+                   s32 *avg_out);
+REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp, fp -> s1)
+s32 *func_802A9A60(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s32 self, VS *vs, s32 mat);
 REGS(gp)
 void func_802A6F00(VS *vs);
 s32 func_802A6F6C(void);

@@ -51,6 +51,7 @@ void func_802BC578(void);
    in $t7, $s3, $s0 and the heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
 void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
+    s32 avg;
     VS *vs = &D_803EFDF0;
     u8 *buf;
     s16 *r;
@@ -84,7 +85,7 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803EFE9C, x, z, vs->unk4, &D_803EFE9C, &vs->unk4C, 7, vs);
+    func_802A992C(vs->unk52, D_803EFE9C, x, z, vs->unk4, &D_803EFE9C, (s16 *)&vs->unk4C, 7, vs, engine_ctx(30), &avg);
     ENGINE_BLK(802BBB8C);
     func_8029F85C(D_803EFAF0, D_803EFEA4, D_803EFEA8, D_803EFEAC);
     ENGINE_BLK(802BBBC8);

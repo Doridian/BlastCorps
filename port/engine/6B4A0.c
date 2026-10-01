@@ -66,6 +66,7 @@ static s32 part_state(s32 i, Part *parts) {
    in $t7, $s3, $s0 and the heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
 void func_802AFC60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
+    s32 avg;
     VS *vs = &D_803EDB40;
     u8 *buf;
     s16 *r;
@@ -103,7 +104,7 @@ void func_802AFC60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     D_803EDC00 = 0;
     D_803EDC06 = 0;
     D_803EDC04 = 0;
-    func_802A992C(vs->unk52, D_803EDBEC, x, z, vs->unk4, &D_803EDBEC, &vs->unk4C, 1, vs);
+    func_802A992C(vs->unk52, D_803EDBEC, x, z, vs->unk4, &D_803EDBEC, (s16 *)&vs->unk4C, 1, vs, engine_ctx(30), &avg);
     ENGINE_BLK(802AFDB4);
     func_8029F85C(D_803ED840, D_803EDBF4, D_803EDBF8, D_803EDBFC);
     ENGINE_BLK(802AFDF0);
@@ -257,7 +258,7 @@ void func_802B02A0(void) {
 
     ENGINE_BLK(802B02A0);
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
-    func_802A9A60(vs->unk52, D_803EDBEC, D_803EDBE8, D_803EDBF0, vs->unk4, &D_803EDBEC, &vs->unk4C, 1, vs);
+    func_802A9A60(vs->unk52, D_803EDBEC, D_803EDBE8, D_803EDBF0, vs->unk4, &D_803EDBEC, (s16 *)&vs->unk4C, 1, vs, engine_ctx(30));
     ENGINE_BLK(802B032C);
     func_802B0B3C(vs);
     ENGINE_BLK(802B0334);

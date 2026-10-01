@@ -190,6 +190,10 @@ void engine_save(uint32_t gmask, uint32_t fmask) {
     save_n++;
 }
 
+uint32_t engine_ctx(unsigned int reg) {
+    return reg < 32 ? (uint32_t)port_ctx()->r[reg] : 0;
+}
+
 void engine_restore(void) {
     recomp_context *ctx = port_ctx();
     int n, k;
