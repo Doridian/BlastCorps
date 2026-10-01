@@ -168,3 +168,18 @@ func_802AE104
 func_802AE160
 func_802AE1BC
 func_802AE290
+
+# 89250: the collision tests against the buildings (engine-D)
+func_802CDA10
+func_802CDAE8
+func_802CDB70
+func_802CDC7C
+func_802CDD74
+func_802CDF94
+func_802CE0E4
+func_802CE204
+func_802CE3B8
+func_802CE4F0
+func_802CE5BC
+func_802CE65C
+func_802CE6F8
