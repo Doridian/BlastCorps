@@ -28,10 +28,7 @@ s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2);
 /* 62740: whether (x, z) is inside a quadrilateral */
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3);
-/* 60F60: start an effect (a debris or smoke particle) */
-REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
-s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
-                  s32 s3, s32 s4, s32 s5, s32 a3);
+/* (60F60's func_802A6274, an effect, is in shared.h) */
 /* (a function of the same) */
 REGS(a1, t3, t4, t5, t6)
 void func_802C18D4(s32 a1, s32 x, s32 y, s32 z, s32 t6);
