@@ -493,3 +493,24 @@ func_802CB564
 func_802CB5D8
 func_802CB634
 func_802CB660
+
+# 71140: the Backlash truck, and 679E0's func_802AC284 and func_802AC2A4 (only
+# the truck calls them); func_802B6100 and func_802B618C go with 62740's
+# collision dispatch
+func_802B5900
+func_802B5CD8
+func_802B5F04
+func_802B5F60
+func_802B5FAC
+func_802B60BC
+func_802B6294
+func_802B69F8
+func_802B6C28
+func_802B7030
+func_802B7168
+func_802B71DC
+func_802B7240
+func_802B72DC
+func_802B7308
+func_802AC284
+func_802AC2A4
