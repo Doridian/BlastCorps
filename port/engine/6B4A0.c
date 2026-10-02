@@ -229,6 +229,10 @@ u8 func_802B01DC(void) {
                 if (v != 1) {
                     ENGINE_BLK(802B023C);
                     r = 1;
+                } else {
+                    /* (the part's number, which the original leaves in $v0:
+                       5, so it can be left after all) */
+                    r = 5;
                 }
             }
         }
