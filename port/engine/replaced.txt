@@ -756,3 +756,12 @@ func_802AFB84
 func_802AFBA0
 func_802AFBFC
 func_802AFC28
+
+# 5CB60: the level loader itself and its vehicle parts
+func_802A1674
+func_802A19F4
+func_802A303C
+func_802A30DC
+func_802A3134
+func_802A3198
+func_802A350C

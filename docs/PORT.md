@@ -2858,8 +2858,9 @@ checked and must keep the TAS.
 - Some functions have conventions that are all pass-through: everything
   their translated caller saves and restores looks like an output.  These
   go native together with their callers, and then the conventions don't
-  matter.  679E0's `func_802AC284` and `func_802AC2A4` wait for the truck's
-  71140 this way.
+  matter.  679E0's `func_802AC284` and `func_802AC2A4` went native with
+  the truck's 71140 this way, and 62740's carrying dispatchers with the
+  vehicles' callbacks.
 
 **The cost model.**  The game's pace, and with it the TAS, depends on the
 engine's CPU time to the instruction ("Timing").
@@ -2948,7 +2949,10 @@ a native-endian build (n64, mn32) does.
     glue would have started its translation.
   Native code calls translated code at the context's `$sp`, as Rare's
   `jal` leaves it.  The check build can't see this: it leaves out the
-  dead stack.
+  dead stack.  The driver, native too, reads those slots with
+  `engine_frame_lw(off)`, and writes the return address its `sd $ra`
+  saves, each version's own, since two of the shadow's arguments are its
+  halves.
 - A native called from another native gets its inputs as C arguments,
   and nothing puts them in the context.  When its original keeps or
   saves an input register, it leaves the input there itself at entry

@@ -183,8 +183,13 @@ against its translation.
   native, the registers the glue used to write disappear (a native-to-native call leaves nothing in the
   context).  So each caller puts back what the original left for the translated code after it
   (`$s0`/`$s4`/`$s7` for `func_802A8768`'s and `func_8029C454`'s hidden reads, `func_802AA764`'s `$s2`).
-- Still translated in the vehicle modules: each one's two collision callbacks (they go native with 62740's
-  dispatch, `func_802AB478`..), 69BB0 (the driver), 6E200 (Skyfall and Ramdozer), 80280 (J-Bomb).
+- The rest of the vehicles (engine-E, 2026-10-01): 6E200 (Skyfall and Ramdozer, 28), 80280 (the
+  J-Bomb and the level's Controller Pak status, 30), 69BB0 (the driver, 14), 62740's carrying (the four
+  dispatchers and the vehicles' 18 callbacks for them, two templates in shared.h) and 5CB60's loader with
+  its vehicle parts (7): 101 functions in about 5 agent-hours, each checked over the whole TAS by its
+  icount log and its block trace (`PORT_BLKLOG`) against main's.  Every vehicle module is native now.
+  The check build found one older slip: the Sideswipe's "can it be left" returned 0 where the original
+  leaves the part number 5 in `$v0` (a path the TAS doesn't take).
 - The chopper's C-cost drift (us.v10's TAS, read 5591, `__port_icount_c` 12 instructions low, a 7x8
   patch of pixels) was the dead N64 stack.  The driver's shadow (69BB0's `func_802AF340`), which hd.c
   runs right after the chopper at the same depth, passes `func_802582C4` three stack arguments it never

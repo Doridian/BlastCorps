@@ -1,8 +1,8 @@
 /*
  * hd_code 5CB60 (us.v11 0x802A1320-0x802A4510): the level loader's parts,
- * as native C (engine.h).  The loader itself (func_802A1674) and its
- * vehicle and model parts are still translated; these are the parts that
- * turn the level file's sections into the run-time tables.
+ * as native C (engine.h): the parts that turn the level file's sections
+ * into the run-time tables, and (at the end) the loader itself
+ * (func_802A1674) with its vehicle and model parts.
  *
  * The originals take the level's header in $t0 and leave registers behind
  * that the loader's translated code then reads (ENGINE_LEAVE): what each
@@ -1863,4 +1863,570 @@ void func_802A3824(u32 h_) {
 u32 func_802A1320(void) {
     ENGINE_BLK(802A1320);
     return engine_mfc0(12);
+}
+
+/* ---- the loader and its vehicle parts ------------------------------------ */
+
+/* the vehicles' setups (the vehicle modules), with the model in $s2, the
+   position in $t7, $s3, $s0 and the heading in $s1 */
+#define SETUP(f) REGS(s2, t7, s3, s0, s1) void f(u8 *model, s32 x, s32 y, s32 z, s32 heading)
+SETUP(func_802AE370);
+SETUP(func_802AFC60);
+SETUP(func_802B0DA0);
+SETUP(func_802B29C0);
+SETUP(func_802B4100);
+SETUP(func_802B5900);
+SETUP(func_802BAD80);
+SETUP(func_802BBA60);
+SETUP(func_802B7340);
+SETUP(func_802C5120);
+SETUP(func_802C9B90);
+SETUP(func_802CB720);
+SETUP(func_802CC920);
+SETUP(func_802CF6A0);
+SETUP(func_802D07E0);
+REGS(t3, s2, t7, s3, s0, s1)
+void func_802C80D0(s32 type, u8 *model, s32 x, s32 y, s32 z, s32 heading);
+REGS(s2, t4, t5, t6, t7, s1)
+void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed);
+REGS(s2)
+void func_802B8480(u8 *model);
+REGS(s2)
+void func_802D2570(u8 *model);
+REGS(t0)
+void func_802CEAA0(u8 *level);
+REGS(t0)
+void func_802A2D68(u32 h_);
+REGS()
+void func_802A0700(void);
+REGS(t0)
+void func_802A3008(u32 h_);
+REGS(t0)
+void func_802A1C20(u32 h_);
+REGS(t0)
+void func_802A1C88(u32 h_);
+void func_8029DEA0(void);
+REGS(t0)
+void func_802A3D54(u32 h_);
+REGS(t0)
+void func_802A3DF8(u32 h_);
+REGS(t0)
+void func_802A3E9C(u32 h_);
+REGS(t0)
+void func_802A3F80(u32 h_);
+REGS(t0)
+void func_802A4464(u32 h_);
+REGS(t0)
+void func_802A1A9C(u32 h_);
+REGS()
+void func_802A1934(void);
+void func_8029DC80(void);
+REGS()
+void func_802A4510(void);
+REGS(t0)
+void func_802A2C54(u32 h_);
+REGS()
+void func_802A5F30(void);
+REGS()
+void func_802BC840(void);
+REGS(t0)
+void func_802A1D54(u32 h_);
+REGS()
+void func_802C049C(void);
+void func_802C4BF0(u8 *buf);
+void func_8028FDA0(s16 *a, s16 *b);
+void func_8026FBB0(void *a, void *b);
+void func_8028D4C0(void *a, void *b);
+void func_8028C190(void *a, void *b);
+s32 func_80268EE8(s32 level);
+void func_80295AE0(Gfx *gfx, Gfx *end);
+void func_802A303C(u32 h_);
+void func_802A30DC(void);
+void func_802A3134(u32 h_);
+void func_802A3198(void);
+void func_802A19F4(void);
+void func_802A350C(u32 h_);
+
+extern u8 D_8039CA61, D_8039CA7E, D_8039CAB7;  /* the level's extras: a carrier model's, its number; another */
+extern s16 D_8039CAB0, D_8039CAB2, D_8039CAB4;  /* ... the other's offset */
+extern u8 *PTR32 D_8039CAC0, *PTR32 D_8039CABC;
+extern u8 D_8036698C;
+extern u8 D_803ED40F;
+extern u8 D_80364AC1, D_803643DB, D_803643DC;
+
+/* hd.c's: the level at h loaded into the run-time tables, its vehicles set
+   up, and (status non-zero, not the attract modes) its status from the
+   Controller Pak's (func_802C4BF0) */
+void func_802A1674(LevelHeader *hp, s32 status) {
+    u32 h = (u32)hp;
+    u8 *p = (u8 *)hp;
+    u64 mode;
+
+    ENGINE_BLK(802A1674);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    D_803BE6F4 = status;
+    ENGINE_LEAVE(8, h);
+    func_802A2D68(h);
+    ENGINE_BLK(802A16D0);
+    func_802A0700();
+    ENGINE_BLK(802A16D8);
+    func_802A3008(h);
+    ENGINE_BLK(802A16E0);
+    func_802A1C20(h);
+    ENGINE_BLK(802A16E8);
+    func_802A1C88(h);
+    ENGINE_BLK(802A16F0);
+    func_8029DEA0();
+    ENGINE_BLK(802A16F8);
+    func_802A3D54(h);
+    ENGINE_BLK(802A1700);
+    func_802A3DF8(h);
+    ENGINE_BLK(802A1708);
+    func_802A3E9C(h);
+    ENGINE_BLK(802A1710);
+    func_802A3F80(h);
+    ENGINE_BLK(802A1718);
+    func_802A4464(h);
+    ENGINE_BLK(802A1720);
+    func_802A1A9C(h);
+    ENGINE_BLK(802A1728);
+    func_802A1934();
+    ENGINE_BLK(802A1730);
+    func_8029DC80();
+    ENGINE_BLK(802A1738);
+    func_802A4510();
+    ENGINE_BLK(802A1740);
+    func_802A2C54(h);
+    ENGINE_BLK(802A1748);
+    func_802A5F30();
+    ENGINE_BLK(802A1750);
+    func_802BC840();
+    ENGINE_BLK(802A1758);
+    func_802A1D54(h);
+    ENGINE_BLK(802A1760);
+    func_802C049C();
+    ENGINE_BLK(802A1768);
+    ENGINE_LEAVE(8, h);
+    ENGINE_LEAVE(16, h);
+    func_8028FDA0((s16 *)AT(p, 0x3C), (s16 *)AT(p, 0x40));
+    ENGINE_BLK(802A1784);
+    if (D_80364A98 != 0x80) {
+        ENGINE_BLK(802A179C);
+        func_802A350C(h);
+    }
+    ENGINE_BLK(802A17A4);
+    D_80364AC1 = 0;
+    D_803643DB = 0;
+    D_803643DC = 0;
+    mode = D_80364A98;
+    if (mode == 2) {
+        ENGINE_BLK(802A17D0);
+        if (D_802E8BEC != 0)
+            goto extras;
+        ENGINE_BLK(802A17E0);
+        func_802A303C(h);
+        ENGINE_BLK(802A17E8);
+        goto extras;
+    }
+    ENGINE_BLK(802A17F0);
+    if (mode == 0x80)
+        goto chopper;
+    ENGINE_BLK(802A17FC);
+    if (D_803BE6F4 != 0)
+        goto chopper;
+    ENGINE_BLK(802A180C);
+    func_802A303C(h);
+    ENGINE_BLK(802A1814);
+    func_802A30DC();
+chopper:
+    ENGINE_BLK(802A181C);
+    func_802A3134(h);
+extras:
+    ENGINE_BLK(802A1824);
+    func_802A3198();
+    ENGINE_BLK(802A182C);
+    func_802CEAA0(p);
+    ENGINE_BLK(802A1834);
+    func_802A19F4();
+    ENGINE_BLK(802A183C);
+    D_803BE6FC = (struct LevelUnk58 *)AT(p, 0x58);
+    D_803BE700 = (struct LevelUnk58 *)AT(p, 0x5C);
+    ENGINE_LEAVE(16, h);
+    func_8026FBB0(AT(p, 0x34), AT(p, 0x38));
+    ENGINE_BLK(802A1878);
+    func_8028D4C0(AT(p, 0x38), AT(p, 0x3C));
+    ENGINE_BLK(802A188C);
+    func_8028C190(AT(p, 0x20), AT(p, 0x24));
+    ENGINE_BLK(802A18A0);
+    D_80370C50 = 0;
+    mode = D_80364A98;
+    if (mode == 2)
+        goto done;
+    ENGINE_BLK(802A18BC);
+    if (mode == 0x100000000000ULL)
+        goto done;
+    ENGINE_BLK(802A18CC);
+    if (D_803BE6F4 == 0)
+        goto done;
+    ENGINE_BLK(802A18DC);
+    func_802C4BF0((u8 *)(__UINTPTR_TYPE__)(u32)D_803BE6F4);
+done:
+    ENGINE_BLK(802A18E4);
+    engine_restore();
+}
+
+/* the extra model the level has (D_8039CAB7): 0x98, its vertices moved by
+   D_8039CAB0..B4; its parts into D_8039CAC0 and D_8039CABC */
+REGS()
+void func_802A19F4(void) {
+    u8 *m;
+    s16 *v, *end;
+
+    ENGINE_BLK(802A19F4);
+    if (D_8039CAB7 == 0)
+        goto done;
+    ENGINE_BLK(802A1A0C);
+    m = (u8 *)(__UINTPTR_TYPE__)func_802A396C(0x98);
+    ENGINE_BLK(802A1A14);
+    v = (s16 *)(m + *(s32 *)(m + 0x14));
+    D_8039CAC0 = (u8 *)v;
+    end = (s16 *)(m + *(s32 *)(m + 0x18));
+    for (;;) {
+        ENGINE_BLK(802A1A44);
+        if (v == end)
+            break;
+        ENGINE_BLK(802A1A4C);
+        v[0] += D_8039CAB0;
+        v[1] += D_8039CAB2;
+        v[2] += D_8039CAB4;
+        v += 8;
+    }
+    ENGINE_BLK(802A1A78);
+    D_8039CABC = m + *(s32 *)(m + 0x24);
+done:
+    ENGINE_BLK(802A1A88);
+}
+
+/* the missile carrier (its record first in LevelHeader.unk54: its speed,
+   then x, z, its heading and the distance it goes, big-endian) */
+REGS(t0)
+void func_802A303C(u32 h_) {
+    u8 *r = AT(h_, 0x54);
+    s32 speed = r[0];
+    u32 m;
+
+    ENGINE_BLK(802A303C);
+    if (speed == 0)
+        goto done;
+    ENGINE_BLK(802A305C);
+    m = func_802A396C(0xFF);
+    ENGINE_BLK(802A30B0);
+    func_802B9C50((u8 *)(__UINTPTR_TYPE__)m, BE16S(r + 1) << 5, BE16S(r + 3) << 5, BE16S(r + 5), BE16S(r + 7) << 5,
+                  speed);
+    ENGINE_BLK(802A30B8);
+    D_803643DB = 1;
+done:
+    ENGINE_BLK(802A30C8);
+}
+
+/* the other chopper (8DDB0), on the levels func_80268EE8 says */
+REGS()
+void func_802A30DC(void) {
+    u32 m;
+
+    ENGINE_BLK(802A30DC);
+    if (func_80268EE8(D_802E8BDC) == 0) {
+        ENGINE_BLK(802A30F8);
+        goto done;
+    }
+    ENGINE_BLK(802A30F8);
+    ENGINE_BLK(802A3100);
+    D_80364AC1 = 1;
+    m = func_802A396C(0xFD);
+    ENGINE_BLK(802A3114);
+    func_802D2570((u8 *)(__UINTPTR_TYPE__)m);
+done:
+    ENGINE_BLK(802A311C);
+}
+
+/* the BCT chopper, where there is a carrier and outside the attract
+   modes */
+REGS(t0)
+void func_802A3134(u32 h_) {
+    u8 *r = AT(h_, 0x54);
+    u32 m;
+
+    ENGINE_BLK(802A3134);
+    if (r[0] == 0)
+        goto done;
+    ENGINE_BLK(802A3154);
+    if (D_80364AA8 == 0x80)
+        goto done;
+    ENGINE_BLK(802A3168);
+    m = func_802A396C(0xFE);
+    ENGINE_BLK(802A3170);
+    func_802B8480((u8 *)(__UINTPTR_TYPE__)m);
+    ENGINE_BLK(802A3178);
+    D_803643DC = 1;
+done:
+    ENGINE_BLK(802A3184);
+}
+
+/* the missile carrier's extra model (D_8039CA61, model D_8039CA7E): its
+   segment 7 block, the model's words then identity matrices, and its
+   display list (func_80295AE0) */
+REGS()
+void func_802A3198(void) {
+    u8 *m, *src, *heap;
+    s32 n, *w, *wend;
+    s16 *q;
+
+    ENGINE_BLK(802A3198);
+    if (D_8039CA61 == 0)
+        goto done;
+    ENGINE_BLK(802A31B0);
+    m = (u8 *)(__UINTPTR_TYPE__)func_802A32CC(D_8039CA7E);
+    ENGINE_BLK(802A31BC);
+    D_803BDAFC = m;
+    D_803BDB04 = m + *(s32 *)(m + 0x14);
+    D_803BDB08 = m + *(s32 *)(m + 0x24);
+    heap = D_80358070;
+    D_803BDB00 = heap;
+    src = m + *(s32 *)(m + 0x18);
+    n = *(s32 *)src;
+    wend = (s32 *)(src + 8 + *(s32 *)(src + 4));
+    for (w = (s32 *)(src + 8);;) {
+        ENGINE_BLK(802A3210);
+        if (w == wend)
+            break;
+        ENGINE_BLK(802A3218);
+        *(s32 *)heap = *w++;
+        heap += 4;
+        n -= 4;
+    }
+    for (;;) {
+        ENGINE_BLK(802A3230);
+        if (n == 0)
+            break;
+        ENGINE_BLK(802A3238);
+        q = (s16 *)heap;
+        q[0] = 1, q[1] = 0;
+        *(s32 *)(heap + 4) = 0;
+        q[4] = 0, q[5] = 1;
+        *(s32 *)(heap + 0xC) = 0;
+        *(s32 *)(heap + 0x10) = 0;
+        q[10] = 1, q[11] = 0;
+        *(s32 *)(heap + 0x18) = 0;
+        q[14] = 0, q[15] = 1;
+        *(s32 *)(heap + 0x20) = 0;
+        *(s32 *)(heap + 0x24) = 0;
+        *(s32 *)(heap + 0x28) = 0;
+        *(s32 *)(heap + 0x2C) = 0;
+        *(s32 *)(heap + 0x30) = 0;
+        *(s32 *)(heap + 0x34) = 0;
+        *(s32 *)(heap + 0x38) = 0;
+        *(s32 *)(heap + 0x3C) = 0;
+        heap += 0x40;
+        n -= 0x40;
+    }
+    ENGINE_BLK(802A3294);
+    D_80358070 = heap;
+    func_80295AE0((Gfx *)(m + *(s32 *)(m + 0x24)), (Gfx *)(m + *(s32 *)(m + 0x28)));
+    ENGINE_BLK(802A32B4);
+done:
+    ENGINE_BLK(802A32B8);
+}
+
+/* the level's vehicles (LevelHeader.vehicles: 9-byte records, the type,
+   then x, y, z and the heading, big-endian): each one's model loaded and
+   its setup run; type 1 is the vehicle the player chose outside the
+   attract modes */
+REGS(t0)
+void func_802A350C(u32 h_) {
+    u8 *p, *end;
+    u32 m, t3;
+    s32 x, y, z, heading;
+
+    ENGINE_BLK(802A350C);
+    func_802A3824(h_);
+    ENGINE_BLK(802A351C);
+    D_803ED3F5 = 0;
+    D_803ED40F = 0;
+    p = AT(h_, 0x50);
+    end = AT(h_, 0x54);
+    for (;;) {
+        ENGINE_BLK(802A3540);
+        if (p == end)
+            break;
+        ENGINE_BLK(802A3548);
+        t3 = p[0];
+        if (D_80364A98 == 2) {
+            ENGINE_BLK(802A3560);
+        }
+        ENGINE_BLK(802A3584);
+        if (t3 == 1) {
+            ENGINE_BLK(802A3590);
+            if (D_80364AA8 != 1) {
+                ENGINE_BLK(802A35A4);
+                if (D_80364AA8 != 0x80) {
+                    ENGINE_BLK(802A35AC);
+                    t3 = D_803643D4;
+                }
+            }
+        }
+        /* the train, the carrier and the barges */
+        ENGINE_BLK(802A35B4);
+        if (t3 == 6)
+            goto flag;
+        ENGINE_BLK(802A35C0);
+        if (t3 == 7)
+            goto flag;
+        ENGINE_BLK(802A35C8);
+        if (t3 == 0xB)
+            goto flag;
+        ENGINE_BLK(802A35D0);
+        if (t3 == 0x11)
+            goto flag;
+        ENGINE_BLK(802A35D8);
+        if (t3 == 0x12) {
+        flag:
+            ENGINE_BLK(802A35E0);
+            D_803ED40F = 1;
+        }
+        ENGINE_BLK(802A35EC);
+        x = BE16S(p + 1) << 5;
+        y = BE16S(p + 3) << 5;
+        z = BE16S(p + 5) << 5;
+        heading = BE16S(p + 7);
+        p += 9;
+        ENGINE_LEAVE(9, (u32)p);
+        ENGINE_LEAVE(15, x);
+        ENGINE_LEAVE(16, z);
+        ENGINE_LEAVE(17, heading);
+        ENGINE_LEAVE(19, y);
+        m = func_802A396C(t3);
+        ENGINE_BLK(802A3640);
+        if (t3 == 0x0) {
+            ENGINE_BLK(802A3648);
+            func_802AE370((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3650);
+            continue;
+        }
+        ENGINE_BLK(802A3658);
+        if (t3 == 0x1) {
+            ENGINE_BLK(802A3664);
+            func_802AFC60((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A366C);
+            continue;
+        }
+        ENGINE_BLK(802A3674);
+        if (t3 == 0x2) {
+            ENGINE_BLK(802A3680);
+            func_802B0DA0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3688);
+            continue;
+        }
+        ENGINE_BLK(802A3690);
+        if (t3 == 0x3) {
+            ENGINE_BLK(802A369C);
+            func_802B29C0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A36A4);
+            continue;
+        }
+        ENGINE_BLK(802A36AC);
+        if (t3 == 0x4) {
+            ENGINE_BLK(802A36B8);
+            func_802B4100((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A36C0);
+            continue;
+        }
+        ENGINE_BLK(802A36C8);
+        if (t3 == 0x5) {
+            ENGINE_BLK(802A36D4);
+            func_802B5900((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A36DC);
+            continue;
+        }
+        ENGINE_BLK(802A36E4);
+        if (t3 == 0x6) {
+            ENGINE_BLK(802A36F0);
+            func_802BAD80((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A36F8);
+            continue;
+        }
+        ENGINE_BLK(802A3700);
+        if (t3 == 0x7) {
+            ENGINE_BLK(802A370C);
+            func_802BBA60((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3714);
+            continue;
+        }
+        ENGINE_BLK(802A371C);
+        if (t3 == 0x8) {
+            ENGINE_BLK(802A3728);
+            func_802B7340((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3730);
+            continue;
+        }
+        ENGINE_BLK(802A3738);
+        if (t3 == 0x9) {
+            ENGINE_BLK(802A3744);
+            func_802C5120((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A374C);
+            continue;
+        }
+        ENGINE_BLK(802A3754);
+        if (t3 == 0xa) {
+            ENGINE_BLK(802A3760);
+            func_802C9B90((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3768);
+            continue;
+        }
+        /* the barges */
+        ENGINE_BLK(802A3770);
+        if (t3 == 0xB)
+            goto barge;
+        ENGINE_BLK(802A377C);
+        if (t3 == 0x11)
+            goto barge;
+        ENGINE_BLK(802A3784);
+        if (t3 == 0x12) {
+        barge:
+            ENGINE_BLK(802A378C);
+            func_802C80D0(t3, (u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3794);
+            continue;
+        }
+        ENGINE_BLK(802A379C);
+        if (t3 == 0xd) {
+            ENGINE_BLK(802A37A8);
+            func_802CB720((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A37B0);
+            continue;
+        }
+        ENGINE_BLK(802A37B8);
+        if (t3 == 0xe) {
+            ENGINE_BLK(802A37C4);
+            func_802CC920((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A37CC);
+            continue;
+        }
+        ENGINE_BLK(802A37D4);
+        if (t3 == 0xf) {
+            ENGINE_BLK(802A37E0);
+            func_802CF6A0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A37E8);
+            continue;
+        }
+        ENGINE_BLK(802A37F0);
+        if (t3 == 0x10) {
+            ENGINE_BLK(802A37FC);
+            func_802D07E0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
+            ENGINE_BLK(802A3804);
+            continue;
+        }
+        ENGINE_BLK(802A380C);
+        engine_trap(0x802A380C);
+    }
+    ENGINE_BLK(802A3810);
 }
