@@ -27,6 +27,7 @@ extern s16 D_803ED820;                          /* part 1's frame, last time */
 extern u16 D_803ED822;                          /* the heading it turns to (with D_803A7425) */
 extern s8 D_803ED824;                           /* turning to D_803ED822 */
 extern u8 D_803ED825;                           /* it can get out */
+extern u8 D_803F7812;                           /* set on getting out (not by us.v10) */
 extern u8 D_803ED827;                           /* getting out (func_802AE888) */
 extern u8 D_803ED828;                           /* the side it gets out on: 0 +z, 1 -z, 2 +x, 3 -x */
 extern u8 *PTR32 D_803ED82C;                    /* two 0xC80-byte buffers, one per frame */
@@ -260,6 +261,13 @@ void func_802AE860(void) {
 /* hd.c's: the player gets out of the vehicle at distance `dist` (times the
    table's): at the first clear spot beside it, walking out from there;
    whether it found one */
+/* us.v10's sets no D_803F7812 first, so its blocks start 0xC earlier */
+#ifdef VERSION_US_V10
+#define BLK_V10(v11, v10) ENGINE_BLK(v10)
+#else
+#define BLK_V10(v11, v10) ENGINE_BLK(v11)
+#endif
+
 u8 func_802AE888(s32 dist) {
     VS *vs = &D_803ED760;
     s8 *t = D_80305CB1;
@@ -269,36 +277,39 @@ u8 func_802AE888(s32 dist) {
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     engine_frame(-ENGINE_C_FRAME);
     frame_s_regs();
+#ifndef VERSION_US_V10
+    D_803F7812 = 1;
+#endif
     if (D_803ED825 == 0)
         goto fail;
     /* the side and distance for this level's vehicle (D_80305CB1) */
-    ENGINE_BLK(802AE8E8);
+    BLK_V10(802AE8F4, 802AE8E8);
     for (;; t += 5) {
-        ENGINE_BLK(802AE908);
+        BLK_V10(802AE914, 802AE908);
         if (t[0] == -1)
             goto found;
-        ENGINE_BLK(802AE918);
+        BLK_V10(802AE924, 802AE918);
         if (t[0] != D_802E8BDC)
             continue;
-        ENGINE_BLK(802AE920);
+        BLK_V10(802AE92C, 802AE920);
         if ((u8)t[1] != D_80364456)
             continue;
-        ENGINE_BLK(802AE92C);
+        BLK_V10(802AE938, 802AE92C);
         if (t[4] != 0) {
-            ENGINE_BLK(802AE938);
+            BLK_V10(802AE944, 802AE938);
             if (func_802AEB9C((u8)t[4]) == 0) {
-                ENGINE_BLK(802AE940);
+                BLK_V10(802AE94C, 802AE940);
                 continue;
             }
-            ENGINE_BLK(802AE940);
+            BLK_V10(802AE94C, 802AE940);
         }
-        ENGINE_BLK(802AE948);
+        BLK_V10(802AE954, 802AE948);
         side = (u8)t[2];
         mul = (u8)t[3];
         break;
     }
 found:
-    ENGINE_BLK(802AE950);
+    BLK_V10(802AE95C, 802AE950);
     dist = (u32)dist * (u32)mul;
     D_803ED828 = side;
     D_803ED827 = 1;
@@ -312,100 +323,100 @@ found:
     ENGINE_LEAVE(11, mul);
     /* the spots out to `dist`, every 100, then `dist` itself */
     for (d = 0;; d += 0x64) {
-        ENGINE_BLK(802AE988);
+        BLK_V10(802AE994, 802AE988);
         if (dist < d)
             break;
-        ENGINE_BLK(802AE994);
+        BLK_V10(802AE9A0, 802AE994);
         ENGINE_LEAVE(6, d);
         r = func_802AEC3C(d, vs);
-        ENGINE_BLK(802AE99C);
+        BLK_V10(802AE9A8, 802AE99C);
         if (r == 0)
             goto fail;
-        ENGINE_BLK(802AE9A4);
+        BLK_V10(802AE9B0, 802AE9A4);
     }
-    ENGINE_BLK(802AE9AC);
+    BLK_V10(802AE9B8, 802AE9AC);
     ENGINE_LEAVE(6, dist);
     r = func_802AEC3C(dist, vs);
-    ENGINE_BLK(802AE9B4);
+    BLK_V10(802AE9C0, 802AE9B4);
     if (r == 0)
         goto fail;
-    ENGINE_BLK(802AE9BC);
+    BLK_V10(802AE9C8, 802AE9BC);
     vs->unk96[0] = 0, vs->unk96[1] = 0, vs->unk96[2] = 0;
     vs->unk96[3] = 0;
     vs->unk76 = 0;
     side = D_803ED828;
     if (side == 0) {
-        ENGINE_BLK(802AE9FC);
+        BLK_V10(802AEA08, 802AE9FC);
         h = 0;
     } else {
-        ENGINE_BLK(802AE9E4);
+        BLK_V10(802AE9F0, 802AE9E4);
         if (side == 1) {
-            ENGINE_BLK(802AEA04);
+            BLK_V10(802AEA10, 802AEA04);
             h = 0x800;
         } else {
-            ENGINE_BLK(802AE9EC);
+            BLK_V10(802AE9F8, 802AE9EC);
             if (side == 2) {
-                ENGINE_BLK(802AEA0C);
+                BLK_V10(802AEA18, 802AEA0C);
                 h = 0x400;
             } else {
-                ENGINE_BLK(802AE9F4);
+                BLK_V10(802AEA00, 802AE9F4);
                 h = 0xC00;
             }
         }
     }
-    ENGINE_BLK(802AEA10);
+    BLK_V10(802AEA1C, 802AEA10);
     vs->unk4E = h;
     vs->unk4C = h;
     vs->unk74 = h;
     side = D_803ED828;
     if (side != 0) {
-        ENGINE_BLK(802AEA2C);
+        BLK_V10(802AEA38, 802AEA2C);
         if (side != 1) {
-            ENGINE_BLK(802AEA34);
+            BLK_V10(802AEA40, 802AEA34);
             h = D_803ED808;
             goto spot;
         }
     }
-    ENGINE_BLK(802AEA40);
+    BLK_V10(802AEA4C, 802AEA40);
     h = D_803ED810;
 spot:
     /* it walks out from where the vehicle is */
-    ENGINE_BLK(802AEA48);
+    BLK_V10(802AEA54, 802AEA48);
     D_803ED814 = h;
     D_803ED808 = D_803643E0;
     h = D_803643E4;
     if (D_80364456 != 0xB) {
-        ENGINE_BLK(802AEA78);
+        BLK_V10(802AEA84, 802AEA78);
         if (D_80364456 != 0x11) {
-            ENGINE_BLK(802AEA84);
+            BLK_V10(802AEA90, 802AEA84);
             if (D_80364456 != 0x12)
                 goto y;
         }
     }
-    ENGINE_BLK(802AEA8C);
+    BLK_V10(802AEA98, 802AEA8C);
     h += 0x1F4;
 y:
-    ENGINE_BLK(802AEA90);
+    BLK_V10(802AEA9C, 802AEA90);
     D_803ED80C = h;
     D_803ED810 = D_803643E8;
     D_803ED826 = 1;
     func_802A039C(1, 0, DRV);
-    ENGINE_BLK(802AEAC8);
+    BLK_V10(802AEAD4, 802AEAC8);
     func_802A03D4(1, 0, DRV);
-    ENGINE_BLK(802AEADC);
+    BLK_V10(802AEAE8, 802AEADC);
     func_802A040C(1, 0, DRV);
-    ENGINE_BLK(802AEAF0);
+    BLK_V10(802AEAFC, 802AEAF0);
     func_802A0290(1, -1, DRV);
-    ENGINE_BLK(802AEB04);
+    BLK_V10(802AEB10, 802AEB04);
     D_8036444C = 0xD48;
     D_80364450 = 0;
     r = 1;
     goto done;
 fail:
-    ENGINE_BLK(802AEB2C);
+    BLK_V10(802AEB38, 802AEB2C);
     r = 0;
 done:
-    ENGINE_BLK(802AEB30);
+    BLK_V10(802AEB3C, 802AEB30);
     D_803ED827 = 0;
     engine_frame(0x30 + 0x58 + ENGINE_C_FRAME);
     engine_restore();
