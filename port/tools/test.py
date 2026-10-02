@@ -117,11 +117,15 @@ SCENARIOS = {
     # alone; the front end's load takes other CPU time, which this tier
     # doesn't count (PORT_COUNT_PER_OP=0), so every hash as from the ROM
     "auto3.pack.nocode": ("3", 3000, [], {}, "auto3", "all"),
+    # the painted texture as a PNG 4 times as wide and high: the game gets it
+    # averaged down (the same as auto3.pack.edit's), OpenGL draws it whole
+    "auto3.pack.hires": ("3", 3000, [], {}, "auto3", "edit"),
+    "auto3.gl.pack.hires": ("3", 3000, ["--renderer", "gl", "--scale", "2"], {}, "auto3", "game"),
 }
 # the scenarios that play from a pack ("pack": as made from the ROM; "edit":
 # with EDIT_TEXTURE painted EDIT_COLOUR)
 PACK_SCENARIOS = {"attract.pack": "pack", "auto3.pack": "pack", "auto3.pack.edit": "edit",
-                  "auto3.pack.nocode": "nocode"}
+                  "auto3.pack.nocode": "nocode", "auto3.pack.hires": "hires", "auto3.gl.pack.hires": "hires"}
 EDIT_TEXTURE = "60F"
 EDIT_COLOUR = (255, 0, 255)
 EDIT_MIN_CHANGED = 3        # screenshots that must show it
@@ -361,10 +365,10 @@ def pack_for(version, kind="pack"):
                 res = (None, "make_pack.py failed: " + ((r.stderr or r.stdout).strip().splitlines() or ["?"])[-1])
             else:
                 os.replace(path + ".tmp", path)
-        if res[0] and kind == "edit":
-            edit = os.path.join(d, f"blastcorps-{version}-pack-edit.zip")
+        if res[0] and kind in ("edit", "hires"):
+            edit = os.path.join(d, f"blastcorps-{version}-pack-{kind}.zip")
             if not os.path.exists(edit) or os.path.getmtime(edit) < os.path.getmtime(path):
-                paint_texture(path, edit + ".tmp", EDIT_TEXTURE, EDIT_COLOUR)
+                paint_texture(path, edit + ".tmp", EDIT_TEXTURE, EDIT_COLOUR, 4 if kind == "hires" else 1)
                 os.replace(edit + ".tmp", edit)
             res = (edit, None)
         _packs[(version, kind)] = res
@@ -383,8 +387,9 @@ def png_solid(w, h, rgb):
             + chunk(b"IDAT", zlib.compress(row * h)) + chunk(b"IEND", b""))
 
 
-def paint_texture(src, dst, tid, rgb):
-    """a copy of the pack src with textures/<tid>.png one colour"""
+def paint_texture(src, dst, tid, rgb, scale=1):
+    """a copy of the pack src with textures/<tid>.png one colour (scale
+    times as wide and high)"""
     import struct
     import zipfile
     name = f"textures/{tid}.png"
@@ -393,7 +398,7 @@ def paint_texture(src, dst, tid, rgb):
             data = zi.read(info)
             if info.filename == name:
                 w, h = struct.unpack(">II", data[16:24])
-                data = png_solid(w, h, rgb)
+                data = png_solid(w * scale, h * scale, rgb)
             zo.writestr(info, data)
 
 

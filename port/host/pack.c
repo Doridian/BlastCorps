@@ -433,10 +433,19 @@ static void blast_encode(int t, const uint8_t *raw, size_t n, const uint8_t *lut
 static struct {
     uint8_t *texels;        /* what the game's decode is replaced with */
     uint32_t len;
-    uint8_t *hires;         /* RGBA8, hires_k times the size (for later) */
-    int hires_k;
+    uint8_t *hires;         /* the first image's PNG as RGBA8, hires_k times its size, or NULL */
+    int hires_k, w, h;      /* (w, h: the first image's size, in texels) */
+    uint32_t len0;          /* its bytes */
 } tex_override[NTEX];
 static int tex_overrides, tex_warned;
+
+/* where the edited textures with a higher-resolution image were decoded
+   last (RDRAM address, texture), for the renderer */
+#define NHIRES 1024
+static struct {
+    uint32_t addr;
+    uint16_t id;
+} hires_at[NHIRES];
 
 void host_tex_decoded(uint32_t id, uint32_t dst, uint32_t size) {
     if (id >= NTEX || !tex_override[id].texels)
@@ -448,6 +457,34 @@ void host_tex_decoded(uint32_t id, uint32_t dst, uint32_t size) {
         return;
     }
     memcpy(port_ptr(dst), tex_override[id].texels, size);
+    if (tex_override[id].hires) {
+        unsigned h = (dst >> 3) * 2654435761u % NHIRES;
+        while (hires_at[h].addr && hires_at[h].addr != dst)
+            h = (h + 1) % NHIRES;
+        hires_at[h].addr = dst;
+        hires_at[h].id = (uint16_t)id;
+    }
+}
+
+/* the higher-resolution image of the texture whose first image is w x h
+   texels at RDRAM address addr, if an edited one with such an image is
+   still there (gfx_gl.c); its scale in *k and its texture in *id */
+const uint8_t *host_tex_hires(uint32_t addr, int w, int h, int *k, int *id) {
+    if (!tex_overrides || !addr)
+        return NULL;
+    unsigned i = (addr >> 3) * 2654435761u % NHIRES;
+    for (; hires_at[i].addr; i = (i + 1) % NHIRES) {
+        if (hires_at[i].addr != addr)
+            continue;
+        int t = hires_at[i].id;
+        if (tex_override[t].w != w || tex_override[t].h != h ||
+            memcmp(port_ptr(addr), tex_override[t].texels, tex_override[t].len0) != 0)
+            return NULL;
+        *k = tex_override[t].hires_k;
+        *id = t;
+        return tex_override[t].hires;
+    }
+    return NULL;
 }
 
 /* the decode queue's textures, by slot (60F60's D_803C4250: 144) */
@@ -565,6 +602,9 @@ static void build_textures(uint32_t blob_start, uint32_t table_start, buf *table
                 tex_override[n].len = (uint32_t)raw.n;
                 tex_override[n].hires = hires;
                 tex_override[n].hires_k = hires_k;
+                tex_override[n].w = (int)int_of(plan->items[0]->items[0], what);
+                tex_override[n].h = (int)int_of(plan->items[0]->items[1], what);
+                tex_override[n].len0 = (uint32_t)(tex_override[n].w * tex_override[n].h * fmt_bpp[fmt]);
                 tex_overrides++;
             } else {
                 /* no stream (or another size): compressed here */

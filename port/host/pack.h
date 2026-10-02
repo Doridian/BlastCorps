@@ -18,6 +18,8 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size, int *edited);
 /* the code modules' data at their physical addresses (RDRAM-sized), from the
    pack's data/, or NULL: port/host/romdata.c's source */
 const uint8_t *pack_data_source(void);
+/* an edited texture's higher-resolution image, for the renderer (gfx_gl.c) */
+const uint8_t *host_tex_hires(uint32_t addr, int w, int h, int *k, int *id);
 
 /* ---- pack_zip.c ------------------------------------------------------------ */
 
