@@ -2,9 +2,9 @@
 """The port's test suite (docs/PORT.md, "Testing the port").
 
     port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--update]
-    port/tools/test.py tas BUILD [BUILD...] [--polls FILE]
+    port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack]
     port/tools/test.py recomp [--trials N]
-    port/tools/test.py variants [--version V] [--no-build] [--tas] [--only NAME,...]
+    port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack]] [--only NAME,...]
                                 [--emsdk DIR]
 
 quick: deterministic headless runs (PORT_COUNT_PER_OP=0 --deterministic,
@@ -17,14 +17,18 @@ the plain run: the save and the sound must not change).  No build but the
 check build (PORT_ENGINE_CHECK) may compile or link any of the translated
 engine (tools/recomp's recomp_func_X): the engine is port/engine's.  A build that takes
 its data from the ROM (PORT_ROM_DATA, the movable ones by default) is also
-searched for the ROM's data (rom_scan.py), and must carry none.  --update writes
-the build's hashes as the references for its version.
+searched for the ROM's data (rom_scan.py), and must carry none.  It also plays
+from a resource pack made from the ROM (port/make_pack.py, into build/pack/):
+the same hashes as from the ROM; and from a copy with a texture painted over:
+the same save and sound, the screenshots changed only toward its colour.
+--update writes the build's hashes as the references for its version.
 
 tas: the TAS replay (docs/PORT.md, "The TAS"), several builds at once:
 57 platinum (tas_check.py), and the replay's report: every one of the log's
 reads matched, none skipped, no mode forced, unless the references list
 the variant's current report as a known drift (then that report, exactly,
-passes as a known failure and anything else fails).
+passes as a known failure and anything else fails).  --pack: from the
+resource pack made from the ROM instead.
 
 recomp: the translated engine's differential test (make -C tools/recomp
 test, for blastcorps/'s version).
@@ -102,7 +106,20 @@ SCENARIOS = {
     # the attract mode's story and several of its demo levels (about 70s):
     # the coverage of a version the movie isn't
     "attract.long": ("0", 12000, [], {}, None, None),
+    # a resource pack made from the ROM (port/make_pack.py) instead of the
+    # ROM: the same game, every hash; and one with a texture painted over
+    # (the grass of Simian Acres, EDIT_TEXTURE): the same save and sound, and
+    # the screenshots only changed toward its colour, from the level on
+    "attract.pack": ("0", 4000, [], {}, "attract", "all"),
+    "auto3.pack": ("3", 3000, [], {}, "auto3", "all"),
+    "auto3.pack.edit": ("3", 3000, [], {}, "auto3", "edit"),
 }
+# the scenarios that play from a pack ("pack": as made from the ROM; "edit":
+# with EDIT_TEXTURE painted EDIT_COLOUR)
+PACK_SCENARIOS = {"attract.pack": "pack", "auto3.pack": "pack", "auto3.pack.edit": "edit"}
+EDIT_TEXTURE = "60F"
+EDIT_COLOUR = (255, 0, 255)
+EDIT_MIN_CHANGED = 3        # screenshots that must show it
 # scenarios only some versions run (the others run all of SCENARIOS)
 SCENARIO_VERSIONS = {"attract.long": ("us.v11", "jp")}
 
@@ -213,7 +230,7 @@ def twins(a, b):
     return frozenset((a.variant, b.variant)) in TWINS
 
 
-def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=None):
+def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=None, rom=None):
     """one deterministic headless run in a fresh outdir; returns (rc, seconds)"""
     if os.path.isdir(outdir):
         shutil.rmtree(outdir)
@@ -233,7 +250,7 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
         cmd += ["--screenshot", "shot"]
     if "--renderer" not in args:
         cmd += ["--renderer", "sw"]
-    cmd += list(args) + [build.rom()]
+    cmd += list(args) + [rom or build.rom()]
     t = time.time()
     with open(os.path.join(outdir, "log.txt"), "w") as log:
         rc = subprocess.call(cmd, cwd=outdir, env=e, stdout=log, stderr=subprocess.STDOUT)
@@ -305,6 +322,117 @@ def add_known(refs, build, name, h, keys, note):
     lst.append({"note": note, "variants": [build.variant], "scenarios": {name: s}})
 
 
+# ---- resource packs -------------------------------------------------------------
+
+_pack_lock = threading.Lock()
+_packs = {}
+
+
+def pack_for(version, kind="pack"):
+    """the version's resource pack (port/make_pack.py, made once into
+    build/pack/ and again when the ROM or the tools change), or the copy of
+    it with EDIT_TEXTURE painted over ("edit"); (path, None) or (None, why)"""
+    with _pack_lock:
+        if (version, kind) in _packs:
+            return _packs[(version, kind)]
+        rom = os.path.join(ROOT, f"baserom.{version}.z64")
+        d = os.path.join(ROOT, "build", "pack")
+        path = os.path.join(d, f"blastcorps-{version}-pack.zip")
+        lib = os.path.join(ROOT, "tools", "assetlib")
+        tools = [rom, os.path.join(ROOT, "port", "make_pack.py"), os.path.join(ROOT, "tools", "assets.py")] + \
+            [os.path.join(lib, f) for f in os.listdir(lib)]
+        newest = max(os.path.getmtime(f) for f in tools if os.path.exists(f))
+        res = (path, None)
+        if not os.path.exists(path) or os.path.getmtime(path) < newest:
+            os.makedirs(d, exist_ok=True)
+            py = os.path.join(ROOT, ".env", "bin", "python")
+            r = subprocess.run([py if os.path.exists(py) else sys.executable,
+                                os.path.join(ROOT, "port", "make_pack.py"), rom, "-o", path + ".tmp"],
+                               capture_output=True, text=True)
+            if r.returncode:
+                res = (None, "make_pack.py failed: " + ((r.stderr or r.stdout).strip().splitlines() or ["?"])[-1])
+            else:
+                os.replace(path + ".tmp", path)
+        if res[0] and kind == "edit":
+            edit = os.path.join(d, f"blastcorps-{version}-pack-edit.zip")
+            if not os.path.exists(edit) or os.path.getmtime(edit) < os.path.getmtime(path):
+                paint_texture(path, edit + ".tmp", EDIT_TEXTURE, EDIT_COLOUR)
+                os.replace(edit + ".tmp", edit)
+            res = (edit, None)
+        _packs[(version, kind)] = res
+        return res
+
+
+def png_solid(w, h, rgb):
+    """an 8-bit RGBA PNG of one colour"""
+    import struct
+    import zlib
+
+    def chunk(t, b):
+        return struct.pack(">I", len(b)) + t + b + struct.pack(">I", zlib.crc32(t + b) & 0xFFFFFFFF)
+    row = b"\0" + bytes(rgb + (255,)) * w
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(row * h)) + chunk(b"IEND", b""))
+
+
+def paint_texture(src, dst, tid, rgb):
+    """a copy of the pack src with textures/<tid>.png one colour"""
+    import struct
+    import zipfile
+    name = f"textures/{tid}.png"
+    with zipfile.ZipFile(src) as zi, zipfile.ZipFile(dst, "w") as zo:
+        for info in zi.infolist():
+            data = zi.read(info)
+            if info.filename == name:
+                w, h = struct.unpack(">II", data[16:24])
+                data = png_solid(w, h, rgb)
+            zo.writestr(info, data)
+
+
+def read_bmp(path):
+    """(width, height, rows of (r, g, b)) of an uncompressed 24/32-bit BMP"""
+    import struct
+    b = open(path, "rb").read()
+    off, = struct.unpack_from("<I", b, 10)
+    w, h, _, bpp = struct.unpack_from("<iiHH", b, 18)
+    step, stride = bpp // 8, ((w * bpp // 8) + 3) & ~3
+    rows = []
+    for y in range(abs(h)):
+        r = off + (abs(h) - 1 - y if h > 0 else y) * stride
+        rows.append([(b[r + x * step + 2], b[r + x * step + 1], b[r + x * step]) for x in range(w)])
+    return w, abs(h), rows
+
+
+def edit_check(outdir, basedir, h, base):
+    """the edited pack's run against the plain one: the same save and sound,
+    and every screenshot pixel that changed moved toward EDIT_COLOUR (more of
+    its strongest channels, less of the weakest: magenta's red and blue, not
+    green); the problems, and how many screenshots changed"""
+    problems = compare(h, base, "game")
+    changed = 0
+    lo = min(range(3), key=lambda c: EDIT_COLOUR[c])
+    his = [c for c in range(3) if EDIT_COLOUR[c] > EDIT_COLOUR[lo]]
+    for k in sorted(set(h["shots"]) & set(base["shots"]), key=int):
+        if h["shots"][k] == base["shots"][k]:
+            continue
+        changed += 1
+        f = f"shot{int(k):05d}.bmp"
+        _, _, ra = read_bmp(os.path.join(basedir, f))
+        _, _, rb = read_bmp(os.path.join(outdir, f))
+        bad = 0
+        for a_row, b_row in zip(ra, rb):
+            for pa, pb in zip(a_row, b_row):
+                if pa != pb:
+                    d = [pb[c] - pa[c] for c in range(3)]
+                    if not (all(d[c] >= d[lo] for c in his) and any(d[c] > d[lo] for c in his)):
+                        bad += 1
+        if bad:
+            problems.append(f"shot {k}: {bad} pixels changed otherwise than toward the texture's colour")
+    if changed < EDIT_MIN_CHANGED:
+        problems.append(f"only {changed} screenshots show the edited texture (want {EDIT_MIN_CHANGED})")
+    return problems, changed
+
+
 # ---- quick -------------------------------------------------------------------
 
 def quick_run(build, jobs, scenarios):
@@ -316,8 +444,13 @@ def quick_run(build, jobs, scenarios):
 
     def one(name):
         autostart, frames, args, env, base, what = SCENARIOS[name]
+        rom = None
+        if name in PACK_SCENARIOS:
+            rom, why = pack_for(build.version, PACK_SCENARIOS[name])
+            if rom is None:
+                return name, why, 0
         rc, t = run_port(build, os.path.join(out, name), frames, autostart, args, env,
-                         shots=True, exe=exe)
+                         shots=True, exe=exe, rom=rom)
         return name, rc, t
 
     with cf.ThreadPoolExecutor(jobs) as ex:
@@ -325,7 +458,10 @@ def quick_run(build, jobs, scenarios):
         for name, rc, t in ex.map(one, sorted(scenarios, key=lambda n: -SCENARIOS[n][1])):
             d = os.path.join(out, name)
             times[name] = t
-            if rc != 0:
+            if isinstance(rc, str):         # (no pack: skipped)
+                res[name] = None
+                res[name + ".skip"] = rc
+            elif rc != 0:
                 tail = open(os.path.join(d, "log.txt"), errors="replace").read().splitlines()[-3:]
                 res[name] = None
                 res[name + ".error"] = f"exit {rc} ({' | '.join(tail)})"
@@ -333,7 +469,7 @@ def quick_run(build, jobs, scenarios):
                 res[name] = hashes(d)
     with open(os.path.join(build.path, "test", "quick.json"), "w") as f:
         json.dump({"version": build.version, "variant": build.variant,
-                   "results": {k: v for k, v in res.items() if not k.endswith(".error")}},
+                   "results": {k: v for k, v in res.items() if not k.endswith((".error", ".skip"))}},
                   f, indent=1, sort_keys=True)
     return res, times
 
@@ -365,6 +501,9 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
         autostart, frames, args, env, base, what = SCENARIOS[name]
         h = res[name]
         label = f"{build.name} {name} ({frames} frames, {times[name]:.0f}s)"
+        if h is None and name + ".skip" in res:
+            say("SKIP", label, res[name + ".skip"])
+            continue
         if h is None:
             say("FAIL", label, res[name + ".error"])
             fails += 1
@@ -373,6 +512,16 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
             if res.get(base) is None:
                 say("FAIL", label, f"no {base} run to compare with")
                 fails += 1
+                continue
+            if what == "edit":
+                d, changed = edit_check(os.path.join(build.path, "test", "quick", name),
+                                        os.path.join(build.path, "test", "quick", base), h, res[base])
+                if d:
+                    say("FAIL", label, "; ".join(d))
+                    fails += 1
+                else:
+                    say("PASS", label, f"save and sound as {base}'s; texture {EDIT_TEXTURE} painted over in "
+                        f"{changed} screenshots, nothing else changed")
                 continue
             d = compare(h, res[base], what)
             kind = "every hash" if what == "all" else "save and sound"
@@ -501,8 +650,8 @@ def rom_scan(build):
 
 # ---- tas ---------------------------------------------------------------------
 
-def tas_one(build, polls, again=False):
-    out = os.path.join(build.path, "test", "tas")
+def tas_one(build, polls, again=False, pack=None):
+    out = os.path.join(build.path, "test", "tas" if pack is None else "tas-pack")
     if again:           # the last run's results, checked again
         try:
             rc, t = map(float, open(os.path.join(out, "exit.txt")).read().split())
@@ -517,7 +666,8 @@ def tas_one(build, polls, again=False):
     e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy")
     t = time.time()
     with open(os.path.join(out, "log.txt"), "w") as log:
-        rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep", build.rom()],
+        rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep",
+                                                    pack or build.rom()],
                              cwd=out, env=e, stdout=log, stderr=subprocess.STDOUT)
     t = time.time() - t
     with open(os.path.join(out, "exit.txt"), "w") as f:
@@ -525,11 +675,17 @@ def tas_one(build, polls, again=False):
     return out, rc, t
 
 
-def tas(builds, refs, polls, jobs, again=False):
+def tas(builds, refs, polls, jobs, again=False, pack=False):
     polls = os.path.abspath(polls)
     if not again and not os.path.exists(polls):
         say("SKIP", "tas", f"no {polls} (port/tools/tas.sh makes it)")
         return None
+    pack_path = None
+    if pack:
+        pack_path, why = pack_for("us.v10")
+        if pack_path is None:
+            say("FAIL", "tas", f"no pack: {why}")
+            return 1
     fails, ran = 0, 0
     todo = []
     for b in builds:
@@ -537,14 +693,15 @@ def tas(builds, refs, polls, jobs, again=False):
             say("SKIP", f"{b.name} tas", f"the movie is us.v10's, this build is {b.version}")
         elif not os.path.exists(b.rom()):
             say("SKIP", f"{b.name} tas", f"no {os.path.basename(b.rom())}")
-        elif again and not os.path.exists(os.path.join(b.path, "test", "tas", "log.txt")):
+        elif again and not os.path.exists(os.path.join(b.path, "test", "tas-pack" if pack else "tas", "log.txt")):
             say("SKIP", f"{b.name} tas", "no replay to check again")
         else:
             todo.append(b)
-    print(f"== tas{' (the last runs, checked again)' if again else ''}: {', '.join(b.name for b in todo)} ({min(jobs, len(todo))} at a time, "
+    print(f"== tas{' from the pack' if pack else ''}{' (the last runs, checked again)' if again else ''}: "
+          f"{', '.join(b.name for b in todo)} ({min(jobs, len(todo))} at a time, "
           f"about 10-20 minutes each)", flush=True)
     with cf.ThreadPoolExecutor(max(1, jobs)) as ex:
-        futs = {ex.submit(tas_one, b, polls, again): b for b in todo}
+        futs = {ex.submit(tas_one, b, polls, again, pack_path): b for b in todo}
         for fut in cf.as_completed(futs):
             b = futs[fut]
             out, rc, t = fut.result()
@@ -554,7 +711,7 @@ def tas(builds, refs, polls, jobs, again=False):
 
 
 def tas_check(b, refs, out, rc, t):
-    label = f"{b.name} tas ({t / 60:.1f} min)"
+    label = f"{b.name} tas{' (pack)' if out.endswith('-pack') else ''} ({t / 60:.1f} min)"
     log = open(os.path.join(out, "log.txt"), errors="replace").read()
     m = None
     for m in REPORT.finditer(log):
@@ -720,7 +877,7 @@ def variants(args, refs):
     table(builds, refs)
     print(f"== variants: build {tb - t0:.0f}s, quick {time.time() - tb:.0f}s", flush=True)
     if args.tas:
-        r = tas(builds, refs, args.polls, args.jobs or len(builds))
+        r = tas(builds, refs, args.polls, args.jobs or len(builds), pack=args.tas_pack)
         fails += r or 0
     return None if skipped == len(builds) and not fails else fails
 
@@ -819,6 +976,8 @@ def main():
     t.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     t.add_argument("-j", "--jobs", type=int, default=0, help="replays at a time (default: all)")
     t.add_argument("--again", action="store_true", help="check the last replays' results again, without running")
+    t.add_argument("--pack", action="store_true",
+                   help="play from the resource pack made from the ROM (port/make_pack.py), not the ROM")
     r = sub.add_parser("recomp")
     r.add_argument("--trials", type=int, default=48)
     d = sub.add_parser("table", help="every hash of the builds' last quick runs, against the first's")
@@ -828,6 +987,7 @@ def main():
     v.add_argument("--only", help="comma-separated variant names (" + ", ".join(VARIANTS) + ")")
     v.add_argument("--no-build", action="store_true", help="use build/test-* as they are")
     v.add_argument("--tas", action="store_true", help="and the TAS on each")
+    v.add_argument("--tas-pack", action="store_true", help="with --tas: from the resource pack, not the ROM")
     v.add_argument("--emsdk", help="emsdk's directory, for the wasm variant (default: $EMSDK, or emcmake)")
     v.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
@@ -840,7 +1000,7 @@ def main():
         fails = None if all(x is None for x in rs) else sum(x or 0 for x in rs)
     elif args.cmd == "tas":
         builds = [Build(b) for b in args.builds]
-        fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again)
+        fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again, args.pack)
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return

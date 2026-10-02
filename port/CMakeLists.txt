@@ -697,7 +697,12 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c
     COMMAND ${CMAKE_COMMAND} -DIN=${HDTEXT_FONT} -DOUT=${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c
             -DNAME=hdtext_builtin_ttf -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake
     DEPENDS ${HDTEXT_FONT} ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake)
-add_library(host OBJECT ${HOST_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
+# resource packs (host/pack.c): gzip 1.2.4's deflate (GPLv2+), which alone
+# gives back the ROM's gzip members, and stb_image (host/pack_stb.c)
+set(GZIP124 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/gzip-1.2.4)
+set(GZIP124_C ${GZIP124}/gzip124.c ${GZIP124}/deflate.c ${GZIP124}/trees.c ${GZIP124}/bits.c)
+set_source_files_properties(${GZIP124_C} PROPERTIES COMPILE_OPTIONS "-w;-std=gnu89;-include;${GZIP124}/gzip124_names.h")
+add_library(host OBJECT ${HOST_C} ${GZIP124_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
 if(PORT_AUDIO_RECORD)
     target_compile_definitions(host PRIVATE PORT_AUDIO_RECORD)
 endif()
@@ -734,7 +739,8 @@ message(STATUS "game threads: ${PORT_THREADS}")
 target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/host ${SDL2_INCLUDE_DIRS})
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
-target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE} PORT_ROM_SHA1="${PORT_ROM_SHA1}")
+target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE} PORT_ROM_SHA1="${PORT_ROM_SHA1}"
+    PORT_VERSION_NAME="${PORT_VERSION}")
 if(PORT_SDK_TRACE)
     target_compile_definitions(host PRIVATE PORT_SDK_TRACE)
 endif()

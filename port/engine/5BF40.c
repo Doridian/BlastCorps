@@ -20,6 +20,8 @@ extern TextureEntry *PTR32 D_803B8D44;      /* the table, on the heap */
 extern OSIoMesg D_803B8D48[144];            /* one per DMA in flight */
 extern u8 D_803B9888;                       /* the table is in */
 extern TexDecode D_803C4B58;
+extern TexDecode D_803C4250[144];           /* the decode queue (60F60) */
+extern TexDecode *PTR32 D_803C4B50;
 extern OSMesgQueue D_80315180;
 extern OSIoMesg D_80370C58;
 extern s32 D_80358080;                      /* DMAs in flight */
@@ -108,6 +110,7 @@ static u32 tex_fix_dl(u32 *dl, u32 *end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *
                 {
                     u32 size = func_802A57DC(&D_803C4B58);
 
+                    host_tex_decoded(id, D_803C4B58.dst, size);
                     ENGINE_BLK(802A0A80);
                     D_80358070 += size;
                 }
@@ -174,6 +177,7 @@ void func_802A0B34(u32 id, u32 param) {
     {
         u32 size = func_802A57DC(&D_803C4B58);
 
+        host_tex_decoded(id, D_803C4B58.dst, size);
         ENGINE_BLK(802A0C60);
         D_80358070 += size;
     }
@@ -234,6 +238,7 @@ u32 func_802A0CFC(u32 id, u32 param) {
     {
         u32 size = func_802A57DC(&D_803C4B58);
 
+        host_tex_decoded(id, D_803C4B58.dst, size);
         ENGINE_BLK(802A0E70);
         D_80358070 += size;
     }
@@ -290,6 +295,7 @@ void func_802A1074(u32 id, u32 dst, u32 param) {
     osPiStartDma(&D_803B8D48[n], OS_MESG_PRI_NORMAL, OS_READ, TABLE_ROM + e->offset, (void *)dst,
                  e[1].offset - e->offset, &D_80315180);
     ENGINE_BLK(802A1158);
+    host_tex_queued(D_803C4B50 - D_803C4250, id);
     func_802A5764(dst, e->length, e->type, param);
     ENGINE_BLK(802A1164);
 }
