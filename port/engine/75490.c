@@ -170,8 +170,40 @@ static s32 part(s32 i, Part *parts, s32 *t1, f32 *f0) {
    pairs where its level has one (func_802BA3E8_jp), and so its blocks from
    there on are 4 bytes on */
 #ifdef VERSION_JP
+extern u16 D_8030606E_jp[];     /* (level, speed) byte pairs, -1 after the last */
+/* (the asm data declares them as halves: in native-endian memory a byte is
+   at its address ^ 1) */
+#ifdef PORT_NATIVE_ENDIAN
+#define NE_X1(off) ((off) ^ 1)
+#else
+#define NE_X1(off) (off)
+#endif
+
+/* the level's top speed for the carrier, where D_8030606E_jp has one, else
+   speed (it keeps $v0, $v1 and $a0) */
 REGS(s1 -> s1)
-s32 func_802BA3E8_jp(s32 speed);
+s32 func_802BA3E8_jp(s32 speed) {
+    u8 *pairs = (u8 *)D_8030606E_jp;
+    s32 i = 0;
+    s8 level;
+
+    ENGINE_BLK(802BA3E8_jp);
+    for (;;) {
+        ENGINE_BLK(802BA40C_jp);
+        level = (s8)pairs[NE_X1(i)];
+        if (level < 0)
+            break;
+        ENGINE_BLK(802BA418_jp);
+        i += 2;
+        if (D_802E8BDC == level) {
+            ENGINE_BLK(802BA420_jp);
+            speed = pairs[NE_X1(i - 1)];
+            break;
+        }
+    }
+    ENGINE_BLK(802BA424_jp);
+    return speed;
+}
 #define B9C50_BLK(us, jp) ENGINE_BLK(jp)
 #else
 #define B9C50_BLK(us, jp) ENGINE_BLK(us)

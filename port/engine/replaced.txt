@@ -774,3 +774,26 @@ func_802A30DC
 func_802A3134
 func_802A3198
 func_802A350C
+
+# jp's IDO functions that the C has as jp's GLOBAL_ASM (docs/PORT.md, "Other
+# versions"), as native C under VERSION_JP (jp_<object>.c); the other
+# versions compile them from the C, and ignore these lines; and Rare's one
+# function only jp has (75490.c)
+func_802BA3E8_jp
+func_801F57B0
+func_801F6F18
+func_801F7410
+func_8025B498
+func_802860F0
+func_802979E0
+func_801EC770
+func_801ED800
+func_80262840
+func_80263358
+func_802633E0
+func_802639B4
+func_8026BCE0
+func_80259EC4
+func_801F9258
+func_801E8EB8
+func_801EE800

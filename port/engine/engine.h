@@ -61,6 +61,40 @@ s32 engine_trunc_w_d(f64 x);
 s64 engine_cvt_l_d(f64 x);
 s64 engine_cvt_l_s(f32 x);
 
+/* IDO's conversion of a float to an unsigned int (jp's IDO code, still
+   asm in the C): the FCSR set to truncate, cvt.w.s, and where its V flag
+   says the float is 2^31 or more, a second one of x - 2^31 with the top bit
+   set; negative or out of range gives 0xFFFFFFFF.  Returns the result in
+   the low word and the path in the high one: 0 in range, 1 negative, 2 the
+   second conversion, 3 that one out of range (not through a pointer: the
+   host's store to the game's C memory would be in the host's order, which
+   BEPass reads swapped).  IDO_CVT_U_S charges its blocks after the first
+   one (the caller's): b1 the second conversion, b2 its result, b3 the
+   0xFFFFFFFF, b4 the first's result (port/host/engine.c). */
+u64 engine_ido_cvt_u_s(f32 x);
+#define IDO_CVT_U_S(dst, x, b1, b2, b3, b4)                                 \
+    do {                                                                    \
+        u64 cvt_ = engine_ido_cvt_u_s(x);                                   \
+        switch ((u32)(cvt_ >> 32)) {                                        \
+        case 0: ENGINE_BLK(b4); break;                                      \
+        case 1: ENGINE_BLK(b4); ENGINE_BLK(b3); break;                      \
+        case 2: ENGINE_BLK(b1); ENGINE_BLK(b2); break;                      \
+        default: ENGINE_BLK(b1); ENGINE_BLK(b3); break;                     \
+        }                                                                   \
+        (dst) = (u32)cvt_;                                                  \
+    } while (0)
+
+/* sprintf as the translation's call of it from IDO's code cost: nothing
+   for the C (gen_glue.py's recomp_extern_sprintf).  The 32-bit build's
+   own n64_sprintf is counted as the game's C (port/src/libc.c), so the
+   native code calls engine_libc.c's; elsewhere sprintf is host code
+   (port/host/libc64.c). */
+#if !defined(PORT_64BIT) && !defined(PORT_MOVABLE)
+int engine_sprintf(char *buf, const char *fmt, ...);
+#else
+#define engine_sprintf sprintf
+#endif
+
 /* The original's syscall at pc (a state it doesn't expect): the game
    stops, as with the translation (port/host/engine.c). */
 void engine_trap(u32 pc);
