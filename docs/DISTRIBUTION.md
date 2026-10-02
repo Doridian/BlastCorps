@@ -249,6 +249,63 @@ rewrite).
 - **Hardware:** OpenGL 4.3 compute with our own BVH is enough at this size; Vulkan ray queries are the
   alternative. Denoising: NRD or SVGF.
 
+**Side note: a delta-based engine** (issue #5; scoped 2026-10-02, not started).  The ask: real
+simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
+- **How timing works now:**
+  - The main loop (`hd_code/00000.c`) calls the mode's frame function once a pass; the level's is
+    `func_802475D8`, which runs every subsystem once and then bumps `D_80358060/64/68`.
+  - The 30 Hz comes from the scheduler's swap (`hd_code/2C560.c`): a frame is held until a retrace has
+    gone by since the last swap, so at least 2 VIs a frame, more when the CPU model says it was slow.
+    Audio runs on every second retrace and doesn't depend on the frame rate.
+  - Nothing scales by elapsed time except `func_8026BCE0` (message scrolling, music cues).  The clock,
+    medal times, countdowns, blinks, fades and timeouts count retraces, about 72 reads in 12 C files,
+    all through `port_counter()` (`port/include/port_game.h`).
+  - The engine is integer fixed point with per-frame constants: positions `s32 << 5`, s16 speeds,
+    12-bit headings; speed decays 3 a frame (62740), the carrier speeds up 8 a frame (75490), a stun is
+    5 frames (6E200), effects expire at 60 frames (60F60).  Contact damage is once a frame, some checks
+    need consecutive frames (77E20).  A few things are already closed-form in time (building falls).
+  - The camera eases multiplicatively (0.95 a frame, `camera.h`).  Collision is discrete: move, test,
+    restore and reflect, so it depends on the step size.
+  - The LCG (`func_8026A828`) runs a varying number of times a frame, and `D_803649D8 = osGetTime()`
+    is a per-frame "random" from the CPU model's clock (shake, debris).
+  - About 42 K lines in `port/engine`, about 320 float literals and 380 constant `+=`/`-=` sites.
+- **Designs:**
+  - **(a) A fixed higher tick:** `-DPORT_TICK=N`, N steps per original frame.  Per-frame constants
+    divided by N (with remainder accumulators or wider fixed point, since 3/2 isn't an integer),
+    frame timers times N, damping `k^(1/N)`, animation steps 1/N, `port_counter()` and the VI rate
+    scaled, the CPU model scaled or off for N>1.  N=1 stays the current code, exact.
+  - **(b) A true variable dt:** all of (a) plus float or wider state, which breaks the layouts the C,
+    the ROM's data and the saves share; replays must log dt; the fixed-30 mode becomes a second engine.
+  - **(c) The 30 Hz simulation, rendered smoother:** already there (`--interpolate`, `--display-hz`).
+    Could lose a retrace of latency, pair vertices better at cuts, extrapolate instead of delay.
+- **Recommendation:** keep (c) as the default.  For real higher-rate simulation, (a) at N=2, N=1
+  bit-exact.  Skip (b).
+- **Checking:**
+  - Hard gates: N=1 exact (the TAS, the quick tier, `PORT_ICOUNT_LOG`/`PORT_BLKLOG` against main);
+    N=2 deterministic run to run; every level still beatable (the carrier's route against clearing it).
+  - "60 fps with doubled inputs": from each TAS checkpoint, replay at N=2 with each pad state held for
+    2 ticks, and report the time to the first divergence from `polls.csv` and whether the level still
+    finishes with its medal.  That is a drift measure, not a pass/fail: the integration isn't linear
+    and collisions are chaotic, so the TAS can't stay in sync.
+- **Estimate for (a):**
+
+  | Phase | Work | Check | Agent-hours |
+  |---|---|---|---|
+  | 0 | Audit of what each frame writes (RDRAM diffs plus `PORT_BLKLOG`), every site classified | tooling | 2–4 |
+  | 1 | `PORT_TICK`, the scheduler's VI rate, `port_counter`, the CPU model; audio stays real time | exact for N=1 | 3–5 |
+  | 2 | Engine: about 250–350 of the 688 functions touch per-frame state | N=1 exact, N=2 judgement | 15–30 |
+  | 3 | Game C: camera, HUD, pickups, timers, fades, about 100–150 sites | N=1 exact, N=2 judgement | 6–12 |
+  | 4 | The doubled-input drift harness and checkpoint sweep | a metric | 3–5 |
+  | 5 | Playtesting and tuning: feel, collisions, damage balance, every level, medal times | judgement | 10–20 |
+
+  About 40–75 agent-hours (30–120), slower than the rewrite's pace because only N=1 has an oracle.
+  Phases 2 and 3 split by module over 4 agents, about 15–30 hours elapsed.  (b) would be about
+  100–200 agent-hours, the improvements to (c) about 2–6.
+- **Risks:** rounding at 1/N in integer state; multiplicative damping; collision response that
+  depends on the step; frame-counted rules (damage, stuns, consecutive-frame contacts); the
+  clock-derived `D_803649D8`; what medal times mean at N>1; and the register and dead-stack leftovers
+  (`ENGINE_LEAVE`, `engine_frame`) still holding in the N>1 paths.
+
 ## Replacing the SDK parts
 
 The goal is for a published port to contain none of Nintendo's SDK. The N64 build keeps
