@@ -685,7 +685,7 @@ parts:
     ENGINE_BLK(802AF230);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 1.0f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 1.0f, vs, &a1);
 
         ENGINE_BLK(802AF244);
         D_803ED822 = a0;

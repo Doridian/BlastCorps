@@ -1051,7 +1051,7 @@ camera:
     ENGINE_BLK(802C6038);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.25f, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.25f, vs, &a1);
 
         ENGINE_BLK(802C604C);
         D_803F7C30 = a0;
