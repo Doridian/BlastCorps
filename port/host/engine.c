@@ -21,6 +21,25 @@ int32_t engine_trunc_w_d(double x) { return (int32_t)recomp_f2w(trunc(x)); }
 int64_t engine_cvt_l_d(double x) { return (int64_t)recomp_f2l(recomp_rint(x)); }
 int64_t engine_cvt_l_s(float x) { return (int64_t)recomp_f2l_s(recomp_rintf(x)); }
 
+/* IDO's float to unsigned int (engine.h): cvt.w.s with the FCSR set to
+   truncate, its V flag read back (recomp_cvt_w_fcsr's range) */
+static int ido_trunc_ok(float x, int32_t *v) {
+    double r = trunc((double)x);
+    if (!(r >= -2147483648.0 && r <= 2147483647.0))
+        return 0;
+    *v = (int32_t)r;
+    return 1;
+}
+
+uint64_t engine_ido_cvt_u_s(float x) {
+    int32_t v;
+    if (ido_trunc_ok(x, &v))
+        return (uint64_t)(v < 0) << 32 | (v < 0 ? 0xFFFFFFFFu : (uint32_t)v);
+    if (ido_trunc_ok(x - 2147483648.0f, &v))
+        return (uint64_t)2 << 32 | ((uint32_t)v | 0x80000000u);
+    return (uint64_t)3 << 32 | 0xFFFFFFFFu;
+}
+
 extern recomp_context *port_ctx(void);
 
 void engine_break(uint32_t pc, uint32_t code) {
@@ -279,15 +298,43 @@ static uint32_t *trace_o, *trace_n, *trace_cur;
 static unsigned ntrace_o, ntrace_n, *ntrace_cur;
 static unsigned long *ncalls, *nchecked, *nfailed;
 static unsigned long first_n = 2000;
+static unsigned long show_n = 10;     /* differences shown per function (PORT_ENGINE_CHECK_SHOW) */
 /* the host stack above the glue's frame: the game's C's locals, which a
    pointer argument may reach (a fiber stack, port.h) */
 static uintptr_t stk_lo, stk_hi;
 static uint8_t *stk0, *stk_o;
+/* the PI's pending completions (port/src/ultra.c's pieces), copied out
+   and back */
+void *port_pi_piece(int k);
+uint32_t port_pi_piece_size(int k);
+static uint8_t *pi0;
+
+static uint8_t *pi_copy(uint8_t *buf, int load) {
+    uint32_t n, total = 0;
+    void *p;
+    for (int k = 0; port_pi_piece(k) != NULL; k++)
+        total += port_pi_piece_size(k);
+    if (!buf)
+        buf = malloc(total);
+    total = 0;
+    for (int k = 0; (p = port_pi_piece(k)) != NULL; k++) {
+        n = port_pi_piece_size(k);
+        if (load)
+            memcpy(p, buf + total, n);
+        else
+            memcpy(buf + total, p, n);
+        total += n;
+    }
+    return buf;
+}
 
 extern uint32_t __port_icount, __port_icount_c;
 
+static void cov_write(void);
+
 static void report(void) {
     unsigned long tot = 0, bad = 0;
+    cov_write();
     for (unsigned i = 0; i < engine_check_count; i++) {
         tot += nchecked[i];
         bad += nfailed[i];
@@ -306,18 +353,39 @@ static void init(void) {
     trace_n = malloc(TRACE_MAX * sizeof *trace_n);
     stk0 = malloc(PORT_STACK_SIZE);
     stk_o = malloc(PORT_STACK_SIZE);
+    pi0 = pi_copy(NULL, 0);
     ncalls = calloc(engine_check_count + 1, sizeof *ncalls);
     nchecked = calloc(engine_check_count + 1, sizeof *nchecked);
     nfailed = calloc(engine_check_count + 1, sizeof *nfailed);
     const char *e = getenv("PORT_ENGINE_CHECK");
     if (e)
         first_n = strtoul(e, NULL, 0);
+    if ((e = getenv("PORT_ENGINE_CHECK_SHOW")) != NULL)
+        show_n = strtoul(e, NULL, 0);
     atexit(report);
 }
+
+/* PORT_ENGINE_COV=FILE: the ids of the blocks the checked calls ran, one a
+   line, at exit (what the fuzz reached: cov.py-like counts per function) */
+#define COV_MAX 0x10000u
+static uint8_t cov_hit[COV_MAX];
 
 void engine_trace_blk(unsigned int id) {
     if (engine_tracing && *ntrace_cur < TRACE_MAX)
         trace_cur[(*ntrace_cur)++] = id;
+    if (engine_tracing && id < COV_MAX)
+        cov_hit[id] = 1;
+}
+
+static void cov_write(void) {
+    const char *p = getenv("PORT_ENGINE_COV");
+    FILE *f;
+    if (!p || !(f = fopen(p, "w")))
+        return;
+    for (unsigned i = 0; i < COV_MAX; i++)
+        if (cov_hit[i])
+            fprintf(f, "%u\n", i);
+    fclose(f);
 }
 
 int engine_checking(void) { return active >= 0; }
@@ -342,6 +410,7 @@ int engine_check_begin(unsigned id, recomp_context *ctx, void *frame) {
     }
     ic0 = __port_icount;
     icc0 = __port_icount_c;
+    pi_copy(pi0, 0);
     ntrace_o = ntrace_n = 0;
     trace_cur = trace_o;
     ntrace_cur = &ntrace_o;
@@ -363,6 +432,7 @@ void engine_check_mid(unsigned id, recomp_context *ctx) {
     }
     __port_icount = ic0;
     __port_icount_c = icc0;
+    pi_copy(pi0, 1);
     trace_cur = trace_n;
     ntrace_cur = &ntrace_n;
 }
@@ -384,6 +454,21 @@ static const char *reg_name(unsigned r) {
         return "lo";
     snprintf(buf, sizeof buf, "f%u", r - 34);
     return buf;
+}
+
+/* Whether the words at byte k in the two runs' memory are both addresses
+   on the host stacks: the C a checked function calls keeps its locals
+   there, at another depth under the translation's glue than under the
+   native code, and a message it sends may be one's address (the PI's
+   OSIoMesg, which stays behind in its queue's buffer). */
+static int host_stack_words(uint32_t k) {
+    uint32_t w = k & ~3u, a, b;
+    if (w + 4 > PORT_RDRAM_SIZE)
+        return 0;
+    a = (uint32_t)mem_o[w] << 24 | mem_o[w + 1] << 16 | mem_o[w + 2] << 8 | mem_o[w + 3];
+    b = (uint32_t)RDRAM_P[w] << 24 | RDRAM_P[w + 1] << 16 | RDRAM_P[w + 2] << 8 | RDRAM_P[w + 3];
+    return a - PORT_STACK_BASE < (uint32_t)PORT_STACK_SIZE * PORT_MAX_THREADS &&
+           b - PORT_STACK_BASE < (uint32_t)PORT_STACK_SIZE * PORT_MAX_THREADS;
 }
 
 void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1, uint64_t m2) {
@@ -411,15 +496,18 @@ void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1
         if (!memcmp(mem_o + a, RDRAM_P + a, 4096))
             continue;
         for (uint32_t k = a; k < a + 4096; k++)
-            if (mem_o[k] != RDRAM_P[k] && !(k >= dlo && k < sp)) {
+            if (mem_o[k] != RDRAM_P[k] && !(k >= dlo && k < sp) && !host_stack_words(k)) {
                 if (!nbytes)
                     first = k;
                 nbytes++;
             }
     }
-    if (nbytes && len < sizeof what - 64)
-        len += snprintf(what + len, sizeof what - len, " memory: %lu bytes, first %08X (%02X/%02X)", nbytes,
-                        first | 0x80000000u, mem_o[first], RDRAM_P[first]);
+    if (nbytes && len < sizeof what - 96) {
+        uint32_t w = first & ~3u;
+        len += snprintf(what + len, sizeof what - len, " memory: %lu bytes, first %08X (%02X/%02X, word %02X%02X%02X%02X/%02X%02X%02X%02X)",
+                        nbytes, first | 0x80000000u, mem_o[first], RDRAM_P[first], mem_o[w], mem_o[w + 1],
+                        mem_o[w + 2], mem_o[w + 3], RDRAM_P[w], RDRAM_P[w + 1], RDRAM_P[w + 2], RDRAM_P[w + 3]);
+    }
     if (stk_hi && memcmp(stk_o, (void *)stk_lo, stk_hi - stk_lo) && len < sizeof what - 64) {
         uintptr_t k = 0;
         while (stk_o[k] == ((uint8_t *)stk_lo)[k])
@@ -431,7 +519,7 @@ void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1
         len += snprintf(what + len, sizeof what - len, " cost: %u+%u/%u+%u", ic_o, icc_o, ic_n, icc_n);
     if (!len)
         return;
-    if (nfailed[id]++ < 10) {
+    if (nfailed[id]++ < show_n) {
         fprintf(stderr, "engine check: %s (call %lu) differs (translation/native):%s\n",
                 engine_check_names[id], ncalls[id] - 1, what);
         unsigned k = 0;
@@ -441,5 +529,57 @@ void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1
             fprintf(stderr, "  blocks (blocks.tsv ids) part after %u: translation %d, native %d (of %u, %u)\n", k,
                     k < ntrace_o ? (int)trace_o[k] : -1, k < ntrace_n ? (int)trace_n[k] : -1, ntrace_o, ntrace_n);
     }
+}
+
+/*
+ * The fuzz: PORT_ENGINE_FUZZ=READ[:TRIALS[:SEED]] has the native engine's
+ * driver (engine_fuzz, port/engine/fuzz_*.c, where a version has one) call
+ * replaced functions at the READth controller read, on game memory it
+ * varies, every call checked as above (with PORT_ENGINE_CHECK=0): paths no
+ * run reaches, a jp results screen in the attract mode, say.  Before each
+ * trial, and after the last, game memory, the context and the counts are
+ * put back as they were at the read, so the run goes on as without it.
+ */
+static uint8_t *fuzz_mem, *fuzz_pi;
+static recomp_context fuzz_ctx;
+static uint32_t fuzz_ic, fuzz_icc;
+
+void engine_fuzz_reset(void) {
+    memcpy(RDRAM_P, fuzz_mem, PORT_RDRAM_SIZE);
+    pi_copy(fuzz_pi, 1);
+    *port_ctx() = fuzz_ctx;
+    __port_icount = fuzz_ic;
+    __port_icount_c = fuzz_icc;
+}
+
+void engine_fuzz(unsigned trials, unsigned seed) __attribute__((weak));
+
+void engine_fuzz_poll(unsigned polls) {
+    static int init;
+    static unsigned at, trials = 100, seed = 1;
+    if (!init) {
+        const char *e = getenv("PORT_ENGINE_FUZZ");
+        init = 1;
+        if (e)
+            sscanf(e, "%u:%u:%u", &at, &trials, &seed);
+    }
+    if (!at || polls != at)
+        return;
+    if (!engine_fuzz) {
+        fprintf(stderr, "engine fuzz: no driver in this version\n");
+        return;
+    }
+    fuzz_mem = malloc(PORT_RDRAM_SIZE);
+    memcpy(fuzz_mem, RDRAM_P, PORT_RDRAM_SIZE);
+    fuzz_pi = pi_copy(NULL, 0);
+    fuzz_ctx = *port_ctx();
+    fuzz_ic = __port_icount;
+    fuzz_icc = __port_icount_c;
+    engine_fuzz(trials, seed);
+    engine_fuzz_reset();
+    free(fuzz_mem);
+    free(fuzz_pi);
+    fuzz_mem = fuzz_pi = NULL;
+    fprintf(stderr, "engine fuzz: %u trials at read %u\n", trials, polls);
 }
 #endif

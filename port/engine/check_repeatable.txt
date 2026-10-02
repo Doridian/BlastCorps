@@ -1,0 +1,29 @@
+# The game's C and libultra functions that the check build
+# (PORT_ENGINE_CHECK, docs/PORT.md "Replacing the engine") may run twice: a
+# replaced function whose translation calls nothing else but these (and
+# translated code) is checked call by call, its translation and then the
+# native code on the same state.  Each changes nothing but game memory,
+# which the check puts back between the two runs, and none blocks: while a
+# check runs, port/host/threads.c neither switches threads nor syncs the
+# clock (a PI DMA completes at once, and its osRecvMesg finds the message).
+# A blocking receive under a check stops the port.  Mostly the callees of
+# jp's IDO functions (jp_*.c).
+
+# text: lengths, u16 text, glyphs (font.c), the debug print
+func_8025B0B8 func_8025B300 func_8025B370 func_8025B5D4 func_8025B7AC func_8025B918
+func_8029A7E4 func_80264A34 sprintf bcopy
+# drawing: text, yoshi windows and icons, the front end's screens
+func_80259450 func_80259BD4 func_80259C24 func_80259CCC func_80259DC8 func_8025E2CC
+func_80264264 func_80272C5C func_80272ED8 func_80274868 func_80274998 func_80274AA4
+func_80274B08 func_80275DA4 func_80276080 func_80276130 func_8026EF70 func_8026F004
+func_8026F644 func_8026F82C func_8026F8A8 func_8026FB50 func_802574F0 func_80261570
+func_801E8DCC func_801E93DC func_801EC49C func_801EEDB4 func_801F3450 func_801F4FBC
+func_801FE5D0 func_8024C404 func_802852EC
+# sounds and music (libaudio's state is game memory)
+func_80260650 func_8026205C func_8026AF6C func_8026394C func_8028604C func_80200714
+alCSPGetTempo alCSPSetTempo
+# state queries
+func_80297EF8 func_80297F74 func_802C1DD0
+# libultra's math
+guOrtho guRotate guScale guTranslate guPerspective guLookAtReflect guMtxIdent sins
+osVirtualToPhysical

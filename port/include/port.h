@@ -215,6 +215,9 @@ extern int port_ints_masked;        /* osSetIntMask(OS_IM_NONE): no preemption a
 /* charge the running thread for the instructions it executed (see
    threads.c); it may be held back until the clock catches up */
 void host_cpu_sync(void);
+/* the check build's C under a check (PORT_ENGINE_CHECK): no time passes and no
+   thread switches (threads.c) */
+int host_time_stopped(void);
 /* add instructions to the count, for work done by host code */
 void host_cpu_charge(uint32_t instructions);
 /* instructions an interrupt's handling takes from the running thread */

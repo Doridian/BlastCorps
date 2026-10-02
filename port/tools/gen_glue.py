@@ -843,18 +843,32 @@ def check_mask(name, conv_regs, analysis):
     return m
 
 
+def load_repeatable():
+    """check_repeatable.txt: the game's C and libultra functions that the
+    check may run twice (they change nothing but game memory, and never
+    block: port/host/threads.c doesn't switch threads while a check runs)"""
+    path = os.path.join(ENGINE, "check_repeatable.txt")
+    out = set()
+    if os.path.exists(path):
+        for line in open(path):
+            out.update(line.split("#", 1)[0].split())
+    return out
+
+
 def reaches_extern(funcs):
     """name -> whether its translation calls (at any depth) something that
     isn't translated: the check only runs those that don't (an original
-    that calls the game's C, or libultra, can't be run twice)"""
+    that calls the game's C, or libultra, can't be run twice), but for the
+    C that check_repeatable.txt lists"""
     calls = {n: {ln.target for ln in fn.lines if ln.insn.op in ("jal", "j")} for n, fn in funcs.items()}
+    repeatable = load_repeatable()
     memo = {}
 
     def go(n, stack):
         if n in memo:
             return memo[n]
         if n not in funcs:
-            return True
+            return n not in repeatable
         if n in stack:
             return False
         stack.add(n)
@@ -890,6 +904,8 @@ def gen_engine(check, funcs, report):
         sys.exit(f"gen_glue.py: port/engine defines {', '.join(stray)}, which replaced.txt doesn't list "
                  f"(and tools/recomp then still translates: make -C tools/recomp after listing)")
     adapters, cside, check_hdr = {}, [], []
+    from config import global_asm_functions
+    ido = {f for _, _, f in global_asm_functions(liveness.VERSION)}
     ext = reaches_extern(funcs)
     leaves = engine_leaves()
     ids = []
@@ -926,7 +942,10 @@ def gen_engine(check, funcs, report):
             # the game's C (and the translated code's glue) calls func_X: here
             # it runs the original first when the check wants it
             if checked and conv == o32_convention(sig):
-                cside += gen_c_check(name, sig, cid, mask)
+                # (a function the C has as a version's GLOBAL_ASM is IDO's
+                # code, o32's: its C caller reads its result and nothing else)
+                cmask = check_mask(name, list(zip(conv[1], out_c)), None) if name in ido else mask
+                cside += gen_c_check(name, sig, cid, cmask)
             else:
                 decl, rty = native_decl(name, sig, cname)
                 ps = [p for p in sig[1] if p != "..."]
@@ -953,7 +972,13 @@ def gen_c_check(name, sig, cid, mask):
     ps = [p for p in params if p != "..."]
     args = ", ".join(f"{pty(classify(p))} p{k}" for k, p in enumerate(ps)) or "void"
     conv = o32_convention(sig)
-    ent = gen_entry_regs(name, sig, conv, f"orig_{name}", orig=True)
+    # the translation runs where the glue would have run it for the C
+    # (entry.c's: the o32 frame below the C's $sp, its stack arguments in
+    # it), so that what IDO's code stores in its caller's argument slots
+    # lands in the dead stack as before
+    ent = gen_entry(name, sig, [], set())[0]
+    ent = [ln.replace(f" {name}(", f" orig_{name}(", 1) if k == 0 else
+           ln.replace(f"recomp_{name}(", f"recomp_orig_{name}(") for k, ln in enumerate(ent)]
     lines = [decl] + ["static " + ent[0]] + ent[1:]
     call = f"native_{name}({', '.join(f'p{k}' for k in range(len(ps)))})"
     lines += [f"{rty} {name}({args}) {{",

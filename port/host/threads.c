@@ -126,8 +126,22 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
 
 static void to_loop(void) { fiber_yield(cur->fiber); }
 
+/* While the engine's check runs a function twice (PORT_ENGINE_CHECK,
+   port/host/engine.c), the C it calls (check_repeatable.txt) must neither
+   switch threads nor block: everything is put back after the first run. */
+#ifdef PORT_ENGINE_CHECK
+int engine_checking(void);
+#define CHECKING() engine_checking()
+#else
+#define CHECKING() 0
+#endif
+
+/* whether the time stands still: the check build's C under a check (a PI
+   DMA then completes at once, port/src/ultra.c) */
+int host_time_stopped(void) { return CHECKING(); }
+
 void host_preempt(void) {
-    if (!cur)
+    if (!cur || CHECKING())
         return;
     cur->recv_key = 0;          /* osRecvMesg's end: it has its message */
     for (int i = 0; i < PORT_MAX_THREADS; i++)
@@ -203,6 +217,9 @@ uint32_t host_thread_current(void) {
 void host_block(uint32_t key) {
     if (!cur)
         host_fatal("blocking receive outside a thread (key %08X)", key);
+    if (CHECKING())
+        host_fatal("a blocking receive in the C a checked function calls (key %08X): "
+                   "it is no check_repeatable.txt function", key);
     cur->state = T_WAITING;
     cur->wait_key = key;
     to_loop();
@@ -217,7 +234,7 @@ void host_wake(uint32_t key) {
 }
 
 void host_yield(void) {
-    if (!cur)
+    if (!cur || CHECKING())
         return;
     cur->seq = seq_counter++;
     to_loop();
@@ -237,7 +254,7 @@ double host_ns_per_instr = 2 * 64.0 / 3;    /* mupen64plus's CountPerOp = 2 */
    from when the host got round to resuming it, so late wakeups don't add
    up. */
 void host_cpu_sync(void) {
-    if (!cur || host_ns_per_instr <= 0)
+    if (!cur || host_ns_per_instr <= 0 || CHECKING())
         return;
     cur->owed += ((uint32_t)(__port_icount - cur->imark) +
                   (uint32_t)(__port_icount_c - cur->imark_c) * host_c_scale) * host_ns_per_instr;

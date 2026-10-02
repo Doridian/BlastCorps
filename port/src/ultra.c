@@ -210,6 +210,33 @@ static struct { OSTime due; OSMesgQueue *mq; OSMesg msg; } pi_q[PI_MAX];
 static int pi_head, pi_n;
 static OSTime pi_free_at;
 
+#ifdef PORT_ENGINE_CHECK
+/* The PI's pending completions, which the engine's check (port/host/
+   engine.c, PORT_ENGINE_CHECK) puts back between its two runs of a
+   function, as it does game memory: a DMA the C it calls starts completes
+   later, here.  Their k-th piece's address (NULL after the last) and size
+   (results, not through a pointer: the host's memory isn't BEPass's). */
+void *port_pi_piece(int k) {
+    switch (k) {
+        case 0: return pi_q;
+        case 1: return &pi_head;
+        case 2: return &pi_n;
+        case 3: return &pi_free_at;
+    }
+    return NULL;
+}
+
+u32 port_pi_piece_size(int k) {
+    switch (k) {
+        case 0: return sizeof pi_q;
+        case 1: return sizeof pi_head;
+        case 2: return sizeof pi_n;
+        case 3: return sizeof pi_free_at;
+    }
+    return 0;
+}
+#endif
+
 static void pi_complete(OSMesgQueue *mq, OSMesg msg, u32 nbytes) {
     OSTime now = host_ticks();
     if (pi_free_at < now)
@@ -217,6 +244,13 @@ static void pi_complete(OSMesgQueue *mq, OSMesg msg, u32 nbytes) {
     pi_free_at += nbytes / 8 + 1;
     if (mq == NULL)
         return;
+#ifdef PORT_ENGINE_CHECK
+    if (host_time_stopped()) {
+        /* (the engine check's C: no time passes, nothing switches) */
+        osSendMesg(mq, msg, OS_MESG_NOBLOCK);
+        return;
+    }
+#endif
     if (pi_n == PI_MAX) {
         osSendMesg(pi_q[pi_head].mq, pi_q[pi_head].msg, OS_MESG_NOBLOCK);
         pi_head = (pi_head + 1) % PI_MAX;

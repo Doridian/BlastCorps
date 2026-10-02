@@ -534,6 +534,12 @@ void host_controller_poll(void) {
         port_blklog_poll(polls);
     }
 #endif
+#ifdef PORT_ENGINE_CHECK
+    {
+        void engine_fuzz_poll(unsigned polls);  /* (port/host/engine.c) */
+        engine_fuzz_poll(polls);
+    }
+#endif
     if (pace)
         fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(D_803156C4),
                 port_be32(D_80358064), port_be32(D_80364A90),

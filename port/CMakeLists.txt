@@ -557,6 +557,10 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/gu.c PROPERTIES
 if(PORT_SDK_TRACE)
     target_compile_definitions(port_n64 PRIVATE PORT_SDK_TRACE)
 endif()
+if(PORT_ENGINE_CHECK)
+    # (ultra.c's PI for the check: port/host/engine.c)
+    target_compile_definitions(port_n64 PRIVATE PORT_ENGINE_CHECK)
+endif()
 if(PORT_MOVABLE)
     # (the port's own data: not at N64 addresses, as in the other builds)
     set(PORT_N64_LAUNCHER ${N64_LAUNCHER})
@@ -628,6 +632,7 @@ add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${RECOMP_GEN}/syms_hd_code.h ${RECOMP_GEN}/syms_hd_front_end.h
             ${CMAKE_CURRENT_SOURCE_DIR}/engine/replaced.txt)
 file(GLOB ENGINE_SRC ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.c ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.h
+                     ${CMAKE_CURRENT_SOURCE_DIR}/engine/check_repeatable.txt
                      ${CMAKE_CURRENT_SOURCE_DIR}/engine/replaced.txt)
 add_custom_command(OUTPUT ${GEN}/entry.c ${GEN}/externs.c ${GEN}/glue_report.txt ${GEN}/fn_values.txt
                           ${GEN}/engine_check_names.h
