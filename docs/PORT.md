@@ -2953,6 +2953,18 @@ a native-endian build (n64, mn32) does.
   `engine_frame_lw(off)`, and writes the return address its `sd $ra`
   saves, each version's own, since two of the shadow's arguments are its
   halves.
+  Since `func_802ABBEC` keeps its frame, every native path to it keeps
+  the original's frames down to it: the level loader, the vehicles'
+  setups, their functions each frame, their put-backs and the matrix
+  functions those call, and 62740's carrying with its callbacks
+  (`engine_frame_s()` is the usual frame of 0x58 and 0x30).  A saved
+  `$ra` is the original's too: a native call into a function that saves
+  it sets it first, as the `jal` would, with `ENGINE_RA(next block)`
+  (the block's address in the version built, `engine_blocks.h`'s
+  `ENGINE_ADDR_`), and the caller loads its own back (`engine_save()`
+  with `ENGINE_GPR(31)`).  The TAS needs it: at read 108453 the shadow's
+  pitch is the `$ra` that `func_802AB714`'s frame saved, the carrying's,
+  and `__port_icount_c` drifted from there without it.
 - A native called from another native gets its inputs as C arguments,
   and nothing puts them in the context.  When its original keeps or
   saves an input register, it leaves the input there itself at entry

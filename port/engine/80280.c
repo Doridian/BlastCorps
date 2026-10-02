@@ -434,6 +434,7 @@ REGS(v0, v1, a0)
 void func_8029FC74(s32 a, s32 b, Part *parts);
 
 void func_802C5AFC(void);
+static void jbomb_frame(void);
 REGS()
 void func_802C5970(void);
 REGS(gp)
@@ -500,7 +501,16 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 *s3, avg;
 
     ENGINE_BLK(802C5120);
-    engine_save(ENGINE_T0_T5, 0);
+    engine_save(ENGINE_T0_T5 | ENGINE_GPR(31), 0);
+    /* its frame, as the original's (engine_frame()) */
+    engine_frame(-0x38);
+    engine_frame_sd(0x10, 9);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
+    engine_frame_sd(0x18, 10);
+    engine_frame_sd(0x20, 11);
+    engine_frame_sd(0x28, 12);
+    engine_frame_sd(0x30, 13);
     D_803F7C04 = model;
     buf = D_80358070;
     D_803F7C08 = buf;
@@ -579,14 +589,17 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     model = D_803F7C04;
     func_8029C354(9, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x4268);
     ENGINE_BLK(802C5434);
+    engine_frame(-0x40);
     func_80258230(9, 0x64, 0x2D, 0x2D);
+    engine_frame(0x40);
     ENGINE_BLK(802C544C);
     func_802A0360(6, 2, JB, 0.0f);
     ENGINE_BLK(802C546C);
     func_802A0290(6, -1, JB);
     ENGINE_BLK(802C5480);
     vs->unk9A = 1;
-    func_802C5AFC();
+    ENGINE_RA(802C548C);
+    jbomb_frame();
     ENGINE_BLK(802C548C);
     vs->unk9A = 0;
     func_802A7764((u32 *)D_803F7C0C, (u32 *)D_803F7C08, 0x1000);
@@ -595,6 +608,7 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803F7C0C, D_803F7C08, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802C54DC);
     D_803F7844 = 0;
+    engine_frame(0x38);
     engine_restore();
     /* what the original leaves for its (translated) caller */
     ENGINE_LEAVE(28, T(vs));
@@ -742,14 +756,18 @@ void func_802C5860(void) {
     VS *vs = &D_803F7B50;
 
     ENGINE_BLK(802C5860);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame(-ENGINE_C_FRAME);
+    engine_frame_s();
     func_802A9A60(vs->unk52, D_803F7BFC, D_803F7BF8, D_803F7C00, vs->unk4, &D_803F7BFC, (s16 *)&vs->unk4C, 9, vs,
                   engine_ctx(30));
     ENGINE_BLK(802C58EC);
+    ENGINE_RA(802C58F4);
     func_802C7CB0(vs);
     ENGINE_BLK(802C58F4);
     func_802A133C(D_803F7BF8, D_803F7BFC, D_803F7C00, 9, vs);
     ENGINE_BLK(802C5920);
+    engine_frame(ENGINE_FRAME_S + ENGINE_C_FRAME);
     engine_restore();
 }
 
@@ -762,31 +780,45 @@ void func_802C5970(void) {
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier (its point
-   only; the original saves and loads back $t0, $t1, $t3 and $t4) */
+   only; the original saves $t0, $t1, $t3 and $t4 in its frame of 0x28 and
+   loads them back) */
 REGS(a3)
 void func_802C59B4(s32 carrier) {
     VS *vs = &D_803F7B50;
     s32 t3, t4;
 
     ENGINE_BLK(802C59B4);
-    engine_save(ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(12), 0);
+    engine_save(ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(12) | ENGINE_GPR(31), 0);
+    engine_frame(-0x28);
+    engine_frame_sd(8, 8);
+    engine_frame_sd(0x10, 9);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(0x18, 11);
+    engine_frame_sd(0x20, 12);
     ENGINE_LEAVE(28, T(vs));
     t3 = func_802AAD0C(carrier, D_803F7BF8, D_803F7C00, &t4);
     ENGINE_BLK(802C59F0);
     vs->unk6A = t3;
     vs->unk6C = t4;
+    engine_frame(0x28);
     engine_restore();
 }
 
 /* and back there after the carrier moved, its heading kept (the original
-   saves and loads back $a3, $t0, $t1 and $t2) */
+   saves $a3, $t0, $t1 and $t2 in its frame of 0x28 and loads them back) */
 REGS(a3)
 void func_802C5A14(s32 carrier) {
     VS *vs = &D_803F7B50;
     s32 t3, t4;
 
     ENGINE_BLK(802C5A14);
-    engine_save(ENGINE_GPR(7) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(10), 0);
+    engine_save(ENGINE_GPR(7) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(10) | ENGINE_GPR(31), 0);
+    engine_frame(-0x28);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(0x10, 8);
+    engine_frame_sd(0x18, 9);
+    engine_frame_sd(8, 7);
+    engine_frame_sd(0x20, 10);
     ENGINE_LEAVE(28, T(vs));
     t3 = func_802AAE54(carrier, vs->unk6A, vs->unk6C, &t4);
     ENGINE_LEAVE(8, vs->unk6A);
@@ -807,15 +839,17 @@ void func_802C5A14(s32 carrier) {
     func_802A8768(t3, t4, &D_803F7BF8, &D_803F7C00, &D_803F7BFC, 9, 0x78, 0x78, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802C5AAC);
+    ENGINE_RA(802C5AB4);
     func_802C7CB0(vs);
     ENGINE_BLK(802C5AB4);
     func_802A133C(D_803F7BF8, D_803F7BFC, D_803F7C00, 9, vs);
     ENGINE_BLK(802C5AE0);
+    engine_frame(0x28);
     engine_restore();
 }
 
 /* each frame */
-void func_802C5AFC(void) {
+static void jbomb_frame(void) {
     VS *vs = &D_803F7B50;
     s32 t3 = 0, x, z, rate_i, v, h, sel, t1;
     u32 stick_addr;
@@ -823,7 +857,9 @@ void func_802C5AFC(void) {
     f32 rate;
 
     ENGINE_BLK(802C5AFC);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame_s();
+    engine_frame(-0x10);
     ENGINE_LEAVE(28, T(vs));
     func_802C5970();
     ENGINE_BLK(802C5B58);
@@ -937,6 +973,7 @@ turn:
         func_8029E558(JB, D_803F7C0C, D_803F7C08);
     }
     ENGINE_BLK(802C5D94);
+    ENGINE_RA(802C5D9C);
     func_802C7CB0(vs);
     ENGINE_BLK(802C5D9C);
     D_803F7C39 = 0;
@@ -1095,7 +1132,15 @@ done:
     D_803F7C3F = 0;
 out:
     ENGINE_BLK(802C6128);
+    engine_frame(0x10 + ENGINE_FRAME_S);
     engine_restore();
+}
+
+/* hd.c's: the J-Bomb each frame, where the glue would have started the original */
+void func_802C5AFC(void) {
+    engine_frame(-ENGINE_C_FRAME);
+    jbomb_frame();
+    engine_frame(ENGINE_C_FRAME);
 }
 
 /* in the air: its speed toward 0 by 8 a frame, unless the stick or
@@ -2252,6 +2297,9 @@ void func_802C7CB0(VS *vs) {
     s32 *m, off;
 
     ENGINE_BLK(802C7CB0);
+    engine_save(ENGINE_GPR(31), 0);
+    engine_frame(-8);
+    engine_frame_sd(0, 31);
     off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C7CE0);
@@ -2289,8 +2337,11 @@ void func_802C7CB0(VS *vs) {
     }
     ENGINE_BLK(802C7DCC);
     ENGINE_LEAVE(11, T(model));
+    ENGINE_RA(802C7DEC);
     func_802ABBEC(9, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C7DEC);
+    engine_frame(8);
+    engine_restore();
 }
 
 /* the turn rate: walking or landed, the speed / 1.5; in the air, 20, or

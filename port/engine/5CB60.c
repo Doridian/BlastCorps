@@ -1963,7 +1963,9 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     u64 mode;
 
     ENGINE_BLK(802A1674);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame(-ENGINE_C_FRAME);
+    engine_frame_s();
     D_803BE6F4 = status;
     ENGINE_LEAVE(8, h);
     func_802A2D68(h);
@@ -2008,10 +2010,13 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     ENGINE_BLK(802A1768);
     ENGINE_LEAVE(8, h);
     ENGINE_LEAVE(16, h);
+    engine_frame(-0x10);
     func_8028FDA0((s16 *)AT(p, 0x3C), (s16 *)AT(p, 0x40));
+    engine_frame(0x10);
     ENGINE_BLK(802A1784);
     if (D_80364A98 != 0x80) {
         ENGINE_BLK(802A179C);
+        ENGINE_RA(802A17A4);
         func_802A350C(h);
     }
     ENGINE_BLK(802A17A4);
@@ -2024,6 +2029,7 @@ void func_802A1674(LevelHeader *hp, s32 status) {
         if (D_802E8BEC != 0)
             goto extras;
         ENGINE_BLK(802A17E0);
+        ENGINE_RA(802A17E8);
         func_802A303C(h);
         ENGINE_BLK(802A17E8);
         goto extras;
@@ -2035,28 +2041,35 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     if (D_803BE6F4 != 0)
         goto chopper;
     ENGINE_BLK(802A180C);
+    ENGINE_RA(802A1814);
     func_802A303C(h);
     ENGINE_BLK(802A1814);
+    ENGINE_RA(802A181C);
     func_802A30DC();
 chopper:
     ENGINE_BLK(802A181C);
+    ENGINE_RA(802A1824);
     func_802A3134(h);
 extras:
     ENGINE_BLK(802A1824);
+    ENGINE_RA(802A182C);
     func_802A3198();
     ENGINE_BLK(802A182C);
     func_802CEAA0(p);
     ENGINE_BLK(802A1834);
+    ENGINE_RA(802A183C);
     func_802A19F4();
     ENGINE_BLK(802A183C);
     D_803BE6FC = (struct LevelUnk58 *)AT(p, 0x58);
     D_803BE700 = (struct LevelUnk58 *)AT(p, 0x5C);
     ENGINE_LEAVE(16, h);
+    engine_frame(-0x10);
     func_8026FBB0(AT(p, 0x34), AT(p, 0x38));
     ENGINE_BLK(802A1878);
     func_8028D4C0(AT(p, 0x38), AT(p, 0x3C));
     ENGINE_BLK(802A188C);
     func_8028C190(AT(p, 0x20), AT(p, 0x24));
+    engine_frame(0x10);
     ENGINE_BLK(802A18A0);
     D_80370C50 = 0;
     mode = D_80364A98;
@@ -2072,6 +2085,7 @@ extras:
     func_802C4BF0((u8 *)(__UINTPTR_TYPE__)(u32)D_803BE6F4);
 done:
     ENGINE_BLK(802A18E4);
+    engine_frame(ENGINE_FRAME_S + ENGINE_C_FRAME);
     engine_restore();
 }
 
@@ -2083,6 +2097,9 @@ void func_802A19F4(void) {
     s16 *v, *end;
 
     ENGINE_BLK(802A19F4);
+    engine_frame(-0x10);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
     if (D_8039CAB7 == 0)
         goto done;
     ENGINE_BLK(802A1A0C);
@@ -2105,6 +2122,7 @@ void func_802A19F4(void) {
     D_8039CABC = m + *(s32 *)(m + 0x24);
 done:
     ENGINE_BLK(802A1A88);
+    engine_frame(0x10);
 }
 
 /* the missile carrier (its record first in LevelHeader.unk54: its speed,
@@ -2116,6 +2134,10 @@ void func_802A303C(u32 h_) {
     u32 m;
 
     ENGINE_BLK(802A303C);
+    ENGINE_LEAVE(8, h_);
+    engine_frame(-0x10);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
     if (speed == 0)
         goto done;
     ENGINE_BLK(802A305C);
@@ -2127,6 +2149,7 @@ void func_802A303C(u32 h_) {
     D_803643DB = 1;
 done:
     ENGINE_BLK(802A30C8);
+    engine_frame(0x10);
 }
 
 /* the other chopper (8DDB0), on the levels func_80268EE8 says */
@@ -2135,6 +2158,10 @@ void func_802A30DC(void) {
     u32 m;
 
     ENGINE_BLK(802A30DC);
+    engine_frame(-0x10);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
+    engine_frame(-0x20);
     if (func_80268EE8(D_802E8BDC) == 0) {
         ENGINE_BLK(802A30F8);
         goto done;
@@ -2147,6 +2174,7 @@ void func_802A30DC(void) {
     func_802D2570((u8 *)(__UINTPTR_TYPE__)m);
 done:
     ENGINE_BLK(802A311C);
+    engine_frame(0x20 + 0x10);
 }
 
 /* the BCT chopper, where there is a carrier and outside the attract
@@ -2157,6 +2185,10 @@ void func_802A3134(u32 h_) {
     u32 m;
 
     ENGINE_BLK(802A3134);
+    ENGINE_LEAVE(8, h_);
+    engine_frame(-0x10);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
     if (r[0] == 0)
         goto done;
     ENGINE_BLK(802A3154);
@@ -2170,6 +2202,7 @@ void func_802A3134(u32 h_) {
     D_803643DC = 1;
 done:
     ENGINE_BLK(802A3184);
+    engine_frame(0x10);
 }
 
 /* the missile carrier's extra model (D_8039CA61, model D_8039CA7E): its
@@ -2182,6 +2215,9 @@ void func_802A3198(void) {
     s16 *q;
 
     ENGINE_BLK(802A3198);
+    engine_frame(-0x10);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
     if (D_8039CA61 == 0)
         goto done;
     ENGINE_BLK(802A31B0);
@@ -2235,6 +2271,7 @@ void func_802A3198(void) {
     ENGINE_BLK(802A32B4);
 done:
     ENGINE_BLK(802A32B8);
+    engine_frame(0x10);
 }
 
 /* the level's vehicles (LevelHeader.vehicles: 9-byte records, the type,
@@ -2248,6 +2285,11 @@ void func_802A350C(u32 h_) {
     s32 x, y, z, heading;
 
     ENGINE_BLK(802A350C);
+    engine_save(ENGINE_GPR(31), 0);
+    ENGINE_LEAVE(8, h_);
+    engine_frame(-0x10);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
     func_802A3824(h_);
     ENGINE_BLK(802A351C);
     D_803ED3F5 = 0;
@@ -2308,6 +2350,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3640);
         if (t3 == 0x0) {
             ENGINE_BLK(802A3648);
+            ENGINE_RA(802A3650);
             func_802AE370((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3650);
             continue;
@@ -2315,6 +2358,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3658);
         if (t3 == 0x1) {
             ENGINE_BLK(802A3664);
+            ENGINE_RA(802A366C);
             func_802AFC60((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A366C);
             continue;
@@ -2322,6 +2366,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3674);
         if (t3 == 0x2) {
             ENGINE_BLK(802A3680);
+            ENGINE_RA(802A3688);
             func_802B0DA0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3688);
             continue;
@@ -2329,6 +2374,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3690);
         if (t3 == 0x3) {
             ENGINE_BLK(802A369C);
+            ENGINE_RA(802A36A4);
             func_802B29C0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36A4);
             continue;
@@ -2336,6 +2382,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A36AC);
         if (t3 == 0x4) {
             ENGINE_BLK(802A36B8);
+            ENGINE_RA(802A36C0);
             func_802B4100((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36C0);
             continue;
@@ -2343,6 +2390,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A36C8);
         if (t3 == 0x5) {
             ENGINE_BLK(802A36D4);
+            ENGINE_RA(802A36DC);
             func_802B5900((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36DC);
             continue;
@@ -2350,6 +2398,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A36E4);
         if (t3 == 0x6) {
             ENGINE_BLK(802A36F0);
+            ENGINE_RA(802A36F8);
             func_802BAD80((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36F8);
             continue;
@@ -2357,6 +2406,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3700);
         if (t3 == 0x7) {
             ENGINE_BLK(802A370C);
+            ENGINE_RA(802A3714);
             func_802BBA60((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3714);
             continue;
@@ -2364,6 +2414,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A371C);
         if (t3 == 0x8) {
             ENGINE_BLK(802A3728);
+            ENGINE_RA(802A3730);
             func_802B7340((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3730);
             continue;
@@ -2371,6 +2422,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3738);
         if (t3 == 0x9) {
             ENGINE_BLK(802A3744);
+            ENGINE_RA(802A374C);
             func_802C5120((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A374C);
             continue;
@@ -2378,6 +2430,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3754);
         if (t3 == 0xa) {
             ENGINE_BLK(802A3760);
+            ENGINE_RA(802A3768);
             func_802C9B90((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3768);
             continue;
@@ -2400,6 +2453,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A379C);
         if (t3 == 0xd) {
             ENGINE_BLK(802A37A8);
+            ENGINE_RA(802A37B0);
             func_802CB720((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A37B0);
             continue;
@@ -2407,6 +2461,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A37B8);
         if (t3 == 0xe) {
             ENGINE_BLK(802A37C4);
+            ENGINE_RA(802A37CC);
             func_802CC920((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A37CC);
             continue;
@@ -2414,6 +2469,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A37D4);
         if (t3 == 0xf) {
             ENGINE_BLK(802A37E0);
+            ENGINE_RA(802A37E8);
             func_802CF6A0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A37E8);
             continue;
@@ -2421,6 +2477,7 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A37F0);
         if (t3 == 0x10) {
             ENGINE_BLK(802A37FC);
+            ENGINE_RA(802A3804);
             func_802D07E0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3804);
             continue;
@@ -2429,4 +2486,6 @@ void func_802A350C(u32 h_) {
         engine_trap(0x802A380C);
     }
     ENGINE_BLK(802A3810);
+    engine_frame(0x10);
+    engine_restore();
 }

@@ -212,6 +212,21 @@ uint32_t engine_frame_lw(uint32_t off) {
     return mem_r32(rdram, (uint32_t)ctx->sp + off);
 }
 
+/* engine.h's: the frame of 0x58 and 0x30 Rare's code saves $ra,
+   $s0..$s7, $gp, $fp and $f20..$f31 in */
+void engine_frame_s(void) {
+    unsigned int k;
+    engine_frame(-0x58);
+    engine_frame_sd(0, 31);
+    for (k = 0; k < 8; k++)
+        engine_frame_sd(8 + 8 * k, 16 + k);
+    engine_frame_sd(0x48, 28);
+    engine_frame_sd(0x50, 30);
+    engine_frame(-0x30);
+    for (k = 0; k < 6; k++)
+        engine_frame_sdc1(8 * k, 20 + 2 * k);
+}
+
 /* engine.h's: a COP0 register, as the translated code's mfc0 reads it */
 uint32_t engine_mfc0(unsigned int reg) {
     return (uint32_t)recomp_mfc0(port_ctx(), (int)reg);

@@ -150,6 +150,14 @@ void engine_frame_sw(u32 off, u32 v);
 /* the word at $sp + off, as the original's lw reads what is there */
 u32 engine_frame_lw(u32 off);
 #define ENGINE_C_FRAME 16
+/* $ra as the original's jal leaves it for a callee that saves it in its
+   frame: the address of the block after the call, ENGINE_RA(802AB6C4),
+   each version's own (engine_blocks.h's ENGINE_ADDR_) */
+#define ENGINE_RA(next) ENGINE_LEAVE(31, ENGINE_ADDR_##next)
+/* the frame of 0x58 and 0x30 most of Rare's functions save $ra, $s0..$s7,
+   $gp, $fp and $f20..$f31 in (engine_frame(0x30 + 0x58) leaves it) */
+void engine_frame_s(void);
+#define ENGINE_FRAME_S (0x30 + 0x58)
 
 /* a COP0 register (mfc0), as the translated code reads it */
 u32 engine_mfc0(unsigned int reg);

@@ -198,6 +198,12 @@ against its translation.
   original's frames where the read reaches them (`engine_frame()`, docs/PORT.md), and native code now
   calls translated code at the context's `$sp`, as Rare's `jal` does, not 32 bytes below it.  Both costs
   are now the same as main's over the whole TAS.
+- After the rebase the same slot came out wrong at read 108453 (`__port_icount_c` 23 low, then the
+  J-Bomb's sound a frame off at read 122932): there it holds the `$ra` that the carrying's
+  `func_802AB714` saved, which the native carrying didn't write.  The native code on the paths to
+  `func_802ABBEC` (the loader, the vehicles' setups, their steps each frame, put-backs and matrix
+  functions, the carrying and its callbacks) now keeps the original's frames, and sets `$ra` for a
+  call as the `jal` would (`ENGINE_RA`, from each block's address, which `tools/recomp` now writes).
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).

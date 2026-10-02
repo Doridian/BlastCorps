@@ -63,6 +63,7 @@ void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s3
                    u8 arg10, u8 arg11, u8 arg12);
 
 void func_802B327C(void);
+static void skyfall_frame(void);
 REGS()
 void func_802B30B0(void);
 REGS(gp)
@@ -91,7 +92,16 @@ void func_802B29C0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 *s3, avg;
 
     ENGINE_BLK(802B29C0);
-    engine_save(ENGINE_T0_T5, 0);
+    engine_save(ENGINE_T0_T5 | ENGINE_GPR(31), 0);
+    /* its frame, as the original's (engine_frame()) */
+    engine_frame(-0x38);
+    engine_frame_sd(0x10, 9);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
+    engine_frame_sd(0x18, 10);
+    engine_frame_sd(0x20, 11);
+    engine_frame_sd(0x28, 12);
+    engine_frame_sd(0x30, 13);
     D_803EE398 = model;
     buf = D_80358070;
     D_803EE39C = buf;
@@ -163,16 +173,20 @@ void func_802B29C0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     model = D_803EE398;
     func_8029C354(3, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x2AF8);
     ENGINE_BLK(802B2CEC);
+    engine_frame(-0x40);
     func_80258230(3, 0x50, 0x1F, 0x1F);
+    engine_frame(0x40);
     ENGINE_BLK(802B2D04);
     vs->unk9A = 1;
-    func_802B327C();
+    ENGINE_RA(802B2D14);
+    skyfall_frame();
     ENGINE_BLK(802B2D14);
     vs->unk9A = 0;
     model = D_803EE398;
     func_802AA838(D_803EE3A0, D_803EE39C, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802B2D4C);
     D_80364A69 = 1;
+    engine_frame(0x38);
     engine_restore();
     /* what the original leaves for its (translated) caller */
     ENGINE_LEAVE(28, T(vs));
@@ -268,14 +282,18 @@ void func_802B2FA0(void) {
     VS *vs = &D_803EE2E0;
 
     ENGINE_BLK(802B2FA0);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame(-ENGINE_C_FRAME);
+    engine_frame_s();
     func_802A9A60(vs->unk52, D_803EE390, D_803EE38C, D_803EE394, vs->unk4, &D_803EE390, (s16 *)&vs->unk4C, 3, vs,
                   engine_ctx(30));
     ENGINE_BLK(802B302C);
+    ENGINE_RA(802B3034);
     func_802B3E40(vs);
     ENGINE_BLK(802B3034);
     func_802A133C(D_803EE38C, D_803EE390, D_803EE394, 3, vs);
     ENGINE_BLK(802B3060);
+    engine_frame(ENGINE_FRAME_S + ENGINE_C_FRAME);
     engine_restore();
 }
 
@@ -288,7 +306,7 @@ void func_802B30B0(void) {
 }
 
 /* each frame */
-void func_802B327C(void) {
+static void skyfall_frame(void) {
     VS *vs = &D_803EE2E0;
     s32 t3 = 0, x, z, rate_i, v, h;
     u32 stick_addr;
@@ -297,7 +315,9 @@ void func_802B327C(void) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802B327C);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame_s();
+    engine_frame(-0x10);
     func_802B30B0();
     ENGINE_BLK(802B32D0);
     func_802A75DC((u8 *)SKY, &D_803EE38C, &D_803EE390, &D_803EE394, (u8 *)vs);
@@ -357,6 +377,7 @@ void func_802B327C(void) {
         func_8029E558(SKY, D_803EE3A0, D_803EE39C);
     }
     ENGINE_BLK(802B3484);
+    ENGINE_RA(802B348C);
     func_802B3E40(vs);
     ENGINE_BLK(802B348C);
     ENGINE_LEAVE(8, 6);         /* $t0 and $t2, which func_8029A800 reads too */
@@ -460,6 +481,7 @@ hit:
     }
     ENGINE_BLK(802B3640);
     vs->unk76 = -v >> 1;
+    ENGINE_RA(802B3650);
     func_802B3E40(vs);
     ENGINE_BLK(802B3650);
 
@@ -473,7 +495,15 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 3, vs);
     ENGINE_BLK(802B375C);
+    engine_frame(0x10 + ENGINE_FRAME_S);
     engine_restore();
+}
+
+/* hd.c's: Skyfall each frame, where the glue would have started the original */
+void func_802B327C(void) {
+    engine_frame(-ENGINE_C_FRAME);
+    skyfall_frame();
+    engine_frame(ENGINE_C_FRAME);
 }
 
 /* the parts: sparks off rough ground, part 3's tilt, part 2's position,
@@ -750,6 +780,9 @@ void func_802B3E40(VS *vs) {
     s32 *m, off;
 
     ENGINE_BLK(802B3E40);
+    engine_save(ENGINE_GPR(31), 0);
+    engine_frame(-8);
+    engine_frame_sd(0, 31);
     off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B3E70);
@@ -781,8 +814,11 @@ void func_802B3E40(VS *vs) {
                   buf);
     ENGINE_BLK(802B3F48);
     ENGINE_LEAVE(11, T(model));
+    ENGINE_RA(802B3F68);
     func_802ABBEC(3, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802B3F68);
+    engine_frame(8);
+    engine_restore();
 }
 
 /* the turn rate: the speed / 2.5, or / 11 with a wheel off the ground */
@@ -896,6 +932,7 @@ extern u8 D_802C2190[], D_802C21A4[];           /* its tracks' part records (560
 extern u8 D_802C21B8[];                         /* part 3's */
 
 void func_802B49AC(void);
+static void ramdozer_frame(void);
 REGS()
 void func_802B47D4(void);
 REGS(gp)
@@ -929,7 +966,16 @@ void func_802B4100(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 *s3, avg;
 
     ENGINE_BLK(802B4100);
-    engine_save(ENGINE_T0_T5, 0);
+    engine_save(ENGINE_T0_T5 | ENGINE_GPR(31), 0);
+    /* its frame, as the original's (engine_frame()) */
+    engine_frame(-0x38);
+    engine_frame_sd(0x10, 9);
+    engine_frame_sd(0, 31);
+    engine_frame_sd(8, 8);
+    engine_frame_sd(0x18, 10);
+    engine_frame_sd(0x20, 11);
+    engine_frame_sd(0x28, 12);
+    engine_frame_sd(0x30, 13);
     D_803EE774 = model;
     buf = D_80358070;
     D_803EE778 = buf;
@@ -998,15 +1044,19 @@ void func_802B4100(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     model = D_803EE774;
     func_8029C354(4, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x2710);
     ENGINE_BLK(802B4408);
+    engine_frame(-0x40);
     func_80258230(4, 0x96, 0x32, 0x32);
+    engine_frame(0x40);
     ENGINE_BLK(802B4420);
     vs->unk9A = 1;
-    func_802B49AC();
+    ENGINE_RA(802B4430);
+    ramdozer_frame();
     ENGINE_BLK(802B4430);
     vs->unk9A = 0;
     model = D_803EE774;
     func_802AA838(D_803EE77C, D_803EE778, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802B4468);
+    engine_frame(0x38);
     engine_restore();
     /* what the original leaves for its (translated) caller */
     ENGINE_LEAVE(28, T(vs));
@@ -1108,14 +1158,18 @@ void func_802B46C4(void) {
     VS *vs = &D_803EE6C0;
 
     ENGINE_BLK(802B46C4);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame(-ENGINE_C_FRAME);
+    engine_frame_s();
     func_802A9A60(vs->unk52, D_803EE76C, D_803EE768, D_803EE770, vs->unk4, &D_803EE76C, (s16 *)&vs->unk4C, 4, vs,
                   engine_ctx(30));
     ENGINE_BLK(802B4750);
+    ENGINE_RA(802B4758);
     func_802B568C(vs);
     ENGINE_BLK(802B4758);
     func_802A133C(D_803EE768, D_803EE76C, D_803EE770, 4, vs);
     ENGINE_BLK(802B4784);
+    engine_frame(ENGINE_FRAME_S + ENGINE_C_FRAME);
     engine_restore();
 }
 
@@ -1128,7 +1182,7 @@ void func_802B47D4(void) {
 }
 
 /* each frame */
-void func_802B49AC(void) {
+static void ramdozer_frame(void) {
     VS *vs = &D_803EE6C0;
     s32 t3 = 0, x, z, rate_i, v, h;
     u32 stick_addr;
@@ -1137,7 +1191,9 @@ void func_802B49AC(void) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802B49AC);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
+    engine_frame_s();
+    engine_frame(-0x10);
     func_802B47D4();
     ENGINE_BLK(802B4A00);
     func_802A75DC((u8 *)RAM, &D_803EE768, &D_803EE76C, &D_803EE770, (u8 *)vs);
@@ -1200,6 +1256,7 @@ void func_802B49AC(void) {
         func_8029E558(RAM, D_803EE77C, D_803EE778);
     }
     ENGINE_BLK(802B4BCC);
+    ENGINE_RA(802B4BD4);
     func_802B568C(vs);
     ENGINE_BLK(802B4BD4);
     ENGINE_LEAVE(8, 8);         /* $t0 and $t2, which func_8029A800 reads too */
@@ -1317,6 +1374,7 @@ hit:
     }
     ENGINE_BLK(802B4DA8);
     vs->unk76 = -v;
+    ENGINE_RA(802B4DB4);
     func_802B568C(vs);
     ENGINE_BLK(802B4DB4);
 
@@ -1330,7 +1388,15 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 4, vs);
     ENGINE_BLK(802B4EA4);
+    engine_frame(0x10 + ENGINE_FRAME_S);
     engine_restore();
+}
+
+/* hd.c's: the Ramdozer each frame, where the glue would have started the original */
+void func_802B49AC(void) {
+    engine_frame(-ENGINE_C_FRAME);
+    ramdozer_frame();
+    engine_frame(ENGINE_C_FRAME);
 }
 
 /* the parts: dust, sparks off rough ground and when it starts off, part 2's
@@ -1560,6 +1626,9 @@ void func_802B568C(VS *vs) {
     s32 *m, off;
 
     ENGINE_BLK(802B568C);
+    engine_save(ENGINE_GPR(31), 0);
+    engine_frame(-8);
+    engine_frame_sd(0, 31);
     off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B56BC);
@@ -1591,8 +1660,11 @@ void func_802B568C(VS *vs) {
                   buf);
     ENGINE_BLK(802B5794);
     ENGINE_LEAVE(11, T(model));
+    ENGINE_RA(802B57B4);
     func_802ABBEC(4, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802B57B4);
+    engine_frame(8);
+    engine_restore();
 }
 
 /* the turn rate: 0x4B, or 0x16 with a wheel off the ground */
