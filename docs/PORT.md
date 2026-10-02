@@ -2776,7 +2776,9 @@ The module: 3.50 MB before, 3.52 MB after (0.93 MB gzipped).
 
 ## The glue to the translated code
 
-`port/tools/gen_glue.py` generates both directions from the C:
+The translated code is the check build's only now ("Replacing the
+engine"); in the default build `entry.c` is empty and nothing else of this
+is compiled.  `port/tools/gen_glue.py` generates both directions from the C:
 
 - `entry.c`: for each of the 167 translated functions the C calls, a native
   function with the C's prototype that puts the arguments where the o32 ABI
@@ -2798,8 +2800,19 @@ an argument outside `a0`-`a3`/`f12`/`f14`) and lists disagreements in
 
 The translated engine is derived from the ROM, so a port that's published
 needs Rare's handwritten engine written as C (docs/DISTRIBUTION.md, "The engine
-rewrite").  That rewrite happens one function at a time, and every step is
-checked and must keep the TAS.
+rewrite").  That rewrite happened one function at a time, and every step was
+checked and had to keep the TAS.
+
+**It is done** (2026-10-02): every function `tools/recomp` translates is
+native in every version, Rare's 688 and jp's 18 (its 17 IDO functions the
+C still has as `GLOBAL_ASM`, and `func_802BA3E8_jp`; "Other versions").
+The default build compiles none of the translation: the `recomp` library is
+`entry.c` alone, which is empty, and a function missing from `port/engine`
+fails the link (`recomp_func_X` undefined) where it used to fall back to
+its translation.  Only the check build (`PORT_ENGINE_CHECK`, below) still
+compiles the translation, to run it against the native code.  `test.py
+quick` fails a build that compiles or links any of it ("engine": no
+`recomp_*func_` symbol, no translated object in the build's graph).
 
 **The mechanism.**
 - `port/engine/replaced.txt` lists the functions that are native now, and
@@ -2823,6 +2836,11 @@ checked and must keep the TAS.
 - `port/engine/shared.h` declares every native function that another
   object calls, with its `REGS()`, so the call sites in all the objects
   agree.
+- A function nothing reaches, in any version (no `jal` or `j`, no address
+  in code or data: 679E0's `func_802ACDB8` and `func_802ACEB8`), is
+  `func_X unused` in replaced.txt: no definition, and only the check build
+  has its translation; `translate.py` fails if any translated code calls
+  it.
 
 **Register conventions.**
 - Rare's code passes values in whatever registers suit it.  `REGS(t0, t3
@@ -2898,23 +2916,56 @@ a native-endian build (n64, mn32) does.
 **Checking.**
 - `-DPORT_ENGINE_CHECK=ON` (32-bit builds only) checks every call of a
   replaced function from translated code or the game's C, if the
-  original's translation calls nothing but translated code.
+  original's translation calls nothing but translated code, or the game's
+  C and libultra that `port/engine/check_repeatable.txt` lists: functions
+  that change nothing but game memory, which the check puts back.  While a
+  check runs, `port/host/threads.c` neither switches threads nor advances
+  the clock (`host_time_stopped()`), a PI DMA completes at once
+  (`port/src/ultra.c`, in the check build only), and its pending
+  completions are put back with RDRAM; a blocking receive under a check
+  stops the port.  So jp's IDO functions, which call the text and drawing
+  C, are checked call by call.
 - On each checked call, RDRAM, the host stack above the glue and the
   context are saved.  The translation runs, its results are kept and
   everything is put back.  Then the native function runs.
 - The check compares RDRAM (except the dead stack below `$sp`), the host
-  stack, the output registers (both the declared ones and the analysis's)
-  and the instructions charged.
+  stack, the output registers (both the declared ones and the analysis's;
+  for an IDO function called from the C, the declared result only) and the
+  instructions charged.  A word that is a host stack address in both runs
+  is no difference: the C they call keeps its locals there at another
+  depth.  The translation of a function the C calls runs where `entry.c`
+  ran it, the o32 frame below the C's `$sp`, so what IDO's code stores in
+  its caller's argument slots is dead stack again.
 - On a difference it prints where, and the first block where the two
   runs part (ids from `blocks.tsv`).  The game continues with the native
   results.
 - `PORT_ENGINE_CHECK=N` in the environment checks the first N calls of
   each function and every 64th after that (default 2000).  `=0` checks
-  every call.  It prints a summary at exit.
+  every call.  It prints a summary at exit, and the first 10 differences
+  of each function (`PORT_ENGINE_CHECK_SHOW=N`).  `PORT_ENGINE_COV=FILE`
+  writes the ids of the blocks the checked calls ran.
+- The fuzz reaches what no run does.  `PORT_ENGINE_FUZZ=READ:TRIALS:SEED`
+  has a version's driver (`port/engine/fuzz_<version>.c`, `fuzz.h`) call
+  replaced functions at controller read READ, TRIALS times each, on game
+  memory it varies (the windows' states, a level's goal and rectangles,
+  the HUD's kinds, the promotion screen's phases...), every call checked;
+  memory, the context, the counts and the PI are put back before each
+  trial and after the last, so the run goes on as without it.  jp's has a
+  fuzzer for each of the 14 IDO functions that can run twice: with 500
+  trials at read 1000 of `PORT_AUTOSTART=3`, over four seeds and with the
+  autostart runs' own calls, they reach every block but IDO's `break`s,
+  the sign fixups of unsigned values and a switch's case nothing sets
+  (func_8026BCE0 418 of 446 blocks, func_80259EC4 137 of 138, func_802633E0
+  41 of 47, func_802639B4 73 of 77, func_8025B498 11 of 13, the other nine
+  all), and the native code agrees with the translation on every call
+  (44,370 a fuzz run, a million more in the autostart runs).  The rest
+  call C that can't run twice: func_801F57B0 (the Pak thread's start,
+  which every run reaches), func_801F6F18 (the Pak's files) and
+  func_802860F0 (a level's start) were reviewed against the asm twice.
 - The quick tier runs with `PORT_COUNT_PER_OP=0`, so it can't see cost
   errors.  The check build sees them, and so does the TAS.
-- For functions that call the game's C or libultra, which can't run twice,
-  the TAS is the check.  Comparing `__port_icount` at every controller
+- For functions that call C that can't run twice (the Pak thread's
+  messages, the music's start), the TAS is the check.  Comparing `__port_icount` at every controller
   read between a build with the replacement and one without also finds
   where the cost first differs.
   `PORT_ICOUNT_LOG=FILE` writes that log: "read, `__port_icount`,
@@ -3057,6 +3108,31 @@ stage 2 of another version.  What differs between versions in the port:
   - libultra calls from them (the `gu` matrix functions with float
     arguments, `osCreateThread`, `sprintf`, `alCSPGetTempo`...) have
     their prototypes in `gen_glue.py` (`LIBULTRA_TYPED`).
+- **They are native now**, as Rare's engine is ("Replacing the engine"):
+  `port/engine/jp_<object>.c`, under `#ifdef VERSION_JP`, each written from
+  jp's asm (the US C of the same function as the guide) and charged by its
+  blocks, and Rare's `func_802BA3E8_jp` in 75490.c.  The translation above
+  is the check build's only.  What IDO's code needed of the native code:
+  - its prototype is the US version's C definition's (the types the US
+    port's LP64 build passes), the result where jp's callers use it
+    (`func_801F7410` returns the text it made);
+  - IDO's float to unsigned conversion is `IDO_CVT_U_S` (engine.h), its
+    checked `div` `ENGINE_DIV`, its signed division by 2^n a fixup block
+    charged only for a negative dividend;
+  - `sprintf` is `engine_sprintf`: the translation's call cost the C
+    nothing (`recomp_extern_sprintf`), and the 32-bit build's own
+    `n64_sprintf` is counted as the game's C;
+  - a host helper returns its results (`engine_ido_cvt_u_s` a u64): a host
+    store through a pointer into the N64 side's locals is in the host's
+    order, which BEPass reads swapped;
+  - `ENGINE_BLK` names a version's own function's blocks by its address and
+    suffix (`802BA40C_jp`), and where a jp function is longer than us.v11's
+    and its blocks' names reach the next function's, by both
+    (`801F7428_801F6F18`; `translate.py` leaves the bare name undefined).
+  The register leftovers and the dead stack of the IDO code aren't
+  mirrored: its callers are the C, which reads neither, and long jp runs
+  (`PORT_AUTOSTART` 0 to 3, 12,000 frames each) give the same
+  `PORT_ICOUNT_LOG`, screenshots, saves and sound as the translated build.
 - **The differential test** takes the version too:
   `make -C tools/recomp VERSION=jp test` (`RECOMP_VERSION` for
   `difftest.py`; the `.text` sizes come from the ELFs).  The snapshots are
@@ -3092,7 +3168,9 @@ as the big-endian one, the quick tier's hashes but for the carrier on the
 globe.  The type inventory and the islands' layouts are still us.v11's;
 the runs are what checks jp.
 
-The other variants needed the IDO code's calls out of it looked at:
+The other variants needed the IDO code's calls out of it looked at (the
+translated code's, which the check build still has; the native code does
+the same in C):
 
 - **The movable builds**: `func_801F57B0` starts the pak thread with
   `func_801F58E8`'s address, which only the asm takes (a `lui`/`addiu`
@@ -3362,9 +3440,9 @@ writable, as the N64 has it.
   WebAssembly build runs on it in node and in a browser ("WebAssembly").  The
   32-bit build still has the out-of-bounds miscompiles the 64-bit one
   avoids; typing those arrays fixes both.
-- **Readable C.** Replace translated functions with hand-written C one at a
-  time. Each replacement can be checked with the same harness: point the
-  test library at the new C instead of the generated file.
+- **Readable C**: done ("Replacing the engine").  Every function of Rare's
+  engine, and jp's IDO asm, is hand-written C in `port/engine`, and the
+  default build links no translated code.
 
 # The handwritten asm
 

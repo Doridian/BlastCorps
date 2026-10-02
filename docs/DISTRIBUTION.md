@@ -24,6 +24,7 @@ this project's own pace (2026-09-29/30), not from human-calendar guesses:
 | The SDK's gu, sinf/fcos, sins/coss, crc and `ll.c` out of the port (`port/src/gu.c`, `sdk_check`) | about 2 agent-hours | 1.5 agent-hours, the exhaustive and traced checks and the quick tier included; the TAS another half hour |
 | The SDK headers and gbi.h (`port/include/sdk`, `sdk_identity.py`) | 1–2 agent-hours | half an agent-hour, the identity check on five variants included |
 | `--hd-text` made fast (shared R8 glyph textures, distance fields between retraces) | — | 40 agent-minutes, measured natively and in headless Chromium |
+| The engine's last pieces: 8AEE0's three, jp's 18 (9,500 IDO instructions), the check build's fuzz, no translation in the default build | — | about 3 hours of wall clock, about 7 agent-hours: three helper agents wrote and fuzzed most of jp's in parallel |
 | The engine's loaders, terrain and textures (7F8B0, 5BF40, 60D50, 8A080, 5FD50, 60F60; most of 5CB60; 103 functions) | — | about 11 agent-hours: 2.5 drafting before the mechanism, 1.5 for the native-endian, LP64 and port-arena fixes, 7 converting and checking (5CB60's leftovers most of that) |
 
 So a piece with an exact oracle (the difftest, the TAS, object identity) takes about an agent-hour
@@ -54,7 +55,7 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 | 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K); the microcode's text (18.3 K) is zeros in every build now (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin`, `.incbin`'d |
 | 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs ~62 K, struct tables ~46 K, strings, Vtx/Gfx | ~206 K of sections | `blastcorps/src/**/*.c` |
 | 1e | all of 1a–1d as carried | the movable/wasm build's arena image, 106 runs; **not carried with `PORT_ROM_DATA`** (the default), which carries operations instead (row 4e) | 192 K (`PORT_ROM_DATA=OFF`) | `bepass/Arena.cpp` `writeImage()` |
-| 2 | translated ROM code | Rare's handwritten engine, 688 functions (220 K of MIPS), and jp's 17 IDO `GLOBAL_ASM` functions | ~1.1–1.4 MB of host code | `tools/recomp` → `blastcorps/build/recomp/src` |
+| 2 | translated ROM code | **none in the default build** (2026-10-02): Rare's handwritten engine (688 functions, 220 K of MIPS) and jp's 17 IDO `GLOBAL_ASM` functions and `func_802BA3E8_jp` are hand-written C in `port/engine` (row 4g); the translation is compiled only into the check build (`PORT_ENGINE_CHECK`), which runs it against the native code, and `test.py quick` fails any other build that compiles or links it | — (was ~1.1–1.4 MB of host code) | (`tools/recomp` → `blastcorps/build/recomp/src`, check build only) |
 | 3a | decompiled C | the game's own code | 370 K x86 | `blastcorps/src/**` |
 | 3b | decompiled SDK | **none built into the port** (2026-10-01): gu, sinf/fcos, sins/coss and `ll.c` are `port/src/gu.c` (row 4a), libaudio is `port/libaudio` (row 4f); the decompiled libaudio is built only with `-DPORT_LIBAUDIO_ORIGINAL=ON` and by the libaudio oracle | — | (`blastcorps/src/libultra/audio/**`) |
 | 3c | SDK source | **gone** (2026-10-01): `port/src/gu_extra.c` (guRotate(F), the SDK's `mtxcatl.c` and `io/crc.c`) is replaced by `port/src/gu.c` | — | — |
@@ -66,6 +67,7 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 | 4d | third-party, all builds | Stardos Stencil Bold (SIL OFL 1.1, Vernon Adams; `--hd-text`'s built-in font, docs/FONTS.md), stb_truetype 1.26 (public domain or MIT) | 33 K font in the executable; hdtext.c with stb_truetype ~28 K x86 | `port/fonts/` via `port/tools/embed.cmake`, `port/third_party/stb/` |
 | 4e | the port's own, movable builds | `PORT_ROM_DATA`'s operations: copies from the ROM's modules by address, and 2.9–3.4 K of literal bytes, all the port's (pointer words to data port-arena moved, clang's switch tables of the game's C, `port/src`'s strings; `gen/romdata_report.txt` lists them); an inflate of its own | 11–26 K, inflate ~3 K x86 | `port/tools/rom_data.py` → `gen/romdata_ops.c`, `port/host/romdata.c` |
 | 4f | the port's own | libaudio (`port/libaudio`, header `port/include/sdk/PR/libaudio.h`), exact; the eqpower table is computed at startup | 35 K x86-64 (the 64-bit build; the decompiled one was 44 K) | `port/libaudio` |
+| 4g | the port's own | the engine: Rare's handwritten code and jp's IDO asm as hand-written C, charged the original's instructions block by block (docs/PORT.md, "Replacing the engine") | ~42,000 lines of C | `port/engine` |
 
 In the movable builds, rows 1a–1d reach the executable only through 1e, so with `PORT_ROM_DATA` none of
 them does.  The non-movable builds (32, 64, n64, lp64) still carry 1a–1d: `rom_scan.py` finds 158 K of
@@ -102,9 +104,9 @@ to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,002 K, the web build's .
      by BEPass's constructors before `main` has read the ROM, so taking them from the ROM would mean
      blanking ranges of the linked executable after the link and reordering the startup.  Since only the
      movable builds would be published (item 1), it wasn't worth it.
-3. **The engine rewrite (category 2).** The translation is ROM-derived by construction, so a published
-   binary needs Rare's engine as hand-written C. The alternative is an interpreter, estimated 5–20× slower
-   on that third of the code. See below.
+3. **The engine rewrite (category 2): done** (2026-10-02).  The translation is ROM-derived by
+   construction, so a published binary needed Rare's engine as hand-written C; it is (`port/engine`, row
+   4g), in every version, and the default build compiles none of the translation (see below).
 4. **`gu_extra.c`** replaced by the port's own implementation: **done** (2026-10-01, `port/src/gu.c`, with gu, sinf/fcos, sins/coss and the pak CRC; `ll.c` dropped).  The gzip driver's GPLv2+ is fine: the project
    is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
 5. **Strip releases**, and drop `PORT_N64_FUNCS`.
@@ -204,6 +206,24 @@ against its translation.
   `func_802ABBEC` (the loader, the vehicles' setups, their steps each frame, put-backs and matrix
   functions, the carrying and its callbacks) now keeps the original's frames, and sets `$ra` for a
   call as the `jal` would (`ENGINE_RA`, from each block's address, which `tools/recomp` now writes).
+
+- The last ones (engine-F, 2026-10-02): 8AEE0's three that nothing calls (the suit put back, its state
+  saved, an `mtc0`) as native C; 679E0's `func_802ACDB8` and `func_802ACEB8`, which nothing reaches in
+  any version (no call, no address in code or data), marked `unused` in replaced.txt instead; and jp's 18
+  (its IDO `GLOBAL_ASM` functions, 9,500 instructions: the menus' window renderer, the text renderer,
+  the HUD's counters, the medal and promotion screens, the Pak's menus; and `func_802BA3E8_jp`).  jp has
+  no TAS, so the check build learned to run the IDO functions' C callees twice (`check_repeatable.txt`)
+  and a fuzz (`PORT_ENGINE_FUZZ`) calls them on varied state: every block but `break`s and unreachable
+  sign fixups, 0 differences.  About 3 hours of wall clock (7 agent-hours, three helpers in parallel).
+- **No translated code in the default build**: the `recomp` library is `entry.c` alone (empty), so a
+  function missing from `port/engine` fails the link; `test.py quick`'s "engine" check fails any build
+  but the check build that compiles or links translated code (`rom_scan.py` still finds none of the
+  ROM's data in the movable builds).
+
+**What remains for publishing** (the list above): stripping and `PORT_N64_FUNCS` (item 5), the notices
+and the root LICENSE (6), and the owner's decision on the decompiled game and SDK C (7); with only the
+movable builds published (1), the non-movable builds' data (2) doesn't matter.  A published build still
+reads the ROM's data from the user's ROM at run time.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
