@@ -14,10 +14,10 @@
  * sets it up, func_802D0F98 runs it each frame.
  *
  * func_802CFC54 and func_802CFCE0, at the end, are the hotrod's two
- * callbacks for 62740's carrying (shared.h).  Still translated: the three
- * functions nothing calls: func_802D0E44 (the suit put back on
- * the ground), func_802D24F8 (its state saved) and func_802D2550 (an mtc0
- * to Compare).
+ * callbacks for 62740's carrying (shared.h).  Three functions nothing
+ * calls, in any version, are here too, so that no translation is left:
+ * func_802D0E44 (the suit put back on the ground), func_802D24F8 (its state
+ * saved) and func_802D2550 (an mtc0 to Compare).
  */
 #include "shared.h"
 #include "game/game.h"
@@ -762,6 +762,23 @@ void func_802D0BF8(void) {
     engine_restore();
 }
 
+/* put back on the ground where it is (Thunderfist's func_802B13D8; nothing
+   calls it) */
+void func_802D0E44(void) {
+    VS *vs = &D_803FC8D0;
+
+    ENGINE_BLK(802D0E44);
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    func_802A9A60(vs->unk52, D_803FC97C, D_803FC978, D_803FC980, vs->unk4, &D_803FC97C, (s16 *)&vs->unk4C, 0x10, vs,
+                  engine_ctx(30));
+    ENGINE_BLK(802D0ED0);
+    func_802D22F4(vs);
+    ENGINE_BLK(802D0ED8);
+    func_802A133C(D_803FC978, D_803FC97C, D_803FC980, 0x10, vs);
+    ENGINE_BLK(802D0F04);
+    engine_restore();
+}
+
 /* its light */
 void func_802D0F54(void) {
     ENGINE_BLK(802D0F54);
@@ -995,11 +1012,27 @@ void func_802D249C(void) {
     D_803ED3F7 = 3;
 }
 
+/* its state and position saved to dst (0xB2 bytes; Thunderfist's
+   func_802B295C, but nothing calls it) */
+void func_802D24F8(u8 *dst) {
+    ENGINE_BLK(802D24F8);
+    func_802AC7DC(dst, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978);
+    ENGINE_BLK(802D2514);
+}
+
 /* and back */
 void func_802D2524(u8 *src) {
     ENGINE_BLK(802D2524);
     func_802AC85C(src, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978);
     ENGINE_BLK(802D2540);
+}
+
+/* an mtc0 of its argument to COP0's Compare, which the port has no timer
+   interrupt for (the translation's recomp_mtc0 does nothing either); nothing
+   calls it */
+void func_802D2550(u32 compare) {
+    (void)compare;
+    ENGINE_BLK(802D2550);
 }
 
 /* hd.c's (and 17210.c's): the player gets in: its sound, its light and its

@@ -545,8 +545,8 @@ def engine_files():
 
 def load_replaced(funcs, inlined=False):
     """replaced.txt's names (translate.py's load_replaced): the native ones,
-    or with `inlined` the ones folded into their replaced callers, which
-    have no definition or glue"""
+    or with `inlined` the ones folded into their replaced callers and the
+    `unused` ones, which have no definition or glue"""
     path = os.path.join(ENGINE, "replaced.txt")
     out = []
     if os.path.exists(path):
@@ -884,7 +884,7 @@ def gen_engine(check, funcs, report):
     folded = set(load_replaced(funcs, inlined=True))
     if defined & folded:
         sys.exit(f"gen_glue.py: port/engine defines {', '.join(sorted(defined & folded))}, which "
-                 f"replaced.txt says are inlined")
+                 f"replaced.txt says are inlined or unused")
     stray = sorted((defined & set(funcs)) - set(replaced))
     if stray:
         sys.exit(f"gen_glue.py: port/engine defines {', '.join(stray)}, which replaced.txt doesn't list "

@@ -6,10 +6,11 @@
  * translation in the last row (m[12..14]), as the RSP's Mtx holds them
  * before func_802AC8CC splits them into its integer and fraction halves.
  *
- * Not here yet: func_802AC284 and func_802AC2A4, which only the truck's
- * code (71140) calls, with a register convention that is all pass-through
- * (they go with 71140), and func_802ACDB8/func_802ACEB8, which nothing
- * calls.
+ * Not here: func_802AC284 and func_802AC2A4, which only the truck's code
+ * calls, with a register convention that is all pass-through (they are in
+ * 71140.c), and func_802ACDB8/func_802ACEB8, which nothing calls in any
+ * version (replaced.txt's `unused`: no definition, and the port links no
+ * translation of them).
  */
 #include "shared.h"
 #include "game/game.h"

@@ -1,7 +1,10 @@
 # The engine's functions that are native C now (port/engine/*.c), which
 # tools/recomp no longer translates for the port (docs/PORT.md,
 # "Replacing the engine").  One name per line, us.v11's (the same in every
-# version); a version that has no such function ignores it.
+# version); a version that has no such function ignores it.  `inlined`
+# after a name: folded into its replaced callers, no definition of its own;
+# `unused`: nothing calls it in any version, no definition.  Either way its
+# translation is built only for the check build (PORT_ENGINE_CHECK).
 
 # 56040: the vehicles' parts
 func_8029A800
@@ -188,7 +191,8 @@ func_802ABFC8
 func_802AC0BC
 
 # 679E0: math (func_802AC284/func_802AC2A4 go with 71140; func_802ACDB8
-# and func_802ACEB8 are never called)
+# and func_802ACEB8 are never called, in any version: no jal or j, no
+# address in code or data, so they are `unused` below)
 func_802AC1A0
 func_802AC3B8
 func_802AC4C4
@@ -204,7 +208,9 @@ func_802ACB50
 func_802ACBDC
 func_802ACC68
 func_802ACCCC
+func_802ACDB8 unused
 func_802ACE38
+func_802ACEB8 unused
 func_802ACF3C
 func_802ACF64
 
@@ -628,7 +634,7 @@ func_802B9B4C
 
 # 8AEE0: the other hotrod and the Cyclone Suit (func_802CFC54 and func_802CFCE0 go
 # with 62740's collision dispatch; func_802D0E44, func_802D24F8 and func_802D2550
-# are never called)
+# are never called, in any version, but are native all the same)
 func_802CF6A0
 func_802CFA0C
 func_802CFA58
@@ -645,13 +651,16 @@ func_802D07E0
 func_802D0B90
 func_802D0BF8
 func_802D0C68
+func_802D0E44
 func_802D0F54
 func_802D0F98
 func_802D1360
 func_802D22F4
 func_802D2444
 func_802D249C
+func_802D24F8
 func_802D2524
+func_802D2550
 
 # 6E200: Skyfall and Ramdozer (func_802B30F4, func_802B3180, func_802B4818 and
 # func_802B48A4 go with 62740's collision dispatch)

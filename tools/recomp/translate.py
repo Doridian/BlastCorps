@@ -99,28 +99,34 @@ REPLACED_FILE = os.path.join(os.path.dirname(BLAST), "port", "engine", "replaced
 
 
 def load_replaced():
-    """(names, the ones marked `inlined`): an inlined function is one the
-    native code has folded into its only callers, which are replaced; it
-    has no native definition, and its translation is kept only for the
-    checks (recomp_orig_X), which its callers' translations call."""
-    out, inlined = [], set()
+    """(names, the ones marked `inlined` or `unused`, the `unused` ones): an
+    inlined function is one the native code has folded into its only
+    callers, which are replaced; it has no native definition, and its
+    translation is kept only for the checks (recomp_orig_X), which its
+    callers' translations call.  An unused one is called by nothing, in
+    any version (no call, no address taken in code or data): it has no
+    native definition either, and nothing may call its translation."""
+    out, inlined, unused = [], set(), set()
     if not os.path.exists(REPLACED_FILE):
-        return out, inlined
+        return out, inlined, unused
     for n, line in enumerate(open(REPLACED_FILE), 1):
         line = line.split("#", 1)[0].split()
         if not line:
             continue
         if len(line) not in (1, 2) or not re.match(r"^func_[0-9A-F]{8}(_\w+)?$", line[0]) or \
-                len(line) == 2 and line[1] != "inlined":
-            raise TranslateError(f"{REPLACED_FILE}:{n}: expected a function name (and `inlined`)")
+                len(line) == 2 and line[1] not in ("inlined", "unused"):
+            raise TranslateError(f"{REPLACED_FILE}:{n}: expected a function name (and `inlined` or `unused`)")
         out.append(line[0])
         if len(line) == 2:
             inlined.add(line[0])
-    return out, inlined
+            if line[1] == "unused":
+                unused.add(line[0])
+    return out, inlined, unused
 
 
 REPLACED = set()
 INLINED = set()
+UNUSED = set()
 
 
 class FuncEmitter:
@@ -511,6 +517,8 @@ class FuncEmitter:
         raise TranslateError(f"unsupported branch {i.op} at {ln.vram:08X}")
 
     def call(self, name):
+        if name in UNUSED:
+            raise TranslateError(f"{self.base.name} calls {name}, which {REPLACED_FILE} says is unused")
         if name in INLINED:
             # only the replaced callers' translations, kept for the checks,
             # still call it
@@ -751,9 +759,10 @@ def main():
                 raise TranslateError(f"duplicate function {fn.name}")
             funcs[fn.name] = fn
     # (a name another version doesn't have is that version's business)
-    names, inlined = load_replaced()
+    names, inlined, unused = load_replaced()
     REPLACED.update(n for n in names if n in funcs)
     INLINED.update(n for n in inlined if n in funcs)
+    UNUSED.update(n for n in unused if n in funcs)
     for o in objs:
         for group in make_groups(o):
             names = {f.name for f in group}
