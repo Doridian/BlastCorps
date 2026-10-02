@@ -262,7 +262,8 @@ rewrite).
 - **Hardware:** OpenGL 4.3 compute with our own BVH is enough at this size; Vulkan ray queries are the
   alternative. Denoising: NRD or SVGF.
 
-**Side note: a delta-based engine** (issue #5; scoped 2026-10-02, not started).  The ask: real
+**Side note: a delta-based engine** (issue #5; scoped 2026-10-02, re-estimated the same day under the
+gameplay bar below; not started).  The ask: real
 simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
 - **How timing works now:**
   - The main loop (`hd_code/00000.c`) calls the mode's frame function once a pass; the level's is
@@ -291,33 +292,69 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
     the ROM's data and the saves share; replays must log dt; the fixed-30 mode becomes a second engine.
   - **(c) The 30 Hz simulation, rendered smoother:** already there (`--interpolate`, `--display-hz`).
     Could lose a retrace of latency, pair vertices better at cuts, extrapolate instead of delay.
-- **Recommendation:** keep (c) as the default.  For real higher-rate simulation, (a) at N=2, N=1
-  bit-exact.  Skip (b).
+- **Recommendation:** keep (c) as the default.  For real higher-rate simulation, (a) at N=2.  Skip
+  (b) unless the optimization pass below happens first, which makes a quantized form of it affordable.
+- **The bar (2026-10-02, the owner's):** the port may differ from the original wherever a player,
+  even a perfect one (the TAS), couldn't notice: in-level gameplay must feel the same and every level
+  must be completable the same way.  The engine's and console's minutiae (registers, dead stack,
+  block-by-block CPU time, memory layout) are not goals, and performance work is welcome.  The TAS is
+  the gate: all 125,297 polls in sync, 57 platinum.  Bit-exact RDRAM and hashes are a tool, not the
+  requirement.
 - **Checking:**
-  - Hard gates: N=1 exact (the TAS, the quick tier, `PORT_ICOUNT_LOG`/`PORT_BLKLOG` against main);
-    N=2 deterministic run to run; every level still beatable (the carrier's route against clearing it).
+  - Hard gates: the fixed-30 mode passes the TAS and the gameplay digest (below); N=2 deterministic
+    run to run; every level still beatable (the carrier's route against clearing it).
   - "60 fps with doubled inputs": from each TAS checkpoint, replay at N=2 with each pad state held for
     2 ticks, and report the time to the first divergence from `polls.csv` and whether the level still
     finishes with its medal.  That is a drift measure, not a pass/fail: the integration isn't linear
     and collisions are chaotic, so the TAS can't stay in sync.
-- **Estimate for (a):**
+- **First: an optimization pass under that bar** (not started).  The engine in `port/engine` still
+  carries what made it checkable against the asm: 9,844 `ENGINE_BLK` charges for the CPU model,
+  about 1,200 `ENGINE_LEAVE*` sites leaving registers as the asm did, about 300
+  `engine_frame*`/`engine_save`/`engine_restore` sites keeping dead stack frames that other code's
+  shadows read, about 300 `ENGINE_GPR`/`ENGINE_RA`/`engine_ctx` reads, all in the asm's shape (offsets
+  instead of fields, the asm's control flow).  The pass drops what no player could see and makes the
+  rest ordinary C.  That's worth it alone (speed, upkeep) and it's what makes (a) and (b) cheaper.
 
   | Phase | Work | Check | Agent-hours |
   |---|---|---|---|
-  | 0 | Audit of what each frame writes (RDRAM diffs plus `PORT_BLKLOG`), every site classified | tooling | 2–4 |
-  | 1 | `PORT_TICK`, the scheduler's VI rate, `port_counter`, the CPU model; audio stays real time | exact for N=1 | 3–5 |
-  | 2 | Engine: about 250–350 of the 688 functions touch per-frame state | N=1 exact, N=2 judgement | 15–30 |
-  | 3 | Game C: camera, HUD, pickups, timers, fades, about 100–150 sites | N=1 exact, N=2 judgement | 6–12 |
-  | 4 | The doubled-input drift harness and checkpoint sweep | a metric | 3–5 |
-  | 5 | Playtesting and tuning: feel, collisions, damage balance, every level, medal times | judgement | 10–20 |
+  | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4 |
+  | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5 |
+  | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10 |
+  | O3 | Make the engine readable: struct fields for offsets, named per-frame constants, loops and calls in place of the asm's shape, by module over 4 agents | the TAS per module | 15–30 |
+  | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10 |
+  | O5 | References, docs, the macOS/wasm builds again | — | 1–2 |
 
-  About 40–75 agent-hours (30–120), slower than the rewrite's pace because only N=1 has an oracle.
-  Phases 2 and 3 split by module over 4 agents, about 15–30 hours elapsed.  (b) would be about
-  100–200 agent-hours, the improvements to (c) about 2–6.
+  About 30–60 agent-hours (25–80), 10–20 elapsed over 4 agents.  O0–O2 and O4 alone, the speed
+  without the readability, are about 13–30.  The risk is O3: one TAS run is 20–30 minutes, so a
+  module's changes have to be checked in batches, and a desync then has to be bisected.  The digest
+  (O0) is what makes that bisection quick, because it finds the first checkpoint that differs.
+- **Estimates after the pass** (the old figures, made against today's engine, in brackets):
+
+  | Phase | Work | Check | Agent-hours |
+  |---|---|---|---|
+  | 0 | Audit what each frame writes; with named state it's a review of the per-frame constants O3 named | tooling | 1–2 (2–4) |
+  | 1 | `PORT_TICK`, the scheduler's VI rate, `port_counter`; the CPU model is already coarse or gone | the TAS for N=1 | 2–3 (3–5) |
+  | 2 | Engine: the per-frame constants, timers and damping in readable C | the TAS for N=1, N=2 judgement | 8–15 (15–30) |
+  | 3 | Game C: camera, HUD, pickups, timers, fades, about 100–150 sites | the TAS for N=1, N=2 judgement | 5–10 (6–12) |
+  | 4 | The doubled-input drift harness, on O0's digest | a metric | 1–3 (3–5) |
+  | 5 | Playtesting and tuning: feel, collisions, damage balance, every level, medal times | judgement | 10–20 (10–20) |
+
+  - **(a) at N=2:** about 27–53 agent-hours (20–80), was 40–75 (30–120).  The N=1 gate is the TAS,
+    not bit-exactness, so a per-frame constant can become `k * dt` with dt = 1 where the result is the
+    same.  Playtesting doesn't shrink.
+  - **(b) as a quantized dt:** the tick divisor N chosen at run time each frame (dt in 1/8 of an
+    original frame, say) instead of at build time.  It's integer fixed point throughout, with no floats
+    in the shared layouts, and fixed-30 is the same engine at N=1, not a second one.  Replays log N per
+    frame.  About 15–30 on top of (a), so 45–80 in all, was 100–200 for a float dt.
+  - **(c)'s improvements:** 2–6, unchanged; they don't touch the engine.
+  - **Both in order:** the pass and (a) come to about 56–114 agent-hours, against 40–75 for (a) alone
+    today.  The difference buys the speed and upkeep wins and puts (b) in reach.
 - **Risks:** rounding at 1/N in integer state; multiplicative damping; collision response that
   depends on the step; frame-counted rules (damage, stuns, consecutive-frame contacts); the
-  clock-derived `D_803649D8`; what medal times mean at N>1; and the register and dead-stack leftovers
-  (`ENGINE_LEAVE`, `engine_frame`) still holding in the N>1 paths.
+  clock-derived `D_803649D8`; what medal times mean at N>1.  The pass carries its own: a desync it
+  causes may show only late in the TAS, and dropping the CPU model changes lag frames, so the clock and
+  the save's times may change while the routes still sync.  The owner decides whether that's
+  acceptable (O1).
 
 ## Replacing the SDK parts
 
