@@ -15,6 +15,9 @@
 int pack_is_pack(const char *path);         /* a zip, or a directory with pack.yaml */
 /* the ROM image the pack makes, as the port's link expects it (malloc'd) */
 uint8_t *pack_build_rom(const char *path, uint32_t *size, int *edited);
+/* the code modules' data at their physical addresses (RDRAM-sized), from the
+   pack's data/, or NULL: port/host/romdata.c's source */
+const uint8_t *pack_data_source(void);
 
 /* ---- pack_zip.c ------------------------------------------------------------ */
 

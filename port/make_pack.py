@@ -78,27 +78,53 @@ def rom_z64(data):
     return data
 
 
-def make_tree(rom, version, out):
-    """the editable tree of `rom` in `out`"""
+def make_tree(rom, version, out, code=True):
+    """the editable tree of `rom` in `out`; code: with the code modules as
+    the ROM has them (rom/), which only an exact rebuild of the ROM needs"""
     sys.path.insert(0, str(ROOT / "tools"))
-    from assetlib import romlayout
+    import zlib
+    from assetlib import codemask, romlayout
     out.mkdir(parents=True, exist_ok=True)
     segs, end = romlayout.discover(rom, version)
-    for s in segs:
-        if s.kind == "copy" and s.name.startswith("init."):
-            (out / f"{s.name}.bin").write_bytes(rom[s.start:s.end])     # layout.yaml's copy
+    init = next(s for s in segs if s.kind == "copy" and s.name.startswith("init."))
+    (out / f"{init.name}.bin").write_bytes(rom[init.start:init.end])   # (assets.py's check reads it)
     with tempfile.TemporaryDirectory() as td:
         rp = Path(td) / f"baserom.{version}.z64"
         rp.write_bytes(rom)
         subprocess.run([sys.executable, str(ROOT / "tools" / "assets.py"), "extract", version,
                         "--assets", str(out), "--rom", str(rp)], check=True)
+    if not code:
+        (out / f"{init.name}.bin").unlink()
+    # the code modules' data, apart from their code (codemask.py)
+    by_name = {s.name: s for s in segs}
+    modules, data = [], []
+    (out / "data").mkdir(exist_ok=True)
+    for mod, base in codemask.BASES.items():
+        if mod == "init":
+            img = rom[init.start:init.end]
+            text = len(img)
+        else:
+            t = zlib.decompressobj(31).decompress(rom[by_name[f"{mod}_text.{version}"].start:])
+            d = zlib.decompressobj(31).decompress(rom[by_name[f"{mod}_data.{version}"].start:])
+            img, text = t + d, len(t)
+        ps, size = codemask.pieces(mod, version)
+        if size != len(img):
+            sys.exit(f"make_pack.py: {mod} is 0x{len(img):X} bytes, its config has 0x{size:X}")
+        modules.append(f"- {{name: {mod}, base: 0x{base:06X}, size: 0x{size:X}, text: 0x{text:X}}}")
+        for a, e, is_code in ps:
+            if not is_code:
+                fn = f"data/{mod}.{a:05X}.bin"
+                (out / fn).write_bytes(img[a:e])
+                data.append(f"- {{module: {mod}, offset: 0x{a:05X}, file: {fn}}}")
     pieces = []
-    (out / "rom").mkdir(exist_ok=True)
+    if code:
+        (out / "rom").mkdir(exist_ok=True)
     for s in segs:
         if s.name in ("header", "boot") or s.kind == "module":
-            fn = f"rom/{s.name}.bin" if s.kind != "module" else f"rom/{s.name}.gz"
-            (out / fn).write_bytes(rom[s.start:s.end])
-            pieces.append(f"- {{name: {s.name}, file: {fn}}}")
+            if code:
+                fn = f"rom/{s.name}.bin" if s.kind != "module" else f"rom/{s.name}.gz"
+                (out / fn).write_bytes(rom[s.start:s.end])
+                pieces.append(f"- {{name: {s.name}, file: {fn}}}")
         elif s.name == "trailer":
             fill = set(rom[s.start:s.end])
             if fill != {0xFF}:
@@ -111,8 +137,13 @@ def make_tree(rom, version, out):
         f"format: {FORMAT}\n"
         f"version: {version}\n"
         f"rom_sha1: {sha1}   # the ROM it was made from\n"
+        f"code: {'yes' if code else 'no'}   # rom/ has the code modules (an exact rebuild of the ROM)\n"
         "# what isn't an asset, as the ROM has it, at the segment the port's link names\n"
-        "rom:\n" + "\n".join(pieces) + "\n")
+        "rom:\n" + "\n".join(pieces) + "\n"
+        "# the code modules, at their physical load addresses: .text then .data\n"
+        "modules:\n" + "\n".join(modules) + "\n"
+        "# their data (all but the functions and the RSP's code: tools/assetlib/codemask.py)\n"
+        "data:\n" + "\n".join(data) + "\n")
     (out / "README.txt").write_text(README.format(version=version))
 
 
@@ -135,6 +166,9 @@ def main():
     ap.add_argument("rom")
     ap.add_argument("-o", "--out", help="the zip (default blastcorps-<version>-pack.zip)")
     ap.add_argument("--dir", help="write the unpacked tree here instead of a zip")
+    ap.add_argument("--no-code", action="store_true",
+                    help="leave out the code modules (rom/): the game plays without them, but the ROM's "
+                         "image isn't the ROM and loading the front end takes another time")
     args = ap.parse_args()
     try:
         import png  # noqa: F401
@@ -152,13 +186,13 @@ def main():
         out = Path(args.dir)
         if out.exists() and any(out.iterdir()):
             sys.exit(f"make_pack.py: {out} isn't empty")
-        make_tree(rom, version, out)
+        make_tree(rom, version, out, not args.no_code)
         print(f"make_pack.py: {version}'s pack in {out}/")
         return
     zpath = Path(args.out or f"blastcorps-{version}-pack.zip")
     with tempfile.TemporaryDirectory() as td:
         tree = Path(td) / "pack"
-        make_tree(rom, version, tree)
+        make_tree(rom, version, tree, not args.no_code)
         n = zip_tree(tree, zpath)
     print(f"make_pack.py: {version}'s pack, {n} files, {zpath.stat().st_size // 1024} KB: {zpath}")
 

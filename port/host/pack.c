@@ -1015,6 +1015,79 @@ static void build_sequences(const char *dir, buf *out) {
     yaml_free(items);
 }
 
+/* ---- the code modules' data (pack.yaml's modules: and data:) ------------------- */
+
+#define RDRAM 0x400000u
+static uint8_t *data_src;           /* the modules' data at their physical addresses */
+static struct {
+    char name[16];
+    uint32_t base, size, text;
+} modules[4];
+static int nmodules;
+
+const uint8_t *pack_data_source(void) { return data_src; }
+
+static void build_data_source(ynode *pk) {
+    ynode *mods = ymap(pk, "modules"), *data = ymap(pk, "data");
+    if (!mods && !data)
+        return;
+    if (!mods || mods->type != Y_SEQ || !data || data->type != Y_SEQ || mods->n > 4)
+        die("pack.yaml: modules: and data: are lists");
+    for (int k = 0; k < mods->n; k++) {
+        ynode *m = mods->items[k];
+        snprintf(modules[k].name, sizeof modules[k].name, "%s", str_of(ymap(m, "name"), "modules: name"));
+        modules[k].base = (uint32_t)int_of(ymap(m, "base"), "modules: base");
+        modules[k].size = (uint32_t)int_of(ymap(m, "size"), "modules: size");
+        modules[k].text = (uint32_t)int_of(ymap(m, "text"), "modules: text");
+        if (modules[k].base + modules[k].size > RDRAM || modules[k].text > modules[k].size)
+            die("pack.yaml: module %s doesn't fit", modules[k].name);
+    }
+    nmodules = mods->n;
+    data_src = calloc(RDRAM, 1);
+    for (int k = 0; k < data->n; k++) {
+        ynode *d = data->items[k];
+        const char *mod = str_of(ymap(d, "module"), "data: module");
+        int m = 0;
+        while (m < nmodules && strcmp(modules[m].name, mod))
+            m++;
+        if (m == nmodules)
+            die("pack.yaml: data: no module %s", mod);
+        uint32_t off = (uint32_t)int_of(ymap(d, "offset"), "data: offset");
+        size_t len;
+        const char *fn = str_of(ymap(d, "file"), "data: file");
+        uint8_t *b = must_read(fn, &len);
+        if (off + len > modules[m].size)
+            die("%s: 0x%zX bytes at 0x%X, past %s's 0x%X", fn, len, off, mod, modules[m].size);
+        memcpy(data_src + modules[m].base + off, b, len);
+        free(b);
+    }
+}
+
+/* Without the code, the front end's slot still has to hold what the game
+   inflates there (port/src/overlay.c does, for the time it takes): its
+   .text as zeros and its .data, each a gzip member, one after the other.
+   Nothing reads what they inflate to (the port restores the front end's
+   data itself), so only the time differs: less than the ROM's code takes. */
+static void stand_in_front_end(uint8_t *rom) {
+    const struct rom_segment *t = seg_named("hd_front_end_text." PORT_VERSION_NAME),
+                             *d = seg_named("hd_front_end_data." PORT_VERSION_NAME);
+    int m = 0;
+    while (m < nmodules && strcmp(modules[m].name, "hd_front_end"))
+        m++;
+    if (!t || !d || m == nmodules)
+        die("no hd_front_end to stand in for (pack.yaml's modules:)");
+    uint8_t *zeros = calloc(modules[m].text, 1);
+    buf out = {0};
+    gzip_member(zeros, modules[m].text, "hd_front_end_text.raw", 0, 6, &out);
+    gzip_member(data_src + modules[m].base + modules[m].text, modules[m].size - modules[m].text,
+                "hd_front_end_data.raw", 0, 6, &out);
+    free(zeros);
+    if (out.n > d->end - t->start)
+        die("the front end's stand-in doesn't fit");
+    memcpy(rom + t->start, out.p, out.n);
+    free(out.p);
+}
+
 /* ---- the ROM ------------------------------------------------------------------ */
 
 typedef struct {
@@ -1044,6 +1117,10 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
     int ndone = 0, changed = 0;
 
     /* the pieces that aren't assets: as they are (pack.yaml's rom:) */
+    ynode *codev = ymap(pk, "code");
+    int have_code = !codev || (codev->type == Y_SCALAR && strcmp(codev->str, "no") != 0 &&
+                               strcmp(codev->str, "false") != 0);
+    build_data_source(pk);
     ynode *pieces = ymap(pk, "rom");
     if (!pieces || pieces->type != Y_SEQ)
         die("pack.yaml: rom: a list of {name, file}");
@@ -1057,6 +1134,8 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
             memset(rom + s->start, (int)int_of(fill, "pack.yaml fill"), s->end - s->start);
             continue;
         }
+        if (!have_code)
+            die("pack.yaml says code: no, but rom: lists %s", name);
         size_t len;
         uint8_t *d = must_read(str_of(ymap(pieces->items[k], "file"), "pack.yaml rom: file"), &len);
         if (len > s->end - s->start)
@@ -1073,9 +1152,18 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
     const char *lv = str_of(ymap(lay, "version"), "layout.yaml version");
     if (strcmp(lv, PORT_VERSION_NAME) != 0)
         die("layout.yaml is %s's", lv);
+    /* Where each goes: a segment the code names (a level, a vehicle's model,
+       an image, the tables...) where the port's link has it; the display
+       lists after their files and the model table's models after each other,
+       as the ROM has them, wherever that comes to (the level's DMA takes its
+       display list from right after it; the model table is made from where
+       the models went).  So a level and its display list share their room,
+       and the models share theirs. */
     const struct rom_segment *ttable = NULL, *mtable = NULL;
     ynode *mtable_ent = NULL;
     buf tex_table = {0};
+    int after_mtable = 0;
+    uint32_t pos = 0;
     for (int k = 0; k < segs->n; k++) {
         ynode *ent = segs->items[k];
         const char *name = str_of(ymap(ent, "name"), "layout.yaml name");
@@ -1083,9 +1171,37 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
         const struct rom_segment *s = seg_named(name);
         if (!s)
             die("layout.yaml: this port's link has no segment %s", name);
+        size_t nl = strlen(name);
+        int floating = (nl > 3 && !strcmp(name + nl - 3, "_dl")) || (after_mtable && !strcmp(kind, "gzip"));
+        ynode *al = ymap(ent, "align");
+        uint32_t align = al ? (uint32_t)int_of(al, name) : 1, start;
+        if (!floating) {
+            start = s->start;
+            if (k && pos > start)
+                die("%s (and what comes with it) ends at 0x%X, past %s at 0x%X: an edited asset has to fit "
+                    "in the room the original had (docs/ASSETS.md, \"The pack\")",
+                    done[ndone - 1].name, pos, name, start);
+        } else {
+            start = (pos + align - 1) & ~(align - 1);
+        }
+        if (k) {    /* the ROM's bytes between the last one and this, if the gap is still theirs */
+            ynode *pn = ymap(segs->items[k - 1], "pad");
+            uint32_t gap = start - pos;
+            if (pn && gap) {
+                size_t pl;
+                uint8_t *pad = hex_of(str_of(pn, name), &pl, name);
+                if (pl == gap)
+                    memcpy(rom + pos, pad, pl);
+                free(pad);
+            }
+        }
         buf d = {0};
         ynode *fn = ymap(ent, "file");
-        if (!strcmp(kind, "copy") || !strcmp(kind, "raw")) {
+        if (!strcmp(kind, "copy") && !have_code && !pack_has(files, str_of(fn, name))) {
+            /* init, without the code: nothing reads its slot (its data is in data/) */
+            d.n = s->end - s->start;
+            d.p = calloc(d.n, 1);
+        } else if (!strcmp(kind, "copy") || !strcmp(kind, "raw")) {
             size_t len;
             d.p = must_read(str_of(fn, name), &len);
             d.n = d.cap = len;
@@ -1095,11 +1211,12 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
         } else if (!strcmp(kind, "model_table")) {
             mtable = s;
             mtable_ent = ent;
+            after_mtable = 1;
             bzero_(&d, 0x800);
         } else if (!strcmp(kind, "textures")) {
             if (!ttable)
                 die("layout.yaml: textures before texture_table");
-            build_textures(s->start, ttable->start, &tex_table, &d, &changed);
+            build_textures(start, ttable->start, &tex_table, &d, &changed);
         } else if (!strcmp(kind, "lzss") || !strcmp(kind, "lzss_image")) {
             int bits = (int)int_of(ymap(ent, "bits"), name);
             size_t len;
@@ -1128,7 +1245,7 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
             uint32_t mtime = (uint32_t)int_of(ymap(ent, "mtime"), name);
             gzip_member(raw.p, raw.n, gzname, mtime, 6, &d);
             if (d.n > s->end - s->start) {
-                /* edited and grown: try harder before giving up */
+                /* edited and grown: gzip -9 makes more room */
                 free(d.p);
                 memset(&d, 0, sizeof d);
                 gzip_member(raw.p, raw.n, gzname, mtime, 9, &d);
@@ -1138,27 +1255,29 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
         } else {
             die("layout.yaml: %s has an unknown kind %s", name, kind);
         }
-        if (d.n > s->end - s->start)
-            die("%s comes out 0x%zX bytes; the port's link has 0x%X for it (an edited asset has to fit where "
-                "the original was, docs/ASSETS.md \"The pack\")",
-                name, d.n, s->end - s->start);
-        memcpy(rom + s->start, d.p, d.n);
-        /* the ROM's bytes after it, if the gap is still theirs */
-        uint32_t gap = s->end - s->start - (uint32_t)d.n;
-        ynode *pn = ymap(ent, "pad");
-        if (pn && gap) {
-            size_t pl;
-            uint8_t *pad = hex_of(str_of(pn, name), &pl, name);
-            if (pl == gap)
-                memcpy(rom + s->start + d.n, pad, pl);
-            free(pad);
-        }
+        if (start + d.n > size)
+            die("%s doesn't fit in the ROM", name);
+        memcpy(rom + start, d.p, d.n);
         done[ndone].name = name;
         done[ndone].seg = s;
-        done[ndone].start = s->start;
-        done[ndone].end = s->start + (uint32_t)d.n;
+        done[ndone].start = start;
+        done[ndone].end = start + (uint32_t)d.n;
         ndone++;
+        pos = start + (uint32_t)d.n;
         free(d.p);
+    }
+    if (ndone) {    /* the last one: up to what follows the assets (the code modules) */
+        const struct rom_segment *s = done[ndone - 1].seg;
+        if (pos > s->end)
+            die("%s ends at 0x%X, past the code modules at 0x%X", done[ndone - 1].name, pos, s->end);
+        ynode *pn = ymap(segs->items[segs->n - 1], "pad");
+        if (pn && s->end > pos) {
+            size_t pl;
+            uint8_t *pad = hex_of(str_of(pn, "pad"), &pl, "pad");
+            if (pl == s->end - pos)
+                memcpy(rom + pos, pad, pl);
+            free(pad);
+        }
     }
     if (ttable) {
         if (tex_table.n != TABLE_SIZE)
@@ -1178,14 +1297,19 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
         for (int k = 0; k < 512; k++) {
             uint32_t at = end;
             if (!ynull(ents->items[k])) {
-                const struct rom_segment *s = seg_named(str_of(ents->items[k], "model_table"));
-                if (!s)
-                    die("model_table: no segment %s", ents->items[k]->str);
-                at = s->start;
+                const char *m = str_of(ents->items[k], "model_table");
+                int j = 0;
+                while (j < ndone && strcmp(done[j].name, m))
+                    j++;
+                if (j == ndone)
+                    die("model_table: no segment %s", m);
+                at = done[j].start;
             }
             be32(rom + mtable->start + 4 * k, at - mtable->start);
         }
     }
+    if (!have_code)
+        stand_in_front_end(rom);
     yaml_free(lay);
     yaml_free(pk);
     free(done);
@@ -1196,9 +1320,17 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size_out, int *edited) {
     host_sha1_hex(rom, size, sha1);
     *edited = strcmp(sha1, PORT_ROM_SHA1) != 0 || tex_overrides > 0;
     if (*edited)
-        host_log("pack %s: edited (%d textures replaced%s)\n", path, tex_overrides,
-                 strcmp(sha1, PORT_ROM_SHA1) ? ", the ROM image differs" : "");
+        host_log("pack %s: %s%d textures replaced%s\n", path, have_code ? "edited: " : "without the code: ",
+                 tex_overrides, strcmp(sha1, PORT_ROM_SHA1) ? ", the ROM image differs from the ROM" : "");
     (void)changed;
+    /* PORT_PACK_DUMP=FILE: the image, for a look (port/make_pack.py --check) */
+    const char *dump = getenv("PORT_PACK_DUMP");
+    if (dump) {
+        FILE *f = fopen(dump, "wb");
+        if (!f || fwrite(rom, 1, size, f) != size)
+            host_fatal("PORT_PACK_DUMP: can't write %s", dump);
+        fclose(f);
+    }
     *size_out = size;
     return rom;
 }

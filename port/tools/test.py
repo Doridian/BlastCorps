@@ -113,10 +113,15 @@ SCENARIOS = {
     "attract.pack": ("0", 4000, [], {}, "attract", "all"),
     "auto3.pack": ("3", 3000, [], {}, "auto3", "all"),
     "auto3.pack.edit": ("3", 3000, [], {}, "auto3", "edit"),
+    # a pack without the code modules (make_pack.py --no-code): the data
+    # alone; the front end's load takes other CPU time, which this tier
+    # doesn't count (PORT_COUNT_PER_OP=0), so every hash as from the ROM
+    "auto3.pack.nocode": ("3", 3000, [], {}, "auto3", "all"),
 }
 # the scenarios that play from a pack ("pack": as made from the ROM; "edit":
 # with EDIT_TEXTURE painted EDIT_COLOUR)
-PACK_SCENARIOS = {"attract.pack": "pack", "auto3.pack": "pack", "auto3.pack.edit": "edit"}
+PACK_SCENARIOS = {"attract.pack": "pack", "auto3.pack": "pack", "auto3.pack.edit": "edit",
+                  "auto3.pack.nocode": "nocode"}
 EDIT_TEXTURE = "60F"
 EDIT_COLOUR = (255, 0, 255)
 EDIT_MIN_CHANGED = 3        # screenshots that must show it
@@ -330,14 +335,16 @@ _packs = {}
 
 def pack_for(version, kind="pack"):
     """the version's resource pack (port/make_pack.py, made once into
-    build/pack/ and again when the ROM or the tools change), or the copy of
-    it with EDIT_TEXTURE painted over ("edit"); (path, None) or (None, why)"""
+    build/pack/ and again when the ROM or the tools change), the copy of it
+    with EDIT_TEXTURE painted over ("edit"), or the one without the code
+    modules ("nocode"); (path, None) or (None, why)"""
     with _pack_lock:
         if (version, kind) in _packs:
             return _packs[(version, kind)]
         rom = os.path.join(ROOT, f"baserom.{version}.z64")
         d = os.path.join(ROOT, "build", "pack")
-        path = os.path.join(d, f"blastcorps-{version}-pack.zip")
+        nocode = kind == "nocode"
+        path = os.path.join(d, f"blastcorps-{version}-pack{'-nocode' if nocode else ''}.zip")
         lib = os.path.join(ROOT, "tools", "assetlib")
         tools = [rom, os.path.join(ROOT, "port", "make_pack.py"), os.path.join(ROOT, "tools", "assets.py")] + \
             [os.path.join(lib, f) for f in os.listdir(lib)]
@@ -347,7 +354,8 @@ def pack_for(version, kind="pack"):
             os.makedirs(d, exist_ok=True)
             py = os.path.join(ROOT, ".env", "bin", "python")
             r = subprocess.run([py if os.path.exists(py) else sys.executable,
-                                os.path.join(ROOT, "port", "make_pack.py"), rom, "-o", path + ".tmp"],
+                                os.path.join(ROOT, "port", "make_pack.py"), rom, "-o", path + ".tmp"]
+                               + (["--no-code"] if nocode else []),
                                capture_output=True, text=True)
             if r.returncode:
                 res = (None, "make_pack.py failed: " + ((r.stderr or r.stdout).strip().splitlines() or ["?"])[-1])
