@@ -25,7 +25,7 @@ if os.path.exists(_h):
     for _l in open(_h):
         if _l.startswith("#define ENGINE_BLK_"):
             _a, _v = _l.split()[1:3]
-            SIZES[int(_a[11:], 16)] = int(_l.split(",")[1])
+            SIZES[_a[11:]] = int(_l.split(",")[1])
 
 
 def leaders(fn):
@@ -65,11 +65,17 @@ def show(fn, conv=None):
         if i in lead and i not in skip:
             j = lead.index(i)
             nxt = lead[j + 1] if j + 1 < len(lead) else len(lines)
-            # (keyed by us.v11's address in every version: translate.py)
-            key = int(fn.name[5:13], 16) + ln.vram - fn.vram if re.fullmatch(r"func_[0-9A-F]{8}", fn.name) \
-                else ln.vram
+            # (keyed by us.v11's address in every version, a version's own
+            # function by its address and suffix: translate.py)
+            m = re.fullmatch(r"func_([0-9A-F]{8})(_\w+)?", fn.name)
+            if m and not m.group(2):
+                key = f"{int(m.group(1), 16) + ln.vram - fn.vram:08X}"
+            else:
+                key = f"{ln.vram:08X}{m.group(2) if m else ''}"
+            if key not in SIZES and f"{key}_{fn.name[5:]}" in SIZES:
+                key = f"{key}_{fn.name[5:]}"       # (two functions' blocks at one name: translate.py)
             n = SIZES.get(key, nxt - i)
-            print(f"  == ENGINE_BLK({key:08X})  {n} ==")
+            print(f"  == ENGINE_BLK({key})  {n} ==")
         d = "  " if not ln.delay else "   "
         print(f"    {ln.vram:08X}: {d}{ln.text_op:<10} {ln.operands}")
     print()
