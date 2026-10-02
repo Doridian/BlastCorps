@@ -740,3 +740,19 @@ func_802C7ECC
 func_802C7F28
 func_802C8074
 func_802C80A0
+
+# 69BB0: the driver on foot
+func_802AE370
+func_802AE860
+func_802AE888
+func_802AEB9C
+func_802AEC3C
+func_802AEE84
+func_802AEEC8
+func_802AF340
+func_802AF4BC
+func_802AFA64
+func_802AFB84
+func_802AFBA0
+func_802AFBFC
+func_802AFC28

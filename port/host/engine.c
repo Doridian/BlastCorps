@@ -206,6 +206,12 @@ void engine_frame_sw(uint32_t off, uint32_t v) {
     mem_w32(rdram, (uint32_t)ctx->sp + off, v);
 }
 
+uint32_t engine_frame_lw(uint32_t off) {
+    recomp_context *ctx = port_ctx();
+    uint8_t *rdram = RDRAM;
+    return mem_r32(rdram, (uint32_t)ctx->sp + off);
+}
+
 /* engine.h's: a COP0 register, as the translated code's mfc0 reads it */
 uint32_t engine_mfc0(unsigned int reg) {
     return (uint32_t)recomp_mfc0(port_ctx(), (int)reg);

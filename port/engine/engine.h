@@ -147,6 +147,8 @@ u32 engine_frame(s32 n);
 void engine_frame_sd(u32 off, unsigned int reg);
 void engine_frame_sdc1(u32 off, unsigned int fpr);
 void engine_frame_sw(u32 off, u32 v);
+/* the word at $sp + off, as the original's lw reads what is there */
+u32 engine_frame_lw(u32 off);
 #define ENGINE_C_FRAME 16
 
 /* a COP0 register (mfc0), as the translated code reads it */
