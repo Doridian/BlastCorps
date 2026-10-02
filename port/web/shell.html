@@ -2,7 +2,10 @@
 <!--
   The WebAssembly port's page (emcc --shell-file; docs/PORT.md, "WebAssembly").
   The ROM is the player's own: picked once, it is kept in IndexedDB with the
-  save (IDBFS at /save), and main() runs once it is there.
+  save (IDBFS at /save), and main() runs once it is there.  A resource pack
+  (a .zip from port/make_pack.py, docs/PORT.md "Resource packs") is taken by
+  the same picker and kept beside it; with one there the game plays from the
+  pack, and needs no ROM.
 -->
 <html lang="en">
 <head>
@@ -34,8 +37,10 @@
 <div id="stage"><canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas></div>
 <div id="panel">
   <div id="start">
-    <label class="file">Choose ROM (.z64/.v64/.n64)<input type="file" id="rom" accept=".z64,.v64,.n64,.rom,.bin"></label>
+    <label class="file">Choose ROM (.z64/.v64/.n64) or pack (.zip)<input type="file" id="rom" accept=".z64,.v64,.n64,.rom,.bin,.zip"></label>
     <button id="play" hidden>Play</button>
+    <span id="packrow" hidden><label><input type="checkbox" id="usepack" checked> play the resource pack</label>
+      <button id="forgetpack">Forget the pack</button></span>
     <label><input type="checkbox" id="interp"> 60 fps (--interpolate)</label>
     <label><input type="checkbox" id="hdtext"> high-res text (--hd-text)</label>
   </div>
@@ -46,7 +51,7 @@
 <script>
   var statusEl = document.getElementById('status');
   function status(s) { statusEl.textContent = s; }
-  var ROM = '/save/rom.z64', SAVE = '/save/blastcorps.eep';
+  var ROM = '/save/rom.z64', PACK = '/save/pack.zip', SAVE = '/save/blastcorps.eep';
   var ready = false, started = false, syncTimer = 0;
   var Module = {
     canvas: document.getElementById('canvas'),
@@ -67,15 +72,17 @@
       FS.syncfs(true, function (err) {
         if (err) console.warn('IndexedDB:', err);
         ready = true;
-        /* ?rom=URL: the ROM from there (your own copy, on your own server) */
-        var url = new URLSearchParams(location.search).get('rom');
+        /* ?rom=URL or ?pack=URL: the ROM or a resource pack from there (your
+           own copy, on your own server) */
+        var q = new URLSearchParams(location.search);
+        var url = q.get('pack') || q.get('rom');
         if (url) {
           status('Fetching ' + url + '...');
           fetch(url).then(function (r) {
             if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
             return r.arrayBuffer();
           }).then(function (buf) {
-            FS.writeFile(ROM, new Uint8Array(buf));
+            keep(new Uint8Array(buf));
             FS.syncfs(false, function () { haveRom(); });
           }).catch(function (e) { status('Fetching ' + url + ': ' + e.message); });
           return;
@@ -91,12 +98,27 @@
       }, 500);
     },
   };
-  function haveRom() {
-    var have = false;
-    try { have = FS.stat(ROM).size > 0; } catch (e) {}
-    document.getElementById('play').hidden = !have;
-    status(have ? 'The ROM is ready.' : 'Choose your Blast Corps ROM (it stays in this browser).');
+  function exists(p) {
+    try { return FS.stat(p).size > 0; } catch (e) { return false; }
   }
+  /* a file the player gave: a pack (a zip: "PK") or the ROM */
+  function keep(bytes) {
+    var zip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4B;
+    FS.writeFile(zip ? PACK : ROM, bytes);
+    if (zip) document.getElementById('usepack').checked = true;
+  }
+  function haveRom() {
+    var rom = exists(ROM), pack = exists(PACK);
+    document.getElementById('play').hidden = !(rom || pack);
+    document.getElementById('packrow').hidden = !pack;
+    status(pack ? (rom ? 'The ROM and a resource pack are ready.' : 'The resource pack is ready.')
+           : rom ? 'The ROM is ready.'
+           : 'Choose your Blast Corps ROM, or a resource pack made from it (it stays in this browser).');
+  }
+  document.getElementById('forgetpack').onclick = function () {
+    try { FS.unlink(PACK); } catch (e) {}
+    FS.syncfs(false, function () { haveRom(); });
+  };
   function start() {
     if (started || !ready) return;
     started = true;
@@ -120,8 +142,9 @@
        (measured before starting: SDL can't tell in a browser) */
     var dh = args.indexOf('--display-hz');
     if (dh >= 0 && args[dh + 1] === 'auto' && displayHz) args[dh + 1] = String(displayHz);
-    args.push(ROM);
-    status('Running. Click the picture for the keyboard.');
+    var pack = exists(PACK) && (document.getElementById('usepack').checked || !exists(ROM));
+    args.push(pack ? PACK : ROM);
+    status('Running' + (pack ? ' the resource pack' : '') + '. Click the picture for the keyboard.');
     /* (the panel as it stays, before SDL reads the canvas's size) */
     document.getElementById('full').hidden = !document.fullscreenEnabled;
     Module.canvas.focus();
@@ -147,7 +170,7 @@
     if (!f || !ready) return;
     status('Reading ' + f.name + '...');
     f.arrayBuffer().then(function (buf) {
-      FS.writeFile(ROM, new Uint8Array(buf));
+      keep(new Uint8Array(buf));
       FS.syncfs(false, function () { start(); });
     });
   };

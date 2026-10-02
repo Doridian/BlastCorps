@@ -395,7 +395,11 @@ void func_802A57AC(void) {
     TexDecode *q = D_803C4B54;
 
     ENGINE_BLK(802A57AC);
-    func_802A57DC(q);
+    {
+        u32 size = func_802A57DC(q);
+
+        host_tex_decoded_slot(q - D_803C4250, q->dst, size);
+    }
     ENGINE_BLK(802A57C4);
     D_803C4B54 = q + 1;
 }

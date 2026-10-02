@@ -29,6 +29,15 @@ typedef struct TexDecode {
 
 u32 func_802A57DC(TexDecode *req);
 
+/* A resource pack's edited textures (port/host/pack.c, docs/PORT.md,
+   "Resource packs"): after the game decodes texture `id` to `dst`, the host
+   puts the pack's texels over it.  The game's work is the same as with the
+   ROM's (the calls cost nothing: the host's); only what is drawn changes.
+   A queued decode (func_802A1074) names its texture by its queue slot. */
+void host_tex_decoded(u32 id, u32 dst, u32 size);
+void host_tex_queued(u32 slot, u32 id);
+void host_tex_decoded_slot(u32 slot, u32 dst, u32 size);
+
 /* In native-endian memory (docs/PORT.md, "Native-endian memory") texture
    data stays in the N64's byte order, which is what the RDP reads: the
    packed stream's codes, the palettes and the texels written as halves or

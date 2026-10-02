@@ -399,7 +399,10 @@ mode for 4,000 frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
 2,000 and 3,000, each with `--save`, `--wav` and a screenshot every 250
 frames; for us.v11 and jp, which the TAS doesn't cover, also the attract
 mode for 12,000 frames (`attract.long`: the story and several of its demo
-levels, about 70 seconds).  Their hashes (16 digits of sha1) are compared with
+levels, about 70 seconds).  The same scenarios also run from a resource pack
+made from the ROM ("Resource packs": `attract.pack`, `auto3.pack`,
+`auto3.pack.nocode`, every hash as from the ROM) and from edited copies of
+it (`auto3.pack.edit`, `auto3.pack.hires`, `auto3.gl.pack.hires`).  Their hashes (16 digits of sha1) are compared with
 `port/tools/test_refs.json`'s for the build's version; with `--against
 BUILD` also with another build's last results.  A `PORT_ROM_DATA` build is also
 searched for the ROM's data (`rom_scan.py`, "The data from the ROM"), and
@@ -1358,6 +1361,141 @@ The non-movable builds still carry the data (about 158 K in stretches of
 are the executable's own sections at N64 addresses, initialized by the
 loader, and the C's are swapped by constructors before `main` has the ROM;
 see docs/DISTRIBUTION.md.
+
+## Resource packs
+
+The port can take a resource pack instead of the ROM: a zip of the ROM's
+assets as editable files (docs/ASSETS.md, "The pack"), which the user makes
+from their own ROM and may edit.  The point is twofold: artists can change
+textures, levels and sounds without the Python tooling, and the port shows
+that it needs the ROM's bytes only through those formats.
+
+```
+port/make_pack.py baserom.us.v10.z64            # blastcorps-us.v10-pack.zip (17 s, 12 MB, 8,413 files)
+port/make_pack.py baserom.us.v10.z64 --no-code  # ... without the code modules
+port/make_pack.py baserom.us.v10.z64 --dir mypack   # the tree, unzipped
+build/port-us.v10/blastcorps blastcorps-us.v10-pack.zip   # or --pack FILE; a directory works too
+```
+
+A file is a pack when it starts with a zip's signature or is a directory
+with a `pack.yaml`; anything else is taken as a ROM, as before.  The page
+(port/web/shell.html) takes a pack in the same file picker as the ROM (or
+`?pack=URL`), keeps it in IndexedDB at `/save/pack.zip` beside the ROM, and
+plays it when "play the resource pack" is ticked (the default once there is
+one; "Forget the pack" drops it); with a pack and no ROM it never asks for
+the ROM.
+
+**At startup** (`host/pack.c`, before anything reads the ROM) the port makes
+the ROM's image from the pack, as `tools/assets.py build` does, all in C:
+`host/pack_zip.c` reads the zip (stored and deflated members, through
+stb_image's zlib decoder, CRCs checked), `host/pack_yaml.c` the YAML,
+stb_image the PNGs, and `third_party/gzip-1.2.4` (gzip 1.2.4's
+`deflate.c`, `trees.c` and `bits.c` as they are, with a memory front end)
+deflates the gzip members exactly as Rare's tool did.  Every segment goes
+where the port's link has it (`romtab.h`), but the display lists and the
+models, which the code doesn't name, follow what comes before them (docs/
+ASSETS.md).  Then the rest of the port reads the image as it reads a ROM:
+the PI DMAs, `PORT_ROM_DATA`, the ROM's sha1 (an edited pack's image isn't
+the ROM's; the port says what was edited instead of refusing it).  It takes
+about 570 ms natively and 650 ms in wasm (us.v10, `-v` prints it), most of
+it deflating the 738 members.
+
+**Edited textures** keep the ROM's stream.  Rare's compression is lossy and
+can't be reproduced (docs/ASSETS.md), so a changed PNG can't become the
+same kind of stream at the same size, and a stream of another size moves the
+texture data and takes the decoder another time.  Instead the image keeps
+the ROM's stream, the game DMAs and decodes it as always, and the host puts
+the PNG's texels over what it decoded: `host_tex_decoded(id, dst, size)`
+after each of 5BF40's three decodes (`port/engine/5BF40.c`), and for the
+decode queue `host_tex_queued(slot, id)` when func_802A1074 queues one and
+`host_tex_decoded_slot()` when 60F60's func_802A57AC does it.  These are
+host calls: they cost the game nothing (`ENGINE_BLK` charges what the
+original ran, as before), so the game takes the same time and makes the same
+choices; only the pictures change.  The texels are in the N64's byte order
+in every build (`texture.h`), so they are copied as they are.  A PNG with
+no stream beside it (new art) is compressed by the port instead, with
+`blast.encode`'s greedy encoder.
+
+**Higher resolutions.**  A texture's PNG may be k times as wide and high
+(k = 2, 3, ...).  The game gets it averaged down by k x k boxes, so the
+game and the software renderer see a texture of its own size; the OpenGL
+renderer draws the full image.  `host_tex_decoded` remembers where in RDRAM
+such a texture was decoded, and `gfx_gl.c`'s `tile_texture()` asks
+(`host_tex_hires()`) for the address its TMEM came from (`gfx_tmem_src`,
+which `--hd-text` uses for its glyphs): if a tile of the texture's size reads
+an edited texture that is still there (its texels compared), the unit gets
+the high-resolution image (one GL texture per texture, kept) and `u_hd =
+-k`.  `texel_hdc()` then samples it texel by texel: each sample's texel of
+the tile's own size is wrapped, mirrored and clamped as the tile says, and
+the k x k texels under it are the image's, filtered between neighbours
+(bilinearly, for the N64's three-point filter too) or not, as the tile is.
+Only the first image of a texture (not its mipmaps) and only whole-texture
+tiles are drawn this way; anything else draws the averaged texels.
+Checked by eye (a 4x grass with lines a quarter of a texel wide, tiled
+across Simian Acres' fields at `--scale 4`); the quick tier checks that it
+changes neither the save nor the sound (`auto3.gl.pack.hires`).
+
+**Other edits** (levels, models, sounds, images) are rebuilt into the image
+and change what the game loads: they have to fit the room their group had
+(docs/ASSETS.md); a grown gzip member gets deflated at -9 first.  Checked by
+hand: Simian Acres' starting vehicle moved 300 units in `levels/chimp.yaml`
+(the level from another place on; the save the same), half of
+`audio/music.tbl` zeroed (only the sound differs).
+
+**Without the code.**  The port's engine is its own now, so the code
+modules' bytes are needed for nothing but the data in them.  A pack keeps
+that data apart (`data/`, docs/ASSETS.md; `tools/assetlib/codemask.py` says
+what is code), and the movable builds make their data from it
+(`pack_data_source()` in `host/romdata.c`, which zeroes the code ranges of
+the ROM's modules too, so the operations `rom_data.py` writes never
+depended on code: us.v10 m64 3,141 literal bytes where it had 2,932).
+`make_pack.py --no-code` leaves `rom/`'s code out, and the port stands in
+for the front end's members (its `.text` as zeros, its `.data`): the game
+still DMAs and inflates them when it loads the front end, for the time that
+takes (port/src/overlay.c), and that is the one difference.  Inflating
+zeros takes less CPU time than inflating Rare's code, so the front end's
+loads are quicker in a run the CPU model times.  The quick tier, which
+doesn't count CPU time, is the same in every hash; the TAS from the pack
+without the code (us.v10, the 32-bit build) still matches all of the log's
+125,297 reads with none skipped and no mode forced, 57 platinum and the
+reference save, with the same report as from the ROM (50 retraces given
+anyway): the loads happen at menus, where the replay waits for the log's
+reads anyway.  A free-running game's frame timing in those loads is what
+differs.  What a pack without the code still holds of the ROM: the assets
+and the modules' data (`data/`: 207 K in us.v10, the game's tables,
+strings, display lists and the RSP's data).  Making the front-end load cost
+exactly what it did would need the inflate's cost recorded per version (its
+instruction counts and poll points), about 2-4 agent-hours.
+
+**Checked:**
+
+- `make_pack.py` on all four ROMs: every gzip member deflates back through
+  `gzip124_compress` (738 of 738 each); `host/pack_yaml.c` reads the 64 YAML
+  files of a us.v10 pack exactly as PyYAML's `BaseLoader` does.
+- `test.py quick` (every variant, as part of its scenarios): `attract.pack`
+  and `auto3.pack` play from the pack and must give every hash the ROM's
+  `attract` and `auto3` give; `auto3.pack.nocode` from the pack without the
+  code, the same; `auto3.pack.edit` from a copy with texture 60F (Simian
+  Acres' grass) painted magenta: the same save and sound, at least three
+  screenshots changed, and every pixel that changed moved toward magenta
+  (more red and blue than green), nothing else (7 screenshots, about 21,000
+  pixels at frame 3000); `auto3.pack.hires`, the same with the painted
+  PNG four times as wide and high, the same as that, and `auto3.gl.pack.hires`
+  draws it with OpenGL: the save and sound as `auto3`'s.  The packs are made
+  once into `build/pack/`.
+- The TAS from the pack (`test.py tas BUILD --pack`, or `variants --tas
+  --tas-pack`): us.v10, 32-bit and wasm: all of the log's 125,297 reads
+  matched, none skipped, no mode forced, 57 platinum, the reference save
+  (21 and 28 minutes); and the 32-bit build from the pack without the code,
+  the same.
+- Where the quick tier ran with these scenarios: us.v11 all eight variants
+  (`variants --version us.v11`, the wasm one included), jp m64, us.v10 32
+  and m64: every one passed.  `make_pack.py` makes eu's pack too (no eu
+  port to play it).
+- The page in headless Chromium (Playwright, SwiftShader): with no ROM in
+  IndexedDB, the edited pack chosen in the picker plays into Simian Acres
+  with the magenta grass, and after a reload the pack is still there and
+  "Play" starts it.
 
 ## The platform layer
 

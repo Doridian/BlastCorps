@@ -57,6 +57,7 @@
 
 #include "host.h"
 #include "gfx.h"
+#include "pack.h"
 #include "hdtext.h"
 
 int gfx_gl_enabled;
@@ -490,6 +491,26 @@ static GLuint hd_texture(int glyph, const uint8_t *img) {
     return hd_shared[s].tex;
 }
 
+/* a resource pack's higher-resolution texture (pack.c): one GL texture per
+   texture, kept (like a glyph's, tc_sweep leaves it); sampled texel by
+   texel (texel_hdc), so no filtering of GL's */
+static GLuint hires_gl[4096];
+
+static GLuint hires_texture(int id, const uint8_t *rgba, int w, int h) {
+    if (hires_gl[id & 4095])
+        return hires_gl[id & 4095];
+    GLuint tex;
+    glGenTextures(1, &tex);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+    hires_gl[id & 4095] = tex;
+    return tex;
+}
+
 /* --hd-text: the font glyph a tile holds (hdtext.c), or -1: a 32x32 I4
    tile whose 512 bytes one LoadBlock brought from one of font.c's slots */
 static int tile_glyph(const GfxTile *t, int w, int h) {
@@ -509,6 +530,10 @@ static GLuint tile_texture(int tile, int *hd) {
     int w, h;
     gfx_tile_dims(t, &w, &h);
     int glyph = tile_glyph(t, w, h);
+    /* a resource pack's texture with a higher-resolution image (pack.c),
+       drawn from that image */
+    int hk = 0, hid = -1;
+    const uint8_t *hires = glyph < 0 ? host_tex_hires(gfx_tmem_src[t->tmem & 511], w, h, &hk, &hid) : NULL;
     /* what the tile reads: its rows of TMEM (and the palette) */
     uint64_t k = 0xCBF29CE484222325ull;
     int params[8] = { t->fmt, t->siz, t->line, t->tmem, t->pal, w, h, t->fmt == 2 ? (int)(gs.om_h >> 14 & 3) : 0 };
@@ -540,6 +565,8 @@ static GLuint tile_texture(int tile, int *hd) {
         k = hash_words(k, gfx_tmem + 0x800, 512);
     if (glyph >= 0)             /* (not the tile's own texture) */
         k = (k ^ (uint64_t)glyph << 40 ^ 0x48442D74657874ull) * 0x9E3779B97F4A7C15ull;
+    if (hires)
+        k = (k ^ (uint64_t)hid << 40 ^ 0x4849524553ull) * 0x9E3779B97F4A7C15ull;
     if (!k)
         k = 1;
     unsigned i = (unsigned)(k ^ (k >> 32)) & (TC_SIZE - 1);
@@ -568,6 +595,8 @@ static GLuint tile_texture(int tile, int *hd) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     if (img) {
         tex = hd_texture(glyph, img);
+    } else if (hires) {
+        tex = hires_texture(hid, hires, w * hk, h * hk);
     } else {
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
@@ -579,7 +608,7 @@ static GLuint tile_texture(int tile, int *hd) {
     tcache[i].key = k;
     tcache[i].tex = tex;
     tcache[i].used = frame_no;
-    tcache[i].hd = *hd = img ? HDTEXT_K : 0;
+    tcache[i].hd = *hd = img ? HDTEXT_K : hires ? -hk : 0;
     tc_count++;
     return tex;
 }
@@ -721,8 +750,41 @@ static const char *fs_hd =
     "    default: return texture(u_tex[7], px / vec2(textureSize(u_tex[7], 0))).rrrr;\n"
     "    }\n"
     "}\n"
+    /* a resource pack's texture k times the tile's size (u_hd = -k): its
+       texels wrapped, mirrored and clamped as the tile's own would be (the
+       one under each of the tile's texels), filtered between neighbours
+       when the tile is */
+    "int wraphd(int g, int k, int cm, int mask, int size) {\n"
+    "    int c = g >= 0 ? g / k : -((k - 1 - g) / k);\n"
+    "    int sub = g - c * k;\n"
+    "    if ((cm & 2) != 0 || mask == 0) {\n"
+    "        if (c < 0) { c = 0; sub = 0; }\n"
+    "        if (c > size) { c = size; sub = k - 1; }\n"
+    "    }\n"
+    "    if (mask != 0) {\n"
+    "        int m = (1 << mask) - 1;\n"
+    "        bool mir = (cm & 1) != 0 && (c & (1 << mask)) != 0;\n"
+    "        c &= m;\n"
+    "        if (mir) { c = m - c; sub = k - 1 - sub; }\n"
+    "    }\n"
+    "    return c * k + sub;\n"
+    "}\n"
+    "ivec2 wraphd2(int i, ivec2 g, int k) {\n"
+    "    return ivec2(wraphd(g.x, k, u_tB[i].x, u_tA[i].z, u_tB[i].z), wraphd(g.y, k, u_tB[i].y, u_tA[i].w, u_tB[i].w));\n"
+    "}\n"
+    "vec4 texel_hdc(int i, vec2 st, int filt, float k) {\n"
+    "    vec2 f = vec2(shiftc(st.x, u_tA[i].x), shiftc(st.y, u_tA[i].y)) - u_tul[i];\n"
+    "    int ki = int(k);\n"
+    "    if (filt == 0) return fetch(i, wraphd2(i, ivec2(floor(f * k)), ki));\n"
+    "    vec2 g = (f + 0.5) * k - 0.5, gl = floor(g), fr = g - gl;\n"
+    "    ivec2 c = ivec2(gl), a = wraphd2(i, c, ki), b = wraphd2(i, c + ivec2(1), ki);\n"
+    "    vec4 c00 = fetch(i, a), c10 = fetch(i, ivec2(b.x, a.y));\n"
+    "    vec4 c01 = fetch(i, ivec2(a.x, b.y)), c11 = fetch(i, b);\n"
+    "    return mix(mix(c00, c10, fr.x), mix(c01, c11, fr.x), fr.y);\n"
+    "}\n"
     "vec4 texel_hd(int i, vec2 st, int filt) {\n"
-    "    if (u_hd[i] <= 0.0) return texel(i, st, filt);\n"
+    "    if (u_hd[i] < 0.0) return texel_hdc(i, st, filt, -u_hd[i]);\n"
+    "    if (u_hd[i] == 0.0) return texel(i, st, filt);\n"
     "    vec2 f = vec2(shiftc(st.x, u_tA[i].x), shiftc(st.y, u_tA[i].y)) - u_tul[i];\n"
     "    return hdfetch(i, (f + 0.5) * u_hd[i]);\n"
     "}\n";

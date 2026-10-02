@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "host.h"
+#include "pack.h"
 
 /* ---- sha1 (FIPS 180-4) ------------------------------------------------------ */
 
@@ -329,7 +330,8 @@ static long gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn) {
 /* gen/romdata_ops.c (tools/rom_data.py) */
 extern const uint32_t port_romdata_init[2], port_romdata_hd_code_text[2], port_romdata_hd_code_data[2],
     port_romdata_hd_front_end_text[2], port_romdata_hd_front_end_data[2];
-extern const uint32_t port_romdata_size, port_romdata_ops_n;
+extern const uint32_t port_romdata_size, port_romdata_ops_n, port_romdata_code_n;
+extern const uint32_t port_romdata_code[][2];
 extern const uint64_t port_romdata_hash;
 extern const uint8_t port_romdata_ops[];
 
@@ -359,18 +361,27 @@ static void module(uint8_t *src, uint32_t base, const uint8_t *rom, uint32_t rom
 }
 
 /* The arena's first port_romdata_size bytes, made from the ROM: its code
-   modules where the game loads them, then the operations. */
+   modules' data where the game loads them (the code zeroed: only the data
+   is used), then the operations.  A resource pack without the code
+   (pack.c) gives the modules' data itself. */
 void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size) {
     double t0 = host_perf_now();
     uint8_t *src = calloc(RDRAM, 1);
     if (!src)
         host_fatal("out of memory for the ROM's modules");
-    if (port_romdata_init[1] > rom_size)
-        host_fatal("the ROM is too short for init");
-    memcpy(src + INIT, rom + port_romdata_init[0], port_romdata_init[1] - port_romdata_init[0]);
-    module(src, HD_CODE, rom, rom_size, port_romdata_hd_code_text, port_romdata_hd_code_data, "hd_code");
-    module(src, HD_FRONT_END, rom, rom_size, port_romdata_hd_front_end_text, port_romdata_hd_front_end_data,
-           "hd_front_end");
+    const uint8_t *given = pack_data_source();
+    if (given) {
+        memcpy(src, given, RDRAM);
+    } else {
+        if (port_romdata_init[1] > rom_size)
+            host_fatal("the ROM is too short for init");
+        memcpy(src + INIT, rom + port_romdata_init[0], port_romdata_init[1] - port_romdata_init[0]);
+        module(src, HD_CODE, rom, rom_size, port_romdata_hd_code_text, port_romdata_hd_code_data, "hd_code");
+        module(src, HD_FRONT_END, rom, rom_size, port_romdata_hd_front_end_text, port_romdata_hd_front_end_data,
+               "hd_front_end");
+    }
+    for (uint32_t k = 0; k < port_romdata_code_n; k++)
+        memset(src + port_romdata_code[k][0], 0, port_romdata_code[k][1] - port_romdata_code[k][0]);
     const uint8_t *op = port_romdata_ops;
     uint32_t k = 0, end = 0;
     while (k < port_romdata_ops_n) {

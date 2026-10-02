@@ -4,6 +4,9 @@
   assets.py extract <version>            # baserom -> assets/ (run by make extract)
   assets.py build <version> [--out build/assets] [--shift PAD]
 
+--assets DIR and --rom FILE use another tree and ROM (port/make_pack.py
+extracts a resource pack's tree this way).
+
 extract writes, under assets/ (next to splat's segment .bins):
 
   layout.yaml         the asset segments in ROM order: kind, alignment, the
@@ -55,7 +58,7 @@ def load_hints():
 
 
 def config_segments(ver):
-    cfg = yaml.load(Path(f"blastcorps.{ver}.yaml").read_text(), Loader=LOADER)
+    cfg = yaml.load((HERE.parent / f"blastcorps.{ver}.yaml").read_text(), Loader=LOADER)
     out = []
     for s in cfg["segments"]:
         if isinstance(s, list) and len(s) >= 3:
@@ -70,8 +73,8 @@ def flow(d):
 
 # --- extract ----------------------------------------------------------------
 
-def extract(ver):
-    rom = Path(f"baserom.{ver}.z64").read_bytes()
+def extract(ver, rom_path=None):
+    rom = Path(rom_path or f"baserom.{ver}.z64").read_bytes()
     segs, _ = romlayout.discover(rom, ver)
     names = {s.name: s.start for s in segs}
     for name, start in config_segments(ver):
@@ -254,12 +257,16 @@ def main():
     ap.add_argument("version")
     ap.add_argument("--out", default="build/assets")
     ap.add_argument("--shift", default="0", help="bytes before each aligned asset (SHIFT=1 test)")
+    ap.add_argument("--assets", default="assets", help="the editable tree (default assets/)")
+    ap.add_argument("--rom", help="extract: the ROM (default baserom.<version>.z64)")
     args = ap.parse_args()
+    global ASSETS
+    ASSETS = Path(args.assets)
     shift = int(args.shift, 0)
     if shift % 16:
         sys.exit("--shift must be a multiple of 16")
     if args.action == "extract":
-        extract(args.version)
+        extract(args.version, args.rom)
     else:
         build(args.version, args.out, shift)
 

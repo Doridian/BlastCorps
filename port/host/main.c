@@ -30,6 +30,7 @@
 #include "port.h"
 #include "fiber.h"
 #include "host.h"
+#include "pack.h"
 #include "hdtext.h"
 
 /* the version this port is built from (CMake's PORT_VERSION) */
@@ -121,6 +122,19 @@ static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
 /* ---- cartridge ------------------------------------------------------------ */
 
 static void load_rom(const char *path) {
+    /* a resource pack (pack.c): the ROM's image made from its files */
+    if (pack_is_pack(path)) {
+        int edited;
+        struct timespec t0, t1;
+        clock_gettime(CLOCK_MONOTONIC, &t0);
+        rom = pack_build_rom(path, &rom_size, &edited);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+        if (host_verbose)
+            host_log("pack %s: the ROM image made in %.0f ms (%s)\n", path,
+                     (t1.tv_sec - t0.tv_sec) * 1e3 + (t1.tv_nsec - t0.tv_nsec) / 1e6,
+                     edited ? "edited" : "the original's, byte for byte");
+        return;
+    }
     FILE *f = fopen(path, "rb");
     if (!f)
         host_fatal("can't open ROM %s: %s", path, strerror(errno));
@@ -605,8 +619,10 @@ static int hdtext_font_arg(const char *a) {
 
 static void usage(const char *argv0) {
     fprintf(stderr,
-            "usage: %s [options] [ROM]\n"
+            "usage: %s [options] [ROM | PACK]\n"
             "  ROM                  defaults to " ROM_DEFAULT "\n"
+            "  PACK, --pack PACK    a resource pack (a .zip from port/make_pack.py, or its\n"
+            "                       unpacked directory) instead of the ROM\n"
             "  -v                   log threads, events and tasks (twice: more)\n"
             "  --headless           no window (SDL's offscreen driver)\n"
             "  --deterministic      virtual time: as fast as possible, the same every run\n"
@@ -673,6 +689,8 @@ int main(int argc, char **argv) {
         }
         else if (!strcmp(argv[i], "--headless"))
             host_headless = 1;
+        else if (!strcmp(argv[i], "--pack") && i + 1 < argc)
+            rom_path = argv[++i];
         else if (!strcmp(argv[i], "--renderer") && i + 1 < argc) {
             i++;
             host_renderer = !strcmp(argv[i], "gl") ? 1 : !strcmp(argv[i], "sw") ? 0 : (usage(argv[0]), 0);

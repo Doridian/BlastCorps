@@ -194,6 +194,24 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 
+## Resource packs
+
+The ROM's assets can be turned into editable files (textures as PNGs, levels
+as YAML, the sound banks and sequences) and played from instead of the ROM:
+
+```
+port/make_pack.py baserom.us.v11.z64                  # blastcorps-us.v11-pack.zip
+build/port-us.v11/blastcorps blastcorps-us.v11-pack.zip   # or --pack FILE, or the unzipped folder
+```
+
+A pack made from an unmodified ROM plays exactly as the ROM does.  Change a
+texture's PNG (the same size, or 2, 3, 4... times it), a level's YAML or a
+sound, zip it again (or run the folder), and the game shows it.  The page
+takes a pack in its file picker like a ROM.  Everything in a pack comes from
+your ROM: don't share it.  `--no-code` leaves out the game's code modules
+too.  docs/ASSETS.md ("The pack") has the format and what can be edited how,
+docs/PORT.md ("Resource packs") how the port reads it.
+
 ## Test it
 
 ```

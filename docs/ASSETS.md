@@ -196,3 +196,90 @@ start), the model table (from its own start), the level header
 (`AssetOffset`, from the level file's start, and into the `_dl` for the
 display lists), the ALBankFile (from the `.ctl`, and into the `.tbl`) and
 the ALSeqFile (from its start).
+
+A resource pack (below) is the other way in: the port builds the ROM's
+image from the editable files at startup.
+
+## The pack
+
+A resource pack is this tree as a zip, made from the user's ROM by
+`port/make_pack.py ROM` (it runs `tools/assets.py extract --assets DIR
+--rom ROM` and adds the rest), and the port plays from it instead of the
+ROM (docs/PORT.md, "Resource packs").  Everything in it is the ROM's: it is
+the user's, never shipped.
+
+```
+pack.yaml           format 1, the version, the ROM's sha1, and what isn't an asset (below)
+layout.yaml         the asset segments in ROM order, as above
+textures/ audio/ levels/ gzip/ images/ static_data.bin      the assets, as above
+init.<version>.bin  init as the ROM has it (layout.yaml's first segment; only with the code)
+rom/                the header, the boot code and the four gzip members of hd_code and
+                    hd_front_end as the ROM has them (only with the code)
+data/               the code modules' data: <module>.<offset>.bin
+README.txt          a short note for whoever opens the zip
+```
+
+`pack.yaml`'s lists:
+
+- `rom:` what isn't an asset, each `{name, file}` (the segment's name in the
+  top-level link, its bytes) or `{name, fill}` (the trailer's 0xFF).
+- `code: yes|no`: whether `rom/` and `init.<version>.bin` are there.
+- `modules:` init, hd_code and hd_front_end: `{name, base, size, text}`,
+  the physical load address, the size laid out (`.text` then `.data`) and
+  the `.text` member's size.
+- `data:` `{module, offset, file}`: every part of a module that isn't code
+  (tools/assetlib/codemask.py: all but the `c` and `asm` subsegments of the
+  stage-2 config, and the RSP microcode's text): `.data`, `.rodata`, and the
+  tables inside `.text` (the sines, the per-level tables, the pointer-bearing
+  blobs, the RSP's data).  us.v10: 7 pieces of hd_code (171 K), its .data
+  member for hd_front_end (36 K), 2 of init (0.7 K).
+
+**What the port does with it** (port/host/pack.c, in C, at startup):
+
+- Every segment of `layout.yaml` is built as `tools/assets.py build` builds
+  it: gzip members through gzip 1.2.4's own deflate at -6 (vendored as
+  `port/third_party/gzip-1.2.4`, which gives back all 738 members of every
+  ROM; zlib's deflate differs in 86), the LZSS through Nelson's encoder, the
+  levels from their YAML, the sequence bank from `seq/`, and the texture and
+  model tables from where everything went.
+- A segment the code names by its `_ROM_START` symbol goes where the port's
+  link has it (`romtab.h`).  The display lists (`*_dl`) follow their files
+  and the models after the model table follow each other, each at its
+  alignment, wherever that comes to: the game DMAs a level from its start to
+  the next level's and inflates its display list from right after it, and
+  reaches the models through the table.  So an edited asset may grow into
+  the room its group had (a level and its display list, all the models), not
+  further: what doesn't fit is an error naming it.  A grown gzip member is
+  deflated at -9 first, which usually makes the room a small edit needs.
+- `rom/`'s pieces go where the link has them, the trailer is 0xFF.
+- From an unmodified ROM's pack the image is the ROM, byte for byte (the
+  port says so with `-v`; `PORT_PACK_DUMP=FILE` writes the image).
+
+**Editing:**
+
+| what | how | the game |
+| --- | --- | --- |
+| a texture | its PNG, any 8-bit or 16-bit PNG of the same size (RGBA, grey, palette; quantized to the texture's format as `texel.py` does) | the ROM's stream stays in the image and the game decodes it as before; the port puts the PNG's texels over what it decoded (docs/PORT.md).  The same time, only the picture changes, and the format's limits are the texture's own (an RGBA16 texture's green keeps its low bit, which Rare's compression dropped) |
+| a texture, at a higher resolution | a PNG 2, 3, 4... times as wide and high | averaged down to the texture's size for the game (and the software renderer); the OpenGL renderer draws the full image, wrapped as the tile is (docs/PORT.md) |
+| a texture without a stream | no `NNN.blast` (a pack of new art) | compressed by the port (`blast.encode`'s greedy encoder): the texture data then moves, and the table with it |
+| a level | its YAML: records, groups, hex, the header | rebuilt and deflated; the records can be added and removed (offsets are recomputed) |
+| a sound bank, a sequence | `audio/*.ctl`, `*.tbl`, `seq/NN.seq` | rebuilt (the `.ctl` LZSS'd again) |
+| a model, an image, a display list | `gzip/*.bin`, `images/*.png` | deflated or LZSS'd again |
+| `data/` | not editable | the movable builds check what they make of it against the image they were built with |
+| `rom/` | not editable | |
+
+A texture's size is its `textures.yaml` entry's (`png: [[w, h], ...]`); the
+game's buffers and display lists are made for it.  The YAML is read by the
+port's own parser (port/host/pack_yaml.c): block and flow style, plain and
+quoted scalars, `|`/`>` block scalars, comments; not anchors, aliases, tags
+or multi-line plain scalars.  Numbers are YAML 1.1's, as PyYAML reads them
+(a leading 0 is octal).
+
+**Without the code** (`make_pack.py --no-code`): no `rom/` code modules and
+no init.  The port needs none of the code: the movable builds make the
+game's data from `data/`, and the front end's slot, which the game still
+DMAs and inflates when it loads the front end (port/src/overlay.c, for the
+time it takes), gets a stand-in: its `.text` as zeros and its `.data`,
+gzipped.  The game is the same, but that load takes other CPU time than
+inflating Rare's code does, so those loads' timing isn't the ROM's (the TAS
+still replays exactly from such a pack: docs/PORT.md).

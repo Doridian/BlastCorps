@@ -26,6 +26,7 @@ this project's own pace (2026-09-29/30), not from human-calendar guesses:
 | `--hd-text` made fast (shared R8 glyph textures, distance fields between retraces) | — | 40 agent-minutes, measured natively and in headless Chromium |
 | The engine's last pieces: 8AEE0's three, jp's 18 (9,500 IDO instructions), the check build's fuzz, no translation in the default build | — | about 3 hours of wall clock, about 7 agent-hours: three helper agents wrote and fuzzed most of jp's in parallel |
 | The engine's loaders, terrain and textures (7F8B0, 5BF40, 60D50, 8A080, 5FD50, 60F60; most of 5CB60; 103 functions) | — | about 11 agent-hours: 2.5 drafting before the mechanism, 1.5 for the native-endian, LP64 and port-arena fixes, 7 converting and checking (5CB60's leftovers most of that) |
+| Resource packs (issue #4): the ROM as editable files, the port building its image from them in C, edited textures over the game's decode, higher-resolution textures in OpenGL, packs without the code, the page's upload | — | about 1.5 agent-hours of wall clock, the TAS runs (32, wasm, 32 without the code) and three versions' quick tiers included |
 
 So a piece with an exact oracle (the difftest, the TAS, object identity) takes about an agent-hour
 where a person's estimate said a week.  Work checked by eye or ear, or whose design is still open, goes
@@ -47,6 +48,10 @@ slower.  Several agents can run at once (about four has worked here), so calenda
   at run time.
 - `test_refs.json` and the mupen64plus tools.
 - Base64 or other blobs in the page. `?rom=` only fetches the URL the user gives.
+- A resource pack (docs/PORT.md, "Resource packs"): the user makes it from their ROM with
+  `port/make_pack.py` and the port reads it at run time.  It is the ROM's assets and data as files,
+  ROM-derived like the ROM itself, with or without the code modules (`--no-code`), and is never
+  shipped.  The port's pack code (row 4i) holds the formats' layouts only.
 
 | # | Origin | What | Size (us.v10) | Where it enters |
 |---|---|---|---|---|
@@ -68,6 +73,8 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 | 4e | the port's own, movable builds | `PORT_ROM_DATA`'s operations: copies from the ROM's modules by address, and 2.9–3.4 K of literal bytes, all the port's (pointer words to data port-arena moved, clang's switch tables of the game's C, `port/src`'s strings; `gen/romdata_report.txt` lists them); an inflate of its own | 11–26 K, inflate ~3 K x86 | `port/tools/rom_data.py` → `gen/romdata_ops.c`, `port/host/romdata.c` |
 | 4f | the port's own | libaudio (`port/libaudio`, header `port/include/sdk/PR/libaudio.h`), exact; the eqpower table is computed at startup | 35 K x86-64 (the 64-bit build; the decompiled one was 44 K) | `port/libaudio` |
 | 4g | the port's own | the engine: Rare's handwritten code and jp's IDO asm as hand-written C, charged the original's instructions block by block (docs/PORT.md, "Replacing the engine") | ~42,000 lines of C | `port/engine` |
+| 4h | third-party, all builds | gzip 1.2.4's deflate (`deflate.c`, `trees.c`, `bits.c`, unchanged; GPLv2 or later, Jean-loup Gailly; its `COPYING`), the only deflate that gives back the ROM's gzip members; stb_image 2.30 (public domain or MIT; PNGs and the zip's inflate) | 16 K and 37 K x86-64 | `port/third_party/gzip-1.2.4`, `port/third_party/stb/stb_image.h` |
+| 4i | the port's own | resource packs: the zip reader, the YAML parser, building the ROM's image from the pack, the texture overrides (`host/pack*.c`), `port/make_pack.py`, `tools/assetlib/codemask.py` | 53 K x86-64 | `port/host` |
 
 In the movable builds, rows 1a–1d reach the executable only through 1e, so with `PORT_ROM_DATA` none of
 them does.  The non-movable builds (32, 64, n64, lp64) still carry 1a–1d: `rom_scan.py` finds 158 K of
@@ -110,9 +117,11 @@ to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,002 K, the web build's .
 4. **`gu_extra.c`** replaced by the port's own implementation: **done** (2026-10-01, `port/src/gu.c`, with gu, sinf/fcos, sins/coss and the pak CRC; `ll.c` dropped).  The gzip driver's GPLv2+ is fine: the project
    is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
 5. **Strip releases**, and drop `PORT_N64_FUNCS`.
-6. **Notices** for SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`) and stb_truetype, and a root LICENSE for the project's code: the
+6. **Notices** for SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`), stb_truetype and stb_image,
+   gzip 1.2.4's deflate (GPLv2 or later: its `port/third_party/gzip-1.2.4/COPYING` and README), and a root LICENSE for the project's code: the
    owner's intent is **AGPL-3.0**, or plain GPL where that can't work.  The third-party licenses above
-   (zlib, MIT, Apache-2.0 with the LLVM exception, LGPL for dynamic glibc) are all compatible with it.
+   (zlib, MIT, public domain, Apache-2.0 with the LLVM exception, LGPL for dynamic glibc, GPLv2-or-later
+   for gzip, which joins AGPL-3.0-or-later through GPL-3.0) are all compatible with it.
    What can't be relicensed by the project is what isn't its own: the decompiled SDK parts (3b/3c/3d,
    ultralib has no license either) and anything ROM-derived.
 7. **The decompiled game and SDK C (3a/3b)** is the same material as the repository's source. It is the
@@ -223,7 +232,11 @@ against its translation.
 **What remains for publishing** (the list above): stripping and `PORT_N64_FUNCS` (item 5), the notices
 and the root LICENSE (6), and the owner's decision on the decompiled game and SDK C (7); with only the
 movable builds published (1), the non-movable builds' data (2) doesn't matter.  A published build still
-reads the ROM's data from the user's ROM at run time.
+reads the ROM's data from the user's ROM at run time, or from a resource pack the user made from it
+(docs/PORT.md, "Resource packs"), which may leave out the game's code: the port needs none of it.
+What it still takes from the user is the assets and the code modules' data (`data/`, 207 K in us.v10:
+the game's tables, strings and display lists, the RSP's data); replacing those is what a fully free
+game would need besides new assets.
 
 **Checking it:** function by function with the unicorn difftest (`tools/recomp/test/difftest.py`),
 which is how the translation was checked, and as a whole with the TAS suite (`port/tools/test.py`).
