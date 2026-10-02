@@ -647,7 +647,17 @@ endif()
 add_custom_target(recomp_headers DEPENDS ${GEN}/port_recomp_syms.h)
 
 set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
-add_library(recomp OBJECT ${RECOMP_C} ${GEN}/entry.c ${GEN}/externs.c)
+# Every function of the engine is native (port/engine), so the translated
+# code (derived from the ROM) is built only for the check build, which runs
+# it against the native code.  Elsewhere entry.c is all that is left: the
+# wrappers for any translated function the C or the native code still
+# calls, which then fails the link (recomp_func_X undefined) instead of
+# quietly running the translation.
+if(PORT_ENGINE_CHECK)
+    add_library(recomp OBJECT ${RECOMP_C} ${GEN}/entry.c ${GEN}/externs.c)
+else()
+    add_library(recomp OBJECT ${GEN}/entry.c)
+endif()
 target_include_directories(recomp PRIVATE ${ROOT}/tools/recomp/runtime ${RECOMP_GEN} ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_definitions(recomp PRIVATE RECOMP_COUNT)
 if(PORT_BLKLOG)

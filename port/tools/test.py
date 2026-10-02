@@ -13,7 +13,9 @@ a screenshot every 250 frames are hashed and compared with the committed
 references (port/tools/test_refs.json, by version), with --against another
 build's results, and within the build (the pthread backend against
 ucontext, --widescreen, --interpolate with either renderer against
-the plain run: the save and the sound must not change).  A build that takes
+the plain run: the save and the sound must not change).  No build but the
+check build (PORT_ENGINE_CHECK) may compile or link any of the translated
+engine (tools/recomp's recomp_func_X): the engine is port/engine's.  A build that takes
 its data from the ROM (PORT_ROM_DATA, the movable ones by default) is also
 searched for the ROM's data (rom_scan.py), and must carry none.  --update writes
 the build's hashes as the references for its version.
@@ -175,6 +177,7 @@ class Build:
         self.lp64, self.native, self.bits64, self.movable = (
             on("PORT_LP64"), on("PORT_NATIVE_ENDIAN"), on("PORT_64BIT"), on("PORT_MOVABLE"))
         self.rom_data = on("PORT_ROM_DATA")
+        self.engine_check = on("PORT_ENGINE_CHECK")
         self.gl = cache.get("EPOXY_FOUND", "") == "1"
         self.threads = cache.get("PORT_THREADS", "ucontext")
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
@@ -426,6 +429,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
                     fails += 1
                 else:
                     say("PASS", label, "identical" + (", the layout-dependent screenshots too" if exact else ""))
+    fails += no_translation(build)
     if build.rom_data:
         fails += rom_scan(build)
     if update:
@@ -434,6 +438,47 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
         save_refs(refs)
     emit(f"   {build.name}: {fails} failed, {time.time() - t0:.0f}s")
     return fails
+
+
+TRANSLATED = re.compile(r"\brecomp_(?:orig_)?(?:func|group)_\w+")
+
+
+def no_translation(build):
+    """the engine is native (port/engine): no translated function
+    (tools/recomp's recomp_func_X) is compiled or linked into the build,
+    but for the check build's (PORT_ENGINE_CHECK); the failures"""
+    label = f"{build.name} engine"
+    if build.engine_check:
+        say("SKIP", label, "the check build runs the translation against the native code")
+        return 0
+    # the translated objects (blastcorps/build/recomp/src/hd_*.c): none in
+    # the build's graph (or, without one, among its objects)
+    obj = re.compile(r"recomp\.dir/\S*?((?:hd_code|hd_front_end)_\w+\.c\.o(?:bj)?)\b")
+    ninja = os.path.join(build.path, "build.ninja")
+    if os.path.exists(ninja):
+        objs = set(obj.findall(open(ninja).read()))
+    else:
+        objs = set()
+        for d, _, files in os.walk(os.path.join(build.path, "CMakeFiles", "recomp.dir")):
+            objs |= set(obj.findall("\n".join("recomp.dir/" + f for f in files)))
+    # and no symbol of one in what was linked (the .wasm's names where it has them)
+    files = [build.exe] + ([os.path.splitext(build.exe)[0] + ".wasm"] if build.wasm else [])
+    nm = shutil.which("llvm-nm") or shutil.which("nm")
+    syms, looked = set(), []
+    for f in files:
+        if not nm or not os.path.exists(f):
+            continue
+        r = subprocess.run([nm, f], capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            looked.append(os.path.basename(f))
+            syms |= set(TRANSLATED.findall(r.stdout))
+    if objs or syms:
+        say("FAIL", label, f"translated code in the build: {len(objs)} objects ({', '.join(sorted(objs)[:3])}), "
+            f"{len(syms)} functions ({', '.join(sorted(syms)[:5])})")
+        return 1
+    say("PASS", label, "no translated function compiled" +
+        (f", none in {', '.join(looked)}'s symbols" if looked else " (no symbols to look in)"))
+    return 0
 
 
 def rom_scan(build):
