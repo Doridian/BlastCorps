@@ -166,6 +166,17 @@ static s32 part(s32 i, Part *parts, s32 *t1, f32 *f0) {
     return r;
 }
 
+/* jp's carrier takes its top speed from D_8030606E_jp's (level, speed)
+   pairs where its level has one (func_802BA3E8_jp), and so its blocks from
+   there on are 4 bytes on */
+#ifdef VERSION_JP
+REGS(s1 -> s1)
+s32 func_802BA3E8_jp(s32 speed);
+#define B9C50_BLK(us, jp) ENGINE_BLK(jp)
+#else
+#define B9C50_BLK(us, jp) ENGINE_BLK(us)
+#endif
+
 /* the carrier's set up: from the level loader, with the model file in $s2,
    x and z in $t4 and $t5, the heading in $t6, the distance to win in $t7
    and the top speed in $s1 */
@@ -188,18 +199,22 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     D_803EF6F4 = x;
     D_803EF6E4 = z;
     D_803EF6F8 = z;
+#ifdef VERSION_JP
+    speed = func_802BA3E8_jp(speed);
+    ENGINE_BLK(802B9D04);
+#endif
     D_803EF6FC = speed;
     D_803EF6D6 = 0;
     D_803EF6F0 = dist;
     func_802A754C(vs);
-    ENGINE_BLK(802B9D2C);
+    B9C50_BLK(802B9D2C, 802B9D30);
     vs->unk4E = heading;
     vs->unk4C = heading;
     D_803EF6FE = 5;
     D_803EF700 = 0;
     D_803EF701 = 0;
     func_802BA074();
-    ENGINE_BLK(802B9D54);
+    B9C50_BLK(802B9D54, 802B9D58);
     vs->unk52[0] = 0x190;
     vs->unk52[1] = 0x4B0;
     vs->unk52[2] = -0x190;
@@ -221,65 +236,65 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     ENGINE_LEAVE(18, T(&D_803EF6E0));
     ENGINE_LEAVE(19, T(s3));
     ENGINE_LEAVE(21, avg);
-    ENGINE_BLK(802B9DEC);
+    B9C50_BLK(802B9DEC, 802B9DF0);
     func_8029F85C(P, D_803EF70C, D_803EF704, D_803EF708);
-    ENGINE_BLK(802B9E28);
+    B9C50_BLK(802B9E28, 802B9E2C);
     func_802A039C(0, 100, P);
-    ENGINE_BLK(802B9E3C);
+    B9C50_BLK(802B9E3C, 802B9E40);
     func_802A03D4(0, 0, P);
-    ENGINE_BLK(802B9E50);
+    B9C50_BLK(802B9E50, 802B9E54);
     func_802A040C(0, 0, P);
-    ENGINE_BLK(802B9E64);
+    B9C50_BLK(802B9E64, 802B9E68);
     func_802A0480(0, 0, P, 0.0f);
-    ENGINE_BLK(802B9E7C);
+    B9C50_BLK(802B9E7C, 802B9E80);
     func_802A0290(0, 1, P);
-    ENGINE_BLK(802B9E90);
+    B9C50_BLK(802B9E90, 802B9E94);
     func_8029E558(P, D_803EF704, D_803EF708);
-    ENGINE_BLK(802B9EA4);
+    B9C50_BLK(802B9EA4, 802B9EA8);
     func_802A0320(0, P);
-    ENGINE_BLK(802B9EB4);
+    B9C50_BLK(802B9EB4, 802B9EB8);
     func_802A0290(0, 1, P);
-    ENGINE_BLK(802B9EC8);
+    B9C50_BLK(802B9EC8, 802B9ECC);
     func_8029E558(P, D_803EF708, D_803EF704);
-    ENGINE_BLK(802B9EDC);
+    B9C50_BLK(802B9EDC, 802B9EE0);
     model = D_803EF70C;
     func_8029C354(0xFF, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x59D8);
-    ENGINE_BLK(802B9F04);
+    B9C50_BLK(802B9F04, 802B9F08);
     func_80258230(0xFF, 0x96, 0x3C, 0x3C);
-    ENGINE_BLK(802B9F1C);
+    B9C50_BLK(802B9F1C, 802B9F20);
     func_802BABEC(vs);
-    ENGINE_BLK(802B9F24);
+    B9C50_BLK(802B9F24, 802B9F28);
     vs->unk9A = 1;
     func_802BA354();
-    ENGINE_BLK(802B9F38);
+    B9C50_BLK(802B9F38, 802B9F3C);
     vs->unk9A = 0;
     model = D_803EF70C;
     func_802AA838(D_803EF708, D_803EF704, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
-    ENGINE_BLK(802B9F70);
+    B9C50_BLK(802B9F70, 802B9F74);
     func_802A039C(1, 0, P);
-    ENGINE_BLK(802B9F84);
+    B9C50_BLK(802B9F84, 802B9F88);
     func_802A03D4(1, 0, P);
-    ENGINE_BLK(802B9F98);
+    B9C50_BLK(802B9F98, 802B9F9C);
     func_802A040C(1, 0, P);
-    ENGINE_BLK(802B9FAC);
+    B9C50_BLK(802B9FAC, 802B9FB0);
     func_802A0290(1, -1, P);
-    ENGINE_BLK(802B9FC0);
+    B9C50_BLK(802B9FC0, 802B9FC4);
     func_802A039C(2, 0, P);
-    ENGINE_BLK(802B9FD4);
+    B9C50_BLK(802B9FD4, 802B9FD8);
     func_802A03D4(2, 0, P);
-    ENGINE_BLK(802B9FE8);
+    B9C50_BLK(802B9FE8, 802B9FEC);
     func_802A040C(2, 1, P);
-    ENGINE_BLK(802B9FFC);
+    B9C50_BLK(802B9FFC, 802BA000);
     func_802A0290(2, -1, P);
-    ENGINE_BLK(802BA010);
+    B9C50_BLK(802BA010, 802BA014);
     func_802A05D0(D_802C236C, 100);
-    ENGINE_BLK(802BA020);
+    B9C50_BLK(802BA020, 802BA024);
     func_802A05F8(D_802C236C, 0);
-    ENGINE_BLK(802BA030);
+    B9C50_BLK(802BA030, 802BA034);
     func_802A0620(D_802C236C, 1);
-    ENGINE_BLK(802BA040);
+    B9C50_BLK(802BA040, 802BA044);
     func_802A0508(D_802C236C, -1);
-    ENGINE_BLK(802BA050);
+    B9C50_BLK(802BA050, 802BA054);
     engine_restore();
     ENGINE_LEAVE(28, T(vs));
 }

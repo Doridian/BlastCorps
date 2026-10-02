@@ -940,7 +940,7 @@ def gen_engine(check, funcs, report):
         cside.insert(1, f"const unsigned engine_check_count = {len(ids)};")
     called = set()
     for path in engine_files():
-        called |= set(re.findall(r"\bfunc_[0-9A-F]{8}\b", strip_comments(open(path).read())))
+        called |= set(re.findall(r"\bfunc_[0-9A-F]{8}(?:_[a-z0-9]+)?\b", strip_comments(open(path).read())))
     return adapters, cside, called, check_hdr, regs, defs
 
 
@@ -994,7 +994,7 @@ def engine_leaves():
                 else:
                     regs.add(GPR[n])
             out[m.group(3)] = regs
-            calls[m.group(3)] = set(re.findall(r"\bfunc_[0-9A-F]{8}\b", body))
+            calls[m.group(3)] = set(re.findall(r"\bfunc_[0-9A-F]{8}(?:_[a-z0-9]+)?\b", body))
     # (and what the native functions it calls leave)
     changed = True
     while changed:
@@ -1034,13 +1034,13 @@ def main():
         wraps = {w for w in sys.argv[k + 1].split(",") if w}
     os.makedirs(outdir, exist_ok=True)
     gen = os.path.join(BLAST, "build", "recomp", "src")
-    rfuncs = re.findall(r"recomp_(func_[0-9A-F]{8})\(", open(os.path.join(gen, "recomp_funcs.h")).read())
+    rfuncs = re.findall(r"recomp_(func_[0-9A-F]{8}(?:_[a-z0-9]+)?)\(", open(os.path.join(gen, "recomp_funcs.h")).read())
     externs = re.findall(r"recomp_extern_(\w+)\(", open(os.path.join(gen, "recomp_externs.h")).read())
     cnames = set()
     for d in C_DIRS:
         for f in os.listdir(d):
             if f.endswith(".c"):
-                cnames |= set(re.findall(r"\bfunc_[0-9A-F]{8}\b", open(os.path.join(d, f)).read()))
+                cnames |= set(re.findall(r"\bfunc_[0-9A-F]{8}(?:_[a-z0-9]+)?\b", open(os.path.join(d, f)).read()))
     funcs = liveness.load_functions()
     report = []
     adapters, cside, ecalled, check_hdr, eregs, edefs = gen_engine(check, funcs, report) \
