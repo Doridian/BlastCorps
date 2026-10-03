@@ -321,12 +321,42 @@ static uint32_t seg_to_k0(uint32_t a) {
     return 0x80000000u | ((gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
 }
 
-static void mtx_mul(float r[4][4], float a[4][4], float b[4][4]) {
+/* PORT_SIMD: four-lane vectors (the compiler's vector extensions: SSE on
+   x86, NEON on AArch64, WebAssembly's SIMD128 with -msimd128, scalar code
+   anywhere else).  Each lane's arithmetic is the scalar code's, in its
+   order, and the build has no FMA contraction (-ffp-contract=off), so the
+   results are the same bits.  Not with the access profiler, whose byte
+   reads they would skip. */
+#if defined(PORT_SIMD) && !defined(PORT_ACCESS_PROFILE)
+#define GFX_SIMD 1
+typedef float f4 __attribute__((vector_size(16)));
+typedef int32_t i4 __attribute__((vector_size(16)));
+typedef int16_t i16x8 __attribute__((vector_size(16)));
+typedef uint8_t u8x16 __attribute__((vector_size(16)));
+typedef int8_t s8x16 __attribute__((vector_size(16)));
+static inline f4 ld4(const float *p) {
+    f4 v;
+    memcpy(&v, p, sizeof v);
+    return v;
+}
+#else
+#define GFX_SIMD 0
+#endif
+
+NOINLINE static void mtx_mul(float r[4][4], float a[4][4], float b[4][4]) {
+#if GFX_SIMD
+    /* row i: b's rows by a[i]'s elements, summed in the scalar order */
+    f4 b0 = ld4(b[0]), b1 = ld4(b[1]), b2 = ld4(b[2]), b3 = ld4(b[3]), t[4];
+    for (int i = 0; i < 4; i++)
+        t[i] = a[i][0] * b0 + a[i][1] * b1 + a[i][2] * b2 + a[i][3] * b3;
+    memcpy(r, t, sizeof t);
+#else
     float t[4][4];
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++)
             t[i][j] = a[i][0] * b[0][j] + a[i][1] * b[1][j] + a[i][2] * b[2][j] + a[i][3] * b[3][j];
     memcpy(r, t, sizeof t);
+#endif
 }
 
 static void load_mtx(float m[4][4], uint32_t addr) {
@@ -760,6 +790,96 @@ static void vtx_tail(uint32_t w1, uint32_t a, int v0, int m) {
     }
 }
 
+#if GFX_SIMD
+/* do_vtx's vertices with four lanes (PORT_SIMD): a vertex's 16 bytes in one
+   load, its position as the matrix's rows summed, the lights' dot products
+   four lights at a time, its color as one vector; what do_vtx's scalar
+   loop does, to the bit */
+NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3], float ladir[2][3]) {
+    f4 m0 = ld4(gs.mvp[0]), m1 = ld4(gs.mvp[1]), m2 = ld4(gs.mvp[2]), m3 = ld4(gs.mvp[3]);
+    int lit = (gs.geom & 0x20000) != 0, tgen = lit && (gs.geom & 0x40000), fog = (gs.geom & 0x10000) != 0;
+    int nl = gs.nlights, ng = 0;
+    f4 dx[3], dy[3], dz[3], lc[8];
+    if (lit) {
+        /* the directions by component, a lane each: the lights, then the
+           look-at vectors for G_TEXTURE_GEN */
+        float t[3][12];
+        memset(t, 0, sizeof t);
+        for (int j = 0; j < 3; j++) {
+            for (int l = 0; l < nl; l++)
+                t[j][l] = ldir[l][j];
+            if (tgen) {
+                t[j][nl] = ladir[0][j];
+                t[j][nl + 1] = ladir[1][j];
+            }
+        }
+        ng = (nl + (tgen ? 2 : 0) + 3) / 4;
+        for (int g = 0; g < ng; g++) {
+            dx[g] = ld4(&t[0][4 * g]);
+            dy[g] = ld4(&t[1][4 * g]);
+            dz[g] = ld4(&t[2][4 * g]);
+        }
+        for (int l = 0; l <= nl; l++)
+            lc[l] = (f4){ gs.lcol[l][0], gs.lcol[l][1], gs.lcol[l][2], 0 };
+    }
+    const f4 k255 = { 255, 255, 255, 255 };
+    for (int i = 0; i < n && v0 + i < 16; i++, p += 16) {
+        Vtx4 *v = &gs.v[v0 + i];
+        u8x16 b;
+        memcpy(&b, p, 16);
+#ifndef PORT_NATIVE_ENDIAN
+        /* the halfwords from big-endian (the bytes, 12-15, as they are) */
+        b = __builtin_shufflevector(b, b, 1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 12, 13, 14, 15);
+#endif
+        i16x8 h = (i16x8)b;
+        f4 ob = __builtin_convertvector(__builtin_shufflevector(h, h, 0, 1, 2, 4), f4);   /* x, y, z, s */
+        f4 pos = __builtin_shufflevector(ob, ob, 0, 0, 0, 0) * m0 + __builtin_shufflevector(ob, ob, 1, 1, 1, 1) * m1 +
+                 __builtin_shufflevector(ob, ob, 2, 2, 2, 2) * m2 + m3;
+        float s = ob[3], t = (int16_t)h[5];
+        f4 col;
+        if (lit) {
+            s8x16 sb = (s8x16)b;
+            f4 nv = __builtin_convertvector(__builtin_shufflevector(sb, sb, 12, 13, 14, 15), f4);
+            float len = sqrtf(nv[0] * nv[0] + nv[1] * nv[1] + nv[2] * nv[2]);
+            if (len > 0)
+                nv = nv / len;
+            f4 nx = __builtin_shufflevector(nv, nv, 0, 0, 0, 0), ny = __builtin_shufflevector(nv, nv, 1, 1, 1, 1),
+               nz = __builtin_shufflevector(nv, nv, 2, 2, 2, 2);
+            float d[12];
+            for (int g = 0; g < ng; g++) {
+                f4 dg = nx * dx[g] + ny * dy[g] + nz * dz[g];
+                memcpy(&d[4 * g], &dg, sizeof dg);
+            }
+            /* a light facing away adds +0 (the colors are finite and
+               never -0), which leaves c as the scalar code's skip does */
+            f4 c = lc[nl];
+            for (int l = 0; l < nl; l++)
+                c = c + (d[l] > 0 ? d[l] : 0.0f) * lc[l];
+            i4 over = c > k255;
+            col = (f4)(((i4)c & ~over) | ((i4)k255 & over));
+            col[3] = p[15];
+            if (tgen) {
+                s = (d[nl] * 0.5f + 0.5f) * 32 * 32 * 32;
+                t = (d[nl + 1] * 0.5f + 0.5f) * 32 * 32 * 32;
+            }
+        } else {
+            col = __builtin_convertvector(__builtin_shufflevector(b, b, 12, 13, 14, 15), f4);
+        }
+        if (fog && pos[3] > 0) {
+            float f = pos[2] / pos[3] * gs.fog_mul + gs.fog_off;
+            col[3] = f < 0 ? 0 : f > 255 ? 255 : f;
+        }
+        /* (stored a float at a time: a 16-byte store of the color made the
+           loop three times slower in V8, in the game though not in a
+           benchmark of it) */
+        v->x = pos[0]; v->y = pos[1]; v->z = pos[2]; v->w = pos[3];
+        v->s = s * gs.tex_s / 32.0f;
+        v->t = t * gs.tex_t / 32.0f;
+        v->r = col[0]; v->g = col[1]; v->b = col[2]; v->a = col[3];
+    }
+}
+#endif
+
 NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
     const uint8_t *p = port_ptr(seg_to_k0(w1));
@@ -785,6 +905,9 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
                     d[j] /= len;
         }
     }
+#if GFX_SIMD
+    vtx_simd(p, v0, n, ldir, ladir);
+#else
     for (int i = 0; i < n && v0 + i < 16; i++, p += 16) {
         Vtx4 *v = &gs.v[v0 + i];
         float x = (int16_t)port_g16(p), y = (int16_t)port_g16(p + 2), z = (int16_t)port_g16(p + 4);
@@ -832,6 +955,7 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
         v->s = s * gs.tex_s / 32.0f;
         v->t = t * gs.tex_t / 32.0f;
     }
+#endif
     int m = n < 16 - v0 ? n : 16 - v0;
     if (recording)
         rec_load(seg_to_k0(w1), v0, m);
