@@ -927,6 +927,14 @@ if(EMSCRIPTEN)
     # emcc runs no wasm-opt, and Asyncify's instrumentation stays as slow
     # as it was made)
     target_link_options(blastcorps PRIVATE -O2 -sINITIAL_MEMORY=256MB -sSTACK_SIZE=1MB)
+    # Binaryen inlines every function that has one caller, whatever its
+    # size: the game's main loop (func_80244930) took in most of the game,
+    # 300,000 lines of wat, and main() most of the host.  Under Asyncify a
+    # fiber switch unwinds and rewinds every frame on the stack, and
+    # rewinding one of those walks its body to the call: the game's C ran
+    # 2-3 times slower than with them left apart (docs/PORT.md,
+    # "Performance")
+    target_link_options(blastcorps PRIVATE -sBINARYEN_EXTRA_PASSES=--one-caller-inline-max-function-size=200)
     if(WASM_PTHREAD)
         # the game's threads are host threads (fiber_pthread.c), and the
         # loop one too (PROXY_TO_PTHREAD), so that the page's own thread is
