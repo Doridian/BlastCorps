@@ -55,6 +55,9 @@ typedef struct {
 } GfxState;
 
 extern GfxState gs;
+/* bumped by every display-list command that may change what a draw's state
+   is made from (all but vertices, triangles, matrices, calls and syncs) */
+extern uint32_t gfx_state_serial;
 extern uint8_t gfx_tmem[4096];
 /* --hd-text: each TMEM word's RDRAM source, by the LoadBlock that wrote it (0: none) */
 extern uint32_t gfx_tmem_src[512];

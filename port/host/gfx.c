@@ -39,6 +39,7 @@ typedef GfxTile Tile;
 typedef __typeof__(gs.v[0]) Vtx4;
 
 GfxState gs;
+uint32_t gfx_state_serial;
 uint8_t gfx_tmem[4096];
 int gfx_filter;
 float gfx_aspect;
@@ -2120,6 +2121,10 @@ static void run(uint32_t dl, int depth) {
         uint8_t op = w0 >> 24;
         if (!ipass)
             host_gfx_stats[op]++;
+        /* (what a draw's state can't depend on leaves it as it was) */
+        if (!(op == 0x04 || op == 0xBF || op == 0x01 || op == 0xBD || op == 0x06 || op == 0xB8 ||
+              (op >= 0xE6 && op <= 0xE8) || (op >= 0xB2 && op <= 0xB4) || op == 0xBE || op == 0xC0))
+            gfx_state_serial++;
         if (rsp_only && op >= 0xE4) {                           /* the RDP's: written, not run */
             if (op == 0xE4 || op == 0xE5)
                 dl += 16;                                       /* and its two halves */

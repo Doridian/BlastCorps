@@ -1307,7 +1307,17 @@ static int build_state(int kind, int tile) {
 }
 
 static void begin(int kind, int tile) {
-    int changed = build_state(kind, tile);
+    /* the same command as the last draw's state was made after: the same
+       state (build_state would find its raw state unchanged) */
+    static uint32_t serial;
+    static int last_kind, last_tile;
+    int changed = 0;
+    if (!raw_valid || serial != gfx_state_serial || kind != last_kind || tile != last_tile) {
+        changed = build_state(kind, tile);
+        serial = gfx_state_serial;
+        last_kind = kind;
+        last_tile = tile;
+    }
     if (!batch_valid || (changed && memcmp(&ds_cur, &ds_batch, sizeof ds_cur))) {
         batch_close();
         ds_batch = ds_cur;
