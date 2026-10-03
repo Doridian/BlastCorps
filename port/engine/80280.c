@@ -441,6 +441,11 @@ s32 func_802C7DFC(VS *vs);
 #define JBOMB_AIR_STEER_UP 2    /* and its rise a frame while it is pushed (D_803F7C3C) */
 #define JBOMB_AIR_STEER_MAX 100
 #define JBOMB_STEER_DIV 1.5f    /* on the ground: the speed over this */
+#define JBOMB_SLAM_PUSH -0x4B0  /* the slam's push down, once its part 5 is done */
+#define JBOMB_SLAM_SHAKE_FRAMES 0x14 /* the screen's shake as a slam lands (00000.c) */
+#define JBOMB_SLAM_SHAKE 0x320
+#define JBOMB_BOUNCE_SPEED 0x14 /* a bounce in flight keeps the speed within this */
+#define JBOMB_BOUNCE_LIFT 0x14A /* and pushes it up this much */
 
 /* part i's state: func_802A04BC's first result (and its sixth, the
    frame) */
@@ -1085,12 +1090,290 @@ done:
     ENGINE_BLK(802C61DC);
 }
 
+/* ---- the J-Bomb's modes (func_802C61F0's second half) ---- */
+
+/* mode 5, landed: part 8 played once parts 7 and 8 are done */
+static void jbomb_landed(Part *p) {
+    s32 busy;
+
+    ENGINE_BLK(802C67EC);
+    busy = part_state(7, p, NULL) == 1;
+    ENGINE_BLK(802C67FC);
+    if (busy)
+        return;
+    ENGINE_BLK(802C6808);
+    busy = part_state(8, p, NULL) == 1;
+    ENGINE_BLK(802C6818);
+    if (busy)
+        return;
+    ENGINE_BLK(802C6824);
+    func_802A0360(8, 0, p, 0.0f);
+    ENGINE_BLK(802C6840);
+    func_802A039C(8, 1, p);
+    ENGINE_BLK(802C6854);
+    func_802A03D4(8, 0, p);
+    ENGINE_BLK(802C6868);
+    func_802A0480(8, 1, p, 0.5f);
+    ENGINE_BLK(802C6884);
+    func_802A040C(8, 1, p);
+    ENGINE_BLK(802C6898);
+    func_802A0290(8, -1, p);
+    ENGINE_BLK(802C68AC);
+}
+
+/* mode 4, slamming down: once part 5 is done, the push down
+   (JBOMB_SLAM_PUSH) */
+static void jbomb_slamming(VS *vs, Part *p) {
+    s32 busy;
+
+    ENGINE_BLK(802C68B4);
+    if (D_803F7C4A != 0) {
+        ENGINE_BLK(802C68C4);
+        busy = part_state(5, p, NULL) == 1;
+        ENGINE_BLK(802C68D4);
+        if (!busy) {
+            ENGINE_BLK(802C68E0);
+            jump(vs, JBOMB_SLAM_PUSH);
+            D_803F7C4A = 0;
+        }
+    }
+    ENGINE_BLK(802C691C);
+    D_803F7C3D = JBOMB_CLIMB_FRAMES;
+}
+
+/* mode 0, walking: its legs with the speed (part 6), a footstep's sound on
+   their frames 0 and 3 */
+static void jbomb_walk(VS *vs, Part *p) {
+    s32 busy, s, v, f13;
+
+    ENGINE_BLK(802C692C);
+    busy = part_state(0x1F, p, NULL) == 1;
+    ENGINE_BLK(802C693C);
+    if (busy)
+        return;
+    ENGINE_BLK(802C6948);
+    busy = part_state(9, p, NULL) == 1;
+    ENGINE_BLK(802C6958);
+    if (busy)
+        return;
+    ENGINE_BLK(802C6964);
+    s = vs->unk76;
+    if (s < 0) {
+        ENGINE_BLK(802C6970);
+        func_802A03D4(6, 1, p);
+        ENGINE_BLK(802C6984);
+    } else {
+        ENGINE_BLK(802C698C);
+        func_802A03D4(6, 0, p);
+    }
+    ENGINE_BLK(802C69A0);
+    if (s < 0) {
+        ENGINE_BLK(802C69AC);
+        s = -s;
+    }
+    ENGINE_BLK(802C69B0);
+    s = (u32)s / 16;
+    ENGINE_BLK(802C69CC);
+    func_802A039C(6, s, p);
+    ENGINE_BLK(802C69DC);
+    func_802A0480(6, 1, p, 0.5f);
+    ENGINE_BLK(802C69F8);
+    func_802A040C(6, 0, p);
+    ENGINE_BLK(802C6A0C);
+    func_802A0290(6, -1, p);
+    ENGINE_BLK(802C6A20);
+    part_state(6, p, &f13);
+    ENGINE_BLK(802C6A30);
+    v = D_803F7C32;
+    D_803F7C32 = f13;
+    if (f13 != v) {
+        ENGINE_BLK(802C6A48);
+        if (f13 == 0) {
+            ENGINE_BLK(802C6A5C);
+            func_80260650(D_80367738, 0x5A, NULL);
+        } else {
+            ENGINE_BLK(802C6A50);
+            if (f13 == 3) {
+                ENGINE_BLK(802C6A5C);
+                func_80260650(D_80367738, 0x5B, NULL);
+            }
+        }
+    }
+    ENGINE_BLK(802C6A6C);
+}
+
+/* the slam: down hard (mode 4) */
+static void jbomb_slam(VS *vs, Part *p) {
+    s32 v;
+
+    ENGINE_BLK(802C6C58);
+    D_803F7C45 = 0;
+    D_803F7C44 = 0;
+    D_803F7C47 = 0;
+    D_803F7C46 = 0;
+    D_803F7C40 = JBOMB_SLAM_FRAMES;
+    D_803F7C4A = 1;
+    vs->unkA1 = 4;
+    v = D_803F7BFC;
+    vs->unk28[0] = 0;
+    vs->unk28[1] = 0;
+    vs->unk28[3] = v, vs->unk28[4] = v, vs->unk28[5] = v;
+    vs->unk28[6] = 1, vs->unk28[7] = 1, vs->unk28[8] = 1;
+    vs->unk28[2] = 0;
+    func_802A02E4(4, p);
+    ENGINE_BLK(802C6CD8);
+    func_802A02E4(3, p);
+    ENGINE_BLK(802C6CE8);
+    func_802A039C(5, 0xA, p);
+    ENGINE_BLK(802C6CFC);
+    func_802A03D4(5, 0, p);
+    ENGINE_BLK(802C6D10);
+    func_802A040C(5, 1, p);
+    ENGINE_BLK(802C6D24);
+    func_802A0360(5, 0, p, 0.0f);
+    ENGINE_BLK(802C6D40);
+    func_802A0290(5, 1, p);
+    ENGINE_BLK(802C6D54);
+    func_80260650(D_80367738, 0x5C, NULL);
+}
+
+/* bounced: up again (JBOMB_BOUNCE_LIFT), its speed within
+   JBOMB_BOUNCE_SPEED either way unless the bounce was off a building */
+static void jbomb_bounce(VS *vs) {
+    s32 v;
+
+    ENGINE_BLK(802C6BDC);
+    if (vs->unk9C == 0) {
+        ENGINE_BLK(802C6BE8);
+        v = vs->unk76;
+        if (v > JBOMB_BOUNCE_SPEED) {
+            ENGINE_BLK(802C6BF8);
+            v = JBOMB_BOUNCE_SPEED;
+        }
+        ENGINE_BLK(802C6BFC);
+        if (v < -JBOMB_BOUNCE_SPEED) {
+            ENGINE_BLK(802C6C08);
+            v = -JBOMB_BOUNCE_SPEED;
+        }
+        ENGINE_BLK(802C6C0C);
+        vs->unk76 = v;
+    }
+    ENGINE_BLK(802C6C10);
+    jump(vs, JBOMB_BOUNCE_LIFT);
+    vs->unk96[0] = 1, vs->unk96[1] = 1, vs->unk96[2] = 1;
+}
+
+/* mode 1, flying: the legs and arms at rest, the tilt (func_802C7864);
+   bounced, up again; else, the timers run out and not at its height
+   limit (unk9F 100), the slam when asked (func_802C770C's count, or Z) */
+static void jbomb_fly(VS *vs, Part *p) {
+    ENGINE_BLK(802C6B08);
+    func_802A02E4(0x1F, p);
+    ENGINE_BLK(802C6B18);
+    func_802A02E4(6, p);
+    ENGINE_BLK(802C6B28);
+    func_802A0290(4, -1, p);
+    ENGINE_BLK(802C6B3C);
+    func_802A0290(3, -1, p);
+    ENGINE_BLK(802C6B50);
+    func_802C7864(vs);
+    ENGINE_BLK(802C6B58);
+    if (D_803F7C39 != 0) {
+        jbomb_bounce(vs);
+        return;
+    }
+    ENGINE_BLK(802C6B68);
+    if (D_803F7C40 != 0)
+        return;
+    ENGINE_BLK(802C6B78);
+    if (D_803F7C41 != 0)
+        return;
+    ENGINE_BLK(802C6B88);
+    if (vs->unk9F == 0x64)
+        return;
+    ENGINE_BLK(802C6B98);
+    func_802C770C();
+    ENGINE_BLK(802C6BA0);
+    if (D_803F7C44 == 3) {
+        jbomb_slam(vs, p);
+        return;
+    }
+    ENGINE_BLK(802C6BB4);
+    if (D_803F7C42 != 0)
+        return;
+    ENGINE_BLK(802C6BC4);
+    if (D_80370C1D != 0) {
+        jbomb_slam(vs, p);
+        return;
+    }
+    ENGINE_BLK(802C6BD4);
+}
+
+/* modes 2 and 3, falling or dropping: flying again (mode 1) with the
+   boost buttons, from 2 */
+static void jbomb_drop(VS *vs, Part *p, s32 mode) {
+    s32 s;
+
+    ENGINE_BLK(802C6A74);
+    if (mode != 3) {
+        ENGINE_BLK(802C6A80);
+        D_803F7C3D = JBOMB_CLIMB_FRAMES;
+        if (D_80370C1C != 0 || (ENGINE_BLK(802C6A9C), D_80370C1A != 0) ||
+            (ENGINE_BLK(802C6AAC), D_80370C1B != 0)) {
+            ENGINE_BLK(802C6ABC);
+            s = func_802C6FD8(vs);
+            ENGINE_BLK(802C6AC4);
+            jump(vs, s);
+            D_803F7C3E = 1;
+            vs->unkA1 = 1;
+        }
+    }
+    jbomb_fly(vs, p);
+}
+
+/* the mode's own work (vs->unkA1, `mode`); its blocks are the asm's test
+   of each mode in turn */
+static void jbomb_mode(VS *vs, Part *p, s32 mode) {
+    ENGINE_BLK(802C67B0);
+    if (mode == 5) {
+        jbomb_landed(p);
+        return;
+    }
+    ENGINE_BLK(802C67C0);
+    if (mode == 0) {
+        jbomb_walk(vs, p);
+        return;
+    }
+    ENGINE_BLK(802C67C8);
+    if (mode == 1) {
+        jbomb_fly(vs, p);
+        return;
+    }
+    ENGINE_BLK(802C67D0);
+    if (mode == 2) {
+        jbomb_drop(vs, p, mode);
+        return;
+    }
+    ENGINE_BLK(802C67D8);
+    if (mode == 3) {
+        jbomb_drop(vs, p, mode);
+        return;
+    }
+    ENGINE_BLK(802C67E0);
+    if (mode == 4) {
+        jbomb_slamming(vs, p);
+        return;
+    }
+    ENGINE_BLK(802C67E8);
+    engine_trap(0x802C67E8);
+}
+
 /* its modes (see the top), its jets and its slam, each frame before it
    moves */
 REGS(gp)
 void func_802C61F0(VS *vs) {
     Part *p = JB;
-    s32 v, s4, s5, s6, f13;
+    s32 v, s4, s6;
 
     ENGINE_BLK(802C61F0);
     v = vs->unkA1;
@@ -1299,266 +1582,19 @@ check:
     func_802C70E8(vs);
     ENGINE_BLK(802C66E8);
     func_802C7354(vs);
-    /* its slam, coming down from mode 4 */
+    /* its slam landing: from mode 4 to 0, a sound, the screen's shake and
+       its effect */
     ENGINE_BLK(802C66F0);
-    if (vs->unkA2 != 4)
-        goto mode;
-    ENGINE_BLK(802C6700);
-    if (vs->unkA1 != 0)
-        goto mode;
-    ENGINE_BLK(802C670C);
-    func_80260650(D_80367738, 0x7D, NULL);
-    ENGINE_BLK(802C6720);
-    D_802E8BE4 = 0x14;
-    D_802E8BE8 = 0x320;
-    func_802A6274(T(D_802C28E4), 0x222E0, 0, D_803F7BF8 << 11, D_803F7BFC << 11, D_803F7C00 << 11, 0, 0, 0, 0, 0, 0, 0,
-                  0, 0);
-    /* (the zeros it passes in $t7 and $s0..$s5, which it doesn't put back) */
-mode:
-    ENGINE_BLK(802C67B0);
-    s5 = vs->unkA1;
-    if (s5 == 5)
-        goto mode5;
-    ENGINE_BLK(802C67C0);
-    if (s5 == 0)
-        goto mode0;
-    ENGINE_BLK(802C67C8);
-    if (s5 == 1)
-        goto mode1;
-    ENGINE_BLK(802C67D0);
-    if (s5 == 2)
-        goto mode23;
-    ENGINE_BLK(802C67D8);
-    if (s5 == 3)
-        goto mode23;
-    ENGINE_BLK(802C67E0);
-    if (s5 == 4)
-        goto mode4b;
-    ENGINE_BLK(802C67E8);
-    engine_trap(0x802C67E8);
-
-mode5:
-    /* landed: part 8 played once parts 7 and 8 are done */
-    ENGINE_BLK(802C67EC);
-    if (part_state(7, p, NULL) == 1) {
-        ENGINE_BLK(802C67FC);
-        goto end;
+    if (vs->unkA2 == 4 && (ENGINE_BLK(802C6700), vs->unkA1 == 0)) {
+        ENGINE_BLK(802C670C);
+        func_80260650(D_80367738, 0x7D, NULL);
+        ENGINE_BLK(802C6720);
+        D_802E8BE4 = JBOMB_SLAM_SHAKE_FRAMES;
+        D_802E8BE8 = JBOMB_SLAM_SHAKE;
+        func_802A6274(T(D_802C28E4), 0x222E0, 0, D_803F7BF8 << 11, D_803F7BFC << 11, D_803F7C00 << 11, 0, 0, 0, 0, 0,
+                      0, 0, 0, 0);
     }
-    ENGINE_BLK(802C67FC);
-    ENGINE_BLK(802C6808);
-    if (part_state(8, p, NULL) == 1) {
-        ENGINE_BLK(802C6818);
-        goto end;
-    }
-    ENGINE_BLK(802C6818);
-    ENGINE_BLK(802C6824);
-    func_802A0360(8, 0, p, 0.0f);
-    ENGINE_BLK(802C6840);
-    func_802A039C(8, 1, p);
-    ENGINE_BLK(802C6854);
-    func_802A03D4(8, 0, p);
-    ENGINE_BLK(802C6868);
-    func_802A0480(8, 1, p, 0.5f);
-    ENGINE_BLK(802C6884);
-    func_802A040C(8, 1, p);
-    ENGINE_BLK(802C6898);
-    func_802A0290(8, -1, p);
-    ENGINE_BLK(802C68AC);
-    goto end;
-
-mode4b:
-    /* slamming down */
-    ENGINE_BLK(802C68B4);
-    if (D_803F7C4A != 0) {
-        ENGINE_BLK(802C68C4);
-        if (part_state(5, p, NULL) == 1) {
-            ENGINE_BLK(802C68D4);
-        } else {
-            ENGINE_BLK(802C68D4);
-            ENGINE_BLK(802C68E0);
-            jump(vs, -0x4B0);
-            D_803F7C4A = 0;
-        }
-    }
-    ENGINE_BLK(802C691C);
-    D_803F7C3D = JBOMB_CLIMB_FRAMES;
-    goto end;
-
-mode0:
-    /* walking: its legs with the speed */
-    ENGINE_BLK(802C692C);
-    if (part_state(0x1F, p, NULL) == 1) {
-        ENGINE_BLK(802C693C);
-        goto end;
-    }
-    ENGINE_BLK(802C693C);
-    ENGINE_BLK(802C6948);
-    if (part_state(9, p, NULL) == 1) {
-        ENGINE_BLK(802C6958);
-        goto end;
-    }
-    ENGINE_BLK(802C6958);
-    ENGINE_BLK(802C6964);
-    s4 = vs->unk76;
-    if (s4 < 0) {
-        ENGINE_BLK(802C6970);
-        func_802A03D4(6, 1, p);
-        ENGINE_BLK(802C6984);
-    } else {
-        ENGINE_BLK(802C698C);
-        func_802A03D4(6, 0, p);
-    }
-    ENGINE_BLK(802C69A0);
-    if (s4 < 0) {
-        ENGINE_BLK(802C69AC);
-        s4 = -s4;
-    }
-    ENGINE_BLK(802C69B0);
-    s4 = (u32)s4 / 16;
-    ENGINE_BLK(802C69CC);
-    func_802A039C(6, s4, p);
-    ENGINE_BLK(802C69DC);
-    func_802A0480(6, 1, p, 0.5f);
-    ENGINE_BLK(802C69F8);
-    func_802A040C(6, 0, p);
-    ENGINE_BLK(802C6A0C);
-    func_802A0290(6, -1, p);
-    ENGINE_BLK(802C6A20);
-    part_state(6, p, &f13);
-    /* a footstep's sound on frames 0 and 3 */
-    ENGINE_BLK(802C6A30);
-    v = D_803F7C32;
-    D_803F7C32 = f13;
-    if (f13 == v)
-        goto steps;
-    ENGINE_BLK(802C6A48);
-    if (f13 == 0) {
-        v = 0x5A;
-    } else {
-        ENGINE_BLK(802C6A50);
-        if (f13 != 3)
-            goto steps;
-        v = 0x5B;
-    }
-    ENGINE_BLK(802C6A5C);
-    func_80260650(D_80367738, v, NULL);
-steps:
-    ENGINE_BLK(802C6A6C);
-    goto end;
-
-mode23:
-    /* falling or dropping: flying again with the boost buttons */
-    ENGINE_BLK(802C6A74);
-    if (s5 == 3)
-        goto mode1;
-    ENGINE_BLK(802C6A80);
-    D_803F7C3D = JBOMB_CLIMB_FRAMES;
-    if (D_80370C1C == 0) {
-        ENGINE_BLK(802C6A9C);
-        if (D_80370C1A == 0) {
-            ENGINE_BLK(802C6AAC);
-            if (D_80370C1B == 0)
-                goto mode1;
-        }
-    }
-    ENGINE_BLK(802C6ABC);
-    s6 = func_802C6FD8(vs);
-    ENGINE_BLK(802C6AC4);
-    jump(vs, s6);
-    D_803F7C3E = 1;
-    vs->unkA1 = 1;
-
-mode1:
-    /* flying */
-    ENGINE_BLK(802C6B08);
-    func_802A02E4(0x1F, p);
-    ENGINE_BLK(802C6B18);
-    func_802A02E4(6, p);
-    ENGINE_BLK(802C6B28);
-    func_802A0290(4, -1, p);
-    ENGINE_BLK(802C6B3C);
-    func_802A0290(3, -1, p);
-    ENGINE_BLK(802C6B50);
-    func_802C7864(vs);
-    ENGINE_BLK(802C6B58);
-    if (D_803F7C39 != 0)
-        goto bounce;
-    ENGINE_BLK(802C6B68);
-    if (D_803F7C40 != 0)
-        goto end;
-    ENGINE_BLK(802C6B78);
-    if (D_803F7C41 != 0)
-        goto end;
-    ENGINE_BLK(802C6B88);
-    if (vs->unk9F == 0x64)
-        goto end;
-    ENGINE_BLK(802C6B98);
-    func_802C770C();
-    ENGINE_BLK(802C6BA0);
-    if (D_803F7C44 == 3)
-        goto slam;
-    ENGINE_BLK(802C6BB4);
-    if (D_803F7C42 != 0)
-        goto end;
-    ENGINE_BLK(802C6BC4);
-    if (D_80370C1D != 0)
-        goto slam;
-    ENGINE_BLK(802C6BD4);
-    goto end;
-bounce:
-    /* bounced: up again, slower */
-    ENGINE_BLK(802C6BDC);
-    if (vs->unk9C == 0) {
-        ENGINE_BLK(802C6BE8);
-        v = vs->unk76;
-        if (!(v < 0x15)) {
-            ENGINE_BLK(802C6BF8);
-            v = 0x14;
-        }
-        ENGINE_BLK(802C6BFC);
-        if (v < -0x14) {
-            ENGINE_BLK(802C6C08);
-            v = -0x14;
-        }
-        ENGINE_BLK(802C6C0C);
-        vs->unk76 = v;
-    }
-    ENGINE_BLK(802C6C10);
-    jump(vs, 0x14A);
-    vs->unk96[0] = 1, vs->unk96[1] = 1, vs->unk96[2] = 1;
-    goto end;
-slam:
-    /* the slam: down hard (mode 4) */
-    ENGINE_BLK(802C6C58);
-    D_803F7C45 = 0;
-    D_803F7C44 = 0;
-    D_803F7C47 = 0;
-    D_803F7C46 = 0;
-    D_803F7C40 = JBOMB_SLAM_FRAMES;
-    D_803F7C4A = 1;
-    vs->unkA1 = 4;
-    v = D_803F7BFC;
-    vs->unk28[0] = 0;
-    vs->unk28[1] = 0;
-    vs->unk28[3] = v, vs->unk28[4] = v, vs->unk28[5] = v;
-    vs->unk28[6] = 1, vs->unk28[7] = 1, vs->unk28[8] = 1;
-    vs->unk28[2] = 0;
-    func_802A02E4(4, p);
-    ENGINE_BLK(802C6CD8);
-    func_802A02E4(3, p);
-    ENGINE_BLK(802C6CE8);
-    func_802A039C(5, 0xA, p);
-    ENGINE_BLK(802C6CFC);
-    func_802A03D4(5, 0, p);
-    ENGINE_BLK(802C6D10);
-    func_802A040C(5, 1, p);
-    ENGINE_BLK(802C6D24);
-    func_802A0360(5, 0, p, 0.0f);
-    ENGINE_BLK(802C6D40);
-    func_802A0290(5, 1, p);
-    ENGINE_BLK(802C6D54);
-    func_80260650(D_80367738, 0x5C, NULL);
-end:
+    jbomb_mode(vs, p, vs->unkA1);
     ENGINE_BLK(802C6D68);
     func_802C7544(vs);
     ENGINE_BLK(802C6D70);
