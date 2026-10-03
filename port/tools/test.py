@@ -30,7 +30,9 @@ hash (port/tools/digest_cmp.py --hash: the clock and the random state left
 out) is compared with test_refs.json's "digest", and a scenario run against
 a base one must play the same; where it differs and the reference digest is
 in build/digest-refs/<version>/ (--update copies it there; it isn't
-committed), digest_cmp.py says at which level, frame and field.  --gameplay
+committed; --save-digests copies those that hash as the reference, the way
+to get them back after a fresh clone), digest_cmp.py says at which level,
+frame and field.  --gameplay
 makes the digest the gate: the hashes that differ from the references are
 reported, not failed (for a change meant to keep the game and change its
 timing: docs/PORT.md, "The gameplay digest").
@@ -315,6 +317,12 @@ def hashes(outdir):
 
 # ---- the gameplay digest -------------------------------------------------------
 
+# --save-digests: copy a run's digest into build/digest-refs when it hashes
+# as the reference (nothing else changes), to have the copies digest_cmp.py
+# compares with after a fresh clone
+SAVE_DIGESTS = False
+
+
 def digest_ref_path(version, name):
     return os.path.join(DIGEST_REFS, version, f"{name}.digest")
 
@@ -339,6 +347,9 @@ def digest_check(label, got_path, got, version, name, refs, update=False):
         return None
     if got == vref[name]:
         say("PASS", label, f"the gameplay as the reference ({got})")
+        if SAVE_DIGESTS:
+            os.makedirs(os.path.dirname(digest_ref_path(version, name)), exist_ok=True)
+            shutil.copyfile(got_path, digest_ref_path(version, name))
         return 0
     ref = digest_ref_path(version, name)
     where = ""
@@ -1146,7 +1157,12 @@ def main():
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
     v.add_argument("--gameplay", action="store_true",
                    help="the gameplay digest decides; the references' hashes are only reported")
+    for p in (q, t, v):
+        p.add_argument("--save-digests", action="store_true",
+                       help="copy each run's gameplay digest that hashes as the reference into build/digest-refs")
     args = ap.parse_args()
+    global SAVE_DIGESTS
+    SAVE_DIGESTS = args.save_digests
     refs = load_refs()
     t0 = time.time()
     if args.cmd == "quick":

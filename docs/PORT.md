@@ -1,14 +1,18 @@
 # The PC port
 
-The PC build (`port/`, milestone 1 of ROADMAP Phase 5) and the translator
-it runs Rare's handwritten asm through.  The build is described first; the
-translator and its test follow from "The handwritten asm".
+The PC build (`port/`, milestone 1 of ROADMAP Phase 5).  It runs the
+decompiled C natively and Rare's handwritten engine as C written from it
+(`port/engine`, "Replacing the engine"); the translator that first ran the
+handwritten asm (`tools/recomp`, "The handwritten asm") now gives the
+engine its block sizes and is the check the native code is compared with.
+The build is described first; the translator and its test follow from "The
+handwritten asm".
 
 ## Building and running
 
 ```
 make VERSION=us.v11 -C blastcorps          # the N64 build: the port reads its ELFs and asm/
-make -C tools/recomp                       # translate the handwritten engine
+make -C tools/recomp                       # the engine's block sizes (and the check build's translation)
 cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang \
       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang
 cmake --build build/port
@@ -576,6 +580,12 @@ total; the internal ones are a note where they differ first.  Exit status
 gameplay fields only, a level's frames that change none of them adding
 nothing, so a level that waits longer at its end hashes the same), and
 `--levels` lists the levels a digest played, with their frames and times.
+
+The reference digests themselves (`build/digest-refs/<version>/`) are made
+again, on a build that plays as the references, with `--save-digests`:
+`port/tools/test.py quick BUILD --save-digests` (the quick scenarios) and
+`port/tools/test.py tas BUILD --save-digests` (`tas.digest`) copy each
+run's digest that hashes as `test_refs.json` says, and change nothing else.
 
 `test.py` writes a digest in every quick scenario and in the TAS replay,
 and compares its gameplay hash with `test_refs.json`'s `digest` (by
@@ -2098,9 +2108,10 @@ How the game paces itself, and what the port does about each part:
 - **The game's frame** waits for its task's done message
   (`func_80285110`), and in the levels for the texture DMAs of the frame.
   How long a frame takes is then the CPU's time, which on the port is
-  charged, not spent: the translated engine counts the MIPS instructions it
-  executes (the translator's `BB()` per basic block, built with
-  `RECOMP_COUNT`), the game's C counts its optimised IR instructions
+  charged, not spent: the engine charges the MIPS instructions its
+  original executes (`ENGINE_BLK` per basic block, or a function's average,
+  `ENGINE_COST`: "Replacing the engine", "The engine made readable"), the
+  game's C counts its optimised IR instructions
   (BEPass's second pass, ICount, into `__port_icount_c`), and libultra's
   own work that the port doesn't run is charged at rough fixed costs
   (`COST_*` in `port.h`, and the copies in `port/src/libc.c`).  At each
@@ -3037,6 +3048,37 @@ with widescreen as without, either renderer.  `PORT_COUNT_PER_OP=0
 and `PORT_AUTOSTART=3` with `--interpolate`) write the same save and
 sound with and without it, 32-bit and LP64, and the same RDRAM outside
 the framebuffers (with OpenGL, the same RDRAM).
+
+## The optimization pass, for the player
+
+DISTRIBUTION.md's O0-O5 (2026-10-02/03), in short, for us.v10's TAS as the
+yardstick (the same 125,297 reads, 57 platinum, the same gameplay digest
+throughout):
+
+- **No lag frames** (O1, "Lag frames").  The CPU model is off by default:
+  the game's work takes no time, so a level frame is always two retraces
+  (1/30 s) where the N64 dropped to 20 fps and below in busy scenes.  The
+  level timer counts retraces, so the levels' times are shorter: 5% over
+  the TAS, up to 12% in the busiest levels, and the whole run 9.6%;
+  medals and best times are a little easier.  The front end's waits for
+  the hardware (the controllers' power-on, the EEPROM's writes, the
+  decompression) are gone too ("The front end's waits").
+  `--cpu-model n64` and `--load-waits n64` bring both back.
+- **The engine is ordinary C** (O2, O3: "Replacing the engine", "The
+  engine made readable"): no translated code in any default build, no
+  register or dead-stack leftovers (the few garbage values the original
+  read are defined values a player can't tell apart, "Garbage made
+  values"), typed records and named per-frame constants for a later
+  60-tick engine.  Replaying the TAS headless, the whole process (game,
+  engine and the OpenGL renderer at 1x) takes about 0.1 ms of CPU a
+  retrace natively ("Engine hot spots").
+- **A faster renderer** (O4, "The second round" and after): the page's
+  work at 4x on a GPU from 6.5 to 3.8 ms a retrace, the in-between pass
+  (`--interpolate`) about half as costly natively and a third less in the
+  page, the same pictures byte for byte.
+- **The digest** (O0, "The gameplay digest") is what checked each step:
+  what a player sees, compared by the game's frame, so a change of timing
+  that keeps the game passes.
 
 ## Performance
 
@@ -4751,20 +4793,22 @@ read-only memory; `gen_ld.py` now links the game's remaining `.rodata`
 writable, as the N64 has it.
 
 ## Status
-## Status
 
 - Boots, runs every thread, and plays the Rare logo, the title screen and
   the attract mode (the story sequence and the demo levels) for as long as
   it is left running; with Start/A it goes through the save-erase prompt,
   the name entry, the world map and into Simian Acres, which plays (the
   bulldozer, the carrier, the pause menu).
-- Pacing matches mupen64plus to a few percent in every mode measured
-  ("Timing"), and the music and sound effects play ("Audio").
+- With the CPU model on (`--cpu-model n64`), pacing matches mupen64plus to
+  a few percent in every mode measured ("Timing"); by default the game's
+  work takes no time and no frame lags ("Lag frames").  The music and sound
+  effects play ("Audio").
 - `--interpolate` shows gameplay at 60 frames a second, or at a faster
   display's rate (`--display-hz`), with either renderer ("Frame rate"),
   without changing what the game does.
-- Known problems: the CPU's time is a model (instruction counts, a scale for
-  the C, fixed costs for libultra), and the reference is mupen64plus, not
+- Known problems: with `--cpu-model n64`, the CPU's time is a model
+  (instruction counts, a scale for the C, fixed costs for libultra), and
+  the reference is mupen64plus, not
   the hardware: its CPU is CountPerOp = 2, its RDP instant.  The loading
   screens (the level's drop-in, 0x800) differ most: they are short and
   their frames are all loading.  The boot before hd_code (IPL3, init's
@@ -4779,7 +4823,8 @@ writable, as the N64 has it.
 - **Timing.**  A better RDP estimate would let `PORT_RDP_SCALE` default to
   1; the C's instruction scale could come from IDO's actual code size per
   function instead of one number.
-- **Real call states** for the translated code's test.  Recording `ctx` and
+- **Real call states** for the translator's test (the check of the native
+  engine).  Recording `ctx` and
   memory at each translated function's entry during play would replace the
   random registers, and reach the 30% of blocks the random states don't.
 - **Toward native code**: the 64-bit build is done ("The 64-bit build"),

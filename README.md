@@ -32,8 +32,8 @@ git submodule update
 
 # The PC port
 
-The port runs the decompiled C natively and Rare's handwritten engine code
-through a mechanical translation to C; it needs your own copy of the ROM
+The port runs the decompiled C natively, and Rare's handwritten engine code
+as C rewritten from it (`port/engine`); it needs your own copy of the ROM
 (`us.v11` by default; `us.v10` and `jp`, Blastdozer, too).  It is built from the decompilation, so
 the steps are: set up the tools, build the decompilation once, then the port.
 [docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
@@ -65,8 +65,8 @@ port/build.py --wasm --serve path/to/rom.z64   # ... and serve it on http://loca
 ```
 
 It identifies the ROM by its sha1. It sets up the submodules and the venv
-if they aren't there yet, builds the decompilation and the translated engine
-for that version, then the port. That's about a minute on a fast machine.
+if they aren't there yet, builds the decompilation and the engine's tables
+(`tools/recomp`) for that version, then the port. That's about a minute on a fast machine.
 Run it again after a `git pull` and it redoes only what changed.
 `--wasm` needs emsdk: `--emsdk DIR`, `$EMSDK`, emcmake on the `PATH`, or
 `--install-emsdk` to fetch it into `.emsdk/`.  `--variant 32|lp64|movable|native`
@@ -89,7 +89,7 @@ make VERSION=us.v11 -C blastcorps extract
 make -j VERSION=us.v11 -C blastcorps       # the decompilation, sha1-checked
 make VERSION=us.v11 -C blastcorps compress
 make VERSION=us.v11                        # the ROM's layout the port reads
-make -C tools/recomp                       # translate the handwritten code
+make -C tools/recomp                       # the engine's tables (block sizes; the check build's translation)
 
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang \
@@ -139,8 +139,8 @@ root and run the same with `VERSION=us.v10` or `VERSION=jp`, `make -C
 tools/recomp` included (after `make clean` and `make -C blastcorps clean`),
 and configure a separate build directory with `-DPORT_VERSION=us.v10` or
 `-DPORT_VERSION=jp`.  jp still has some of its compiled code as asm where it
-differs from the US versions; the port translates that the same way as the
-handwritten code (docs/PORT.md, "Other versions").
+differs from the US versions; the port has that as C too, like the
+handwritten engine (docs/PORT.md, "Other versions").
 
 ## Run it
 
@@ -219,7 +219,7 @@ docs/PORT.md ("Resource packs") how the port reads it.
 ```
 ctest --test-dir build/port64 -L quick -V     # a minute: deterministic runs against committed hashes (us.v10)
 ctest --test-dir build/port64 -L tas -V       # the TAS replay (us.v10 builds, 10-20 minutes)
-ctest --test-dir build/port64 -L recomp -V    # the translated engine's differential test
+ctest --test-dir build/port64 -L recomp -V    # the translator's differential test (tools/recomp)
 port/tools/test.py variants                   # build the standard variants into build/test-*/ and check them all
 port/tools/test.py variants --emsdk DIR      # ... and the WebAssembly build under node, which must equal mn32's
 ```
@@ -253,8 +253,8 @@ cmake -S port -B build/port-macos -G Ninja -DCMAKE_C_COMPILER=$LLVM/bin/clang \
 cmake --build build/port-macos
 ```
 
-The port is built from the decompilation's stage 2 and the translated
-engine, and those need the `mips-linux-gnu-` binutils and the IDO
+The port is built from the decompilation's stage 2 and the engine's
+tables (`tools/recomp`), and those need the `mips-linux-gnu-` binutils and the IDO
 recompilation this repo has for Linux.  The simplest is to run the steps up
 to `make -C tools/recomp` on Linux (or in a Linux container) and copy
 `blastcorps/build`, `blastcorps/asm`, `blastcorps/assets`,
