@@ -4062,6 +4062,109 @@ runs once a game frame):
 The loaders (5CB60, 5BF40, 8A080, 60D50) and 1B100, 69944, 69014 have
 none: they run at a level's load, or are pure functions.
 
+### Vehicles
+
+(The vehicles part charges differently from the other parts: one average a function, not the
+original's blocks path by path, so with the n64 model a frame of vehicle code costs about what
+it did but not exactly, and the `PORT_COUNT_PER_OP=2` byte-for-byte check above doesn't hold
+for it; the quick tier and the TAS, with the model off as by default, are exact.)
+
+62740 (the shared physics), 62740_carry, 60F60 (texture decoders and the
+effects' sprites), 679E0 (math and matrices) and the vehicle modules
+6B4A0 (Sideswipe), 6C5E0 (Thunderfist), 6E200 (Skyfall, Ramdozer), 71140
+(Backlash), 72B80 (American Dream, the BCT chopper), 75490 (the missile
+carrier, the crane), 86F60 (police car), 8DDB0 (the shuttle) and 69BB0
+(the driver): 14,692 lines with 3,692 block charges and 444 `goto`s became
+8,615 with one charge a function and 5 `goto`s (early exits).
+
+- **The charges.**  Each function charges once, at its entry,
+  `ENGINE_COST(addr, n)` (engine.h): n is what its original took a call on
+  average, its blocks' instructions over the TAS and the quick tier
+  divided by its calls (us.v10's block counts, a `PORT_BLKLOG` build that
+  counted instead of logging); the 18 functions no run reaches charge
+  half their blocks.  Over the TAS the total is the original's to 0.13%,
+  so `--cpu-model n64` stays right over a frame; a single call is off by
+  its path's difference from the average.  Blocks that macros charged
+  (the decoders' back references, IDO's division checks, the camera's
+  range tests) are folded into their function's average the same way.
+- **The record.**  `port/engine/vehicle.h` names VehicleState's fields
+  where the code shows what they hold, as accessors over the game
+  header's offset names (others' code and the digest use those):
+  `VS_HEADING` (unk4C, what it faces), `VS_MOVE_HEADING` (unk4E, the way
+  it moves), `VS_TURN_HEADING` (unk74), `VS_SPEED` (unk76), `VS_GEARS`
+  (unk78: five rows of lowest speed, highest speed, acceleration a frame),
+  `VS_GRIP` (unk50: the wheels' materials' average, how many gear rows it
+  may use and how fast it turns), `VS_WHEELS` and `VS_CARRY_WHEELS` (the
+  three contact points' offsets), `VS_WHEEL_H` (unk4: three heights a
+  wheel, now and the two frames before), `VS_WHEEL_FALL`/`_GROUND`/`_FRAMES`
+  (unk28: a wheel in the air's upward speed, the ground it left, its
+  frames), `VS_AIRBORNE` (unk96[0..2]), `VS_TURNING`, `VS_IN_SETUP` (unk9A),
+  `VS_ON_STATIC` (unk9B), `VS_TOP_MATERIAL` (unk9F), `VS_SPEED_SIGN`
+  (unkA5), `VS_SLOPE_RATIO` (unk0), `VS_CARRY_*` (unk6A..72).  The bytes a
+  module keeps for itself are named in it (`MAGOO_STATE`, `MAGOO_LEG`,
+  `CRANE_GRABBING`, `DRV_WALKING`...).  The controller's bytes are named
+  by button (`PAD_L`, `PAD_R`, `PAD_Z` the brake, `PAD_A`, `PAD_B`,
+  `PAD_LEFT`/`PAD_RIGHT` the 0x200 and 0x100 buttons, `STICK_X`,
+  `STICK_Y` the throttle).
+- **What is shared.**  Every vehicle's frame is now the same few lines:
+  steering (`func_802A7E70`), the throttle (`func_802A785C`), the move
+  heading turned toward the facing (`func_802A7FD8`), the slope
+  (`func_802A83B8`, `func_802A843C`), the move (`func_802A860C`), the
+  wheels on the ground (`func_802A8768`), the parts, what it hits, and then
+  either its bounce off something (a function in each module) or
+  `turn_along_wall` (vehicle.h) when the collision narrowed the headings it
+  may face (D_803A7425).  The part levers and lifts the d-pad, A, B and Z
+  move are vehicle.h's `pad_lever` and `pad_lift`; `PLAYER_FROM` hands the
+  frame's result to the camera and the game.
+- **Control flow.**  The chopper's flight is a switch on its named states
+  (`CHOPPER_HOVER`...), Thunderfist's walk and ball likewise
+  (`MAGOO_WALK`...), the carrying's dispatchers find a vehicle's callbacks
+  in one table, the ground searches share `tri_under` and their loops, the
+  matrix chain (`func_802AA890`) loads each matrix's elements once.
+- **Slips kept.**  Where the original does something odd but it reaches
+  play, the C does the same and says so: `func_802A9A60` gives every
+  wheel its caller's material, not the ground's; the chopper's flight into
+  a level works out its heading from (D_80368048, z) after the next stop
+  changes; the driver's footsteps test the level's top byte (always 0).
+
+**Leftovers kept.**  Garbage that reaches play stays as it was (the bar is
+that a perfect player couldn't tell, and these change which triangles the
+driver stands on and its grip, so they would have to be shown not to
+matter in every case, not just the TAS's):
+
+- the driver's material where its setup finds no ground (`engine_ctx(30)`,
+  the $fp the level loader left: addresses, 0x803B97E0 and the like, so
+  material 0xE0...), and getting out its `self` and material
+  (`engine_ctx(24)`, `engine_ctx(30)`).  Measured over the TAS
+  (`o3_probe`, a throwaway build): `self` is the type of the last vehicle
+  stepped (0xFF, 4, 0xBE, 0xA...) in `func_802AEC3C` and pointers or small
+  numbers (2, 5) in `func_802AF340`; the material 0 mostly, 2, 0x8E8D...
+  A `self` equal to a moving object's id makes the driver ignore that
+  object's triangles, and the material becomes its grip.
+- the driver's shadow's tilt, the dead stack word at `SHADOW_SLOT`
+  (0x803ED3B0's low half 762 times in the TAS, 62740_carry's return
+  address 38, 0 twice): purely what the shadow looks like.  Making it 0
+  would change screenshots, not play; left for the shadow's owner to
+  decide.
+- the registers some of these functions still leave for the other half's
+  readers (`ENGINE_LEAVE`: 5CB60's and 8A080's collision triangles' bytes,
+  56040's `func_8029A800` and `func_8029C454`, 772A0's train), and the
+  `engine_save`/`engine_restore` pairs that keep them.
+
+**The per-frame constants** a 60-tick mode would scale (DISTRIBUTION.md,
+"a delta-based engine"), by what they are; each module's are at its top,
+62740's and vehicle.h's shared ones at theirs.  Positions are `<< 5`,
+angles 12-bit, a speed is a distance a frame:
+
+| kind (at N ticks a frame) | constants |
+|---|---|
+| speeds, distances a frame (/ N) | the gear tables' lowest and highest speeds (`SET_GEARS`), `BOOST_TOP_SPEED` 0x190, `SKYFALL_TOP_SPEED` 0xFA, `CHOPPER_TOP_SPEED` 0xA0, `CHOPPER_SLOW_SPEED` 0x14, `CHOPPER_CLIMB` 0x14, `MAGOO_ROLL_SPEED` 0x1BE, `MAGOO_UNCURL_SPEED` 0x3C, `MAGOO_ROLL_MIN_SPEED` 0x96, `MAGOO_STRIDE_SPEED` 0x78, `*_HIT_MIN_SPEED`, `DRIVER_OUT_STEP` 0x64, `WHEEL_RISE_MAX` 0x240, `*_BOUNCE_MIN` (a landing's speed), `CMO_UNEVEN` 0x2711 |
+| accelerations, speed a frame (/ N²) | 62740's `SPEED_TO_LIMIT_STEP` 3, `SPEED_STOP_STEP` 8, `SPEED_OVER_GEARS_STEP` 6, `BUTTON_GEAR_STEP` 4, `ROLL_FRICTION_HEAVY` 3 / `_LIGHT` 1, `SLOPE_PUSH` -4.0 (over `*_SLOPE_DIV`); `*_BRAKE` (police, Sideswipe, Skyfall, Ramdozer 0x14, hotrod 0x10, Thunderfist 0xC, Backlash 8, driver 6); the gear tables' accelerations; `CMO_ACCEL` 8, `BOOST_ACCEL` 0x28, `BOOST_SLOW` 0x19, `CHOPPER_ACCEL` 2, `CHOPPER_SLOW_DOWN` 4; `GRAVITY` (D_803EBBF4: the level's gravity times `*_GRAVITY`, 2.0 or 4.0) |
+| turns, angle a frame (/ N) | `*_TURN_RATE` (police 0x2EE0, Sideswipe 0x4650, Backlash 0x2328 / 0xC80, Skyfall 0x3A98 / 0x7D0, Ramdozer 0x2328 / 0x7D0, hotrod 0x1770, Thunderfist 0x59D8, driver 0x2328), the steering rates (`*_STEER_DIV` and `_AIR` from the speed, `*_STEER` fixed), `*_WALL_TURN`, `CHOPPER_HOVER_TURN` 4 |
+| frame counts (x N) | `*_HIT_FRAMES` 5, `RAMS_RELOAD_FRAMES` 10, `RAMS_SHAKE_FRAMES` 10, `TURN_SOUND_FRAMES` 7, `RATE_OVERRIDE_FRAMES` 10, `EFFECT_PIECE_FRAMES` 60, `CMO_COUNTDOWN_DELAY` 5 and `_FRAMES` 0x12, `SHUTTLE_EFFECT_FRAMES` 4, `POLICE_SIREN_STEPS` (two frames a light), the sparks every other frame, the idles' chance a frame (`*_IDLE_CHANCE`), `LAND_BOUNCE_DIV` |
+| animation a frame (/ N) | `pad_lever`'s steps (5, back 5 or 10), `pad_lift`'s `LIFT_STEP` 0.05 and `LIFT_BACK` 0.03, `BED_STEP` 0.05, the spin divisors (`WHEEL_SPIN_DIV`, `MAGOO_LEG_SPEED_DIV`, `DRIVER_LEG_SPEED_DIV`, `SKYFALL_WHEEL_SPIN_DIV`, `CMO_SHAFT_SPIN`) |
+| not time | the scales, the wheels' spans, the distances (`DRIVER_SPOT_STEP`, `DRIVER_BARGE_LIFT`, `CHOPPER_SLOW_DIST`, `CHOPPER_LAND_HEIGHT`, the sound ranges), `CAMERA_MARGIN`, `TURN_SNAP`, `MAGOO_FACING`, `WHEEL_LIFT`, `WHEEL_LAND_SLACK` |
+
 ## Other versions
 
 `PORT_VERSION` is `us.v11` (the default), `us.v10` or `jp` (Blastdozer).

@@ -12,23 +12,24 @@
  * never stores: two are the halves of the return address its own frame
  * saved (RA_SHADOW), the third whatever was below that frame: the word
  * SHADOW_SLOT below the N64 $sp the game's C runs the engine at, which the
- * last native frame that reached so deep left there (62740's
- * func_802ABBEC under the chopper, 62740_carry's func_802AB714, or
+ * last native frame that reached so deep left there (72B80's
+ * func_802B9B4C under the chopper, 62740_carry's func_802AB670, or
  * func_802AEC3C here; docs/PORT.md).  The native code here keeps no other
- * frame.
+ * frame.  Getting out, it also passes on as its `self` and its material
+ * what $t8 and $fp held: garbage, kept (docs/PORT.md, "The engine made
+ * readable").
  */
-#include "shared.h"
-#include "game/game.h"
-#include "game/camera.h"
+#include "vehicle.h"
 #include "game/level.h"
 #include "game/audio.h"
+#include "buildings.h"
 
 extern Part D_803ED460[32];
 extern VS D_803ED760;
 extern s32 D_803ED814;                          /* the coordinate it walks out to */
 extern s32 D_803ED81C;                          /* the ground's height under it */
 extern s16 D_803ED820;                          /* part 1's frame, last time */
-extern u16 D_803ED822;                          /* the heading it turns to (with D_803A7425) */
+extern u16 D_803ED822;                          /* the heading it turns to against a wall (D_803A7425) */
 extern s8 D_803ED824;                           /* turning to D_803ED822 */
 extern u8 D_803ED825;                           /* it can get out */
 extern u8 D_803F7812;                           /* set on getting out (not by us.v10) */
@@ -38,15 +39,12 @@ extern u8 *PTR32 D_803ED82C;                    /* two 0xC80-byte buffers, one p
 extern u8 *PTR32 D_803ED830;
 extern s32 D_803ED3A8[];
 
-extern u8 D_80305CB0[];                         /* the driver's bounce records */
+extern u8 D_80305CB0[];                         /* its parts' collision (56040's func_8029A800) */
 extern s8 D_80305CB1[];                         /* where to get out of a vehicle: level, vehicle, side, distance, a test */
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern s16 D_8036444C, D_80364450;
-extern u8 D_803A7424, D_803A7425;
 extern Part *PTR32 D_803F77D0;
-extern s32 D_803643E4, D_803643E8;
 
 SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 void func_80258230(u8 a, s32 b, s16 c, s16 d);
@@ -79,10 +77,36 @@ s32 func_802AEC3C(s32 d, VS *vs);
 #define T(p) ((s32)(p))
 #define DRV D_803ED460
 #define MODEL ((u8 *)D_803ED818)
+#define X D_803ED808
+#define Y D_803ED80C
+#define Z D_803ED810
+#define BUF0 D_803ED82C
+#define BUF1 D_803ED830
+
+/* VehicleState's byte the driver uses for itself */
+#define DRV_WALKING(vs) ((vs)->unkA1)  /* its walk's animation is on (else standing) */
+
+/* ---- the driver's numbers (a frame, where it's per frame) ---------------- */
+
+#define DRIVER_SCALE 0x4E20             /* its model's scale */
+#define DRIVER_SPAN 0x3C                /* its feet's spans, both ways (func_802A8768) */
+#define DRIVER_BRAKE 6                  /* speed lost braking or against the stick, a frame */
+#define DRIVER_TURN_RATE 0x2328         /* func_802A7FD8: the move heading's turn, times the grip over the speed */
+#define DRIVER_SLOPE_DIV 60.0f          /* func_802A843C: the slope's push is the height difference over this */
+#define DRIVER_STEER 0x8C               /* the steering rate */
+#define DRIVER_WALL_TURN 1.0f           /* func_802A71DC: turning along a wall, times the speed */
+#define DRIVER_GRAVITY 4.0f             /* times the level's */
+#define DRIVER_BOUNCE_MIN 0x28          /* a landing harder than this bounces ... */
+#define DRIVER_BOUNCE_DIV 3             /* ... at the speed over this */
+#define DRIVER_OUT_STEP 0x64            /* getting out: the step it walks a frame ... */
+#define DRIVER_OUT_SPEED 0x50           /* ... at this speed (for its legs) */
+#define DRIVER_SPOT_STEP 0x64           /* the spots beside the vehicle it tries, this far apart */
+#define DRIVER_BARGE_LIFT 0x1F4         /* out of a barge it starts this much higher */
+#define DRIVER_IDLE_CHANCE 0x14         /* standing, a look round 1 frame in 21 */
+#define DRIVER_LEG_SPEED_DIV 11         /* its legs' animation speed: the speed over this */
 
 /* where the shadow's frame saved its return address, in func_802AEEC8:
-   each version's own (the low half of the shadow's pitch; the high half
-   is its sign extension) */
+   each version's own (the shadow's heading) */
 #if defined(VERSION_US_V10)
 #define RA_SHADOW 0x802AEEBC
 #elif defined(VERSION_JP)
@@ -113,122 +137,77 @@ static s32 part_state(s32 i, Part *parts, s32 *f13) {
     return r;
 }
 
-/* set up: from the level loader, with the model file in $s2, the position
-   in $t7, $s3, $s0 and the heading in $s1 */
+/* the sides it gets out on (D_803ED828): 0 +z, 1 -z, 2 +x, 3 -x */
+static void side_step(s32 side, s32 d, s32 *x, s32 *z) {
+    switch (side) {
+    case 0: *z += d; break;
+    case 1: *z -= d; break;
+    case 2: *x += d; break;
+    default: *x -= d; break;
+    }
+}
+
+/* set up: from the level loader, with the model file, the position and
+   the heading */
 REGS(s2, t7, s3, s0, s1)
 void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803ED760;
-    u8 *buf;
-    s16 *r;
-    s32 avg;
+    s32 avg, k;
 
-    ENGINE_BLK(802AE370);
+    ENGINE_COST(802AE370, 316);
     engine_save(ENGINE_T0_T5, 0);
     D_803ED818 = (VehicleModel *)model;
-    buf = D_80358070;
-    D_803ED82C = buf;
-    D_803ED830 = buf + 0xC80;
-    D_80358070 = buf + 0x1900;
-    func_802A1388(0, 0, D_803ED82C, D_803ED830, model);
-    ENGINE_BLK(802AE3F0);
+    BUF0 = D_80358070;
+    BUF1 = D_80358070 + 0xC80;
+    D_80358070 += 0x1900;
+    func_802A1388(VEHICLE_DRIVER, 0, BUF0, BUF1, model);
     func_802A754C(vs);
-    ENGINE_BLK(802AE3FC);
-    vs->unk52[0] = 0x1E;
-    vs->unk52[1] = 0x1E;
-    vs->unk52[2] = -0x1E;
-    vs->unk52[3] = 0x1E;
-    vs->unk52[4] = 0x1E;
-    vs->unk52[5] = -0x1E;
-    vs->unk5E[0] = 0x23;
-    vs->unk5E[1] = 0x23;
-    vs->unk5E[2] = -0x23;
-    vs->unk5E[3] = 0x23;
-    vs->unk5E[4] = 0x23;
-    vs->unk5E[5] = -0x23;
-    D_803ED808 = x;
-    D_803ED80C = y;
-    D_803ED810 = z;
-    vs->unk4C = heading;
-    vs->unk4E = heading;
-    vs->unk74 = heading;
+    SET_WHEELS(VS_WHEELS(vs), 0x1E, 0x1E, -0x1E, 0x1E, 0x1E, -0x1E);
+    SET_WHEELS(VS_CARRY_WHEELS(vs), 0x23, 0x23, -0x23, 0x23, 0x23, -0x23);
+    X = x;
+    Y = y;
+    Z = z;
+    VS_HEADING(vs) = heading;
+    VS_MOVE_HEADING(vs) = heading;
+    VS_TURN_HEADING(vs) = heading;
     D_803ED825 = 1;
     D_803ED826 = 0;
     D_803ED827 = 0;
     D_803ED824 = 0;
-    vs->unkA1 = 0;
-    func_802A992C(vs->unk52, D_803ED80C, x, z, vs->unk4, &D_803ED80C, (s16 *)&vs->unk4C, 0, vs, engine_ctx(30),
-                  &avg);
-    ENGINE_BLK(802AE4CC);
-    func_8029F85C(DRV, MODEL, D_803ED82C, D_803ED830);
-    ENGINE_BLK(802AE508);
+    DRV_WALKING(vs) = 0;
+    /* (its material where no ground is found: the $fp the level loader
+       left, garbage; docs/PORT.md "The engine made readable") */
+    func_802A992C(VS_WHEELS(vs), Y, x, z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_DRIVER, vs,
+                  engine_ctx(30), &avg);
+    func_8029F85C(DRV, MODEL, BUF0, BUF1);
     func_802A039C(0, 100, DRV);
-    ENGINE_BLK(802AE51C);
     func_802A03D4(0, 0, DRV);
-    ENGINE_BLK(802AE530);
     func_802A040C(0, 0, DRV);
-    ENGINE_BLK(802AE544);
     func_802A0480(0, 0, DRV, 0.0f);
-    ENGINE_BLK(802AE55C);
     func_802A0290(0, 1, DRV);
-    ENGINE_BLK(802AE570);
-    func_8029E558(DRV, D_803ED82C, D_803ED830);
-    ENGINE_BLK(802AE584);
+    func_8029E558(DRV, BUF0, BUF1);
     func_802A0320(0, DRV);
-    ENGINE_BLK(802AE594);
     func_802A0290(0, 1, DRV);
-    ENGINE_BLK(802AE5A8);
-    func_8029E558(DRV, D_803ED830, D_803ED82C);
-    ENGINE_BLK(802AE5BC);
-    r = vs->unk78;
-    r[0] = -0x28, r[1] = 0, r[2] = 2;
-    r[3] = 0, r[4] = 0x28, r[5] = 2;
-    r[6] = 0x28, r[7] = 0x3C, r[8] = 2;
-    r[9] = 0x3C, r[10] = 0x50, r[11] = 2;
-    r[12] = 0x50, r[13] = 0x64, r[14] = 2;
-    model = MODEL;
-    func_8029C354(0, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x4E20);
-    ENGINE_BLK(802AE65C);
-    func_80258230(0, 0x28, 0xF, 0xF);
-    ENGINE_BLK(802AE674);
-    vs->unk9A = 1;
+    func_8029E558(DRV, BUF1, BUF0);
+    SET_GEARS(vs, -0x28, 0, 2, 0, 0x28, 2, 0x28, 0x3C, 2, 0x3C, 0x50, 2, 0x50, 0x64, 2);
+    func_8029C354(VEHICLE_DRIVER, MODEL_AT(MODEL, 4), MODEL_AT(MODEL, 8), DRIVER_SCALE);
+    func_80258230(VEHICLE_DRIVER, 0x28, 0xF, 0xF);
+    /* its first frame */
+    VS_IN_SETUP(vs) = 1;
     driver_frame();
-    ENGINE_BLK(802AE684);
-    vs->unk9A = 0;
-    model = MODEL;
-    func_802AA838(D_803ED830, D_803ED82C, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
-    ENGINE_BLK(802AE6BC);
+    VS_IN_SETUP(vs) = 0;
+    func_802AA838(BUF1, BUF0, MODEL_MTX_OFF(MODEL));
+    /* parts 1 (the legs) to 4 at rest */
     func_802A039C(1, 0, DRV);
-    ENGINE_BLK(802AE6D0);
     func_802A03D4(1, 0, DRV);
-    ENGINE_BLK(802AE6E4);
     func_802A040C(1, 0, DRV);
-    ENGINE_BLK(802AE6F8);
     func_802A0480(1, 1, DRV, 0.5f);
-    ENGINE_BLK(802AE714);
-    func_802A039C(2, 2, DRV);
-    ENGINE_BLK(802AE728);
-    func_802A03D4(2, 0, DRV);
-    ENGINE_BLK(802AE73C);
-    func_802A040C(2, 1, DRV);
-    ENGINE_BLK(802AE750);
-    func_802A0480(2, 1, DRV, 0.5f);
-    ENGINE_BLK(802AE76C);
-    func_802A039C(3, 2, DRV);
-    ENGINE_BLK(802AE780);
-    func_802A03D4(3, 0, DRV);
-    ENGINE_BLK(802AE794);
-    func_802A040C(3, 1, DRV);
-    ENGINE_BLK(802AE7A8);
-    func_802A0480(3, 1, DRV, 0.5f);
-    ENGINE_BLK(802AE7C4);
-    func_802A039C(4, 2, DRV);
-    ENGINE_BLK(802AE7D8);
-    func_802A03D4(4, 0, DRV);
-    ENGINE_BLK(802AE7EC);
-    func_802A040C(4, 1, DRV);
-    ENGINE_BLK(802AE800);
-    func_802A0480(4, 1, DRV, 0.5f);
-    ENGINE_BLK(802AE81C);
+    for (k = 2; k <= 4; k++) {
+        func_802A039C(k, 2, DRV);
+        func_802A03D4(k, 0, DRV);
+        func_802A040C(k, 1, DRV);
+        func_802A0480(k, 1, DRV, 0.5f);
+    }
     D_8036444C = 0xD48;
     D_80364450 = 0;
     engine_restore();
@@ -236,160 +215,69 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 
 /* hd.c's: part 0x1F (the run) stopped */
 void func_802AE860(void) {
-    ENGINE_BLK(802AE860);
+    ENGINE_COST(802AE860, 10);
     func_802A02E4(0x1F, DRV);
-    ENGINE_BLK(802AE878);
 }
 
 /* hd.c's: the player gets out of the vehicle at distance `dist` (times the
-   table's): at the first clear spot beside it, walking out from there;
-   whether it found one */
-/* us.v10's sets no D_803F7812 first, so its blocks start 0xC earlier */
-#ifdef VERSION_US_V10
-#define BLK_V10(v11, v10) ENGINE_BLK(v10)
-#else
-#define BLK_V10(v11, v10) ENGINE_BLK(v11)
-#endif
-
+   table's): the spots beside it on the table's side (D_80305CB1: level,
+   vehicle, side, distance, a test), every DRIVER_SPOT_STEP and then `dist`
+   itself, must all be clear (func_802AEC3C); then it faces that side and
+   walks out from where the vehicle is.  Whether it could. */
 u8 func_802AE888(s32 dist) {
     VS *vs = &D_803ED760;
-    s8 *t = D_80305CB1;
+    s8 *t;
     s32 side = 0, mul = 1, d, r = 0, h;
 
-    ENGINE_BLK(802AE888);
+    ENGINE_COST(802AE888, 235);
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
 #ifndef VERSION_US_V10
     D_803F7812 = 1;
 #endif
     if (D_803ED825 == 0)
-        goto fail;
-    /* the side and distance for this level's vehicle (D_80305CB1) */
-    BLK_V10(802AE8F4, 802AE8E8);
-    for (;; t += 5) {
-        BLK_V10(802AE914, 802AE908);
-        if (t[0] == -1)
-            goto found;
-        BLK_V10(802AE924, 802AE918);
-        if (t[0] != D_802E8BDC)
-            continue;
-        BLK_V10(802AE92C, 802AE920);
-        if ((u8)t[1] != D_80364456)
-            continue;
-        BLK_V10(802AE938, 802AE92C);
-        if (t[4] != 0) {
-            BLK_V10(802AE944, 802AE938);
-            if (func_802AEB9C((u8)t[4]) == 0) {
-                BLK_V10(802AE94C, 802AE940);
-                continue;
-            }
-            BLK_V10(802AE94C, 802AE940);
+        goto done;
+    for (t = D_80305CB1; t[0] != -1; t += 5) {
+        if (t[0] == D_802E8BDC && (u8)t[1] == D_80364456 && (t[4] == 0 || func_802AEB9C((u8)t[4]) != 0)) {
+            side = (u8)t[2];
+            mul = (u8)t[3];
+            break;
         }
-        BLK_V10(802AE954, 802AE948);
-        side = (u8)t[2];
-        mul = (u8)t[3];
-        break;
     }
-found:
-    BLK_V10(802AE95C, 802AE950);
     dist = (u32)dist * (u32)mul;
     D_803ED828 = side;
     D_803ED827 = 1;
     D_803ED81C = D_803643E4;
-    /* (what func_802AEC3C's frame saves) */
-    /* the spots out to `dist`, every 100, then `dist` itself */
-    for (d = 0;; d += 0x64) {
-        BLK_V10(802AE994, 802AE988);
-        if (dist < d)
-            break;
-        BLK_V10(802AE9A0, 802AE994);
-        r = func_802AEC3C(d, vs);
-        BLK_V10(802AE9A8, 802AE99C);
-        if (r == 0)
-            goto fail;
-        BLK_V10(802AE9B0, 802AE9A4);
-    }
-    BLK_V10(802AE9B8, 802AE9AC);
-    r = func_802AEC3C(dist, vs);
-    BLK_V10(802AE9C0, 802AE9B4);
-    if (r == 0)
-        goto fail;
-    BLK_V10(802AE9C8, 802AE9BC);
-    vs->unk96[0] = 0, vs->unk96[1] = 0, vs->unk96[2] = 0;
-    vs->unk96[3] = 0;
-    vs->unk76 = 0;
+    for (d = 0; d <= dist; d += DRIVER_SPOT_STEP)
+        if (func_802AEC3C(d, vs) == 0)
+            goto done;
+    if (func_802AEC3C(dist, vs) == 0)
+        goto done;
+    VS_AIRBORNE(vs)[0] = 0, VS_AIRBORNE(vs)[1] = 0, VS_AIRBORNE(vs)[2] = 0;
+    VS_TURNING(vs) = 0;
+    VS_SPEED(vs) = 0;
     side = D_803ED828;
-    if (side == 0) {
-        BLK_V10(802AEA08, 802AE9FC);
-        h = 0;
-    } else {
-        BLK_V10(802AE9F0, 802AE9E4);
-        if (side == 1) {
-            BLK_V10(802AEA10, 802AEA04);
-            h = 0x800;
-        } else {
-            BLK_V10(802AE9F8, 802AE9EC);
-            if (side == 2) {
-                BLK_V10(802AEA18, 802AEA0C);
-                h = 0x400;
-            } else {
-                BLK_V10(802AEA00, 802AE9F4);
-                h = 0xC00;
-            }
-        }
-    }
-    BLK_V10(802AEA1C, 802AEA10);
-    vs->unk4E = h;
-    vs->unk4C = h;
-    vs->unk74 = h;
-    side = D_803ED828;
-    if (side != 0) {
-        BLK_V10(802AEA38, 802AEA2C);
-        if (side != 1) {
-            BLK_V10(802AEA40, 802AEA34);
-            h = D_803ED808;
-            goto spot;
-        }
-    }
-    BLK_V10(802AEA4C, 802AEA40);
-    h = D_803ED810;
-spot:
-    /* it walks out from where the vehicle is */
-    BLK_V10(802AEA54, 802AEA48);
-    D_803ED814 = h;
-    D_803ED808 = D_803643E0;
+    h = side == 0 ? 0 : side == 1 ? ANGLE_HALF : side == 2 ? ANGLE_QUARTER : ANGLE_HALF + ANGLE_QUARTER;
+    VS_MOVE_HEADING(vs) = h;
+    VS_HEADING(vs) = h;
+    VS_TURN_HEADING(vs) = h;
+    /* where it walks to (along the side's axis), from where the vehicle is
+       (a barge's deck higher) */
+    D_803ED814 = side == 0 || side == 1 ? Z : X;
+    X = D_803643E0;
     h = D_803643E4;
-    if (D_80364456 != 0xB) {
-        BLK_V10(802AEA84, 802AEA78);
-        if (D_80364456 != 0x11) {
-            BLK_V10(802AEA90, 802AEA84);
-            if (D_80364456 != 0x12)
-                goto y;
-        }
-    }
-    BLK_V10(802AEA98, 802AEA8C);
-    h += 0x1F4;
-y:
-    BLK_V10(802AEA9C, 802AEA90);
-    D_803ED80C = h;
-    D_803ED810 = D_803643E8;
+    if (D_80364456 == VEHICLE_BARGE || D_80364456 == VEHICLE_BARGE_2 || D_80364456 == VEHICLE_BARGE_3)
+        h += DRIVER_BARGE_LIFT;
+    Y = h;
+    Z = D_803643E8;
     D_803ED826 = 1;
     func_802A039C(1, 0, DRV);
-    BLK_V10(802AEAD4, 802AEAC8);
     func_802A03D4(1, 0, DRV);
-    BLK_V10(802AEAE8, 802AEADC);
     func_802A040C(1, 0, DRV);
-    BLK_V10(802AEAFC, 802AEAF0);
     func_802A0290(1, -1, DRV);
-    BLK_V10(802AEB10, 802AEB04);
     D_8036444C = 0xD48;
     D_80364450 = 0;
     r = 1;
-    goto done;
-fail:
-    BLK_V10(802AEB38, 802AEB2C);
-    r = 0;
 done:
-    BLK_V10(802AEB3C, 802AEB30);
     D_803ED827 = 0;
     engine_restore();
     return r;
@@ -399,43 +287,14 @@ done:
    (>> 5) in 0xCCD..0xDB4; 2, its x in 0x834..0x960 and z in 0x4B0..0x5DC */
 REGS(a3 -> a1)
 s32 func_802AEB9C(s32 test) {
-    s32 a1 = 0, v;
+    s32 x = D_803643E0 >> 5, z = D_803643E8 >> 5;
 
-    ENGINE_BLK(802AEB9C);
-    if (test == 1) {
-        ENGINE_BLK(802AEBB0);
-        v = D_803643E8 >> 5;
-        if (v < 0xCCD)
-            goto done;
-        ENGINE_BLK(802AEBC8);
-        if (!(v < 0xDB5))
-            goto done;
-        ENGINE_BLK(802AEBD0);
-        a1 = 1;
-        goto done;
-    }
-    ENGINE_BLK(802AEBD8);
-    if (test != 2)
-        goto done;
-    ENGINE_BLK(802AEBE4);
-    v = D_803643E0 >> 5;
-    if (v < 0x834)
-        goto done;
-    ENGINE_BLK(802AEBFC);
-    if (!(v < 0x961))
-        goto done;
-    ENGINE_BLK(802AEC04);
-    v = D_803643E8 >> 5;
-    if (v < 0x4B0)
-        goto done;
-    ENGINE_BLK(802AEC1C);
-    if (!(v < 0x5DD))
-        goto done;
-    ENGINE_BLK(802AEC24);
-    a1 = 1;
-done:
-    ENGINE_BLK(802AEC2C);
-    return a1;
+    ENGINE_COST(802AEB9C, 18);
+    if (test == 1)
+        return z >= 0xCCD && z <= 0xDB4;
+    if (test == 2)
+        return x >= 0x834 && x <= 0x960 && z >= 0x4B0 && z <= 0x5DC;
+    return 0;
 }
 
 /* the spot `d` from the vehicle on the side D_803ED828 says: the driver
@@ -443,63 +302,29 @@ done:
    original saves and loads back $v0, $v1, $a0, $a2, $t0..$t9 and $gp) */
 REGS(a2, gp -> a3)
 s32 func_802AEC3C(s32 d, VS *vs) {
-    s32 side = D_803ED828, r;
+    s32 r;
 
-    ENGINE_BLK(802AEC3C);
+    ENGINE_COST(802AEC3C, 110);
     engine_save(SAVED_AEC3C, 0);
     /* (the original's frame saves $t6 at the shadow's slot: the game's C
        calls func_802AE888 at the depth it calls func_802AEEC8) */
     engine_frame_sw(SHADOW_SLOT, engine_ctx(14));
-    if (side == 0) {
-        ENGINE_BLK(802AECF4);
-        D_803ED808 = D_803643E0;
-        D_803ED810 = D_803643E8 + d;
-    } else {
-        ENGINE_BLK(802AEC90);
-        if (side == 1) {
-            ENGINE_BLK(802AED1C);
-            D_803ED808 = D_803643E0;
-            D_803ED810 = D_803643E8 - d;
-        } else {
-            ENGINE_BLK(802AEC9C);
-            if (side == 2) {
-                ENGINE_BLK(802AECCC);
-                D_803ED808 = D_803643E0 + d;
-                D_803ED810 = D_803643E8;
-            } else {
-                ENGINE_BLK(802AECA4);
-                D_803ED808 = D_803643E0 - d;
-                D_803ED810 = D_803643E8;
-            }
-        }
-    }
-    ENGINE_BLK(802AED40);
-    func_802A9A60(vs->unk52, D_803ED81C, D_803ED808, D_803ED810, vs->unk4, &D_803ED80C, (s16 *)&vs->unk4C,
-                  engine_ctx(24), vs, engine_ctx(30));
-    ENGINE_BLK(802AED60);
+    X = D_803643E0;
+    Z = D_803643E8;
+    side_step(D_803ED828, d, &X, &Z);
+    /* (its `self` and its material: whatever $t8 and $fp held, garbage;
+       docs/PORT.md "The engine made readable") */
+    func_802A9A60(VS_WHEELS(vs), D_803ED81C, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), engine_ctx(24), vs,
+                  engine_ctx(30));
     func_802AFA64(vs);
-    ENGINE_BLK(802AED68);
-    D_803ED81C = (u32)(vs->unk4[3] + vs->unk4[6]) >> 1;
+    D_803ED81C = (u32)(VS_WHEEL_H(vs)[3] + VS_WHEEL_H(vs)[6]) >> 1;
     func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, 0, 0, 0, 0, vs);
-    ENGINE_BLK(802AEDC8);
     func_8029AA10();
-    ENGINE_BLK(802AEDD0);
     D_803F77D0 = DRV;
-    func_802BE77C(0, vs);
-    ENGINE_BLK(802AEDEC);
-    if (D_80364456 != 0xB) {
-        ENGINE_BLK(802AEE00);
-        func_8028F994(D_803ED808, D_803ED80C, D_803ED810);
-    }
-    ENGINE_BLK(802AEE1C);
-    if (D_803A7424 != 0) {
-        ENGINE_BLK(802AEE2C);
-        r = 0;
-    } else {
-        ENGINE_BLK(802AEE34);
-        r = 1;
-    }
-    ENGINE_BLK(802AEE38);
+    func_802BE77C(VEHICLE_DRIVER, vs);
+    if (D_80364456 != VEHICLE_BARGE)
+        func_8028F994(X, Y, Z);
+    r = D_803A7424 == 0;
     engine_restore();
     return r;
 }
@@ -507,9 +332,8 @@ s32 func_802AEC3C(s32 d, VS *vs) {
 /* its light */
 REGS()
 void func_802AEE84(void) {
-    ENGINE_BLK(802AEE84);
-    func_802ABD54(0, D_803ED808, D_803ED80C, D_803ED810);
-    ENGINE_BLK(802AEEB8);
+    ENGINE_COST(802AEE84, 17);
+    func_802ABD54(VEHICLE_DRIVER, X, Y, Z);
 }
 
 /* hd.c's: each frame */
@@ -517,514 +341,228 @@ void func_802AEEC8(void) {
     driver_frame();
 }
 
-/* each frame: its walk, or getting out (func_802AF340) */
+/* the game's mode, or the one it is going to */
+static u64 game_mode(void) {
+    return D_80364A98 != 0 ? D_80364A98 : D_80364A90;
+}
+
+/* each frame: its walk (not in the level's intro, its flight in or the
+   chopper's: the modes 1, 0x800 and 0x1000), or getting out
+   (func_802AF340); then, unless getting out or in those modes, what it
+   hits */
 static void driver_frame(void) {
     VS *vs = &D_803ED760;
-    s32 t3 = 0, x, z, rate_i, v, h;
+    s32 step = 0, x, z, rate_i;
     f32 rate;
     u64 mode;
 
-    ENGINE_BLK(802AEEC8);
+    ENGINE_COST(802AEEC8, 191);
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802AEE84();
-    ENGINE_BLK(802AEF24);
-    if (vs->unk9A == 0) {
-        ENGINE_BLK(802AEF30);
+    if (VS_IN_SETUP(vs) == 0)
         func_802AF4BC(vs);
-        ENGINE_BLK(802AEF38);
-        if (D_803ED826 != 0) {
-            ENGINE_BLK(802AEF48);
-            func_802AF340(vs);
-            ENGINE_BLK(802AEF50);
-            goto parts;
+    if (VS_IN_SETUP(vs) == 0 && D_803ED826 != 0) {
+        func_802AF340(vs);
+    } else {
+        func_802AFBA0();
+        rate_i = func_802AFB84();
+        mode = game_mode();
+        if (mode != 0x800 && mode != 1 && mode != 0x1000) {
+            /* steering, the throttle (the stick let go: stopping, walking),
+               the turn and the slope */
+            func_802A7834(step, &VS_SPEED(vs), 3, VS_AIRBORNE(vs), VS_GEARS(vs), DRIVER_BRAKE, rate_i,
+                          &VS_HEADING(vs), vs, &step, &rate_i);
+            if (DRV_WALKING(vs) == 1)
+                func_802A77D0(vs);
+            func_802A7FD8(DRIVER_TURN_RATE, &VS_SPEED(vs), (u16 *)&VS_TURN_HEADING(vs), &VS_HEADING(vs),
+                          &VS_MOVE_HEADING(vs), (s8 *)&VS_TURNING(vs), 0, vs);
+            ENGINE_LEAVE(16, T(VS_AIRBORNE(vs)));     /* ($s0, which 56040.c's func_8029C454 reads) */
+            rate = func_802A83B8(step, &VS_SPEED(vs), VS_AIRBORNE(vs), VS_WHEEL_H(vs), &VS_SLOPE_RATIO(vs), &step);
+            func_802A843C(&VS_SPEED(vs), 1, VEHICLE_DRIVER, (s8 *)VS_AIRBORNE(vs), VS_WHEEL_H(vs), DRIVER_SLOPE_DIV,
+                          vs);
+            if (D_803ED824 != 0)
+                func_802A7070((s16 *)&D_803ED822, vs);
+            /* the move, on the ground */
+            x = func_802A860C(VS_MOVE_HEADING(vs), &VS_SPEED(vs), &X, &Z, rate, &z);
+            D_803ED40B = 0;
+            /* ($s4, $s7, $t4: what the other half of port/engine reads from
+               the context) */
+            ENGINE_LEAVE(12, VS_MOVE_HEADING(vs));
+            ENGINE_LEAVE(20, T(&VS_HEADING(vs)));
+            ENGINE_LEAVE(23, T(VS_WHEEL_H(vs)));
+            func_802A8768(x, z, &X, &Z, &Y, VEHICLE_DRIVER, DRIVER_SPAN, DRIVER_SPAN, VS_WHEELS(vs),
+                          VS_WHEEL_FALL(vs), VS_WHEEL_FRAMES(vs), VS_WHEEL_GROUND(vs), VS_CARRY_WHEELS(vs), vs);
         }
     }
-    ENGINE_BLK(802AEF58);
-    func_802AFBA0();
-    ENGINE_BLK(802AEF60);
-    rate_i = func_802AFB84();
-    ENGINE_BLK(802AEF68);
-    mode = D_80364A98;
-    if (mode == 0) {
-        ENGINE_BLK(802AEF78);
-        mode = D_80364A90;
-    }
-    ENGINE_BLK(802AEF80);
-    if (mode == 0x800)
-        goto parts;
-    ENGINE_BLK(802AEF8C);
-    if (mode == 1)
-        goto parts;
-    ENGINE_BLK(802AEF94);
-    if (mode == 0x1000)
-        goto parts;
-    ENGINE_BLK(802AEF9C);
-    func_802A7834(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, rate_i, &vs->unk4C, vs, &t3, &rate_i);
-    ENGINE_BLK(802AEFB8);
-    if (vs->unkA1 == 1) {
-        ENGINE_BLK(802AEFC8);
-        func_802A77D0(vs);
-    }
-    ENGINE_BLK(802AEFD0);
-    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
-    ENGINE_BLK(802AEFE8);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
-    rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
-    ENGINE_BLK(802AEFF4);
-    func_802A843C(&vs->unk76, 1, 0, (s8 *)vs->unk96, vs->unk4, 60.0f, vs);
-    ENGINE_BLK(802AF008);
-    if (D_803ED824 != 0) {
-        ENGINE_BLK(802AF018);
-        func_802A7070((s16 *)&D_803ED822, vs);
-    }
-    ENGINE_BLK(802AF024);
-    x = func_802A860C(vs->unk4E, &vs->unk76, &D_803ED808, &D_803ED810, rate, &z);
-    ENGINE_BLK(802AF03C);
-    D_803ED40B = 0;
-    /* ($s4, $s7, $t4, which func_802A8768 reads too) */
-    ENGINE_LEAVE(12, vs->unk4E);
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
-    func_802A8768(x, z, &D_803ED808, &D_803ED810, &D_803ED80C, 0, 0x3C, 0x3C, vs->unk52, vs->unk28, vs->unk28 + 6,
-                  vs->unk28 + 3, vs->unk5E, vs);
-parts:
-    ENGINE_BLK(802AF070);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802AF098);
-        func_8029E558(DRV, D_803ED82C, D_803ED830);
-        ENGINE_BLK(802AF0AC);
-    } else {
-        ENGINE_BLK(802AF0B4);
-        func_8029E558(DRV, D_803ED830, D_803ED82C);
-    }
-    ENGINE_BLK(802AF0C8);
+    func_8029E558(DRV, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802AFA64(vs);
-    ENGINE_BLK(802AF0D0);
-    if (D_803ED826 != 0)
-        goto done;
-    ENGINE_BLK(802AF0E0);
-    mode = D_80364A98;
-    if (mode == 0) {
-        ENGINE_BLK(802AF0F0);
-        mode = D_80364A90;
-    }
-    ENGINE_BLK(802AF0F8);
-    if (mode & 0x1801)
-        goto still;
-    ENGINE_BLK(802AF104);
-    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, vs->unk76, 0, 0, 0, vs);
-    ENGINE_BLK(802AF148);
-    func_8029C52C(0, vs);
-    ENGINE_BLK(802AF150);
-    func_8029AA10();
-    ENGINE_BLK(802AF158);
-    D_803F77D0 = DRV;
-    func_802BE77C(0, vs);
-    ENGINE_BLK(802AF174);
-    if (D_803A7425 == 0)
-        goto still;
-    /* turned toward the camera's heading */
-    ENGINE_BLK(802AF184);
-    func_8029A914(vs);
-    ENGINE_BLK(802AF18C);
-    D_803ED824 = 1;
-    v = func_802A6F6C();
-    ENGINE_BLK(802AF19C);
-    /* (the difference from the heading, which nothing uses) */
-    h = (u16)vs->unk4E - 0x800;
-    if (h < 0) {
-        ENGINE_BLK(802AF1AC);
-        h += 0xFFF;
-    }
-    ENGINE_BLK(802AF1B0);
-    h -= v;
-    if (h < 0) {
-        ENGINE_BLK(802AF1BC);
-        h = -h;
-    }
-    ENGINE_BLK(802AF1C0);
-    if (!(h < 0x801)) {
-        ENGINE_BLK(802AF1CC);
-    }
-    ENGINE_BLK(802AF1D4);
-    ENGINE_BLK(802AF228);
-    func_802A70D8(vs);
-    ENGINE_BLK(802AF230);
-    {
-        s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 1.0f, vs, &a1);
-
-        ENGINE_BLK(802AF244);
-        D_803ED822 = a0;
-        vs->unk4E = a0;
-        vs->unk74 = a0;
-        func_802A746C(a1, vs);
-    }
-    ENGINE_BLK(802AF258);
-    func_802A6FE4(0, vs);
-    ENGINE_BLK(802AF260);
-    goto done;
-still:
-    ENGINE_BLK(802AF268);
-    D_803ED824 = 0;
-done:
-    ENGINE_BLK(802AF270);
-    D_803643E0 = D_803ED808;
-    D_803643E4 = D_803ED80C;
-    D_803643E8 = D_803ED810;
-    D_8036443C = vs->unk76;
-    D_8036443E = vs->unk4E;
-    D_80364440 = vs->unk4C;
-    func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0, vs);
-    ENGINE_BLK(802AF2EC);
-    engine_restore();
-}
-
-/* getting out: a step of 100 toward the side, until it is past
-   D_803ED814; and its shadow */
-REGS(gp)
-void func_802AF340(VS *vs) {
-    s32 x, z, side, v, y2;
-
-    ENGINE_BLK(802AF340);
-    vs->unk76 = 0x50;
-    side = D_803ED828;
-    x = D_803ED808;
-    z = D_803ED810;
-    if (side == 0) {
-        ENGINE_BLK(802AF3A4);
-        z += 0x64;
-    } else {
-        ENGINE_BLK(802AF378);
-        if (side == 1) {
-            ENGINE_BLK(802AF39C);
-            z -= 0x64;
+    if (D_803ED826 == 0) {
+        if (game_mode() & 0x1801) {
+            D_803ED824 = 0;
         } else {
-            ENGINE_BLK(802AF384);
-            if (side == 2) {
-                ENGINE_BLK(802AF394);
-                x += 0x64;
+            /* what it hits */
+            func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, vs->unk76, 0, 0, 0, vs);
+            func_8029C52C(VEHICLE_DRIVER, vs);
+            func_8029AA10();
+            D_803F77D0 = DRV;
+            func_802BE77C(VEHICLE_DRIVER, vs);
+            if (D_803A7425 == 0) {
+                D_803ED824 = 0;
             } else {
-                ENGINE_BLK(802AF38C);
-                x -= 0x64;
+                D_803ED824 = 1;
+                turn_along_wall(vs, &D_803ED822, DRIVER_WALL_TURN);
             }
         }
     }
-    ENGINE_BLK(802AF3A8);
-    D_803ED808 = x;
-    D_803ED810 = z;
-    func_802A9A60(vs->unk52, D_803ED80C, x, z, vs->unk4, &D_803ED80C, (s16 *)&vs->unk4C, engine_ctx(24), vs,
-                  engine_ctx(30));
-    ENGINE_BLK(802AF3CC);
-    side = D_803ED828;
-    v = D_803ED814;
-    if (side == 0) {
-        ENGINE_BLK(802AF448);
-        if (D_803ED810 < v)
-            goto shadow;
-        goto out;
-    }
-    ENGINE_BLK(802AF3E4);
-    if (side == 1) {
-        ENGINE_BLK(802AF42C);
-        if (v < D_803ED810)
-            goto shadow;
-        ENGINE_BLK(802AF440);
-        goto out;
-    }
-    ENGINE_BLK(802AF3EC);
-    if (side == 2) {
-        ENGINE_BLK(802AF410);
-        if (D_803ED808 < v)
-            goto shadow;
-        ENGINE_BLK(802AF424);
-        goto out;
-    }
-    ENGINE_BLK(802AF3F4);
-    if (v < D_803ED808)
-        goto shadow;
-    ENGINE_BLK(802AF408);
-out:
-    /* out: walking */
-    ENGINE_BLK(802AF45C);
-    D_803ED826 = 0;
-    vs->unk76 = 0;
-shadow:
-    /* (its last three stack arguments: whatever is at SHADOW_SLOT, and the
-       halves of the return address its frame saved) */
-    ENGINE_BLK(802AF464);
-    y2 = (u32)(D_803ED3A8[1] + D_803ED3A8[2]) >> 1;
-    func_802582C4(0, D_803ED808, y2, D_803ED810, D_803ED80C, engine_frame_lw(SHADOW_SLOT), 0xFFFFFFFF,
-                  RA_SHADOW);
-    ENGINE_BLK(802AF4A4);
+    PLAYER_FROM(X, Y, Z, vs, VEHICLE_DRIVER);
+    engine_restore();
 }
 
-/* the walk: standing, its parts at rest (and now and then a look round,
-   func_8026A8E0); moving, part 1 (the legs) with the speed, and a
-   footstep's sound on frames 2 and 6 */
+/* Getting out: a step of DRIVER_OUT_STEP toward the side, on the ground,
+   until it is past D_803ED814 (then walking, stopped); and its shadow. */
+REGS(gp)
+void func_802AF340(VS *vs) {
+    s32 v, past;
+
+    ENGINE_COST(802AF340, 58);
+    VS_SPEED(vs) = DRIVER_OUT_SPEED;
+    side_step(D_803ED828, DRIVER_OUT_STEP, &X, &Z);
+    /* (its `self` and its material: whatever $t8 and $fp held, garbage;
+       docs/PORT.md "The engine made readable") */
+    func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), engine_ctx(24), vs,
+                  engine_ctx(30));
+    v = D_803ED814;
+    switch (D_803ED828) {
+    case 0: past = !(Z < v); break;
+    case 1: past = !(v < Z); break;
+    case 2: past = !(X < v); break;
+    default: past = !(v < X); break;
+    }
+    if (past) {
+        D_803ED826 = 0;
+        VS_SPEED(vs) = 0;
+    }
+    /* the shadow: its last three stack arguments the original never
+       stores: whatever is at SHADOW_SLOT (the tilt), and the halves of the
+       return address its frame saved (the heading) */
+    func_802582C4(VEHICLE_DRIVER, X, (u32)(D_803ED3A8[1] + D_803ED3A8[2]) >> 1, Z, Y, engine_frame_lw(SHADOW_SLOT),
+                  0xFFFFFFFF, RA_SHADOW);
+}
+
+/* The walk a frame.  Standing: once, the run's animation handed over to a
+   look round (part 3), then now and then (1 in DRIVER_IDLE_CHANCE + 1) a
+   random one of parts 2, 3 and 4 when none plays.  Moving: once, the look
+   round handed over to the run (part 0x1F, then the legs); the legs (part
+   1) with the speed, backwards in reverse, and a footstep's sound on their
+   frames 2 and 6. */
 REGS(gp)
 void func_802AF4BC(VS *vs) {
     Part *p = DRV;
-    s32 s5, v, f13, a1;
+    s32 s = VS_SPEED(vs), v, f13, last, k;
 
-    ENGINE_BLK(802AF4BC);
-    s5 = vs->unk76;
-    if (s5 != 0)
-        goto moving;
-    ENGINE_BLK(802AF4D0);
-    if (vs->unkA1 != 0) {
-        ENGINE_BLK(802AF4DC);
-        func_802A02E4(1, p);
-        ENGINE_BLK(802AF4EC);
-        func_802A0360(3, 0, p, 0.0f);
-        ENGINE_BLK(802AF508);
-        func_8029F9D4(1, 3, p);
-        ENGINE_BLK(802AF51C);
-        func_802A039C(0x1F, 0x46, p);
-        ENGINE_BLK(802AF530);
+    ENGINE_COST(802AF4BC, 106);
+    if (s == 0) {
+        if (DRV_WALKING(vs) != 0) {
+            func_802A02E4(1, p);
+            func_802A0360(3, 0, p, 0.0f);
+            func_8029F9D4(1, 3, p);
+            func_802A039C(0x1F, 0x46, p);
+            func_802A03D4(0x1F, 0, p);
+            func_802A040C(0x1F, 0, p);
+            func_802A0290(0x1F, 1, p);
+        }
+        DRV_WALKING(vs) = 0;
+        if (part_state(0x1F, p, NULL) == 1 || part_state(2, p, NULL) == 1 || part_state(3, p, NULL) == 1 ||
+            part_state(4, p, NULL) == 1)
+            return;
+        if (func_8026A8E0(0, DRIVER_IDLE_CHANCE) != 0)
+            return;
+        v = func_8026A8E0(0, 2);
+        v = v == 0 ? 3 : v == 1 ? 4 : 2;
+        func_802A0360(v, 0, p, 0.0f);
+        func_802A0290(v, 1, p);
+        return;
+    }
+    if (DRV_WALKING(vs) != 1) {
+        /* starting off: the look round still playing handed over */
+        func_802A0360(1, 2, p, 0.0f);
+        for (k = 2; k <= 4; k++) {
+            if (part_state(k, p, NULL) != 0) {
+                func_8029F9D4(k, 1, p);
+                func_802A02E4(k, p);
+                break;
+            }
+        }
+        if (k > 4) {
+            func_802A0360(3, 0, p, 0.0f);
+            func_8029F9D4(3, 1, p);
+        }
+        func_802A039C(0x1F, 0x28, p);
         func_802A03D4(0x1F, 0, p);
-        ENGINE_BLK(802AF544);
         func_802A040C(0x1F, 0, p);
-        ENGINE_BLK(802AF558);
         func_802A0290(0x1F, 1, p);
     }
-    ENGINE_BLK(802AF56C);
-    vs->unkA1 = 0;
-    if (part_state(0x1F, p, NULL) == 1) {
-        ENGINE_BLK(802AF584);
-        goto done;
+    if (part_state(0x1F, p, NULL) != 1) {
+        s = VS_SPEED(vs);
+        func_802A03D4(1, s < 0 ? 1 : 0, p);
+        /* the footsteps (the original saves and loads back every register;
+           the level's byte it tests is an s32's top one, always 0, so its
+           two levels without them never match) */
+        engine_save(0x5FFFFFFE, 0);
+        v = (u32)D_802E8BDC >> 24;
+        if (v != 0x31 && v != 0x26) {
+            part_state(1, p, &f13);
+            last = D_803ED820;
+            D_803ED820 = f13;
+            if (f13 != last && (f13 == 2 || f13 == 6))
+                func_80260650(D_80367738, f13 == 2 ? 0x14 : 0x15, NULL);
+        }
+        engine_restore();
+        func_802A039C(1, (u32)iabs(s) / DRIVER_LEG_SPEED_DIV, p);
+        func_802A0290(1, -1, p);
     }
-    ENGINE_BLK(802AF584);
-    ENGINE_BLK(802AF590);
-    if (part_state(2, p, NULL) == 1) {
-        ENGINE_BLK(802AF5A0);
-        goto done;
-    }
-    ENGINE_BLK(802AF5A0);
-    ENGINE_BLK(802AF5AC);
-    if (part_state(3, p, NULL) == 1) {
-        ENGINE_BLK(802AF5BC);
-        goto done;
-    }
-    ENGINE_BLK(802AF5BC);
-    ENGINE_BLK(802AF5C8);
-    if (part_state(4, p, NULL) == 1) {
-        ENGINE_BLK(802AF5D8);
-        goto done;
-    }
-    ENGINE_BLK(802AF5D8);
-    ENGINE_BLK(802AF5E4);
-    v = func_8026A8E0(0, 0x14);
-    ENGINE_BLK(802AF5F0);
-    if (v != 0)
-        goto done;
-    ENGINE_BLK(802AF5F8);
-    v = func_8026A8E0(0, 2);
-    ENGINE_BLK(802AF604);
-    if (v == 0) {
-        ENGINE_BLK(802AF684);
-        func_802A0360(3, 0, p, 0.0f);
-        ENGINE_BLK(802AF6A0);
-        func_802A0290(3, 1, p);
-        ENGINE_BLK(802AF6B4);
-        goto done;
-    }
-    ENGINE_BLK(802AF60C);
-    if (v == 1) {
-        ENGINE_BLK(802AF64C);
-        func_802A0360(4, 0, p, 0.0f);
-        ENGINE_BLK(802AF668);
-        func_802A0290(4, 1, p);
-        ENGINE_BLK(802AF67C);
-        goto done;
-    }
-    ENGINE_BLK(802AF614);
-    func_802A0360(2, 0, p, 0.0f);
-    ENGINE_BLK(802AF630);
-    func_802A0290(2, 1, p);
-    ENGINE_BLK(802AF644);
-    goto done;
-
-moving:
-    ENGINE_BLK(802AF6BC);
-    if (vs->unkA1 == 1)
-        goto legs;
-    /* starting off: the parts still playing stopped */
-    ENGINE_BLK(802AF6CC);
-    func_802A0360(1, 2, p, 0.0f);
-    ENGINE_BLK(802AF6E8);
-    v = part_state(2, p, NULL);
-    ENGINE_BLK(802AF6F8);
-    if (v != 0) {
-        ENGINE_BLK(802AF700);
-        func_8029F9D4(2, 1, p);
-        ENGINE_BLK(802AF714);
-        func_802A02E4(2, p);
-        ENGINE_BLK(802AF724);
-        goto run;
-    }
-    ENGINE_BLK(802AF72C);
-    v = part_state(3, p, NULL);
-    ENGINE_BLK(802AF73C);
-    if (v != 0) {
-        ENGINE_BLK(802AF744);
-        func_8029F9D4(3, 1, p);
-        ENGINE_BLK(802AF758);
-        func_802A02E4(3, p);
-        ENGINE_BLK(802AF768);
-        goto run;
-    }
-    ENGINE_BLK(802AF770);
-    v = part_state(4, p, NULL);
-    ENGINE_BLK(802AF780);
-    if (v != 0) {
-        ENGINE_BLK(802AF788);
-        func_8029F9D4(4, 1, p);
-        ENGINE_BLK(802AF79C);
-        func_802A02E4(4, p);
-        ENGINE_BLK(802AF7AC);
-        goto run;
-    }
-    ENGINE_BLK(802AF7B4);
-    func_802A0360(3, 0, p, 0.0f);
-    ENGINE_BLK(802AF7D0);
-    func_8029F9D4(3, 1, p);
-run:
-    ENGINE_BLK(802AF7E4);
-    func_802A039C(0x1F, 0x28, p);
-    ENGINE_BLK(802AF7F8);
-    func_802A03D4(0x1F, 0, p);
-    ENGINE_BLK(802AF80C);
-    func_802A040C(0x1F, 0, p);
-    ENGINE_BLK(802AF820);
-    func_802A0290(0x1F, 1, p);
-legs:
-    ENGINE_BLK(802AF834);
-    if (part_state(0x1F, p, NULL) == 1) {
-        ENGINE_BLK(802AF844);
-        goto walking;
-    }
-    ENGINE_BLK(802AF844);
-    ENGINE_BLK(802AF850);
-    s5 = vs->unk76;
-    if (s5 < 0) {
-        ENGINE_BLK(802AF85C);
-        func_802A03D4(1, 1, p);
-        ENGINE_BLK(802AF870);
-    } else {
-        ENGINE_BLK(802AF878);
-        func_802A03D4(1, 0, p);
-    }
-    /* the footsteps (the original saves and loads back every register;
-       the level's byte it tests is an s32's top one, always 0) */
-    ENGINE_BLK(802AF88C);
-    engine_save(0x5FFFFFFE, 0);
-    v = (u32)D_802E8BDC >> 24;
-    if (v == 0x31)
-        goto steps;
-    ENGINE_BLK(802AF91C);
-    if (v == 0x26)
-        goto steps;
-    ENGINE_BLK(802AF928);
-    part_state(1, p, &f13);
-    ENGINE_BLK(802AF938);
-    a1 = D_803ED820;
-    D_803ED820 = f13;
-    if (f13 == a1)
-        goto steps;
-    ENGINE_BLK(802AF950);
-    if (f13 == 2) {
-        a1 = 0x14;
-    } else {
-        ENGINE_BLK(802AF958);
-        if (f13 != 6)
-            goto steps;
-        a1 = 0x15;
-    }
-    ENGINE_BLK(802AF964);
-    func_80260650(D_80367738, a1, NULL);
-steps:
-    ENGINE_BLK(802AF974);
-    engine_restore();
-    if (s5 < 0) {
-        ENGINE_BLK(802AFA0C);
-        s5 = -s5;
-    }
-    ENGINE_BLK(802AFA10);
-    s5 = (u32)s5 / 11;
-    ENGINE_BLK(802AFA2C);
-    func_802A039C(1, s5, p);
-    ENGINE_BLK(802AFA34);
-    func_802A0290(1, -1, p);
-walking:
-    ENGINE_BLK(802AFA48);
-    vs->unkA1 = 1;
-done:
-    ENGINE_BLK(802AFA50);
+    DRV_WALKING(vs) = 1;
 }
 
 /* the driver's matrix and its vertices */
 REGS(gp)
 void func_802AFA64(VS *vs) {
-    u8 *model = MODEL, *buf;
-    s32 *m, off;
+    u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
+    s32 *m = (s32 *)(buf + MODEL_MTX_OFF(model));
 
-    ENGINE_BLK(802AFA64);
-    off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802AFA94);
-        m = (s32 *)(D_803ED82C + off);
-    } else {
-        ENGINE_BLK(802AFAA8);
-        m = (s32 *)(D_803ED830 + off);
-    }
-    ENGINE_BLK(802AFAB8);
+    ENGINE_COST(802AFA64, 64);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
-    D_803ED390[1] = vs->unk4C;
-    func_802AA764(D_803ED808, D_803ED80C, D_803ED810, 0x4E20, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
-    ENGINE_BLK(802AFAFC);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802AFB10);
-        buf = D_803ED82C;
-    } else {
-        ENGINE_BLK(802AFB20);
-        buf = D_803ED830;
-    }
-    ENGINE_BLK(802AFB2C);
-    model = MODEL;
-    func_8029C454(D_803ED808, D_803ED80C, D_803ED810, 0, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
-                  buf);
-    ENGINE_BLK(802AFB74);
+    D_803ED390[1] = VS_HEADING(vs);
+    func_802AA764(X, Y, Z, DRIVER_SCALE, m);
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 772A0.c reads it from the context) */
+    func_8029C454(X, Y, Z, VEHICLE_DRIVER, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
 }
 
-/* the turn rate: 0x8C */
+/* the steering rate */
 REGS(-> s3)
 s32 func_802AFB84(void) {
-    ENGINE_BLK(802AFB84);
-    return 0x8C;
+    ENGINE_COST(802AFB84, 7);
+    return DRIVER_STEER;
 }
 
-/* the camera's distance and speed for the driver */
+/* the physics' settings for the driver: gravity, and how it lands */
 REGS()
 void func_802AFBA0(void) {
-    ENGINE_BLK(802AFBA0);
-    D_803EBBF4 = D_803EBBF0 * 4.0f;
-    D_803ED3F6 = 0x28;
-    D_803ED3F7 = 3;
+    ENGINE_COST(802AFBA0, 23);
+    D_803EBBF4 = D_803EBBF0 * DRIVER_GRAVITY;
+    D_803ED3F6 = DRIVER_BOUNCE_MIN;
+    D_803ED3F7 = DRIVER_BOUNCE_DIV;
 }
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802AFBFC(u8 *dst) {
-    ENGINE_BLK(802AFBFC);
+    ENGINE_COST(802AFBFC, 7);
     func_802AC7DC(dst, (u8 *)&D_803ED760, (u32 *)&D_803ED808);
-    ENGINE_BLK(802AFC18);
 }
 
 /* and back */
 void func_802AFC28(u8 *src) {
-    ENGINE_BLK(802AFC28);
+    ENGINE_COST(802AFC28, 7);
     func_802AC85C(src, (u8 *)&D_803ED760, (u32 *)&D_803ED808);
-    ENGINE_BLK(802AFC44);
 }

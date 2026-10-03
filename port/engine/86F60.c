@@ -10,11 +10,10 @@
  * func_802CBD5C and func_802CBDE8, at the end, are its two callbacks for
  * 62740's carrying (shared.h).
  */
-#include "shared.h"
-#include "game/game.h"
-#include "game/camera.h"
+#include "vehicle.h"
 #include "game/level.h"
 #include "game/audio.h"
+#include "buildings.h"
 
 /* the police car's .bss (asm/data/hd_code/86F60.bss.s) */
 extern Part D_803F8B80[32];
@@ -23,21 +22,25 @@ extern s32 D_803F8F28, D_803F8F2C, D_803F8F30;  /* x, y, z */
 extern u8 *PTR32 D_803F8F34;                    /* its model file */
 extern u8 *PTR32 D_803F8F38;                    /* two 0x100-byte buffers, one per frame */
 extern u8 *PTR32 D_803F8F3C;
-extern u16 D_803F8F40;                          /* the heading it turns to (with D_803A7425) */
+extern u16 D_803F8F40;                          /* the heading it turns to against a wall (D_803A7425) */
 extern u8 D_803F8F42;                           /* frames until the next sparks */
 extern s8 D_803F8F43;                           /* turning to it */
-extern u8 D_803F8F44;                           /* frames without the gears after a hit */
+extern u8 D_803F8F44;                           /* frames without the throttle after a hit */
 extern u8 D_803F8F45;                           /* the siren's lights: a step, 2..13 */
+
+#define PARTS D_803F8B80
+#define X D_803F8F28
+#define Y D_803F8F2C
+#define Z D_803F8F30
+#define MODEL D_803F8F34
+#define BUF0 D_803F8F38
+#define BUF1 D_803F8F3C
 
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern s16 D_8036444C, D_80364450;
-extern u8 D_803A7424, D_803A7425;
-extern u8 D_80370C1A, D_80370C1B;
 extern Part *PTR32 D_803F77D0;
-extern u8 D_80306430[];
-extern s32 D_803643E4, D_803643E8;
+extern u8 D_80306430[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 extern u8 D_802C2324[], D_802C2348[];           /* the siren's two lights (56040's list) */
 
@@ -59,505 +62,271 @@ void func_802CC8B8(void);
 
 #define T(p) ((s32)(p))
 
-/* set up: from the level loader, with the model file in $s2, the position
-   in $t7, $s3, $s0 and the heading in $s1 */
+/* ---- the police car's numbers (a frame, where it's per frame) ------------ */
+
+#define POLICE_SCALE 0x4268             /* its model's scale */
+#define POLICE_SPAN_ALONG 0x2BC         /* its wheels' spans (func_802A8768) */
+#define POLICE_SPAN_ACROSS 0x190
+#define POLICE_BRAKE 0x14               /* speed lost braking or against the stick, a frame */
+#define POLICE_TURN_RATE 0x2EE0         /* func_802A7FD8: the move heading's turn, times the grip over the speed */
+#define POLICE_SLOPE_DIV 700.0f         /* func_802A843C: the slope's push is the height difference over this */
+#define POLICE_STEER_DIV 3.6f           /* the steering rate: the speed over this ... */
+#define POLICE_STEER_DIV_AIR 11.0f      /* ... or this with a wheel in the air */
+#define POLICE_WALL_TURN 0.16f          /* func_802A71DC: turning along a wall, times the speed */
+#define POLICE_HIT_FRAMES 5             /* frames without the throttle after hitting something */
+#define POLICE_HIT_MIN_SPEED 0x32       /* the speed it bounces back with is at least half this */
+#define POLICE_GRAVITY 4.0f             /* times the level's */
+#define POLICE_BOUNCE_MIN 0x96          /* a landing harder than this bounces ... */
+#define POLICE_BOUNCE_DIV 6             /* ... at the speed over this */
+#define POLICE_SIREN_STEPS 0xE          /* the siren's lights' cycle: steps 2..13, two frames a light */
+
+/* set up: from the level loader, with the model file, the position and
+   the heading */
 REGS(s2, t7, s3, s0, s1)
 void func_802CB720(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
-    s32 avg;
     VS *vs = &D_803F8E80;
-    u8 *buf;
-    s16 *r;
+    s32 avg;
 
-    ENGINE_BLK(802CB720);
-    D_803F8F34 = model;
-    buf = D_80358070;
-    D_803F8F38 = buf;
-    D_803F8F3C = buf + 0x100;
-    D_80358070 = buf + 0x200;
-    func_802A1388(0xD, 0, D_803F8F38, D_803F8F3C, model);
-    ENGINE_BLK(802CB7A0);
+    ENGINE_COST(802CB720, 221);
+    MODEL = model;
+    BUF0 = D_80358070;
+    BUF1 = D_80358070 + 0x100;
+    D_80358070 += 0x200;
+    func_802A1388(VEHICLE_POLICE, 0, BUF0, BUF1, model);
     func_802A754C(vs);
-    ENGINE_BLK(802CB7AC);
-    vs->unk52[0] = 0xC8;
-    vs->unk52[1] = 0x15E;
-    vs->unk52[2] = -0xC8;
-    vs->unk52[3] = 0x15E;
-    vs->unk52[4] = 0xC8;
-    vs->unk52[5] = -0x15E;
-    vs->unk5E[0] = 0x140;
-    vs->unk5E[1] = 0x1F4;
-    vs->unk5E[2] = -0x140;
-    vs->unk5E[3] = 0x1F4;
-    vs->unk5E[4] = 0x140;
-    vs->unk5E[5] = -0x1F4;
-    D_803F8F28 = x;
-    D_803F8F2C = y;
-    D_803F8F30 = z;
-    vs->unk4C = heading;
-    vs->unk4E = heading;
-    vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8F2C, x, z, vs->unk4, &D_803F8F2C, (s16 *)&vs->unk4C, 0xD, vs, 0, &avg);
-    ENGINE_BLK(802CB85C);
-    func_8029F85C(D_803F8B80, D_803F8F34, D_803F8F38, D_803F8F3C);
-    ENGINE_BLK(802CB898);
-    func_802A039C(0, 100, D_803F8B80);
-    ENGINE_BLK(802CB8AC);
-    func_802A03D4(0, 0, D_803F8B80);
-    ENGINE_BLK(802CB8C0);
-    func_802A040C(0, 0, D_803F8B80);
-    ENGINE_BLK(802CB8D4);
-    func_802A0480(0, 0, D_803F8B80, 0.0f);
-    ENGINE_BLK(802CB8EC);
-    func_802A0290(0, 1, D_803F8B80);
-    ENGINE_BLK(802CB900);
-    func_8029E558(D_803F8B80, D_803F8F38, D_803F8F3C);
-    ENGINE_BLK(802CB914);
-    func_802A0320(0, D_803F8B80);
-    ENGINE_BLK(802CB924);
-    func_802A0290(0, 1, D_803F8B80);
-    ENGINE_BLK(802CB938);
-    func_8029E558(D_803F8B80, D_803F8F3C, D_803F8F38);
-    ENGINE_BLK(802CB94C);
-    r = vs->unk78;
-    r[0] = -0xB4, r[1] = 0, r[2] = 2;
-    r[3] = 0, r[4] = 0x50, r[5] = 1;
-    r[6] = 0x50, r[7] = 0xA0, r[8] = 2;
-    r[9] = 0xA0, r[10] = 0xB4, r[11] = 3;
-    r[12] = 0xB4, r[13] = 0x154, r[14] = 2;
+    SET_WHEELS(VS_WHEELS(vs), 0xC8, 0x15E, -0xC8, 0x15E, 0xC8, -0x15E);
+    SET_WHEELS(VS_CARRY_WHEELS(vs), 0x140, 0x1F4, -0x140, 0x1F4, 0x140, -0x1F4);
+    X = x;
+    Y = y;
+    Z = z;
+    VS_HEADING(vs) = heading;
+    VS_MOVE_HEADING(vs) = heading;
+    VS_TURN_HEADING(vs) = heading;
+    func_802A992C(VS_WHEELS(vs), Y, x, z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_POLICE, vs, 0, &avg);
+    func_8029F85C(PARTS, MODEL, BUF0, BUF1);
+    func_802A039C(0, 100, PARTS);
+    func_802A03D4(0, 0, PARTS);
+    func_802A040C(0, 0, PARTS);
+    func_802A0480(0, 0, PARTS, 0.0f);
+    func_802A0290(0, 1, PARTS);
+    func_8029E558(PARTS, BUF0, BUF1);
+    func_802A0320(0, PARTS);
+    func_802A0290(0, 1, PARTS);
+    func_8029E558(PARTS, BUF1, BUF0);
+    SET_GEARS(vs, -0xB4, 0, 2, 0, 0x50, 1, 0x50, 0xA0, 2, 0xA0, 0xB4, 3, 0xB4, 0x154, 2);
     D_803F8F42 = 0;
     D_803F8F43 = 0;
     D_803F8F44 = 0;
     D_803F8F45 = 0;
-    func_8029C354(0xD, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x4268);
-    ENGINE_BLK(802CBA10);
-    func_80258230(0xD, 0x3C, 0x19, 0x19);
-    ENGINE_BLK(802CBA28);
-    vs->unk9A = 1;
+    func_8029C354(VEHICLE_POLICE, MODEL_AT(model, 4), MODEL_AT(model, 8), POLICE_SCALE);
+    func_80258230(VEHICLE_POLICE, 0x3C, 0x19, 0x19);
+    /* its first frame */
+    VS_IN_SETUP(vs) = 1;
     func_802CBEF0();
-    ENGINE_BLK(802CBA38);
-    vs->unk9A = 0;
-    func_802AA838(D_803F8F3C, D_803F8F38, *(s32 *)(D_803F8F34 + *(s32 *)(D_803F8F34 + 0x18) + 4));
-    ENGINE_BLK(802CBA70);
+    VS_IN_SETUP(vs) = 0;
+    func_802AA838(BUF1, BUF0, MODEL_MTX_OFF(MODEL));
 }
 
 /* hd.c's: the player gets in: the siren's lights off */
 void func_802CBA94(void) {
     VS *vs = &D_803F8E80;
 
-    ENGINE_BLK(802CBA94);
-    vs->unk96[3] = 0;
+    ENGINE_COST(802CBA94, 51);
+    VS_TURNING(vs) = 0;
     D_8036444C = 3000;
     D_80364450 = 1000;
     func_802A05D0(D_802C2324, 0);
-    ENGINE_BLK(802CBAD8);
     func_802A05F8(D_802C2324, 0);
-    ENGINE_BLK(802CBAE8);
     func_802A0620(D_802C2324, 0);
-    ENGINE_BLK(802CBAF8);
     func_802A0508(D_802C2324, -1);
-    ENGINE_BLK(802CBB08);
     func_802A05D0(D_802C2348, 0);
-    ENGINE_BLK(802CBB18);
     func_802A05F8(D_802C2348, 0);
-    ENGINE_BLK(802CBB28);
     func_802A0620(D_802C2348, 0);
-    ENGINE_BLK(802CBB38);
     func_802A0508(D_802C2348, -1);
-    ENGINE_BLK(802CBB48);
     func_802C4310(0xCE);
-    ENGINE_BLK(802CBB50);
 }
 
-/* hd.c's: whether it can be left: not while a wheel is off the ground */
+/* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802CBB60(void) {
-    VS *vs = &D_803F8E80;
-    u8 r = 0;
-
-    ENGINE_BLK(802CBB60);
-    if (vs->unk96[0] != 1) {
-        ENGINE_BLK(802CBB84);
-        if (vs->unk96[1] != 1) {
-            ENGINE_BLK(802CBB94);
-            if (vs->unk96[2] != 1) {
-                ENGINE_BLK(802CBBA4);
-                r = 1;
-            }
-        }
-    }
-    ENGINE_BLK(802CBBA8);
-    return r;
+    ENGINE_COST(802CBB60, 23);
+    return !ANY_AIRBORNE(&D_803F8E80);
 }
 
 /* hd.c's: the player gets out */
 void func_802CBBBC(void) {
-    VS *vs = &D_803F8E80;
-
-    ENGINE_BLK(802CBBBC);
-    vs->unk76 = 0;
-    func_802A7764((u32 *)D_803F8F38, (u32 *)D_803F8F3C, 0x100);
-    ENGINE_BLK(802CBBEC);
+    ENGINE_COST(802CBBBC, 19);
+    VS_SPEED(&D_803F8E80) = 0;
+    func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x100);
     func_802C444C();
-    ENGINE_BLK(802CBBF4);
 }
 
 /* hd.c's: put back on the ground where it is */
 void func_802CBC08(void) {
     VS *vs = &D_803F8E80;
 
-    ENGINE_BLK(802CBC08);
-    func_802A9A60(vs->unk52, D_803F8F2C, D_803F8F28, D_803F8F30, vs->unk4, &D_803F8F2C, (s16 *)&vs->unk4C, 0xD, vs, 0);
-    ENGINE_BLK(802CBC94);
+    ENGINE_COST(802CBC08, 35);
+    func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_POLICE, vs, 0);
     func_802CC70C(vs);
-    ENGINE_BLK(802CBC9C);
-    func_802A133C(D_803F8F28, D_803F8F2C, D_803F8F30, 0xD, vs);
-    ENGINE_BLK(802CBCC8);
+    func_802A133C(X, Y, Z, VEHICLE_POLICE, vs);
 }
 
 /* its light */
 void func_802CBD18(void) {
-    ENGINE_BLK(802CBD18);
-    func_802ABD54(0xD, D_803F8F28, D_803F8F2C, D_803F8F30);
-    ENGINE_BLK(802CBD4C);
+    ENGINE_COST(802CBD18, 17);
+    func_802ABD54(VEHICLE_POLICE, X, Y, Z);
+}
+
+/* hit something: back to where it was at the frame's start (and its
+   vertices), the throttle off for POLICE_HIT_FRAMES, the speed turned round
+   and halved (at least POLICE_HIT_MIN_SPEED before) */
+static void police_bounce(VS *vs) {
+    s32 v;
+
+    D_803F8F43 = 0;
+    func_802A768C((u8 *)PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x100,
+                  (u8 *)vs);
+    D_803F8F44 = POLICE_HIT_FRAMES;
+    v = VS_SPEED(vs);
+    if (v >= 0) {
+        if (v < POLICE_HIT_MIN_SPEED)
+            v = POLICE_HIT_MIN_SPEED;
+    } else if (v > -POLICE_HIT_MIN_SPEED) {
+        v = -POLICE_HIT_MIN_SPEED;
+    }
+    VS_SPEED(vs) = -v >> 1;
+    func_802CC70C(vs);
 }
 
 /* each frame */
 void func_802CBEF0(void) {
     VS *vs = &D_803F8E80;
-    s32 t3 = 0, x, z, rate_i, turn, v, h;
+    s32 step = 0, x, z, rate_i;
     u32 stick_addr;
     s32 stick;
     f32 rate;
-    u8 *a2, *a3;
 
-    ENGINE_BLK(802CBEF0);
+    ENGINE_COST(802CBEF0, 214);
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     engine_save(ENGINE_GPR(30), 0);
     func_802CBD18();
-    ENGINE_BLK(802CBF44);
-    func_802A75DC((u8 *)D_803F8B80, &D_803F8F28, &D_803F8F2C, &D_803F8F30, (u8 *)vs);
-    ENGINE_BLK(802CBF70);
-    func_802C4724(0xD);
-    ENGINE_BLK(802CBF78);
-    if (vs->unk9A == 0) {
-        ENGINE_BLK(802CBF84);
+    func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
+    func_802C4724(VEHICLE_POLICE);
+    if (VS_IN_SETUP(vs) == 0)
         func_802CC400(vs);
-    }
-    ENGINE_BLK(802CBF8C);
-    if (D_80367BFF != 0) {
-        ENGINE_BLK(802CBF9C);
+    if (D_80367BFF != 0)
         func_802CB690(vs);
-    }
-    ENGINE_BLK(802CBFA4);
     func_802CC8B8();
-    ENGINE_BLK(802CBFAC);
+    /* steering, the throttle, the turn and the slope */
     rate_i = func_802CC844(vs);
-    ENGINE_BLK(802CBFB4);
-    turn = func_802A7E70(rate_i, &vs->unk4C, &stick_addr, &stick);
-    (void)turn;
-    ENGINE_BLK(802CBFD0);
-    if (D_803F8F44 == 0) {
-        ENGINE_BLK(802CBFE0);
-        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0x14, vs, &t3);
-        ENGINE_BLK(802CBFE8);
-    } else {
-        ENGINE_BLK(802CBFF0);
+    func_802A7E70(rate_i, &VS_HEADING(vs), &stick_addr, &stick);
+    if (D_803F8F44 == 0)
+        func_802A785C(step, &VS_SPEED(vs), 3, VS_AIRBORNE(vs), VS_GEARS(vs), POLICE_BRAKE, vs, &step);
+    else
         D_803F8F44--;
-    }
-    ENGINE_BLK(802CBFFC);
-    func_802A7FD8(0x2EE0, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
-    ENGINE_BLK(802CC014);
-    rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
-    ENGINE_BLK(802CC020);
-    func_802A843C(&vs->unk76, 1, 0xD, (s8 *)vs->unk96, vs->unk4, 700.0f, vs);
-    ENGINE_BLK(802CC034);
-    if (D_803F8F43 != 0) {
-        ENGINE_BLK(802CC044);
+    func_802A7FD8(POLICE_TURN_RATE, &VS_SPEED(vs), (u16 *)&VS_TURN_HEADING(vs), &VS_HEADING(vs),
+                  &VS_MOVE_HEADING(vs), (s8 *)&VS_TURNING(vs), 1, vs);
+    rate = func_802A83B8(step, &VS_SPEED(vs), VS_AIRBORNE(vs), VS_WHEEL_H(vs), &VS_SLOPE_RATIO(vs), &step);
+    func_802A843C(&VS_SPEED(vs), 1, VEHICLE_POLICE, (s8 *)VS_AIRBORNE(vs), VS_WHEEL_H(vs), POLICE_SLOPE_DIV, vs);
+    if (D_803F8F43 != 0)
         func_802A7070((s16 *)&D_803F8F40, vs);
-    }
-    ENGINE_BLK(802CC050);
-    x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8F28, &D_803F8F30, rate, &z);
-    ENGINE_BLK(802CC068);
+    /* the move, on the ground */
+    x = func_802A860C(VS_MOVE_HEADING(vs), &VS_SPEED(vs), &X, &Z, rate, &z);
     D_803ED40B = 1;
-    func_802A8768(x, z, &D_803F8F28, &D_803F8F30, &D_803F8F2C, 0xD, 0x2BC, 0x190, vs->unk52, vs->unk28, vs->unk28 + 6,
-                  vs->unk28 + 3, vs->unk5E, vs);
-    ENGINE_BLK(802CC0A0);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802CC0C8);
-        func_8029E558(D_803F8B80, D_803F8F38, D_803F8F3C);
-        ENGINE_BLK(802CC0DC);
-    } else {
-        ENGINE_BLK(802CC0E4);
-        func_8029E558(D_803F8B80, D_803F8F3C, D_803F8F38);
-    }
-    ENGINE_BLK(802CC0F8);
+    func_802A8768(x, z, &X, &Z, &Y, VEHICLE_POLICE, POLICE_SPAN_ALONG, POLICE_SPAN_ACROSS, VS_WHEELS(vs),
+                  VS_WHEEL_FALL(vs), VS_WHEEL_FRAMES(vs), VS_WHEEL_GROUND(vs), VS_CARRY_WHEELS(vs), vs);
+    func_8029E558(PARTS, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802CC70C(vs);
-    ENGINE_BLK(802CC100);
+    /* what it hits */
     func_8029A800(D_803F8F28, D_803F8F2C, D_803F8F30, D_80306430, 1, 1, 7, vs->unk76, 0x96, 0, 0xD, vs);
-    ENGINE_BLK(802CC14C);
-    func_8029C52C(0xD, vs);
-    ENGINE_BLK(802CC154);
+    func_8029C52C(VEHICLE_POLICE, vs);
     func_8029AA10();
-    ENGINE_BLK(802CC15C);
     if (D_803A7425 == 0) {
-        ENGINE_BLK(802CC16C);
         D_803A7424 = 0;
-        D_803F77D0 = D_803F8B80;
-        func_802BE77C(0xD, vs);
-        ENGINE_BLK(802CC18C);
-        if (D_803A7424 == 0) {
-            ENGINE_BLK(802CC19C);
-            ENGINE_BLK(802CC328);
+        D_803F77D0 = PARTS;
+        func_802BE77C(VEHICLE_POLICE, vs);
+        if (D_803A7424 == 0)
             D_803F8F43 = 0;
-            goto done;
-        }
-        goto hit;
-    }
-    /* D_803A7425: turned toward the camera's heading */
-    ENGINE_BLK(802CC1A4);
-    func_8029A914(vs);
-    ENGINE_BLK(802CC1AC);
-    D_803F8F43 = 1;
-    v = func_802A6F6C();
-    ENGINE_BLK(802CC1BC);
-    /* (the difference from the heading, which nothing uses) */
-    h = (u16)vs->unk4E - 0x800;
-    if (h < 0) {
-        ENGINE_BLK(802CC1CC);
-        h += 0xFFF;
-    }
-    ENGINE_BLK(802CC1D0);
-    h -= v;
-    if (h < 0) {
-        ENGINE_BLK(802CC1DC);
-        h = -h;
-    }
-    ENGINE_BLK(802CC1E0);
-    if (!(h < 0x801)) {
-        ENGINE_BLK(802CC1EC);
-    }
-    ENGINE_BLK(802CC1F4);
-    ENGINE_BLK(802CC2CC);
-    func_802A70D8(vs);
-    ENGINE_BLK(802CC2D4);
-    {
-        s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, vs, &a1);
-
-        ENGINE_BLK(802CC2E8);
-        D_803F8F40 = a0;
-        vs->unk4E = a0;
-        vs->unk74 = a0;
-        func_802A746C(a1, vs);
-    }
-    ENGINE_BLK(802CC2FC);
-    func_802A6FE4(0, vs);
-    ENGINE_BLK(802CC304);
-    D_803F77D0 = D_803F8B80;
-    func_802BE77C(0xD, vs);
-    ENGINE_BLK(802CC320);
-    goto done;
-
-hit:
-    /* bounced off something: back to where it was, the speed turned
-       round */
-    ENGINE_BLK(802CC208);
-    D_803F8F43 = 0;
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802CC220);
-        a2 = D_803F8F3C;
-        a3 = D_803F8F38;
+        else
+            police_bounce(vs);
     } else {
-        ENGINE_BLK(802CC23C);
-        a2 = D_803F8F38;
-        a3 = D_803F8F3C;
+        D_803F8F43 = 1;
+        turn_along_wall(vs, &D_803F8F40, POLICE_WALL_TURN);
+        D_803F77D0 = PARTS;
+        func_802BE77C(VEHICLE_POLICE, vs);
     }
-    ENGINE_BLK(802CC254);
-    func_802A768C((u8 *)D_803F8B80, &D_803F8F28, &D_803F8F2C, &D_803F8F30, (u32 *)a2, (u32 *)a3, 0x100, (u8 *)vs);
-    ENGINE_BLK(802CC27C);
-    D_803F8F44 = 5;
-    v = vs->unk76;
-    if (v >= 0) {
-        ENGINE_BLK(802CC294);
-        if (v < 0x32) {
-            ENGINE_BLK(802CC29C);
-            v = 0x32;
-        }
-    } else {
-        ENGINE_BLK(802CC2A4);
-        if (!(v < -0x31)) {
-            ENGINE_BLK(802CC2B0);
-            v = -0x32;
-        }
-    }
-    ENGINE_BLK(802CC2B4);
-    vs->unk76 = -v >> 1;
-    func_802CC70C(vs);
-    ENGINE_BLK(802CC2C4);
-
-done:
-    ENGINE_BLK(802CC330);
-    D_803643E0 = D_803F8F28;
-    D_803643E4 = D_803F8F2C;
-    D_803643E8 = D_803F8F30;
-    D_8036443C = vs->unk76;
-    D_8036443E = vs->unk4E;
-    D_80364440 = vs->unk4C;
-    func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0xD, vs);
-    ENGINE_BLK(802CC3AC);
+    PLAYER_FROM(X, Y, Z, vs, VEHICLE_POLICE);
     engine_restore();
 }
 
-/* the siren's lights (flashing while a C button is held), the dust, the
-   wheels' sparks off rough ground, and the engine's sound */
+/* the siren's lights (flashing while L or R is held), the dust, the
+   wheels' sparks while it turns, and the engine's sound */
 REGS(gp)
 void func_802CC400(VS *vs) {
-    s32 s, l;
+    s32 l;
 
-    ENGINE_BLK(802CC400);
-    if (D_80370C1A == 0) {
-        ENGINE_BLK(802CC418);
-        if (D_80370C1B == 0) {
-            ENGINE_BLK(802CC454);
-            l = 0;
-            D_803F8F45 = l;
-            goto lights;
+    ENGINE_COST(802CC400, 48);
+    if (PAD_L == 0 && PAD_R == 0) {
+        l = D_803F8F45 = 0;
+    } else {
+        l = D_803F8F45 + 1;
+        if (l == POLICE_SIREN_STEPS)
+            l = 2;
+        D_803F8F45 = l;
+        l = (u32)l >> 1;
+    }
+    func_802A05A4(D_802C2324, l, 0.0f);
+    func_802A05A4(D_802C2348, l, 0.0f);
+    func_802CC56C(vs);
+    /* sparks every other frame while turning, with room for them */
+    if (D_803F8F42 != 0) {
+        D_803F8F42--;
+    } else if (VS_TURNING(vs) != 0) {
+        D_803F8F42 = 1;
+        if (func_802A5ED0() < 0xF) {
+            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_POLICE, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_POLICE, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
         }
     }
-    ENGINE_BLK(802CC428);
-    l = D_803F8F45 + 1;
-    if (l == 0xE) {
-        ENGINE_BLK(802CC440);
-        l = 2;
-    }
-    ENGINE_BLK(802CC444);
-    D_803F8F45 = l;
-    l = (u32)l >> 1;
-lights:
-    ENGINE_BLK(802CC460);
-    func_802A05A4(D_802C2324, l, 0.0f);
-    ENGINE_BLK(802CC478);
-    func_802A05A4(D_802C2348, l, 0.0f);
-    ENGINE_BLK(802CC48C);
-    func_802CC56C(vs);
-    ENGINE_BLK(802CC494);
-    if (D_803F8F42 != 0) {
-        ENGINE_BLK(802CC4A8);
-        D_803F8F42--;
-        goto sound;
-    }
-    ENGINE_BLK(802CC4B4);
-    if (vs->unk96[3] == 0)
-        goto sound;
-    ENGINE_BLK(802CC4C4);
-    D_803F8F42 = 1;
-    s = func_802A5ED0();
-    ENGINE_BLK(802CC4D8);
-    if (!(s < 0xF))
-        goto sound;
-    ENGINE_BLK(802CC4E8);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 0xD, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-    ENGINE_BLK(802CC514);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 0xD, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-sound:
-    ENGINE_BLK(802CC540);
-    s = vs->unk76;
-    if (s < 0) {
-        ENGINE_BLK(802CC54C);
-        s = -s;
-    }
-    ENGINE_BLK(802CC550);
-    func_802C4584((u32)s >> 5);
-    ENGINE_BLK(802CC558);
+    func_802C4584((u32)iabs(VS_SPEED(vs)) >> 5);
 }
 
-/* dust behind it on the ground */
+/* dust behind it while turning on soft ground (grip under 3, not the
+   static triangles) with its back wheel down */
 REGS(gp)
 void func_802CC56C(VS *vs) {
-    ENGINE_BLK(802CC56C);
-    if (vs->unk96[3] == 0)
-        goto done;
-    ENGINE_BLK(802CC5FC);
-    if (vs->unk96[2] == 1)
-        goto done;
-    ENGINE_BLK(802CC60C);
-    if (!(vs->unk50 < 3))
-        goto done;
-    ENGINE_BLK(802CC61C);
-    if (vs->unk9B != 0)
-        goto done;
-    ENGINE_BLK(802CC628);
-    func_8027BE7C(3, vs->unk4[6], 0xFA, -0x190, -0x190, -0x190, D_803F8F28, D_803F8F30, vs->unk4E, 3, 0x32, 0x32, 0);
-    ENGINE_BLK(802CC684);
-done:
-    ENGINE_BLK(802CC688);
+    ENGINE_COST(802CC56C, 70);
+    if (VS_TURNING(vs) != 0 && VS_AIRBORNE(vs)[2] != 1 && VS_GRIP(vs) < 3 && VS_ON_STATIC(vs) == 0)
+        func_8027BE7C(3, VS_WHEEL_H(vs)[6], 0xFA, -0x190, -0x190, -0x190, X, Z, VS_MOVE_HEADING(vs), 3, 0x32, 0x32,
+                      0);
 }
 
 /* the car's matrix, its vertices and its collision */
 REGS(gp)
 void func_802CC70C(VS *vs) {
-    u8 *model = D_803F8F34, *buf;
-    s32 *m, off;
+    u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_BLK(802CC70C);
-    off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802CC73C);
-        m = (s32 *)(D_803F8F38 + off);
-    } else {
-        ENGINE_BLK(802CC750);
-        m = (s32 *)(D_803F8F3C + off);
-    }
-    ENGINE_BLK(802CC760);
-    D_803ED390[1] = vs->unk4C;
-    func_802AA764(D_803F8F28, D_803F8F2C, D_803F8F30, 0x4268, m);
-    ENGINE_BLK(802CC79C);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802CC7B0);
-        buf = D_803F8F38;
-    } else {
-        ENGINE_BLK(802CC7C0);
-        buf = D_803F8F3C;
-    }
-    ENGINE_BLK(802CC7CC);
-    model = D_803F8F34;
-    func_8029C454(D_803F8F28, D_803F8F2C, D_803F8F30, 0xD, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
-                  buf);
-    ENGINE_BLK(802CC814);
-    func_802ABBEC(0xD, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
-    ENGINE_BLK(802CC834);
+    ENGINE_COST(802CC70C, 70);
+    D_803ED390[1] = VS_HEADING(vs);
+    func_802AA764(X, Y, Z, POLICE_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
+    func_8029C454(X, Y, Z, VEHICLE_POLICE, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
+    func_802ABBEC(VEHICLE_POLICE, MODEL_AT(model, 0), MODEL_AT(model, 4), buf);
 }
 
-/* the turn rate: the speed / 3.6, or / 11 with a wheel off the ground */
+/* the steering rate: the speed over POLICE_STEER_DIV, or over
+   POLICE_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802CC844(VS *vs) {
-    f32 d;
-
-    ENGINE_BLK(802CC844);
-    if (vs->unk96[0] == 1)
-        goto air;
-    ENGINE_BLK(802CC858);
-    if (vs->unk96[1] == 1)
-        goto air;
-    ENGINE_BLK(802CC868);
-    if (vs->unk96[2] == 1)
-        goto air;
-    ENGINE_BLK(802CC878);
-    d = 3.6f;
-    goto div;
-air:
-    ENGINE_BLK(802CC880);
-    d = 11.0f;
-div:
-    ENGINE_BLK(802CC88C);
-    return engine_cvt_w_s((f32)vs->unk76 / d);
+    ENGINE_COST(802CC844, 25);
+    return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? POLICE_STEER_DIV_AIR : POLICE_STEER_DIV));
 }
 
-/* the camera's distance and speed for the police car */
+/* the physics' settings for the police car: gravity, and how its wheels
+   land */
 void func_802CC8B8(void) {
-    ENGINE_BLK(802CC8B8);
-    D_803EBBF4 = D_803EBBF0 * 4.0f;
-    D_803ED3F6 = 0x96;
-    D_803ED3F7 = 6;
+    ENGINE_COST(802CC8B8, 23);
+    D_803EBBF4 = D_803EBBF0 * POLICE_GRAVITY;
+    D_803ED3F6 = POLICE_BOUNCE_MIN;
+    D_803ED3F7 = POLICE_BOUNCE_DIV;
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier, and back
