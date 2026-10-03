@@ -362,7 +362,7 @@ void func_802BC3D0(VS *vs) {
     ENGINE_BLK(802BC4E0);
     func_802ABBEC(7, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802BC500);
-    func_802AABE4(7, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
+    func_802AABE4(7, (u16 *)(model + *(s32 *)(model + 8)), buf, 0, 0);
     ENGINE_BLK(802BC51C);
     func_8029D040(D_803EFE98, D_803EFEA0, 7, model + *(s32 *)(model + 0xC), vs->unk4C, D_803EFAF0, buf);
     ENGINE_BLK(802BC55C);

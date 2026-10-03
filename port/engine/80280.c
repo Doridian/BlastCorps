@@ -1936,11 +1936,9 @@ part:
         D_803F7C3A = 1;
     }
     ENGINE_BLK(802C76A4);
-    func_802A6274(T(D_802C3804), 0x15F90, 1, 9, 1, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C3804), 0x15F90, 1, 9, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802C76D0);
-    func_802A6274(T(D_802C3804), 0x15F90, 1, 9, 2, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C3804), 0x15F90, 1, 9, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
 done:
     ENGINE_BLK(802C76FC);
 }

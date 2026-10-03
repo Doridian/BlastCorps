@@ -467,17 +467,13 @@ void func_802D02F8(VS *vs) {
     if (!(s < 0xF))
         goto sound;
     ENGINE_BLK(802D035C);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 1, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802D0388);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 2, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802D03B4);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 3, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802D03E0);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 4, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
 sound:
     ENGINE_BLK(802D040C);
     s = vs->unk76;

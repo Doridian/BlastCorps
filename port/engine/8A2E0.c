@@ -55,8 +55,6 @@ void func_802CEE14(s32 x, s32 y, s32 z);
 REGS(t1)
 void func_802CF3E0(CommPoint *c);
 
-#define K0(p) ((u32)(p) - 0x80000000)
-
 /* one set of the dish's parts, set up in the two buffers b1, b2 */
 static void dish_parts(Part *parts, u8 *b1, u8 *b2, s32 still) {
     func_8029F85C(parts, D_803FBBD8, b1, b2);

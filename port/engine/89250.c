@@ -113,62 +113,38 @@ s32 func_802CDB70(s16 r, s16 damage) {
    `hit` was already set; returns whether any was hit (or `hit`) */
 REGS(t3, v0, v1, a0, a1, fp -> fp)
 s32 func_802CDC7C(Building *b, s32 x, s32 y, s32 z, s32 r, s32 hit) {
-    Piece *p, *end;
-    s32 px, py, pz, in;
+    static const PieceTestBlks k = {
+        {ENGINE_BLK_802CDCD8}, {ENGINE_BLK_802CDCE0}, {ENGINE_BLK_802CDCE8}, {ENGINE_BLK_802CDCF0},
+        {ENGINE_BLK_802CDCF8}, {ENGINE_BLK_802CDD00}, {ENGINE_BLK_802CDD08}, {ENGINE_BLK_802CDD10},
+    };
+    Piece *p;
 
     ENGINE_BLK(802CDC7C);
     x >>= 2;
     y >>= 2;
     z >>= 2;
     r >>= 2;
-    p = b->unk4;
-    end = b->unk8;
-    for (;;) {
-        ENGINE_BLK(802CDCBC);
-        if (p == end)
-            break;
+    for (p = b->unk4; ENGINE_BLK(802CDCBC), p != (Piece *)b->unk8; p++) {
         ENGINE_BLK(802CDCC4);
-        if (p->active == 0) {
-            p++;
+        if (p->active == 0)
             continue;
-        }
         ENGINE_BLK(802CDCD0);
-        in = func_8029C160(x, y, z, r, p, &px, &py, &pz);
-        ENGINE_BLK(802CDCD8);
-        if (in) {
-            ENGINE_BLK(802CDCE0);
-            func_8029C0DC((u8 *)p, px, py, pz);
-            ENGINE_BLK(802CDCE8);
-            in = func_8029BF64(C0DC_LEFT);
-            ENGINE_BLK(802CDCF0);
-            if (!in) {
-                ENGINE_BLK(802CDCF8);
-                in = func_8029BD0C(x, y, z, r, p);
-                ENGINE_BLK(802CDD00);
-                if (!in) {
-                    ENGINE_BLK(802CDD08);
-                    in = func_8029BEE4((u8 *)p, x, y, z, r);
-                    ENGINE_BLK(802CDD10);
+        if (piece_touched(p, x, y, z, r, &k)) {
+            ENGINE_BLK(802CDD18);
+            if (hit == 0) {
+                ENGINE_BLK(802CDD20);
+                hit = D_803F932A;
+                if (hit != 0) {
+                    ENGINE_BLK(802CDD30);
+                    func_802CDD74(b, p, hit);
                 }
             }
-            if (in) {
-                ENGINE_BLK(802CDD18);
-                if (hit == 0) {
-                    ENGINE_BLK(802CDD20);
-                    hit = D_803F932A;
-                    if (hit != 0) {
-                        ENGINE_BLK(802CDD30);
-                        func_802CDD74(b, p, hit);
-                    }
-                }
-                ENGINE_BLK(802CDD38);
-                func_802BF264(p);
-                ENGINE_BLK(802CDD40);
-                hit = 1;
-            }
+            ENGINE_BLK(802CDD38);
+            func_802BF264(p);
+            ENGINE_BLK(802CDD40);
+            hit = 1;
         }
         ENGINE_BLK(802CDD44);
-        p++;
     }
     ENGINE_BLK(802CDD4C);
     return hit;
