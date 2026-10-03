@@ -25,6 +25,7 @@
 #include "game/objects.h"
 #include "game/model.h"
 #include "collision.h"
+#include "level_tables.h"
 
 /* ---- the level file's and the run-time records -------------------------- */
 
@@ -67,34 +68,7 @@
 #define N_ED3B8 12              /* D_803ED3B8 */
 #define N_EBC10 26              /* D_803EBC10 */
 
-/* D_80306480: 0x30-byte records, to one whose level is -1.  77E20 reads
-   them as the level's objects to destroy (func_802BC714): a position, the
-   ids (func_8029D210's) of what makes them up, and the level it is in. */
-typedef struct UnkStruct_80306480 {
-    /* 0x00 */ s32 x, y, z;         /* << 5 */
-    /* 0x0C */ s8 ids[8];           /* -1 after the last */
-    /* 0x14 */ u8 size;             /* half the box's width, world units */
-    /* 0x15 */ s8 level;            /* LevelId; -1 after the last record */
-    /* 0x16 */ s16 corners[4][3];   /* the box's corners (func_802A1934):
-                                       (-,-), (+,-), (-,+), (+,+) in x, z */
-    /* 0x2E */ u8 pad2E[2];
-} UnkStruct_80306480;
-SIZE_CHECK(UnkStruct_80306480, 0x30);
-
-/* D_803BDFD8: the level's lights (62740's func_802ABD54), from
-   LevelHeader.unk60, up to D_803BDFD4 */
-typedef struct LevelLight {
-    /* 0x00 */ s32 x, y, z;         /* << 5 */
-    /* 0x0C */ s32 radius;          /* << 5: its reach */
-    /* 0x10 */ u8 unk10;            /* 1: full brightness in its reach */
-    /* 0x11 */ u8 building;         /* the Building it is on, + 1 (77E20's
-                                       func_802BF534 turns it off with it) */
-    /* 0x12 */ u8 on;
-    /* 0x13 */ u8 ntypes;           /* the VehicleTypes it lights */
-    /* 0x14 */ u8 unk14;
-    /* 0x15 */ u8 types[15];
-} LevelLight;
-SIZE_CHECK(LevelLight, 0x24);
+/* (TargetObj, D_80306480, and LevelLight, D_803BDFD8: level_tables.h) */
 
 /* LevelHeader.unk74's moving triangles: a word (the bytes of matrices the
    section's parts need), then groups of triangles; D_803F7828's run-time
@@ -207,9 +181,6 @@ extern u8 D_803F7812;
 #endif
 extern s32 D_803A740C, D_803F77F8;
 extern u8 D_80364A6E;           /* the level's ambient light */
-extern LevelLight D_803BDFD8[];
-extern LevelLight *PTR32 D_803BDFD4;
-extern UnkStruct_80306480 D_80306480[];
 extern u8 *PTR32 D_803F7820, *PTR32 D_803F7824;  /* the matrices, two sets */
 extern MovingTri *PTR32 D_803F7828, *PTR32 D_803F782C;
 
@@ -348,7 +319,7 @@ u32 func_802A44E4(u32 a) {
 /* func_802A1934: D_80306480's boxes' corners, from the centre and size */
 REGS()
 void func_802A1934(void) {
-    UnkStruct_80306480 *b;
+    TargetObj *b;
 
     ENGINE_BLK(802A1934);
     for (b = D_80306480; ENGINE_BLK(802A195C), b->level != LIST_END; b++) {
@@ -388,7 +359,7 @@ void func_802A2C54(u32 h_) {
         l->y = BE16U(p + 2) << 5;
         l->z = BE16U(p + 4) << 5;
         l->radius = BE16U(p + 6) << 5;
-        l->unk10 = p[8];
+        l->full = p[8];
         n = p[9];
         l->ntypes = n;
         p += 10;
@@ -398,7 +369,7 @@ void func_802A2C54(u32 h_) {
         }
         ENGINE_BLK(802A2D28);
         l->building = p[0];
-        l->unk14 = p[1];
+        l->shade = p[1];
         l->on = 1;
         p += 2;
     }

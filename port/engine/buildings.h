@@ -20,30 +20,12 @@
 
 #include "shared.h"
 #include "game/objects.h"
+#include "collision.h"
 
-/* a piece: the plane n.p + d = 0 (s64, 16.16 by the >> 2 positions), two
-   scale factors, three corners (the plane's triangle or box, << 5 >> 2) */
-typedef struct Piece {
-    /* 0x00 */ s64 nx;
-    /* 0x08 */ s64 ny;
-    /* 0x10 */ s64 nz;
-    /* 0x18 */ s64 d;
-    /* 0x20 */ f32 unk20;        /* |n| (func_802BD99C) */
-    /* 0x24 */ f32 unk24;        /* |n|^2 */
-    /* 0x28 */ s32 p[3][3];
-    /* 0x4C */ u16 heading;      /* the side it pushes to (func_802BF264) */
-    /* 0x4E */ s8 axis;          /* the axis it is flattest along (func_8029C0DC) */
-    /* 0x4F */ u8 pad4F[2];
-    /* 0x51 */ u8 active;
-    /* 0x52 */ u16 group;        /* the damage group it belongs to (1-based) */
-    /* 0x54 */ u8 unk54;
-    /* 0x55 */ u8 unk55;
-    /* 0x56 */ u8 unk56;
-    /* 0x57 */ u8 group2;        /* a group whose destruction brings it back */
-    /* 0x58 */ u8 pushes;        /* it turns the camera (func_802BF264) */
-    /* 0x59 */ u8 pad59[7];
-} Piece;
-SIZE_CHECK(Piece, 0x60);
+/* a piece: collision.h's CollisionTri, the same 0x60-byte triangle and
+   plane (n.p + d = 0, s64, 16.16 by the >> 2 positions; |n| and |n|^2;
+   the corners, << 5 >> 2; heading, axis, active, group, group2, pushes) */
+typedef CollisionTri Piece;
 
 /* ---- the model file ------------------------------------------------------ */
 
@@ -296,25 +278,8 @@ extern u8 D_803A742F;                           /* limits off */
 extern u8 D_803A7424, D_803A7425, D_803A7427, D_803A742A;
 extern s8 *PTR32 D_803A7408;                    /* the kinds that turn the camera, to -1 */
 
-/* the level's other solid objects: 0x14-byte records, to an `end` of -1 */
-typedef struct Solid {
-    /* 0x00 */ s32 x, y, z, r;
-    /* 0x10 */ u8 kind;
-    /* 0x11 */ s8 end;           /* -1 after the last; 0: not solid */
-    /* 0x12 */ u8 pad12[2];
-} Solid;
-SIZE_CHECK(Solid, 0x14);
-extern Solid D_803A7300[];
-
-/* the kinds' parts: 0x14-byte records, to an `end` of -1 */
-typedef struct KindPart {
-    /* 0x00 */ s32 x, y, z, r;
-    /* 0x10 */ u16 power;        /* the damage it does (func_802BEBB0) */
-    /* 0x12 */ u8 kind;
-    /* 0x13 */ s8 end;
-} KindPart;
-SIZE_CHECK(KindPart, 0x14);
-extern KindPart D_803A6B30[];
+/* the level's solid objects (Solid, D_803A7300) and the kinds' parts
+   (KindPart, D_803A6B30): collision.h */
 
 /* the registers by number, for engine_save()'s masks (engine.h) */
 enum {

@@ -48,10 +48,6 @@ typedef struct CollisionTri {
 } CollisionTri;
 SIZE_CHECK(CollisionTri, 0x60);
 
-#ifndef ENGINE_BUILDINGS_H
-/* (buildings.h has these two as well, until the buildings' code takes
-   them from here) */
-
 /* a kind's bounding sphere: 0x14-byte records, to an `end` of -1 */
 typedef struct Solid {
     /* 0x00 */ s32 x, y, z, r;
@@ -70,7 +66,6 @@ typedef struct KindPart {
     /* 0x13 */ s8 end;              /* -1 after the last; 1 placed, 0 not */
 } KindPart;
 SIZE_CHECK(KindPart, 0x14);
-#endif
 
 extern Solid D_803A7300[];
 extern KindPart D_803A6B30[];

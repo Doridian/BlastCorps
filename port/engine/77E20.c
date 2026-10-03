@@ -21,21 +21,14 @@
  * ENGINE_BLKN where a loop became one copy), in an order of their own.
  */
 #include "buildings.h"
+#include "level_tables.h"
 #include "game/game.h"
 #include "game/audio.h"
 #include "game/level.h"
 
 /* ---- the data -------------------------------------------------------- */
 
-/* the level's objects to destroy (5CB60.c's D_80306480): 0x30 bytes, to
-   a level of -1 */
-typedef struct TargetObj {
-    /* 0x00 */ s32 x, y, z;
-    /* 0x0C */ s8 ids[9];        /* the objects (func_8029D210), to -1 */
-    /* 0x15 */ s8 level;
-    /* 0x16 */ u8 outline[0x1A]; /* the radar's (D_8036C790) */
-} TargetObj;
-SIZE_CHECK(TargetObj, 0x30);
+/* (the level's objects to destroy, TargetObj: level_tables.h) */
 
 /* a set of the level's buildings' groups (D_803BE708: a count, then
    these, 5CB60.c's func_802A1EC8) whose destruction counts as the
@@ -92,7 +85,6 @@ extern u32 D_803649E8;
 extern u64 D_803649D8;                  /* a random state */
 extern s32 D_802E8BDC;                  /* the level */
 extern s32 D_80358068;                  /* a frame count */
-extern TargetObj D_80306480[];
 extern UnkStruct_8039C800 D_8039C800[];
 extern u8 D_8039C940;
 extern u8 *PTR32 D_803BE708;            /* the level's group sets */
@@ -122,8 +114,6 @@ extern u64 D_802F4780[6];
 extern u8 D_8036EB92;
 extern u32 D_80364A40;
 extern u16 D_803649E0, D_803649E2, D_803649E4;  /* the spin a falling group starts with */
-extern u8 D_803BDFD8[];
-extern u8 *PTR32 D_803BDFD4;
 
 void func_80275390(u64 mode);
 s32 func_8026A828(s32 lo, s32 hi);
@@ -699,7 +689,7 @@ s32 func_802BCE40(void) {
             ENGINE_BLK(802BCFFC);
             if (kind == 3) {
                 ENGINE_BLK(802BD00C);
-                outline = (u32)((TargetObj *)found)->outline;
+                outline = (u32)((TargetObj *)found)->corners;
             } else {
                 ENGINE_BLK(802BD004);
                 outline = (u32)((UnkStruct_8039C800 *)found)->corners;
@@ -1235,12 +1225,12 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
         f32 fx, fy, fz, sq;
 
         ENGINE_BLK(802BDBF4);
-        x1 = p->p[0][0] + qx, y1 = p->p[0][1] + qy, z1 = p->p[0][2] + qz;
-        x2 = p->p[1][0] + qx, y2 = p->p[1][1] + qy, z2 = p->p[1][2] + qz;
-        x3 = p->p[2][0] + qx, y3 = p->p[2][1] + qy, z3 = p->p[2][2] + qz;
-        p->p[0][0] = x1, p->p[0][1] = y1, p->p[0][2] = z1;
-        p->p[1][0] = x2, p->p[1][1] = y2, p->p[1][2] = z2;
-        p->p[2][0] = x3, p->p[2][1] = y3, p->p[2][2] = z3;
+        x1 = p->v[0][0] + qx, y1 = p->v[0][1] + qy, z1 = p->v[0][2] + qz;
+        x2 = p->v[1][0] + qx, y2 = p->v[1][1] + qy, z2 = p->v[1][2] + qz;
+        x3 = p->v[2][0] + qx, y3 = p->v[2][1] + qy, z3 = p->v[2][2] + qz;
+        p->v[0][0] = x1, p->v[0][1] = y1, p->v[0][2] = z1;
+        p->v[1][0] = x2, p->v[1][1] = y2, p->v[1][2] = z2;
+        p->v[2][0] = x3, p->v[2][1] = y3, p->v[2][2] = z3;
         /* the normal: (p1 - p2) x (p1 - p3) */
         ey = y1 - y2, ez2 = z1 - z2, ex2 = x1 - x2;
         ey3 = y1 - y3, ez3 = z1 - z3, ex3 = x1 - x3;
@@ -1254,8 +1244,8 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
         fy = (f32)ny;
         fz = (f32)nz;
         sq = fx * fx + fy * fy + fz * fz;
-        p->unk24 = sq;
-        p->unk20 = __builtin_sqrtf(sq);
+        p->nlen2 = sq;
+        p->nlen = __builtin_sqrtf(sq);
         p->d = -(nx * x2 + ny * y2 + nz * z2);
         ax = nx, ay = ny, az = nz;
         if (ax < 0) {
@@ -2217,7 +2207,8 @@ void func_802BF384(Building *b) {
 REGS(t9)
 void func_802BF534(Building *b) {
     s32 main, k, n, idx;
-    u8 *d, *l;
+    u8 *d;
+    LevelLight *l;
     u16 *f;
     u32 v;
 
@@ -2248,11 +2239,11 @@ void func_802BF534(Building *b) {
     idx = (u32)((u8 *)b - (u8 *)D_803F4030) / sizeof(Building);
     ENGINE_BLK(802BF618);
     idx++;
-    for (l = D_803BDFD8; ENGINE_BLK(802BF624), l != D_803BDFD4; l += 0x24) {
+    for (l = D_803BDFD8; ENGINE_BLK(802BF624), l != D_803BDFD4; l++) {
         ENGINE_BLK(802BF62C);
-        if (l[0x11] == idx) {
+        if (l->building == idx) {
             ENGINE_BLK(802BF638);
-            l[0x12] = 0;
+            l->on = 0;
         }
     }
 out:

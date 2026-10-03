@@ -7,6 +7,7 @@
  */
 #include "vehicle.h"
 #include "game/game.h"
+#include "level_tables.h"
 
 extern u8 D_80367C10;                   /* the level is one of 1D990.c's five (D_802E8F30): slower steering, gears doubled */
 extern s16 D_803A7410, D_803A7412;      /* the camera's headings (12-bit) */
@@ -608,21 +609,17 @@ s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2) {
     return engine_cvt_l_d(__builtin_sqrt((f64)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz)));
 }
 
-/* D_803BDFD8: the level's lights, 0x24-byte records up to D_803BDFD4:
-   (x, y, z, radius) words, 0x10 full (1) or fading, 0x12 on, 0x13 how many
-   types it lights, 0x14 its own level (0: white), the types from 0x15 */
-extern u8 D_803BDFD8[];
-extern u8 *PTR32 D_803BDFD4;
+/* the level's lights: level_tables.h's LevelLight */
 extern u8 D_80364A6E[];                 /* the level's ambient light */
 
 /* does this light, d away, light this type? */
-static s32 light_reaches(u8 *p, s64 d, s32 type) {
+static s32 light_reaches(LevelLight *p, s64 d, s32 type) {
     s32 n;
 
-    if ((s64)((s32 *)p)[3] < d || p[0x12] == 0)
+    if ((s64)p->radius < d || p->on == 0)
         return 0;
-    for (n = 0; n < p[0x13]; n++)
-        if (p[0x15 + n] == type)
+    for (n = 0; n < p->ntypes; n++)
+        if (p->types[n] == type)
             return 1;
     return 0;
 }
@@ -632,23 +629,23 @@ static s32 light_reaches(u8 *p, s64 d, s32 type) {
    (or full), or the level's ambient; into its Vehicle's unk60. */
 REGS(a3, t3, t4, t5)
 void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
-    u8 *p;
+    LevelLight *p;
     s64 d = 0;
     s32 r = D_80364A6E[0], amb, level, radius;
     Vehicle *v;
 
     ENGINE_COST(802ABD54, 53);
-    for (p = D_803BDFD8; p != D_803BDFD4; p += 0x24) {
-        d = func_802ABCDC(x, y, z, ((s32 *)p)[0], ((s32 *)p)[1], ((s32 *)p)[2]);
+    for (p = D_803BDFD8; p != D_803BDFD4; p++) {
+        d = func_802ABCDC(x, y, z, p->x, p->y, p->z);
         if (!light_reaches(p, d, type))
             continue;
-        radius = ((s32 *)p)[3];
-        level = p[0x14];
+        radius = p->radius;
+        level = p->shade;
         amb = D_80364A6E[0];
         if (level == 0)
-            r = p[0x10] == 1 ? 0xFF : 0xFF - amb - (s32)((u32)((0xFF - amb) * (u32)d) / (u32)radius) + amb;
+            r = p->full == 1 ? 0xFF : 0xFF - amb - (s32)((u32)((0xFF - amb) * (u32)d) / (u32)radius) + amb;
         else
-            r = p[0x10] == 1 ? level : level + (s32)((u32)((amb - level) * (u32)d) / (u32)radius);
+            r = p->full == 1 ? level : level + (s32)((u32)((amb - level) * (u32)d) / (u32)radius);
         break;
     }
     for (v = D_80364460; v->type != type; v++)
