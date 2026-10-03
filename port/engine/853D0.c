@@ -114,7 +114,6 @@ void func_802C9B90(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s16 *r;
 
     ENGINE_BLK(802C9B90);
-    engine_save(ENGINE_T0_T5, 0);
     D_803F8B54 = model;
     buf = D_80358070;
     D_803F8B58 = buf;
@@ -191,7 +190,6 @@ void func_802C9B90(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803F8B5C, D_803F8B58, *(s32 *)(D_803F8B54 + *(s32 *)(D_803F8B54 + 0x18) + 4));
     ENGINE_BLK(802C9F24);
     D_80364A6B = 1;
-    engine_restore();
 }
 
 /* hd.c's: the player gets in: the launchers' and wheels' parts reset */
@@ -311,7 +309,6 @@ void func_802CA4E0(void) {
     f32 rate;
 
     ENGINE_BLK(802CA4E0);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802CA308();
     ENGINE_BLK(802CA534);
     func_802A75DC((u8 *)D_803F87A0, &D_803F8B48, &D_803F8B4C, &D_803F8B50, (u8 *)vs);
@@ -344,7 +341,6 @@ void func_802CA4E0(void) {
     ENGINE_BLK(802CA5E4);
     func_802A7FD8(BIKE_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802CA5FC);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802CA608);
     func_802A843C(&vs->unk76, 1, 0xA, (s8 *)vs->unk96, vs->unk4, BIKE_SLOPE_DIV, vs);
@@ -358,8 +354,6 @@ void func_802CA4E0(void) {
     ENGINE_BLK(802CA650);
     D_803ED40B = 1;
     /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8B48, &D_803F8B50, &D_803F8B4C, 0xA, 0x280, 0x208, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802CA688);
@@ -500,7 +494,6 @@ done:
         ENGINE_BLK(802CAA28);
     }
     ENGINE_BLK(802CAAA8);
-    engine_restore();
 }
 
 /* the wheels: sparks, spin and sound; the dust; the lean (C buttons); the
@@ -793,7 +786,6 @@ f32 func_802CB3C8(VS *vs, s32 up) {
     }
     ENGINE_BLK(802CB41C);
     /* ($s3, as the J-Bomb's func_802C7C1C leaves its own for its effects) */
-    ENGINE_LEAVE(19, 0x118);
     return f;
 }
 
@@ -815,7 +807,6 @@ void func_802CB42C(VS *vs) {
     ENGINE_BLK(802CB480);
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8B48, D_803F8B4C, D_803F8B50, 0x3E80, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802CB4BC);
     if (D_8035805C != 0) {
         ENGINE_BLK(802CB4D0);

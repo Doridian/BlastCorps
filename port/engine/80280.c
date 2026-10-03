@@ -478,7 +478,6 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 avg;
 
     ENGINE_BLK(802C5120);
-    engine_save(ENGINE_T0_T5, 0);
     D_803F7C04 = model;
     buf = D_80358070;
     D_803F7C08 = buf;
@@ -571,7 +570,6 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803F7C0C, D_803F7C08, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802C54DC);
     D_803F7844 = 0;
-    engine_restore();
 }
 
 /* hd.c's: whether it can be left: 0 with a wheel off the ground, else 2,
@@ -754,10 +752,6 @@ void func_802C5A14(s32 carrier) {
     func_802C7F28(vs);
     ENGINE_BLK(802C5A50);
     D_803ED40B = 0;
-    ENGINE_LEAVE(12, t4);
-    ENGINE_LEAVE(16, T(vs->unk96));
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(t3, t4, &D_803F7BF8, &D_803F7C00, &D_803F7BFC, 9, 0x78, 0x78, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802C5AAC);
@@ -776,7 +770,6 @@ static void jbomb_frame(void) {
     f32 rate;
 
     ENGINE_BLK(802C5AFC);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802C5970();
     ENGINE_BLK(802C5B58);
     func_802C7ECC(vs);
@@ -816,7 +809,6 @@ static void jbomb_frame(void) {
     }
     ENGINE_BLK(802C5C0C);
     vs->unk4E = vs->unk4C;
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802C5C3C);
         rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
@@ -874,9 +866,6 @@ turn:
     ENGINE_BLK(802C5D08);
     D_803ED40B = 0;
     /* ($s4, $s7 and $t4, which func_802A8768 reads too) */
-    ENGINE_LEAVE(12, vs->unk4E);
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F7BF8, &D_803F7C00, &D_803F7BFC, 9, 0x78, 0x78, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802C5D3C);
@@ -1047,7 +1036,6 @@ done:
     D_803F7C3F = 0;
 out:
     ENGINE_BLK(802C6128);
-    engine_restore();
 }
 
 /* hd.c's: the J-Bomb each frame */
@@ -1793,7 +1781,6 @@ done:
 REGS(t0, t1)
 void func_802C71FC(s32 x, s32 z) {
     ENGINE_BLK(802C71FC);
-    engine_save(0x5FFFFFFE, 0);
     D_803F7C49 = 0;
     if (func_802AC0BC(x, z, D_803F7BFC) == 0) {
         ENGINE_BLK(802C7290);
@@ -1810,7 +1797,6 @@ void func_802C71FC(s32 x, s32 z) {
     D_803F7C49 = 1;
 done:
     ENGINE_BLK(802C72D0);
-    engine_restore();
 }
 
 /* at the most damage (unk9F 100): parts 3 and 4 level, and falling (mode
@@ -2085,7 +2071,6 @@ set4:
     ENGINE_BLK(802C795C);
     D_803F7C2C = f0;
     g = 1.0f - f0;
-    ENGINE_LEAVE(10, engine_cvt_w_s(g * 100.0f));
     if (!(g <= 0.5f)) {
         ENGINE_BLK(802C79A4);
         func_802A0360(4, 2, JB, (g - 0.5f) * 2.0f);
@@ -2218,7 +2203,6 @@ f32 func_802C7C1C(s32 up, VS *vs) {
         f2 = 0.1f;
     }
     ENGINE_BLK(802C7CA0);
-    ENGINE_LEAVE(19, 0x10E);
     return f2;
 }
 
@@ -2242,7 +2226,6 @@ void func_802C7CB0(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F7BF8, D_803F7BFC, D_803F7C00, 0x4268, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802C7D48);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C7D5C);

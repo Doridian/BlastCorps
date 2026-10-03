@@ -367,35 +367,23 @@ void func_802C59B4(s32 carrier);
 REGS(a3)
 void func_802C5A14(s32 carrier);
 
-/* what the callbacks below save and load back */
-#define CARRY_KEEP_SAVED (ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(12))
-#define CARRY_MOVE_SAVED (ENGINE_GPR(7) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(10))
-
 /* the first callback of a wheeled vehicle at (x, z) (the original saves
    $t0, $t1, $t3 and $t4 and loads them back) */
 #define CARRY_KEEP(b0, b1, b2, b3, vs, x, z)                                 \
     do {                                                                     \
         s32 t3_, t4_, t5_, t6_;                                              \
         ENGINE_BLK(b0);                                                      \
-        engine_save(CARRY_KEEP_SAVED, 0);                                    \
-        ENGINE_LEAVE(28, (s32)(vs));                                         \
         t3_ = func_802AAD0C(carrier, (x), (z), &t4_);                        \
         ENGINE_BLK(b1);                                                      \
         (vs)->unk6A = t3_;                                                   \
         (vs)->unk6C = t4_;                                                   \
         (vs)->unk6E = (vs)->unk4C;                                           \
-        ENGINE_LEAVE(10, (vs)->unk4C);                                       \
-        ENGINE_LEAVE(20, (s32)&(vs)->unk4C);                                 \
         t5_ = func_802A94A4(0, (vs)->unk52, (s16 *)&(vs)->unk4C, &t6_);      \
-        ENGINE_LEAVE(13, t5_);                                               \
-        ENGINE_LEAVE(14, t6_);                                               \
         ENGINE_BLK(b2);                                                      \
         t3_ = func_802AAD0C(carrier, (x) + t5_, (z) + t6_, &t4_);            \
         ENGINE_BLK(b3);                                                      \
         (vs)->unk70 = t3_;                                                   \
         (vs)->unk72 = t4_;                                                   \
-        engine_restore();                                                    \
-        ENGINE_LEAVE(3, (s32)(vs)->unk52);                                   \
     } while (0)
 
 /* the second, for a wheeled vehicle at (*px, *py, *pz) of the given type
@@ -406,27 +394,16 @@ void func_802C5A14(s32 carrier);
     do {                                                                     \
         s32 t0_, t3_, t4_;                                                   \
         ENGINE_BLK(b0);                                                      \
-        engine_save(CARRY_MOVE_SAVED, 0);                                    \
-        ENGINE_LEAVE(28, (s32)(vs));                                         \
         t0_ = func_802AB9A4(carrier, (vs)->unk6A, (vs)->unk6C, (vs)->unk70, (vs)->unk72, (vs)->unk52, \
                             (u16 *)&(vs)->unk6E);                            \
         ENGINE_BLK(b1);                                                      \
         (vs)->unk4E = t0_;                                                   \
         (vs)->unk4C = t0_;                                                   \
         t3_ = func_802AAE54(carrier, (vs)->unk6A, (vs)->unk6C, &t4_);        \
-        ENGINE_LEAVE(8, (vs)->unk6A);                                        \
-        ENGINE_LEAVE(9, (vs)->unk6C);                                        \
-        ENGINE_LEAVE(11, t3_);                                               \
-        ENGINE_LEAVE(12, t4_);                                               \
         ENGINE_BLK(b2);                                                      \
         camera;                                                              \
         ENGINE_BLK(b3);                                                      \
         flag;                                                                \
-        ENGINE_LEAVE(12, t4_);                                               \
-        ENGINE_LEAVE(14, (s32)&(vs)->unk76);                                 \
-        ENGINE_LEAVE(16, (s32)(vs)->unk96);                                  \
-        ENGINE_LEAVE(20, (s32)&(vs)->unk4C);                                 \
-        ENGINE_LEAVE(23, (s32)(vs)->unk4);                                   \
         func_802A8768(t3_, t4_, (px), (pz), (py), (type), (t9), (fp), (vs)->unk52, (vs)->unk28, (vs)->unk28 + 6, \
                       (vs)->unk28 + 3, (vs)->unk5E, (vs));                   \
         ENGINE_BLK(b4);                                                      \
@@ -434,7 +411,6 @@ void func_802C5A14(s32 carrier);
         ENGINE_BLK(b5);                                                      \
         func_802A133C(*(px), *(py), *(pz), (type), (vs));                    \
         ENGINE_BLK(b6);                                                      \
-        engine_restore();                                                    \
     } while (0)
 
 #endif

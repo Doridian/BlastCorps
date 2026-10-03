@@ -697,7 +697,6 @@ s32 func_8029BEE4(CollisionTri *t, s32 x, s32 y, s32 z, s32 r) {
     else
         ENGINE_BLK(8029BF58);
     ENGINE_BLK(8029BF5C);
-    ENGINE_LEAVE(2, t->v[0][0]);
     return r >= d;
 }
 
@@ -769,14 +768,6 @@ void func_8029C0DC(u8 *t, s32 x, s32 y, s32 z) {
     FlatTri f;
 
     collision_flatten((CollisionTri *)t, x, y, z, &f);
-    ENGINE_LEAVE(2, f.u0);
-    ENGINE_LEAVE(3, f.v0);
-    ENGINE_LEAVE(4, f.u1);
-    ENGINE_LEAVE(5, f.v1);
-    ENGINE_LEAVE(6, f.u2);
-    ENGINE_LEAVE(7, f.v2);
-    ENGINE_LEAVE(8, f.pu);
-    ENGINE_LEAVE(9, f.pv);
 }
 
 /* the matrix copies due this frame (frame D_8035805C) made and freed;
@@ -1390,7 +1381,6 @@ void func_8029EF80(Key *k, s32 *acc, f32 t, s32 fp) {
         ENGINE_BLK(8029F038);
     }
     ENGINE_BLK(8029F04C);
-    ENGINE_LEAVE(30, fp);
 }
 
 /* the spline's four keys of a part's record */
@@ -1615,7 +1605,6 @@ void func_8029E5AC(Anim *a, u8 *base) {
 
     ENGINE_BLK(8029E5AC);
     n = ANIM_KEYS_N(d);
-    ENGINE_LEAVE(14, n);
     k = func_8029F1BC(a, k, n, ANIM_RATE(ANIM_SPEED(d, k), ANIM_SPEED(d, k + 1), t), t, &t);
     ENGINE_BLK(8029E604);
     interp = a->interp;
@@ -3705,7 +3694,6 @@ void func_8029E21C(Anim *a, s32 fp) {
         ENGINE_BLK(8029E460);
     }
     ENGINE_BLK(8029E468);
-    ENGINE_LEAVE(2, 0);
 }
 
 /* The texture animations (D_803B35F8's running records) one frame on */
@@ -3810,13 +3798,6 @@ static s32 rule_applies(const BuildingRule *e, s32 type, const EngineBlk *b) {
     return 1;
 }
 
-/* the registers func_8029AA10, func_8029AB88 and func_8029B02C save and
-   load back (and t8 for the last two): what their callees leave there
-   (func_8029BF64's t8, say) doesn't get out */
-#define B02C_SAVED                                                                                             \
-    (ENGINE_GPR(3) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(14) | ENGINE_GPR(15) |         \
-     ENGINE_GPR(16) | ENGINE_GPR(17) | ENGINE_GPR(18) | ENGINE_GPR(20) | ENGINE_GPR(23) | ENGINE_GPR(25))
-
 /* The vehicle (type, the sphere (x, y, z, r), its number n) against the
    buildings: the pieces of the level's buildings of the kinds its rules
    give, whose bounding sphere it meets (func_8029B514); the holes' (not
@@ -3850,9 +3831,6 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
 
     /* (the inputs the vehicle modules' readers find in their registers
        afterwards: $t8 and $fp) */
-    ENGINE_LEAVE(24, type);
-    ENGINE_LEAVE(30, n);
-    engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029B02C);
     /* the buildings */
     for (e = D_803059F0;; e++) {
@@ -4007,7 +3985,6 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
         }
     }
     ENGINE_BLK(8029B4D4);
-    engine_restore();
 }
 
 /* Whether the sphere (x, y, z, r) meets any triangle func_8029B02C would
@@ -4166,13 +4143,10 @@ REGS(t3, t4, t5, t6, t8 -> a1)
 s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
     s32 hit;
 
-    ENGINE_LEAVE(24, type);
-    engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     hit = ab88(x, y, z, r, type);
     if (hit)
         ENGINE_BLK(8029AFE0);
     ENGINE_BLK(8029AFEC);
-    engine_restore();
     return hit;
 }
 
@@ -4187,7 +4161,6 @@ static void aa10(s32 type) {
     KindPart *p;
     s32 n = 0;
 
-    engine_save(B02C_SAVED, 0);
     ENGINE_BLK(8029AA10);
     D_803A742B = 0;
     for (s = D_803A7300;; s++) {
@@ -4225,7 +4198,6 @@ static void aa10(s32 type) {
         ENGINE_BLK(8029AB18);
         if (D_803A7412 == TURN - 1) {
             ENGINE_BLK(8029AB4C);
-            engine_restore();
             return;
         }
     }
@@ -4233,7 +4205,6 @@ static void aa10(s32 type) {
     D_803A7425 = 1;
     D_803A740C = D_80358068;
     ENGINE_BLK(8029AB4C);
-    engine_restore();
 }
 
 /* ---- the entry points as the vehicle modules declare them (shared.h) ----- */
@@ -4259,7 +4230,6 @@ static s32 a800_type;
 REGS(v0, v1, a0, a1, a2, a3, t0, t1, t2, t3, t8, gp)
 void func_8029A800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len, s32 speed, s32 fx_speed,
                    s32 t3, s32 type, VS *vs) {
-    ENGINE_LEAVE(24, type);
     a800_type = type;
     a800(x, y, z, kinds, a2, hit_fx, fx_len, speed, fx_speed, t3, type, vs);
 }

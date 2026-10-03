@@ -117,8 +117,6 @@ void func_802D291C(void) {
     VS *vs = &D_803FCCA0;
 
     ENGINE_COST(802D291C, 67);
-    /* (its $s4 as it found it: 5CB60.c reads it from the context) */
-    engine_save(ENGINE_GPR(20), 0);
     func_802D2A40();
     if (VS_IN_SETUP(vs) == 0) {
         func_802D2A74();
@@ -126,7 +124,6 @@ void func_802D291C(void) {
     }
     func_8029E558(PARTS, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802D2FA4(vs);
-    engine_restore();
 }
 
 void func_802D2A40(void) {

@@ -122,8 +122,6 @@ s32 func_802AEC3C(s32 d, VS *vs);
    83 degrees, the shadow drawn edge-on as nearly always. */
 #define SHADOW_TILT 0x803ED3B0
 
-#define SAVED_AEC3C (ENGINE_GPR(2) | ENGINE_GPR(3) | ENGINE_GPR(4) | ENGINE_GPR(6) | 0xFFu << 8 | ENGINE_GPR(24) | \
-                     ENGINE_GPR(25) | ENGINE_GPR(28))
 
 /* part i's state: func_802A04BC's first result (and its sixth, the
    frame) */
@@ -155,7 +153,6 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 avg, k;
 
     ENGINE_COST(802AE370, 316);
-    engine_save(ENGINE_T0_T5, 0);
     D_803ED818 = (VehicleModel *)model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0xC80;
@@ -210,7 +207,6 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     }
     D_8036444C = 0xD48;
     D_80364450 = 0;
-    engine_restore();
 }
 
 /* hd.c's: part 0x1F (the run) stopped */
@@ -230,7 +226,6 @@ u8 func_802AE888(s32 dist) {
     s32 side = 0, mul = 1, d, r = 0, h;
 
     ENGINE_COST(802AE888, 235);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
 #ifndef VERSION_US_V10
     D_803F7812 = 1;
 #endif
@@ -279,7 +274,6 @@ u8 func_802AE888(s32 dist) {
     r = 1;
 done:
     D_803ED827 = 0;
-    engine_restore();
     return r;
 }
 
@@ -305,7 +299,6 @@ s32 func_802AEC3C(s32 d, VS *vs) {
     s32 r;
 
     ENGINE_COST(802AEC3C, 110);
-    engine_save(SAVED_AEC3C, 0);
     X = D_803643E0;
     Z = D_803643E8;
     side_step(D_803ED828, d, &X, &Z);
@@ -322,7 +315,6 @@ s32 func_802AEC3C(s32 d, VS *vs) {
     if (D_80364456 != VEHICLE_BARGE)
         func_8028F994(X, Y, Z);
     r = D_803A7424 == 0;
-    engine_restore();
     return r;
 }
 
@@ -354,7 +346,6 @@ static void driver_frame(void) {
     u64 mode;
 
     ENGINE_COST(802AEEC8, 191);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802AEE84();
     if (VS_IN_SETUP(vs) == 0)
         func_802AF4BC(vs);
@@ -373,7 +364,6 @@ static void driver_frame(void) {
                 func_802A77D0(vs);
             func_802A7FD8(DRIVER_TURN_RATE, &VS_SPEED(vs), (u16 *)&VS_TURN_HEADING(vs), &VS_HEADING(vs),
                           &VS_MOVE_HEADING(vs), (s8 *)&VS_TURNING(vs), 0, vs);
-            ENGINE_LEAVE(16, T(VS_AIRBORNE(vs)));     /* ($s0, which 56040.c's func_8029C454 reads) */
             rate = func_802A83B8(step, &VS_SPEED(vs), VS_AIRBORNE(vs), VS_WHEEL_H(vs), &VS_SLOPE_RATIO(vs), &step);
             func_802A843C(&VS_SPEED(vs), 1, VEHICLE_DRIVER, (s8 *)VS_AIRBORNE(vs), VS_WHEEL_H(vs), DRIVER_SLOPE_DIV,
                           vs);
@@ -382,11 +372,6 @@ static void driver_frame(void) {
             /* the move, on the ground */
             x = func_802A860C(VS_MOVE_HEADING(vs), &VS_SPEED(vs), &X, &Z, rate, &z);
             D_803ED40B = 0;
-            /* ($s4, $s7, $t4: what the other half of port/engine reads from
-               the context) */
-            ENGINE_LEAVE(12, VS_MOVE_HEADING(vs));
-            ENGINE_LEAVE(20, T(&VS_HEADING(vs)));
-            ENGINE_LEAVE(23, T(VS_WHEEL_H(vs)));
             func_802A8768(x, z, &X, &Z, &Y, VEHICLE_DRIVER, DRIVER_SPAN, DRIVER_SPAN, VS_WHEELS(vs),
                           VS_WHEEL_FALL(vs), VS_WHEEL_FRAMES(vs), VS_WHEEL_GROUND(vs), VS_CARRY_WHEELS(vs), vs);
         }
@@ -412,7 +397,6 @@ static void driver_frame(void) {
         }
     }
     PLAYER_FROM(X, Y, Z, vs, VEHICLE_DRIVER);
-    engine_restore();
 }
 
 /* Getting out: a step of DRIVER_OUT_STEP toward the side, on the ground,
@@ -503,7 +487,6 @@ void func_802AF4BC(VS *vs) {
         /* the footsteps (the original saves and loads back every register;
            the level's byte it tests is an s32's top one, always 0, so its
            two levels without them never match) */
-        engine_save(0x5FFFFFFE, 0);
         v = (u32)D_802E8BDC >> 24;
         if (v != 0x31 && v != 0x26) {
             part_state(1, p, &f13);
@@ -512,7 +495,6 @@ void func_802AF4BC(VS *vs) {
             if (f13 != last && (f13 == 2 || f13 == 6))
                 func_80260650(D_80367738, f13 == 2 ? 0x14 : 0x15, NULL);
         }
-        engine_restore();
         func_802A039C(1, (u32)iabs(s) / DRIVER_LEG_SPEED_DIV, p);
         func_802A0290(1, -1, p);
     }
@@ -530,7 +512,6 @@ void func_802AFA64(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(X, Y, Z, DRIVER_SCALE, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 772A0.c reads it from the context) */
     func_8029C454(X, Y, Z, VEHICLE_DRIVER, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
 }
 

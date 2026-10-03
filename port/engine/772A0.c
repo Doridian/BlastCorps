@@ -67,7 +67,6 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s16 *r;
 
     ENGINE_BLK(802BBA60);
-    engine_save(ENGINE_T0_T5, 0);
     D_803EFEA4 = model;
     buf = D_80358070;
     D_803EFEA8 = buf;
@@ -138,7 +137,6 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk9A = 0;
     func_802AA838(D_803EFEAC, D_803EFEA8, *(s32 *)(D_803EFEA4 + *(s32 *)(D_803EFEA4 + 0x18) + 4));
     ENGINE_BLK(802BBDA4);
-    engine_restore();
 }
 
 /* hd.c's: the player gets in */
@@ -180,7 +178,6 @@ void func_802BBEB8(void) {
     s32 near, far;
 
     ENGINE_BLK(802BBEB8);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802BBE74();
     ENGINE_BLK(802BBF08);
     if (vs->unk9A == 0) {
@@ -194,7 +191,6 @@ void func_802BBEB8(void) {
     ENGINE_BLK(802BBF44);
     func_802A7FD8(TRAIN_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802BBF60);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802BBF6C);
     func_802A843C(&vs->unk76, 1, 7, (s8 *)vs->unk96, vs->unk4, TRAIN_SLOPE_DIV, vs);
@@ -213,8 +209,6 @@ void func_802BBEB8(void) {
     ENGINE_BLK(802BC02C);
     D_803ED40B = 0;
     /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EFE98, &D_803EFEA0, &D_803EFE9C, 7, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802BC060);
@@ -289,7 +283,6 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 7, vs);
     ENGINE_BLK(802BC278);
-    engine_restore();
 }
 
 /* the wheels' sparks and sound */
@@ -356,7 +349,6 @@ void func_802BC3D0(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     m = func_802AA764(D_803EFE98, D_803EFE9C, D_803EFEA0, 15000, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802BC468);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BC47C);

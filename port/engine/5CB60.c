@@ -4,12 +4,9 @@
  * into the run-time tables, and (at the end) the loader itself
  * (func_802A1674) with its vehicle and model parts.
  *
- * The originals take the level's header in $t0.  Some of what they leave
- * in registers is still read later (ENGINE_LEAVE, ENGINE_REG): the
- * collision triangles' bytes 0x4F, 0x50 and 0x58 come from whatever $t9,
- * $v0 and $s1 hold (func_802A41B0), the vehicles' wheels take $fp, the
- * vehicle modules' effects $t4; those registers stay until their readers
- * take values instead (the other half's are most of them).
+ * The originals take the level's header in $t0.  What they took from
+ * registers nobody set for them (the collision triangles' bytes, the
+ * textures' palette) are values now: LEVEL_TRI_BYTES, tex_param.
  *
  * Loops charge their test block in the loop's condition
  * (`for (...; ENGINE_BLK(test), cond; ...)`), as the original runs it
@@ -494,15 +491,6 @@ void func_802A1A9C(u32 h_) {
 }
 
 /* ---- the collision triangles -------------------------------------------- */
-
-/* the registers the triangles' bytes 0x4F, 0x50 and 0x58 come from where
-   the callers have nothing else for them ($t9, $v0, $s1: func_802A41B0) */
-#define R_V0 2
-#define R_A1 5
-#define R_T4 12
-#define R_S1 17
-#define R_T9 25
-#define R_FP 30
 
 /* LEVEL_TRI_BYTES: the level's triangles' owner (0x4F), id (0x50) and
    pushes (0x58), and the switches' pushes, are 0.  The original stores
@@ -1152,13 +1140,11 @@ void func_802A1C20(u32 h_) {
 
         ENGINE_BLK(802A1C40);
         n = at->nframes - 1;
-        ENGINE_LEAVE(R_S1, KSEG0);
         for (k = 0; ENGINE_BLK(802A1C50), k < n; k++) {
             u32 phys;
 
             ENGINE_BLK(802A1C58);
             phys = func_802A0CFC(at->frames[k], fp);
-            ENGINE_LEAVE(16, phys);
             ENGINE_BLK(802A1C64);
             at->frames[k] = phys;
         }
@@ -1178,7 +1164,6 @@ void func_802A3008(u32 h_) {
     ENGINE_BLK(802A3008);
     func_802A08E4((u32)LEVEL_PTR(h, displayLists[0]), (u32)LEVEL_PTR(h, displayLists[3]));
     ENGINE_BLK(802A3028);
-    ENGINE_LEAVE(R_S1, (u32)LEVEL_PTR(h, displayLists[3]));
 }
 
 /* ---- the buildings ------------------------------------------------------ */
@@ -1275,7 +1260,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     ENGINE_BLK(802A21E4);
     b = D_803F7654;
     D_803F7654 = b + 1;
-    ENGINE_LEAVE(R_V0, (u32)&D_803F7654);
     func_802A2458((u32)b, (u32)m);
     ENGINE_BLK(802A21FC);
     b->unk34 = unk34;
@@ -1349,7 +1333,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     ENGINE_BLK(802A23C0);
     b->unk8 = t;
     D_80358070 = (u8 *)t;
-    ENGINE_LEAVE(R_T4, (u32)t);
 }
 
 /* the vehicle modules' blocks that func_802A1D54 resets, by their size */
@@ -1415,7 +1398,6 @@ void func_802A1D54(u32 h_) {
         ENGINE_BLK(802A1E88);
         ((Model *)m)->unk6 = p->unk9;
         D_8036EB93 += p->unk9;
-        ENGINE_LEAVE(R_T9, p->speed);
         func_802A21AC((u32)m, n, x, y, z, p->unk8, p->speed);
         ENGINE_BLK(802A1EB0);
     }
@@ -1557,7 +1539,6 @@ u32 func_802A396C(u32 type) {
     }
     ENGINE_BLK(802A3C54);
     top = load_gz_model(start, end - start);
-    ENGINE_LEAVE(R_A1, top);
     ENGINE_BLK(802A3CDC);
     m = D_80358070;
     D_80358070 = (u8 *)top;
@@ -1721,7 +1702,6 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     u64 mode;
 
     ENGINE_BLK(802A1674);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     D_803BE6F4 = status;
     func_802A2D68(h);
     ENGINE_BLK(802A16D0);
@@ -1816,7 +1796,6 @@ void func_802A1674(LevelHeader *hp, s32 status) {
         func_802C4BF0((u8 *)(__UINTPTR_TYPE__)(u32)D_803BE6F4);
     }
     ENGINE_BLK(802A18E4);
-    engine_restore();
 }
 
 /* the extra model the level has (D_8039CAB7): the scientist, its vertices

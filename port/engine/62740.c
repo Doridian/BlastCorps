@@ -4,11 +4,6 @@
  * (vehicle.h) that every vehicle module passes in $gp: its headings, its
  * speed, its gear table and its wheels.  vehicle.h names the fields and
  * the per-frame constants (docs/PORT.md, "The engine made readable").
- *
- * A few registers stay in the context (ENGINE_LEAVE) because other parts
- * of port/engine still read them from there: 5CB60.c's collision
- * triangles, 8A080.c, 69BB0.c's driver and 56040.c's func_8029A800
- * (docs/PORT.md, "The scaffolding stripped").
  */
 #include "vehicle.h"
 #include "game/game.h"
@@ -740,10 +735,6 @@ s32 func_802A860C(s32 angle, s16 *speed, s32 *x, s32 *z, f32 rate, s32 *z_out) {
         rx = px - dx, rz = pz - dz;
     else
         rx = px - dz, rz = pz + dx;
-    /* ($v0 and $fp: 5CB60.c's collision triangles and 69BB0.c's driver read
-       them from the context) */
-    ENGINE_LEAVE(2, 0x400);
-    ENGINE_LEAVE(30, c);
     *z_out = rz;
     return rx;
 }
@@ -1026,8 +1017,6 @@ s32 func_802AA2E4(s32 x, s32 z, s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2, 
     nz = (s64)((u64)((s64)g * d) - (u64)((s64)a * e));
     w = -(s64)((u64)nx * (u64)(s64)x2 + (u64)ny * (u64)(s64)y2 + (u64)nz * (u64)(s64)z2);
     t = (s64)((u64)nx * (u64)(s64)x + (u64)ny * (u64)(s64)-1000 + (u64)nz * (u64)(s64)z + (u64)w);
-    /* ($t6, which 8A080.c's func_802CE9C8 passes on from the context) */
-    ENGINE_LEAVE(14, d);
     if (ny == 0)
         return -9999999;
     f = (f64)t / (f64)(s64)((u64)ny * 2000);
@@ -1081,7 +1070,6 @@ s32 func_802A9DC0(s32 x, s32 z, s32 y, s32 mat, s32 *mat_out) {
         dist = a;
         mat = p[0x24];
     }
-    ENGINE_LEAVE(14, 0);                /* ($t6: 8A080.c's and 5CB60.c's collision triangles read it) */
     *mat_out = mat;
     return best;
 }
@@ -2116,11 +2104,6 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
     s32 along = t9, across = fp, i, w, hw[3], roll, shadow_along, shadow_across;
 
     ENGINE_COST(802A8768, 187);
-    /* ($t7, $t8 and $t9: 5CB60.c's collision triangles read them from the
-       context) */
-    ENGINE_LEAVE(15, (u32)px);
-    ENGINE_LEAVE(24, type);
-    ENGINE_LEAVE(25, t9);
     if (func_802A8CCC(x, z, px, py, pz, type, vs)) {
         x = *px;
         z = *pz;
@@ -2159,7 +2142,6 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
        the third over the along span */
     D_803ED390[2] = slope_angle(hw[1] - hw[0], across, 1);
     D_803ED390[0] = roll = slope_angle(hw[2] - hw[0], along, 0);
-    ENGINE_LEAVE(30, roll);             /* ($fp: 5CB60.c and 69BB0.c's driver read it from the context) */
     /* the shadow, on the ground's slope */
     shadow_along = func_802A8B10(&shadow_across);
     func_802582C4(type, *px, ((u32)D_803ED3A8[1] + (u32)D_803ED3A8[2]) >> 1, *pz, ((u32)hw[1] + (u32)hw[2]) >> 1,
@@ -2169,12 +2151,8 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
         func_802A92C8(*px, *pz, VS_CARRY_WHEELS(vs), (s16 *)&VS_HEADING(vs), hist, type, vs, roll);
 }
 
-/* func_802ABBEC as the vehicle modules declare it (shared.h).  Its $t0
-   and $t2 stay in the context: 56040.c's func_8029A800 takes those of a
-   vehicle that doesn't set them itself from there. */
+/* func_802ABBEC as the vehicle modules declare it (shared.h) */
 REGS(t0, t1, t2, s4)
 void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf) {
-    ENGINE_LEAVE(8, id);
-    ENGINE_LEAVE(10, (u32)end);
     abbec(id, verts, end, buf);
 }

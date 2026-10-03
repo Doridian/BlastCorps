@@ -497,8 +497,6 @@ static void chopper_frame(void) {
     s32 *p;
 
     ENGINE_COST(802B899C, 76);
-    /* (its $fp as it found it: 69BB0.c's driver reads it from the context) */
-    engine_save(ENGINE_GPR(30), 0);
     func_802B8D04();
     func_802B98E0(vs);
     func_8029E558(Q, FRAME_BUF(CH_BUF0, CH_BUF1), OTHER_BUF(CH_BUF0, CH_BUF1));
@@ -508,7 +506,6 @@ static void chopper_frame(void) {
     D_803EF314 = p[1];
     D_803EF318 = p[2];
     func_802B8C18(vs);
-    engine_restore();
 }
 
 /* hd.c's: the chopper each frame */

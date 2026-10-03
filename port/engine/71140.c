@@ -260,8 +260,6 @@ void func_802B6294(void) {
     f32 rate;
 
     ENGINE_COST(802B6294, 259);
-    /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
-    engine_save(ENGINE_GPR(30), 0);
     func_802B60BC();
     func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
     if (VS_IN_SETUP(vs) == 0)
@@ -332,7 +330,6 @@ void func_802B6294(void) {
     func_802AC2A4(X, Y, Z, D_80305D20, VEHICLE_TRUCK, vs);
     if (D_803EEB61 >= 0)
         func_80260650(D_80367738, D_803EEB61, NULL);
-    engine_restore();
 }
 
 /* dust behind it while turning on soft ground (grip under 3, not the

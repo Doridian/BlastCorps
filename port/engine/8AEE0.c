@@ -123,7 +123,6 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 avg;
 
     ENGINE_BLK(802CF6A0);
-    engine_save(ENGINE_T0_T5, 0);
     D_803FC5B4 = model;
     buf = D_80358070;
     D_803FC5B8 = buf;
@@ -195,7 +194,6 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     model = D_803FC5B4;
     func_802AA838(D_803FC5BC, D_803FC5B8, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802CF9E8);
-    engine_restore();
 }
 
 /* hd.c's: the player gets in */
@@ -273,7 +271,6 @@ void func_802CFDE8(void) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802CFDE8);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802CFC10();
     ENGINE_BLK(802CFE3C);
     func_802A75DC((u8 *)P, &D_803FC5A8, &D_803FC5AC, &D_803FC5B0, (u8 *)vs);
@@ -308,7 +305,6 @@ void func_802CFDE8(void) {
     ENGINE_BLK(802CFEF4);
     func_802A7FD8(HOTROD_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802CFF0C);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802CFF18);
     func_802A843C(&vs->unk76, 1, 0xF, (s8 *)vs->unk96, vs->unk4, HOTROD_SLOPE_DIV, vs);
@@ -322,8 +318,6 @@ void func_802CFDE8(void) {
     ENGINE_BLK(802CFF60);
     D_803ED40B = 1;
     /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803FC5A8, &D_803FC5B0, &D_803FC5AC, 0xF, 0x1F4, 0x15E, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802CFF98);
@@ -450,7 +444,6 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0xF, vs);
     ENGINE_BLK(802D02A4);
-    engine_restore();
 }
 
 /* the dust, the wheels' sparks off rough ground, and the engine's sound */
@@ -499,7 +492,6 @@ sound:
 REGS(gp)
 void func_802D0438(VS *vs) {
     ENGINE_BLK(802D0438);
-    engine_save(0x5FFFFFFE, 0);
     if (vs->unk96[3] == 0)
         goto done;
     ENGINE_BLK(802D04C8);
@@ -516,7 +508,6 @@ void func_802D0438(VS *vs) {
     ENGINE_BLK(802D0550);
 done:
     ENGINE_BLK(802D0554);
-    engine_restore();
 }
 
 /* its matrix, its vertices and its collision */
@@ -537,7 +528,6 @@ void func_802D05D8(VS *vs) {
     ENGINE_BLK(802D062C);
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803FC5A8, D_803FC5AC, D_803FC5B0, 0x32C8, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802D0668);
     if (D_8035805C != 0) {
         ENGINE_BLK(802D067C);
@@ -627,7 +617,6 @@ void func_802D07E0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s16 *r;
 
     ENGINE_BLK(802D07E0);
-    engine_save(ENGINE_T0_T5, 0);
     D_803FC984 = model;
     buf = D_80358070;
     D_803FC988 = buf;
@@ -706,7 +695,6 @@ void func_802D07E0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803FC98C, D_803FC988, *(s32 *)(D_803FC984 + *(s32 *)(D_803FC984 + 0x18) + 4));
     ENGINE_BLK(802D0B64);
     D_803F7844 = NULL;
-    engine_restore();
 }
 
 /* hd.c's: whether it can be left: on the ground and walking */
@@ -779,7 +767,6 @@ void func_802D0F98(void) {
     f32 rate;
 
     ENGINE_BLK(802D0F98);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802D0F54();
     ENGINE_BLK(802D0FF4);
     if (vs->unk9A == 0) {
@@ -803,7 +790,6 @@ void func_802D0F98(void) {
     ENGINE_BLK(802D1050);
     func_802A7FD8(SUIT_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802D1068);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802D1074);
     func_802A843C(&vs->unk76, 0, 0x10, (s8 *)vs->unk96, vs->unk4, SUIT_SLOPE_DIV, vs);
@@ -817,8 +803,6 @@ void func_802D0F98(void) {
     ENGINE_BLK(802D10BC);
     D_803ED40B = 0;
     /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803FC978, &D_803FC980, &D_803FC97C, 0x10, 0x78, 0x78, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802D10F0);
@@ -904,7 +888,6 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0x10, vs);
     ENGINE_BLK(802D130C);
-    engine_restore();
 }
 
 /* the suit's matrix (turned a quarter), its vertices and its collision */
@@ -933,7 +916,6 @@ void func_802D22F4(VS *vs) {
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     func_802AA764(D_803FC978, D_803FC97C, D_803FC980, 0x2134, m);
-    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802D239C);
     if (D_8035805C != 0) {
         ENGINE_BLK(802D23B0);

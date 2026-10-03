@@ -939,14 +939,10 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     Mtx *m;
     s32 first, n, gi, dmg, i, nvis, hidden;
     GroupCond *c;
-    /* what the original leaves in $t6-$t8, which 5CB60.c's collision
-       triangles, 60F60.c and 69BB0.c's driver read from the context */
     u32 t6 = 0, t7 = 0, t8 = 0;
     s32 drawn = 0, fell = 0;
 
     ENGINE_BLK(802BD1F8);
-    /* (its $s4 as it found it: 5CB60.c reads it from the context) */
-    ENGINE_SAVE(G(rS4));
     D_803F7658 = arg4;
     D_803F765C = arg5;
     func_802C08C4((u32 *)g6);
@@ -1001,10 +997,7 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             b->x = D_803F7664;
             b->y = D_803F7668;
             b->z = D_803F766C;
-            /* (its $t8 and $t9 as they were: 5CB60.c and 69BB0.c read them) */
-            ENGINE_SAVE(G(rT8) | G(rT9));
             func_802BD99C(b, D_803F7664 - ox, D_803F7668 - oy, D_803F766C - oz);
-            ENGINE_RESTORE();
             ENGINE_BLK(802BD480);
         }
         ENGINE_BLK(802BD4C8);
@@ -1098,14 +1091,9 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     }
     ENGINE_BLK(802BD804);
     visible_cells_clear();
-    ENGINE_RESTORE();
     if (drawn) {
-        ENGINE_LEAVE(rT6, t6);
-        ENGINE_LEAVE(rT7, t7);
     }
     if (fell)
-        ENGINE_LEAVE(rT8, t8);
-    ENGINE_LEAVE(rV0, (u32)end);        /* ($v0, which 5CB60.c reads) */
     g0 = func_802C12E0(g0, g1, &g1);
     ENGINE_BLK(802BD80C);
     g0[0] = DL_END;
@@ -1182,9 +1170,8 @@ static void piece_axis(Piece *p, s64 ax, s64 ay, s64 az) {
 
 /* Building b moved by (dx, dy, dz) (<< 5): its model's heights, shadow,
    triangles, corners, effect records and group centres, and its pieces,
-   whose planes are made again from their corners.  It leaves its $fp
-   (qz) in the context, which 5CB60.c reads.  (71140.c moves what the
-   chopper carries with it too.) */
+   whose planes are made again from their corners.  (71140.c moves what
+   the chopper carries with it too.) */
 REGS(v0, a2, a3, t0)
 void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
     u8 *s, *e;
@@ -1289,7 +1276,6 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
         ENGINE_BLK(802BDD9C);
     }
     ENGINE_BLK(802BDDA4);
-    ENGINE_LEAVE(rFP, qz);              /* ($fp, which 5CB60.c reads) */
 }
 
 /* Building b's animated textures stepped (anim to end, AnimTex).  Kind 0
@@ -1732,7 +1718,6 @@ s32 func_802BE944(Building *b, s32 type) {
         }
     }
     ENGINE_BLK(802BE9D8);
-    ENGINE_LEAVE(rT9, r);               /* ($t9, which 5CB60.c reads) */
     return r;
 }
 
@@ -1802,7 +1787,6 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
         ENGINE_BLK(802BEB80);
     }
     ENGINE_BLK(802BEB88);
-    ENGINE_LEAVE(rT9, (u32)b);          /* ($t9, which 5CB60.c reads) */
 }
 
 /* us.v10's func_802BEBB0 lacks the check of D_803F7812 (802BED4C), and

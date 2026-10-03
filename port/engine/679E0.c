@@ -252,8 +252,6 @@ void func_802ACCCC(s32 *b, s32 *a) {
         a[i] = D_803ED420[i];
     /* (what the vehicle modules read later: $s2 6E200's effects, $a1 the
        driver's shadow through 62740's frames; the other half's readers) */
-    ENGINE_LEAVE(5, (u32)(D_803ED420 + 16));
-    ENGINE_LEAVE(18, (u32)a);
 }
 
 /* (x, z) rotated by the angle about y, 16.16: x' (a3) and z' (t1), and

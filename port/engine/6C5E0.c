@@ -241,8 +241,6 @@ void func_802B152C(void) {
     f32 rate;
 
     ENGINE_COST(802B152C, 188);
-    /* (its $s4 and $fp as it found them: 5CB60.c and the other vehicles read them from the context) */
-    engine_save(ENGINE_GPR(20) | ENGINE_GPR(30), 0);
     func_802B14E8();
     if (VS_IN_SETUP(vs) == 0)
         func_802B18F4(vs);
@@ -296,7 +294,6 @@ void func_802B152C(void) {
         func_802A6FE4(0, vs);
     }
     PLAYER_FROM(X, Y, Z, vs, VEHICLE_MAGOO);
-    engine_restore();
 }
 
 /* the first of the n parts that is animating handed over to idle `to`

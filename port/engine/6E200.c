@@ -250,8 +250,6 @@ static void skyfall_frame(void) {
     f32 rate;
 
     ENGINE_COST(802B327C, 222);
-    /* (its $fp as it found it: the other vehicles read it from the context) */
-    engine_save(ENGINE_GPR(30), 0);
     func_802B30B0();
     func_802A75DC((u8 *)SKY, &SKY_X, &SKY_Y, &SKY_Z, (u8 *)vs);
     if (VS_IN_SETUP(vs) == 0)
@@ -299,7 +297,6 @@ static void skyfall_frame(void) {
         func_802BE77C(VEHICLE_BUGGY, vs);
     }
     PLAYER_FROM(SKY_X, SKY_Y, SKY_Z, vs, VEHICLE_BUGGY);
-    engine_restore();
 }
 
 /* hd.c's: Skyfall each frame */
@@ -670,8 +667,6 @@ static void ramdozer_frame(void) {
     f32 rate;
 
     ENGINE_COST(802B49AC, 220);
-    /* (its $fp as it found it: the other vehicles read it from the context) */
-    engine_save(ENGINE_GPR(30), 0);
     func_802B47D4();
     func_802A75DC((u8 *)RAM, &RAM_X, &RAM_Y, &RAM_Z, (u8 *)vs);
     func_802C4724(0x8F);
@@ -721,7 +716,6 @@ static void ramdozer_frame(void) {
         func_802BE77C(VEHICLE_BULLDOZER, vs);
     }
     PLAYER_FROM(RAM_X, RAM_Y, RAM_Z, vs, VEHICLE_BULLDOZER);
-    engine_restore();
 }
 
 /* hd.c's: the Ramdozer each frame */

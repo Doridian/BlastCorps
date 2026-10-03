@@ -206,8 +206,6 @@ void func_802CBEF0(void) {
     f32 rate;
 
     ENGINE_COST(802CBEF0, 214);
-    /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
-    engine_save(ENGINE_GPR(30), 0);
     func_802CBD18();
     func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
     func_802C4724(VEHICLE_POLICE);
@@ -255,7 +253,6 @@ void func_802CBEF0(void) {
         func_802BE77C(VEHICLE_POLICE, vs);
     }
     PLAYER_FROM(X, Y, Z, vs, VEHICLE_POLICE);
-    engine_restore();
 }
 
 /* the siren's lights (flashing while L or R is held), the dust, the

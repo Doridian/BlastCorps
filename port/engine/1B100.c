@@ -6,32 +6,12 @@
  * (func_80202100), set its parts up (func_80202270, func_802022EC,
  * func_80202380), turn them (func_802025D0) and step them a frame
  * (func_802021FC).
- *
- * What is left of the original's registers: their $v0 (the last part
- * helper's first argument, ENGINE_LEAVE(rV0, ...)) and the $s0-$fp they
- * load back (regs_keep/regs_restore around the calls into hd_code).  The
- * next level's loader still reads them (5CB60's collision triangles take a
- * byte from $v0, the vehicles' $s registers come through the loads), which
- * keeps the TAS exact for now.
  */
 #include "shared.h"
 #include "game/game.h"
 #include "game/model.h"
 #include "game/vehicle.h"
 
-enum { rV0 = 2 };
-#define G(r) ENGINE_GPR(r)
-#define S0_FP (G(16) | G(17) | G(18) | G(19) | G(20) | G(21) | G(22) | G(23) | G(28) | G(30))
-
-/* the $s0-$fp the original saves at entry and loads back before it
-   returns (what its hd_code callees leave there is not what it leaves) */
-static inline void regs_keep(void) {
-    engine_save(S0_FP, 0);
-}
-
-static inline void regs_restore(void) {
-    engine_restore();
-}
 
 /* a block table, for code repeated with its own blocks */
 typedef struct { u16 id, n; } Blk;
@@ -73,7 +53,6 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
     u8 *heap;
     s32 o1, o2;
 
-    regs_keep();
     ENGINE_BLK(80202100);
     model = (Model *)func_802A396C(type);
     ENGINE_BLK(80202158);
@@ -91,25 +70,20 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
     dls[3] = (u32)(heap + o2 - o1);
     func_802A1388(type, 0, (u8 *)bufs[0], (u8 *)bufs[1], (u8 *)rec[0]);
     ENGINE_BLK(802021C8);
-    regs_restore();
 }
 
 /* the parts stepped a frame (from the buffer `buf`, `other` the next) */
 void func_802021FC(Part *parts, u8 *buf, u8 *other) {
-    regs_keep();
     ENGINE_BLK(802021FC);
     func_8029E558(parts, buf, other);
     ENGINE_BLK(8020223C);
-    regs_restore();
 }
 
 /* the parts set up from the model in the two buffers */
 void func_80202270(u8 *model, u32 *bufs, Part *parts) {
-    regs_keep();
     ENGINE_BLK(80202270);
     func_8029F85C(parts, model, (u8 *)bufs[0], (u8 *)bufs[1]);
     ENGINE_BLK(802022B8);
-    regs_restore();
 }
 
 /* part i's settings */
@@ -125,7 +99,6 @@ void func_802022EC(Part *parts, s32 i, s32 a, s32 b, f32 f, s32 c, s32 d) {
     ENGINE_BLK(80202344);
     func_802A0290(i, -1, parts);
     ENGINE_BLK(8020234C);
-    ENGINE_LEAVE(rV0, i);               /* (what it passed last) */
 }
 
 /* one part's four settings (func_802A05D0... by its key), with the blocks
@@ -174,7 +147,6 @@ void func_80202380(s32 type) {
     }
     ENGINE_BLK(8020259C);
     if (last != NULL) {
-        ENGINE_LEAVE(rV0, (u32)last);   /* (what it passed last) */
     }
 }
 
@@ -200,7 +172,6 @@ void func_802025D0(u8 type, u32 a) {
         ENGINE_BLK(80202664);
         func_802A05A4(D_802C226C, s, 0.0f);
         ENGINE_BLK(80202678);
-        ENGINE_LEAVE(rV0, (u32)D_802C226C);
     } else {
         ENGINE_BLK(80202608);
         if (type == VEHICLE_BULLDOZER) {
@@ -227,7 +198,6 @@ void func_802025D0(u8 type, u32 a) {
             func_802A05D0(D_802C2190, DOZER_FIXED_PART);
             ENGINE_BLK(802026E8);
             func_802A05D0(D_802C21A4, DOZER_FIXED_PART);
-            ENGINE_LEAVE(rV0, (u32)D_802C21A4);
         } else {
             ENGINE_BLK(80202614);
         }

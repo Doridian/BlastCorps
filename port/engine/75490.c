@@ -329,8 +329,6 @@ void func_802BA354(void) {
     f32 rate;
 
     ENGINE_COST(802BA354, 135);
-    /* (its $s4 and $fp as it found them: 5CB60.c and the other vehicles read them from the context) */
-    engine_save(ENGINE_GPR(20) | ENGINE_GPR(30), 0);
     func_802BA104();
     func_802BA5A4();
     if (VS_IN_SETUP(vs) == 0)
@@ -353,7 +351,6 @@ void func_802BA354(void) {
         func_802BA9A0(vs, VS_WHEEL_H(vs));
     func_802BA91C();
     func_802A133C(CMO_X, CMO_Y, CMO_Z, VEHICLE_CMO, vs);
-    engine_restore();
 }
 
 /* whether it is past D_803EF6E8 and D_803EF6EC from where it started */

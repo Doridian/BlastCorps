@@ -460,19 +460,13 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
             s->unk14[0] = s->unk14[1] = s->unk14[2] = 0;
             s->unk2C = 0xFC180000;
             s->unk36 = 0;
-            ENGINE_LEAVE(10, 0xFC180000);
-            ENGINE_LEAVE(12, t4);
         } else {
             s->unk30 = t3;
             s->unk31 = t4;
         }
     }
-    /* ($t2, $t4, $t6 and $s1 stay in the context: the collision
-       triangles' bytes, 5CB60.c and 8A080.c, read them from there) */
     t6 = *(s16 *)anim;
-    ENGINE_LEAVE(14, t6);
     if (t6 != -1) {
-        ENGINE_LEAVE(17, (u32)dest);
         func_802A11C4(t6, (u32)dest);
     }
     return 1;
@@ -616,7 +610,6 @@ void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) 
     Gfx *g;
 
     ENGINE_COST(802A6DE8, 52);
-    ENGINE_LEAVE(16, s);
     dl = (Gfx *PTR32 *)func_802A6EB8(s);
     g = func_802575F4(*dl, a1, a2, a3, sp10, sp14, sp18);
     dl = (Gfx *PTR32 *)func_802A6EB8(s);
