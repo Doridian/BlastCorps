@@ -80,6 +80,41 @@ extern CollisionTri D_803B9890[];               /* the objects', to D_803BD300 *
 extern CollisionTri *PTR32 D_803BD300;
 extern CollisionTri *PTR32 D_803BD308, *PTR32 D_803BD30C;  /* the walls' */
 
+/* D_803BC1D0..D_803BD304: the objects' switches (func_802A3F80, from
+   LevelHeader.unk68): while the point is in a switch's area (kind 0: n
+   2D triangles, (x, z) x 3 each, then a word of two halves, a height
+   range) or its owner's parts are as listed (else: n (part, key) byte
+   pairs), the listed triangles are off (func_8029D040): the level's (owner
+   0) and the owner's own, by their ids */
+typedef struct TriSwitch {
+    /* 0x00 */ s32 area[0x31];
+    /* 0xC4 */ u8 owner;
+    /* 0xC5 */ u8 kind;
+    /* 0xC6 */ u8 n;
+    /* 0xC7 */ u8 nlevel;
+    /* 0xC8 */ u8 level[8];
+    /* 0xD0 */ u8 nown;
+    /* 0xD1 */ u8 own[11];
+} TriSwitch;
+SIZE_CHECK(TriSwitch, 0xDC);
+extern TriSwitch D_803BC1D0[];
+extern TriSwitch *PTR32 D_803BD304;     /* one past the last */
+
+/* D_803BD310: the walls (func_802A3E9C): the kinds they stop, then their
+   triangles (D_803BD308's); the word at 0xF8 holds their count (its high
+   byte) and whether the wall has sides (the next), which native-endian
+   memory keeps as a word (native_sites.txt's x3) */
+typedef struct Wall {
+    /* 0x00 */ u8 nkinds;
+    /* 0x01 */ u8 kinds[7];
+    /* 0x08 */ CollisionTri *PTR32 tris[0x3C];
+    /* 0xF8 */ u32 info;
+} Wall;
+SIZE_CHECK(Wall, 0xFC);
+extern Wall D_803BD310[];
+#define WALL_COUNT(w) ((w)->info >> 24)
+#define WALL_SIDED(w) (((w)->info >> 16) & 0xFF)
+
 /* func_802A41B0 (5CB60): the triangle at $t4 from the file's at $t5;
    0x52 from $t2, 0x56 from $t7, 0x55 from $gp, 0x4F, 0x50, 0x57 and 0x58
    from $t9, $v0, $t6 and $s1.  Returns $t4 advanced past it. */

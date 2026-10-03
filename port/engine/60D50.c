@@ -10,11 +10,14 @@
 #include "game/vehicle.h"
 
 typedef struct HeightBox {
-    s16 x1, z1, x2, z2;
-    s16 height;
+    /* 0x0 */ s16 x1, z1, x2, z2;
+    /* 0x8 */ s16 height;
 } HeightBox;
+SIZE_CHECK(HeightBox, 10);
 
-extern u8 D_80364411;           /* the player is over no box (height 3000) */
+#define HEIGHT_NONE 3000        /* a box's height that means no ground */
+
+extern u8 D_80364411;           /* the player is over no ground (HEIGHT_NONE) */
 extern s16 D_8036444C;
 extern s16 D_8036444E;          /* the box's height << 5, plus D_80364450 */
 extern u16 D_80364450;
@@ -22,43 +25,38 @@ extern u8 D_803BE73A;           /* the vehicle the player starts in */
 extern s32 D_803EF304;
 extern s16 D_80305B90[][3];     /* by D_803BE73A */
 
-#define BOX_NEXT(b) ((HeightBox *)((u8 *)(b) + 10))
+/* the highest of the boxes [b, end) over (x, z) (world units), or -1.
+   (Both callers charge func_802A5510's blocks: func_802A5604's are the
+   same sizes.) */
+static s32 highest_box(HeightBox *b, HeightBox *end, s32 x, s32 z) {
+    s32 best = -1;
+
+    for (; ENGINE_BLK(802A554C), b != end; b++) {
+        ENGINE_BLK(802A5554);
+        if (b->x1 <= x && (ENGINE_BLK(802A5564), b->z1 <= z) &&
+            (ENGINE_BLK(802A5574), b->x2 >= x) && (ENGINE_BLK(802A5584), b->z2 >= z)) {
+            ENGINE_BLK(802A5594);
+            if (b->height >= best) {
+                ENGINE_BLK(802A55A4);
+                best = b->height;
+            }
+        }
+        ENGINE_BLK(802A55A8);
+    }
+    return best;
+}
 
 /* func_802A5510 (00000.c's): the highest box over the player */
 void func_802A5510(LevelHeader *h) {
     HeightBox *b = (HeightBox *)((u8 *)h + h->bounds40);
     HeightBox *end = (HeightBox *)((u8 *)h + h->bounds44);
     s32 x = (u32)D_803643E0 >> 5, z = (u32)D_803643E8 >> 5;
-    s32 best = -1;
+    s32 best;
 
     ENGINE_BLK(802A5510);
-    for (;;) {
-        ENGINE_BLK(802A554C);
-        if (b == end) {
-            break;
-        }
-        ENGINE_BLK(802A5554);
-        if (b->x1 <= x) {
-            ENGINE_BLK(802A5564);
-            if (b->z1 <= z) {
-                ENGINE_BLK(802A5574);
-                if (b->x2 >= x) {
-                    ENGINE_BLK(802A5584);
-                    if (b->z2 >= z) {
-                        ENGINE_BLK(802A5594);
-                        if (b->height >= best) {
-                            ENGINE_BLK(802A55A4);
-                            best = b->height;
-                        }
-                    }
-                }
-            }
-        }
-        ENGINE_BLK(802A55A8);
-        b = BOX_NEXT(b);
-    }
+    best = highest_box(b, end, x, z);
     ENGINE_BLK(802A55B0);
-    if (best == 3000) {
+    if (best == HEIGHT_NONE) {
         ENGINE_BLK(802A55BC);
         D_80364411 = 1;
     } else {
@@ -75,36 +73,10 @@ void func_802A5604(LevelHeader *h) {
     HeightBox *b = (HeightBox *)((u8 *)h + h->bounds44);
     HeightBox *end = (HeightBox *)((u8 *)h + h->unk48);
     s32 x = (u32)(&D_803EF2EC)[0] >> 5, z = (u32)(&D_803EF2EC)[2] >> 5;
-    s32 best = -1;
 
     ENGINE_BLK(802A5604);
-    for (;;) {
-        ENGINE_BLK(802A5640);
-        if (b == end) {
-            break;
-        }
-        ENGINE_BLK(802A5648);
-        if (b->x1 <= x) {
-            ENGINE_BLK(802A5658);
-            if (b->z1 <= z) {
-                ENGINE_BLK(802A5668);
-                if (b->x2 >= x) {
-                    ENGINE_BLK(802A5678);
-                    if (b->z2 >= z) {
-                        ENGINE_BLK(802A5688);
-                        if (b->height >= best) {
-                            ENGINE_BLK(802A5698);
-                            best = b->height;
-                        }
-                    }
-                }
-            }
-        }
-        ENGINE_BLK(802A569C);
-        b = BOX_NEXT(b);
-    }
+    D_803EF304 = highest_box(b, end, x, z) << 5;
     ENGINE_BLK(802A56A4);
-    D_803EF304 = best << 5;
 }
 
 /* func_802A56C4 (00000.c's): this level's three values; returns the third */
