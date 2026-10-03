@@ -111,10 +111,12 @@ static void report(unsigned long long images) {
         n += snprintf(parts + n, sizeof parts - n, " %s %.2f", names[i], win_acc[i] / nsamp);
     host_log("perf: to retrace %u, %d in %.2f s: work/retrace ms median %.2f p95 %.2f p99 %.2f max %.2f; over 16.7 ms %d;"
              " late p50 %.2f p99 %.2f (>=4 ms %d); new images %.1f/s, game frames %.1f/s; mean ms:%s;"
-             " sleeps %d, overshoot mean %.2f max %.2f; audio queued %d ms, %u dropped; time dropped %u times\n",
+             " sleeps %d, overshoot mean %.2f max %.2f; audio queued %d ms, %u dropped; time dropped %u times;"
+             " queue %s, %llu presents, %llu after their slot\n",
              total_vi, nsamp, secs, PCT(work, 0.5), PCT(work, 0.95), PCT(work, 0.99), work[nsamp - 1], win_over,
              PCT(late, 0.5), PCT(late, 0.99), win_late, (images - img0) / secs, nframes / secs, parts,
-             nsleeps, nsleeps ? sleep_over / nsleeps : 0.0, sleep_over_max, aq, adrop, host_paced_resyncs);
+             nsleeps, nsleeps ? sleep_over / nsleeps : 0.0, sleep_over_max, aq, adrop, host_paced_resyncs,
+             host_queue_on ? "on" : "off", host_queue_presents, host_queue_late);
 #undef PCT
 #ifdef PORT_WASM_WEB
     /* for a page's own display (and the tests that drive it) */

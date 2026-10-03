@@ -10,7 +10,9 @@
 // port/host/perf.c) and, every 5 s, what reached the display: the page's
 // animation frames, how many showed a new picture, how many repeated the
 // last one, and how many came with two or more (a picture drawn but never
-// seen).  At the end, a summary of the windows from --from on.
+// seen), and how many display frames each picture stayed (0: never seen).
+// At the end, a summary of the windows from --from on, with the retraces
+// whose work took over a frame or that came 4 ms late or more.
 //
 //   --browser chromium|firefox   (default chromium)
 //   --gpu                        Chromium on the GPU (ANGLE on Vulkan); without
@@ -76,7 +78,8 @@ function say(s) {
   log.write(s + '\n');
   if (/^(perf:|\[|gl: |pacing:|fatal)/.test(s)) console.log(s);
   const m = /^perf: to retrace (\d+),.*median ([\d.]+) p95 ([\d.]+) p99 ([\d.]+).*new images ([\d.]+)\/s/.exec(s), n = /^perf: to retrace \d+, (\d+) in/.exec(s);
-  if (m) perf.push(m.slice(1).map(Number).concat([+n[1]]));
+  const o = /over 16\.7 ms (\d+);.*\(>=4 ms (\d+)\)/.exec(s);
+  if (m) perf.push(m.slice(1).map(Number).concat([+n[1], o ? +o[2] : 0, o ? +o[1] : 0]));
 }
 
 let b;
@@ -117,25 +120,38 @@ for (let t = 0; t < +opt.secs; t += 5) {
        drawn, or whose animation callbacks drew it (3 ms of slack) */
     const f = window.__mon.frames, shown = (window.Module && Module.shown) || [];
     if (f.length < 4) return null;
-    const upto = f[f.length - 1] - 3, pics = shown.filter(p => p < upto), hist = [0, 0, 0];
+    /* (the frames to the last but one: the last one's picture may not be
+       pushed yet; it starts the next window) */
+    const L = f.length - 1, upto = f[L - 1] + 3, pics = shown.filter(p => p < upto), hist = [0, 0, 0];
+    /* held[k]: pictures that stayed on the display k frames (0: never
+       seen, 4: four or more) */
+    const held = [0, 0, 0, 0, 0];
     let k = 0;
-    for (let i = 1; i < f.length; i++) {
+    for (let i = 1; i < L; i++) {
       let n = 0;
       for (; k < pics.length && pics[k] < f[i] + 3; k++) n++;
       hist[Math.min(n, 2)]++;
+      if (n) {
+        if (window.__mon.run) held[Math.min(window.__mon.run, 4)]++;
+        held[0] += n - 1;
+        window.__mon.run = 0;
+      }
+      window.__mon.run = (window.__mon.run || 0) + 1;
     }
     if (window.Module) Module.shown = shown.filter(p => p >= upto);
     const gaps = f.slice(1).map((x, i) => x - f[i]).sort((a, b) => a - b);
-    window.__mon.frames = f.slice(-1);
+    window.__mon.frames = f.slice(L - 1);
     const ac = window.Module && Module.SDL2 && Module.SDL2.audioContext;
-    return { frames: f.length - 1, hist, gap50: gaps[gaps.length >> 1], gap99: gaps[Math.floor(gaps.length * 0.99)],
+    return { frames: L - 1, hist, held, gap50: gaps[gaps.length >> 1], gap99: gaps[Math.floor(gaps.length * 0.99)],
              audio: ac ? `${ac.state} at ${ac.currentTime.toFixed(1)} s` : 'none' };
   });
   if (s && t > 0) {
     const r = x => (x / 5).toFixed(1);
-    mon.push({ t: (Date.now() - t0) / 1000, fresh: (s.hist[1] + s.hist[2]) / 5, repeat: s.hist[0] / 5, lost: s.hist[2] / 5 });
+    mon.push({ t: (Date.now() - t0) / 1000, fresh: (s.hist[1] + s.hist[2]) / 5, repeat: s.hist[0] / 5, lost: s.hist[2] / 5,
+               held: s.held });
     say(`[display] ${((Date.now() - t0) / 1000).toFixed(0)} s: ${r(s.frames)} frames/s (apart p50 ${s.gap50.toFixed(1)} ms, p99 ${s.gap99.toFixed(1)});` +
-        ` a new picture in ${r(s.hist[1] + s.hist[2])}/s, the last one again in ${r(s.hist[0])}/s, two or more in ${r(s.hist[2])}/s; sound ${s.audio}`);
+        ` a new picture in ${r(s.hist[1] + s.hist[2])}/s, the last one again in ${r(s.hist[0])}/s, two or more in ${r(s.hist[2])}/s;` +
+        ` pictures held 0/1/2/3/4+ frames ${s.held.join('/')}; sound ${s.audio}`);
   }
   if (+opt['profile-at'] && t + 5 === +opt['profile-at'] && opt.browser === 'chromium') {
     const cdp = await ctx.newCDPSession(page);
@@ -163,4 +179,8 @@ if (w.length) {
               `p95 up to ${Math.max(...w.map(p => p[2]))}, p99 up to ${Math.max(...w.map(p => p[3]))}; ` +
               `drawn ${(w.reduce((a, p) => a + p[4], 0) / w.length).toFixed(1)} new pictures/s; on the display ` +
               `${avg('fresh')}/s new, ${avg('repeat')}/s repeated, ${avg('lost')}/s with a picture never seen`);
+  const held = d.reduce((a, m) => a.map((x, i) => x + m.held[i]), [0, 0, 0, 0, 0]);
+  const late = w.reduce((a, p) => a + p[6], 0), over = w.reduce((a, p) => a + p[7], 0);
+  console.log(`[summary] pictures held 0/1/2/3/4+ display frames: ${held.join('/')}; retraces over 16.7 ms of work ${over}, ` +
+              `delivered 4 ms late or more ${late} (of ${w.reduce((a, p) => a + p[5], 0)})`);
 }
