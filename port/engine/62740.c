@@ -1767,7 +1767,7 @@ REGS(-> a1, a3)
 s32 func_802A8B10(s32 *across_out) {
     s32 h0 = D_803ED3A8[0];
 
-    ENGINE_COST(802A8B10, 58);
+    ENGINE_COST(802A8B10, 64);
     *across_out = slope_angle(D_803ED3A8[1] - h0, D_803ED404, 1);
     return slope_angle(D_803ED3A8[2] - h0, D_803ED402, 0);
 }
@@ -1925,7 +1925,7 @@ REGS(t5, t6, t1, s4, s5, s6, s7, gp)
 void func_802A7FD8(s32 rate, s16 *speed, u16 *angle, u16 *target, u16 *out, s8 *turning, s32 sound, VS *vs) {
     s32 v = *speed, a, t = *target, step, d, n;
 
-    ENGINE_COST(802A7FD8, 62);
+    ENGINE_COST(802A7FD8, 65);
     step = func_802A8314(rate);
     if (v != 0)
         step = (s32)((u32)step * VS_GRIP(vs)) / v;
@@ -1982,7 +1982,7 @@ REGS(a0, a1, f0, gp -> a0, a1)
 s32 func_802A71DC(s32 h, s32 h2, f32 rate, VS *vs, s32 *rate_out) {
     s32 lo = (u16)D_803A7410, hi = (u16)D_803A7412, dl, dh, s, neg;
 
-    /* (the original's two range tests' blocks folded in) */
+    /* (the original's two range tests' blocks folded in, as its divisions' in func_802A8B10, func_802A8768 and func_802A7FD8) */
     ENGINE_COST(802A71DC, 72);
     if (in_camera_range(h2, lo, hi)) {
         *rate_out = 0;
@@ -2115,7 +2115,7 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
     s32 *hist = VS_WHEEL_H(vs);
     s32 along = t9, across = fp, i, w, hw[3], roll, shadow_along, shadow_across;
 
-    ENGINE_COST(802A8768, 181);
+    ENGINE_COST(802A8768, 187);
     /* ($t7, $t8 and $t9: 5CB60.c's collision triangles read them from the
        context) */
     ENGINE_LEAVE(15, (u32)px);

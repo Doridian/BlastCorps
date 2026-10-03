@@ -22,44 +22,28 @@ extern TexDecode *PTR32 D_803C4B54;     /* the next to do */
 /* ---- the decoders: `len` bytes of words from `in` to `out`; each returns
    the end of what it wrote ------------------------------------------------ */
 
-/* a back reference of 16-bit units */
-#define BACKREF16(b_ref, b_loop, b_copy)                                    \
+/* A back reference: `w & 0x1F` units copied from back in the output, the
+   distance in the word's other bits (by bytes for 16-bit units, by halves
+   for 32-bit ones).  (The decoders' charges have these loops' blocks
+   folded in.) */
+#define BACKREF16()                                                         \
     do {                                                                    \
-        s32 n = w & 0x1F;                                                   \
-        u16 *from = (u16 *)(out - ((w & 0x7FFF) >> 5));                     \
+        s32 n_ = w & 0x1F;                                                  \
+        u16 *from_ = (u16 *)(out - ((w & 0x7FFF) >> 5));                    \
                                                                             \
-        ENGINE_BLK(b_ref);                                                  \
         len -= 2;                                                           \
-        for (;;) {                                                          \
-            ENGINE_BLK(b_loop);                                             \
-            if (n == 0) {                                                   \
-                break;                                                      \
-            }                                                               \
-            ENGINE_BLK(b_copy);                                             \
-            *(u16 *)out = *from++;                                          \
-            out += 2;                                                       \
-            n--;                                                            \
-        }                                                                   \
+        for (; n_ != 0; n_--, out += 2)                                     \
+            *(u16 *)out = *from_++;                                         \
     } while (0)
 
-/* a back reference of 32-bit units */
-#define BACKREF32(b_ref, b_loop, b_copy)                                    \
+#define BACKREF32()                                                         \
     do {                                                                    \
-        s32 n = w & 0x1F;                                                   \
-        u32 *from = (u32 *)(out - ((w & 0x7FE0) >> 4));                     \
+        s32 n_ = w & 0x1F;                                                  \
+        u32 *from_ = (u32 *)(out - ((w & 0x7FE0) >> 4));                    \
                                                                             \
-        ENGINE_BLK(b_ref);                                                  \
         len -= 2;                                                           \
-        for (;;) {                                                          \
-            ENGINE_BLK(b_loop);                                             \
-            if (n == 0) {                                                   \
-                break;                                                      \
-            }                                                               \
-            ENGINE_BLK(b_copy);                                             \
-            *(u32 *)out = *from++;                                          \
-            out += 4;                                                       \
-            n--;                                                            \
-        }                                                                   \
+        for (; n_ != 0; n_--, out += 4)                                     \
+            *(u32 *)out = *from_++;                                         \
     } while (0)
 
 /* type 6, func_802A5958: two 8-bit texels, (b & 0x38) << 2 | (b & 7) << 1 */
@@ -68,14 +52,10 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5958, 1441);
-    for (;;) {
-        s32 w;
+    ENGINE_COST(802A5958, 3284);
+    while (len != 0) {
+        s32 w = (s16)TEX_BE16(*in);
 
-        if (len == 0) {
-            break;
-        }
-        w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8, lo = w & 0xFF;
@@ -85,7 +65,7 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
             out += 2;
             len -= 2;
         } else {
-            BACKREF16(802A59D4, 802A59E8, 802A59F0);
+            BACKREF16();
         }
     }
     return (u32)out;
@@ -97,14 +77,10 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5A2C, 6000);
-    for (;;) {
-        s32 w;
+    ENGINE_COST(802A5A2C, 19881);
+    while (len != 0) {
+        s32 w = (s16)TEX_BE16(*in);
 
-        if (len == 0) {
-            break;
-        }
-        w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             out[0] = (u32)w >> 8 << 1;
@@ -112,7 +88,7 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
             out += 2;
             len -= 2;
         } else {
-            BACKREF16(802A5A88, 802A5A9C, 802A5AA4);
+            BACKREF16();
         }
     }
     return (u32)out;
@@ -124,21 +100,17 @@ u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5AE0, 8733);
-    for (;;) {
-        s32 w;
+    ENGINE_COST(802A5AE0, 18127);
+    while (len != 0) {
+        s32 w = (s16)TEX_BE16(*in);
 
-        if (len == 0) {
-            break;
-        }
-        w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             *(u16 *)out = TEX_BE16(((w & 0xFFC0) << 1) | (w & 0x3F));
             out += 2;
             len -= 2;
         } else {
-            BACKREF16(802A5B38, 802A5B4C, 802A5B54);
+            BACKREF16();
         }
     }
     return (u32)out;
@@ -150,14 +122,10 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5B90, 2620);
-    for (;;) {
-        s32 w;
+    ENGINE_COST(802A5B90, 10239);
+    while (len != 0) {
+        s32 w = (s16)TEX_BE16(*in);
 
-        if (len == 0) {
-            break;
-        }
-        w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             *(u32 *)out = TEX_BE32(((w & 0x7800) << 17) | ((w & 0x780) << 13) | ((w & 0x78) << 9) |
@@ -165,7 +133,7 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
             out += 4;
             len -= 2;
         } else {
-            BACKREF32(802A5C04, 802A5C18, 802A5C20);
+            BACKREF32();
         }
     }
     return (u32)out;
@@ -179,14 +147,10 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
     u8 *out = (u8 *)out_;
     u8 *pal = (u8 *)pal_;
 
-    ENGINE_COST(802A5C5C, 2374);
-    for (;;) {
-        s32 w;
+    ENGINE_COST(802A5C5C, 10356);
+    while (len != 0) {
+        s32 w = (s16)TEX_BE16(*in);
 
-        if (len == 0) {
-            break;
-        }
-        w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8;
@@ -196,7 +160,7 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
             len -= 2;
             ((u16 *)out)[-1] = TEX_BE16((TEX_BE16(*(u16 *)(pal + (w & 0xFE))) << 1) | (w & 1));
         } else {
-            BACKREF32(802A5CDC, 802A5CF0, 802A5CF8);
+            BACKREF32();
         }
     }
     return (u32)out;
@@ -210,14 +174,10 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
     u8 *out = (u8 *)out_;
     u8 *pal = (u8 *)pal_;
 
-    ENGINE_COST(802A5D34, 6141);
-    for (;;) {
-        s32 w;
+    ENGINE_COST(802A5D34, 13330);
+    while (len != 0) {
+        s32 w = (s16)TEX_BE16(*in);
 
-        if (len == 0) {
-            break;
-        }
-        w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             u32 c = TEX_BE16(*(u16 *)(pal + (((u32)w >> 4) << 1)));
@@ -227,7 +187,7 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
             out += 4;
             len -= 2;
         } else {
-            BACKREF32(802A5DB8, 802A5DCC, 802A5DD4);
+            BACKREF32();
         }
     }
     return (u32)out;
@@ -241,15 +201,9 @@ u32 func_802A5E10(u32 in_, u32 len, u32 out_) {
     u32 n = len >> 3;
 
     ENGINE_COST(802A5E10, 1075);
-    for (;;) {
-        if (n == 0) {
-            break;
-        }
+    for (; n != 0; n--, in += 2, out += 2) {
         out[0] = in[0];
         out[1] = in[1];
-        in += 2;
-        out += 2;
-        n--;
     }
     return (u32)out;
 }
@@ -264,53 +218,26 @@ u32 func_802A57DC(TexDecode *req) {
     u32 in = (u32)D_803C3250;
 
     ENGINE_COST(802A57DC, 856);
+    /* the stream to D_803C3250: doublewords, then the halves left */
     len -= n8;
-    for (;;) {
-        if (n8 == 0) {
-            break;
-        }
+    for (; n8 != 0; n8 -= 8, from += 2, to += 2) {
         to[0] = from[0];
         to[1] = from[1];
-        from += 2;
-        to += 2;
-        n8 -= 8;
     }
-    for (;;) {
-        if (len == 0) {
-            break;
-        }
+    for (; len != 0; len -= 2) {
         *(u16 *)to = *(u16 *)from;
         from = (u32 *)((u8 *)from + 2);
         to = (u32 *)((u8 *)to + 2);
-        len -= 2;
     }
-    end = out;
-    if (req->type == 0) {
-        end = func_802A5E10(in, req->length, out);
-    } else {
-        if (req->type == 1) {
-            end = func_802A5AE0(in, req->length, out);
-        } else {
-            if (req->type == 2) {
-                end = func_802A5B90(in, req->length, out);
-            } else {
-                if (req->type == 4) {
-                    end = func_802A5C5C(in, req->length, out, req->param);
-                } else {
-                    if (req->type == 5) {
-                        end = func_802A5D34(in, req->length, out, req->param);
-                    } else {
-                        if (req->type == 3) {
-                            end = func_802A5A2C(in, req->length, out);
-                        } else {
-                            if (req->type == 6) {
-                                end = func_802A5958(in, req->length, out);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    switch (req->type) {
+    case 0: end = func_802A5E10(in, req->length, out); break;
+    case 1: end = func_802A5AE0(in, req->length, out); break;
+    case 2: end = func_802A5B90(in, req->length, out); break;
+    case 3: end = func_802A5A2C(in, req->length, out); break;
+    case 4: end = func_802A5C5C(in, req->length, out, req->param); break;
+    case 5: end = func_802A5D34(in, req->length, out, req->param); break;
+    case 6: end = func_802A5958(in, req->length, out); break;
+    default: end = out; break;
     }
     return end - out;
 }
@@ -353,7 +280,7 @@ void func_802A57AC(void) {
 /* ---- the effects' sprite slots ------------------------------------------ */
 
 #include "game/game.h"
-#include "shared.h"
+#include "vehicle.h"
 
 /* An effect's animated sprite: 16 slots of 0x3C bytes (D_803C4B70), each
    with its frames' texture cells (up to four of the 16 in D_803EB770, 0x100
@@ -375,7 +302,10 @@ typedef struct EffectSlot {
     /* 0x3B */ u8 unk3B;
 } EffectSlot;
 
-extern EffectSlot D_803C4B70[16];
+#define EFFECT_SLOTS 16
+#define EFFECT_PIECE_FRAMES 60          /* a piece of the effects' heap is kept this many frames unused */
+
+extern EffectSlot D_803C4B70[EFFECT_SLOTS];
 extern u8 D_803EA770[16][0x100];
 extern u8 D_803EB770[16];       /* the cells in use */
 extern u8 *PTR32 D_803EB788, *PTR32 D_803EB78C;    /* the effects' heap */
@@ -396,16 +326,9 @@ void func_802A5E60(void) {
     s32 n = 16;
 
     ENGINE_COST(802A5E60, 158);
-    for (;;) {
-        if (n == 0) {
-            break;
-        }
-        n--;
-        if (s->active != 0) {
+    for (; n != 0; n--, s++)
+        if (s->active != 0)
             s->frame = *(u16 *)(s->anim + 0xE) - 1;
-        }
-        s++;
-    }
 }
 
 /* func_802A5ED0 (the vehicle modules'): how many slots are in use */
@@ -415,36 +338,24 @@ s32 func_802A5ED0(void) {
     s32 n = 16, used = 0;
 
     ENGINE_COST(802A5ED0, 151);
-    for (;;) {
-        if (n == 0) {
-            break;
-        }
-        n--;
-        if (s->active != 0) {
+    for (; n != 0; n--, s++)
+        if (s->active != 0)
             used++;
-        }
-        s++;
-    }
     return used;
 }
 
 /* func_802A5F30 (the level loader's): no effects */
 REGS()
 void func_802A5F30(void) {
-    s32 n = 16, i = 0;
+    s32 i;
 
     ENGINE_COST(802A5F30, 152);
     D_803EB788 = NULL;
     D_803EB78C = NULL;
     D_803EB790 = 0;
-    for (;;) {
-        if (n == 0) {
-            break;
-        }
+    for (i = 0; i < EFFECT_SLOTS; i++) {
         D_803C4B70[i].active = 0;
-        n--;
         D_803EB770[i] = 0;
-        i++;
     }
 }
 
@@ -463,9 +374,8 @@ void func_802A5FA8(void) {
         limit = D_8021DD00;
     }
     left = limit - heap;
-    if (left < 0) {
+    if (left < 0)
         left = 0;
-    }
     n = (u32)left / 0x1010;
     D_803EB788 = heap;
     D_803EB790 = n;
@@ -474,21 +384,18 @@ void func_802A5FA8(void) {
     end = heap + n * 0x1010;
     D_803EB78C = end;
     D_80358070 = end;
-    for (p = heap;; p += 0x1010) {
-        if (p == end) {
-            break;
-        }
+    for (p = heap; p != end; p += 0x1010)
         *(u32 *)(p + 0x1000) = 0;
-    }
 }
 
 /* func_802A6274 (everyone's): start an effect's sprite: a free slot and
    anim's w * h free texture cells, its frames' texture DMA'd (802A11C4)
-   unless its number is -1.  Mode 1 with a target ($t5) starts it at the
-   point $t3/$t4 name (679E0's func_802ABC88), still.  Returns 1, or 0 when
-   there is no room.  What it leaves in $t2, $t4, $t6 and $s1 the vehicle
-   modules read afterwards (62740's func_802A8768, the next effect's
-   velocity): ENGINE_LEAVE, until those readers take values instead. */
+   unless its number is -1.  The arguments: anim, scale (t1), mode (t2),
+   then the position (t3..t5, << 11), velocity (t6, t7, s0), fall (s1..s3,
+   a frame per frame: gravity) and the ground it stops at (s4); mode 1
+   follows a vehicle's point instead (t3 its id, t4 the point; with t5 set
+   it starts there, still, in mode 0).  Returns 1, or 0 when there is no
+   room. */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
 s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1,
                   s32 s2, s32 s3, s32 s4, s32 s5, s32 a3) {
@@ -500,43 +407,24 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 
     ENGINE_COST(802A6274, 237);
     D_803EB792 = a3;
-    for (;;) {
-        if (n == 0) {
-            goto fail;
-        }
-        n--;
-        if (s->active == 0) {
-            break;
-        }
-        s++;
-        dest += 0x100;
-    }
+    /* a free slot */
+    for (; n != 0 && s->active != 0; n--, s++, dest += 0x100)
+        ;
+    if (n == 0)
+        return 0;
+    /* anim's w * h free cells, then taken */
     need = anim[2] * anim[3];
     c = s->cells;
-    cell = D_803EB770;
-    n = 16;
-    for (k = 0;; k++) {
-        if (need == 0) {
-            break;
-        }
-        if (n == 0) {
-            goto fail;
-        }
-        n--;
+    for (k = 0, cell = D_803EB770; need != 0; k++, cell++) {
+        if (k == EFFECT_SLOTS)
+            return 0;
         if (*cell == 0) {
             *c++ = k;
             need--;
         }
-        cell++;
     }
-    need = anim[2] * anim[3];
-    for (c = s->cells;;) {
-        if (need == 0) {
-            break;
-        }
-        need--;
+    for (need = anim[2] * anim[3], c = s->cells; need != 0; need--)
         D_803EB770[*c++] = 1;
-    }
     s->active = 1;
     s->anim = anim;
     s->unk4 = t1;
@@ -579,6 +467,8 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
             s->unk31 = t4;
         }
     }
+    /* ($t2, $t4, $t6 and $s1 stay in the context: the collision
+       triangles' bytes, 5CB60.c and 8A080.c, read them from there) */
     t6 = *(s16 *)anim;
     ENGINE_LEAVE(14, t6);
     if (t6 != -1) {
@@ -586,8 +476,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
         func_802A11C4(t6, (u32)dest);
     }
     return 1;
-fail:
-    return 0;
 }
 
 /* ---- the effects' sprite drawing ---------------------------------------- */
@@ -607,33 +495,21 @@ Gfx *func_802575F4(Gfx *gfx, s32 arg1, s32 arg2, s16 arg3, s32 arg4, s32 arg5, s
 REGS(t6, s1, fp)
 void func_802A1074(u32 id, u32 dst, u32 param);
 
-/* func_802A6748: the pieces a frame older; those 60 frames old are free
-   again */
+/* func_802A6748: the pieces a frame older; those older than
+   EFFECT_PIECE_FRAMES are free again */
 REGS()
 void func_802A6748(void) {
     u8 *p = D_803EB788, *end = D_803EB78C;
     s32 freed = 0;
 
     ENGINE_COST(802A6748, 629);
-    for (;;) {
-        u32 age;
-
-        if (p == end) {
-            break;
-        }
-        if (PIECE_KEY(p) == 0) {
-            p = PIECE_NEXT(p);
+    for (; p != end; p = PIECE_NEXT(p)) {
+        if (PIECE_KEY(p) == 0)
             continue;
+        if (++PIECE_AGE(p) > EFFECT_PIECE_FRAMES) {
+            freed++;
+            PIECE_KEY(p) = 0;
         }
-        age = PIECE_AGE(p) + 1;
-        PIECE_AGE(p) = age;
-        if ((s32)age < 0x3D) {
-            p = PIECE_NEXT(p);
-            continue;
-        }
-        freed++;
-        PIECE_KEY(p) = 0;
-        p = PIECE_NEXT(p);
     }
     D_803EB790 += freed;
 }
@@ -655,49 +531,31 @@ u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_o
     ENGINE_COST(802A67C4, 408);
     *t9_out = t9;
     *t6_out = t6;
-    for (;;) {
-        if (p == end) {
-            break;
+    for (; p != end; p = PIECE_NEXT(p)) {
+        if (PIECE_KEY(p) != 0 && key == PIECE_KEY(p) && frame == PIECE_FRAME(p)) {
+            PIECE_AGE(p) = 0;
+            return (u32)p;
         }
-        if (PIECE_KEY(p) == 0) {
-            p = PIECE_NEXT(p);
-            continue;
-        }
-        if (key != PIECE_KEY(p)) {
-            p = PIECE_NEXT(p);
-            continue;
-        }
-        if (frame != PIECE_FRAME(p)) {
-            p = PIECE_NEXT(p);
-            continue;
-        }
-        PIECE_AGE(p) = 0;
-        return (u32)p;
     }
+    dst = cells + (*(u8 *)cell << 12);
     if (D_803EB790 != 0) {
         u32 *k;
 
         for (k = D_80305C10;; k++) {
             if (*k == key) {
                 D_803EB790--;
-                for (p = D_803EB788;; p = PIECE_NEXT(p)) {
-                    if (PIECE_KEY(p) == 0) {
-                        break;
-                    }
-                }
+                for (p = D_803EB788; PIECE_KEY(p) != 0; p = PIECE_NEXT(p))
+                    ;
                 PIECE_KEY(p) = key;
                 PIECE_FRAME(p) = frame;
                 PIECE_AGE(p) = 0;
                 dst = (u32)p;
-                goto load;
-            }
-            if (*k == 0) {
                 break;
             }
+            if (*k == 0)
+                break;
         }
     }
-    dst = cells + (*(u8 *)cell << 12);
-load:
     t6 = *(u16 *)t9;
     *t9_out = t9 + 2;
     *t6_out = t6;
@@ -746,10 +604,7 @@ u32 func_802A6EB8(u32 s_) {
     EffectSlot *s = (EffectSlot *)s_;
 
     ENGINE_COST(802A6EB8, 13);
-    if (s->unk3B != 0) {
-        return (u32)&D_803EB784;
-    }
-    return (u32)&D_803EB780;
+    return s->unk3B != 0 ? (u32)&D_803EB784 : (u32)&D_803EB780;
 }
 
 /* func_802A6DE8: slot `s`'s sprite drawn into its display list
@@ -775,7 +630,7 @@ void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) 
    at the ground: unk2C) unless it follows a point (mode 1).  Every
    register is kept but the floats its callees leave. */
 extern s32 D_803643F8, D_803643FC, D_80364400;     /* the camera, << 16 */
-extern u16 D_80364452;                              /* its yaw */
+/* (D_80364452, camera.h: its yaw) */
 extern s32 D_803C4F30[16];                          /* a matrix to build in */
 REGS(v1 -> fp)
 s32 func_802AD7FC(u32 x);
@@ -798,14 +653,12 @@ void func_802A68D4(u32 s_, u32 m_) {
     scale = s->unk4;
     func_802ACC68(scale, scale, scale, m);
     if (s->mode != 1) {
+        /* falling (unk14, a frame per frame since step 0); at the ground
+           (unk2C) it bounces up at three quarters of its speed */
         step = s->unk36;
         if (s->unk2C >= s->pos[1]) {
-            s32 v;
+            s32 v = iabs(s->vel[1] + s->unk14[1] * step);
 
-            v = s->vel[1] + s->unk14[1] * step;
-            if (v < 0) {
-                v = -v;
-            }
             s->vel[1] = v - (v >> 2);
             step = 0;
         }
@@ -828,24 +681,18 @@ void func_802A68D4(u32 s_, u32 m_) {
     cy = (u32)D_803643FC >> 11;
     cz = (u32)D_80364400 >> 11;
     dist = func_802ABCDC(cx, cy, cz, x, y, z);
-    if (dist == 0) {
+    if (dist == 0)
         dist = 1;
-    }
     dist = (s32)((u32)dist << 11);
     num = (s64)(s32)(cy - y) << 27;
-    if (dist == -1) {
-    }
     q = num / dist;
-    if (q < 0) {
-    }
     angle = func_802AD7FC((u32)(q < 0 ? -(s32)q : (s32)q));
     pitch = angle >> 4;
-    if (q >= 0) {
+    if (q >= 0)
         pitch = 0xFFF - pitch;
-    }
     func_802ACBDC(pitch, D_803C4F30);
     func_802ACCCC(D_803C4F30, m);
-    func_802ACAC4(D_80364452, D_803C4F30);
+    func_802ACAC4((u16)D_80364452, D_803C4F30);
     func_802ACCCC(D_803C4F30, m);
     func_802ACA60(x << 11, y << 11, z << 11, D_803C4F30);
     func_802ACCCC(D_803C4F30, m);
@@ -884,19 +731,14 @@ void func_802A64A4(void) {
     s = D_803C4B70;
     fp = D_803EA770[0];
     func_802A6D34();
-    for (n = 16;; s++, fp += 0x100) {
+    for (n = EFFECT_SLOTS; n != 0; n--, s++, fp += 0x100) {
         u8 *anim, *cell;
         u32 stream, w, h, cw, rows, cols, frames;
         s32 x, y, x0;
 
-        if (n == 0) {
-            break;
-        }
-        n--;
         t6 = s->active;
-        if (t6 == 0) {
+        if (t6 == 0)
             continue;
-        }
         func_802A68D4((u32)s, (u32)mtx);
         anim = s->anim;
         cell = s->cells;
@@ -907,19 +749,12 @@ void func_802A64A4(void) {
         cw = anim[2];
         x0 = (s32)(cw * w) >> 1;
         y = -((s32)(rows * h) >> 1);
-        for (;;) {
-            if (rows == 0) {
-                break;
-            }
-            rows--;
+        /* a quad per cell, row by row */
+        for (; rows != 0; rows--, y += h) {
             x = x0;
-            for (cols = cw;; cols--) {
+            for (cols = cw; cols != 0; cols--) {
                 u32 dst;
 
-                if (cols == 0) {
-                    y += h;
-                    break;
-                }
                 func_802A6C10((u32)vtx, (u32)anim, x, y, w, h);
                 dst = func_802A67C4((u32)cell, (u32)cells, (u32)s, stream, t6, (u32)fp, &stream, &t6);
                 cell++;
@@ -946,13 +781,8 @@ void func_802A64A4(void) {
 
             s->active = 0;
             cell = s->cells;
-            for (k = anim[2] * anim[3];;) {
-                if (k == 0) {
-                    break;
-                }
-                k--;
+            for (k = anim[2] * anim[3]; k != 0; k--)
                 D_803EB770[*cell++] = 0;
-            }
         }
     }
     ((u32 *)D_803EB780)[0] = 0xB8000000;    /* G_ENDDL */
