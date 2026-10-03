@@ -68,21 +68,18 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_BLK(802A5958);
+    ENGINE_COST(802A5958, 1441);
     for (;;) {
         s32 w;
 
-        ENGINE_BLK(802A5978);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5980);
         w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8, lo = w & 0xFF;
 
-            ENGINE_BLK(802A5990);
             out[0] = ((hi & 0x38) << 2) | ((hi & 7) << 1);
             out[1] = ((lo & 0x38) << 2) | ((lo & 7) << 1);
             out += 2;
@@ -91,7 +88,6 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
             BACKREF16(802A59D4, 802A59E8, 802A59F0);
         }
     }
-    ENGINE_BLK(802A5A08);
     return (u32)out;
 }
 
@@ -101,19 +97,16 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_BLK(802A5A2C);
+    ENGINE_COST(802A5A2C, 6000);
     for (;;) {
         s32 w;
 
-        ENGINE_BLK(802A5A4C);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5A54);
         w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
-            ENGINE_BLK(802A5A64);
             out[0] = (u32)w >> 8 << 1;
             out[1] = (w & 0xFF) << 1;
             out += 2;
@@ -122,7 +115,6 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
             BACKREF16(802A5A88, 802A5A9C, 802A5AA4);
         }
     }
-    ENGINE_BLK(802A5ABC);
     return (u32)out;
 }
 
@@ -132,19 +124,16 @@ u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_BLK(802A5AE0);
+    ENGINE_COST(802A5AE0, 8733);
     for (;;) {
         s32 w;
 
-        ENGINE_BLK(802A5B00);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5B08);
         w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
-            ENGINE_BLK(802A5B18);
             *(u16 *)out = TEX_BE16(((w & 0xFFC0) << 1) | (w & 0x3F));
             out += 2;
             len -= 2;
@@ -152,7 +141,6 @@ u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
             BACKREF16(802A5B38, 802A5B4C, 802A5B54);
         }
     }
-    ENGINE_BLK(802A5B6C);
     return (u32)out;
 }
 
@@ -162,19 +150,16 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_BLK(802A5B90);
+    ENGINE_COST(802A5B90, 2620);
     for (;;) {
         s32 w;
 
-        ENGINE_BLK(802A5BB0);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5BB8);
         w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
-            ENGINE_BLK(802A5BC8);
             *(u32 *)out = TEX_BE32(((w & 0x7800) << 17) | ((w & 0x780) << 13) | ((w & 0x78) << 9) |
                                    ((w & 7) << 5));
             out += 4;
@@ -183,7 +168,6 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
             BACKREF32(802A5C04, 802A5C18, 802A5C20);
         }
     }
-    ENGINE_BLK(802A5C38);
     return (u32)out;
 }
 
@@ -195,21 +179,18 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
     u8 *out = (u8 *)out_;
     u8 *pal = (u8 *)pal_;
 
-    ENGINE_BLK(802A5C5C);
+    ENGINE_COST(802A5C5C, 2374);
     for (;;) {
         s32 w;
 
-        ENGINE_BLK(802A5C7C);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5C84);
         w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8;
 
-            ENGINE_BLK(802A5C94);
             out += 4;
             ((u16 *)out)[-2] = TEX_BE16((TEX_BE16(*(u16 *)(pal + (hi & 0xFE))) << 1) | (hi & 1));
             len -= 2;
@@ -218,7 +199,6 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
             BACKREF32(802A5CDC, 802A5CF0, 802A5CF8);
         }
     }
-    ENGINE_BLK(802A5D10);
     return (u32)out;
 }
 
@@ -230,21 +210,18 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
     u8 *out = (u8 *)out_;
     u8 *pal = (u8 *)pal_;
 
-    ENGINE_BLK(802A5D34);
+    ENGINE_COST(802A5D34, 6141);
     for (;;) {
         s32 w;
 
-        ENGINE_BLK(802A5D54);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5D5C);
         w = (s16)TEX_BE16(*in);
         in++;
         if (w >= 0) {
             u32 c = TEX_BE16(*(u16 *)(pal + (((u32)w >> 4) << 1)));
 
-            ENGINE_BLK(802A5D6C);
             *(u32 *)out = TEX_BE32(((c & 0x7C00) << 17) | ((c & 0x3E0) << 14) | ((c & 0x1F) << 11) |
                                    ((w & 0xF) << 4));
             out += 4;
@@ -253,7 +230,6 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
             BACKREF32(802A5DB8, 802A5DCC, 802A5DD4);
         }
     }
-    ENGINE_BLK(802A5DEC);
     return (u32)out;
 }
 
@@ -264,20 +240,17 @@ u32 func_802A5E10(u32 in_, u32 len, u32 out_) {
     u32 *out = (u32 *)out_;
     u32 n = len >> 3;
 
-    ENGINE_BLK(802A5E10);
+    ENGINE_COST(802A5E10, 1075);
     for (;;) {
-        ENGINE_BLK(802A5E28);
         if (n == 0) {
             break;
         }
-        ENGINE_BLK(802A5E30);
         out[0] = in[0];
         out[1] = in[1];
         in += 2;
         out += 2;
         n--;
     }
-    ENGINE_BLK(802A5E48);
     return (u32)out;
 }
 
@@ -290,14 +263,12 @@ u32 func_802A57DC(TexDecode *req) {
     u32 out = req->dst, end;
     u32 in = (u32)D_803C3250;
 
-    ENGINE_BLK(802A57DC);
+    ENGINE_COST(802A57DC, 856);
     len -= n8;
     for (;;) {
-        ENGINE_BLK(802A5818);
         if (n8 == 0) {
             break;
         }
-        ENGINE_BLK(802A5820);
         to[0] = from[0];
         to[1] = from[1];
         from += 2;
@@ -305,58 +276,35 @@ u32 func_802A57DC(TexDecode *req) {
         n8 -= 8;
     }
     for (;;) {
-        ENGINE_BLK(802A5838);
         if (len == 0) {
             break;
         }
-        ENGINE_BLK(802A5840);
         *(u16 *)to = *(u16 *)from;
         from = (u32 *)((u8 *)from + 2);
         to = (u32 *)((u8 *)to + 2);
         len -= 2;
     }
-    ENGINE_BLK(802A5858);
     end = out;
     if (req->type == 0) {
-        ENGINE_BLK(802A5878);
         end = func_802A5E10(in, req->length, out);
-        ENGINE_BLK(802A5880);
     } else {
-        ENGINE_BLK(802A5888);
         if (req->type == 1) {
-            ENGINE_BLK(802A5894);
             end = func_802A5AE0(in, req->length, out);
-            ENGINE_BLK(802A589C);
         } else {
-            ENGINE_BLK(802A58A4);
             if (req->type == 2) {
-                ENGINE_BLK(802A58B0);
                 end = func_802A5B90(in, req->length, out);
-                ENGINE_BLK(802A58B8);
             } else {
-                ENGINE_BLK(802A58C0);
                 if (req->type == 4) {
-                    ENGINE_BLK(802A58CC);
                     end = func_802A5C5C(in, req->length, out, req->param);
-                    ENGINE_BLK(802A58D4);
                 } else {
-                    ENGINE_BLK(802A58DC);
                     if (req->type == 5) {
-                        ENGINE_BLK(802A58E8);
                         end = func_802A5D34(in, req->length, out, req->param);
-                        ENGINE_BLK(802A58F0);
                     } else {
-                        ENGINE_BLK(802A58F8);
                         if (req->type == 3) {
-                            ENGINE_BLK(802A5904);
                             end = func_802A5A2C(in, req->length, out);
-                            ENGINE_BLK(802A590C);
                         } else {
-                            ENGINE_BLK(802A5914);
                             if (req->type == 6) {
-                                ENGINE_BLK(802A5920);
                                 end = func_802A5958(in, req->length, out);
-                                ENGINE_BLK(802A5928);
                             }
                         }
                     }
@@ -364,7 +312,6 @@ u32 func_802A57DC(TexDecode *req) {
             }
         }
     }
-    ENGINE_BLK(802A5930);
     return end - out;
 }
 
@@ -372,7 +319,7 @@ u32 func_802A57DC(TexDecode *req) {
 
 /* func_802A5720 (the C's): empty it */
 void func_802A5720(void) {
-    ENGINE_BLK(802A5720);
+    ENGINE_COST(802A5720, 17);
     D_803C4B50 = D_803C4250;
     D_803C4B54 = D_803C4250;
 }
@@ -382,7 +329,7 @@ REGS(s1, s2, s3, fp)
 void func_802A5764(u32 dst, u32 length, u32 type, u32 param) {
     TexDecode *q = D_803C4B50;
 
-    ENGINE_BLK(802A5764);
+    ENGINE_COST(802A5764, 18);
     q->dst = dst;
     q->length = length;
     q->type = type;
@@ -394,13 +341,12 @@ void func_802A5764(u32 dst, u32 length, u32 type, u32 param) {
 void func_802A57AC(void) {
     TexDecode *q = D_803C4B54;
 
-    ENGINE_BLK(802A57AC);
+    ENGINE_COST(802A57AC, 12);
     {
         u32 size = func_802A57DC(q);
 
         host_tex_decoded_slot(q - D_803C4250, q->dst, size);
     }
-    ENGINE_BLK(802A57C4);
     D_803C4B54 = q + 1;
 }
 
@@ -449,22 +395,17 @@ void func_802A5E60(void) {
     EffectSlot *s = D_803C4B70;
     s32 n = 16;
 
-    ENGINE_BLK(802A5E60);
+    ENGINE_COST(802A5E60, 158);
     for (;;) {
-        ENGINE_BLK(802A5E84);
         if (n == 0) {
             break;
         }
-        ENGINE_BLK(802A5E8C);
         n--;
         if (s->active != 0) {
-            ENGINE_BLK(802A5E9C);
             s->frame = *(u16 *)(s->anim + 0xE) - 1;
         }
-        ENGINE_BLK(802A5EAC);
         s++;
     }
-    ENGINE_BLK(802A5EB4);
 }
 
 /* func_802A5ED0 (the vehicle modules'): how many slots are in use */
@@ -473,22 +414,17 @@ s32 func_802A5ED0(void) {
     EffectSlot *s = D_803C4B70;
     s32 n = 16, used = 0;
 
-    ENGINE_BLK(802A5ED0);
+    ENGINE_COST(802A5ED0, 151);
     for (;;) {
-        ENGINE_BLK(802A5EF4);
         if (n == 0) {
             break;
         }
-        ENGINE_BLK(802A5EFC);
         n--;
         if (s->active != 0) {
-            ENGINE_BLK(802A5F0C);
             used++;
         }
-        ENGINE_BLK(802A5F10);
         s++;
     }
-    ENGINE_BLK(802A5F18);
     return used;
 }
 
@@ -497,22 +433,19 @@ REGS()
 void func_802A5F30(void) {
     s32 n = 16, i = 0;
 
-    ENGINE_BLK(802A5F30);
+    ENGINE_COST(802A5F30, 152);
     D_803EB788 = NULL;
     D_803EB78C = NULL;
     D_803EB790 = 0;
     for (;;) {
-        ENGINE_BLK(802A5F70);
         if (n == 0) {
             break;
         }
-        ENGINE_BLK(802A5F78);
         D_803C4B70[i].active = 0;
         n--;
         D_803EB770[i] = 0;
         i++;
     }
-    ENGINE_BLK(802A5F90);
 }
 
 /* func_802A5FA8 (00000.c's): the effects' heap: what is left below the
@@ -523,41 +456,30 @@ void func_802A5FA8(void) {
     s32 left;
     u32 n;
 
-    ENGINE_BLK(802A5FA8);
+    ENGINE_COST(802A5FA8, 677);
     if (D_80364AA8 & 0x20) {
-        ENGINE_BLK(802A5FC8);
         limit = D_8020ED00;
     } else {
-        ENGINE_BLK(802A5FD4);
         limit = D_8021DD00;
     }
-    ENGINE_BLK(802A5FDC);
     left = limit - heap;
     if (left < 0) {
-        ENGINE_BLK(802A5FE8);
         left = 0;
     }
-    ENGINE_BLK(802A5FEC);
     n = (u32)left / 0x1010;
     D_803EB788 = heap;
-    ENGINE_BLK(802A6014);
     D_803EB790 = n;
     func_8029A7E4(D_80305C34);
-    ENGINE_BLK(802A60A4);
     func_8029A7E4(D_80305C48, n);
-    ENGINE_BLK(802A61B4);
     end = heap + n * 0x1010;
     D_803EB78C = end;
     D_80358070 = end;
     for (p = heap;; p += 0x1010) {
-        ENGINE_BLK(802A6250);
         if (p == end) {
             break;
         }
-        ENGINE_BLK(802A6258);
         *(u32 *)(p + 0x1000) = 0;
     }
-    ENGINE_BLK(802A6264);
 }
 
 /* func_802A6274 (everyone's): start an effect's sprite: a free slot and
@@ -576,58 +498,45 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
     s32 n = 16, need, k;
     u8 *cell, *c;
 
-    ENGINE_BLK(802A6274);
+    ENGINE_COST(802A6274, 237);
     D_803EB792 = a3;
     for (;;) {
-        ENGINE_BLK(802A62B4);
         if (n == 0) {
             goto fail;
         }
-        ENGINE_BLK(802A62BC);
         n--;
         if (s->active == 0) {
             break;
         }
-        ENGINE_BLK(802A62CC);
         s++;
         dest += 0x100;
     }
-    ENGINE_BLK(802A62D8);
     need = anim[2] * anim[3];
     c = s->cells;
     cell = D_803EB770;
     n = 16;
     for (k = 0;; k++) {
-        ENGINE_BLK(802A6304);
         if (need == 0) {
             break;
         }
-        ENGINE_BLK(802A630C);
         if (n == 0) {
             goto fail;
         }
-        ENGINE_BLK(802A6314);
         n--;
         if (*cell == 0) {
-            ENGINE_BLK(802A6324);
             *c++ = k;
             need--;
         }
-        ENGINE_BLK(802A6330);
         cell++;
     }
-    ENGINE_BLK(802A633C);
     need = anim[2] * anim[3];
     for (c = s->cells;;) {
-        ENGINE_BLK(802A6364);
         if (need == 0) {
             break;
         }
-        ENGINE_BLK(802A636C);
         need--;
         D_803EB770[*c++] = 1;
     }
-    ENGINE_BLK(802A6384);
     s->active = 1;
     s->anim = anim;
     s->unk4 = t1;
@@ -636,7 +545,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
     s->unk35 = s5;
     s->unk3B = D_803EB792;
     if (t2 != 1) {
-        ENGINE_BLK(802A63B4);
         s->pos[0] = t3;
         s->pos[1] = t4;
         s->pos[2] = t5;
@@ -649,13 +557,10 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
         s->unk2C = s4;
         s->unk36 = 0;
     } else {
-        ENGINE_BLK(802A63E4);
         if (t5 != 0) {
             s32 *pt;
 
-            ENGINE_BLK(802A63EC);
             pt = (s32 *)func_802ABC88(t3, t4);
-            ENGINE_BLK(802A63FC);
             s->mode = 0;
             t3 = pt[0] << 11;
             t4 = pt[1] << 11;
@@ -670,25 +575,18 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
             ENGINE_LEAVE(10, 0xFC180000);
             ENGINE_LEAVE(12, t4);
         } else {
-            ENGINE_BLK(802A6450);
             s->unk30 = t3;
             s->unk31 = t4;
         }
     }
-    ENGINE_BLK(802A6458);
     t6 = *(s16 *)anim;
     ENGINE_LEAVE(14, t6);
     if (t6 != -1) {
-        ENGINE_BLK(802A6468);
         ENGINE_LEAVE(17, (u32)dest);
         func_802A11C4(t6, (u32)dest);
     }
-    ENGINE_BLK(802A6470);
-    ENGINE_BLK(802A647C);
     return 1;
 fail:
-    ENGINE_BLK(802A6478);
-    ENGINE_BLK(802A647C);
     return 0;
 }
 
@@ -716,33 +614,27 @@ void func_802A6748(void) {
     u8 *p = D_803EB788, *end = D_803EB78C;
     s32 freed = 0;
 
-    ENGINE_BLK(802A6748);
+    ENGINE_COST(802A6748, 629);
     for (;;) {
         u32 age;
 
-        ENGINE_BLK(802A6764);
         if (p == end) {
             break;
         }
-        ENGINE_BLK(802A676C);
         if (PIECE_KEY(p) == 0) {
             p = PIECE_NEXT(p);
             continue;
         }
-        ENGINE_BLK(802A6778);
         age = PIECE_AGE(p) + 1;
         PIECE_AGE(p) = age;
         if ((s32)age < 0x3D) {
-            ENGINE_BLK(802A678C);
             p = PIECE_NEXT(p);
             continue;
         }
-        ENGINE_BLK(802A6794);
         freed++;
         PIECE_KEY(p) = 0;
         p = PIECE_NEXT(p);
     }
-    ENGINE_BLK(802A67A4);
     D_803EB790 += freed;
 }
 
@@ -760,74 +652,56 @@ u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_o
     u32 key = (u32)s->anim;
     u32 dst;
 
-    ENGINE_BLK(802A67C4);
+    ENGINE_COST(802A67C4, 408);
     *t9_out = t9;
     *t6_out = t6;
     for (;;) {
-        ENGINE_BLK(802A67F8);
         if (p == end) {
             break;
         }
-        ENGINE_BLK(802A6800);
         if (PIECE_KEY(p) == 0) {
             p = PIECE_NEXT(p);
             continue;
         }
-        ENGINE_BLK(802A680C);
         if (key != PIECE_KEY(p)) {
             p = PIECE_NEXT(p);
             continue;
         }
-        ENGINE_BLK(802A6814);
         if (frame != PIECE_FRAME(p)) {
             p = PIECE_NEXT(p);
             continue;
         }
-        ENGINE_BLK(802A6820);
         PIECE_AGE(p) = 0;
-        ENGINE_BLK(802A68B4);
         return (u32)p;
     }
-    ENGINE_BLK(802A682C);
     if (D_803EB790 != 0) {
         u32 *k;
 
-        ENGINE_BLK(802A683C);
         for (k = D_80305C10;; k++) {
-            ENGINE_BLK(802A6844);
             if (*k == key) {
-                ENGINE_BLK(802A6860);
                 D_803EB790--;
                 for (p = D_803EB788;; p = PIECE_NEXT(p)) {
-                    ENGINE_BLK(802A6874);
                     if (PIECE_KEY(p) == 0) {
                         break;
                     }
-                    ENGINE_BLK(802A6880);
                 }
-                ENGINE_BLK(802A6888);
                 PIECE_KEY(p) = key;
                 PIECE_FRAME(p) = frame;
                 PIECE_AGE(p) = 0;
                 dst = (u32)p;
                 goto load;
             }
-            ENGINE_BLK(802A6850);
             if (*k == 0) {
                 break;
             }
-            ENGINE_BLK(802A6858);
         }
     }
-    ENGINE_BLK(802A689C);
     dst = cells + (*(u8 *)cell << 12);
 load:
-    ENGINE_BLK(802A68A8);
     t6 = *(u16 *)t9;
     *t9_out = t9 + 2;
     *t6_out = t6;
     func_802A1074(t6, dst, fp);
-    ENGINE_BLK(802A68B4);
     return dst;
 }
 
@@ -842,7 +716,7 @@ void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
     s32 sw = w << 5, sh = h << 5;
     s32 i;
 
-    ENGINE_BLK(802A6C10);
+    ENGINE_COST(802A6C10, 73);
     v[0x00] = x;  v[0x01] = y;  v[0x02] = 0; v[0x03] = 0; v[0x04] = 0;  v[0x05] = 0;
     v[0x08] = x1; v[0x09] = y;  v[0x0A] = 0; v[0x0B] = 0; v[0x0C] = sw; v[0x0D] = 0;
     v[0x10] = x;  v[0x11] = y1; v[0x12] = 0; v[0x13] = 0; v[0x14] = 0;  v[0x15] = sh;
@@ -860,11 +734,9 @@ void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
 /* func_802A6D34: the effects' two display lists begun (func_80257540) */
 REGS()
 void func_802A6D34(void) {
-    ENGINE_BLK(802A6D34);
+    ENGINE_COST(802A6D34, 45);
     D_803EB780 = func_80257540(D_803EB780);
-    ENGINE_BLK(802A6D84);
     D_803EB784 = func_80257540(D_803EB784);
-    ENGINE_BLK(802A6D98);
 }
 
 /* func_802A6EB8: slot `s`'s display list: the second (D_803EB784) if its
@@ -873,14 +745,10 @@ REGS(t4 -> t2)
 u32 func_802A6EB8(u32 s_) {
     EffectSlot *s = (EffectSlot *)s_;
 
-    ENGINE_BLK(802A6EB8);
+    ENGINE_COST(802A6EB8, 13);
     if (s->unk3B != 0) {
-        ENGINE_BLK(802A6ED0);
-        ENGINE_BLK(802A6EE4);
         return (u32)&D_803EB784;
     }
-    ENGINE_BLK(802A6EDC);
-    ENGINE_BLK(802A6EE4);
     return (u32)&D_803EB780;
 }
 
@@ -892,14 +760,11 @@ void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) 
     Gfx *PTR32 *dl;
     Gfx *g;
 
-    ENGINE_BLK(802A6DE8);
+    ENGINE_COST(802A6DE8, 52);
     ENGINE_LEAVE(16, s);
     dl = (Gfx *PTR32 *)func_802A6EB8(s);
-    ENGINE_BLK(802A6E3C);
     g = func_802575F4(*dl, a1, a2, a3, sp10, sp14, sp18);
-    ENGINE_BLK(802A6E5C);
     dl = (Gfx *PTR32 *)func_802A6EB8(s);
-    ENGINE_BLK(802A6E64);
     *dl = g;
 }
 
@@ -924,33 +789,26 @@ void func_802A68D4(u32 s_, u32 m_) {
     s32 x, y, z, scale, step, cx, cy, cz, angle, pitch;
     s64 dist, q, num;
 
-    ENGINE_BLK(802A68D4);
+    ENGINE_COST(802A68D4, 182);
     dl = (Gfx *PTR32 *)func_802A6EB8(s_);
-    ENGINE_BLK(802A6958);
     g = *dl;
     ((u32 *)g)[1] = m_ & 0x1FFFFFFF;
     ((u32 *)g)[0] = 0x01040040;
     *dl = g + 1;
     scale = s->unk4;
     func_802ACC68(scale, scale, scale, m);
-    ENGINE_BLK(802A699C);
     if (s->mode != 1) {
-        ENGINE_BLK(802A69AC);
         step = s->unk36;
         if (s->unk2C >= s->pos[1]) {
             s32 v;
 
-            ENGINE_BLK(802A69C4);
             v = s->vel[1] + s->unk14[1] * step;
             if (v < 0) {
-                ENGINE_BLK(802A69E0);
                 v = -v;
             }
-            ENGINE_BLK(802A69E4);
             s->vel[1] = v - (v >> 2);
             step = 0;
         }
-        ENGINE_BLK(802A69F4);
         s->unk36 = step + 1;
         s->pos[0] = s->pos[0] + s->unk14[0] * step + s->vel[0];
         x = s->pos[0] >> 11;
@@ -961,58 +819,37 @@ void func_802A68D4(u32 s_, u32 m_) {
     } else {
         s32 *pt;
 
-        ENGINE_BLK(802A6A68);
         pt = (s32 *)func_802ABC88(s->unk30, s->unk31);
-        ENGINE_BLK(802A6A74);
         x = pt[0];
         y = pt[1];
         z = pt[2];
     }
-    ENGINE_BLK(802A6A80);
     cx = (u32)D_803643F8 >> 11;
     cy = (u32)D_803643FC >> 11;
     cz = (u32)D_80364400 >> 11;
     dist = func_802ABCDC(cx, cy, cz, x, y, z);
-    ENGINE_BLK(802A6AB4);
     if (dist == 0) {
-        ENGINE_BLK(802A6ABC);
         dist = 1;
     }
-    ENGINE_BLK(802A6AC0);
     dist = (s32)((u32)dist << 11);
     num = (s64)(s32)(cy - y) << 27;
-    ENGINE_BLK(802A6AE0);
     if (dist == -1) {
-        ENGINE_BLK(802A6AEC);
     }
     q = num / dist;
-    ENGINE_BLK(802A6AFC);
     if (q < 0) {
-        ENGINE_BLK(802A6B08);
     }
-    ENGINE_BLK(802A6B0C);
     angle = func_802AD7FC((u32)(q < 0 ? -(s32)q : (s32)q));
-    ENGINE_BLK(802A6B14);
     pitch = angle >> 4;
     if (q >= 0) {
-        ENGINE_BLK(802A6B1C);
         pitch = 0xFFF - pitch;
     }
-    ENGINE_BLK(802A6B24);
     func_802ACBDC(pitch, D_803C4F30);
-    ENGINE_BLK(802A6B30);
     func_802ACCCC(D_803C4F30, m);
-    ENGINE_BLK(802A6B3C);
     func_802ACAC4(D_80364452, D_803C4F30);
-    ENGINE_BLK(802A6B54);
     func_802ACCCC(D_803C4F30, m);
-    ENGINE_BLK(802A6B60);
     func_802ACA60(x << 11, y << 11, z << 11, D_803C4F30);
-    ENGINE_BLK(802A6B78);
     func_802ACCCC(D_803C4F30, m);
-    ENGINE_BLK(802A6B84);
     func_802AC8CC((u32 *)m);
-    ENGINE_BLK(802A6B8C);
 }
 
 /* func_802A64A4 (00000.c's, every frame): the effects' sprites drawn: for
@@ -1030,23 +867,20 @@ void func_802A64A4(void) {
     s32 n;
     u32 t6;
 
-    ENGINE_BLK(802A64A4);
+    ENGINE_COST(802A64A4, 396);
     if (D_8035805C != 0) {
-        ENGINE_BLK(802A64E8);
         D_803EB780 = (Gfx *)D_803C6370;
         D_803EB784 = (Gfx *)D_803C7B70;
         mtx = D_803C5370;
         vtx = D_803C9770;
         cells = D_803DA770;
     } else {
-        ENGINE_BLK(802A6524);
         D_803EB780 = (Gfx *)D_803C5770;
         D_803EB784 = (Gfx *)D_803C6F70;
         mtx = D_803C4F70;
         vtx = D_803C8770;
         cells = D_803CA770;
     }
-    ENGINE_BLK(802A655C);
     s = D_803C4B70;
     fp = D_803EA770[0];
     func_802A6D34();
@@ -1055,20 +889,15 @@ void func_802A64A4(void) {
         u32 stream, w, h, cw, rows, cols, frames;
         s32 x, y, x0;
 
-        ENGINE_BLK(802A6574);
         if (n == 0) {
             break;
         }
-        ENGINE_BLK(802A657C);
         n--;
         t6 = s->active;
         if (t6 == 0) {
-            ENGINE_BLK(802A66D8);
             continue;
         }
-        ENGINE_BLK(802A658C);
         func_802A68D4((u32)s, (u32)mtx);
-        ENGINE_BLK(802A6594);
         anim = s->anim;
         cell = s->cells;
         rows = anim[3];
@@ -1079,40 +908,31 @@ void func_802A64A4(void) {
         x0 = (s32)(cw * w) >> 1;
         y = -((s32)(rows * h) >> 1);
         for (;;) {
-            ENGINE_BLK(802A6604);
             if (rows == 0) {
                 break;
             }
-            ENGINE_BLK(802A660C);
             rows--;
             x = x0;
             for (cols = cw;; cols--) {
                 u32 dst;
 
-                ENGINE_BLK(802A6618);
                 if (cols == 0) {
                     y += h;
                     break;
                 }
-                ENGINE_BLK(802A6620);
                 func_802A6C10((u32)vtx, (u32)anim, x, y, w, h);
-                ENGINE_BLK(802A6628);
                 dst = func_802A67C4((u32)cell, (u32)cells, (u32)s, stream, t6, (u32)fp, &stream, &t6);
-                ENGINE_BLK(802A6630);
                 cell++;
                 func_802A6DE8((u32)s, (u32)vtx, dst, *(u16 *)(anim + 4), w, h, s->unk35);
-                ENGINE_BLK(802A6638);
                 vtx += 0x40;
                 x -= w;
             }
         }
-        ENGINE_BLK(802A6644);
         mtx += 0x40;
         {
             Gfx *PTR32 *dl = (Gfx *PTR32 *)func_802A6EB8((u32)s);
             u32 *g = (u32 *)*dl;
 
-            ENGINE_BLK(802A664C);
             g[0] = 0xBD000000;      /* G_POPMTX */
             g[1] = 0;
             *dl = (Gfx *)(g + 2);
@@ -1120,31 +940,24 @@ void func_802A64A4(void) {
         frames = *(u16 *)(anim + 0xE);
         t6 = s->frame + 1;
         if (t6 != frames) {
-            ENGINE_BLK(802A6684);
             s->frame = t6;
         } else {
             u32 k;
 
-            ENGINE_BLK(802A668C);
             s->active = 0;
             cell = s->cells;
             for (k = anim[2] * anim[3];;) {
-                ENGINE_BLK(802A66B8);
                 if (k == 0) {
                     break;
                 }
-                ENGINE_BLK(802A66C0);
                 k--;
                 D_803EB770[*cell++] = 0;
             }
         }
-        ENGINE_BLK(802A66D8);
     }
-    ENGINE_BLK(802A66E4);
     ((u32 *)D_803EB780)[0] = 0xB8000000;    /* G_ENDDL */
     ((u32 *)D_803EB780)[1] = 0;
     ((u32 *)D_803EB784)[0] = 0xB8000000;
     ((u32 *)D_803EB784)[1] = 0;
     func_802A6748();
-    ENGINE_BLK(802A6714);
 }

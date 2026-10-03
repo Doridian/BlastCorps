@@ -197,4 +197,14 @@ void engine_frame_s(void);
 u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)
 
+/* A function's charge in one: n instructions at its entry, under its entry
+   block's id (for the check build's and PORT_BLKLOG's traces), in place of
+   its blocks one by one.  n is what its original took a call on average
+   over the TAS and the quick tier (us.v10's blocks; docs/PORT.md, "The
+   engine made readable"): the --cpu-model n64 timing stays right over a
+   frame without the code keeping the asm's blocks. */
+#define ENGINE_BLK_ID_(id, n) (id)
+#define ENGINE_BLK_ID_X(...) ENGINE_BLK_ID_(__VA_ARGS__)
+#define ENGINE_COST(addr, n) ENGINE_BLK_(ENGINE_BLK_ID_X(ENGINE_BLK_##addr), (n))
+
 #endif
