@@ -16,6 +16,7 @@
 #include "game/level.h"
 #include "game/vehicle.h"
 #include "game/objects.h"
+#include "collision.h"
 
 /* the header's offset fields: what they give */
 #define AT(h, off) ((u8 *)(h) + *(u32 *)((u8 *)(h) + (off)))
@@ -36,8 +37,6 @@ extern f32 D_803EBBF0;          /* gravity */
 extern u8 *PTR32 D_80364458;    /* the level's display data, after its header */
 extern u8 *PTR32 D_803EBBEC;
 extern u8 D_803EBDB0[];
-extern u8 D_803A6B30[100][0x14];
-extern u8 D_803A7300[12][0x14];
 extern u8 D_803ED3B8[12][4];
 extern s32 D_803EBC10[26][4];
 extern u8 *PTR32 D_803BE6F8;    /* the vehicles' records */
@@ -83,13 +82,13 @@ void func_802A2D68(u32 h_) {
     i = 100;
     do {
         ENGINE_BLK(802A2EB4);
-        D_803A6B30[100 - i][0x13] = 0xFF;
+        D_803A6B30[100 - i].end = -1;
     } while (--i != 0);
     ENGINE_BLK(802A2EC4);
     i = 12;
     do {
         ENGINE_BLK(802A2ED0);
-        D_803A7300[12 - i][0x11] = 0xFF;
+        D_803A7300[12 - i].end = -1;
     } while (--i != 0);
     ENGINE_BLK(802A2EE0);
     i = 12;
@@ -370,13 +369,10 @@ void func_802A1A9C(u32 h_) {
 
 /* ---- the collision triangles -------------------------------------------- */
 
-#include "collision.h"
 
 extern u8 D_803BD310[];         /* the walls: 0xFC-byte records */
-extern u8 *PTR32 D_803BD308, *PTR32 D_803BD30C;     /* their triangles */
 extern u8 D_803BC1D0[];         /* LevelHeader.unk68's records, 0xDC bytes */
-extern u8 D_803B9890[];         /* ... their triangles */
-extern u8 *PTR32 D_803BD300, *PTR32 D_803BD304;
+extern u8 *PTR32 D_803BD304;
 
 /* a byte of a wider datum that the original reaches at its N64 address
    (tools/recomp/native_sites.txt's x3): in native-endian memory it is at
@@ -411,11 +407,11 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     t->unk59 = 0;
     t->unk55 = b55;
     t->unk56 = b56;
-    t->unk52 = h52;
+    t->group = h52;
     t->owner = b4f;
-    t->unk50 = b50;
-    t->unk57 = b57;
-    t->unk58 = b58;
+    t->id = b50;
+    t->group2 = b57;
+    t->pushes = b58;
     x0 = BE16S(src + 0x0) << 3;
     y0 = BE16S(src + 0x2) << 3;
     z0 = BE16S(src + 0x4) << 3;
@@ -484,8 +480,8 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
         t->axis = 0;
     }
     ENGINE_BLK(802A4418);
-    t->unk54 = 0;
-    t->unk4C = src[0x12] << 8 | src[0x13];
+    t->side = 0;
+    t->heading = src[0x12] << 8 | src[0x13];
     ENGINE_LEAVE(17, dx2);              /* (the next triangle's byte 0x58) */
     return (u32)(t + 1);
 }
@@ -577,7 +573,7 @@ void func_802A3E9C(u32 h_) {
     CollisionTri *t = (CollisionTri *)D_80358070;
 
     ENGINE_BLK(802A3E9C);
-    D_803BD308 = (u8 *)t;
+    D_803BD308 = t;
     for (;;) {
         u32 n, k;
         u32 *slot;
@@ -622,14 +618,14 @@ void func_802A3E9C(u32 h_) {
     }
     ENGINE_BLK(802A3F50);
     D_803BDAF0 = w;
-    D_803BD30C = (u8 *)t;
+    D_803BD30C = t;
     D_80358070 = (u8 *)t;
 }
 
 /* whether a triangle of [D_803B9890, end) has the id `id` (in 0x50):
    5CB60's 802A4168 */
 static s32 tri_id_used(u32 id, CollisionTri *end) {
-    CollisionTri *t = (CollisionTri *)D_803B9890;
+    CollisionTri *t = D_803B9890;
     s32 found = 0;
 
     ENGINE_BLK(802A4168);
@@ -639,7 +635,7 @@ static s32 tri_id_used(u32 id, CollisionTri *end) {
             break;
         }
         ENGINE_BLK(802A418C);
-        if (t->unk50 == id) {
+        if (t->id == id) {
             ENGINE_BLK(802A4198);
             found = 1;
             break;
@@ -661,7 +657,7 @@ void func_802A3F80(u32 h_) {
     u8 *p = AT(h, 0x68);
     u8 *end = AT(h, 0x6C);
     u8 *r = D_803BC1D0;
-    CollisionTri *tris = (CollisionTri *)D_803B9890;   /* $fp */
+    CollisionTri *tris = D_803B9890;   /* $fp */
     u32 last = 0, s1 = ENGINE_REG(17);
 
     ENGINE_BLK(802A3F80);
@@ -764,7 +760,7 @@ void func_802A3F80(u32 h_) {
     }
     ENGINE_BLK(802A413C);
     D_803BD304 = r;
-    D_803BD300 = (u8 *)tris;
+    D_803BD300 = tris;
     ENGINE_LEAVE(30, (u32)tris);
 }
 
@@ -1310,10 +1306,10 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
         ENGINE_BLK(802A238C);
         if (src[0x17] != 0) {
             ENGINE_BLK(802A2398);
-            t->unk51 = 0;
+            t->active = 0;
         } else {
             ENGINE_BLK(802A23A0);
-            t->unk51 = 1;
+            t->active = 1;
         }
         ENGINE_BLK(802A23A4);
         t = (CollisionTri *)func_802A41B0((u32)t, (u32)src, src[0x15], src[0x14], src[0x18], unk34,

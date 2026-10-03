@@ -155,7 +155,7 @@ void func_802CE9C8(LevelCollisionTri *tris, u8 n, u8 arg2) {
         }
         ENGINE_BLK(802CEA18);
         left--;
-        t->unk51 = 1;
+        t->active = 1;
         /* the triangle's 0x4F, 0x50, 0x57 and 0x58 get what $t9, $v0, $t6
            and $s1 hold: the caller's, left in the context */
         t = (CollisionTri *)func_802A41B0((u32)t, (u32)tris, arg2, tris->unk14, 0, ENGINE_REG(25),
@@ -176,7 +176,7 @@ void func_802CEA68(CollisionTri *t, CollisionTri *end) {
             break;
         }
         ENGINE_BLK(802CEA78);
-        t->unk51 = 0;
+        t->active = 0;
         t++;
     }
     ENGINE_BLK(802CEA84);
