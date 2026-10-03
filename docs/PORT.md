@@ -2005,10 +2005,15 @@ synced after the game writes the EEPROM), so the next visit only needs
 `?env=PORT_AUTOSTART=3`), and the page has `--interpolate` and
 `--hd-text` checkboxes and a Full screen button.  The OpenGL renderer runs on WebGL 2
 (`gfx_gl.c`: GLSL ES 3.00, `EXT_depth_clamp` where the browser has it),
-SDL's keyboard and gamepads are the input, and the sound goes through
-SDL's WebAudio (a `ScriptProcessorNode`, whose callback runs on the
-page's thread between the loop's turns: 1024-sample buffers; the page
-resumes a suspended `AudioContext` on any key or click).  The canvas
+SDL's keyboard and gamepads are the input, and the sound goes to an
+`AudioWorklet` of the port's own (`audio.c`: on the browser's audio
+thread, the game's samples as they are, about 37 ms queued, steered
+against the drift between the display and the sound device; "The page
+outside the renderer"), or where the page has none (no secure context:
+plain HTTP from another host than localhost) through SDL's WebAudio (a
+`ScriptProcessorNode`, whose callback runs on the page's thread between
+the loop's turns: 1024-sample buffers).  The page resumes a suspended
+`AudioContext` on any key or click.  The canvas
 fills the page above its panel, by CSS; SDL (`SDL_WINDOW_ALLOW_HIGHDPI`)
 makes its pixels the display's for that size on each of the window's
 resize events, and the page passes on any other change of its stage
@@ -2166,7 +2171,8 @@ the intro story ran about 3% slower than `--deterministic` here.
   at that rate on the same clock as the retraces and timers, so
   `osAiGetLength`, which the audio thread sizes each frame by, reads what it
   would on the hardware.  Each queued buffer goes to SDL (at 22048 Hz, at
-  most 0.2 s queued) and to `--wav`.
+  most 0.2 s queued), in a page to an `AudioWorklet` ("WebAssembly"), and
+  to `--wav`.
 - **Checked** against mupen64plus's own output (its rsp-hle runs the audio
   lists; `m64p_pace` is also its audio plugin and writes `audio.wav`): the
   attract music has the same RMS second by second, correlates 0.997-0.9998
@@ -2178,7 +2184,8 @@ the intro story ran about 3% slower than `--deterministic` here.
 - **What's approximate**: rounding in the envelope and mixer; the envelope
   state layout is the port's own (the game never reads it).  In real time
   SDL's device clock and the host clock drift apart slowly; the queue cap
-  drops a buffer if the host fell far behind.
+  drops a buffer if the host fell far behind.  (The page's worklet steers
+  against that drift instead.)
 
 ### libaudio
 
@@ -3523,6 +3530,90 @@ shares and the ratio to `tri`, which didn't change, are what compare):
   `host_audio_task` went from 20% of the main thread to under 10% (from
   2.5 times `tri` to 1.1); what is left is spread over the ADPCM
   decoder, the reverb's filter, the mixer and the resampler.
+
+### The page outside the renderer
+
+The page's main thread less the renderer: what the rest costs, and what
+makes the sound or the picture stutter.  Measured with `web_perf.mjs`
+(Chromium 153 on the GPU, into Simian Acres, a 15 s CPU profile in the
+level from 60 s on, a `--profiling-funcs` build) at 1x and at CDP's 4x
+CPU throttling, and sorted by `cpuprofile_report.py --kinds` (the kind of
+work from each sample's stack: under `gfx_*` is the renderer's, under
+the microcode or the AI the sound's, Asyncify's JavaScript the loop's
+sleeps and the fiber switches, and so on).
+
+At 1x the main thread is busy 5.5% of the time, 0.9 ms a retrace (4x:
+19%, 3.2 ms).  Of that, after the changes below (before them in
+brackets where they differ):
+
+| | 1x | 4x |
+|---|---|---|
+| the renderer | 59% | 51% |
+| the browser's own work ("(program)": tasks, GL's command buffer) | 12% | 14% |
+| the sound: the microcode (`host_audio_task`) and handing the buffers on | 8% (9.6) | 10% (11.8) |
+| the game's C | 6.5% | 8% |
+| the engine | 3.5% | 4% |
+| Asyncify, the loop's turns (`wait_display`, `yield_now`, the rewinds) | 3.5% | 3.7% |
+| the input (SDL's joysticks: `navigator.getGamepads` every retrace) | 2.9% | 2.3% |
+| the host | 2.4% | 3.5% |
+| other wasm (libc, SDL, libaudio) | 1.6% | 1.7% |
+| fiber switches (the JavaScript side) | 0.1-0.9% | 0.2-0.9% |
+| other JavaScript, the garbage collector | 1% | 1.2% |
+
+- **Fiber switches are cheap.**  About 8 a retrace into a game thread and
+  as many back (23,543 of each in 3,000 retraces of `PORT_AUTOSTART=3`
+  under node), 1.5 µs into a fiber and 0.85 µs out (timed around
+  `emscripten_fiber_swap` in `fiber_asyncify.c`): 20 µs a retrace.
+- **Asyncify's instrumentation** is in the game's own functions' time, not
+  apart; the loop's turns are what it shows.  Asyncify had instrumented
+  1,333 of the module's 2,229 functions, among them every one that can
+  reach `host_fatal` or a `printf` (their indirect calls might, as far as
+  it can tell, switch fibers) and the audio microcode (it logs).  The
+  printing, fatal and allocation leaves (libc's and SDL's), and
+  `host_audio_task`, now go in `asyncify_remove.txt` with the renderer's
+  functions: 989 left instrumented, the module 8.6% smaller (2.68 to 2.45
+  MB with names).  The game's speed under node didn't change (14.4 s for
+  those 3,000 retraces either way): the functions freed were ones
+  without calls in their loops.  `asyncify_names.py` now reads the linked
+  module too, and fails if a listed function is still instrumented.
+- **The sound** was the stutter.  SDL's WebAudio driver is a
+  `ScriptProcessorNode`, deprecated, whose callback runs on the page's
+  thread and resampled there (SDL's `SDL_ResampleAudio`, 2% of the busy
+  time at 4x); worse, the game makes its sound at the retraces' rate,
+  which follows the display (`paced_wait`), and the device plays at its
+  own: a display 0.1% off (59.94 Hz) drains SDL's queue for good or
+  fills it, and SDL fills a queue run dry with silence.  With the device
+  made 0.1% fast (`PORT_AUDIO_SKEW=1.001`, `PORT_AUDIO_SDL=1`), SDL's
+  queue ran dry 2-4 times every 5 s at 1x, a few ms of silence each
+  (and 0-1 times every 5 s at the display's own 60 Hz); 0.1% slow, it
+  grew without end (121 ms queued after 90 s, until the 0.25 s cap throws
+  it away).  The page now plays through an `AudioWorklet` of its own
+  (`audio.c`): the browser's audio thread, a ring of the game's samples
+  (s16 posted as they are, made floats there), an `AudioContext` at the
+  DAC's 22048 Hz where the browser allows it (Chromium and Firefox do: the
+  browser resamples to the device).  It steers the queue's low points,
+  the level just before each of the game's buffers, averaged over a
+  second, to 20 ms: 0.5% faster or slower (Catmull-Rom) while they are
+  more than 5 ms off, the game's samples exactly as they are otherwise
+  (after a correction it creeps a ten-thousandth fast to the next whole
+  sample).  Played back and recorded in the page, 15 s of the level
+  came out sample for sample the game's `--wav`.  With the device 0.1%
+  fast or slow: no underruns in 90 s either way (the low points at 14-18
+  or 20-26 ms, a correction of 0.2-0.3% now and then), about 37 ms queued
+  on average (through SDL: 8-53 ms in its queue, and the
+  `ScriptProcessorNode`'s buffers of 21 ms on top).  What is left are the underruns at the start
+  (the logos and the level's loading hold the page for 50-90 ms; one of
+  18 ms in the first 10 s), and in Firefox (its baseline compiler is
+  slower) two or three there.  Without a secure context (plain HTTP from
+  another host than localhost) there is no `AudioWorklet`, and the sound
+  goes through SDL as before.  `web_perf.mjs` prints the sound's
+  underruns and queue every 5 s, for either path.
+- **The rest is small**: the input's `getGamepads` (2-3%) is SDL's poll a
+  retrace, and a retrace's latency is what it buys; `host_loaded_dma`'s
+  `snprintf` of a segment's name a DMA, 0.1%.  The renderer and the
+  browser's own work are 65-70% of the busy time; of the rest the sound's
+  microcode is the largest part, and the runs' totals vary by 10-20%
+  between runs (the fiber switches' share among them).
 
 ### The fourth round (SIMD vertices; the draw calls measured)
 

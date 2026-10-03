@@ -10,7 +10,12 @@
 // port/host/perf.c) and, every 5 s, what reached the display: the page's
 // animation frames, how many showed a new picture, how many repeated the
 // last one, and how many came with two or more (a picture drawn but never
-// seen).  At the end, a summary of the windows from --from on.
+// seen); and the sound's: with the port's AudioWorklet (audio.c) its
+// underruns and the time they were silent, trims, the queue (its mean and
+// its low points), the rate it steers to and the longest wait for a
+// buffer; through SDL's ScriptProcessorNode, the callbacks that ran late
+// and the gaps SDL filled with silence.  At the end, a summary of the
+// windows from --from on.
 //
 //   --browser chromium|firefox   (default chromium)
 //   --gpu                        Chromium on the GPU (ANGLE on Vulkan); without
@@ -96,6 +101,39 @@ await page.addInitScript(() => {
   const m = window.__mon = { frames: [] };
   function tick(t) { m.frames.push(t); requestAnimationFrame(tick); }
   requestAnimationFrame(tick);
+  /* the sound through SDL's ScriptProcessorNode: each callback's slack (the
+     time from when it ran to when its buffer starts playing: under 0 it ran
+     late, and the browser played a gap) and the stretches of silence SDL
+     put in when its queue ran dry (exact zeros between sound) */
+  const a = window.__aud = { cb: 0, late: 0, minSlack: 1e9, gaps: 0, gapSamples: 0, rate: 0 };
+  const csp = AudioContext.prototype.createScriptProcessor;
+  if (csp) AudioContext.prototype.createScriptProcessor = function (...args) {
+    const node = csp.apply(this, args), ctx = this;
+    let fn = null;
+    a.rate = ctx.sampleRate;
+    Object.defineProperty(node, 'onaudioprocess', {
+      get() { return fn; },
+      set(f) {
+        fn = f;
+        node.addEventListener('audioprocess', e => {
+          const slack = e.playbackTime - ctx.currentTime;
+          a.cb++;
+          if (slack < 0) a.late++;
+          a.minSlack = Math.min(a.minSlack, slack);
+          f.call(node, e);
+          const d = e.outputBuffer.getChannelData(0);
+          let run = 0, sound = false;
+          for (let i = 0; i < d.length; i++) {
+            if (d[i] === 0) { run++; continue; }
+            if (run >= 32 && sound) { a.gaps++; a.gapSamples += run; }
+            run = 0; sound = true;
+          }
+          if (run >= 32 && sound && run < d.length) { a.gaps++; a.gapSamples += run; }
+        });
+      },
+    });
+    return node;
+  };
 });
 page.on('console', m => say(m.text()));
 page.on('pageerror', e => say('[pageerror] ' + e.message));
@@ -127,8 +165,24 @@ for (let t = 0; t < +opt.secs; t += 5) {
     if (window.Module) Module.shown = shown.filter(p => p >= upto);
     const gaps = f.slice(1).map((x, i) => x - f[i]).sort((a, b) => a - b);
     window.__mon.frames = f.slice(-1);
-    const ac = window.Module && Module.SDL2 && Module.SDL2.audioContext;
-    return { frames: f.length - 1, hist, gap50: gaps[gaps.length >> 1], gap99: gaps[Math.floor(gaps.length * 0.99)],
+    const ac = window.Module && (Module.audioContext || (Module.SDL2 && Module.SDL2.audioContext));
+    /* the sound's underruns in this window: the port's own counts where it
+       has them (Module.audioStats, audio.c's worklet), else the
+       ScriptProcessorNode's as watched above */
+    const au = window.__aud, st = window.Module && Module.audioStats, last = window.__audLast || {};
+    let sound = 'none';
+    if (st) {
+      sound = `${st.underruns - (last.underruns || 0)} underruns (${((st.silentFrames - (last.silentFrames || 0)) / st.rate * 1000).toFixed(0)} ms silent), ` +
+              `${st.trimmed - (last.trimmed || 0)} trims, queued ${st.queuedMs.toFixed(0)} ms (low points ${(st.lowMs || 0).toFixed(0)}), rate x${st.ratio.toFixed(4)}, buffers up to ${(st.apartMs || 0).toFixed(0)} ms apart`;
+      st.apartMs = 0;
+      window.__audLast = Object.assign({}, st);
+    } else if (au.cb) {
+      sound = `${au.cb - (last.cb || 0)} callbacks, ${au.late - (last.late || 0)} late (min slack ${(au.minSlack * 1000).toFixed(1)} ms), ` +
+              `${au.gaps - (last.gaps || 0)} gaps (${((au.gapSamples - (last.gapSamples || 0)) / au.rate * 1000).toFixed(0)} ms)`;
+      window.__audLast = Object.assign({}, au);
+      au.minSlack = 1e9;
+    }
+    return { sound, frames: f.length - 1, hist, gap50: gaps[gaps.length >> 1], gap99: gaps[Math.floor(gaps.length * 0.99)],
              audio: ac ? `${ac.state} at ${ac.currentTime.toFixed(1)} s` : 'none' };
   });
   if (s && t > 0) {
@@ -136,6 +190,7 @@ for (let t = 0; t < +opt.secs; t += 5) {
     mon.push({ t: (Date.now() - t0) / 1000, fresh: (s.hist[1] + s.hist[2]) / 5, repeat: s.hist[0] / 5, lost: s.hist[2] / 5 });
     say(`[display] ${((Date.now() - t0) / 1000).toFixed(0)} s: ${r(s.frames)} frames/s (apart p50 ${s.gap50.toFixed(1)} ms, p99 ${s.gap99.toFixed(1)});` +
         ` a new picture in ${r(s.hist[1] + s.hist[2])}/s, the last one again in ${r(s.hist[0])}/s, two or more in ${r(s.hist[2])}/s; sound ${s.audio}`);
+    say(`[audio] ${((Date.now() - t0) / 1000).toFixed(0)} s: ${s.sound}`);
   }
   if (+opt['profile-at'] && t + 5 === +opt['profile-at'] && opt.browser === 'chromium') {
     const cdp = await ctx.newCDPSession(page);
