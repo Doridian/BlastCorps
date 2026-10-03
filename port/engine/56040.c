@@ -503,7 +503,7 @@ extern u8 D_8035805C;                   /* which of the two frames' buffers is d
 #define CRANE_R_30E 0x30E
 
 /* the crane's hook (its sphere of radius 0x3BD): whether there is one;
-   its centre in *x, *y, *z, and in $s0-$s2 as the original leaves it */
+   its centre in *x, *y, *z */
 static s32 crane_hook(s32 *x, s32 *y, s32 *z) {
     KindPart *p;
 
@@ -520,9 +520,6 @@ static s32 crane_hook(s32 *x, s32 *y, s32 *z) {
             continue;
         ENGINE_BLK(8029C728);
         *x = p->x, *y = p->y, *z = p->z;
-        ENGINE_LEAVE(16, *x);
-        ENGINE_LEAVE(17, *y);
-        ENGINE_LEAVE(18, *z);
         ENGINE_BLK(8029C738);
         return 1;
     }
@@ -701,7 +698,6 @@ s32 func_8029BEE4(CollisionTri *t, s32 x, s32 y, s32 z, s32 r) {
         ENGINE_BLK(8029BF58);
     ENGINE_BLK(8029BF5C);
     ENGINE_LEAVE(2, t->v[0][0]);
-    ENGINE_LEAVE64(10, dz2);
     return r >= d;
 }
 
@@ -1597,7 +1593,6 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
     a->back = back;
     a->key = k;
     a->t = t;
-    ENGINE_LEAVE(12, speed);            /* (what it leaves) */
     ENGINE_LEAVE(15, back);
     *t_out = t;
     return k;
@@ -1626,8 +1621,6 @@ void func_8029E5AC(Anim *a, u8 *base) {
     ENGINE_BLK(8029E604);
     interp = a->interp;
     running = (u8)a->running;
-    ENGINE_LEAVE(30, interp);
-    ENGINE_LEAVE(12, running);
     if (interp != ANIM_KEYS) {
         ENGINE_BLK(8029E614);
         func_8029F110(a, interp);
@@ -1767,7 +1760,6 @@ s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, CollisionTri *t, s32 *px, s32 *p
     ENGINE_BLK(8029C1D8);
     if (lim < dist) {
         ENGINE_BLK(8029C26C);
-        ENGINE_LEAVE64(19, d);
         ENGINE_BLK(8029C270);
         *px = *py = *pz = 0;            /* (none: its callers don't look) */
         return 0;
@@ -2011,12 +2003,10 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
         /* on the other side of this edge */
         ENGINE_BLK(8029C0BC);
         ENGINE_BLK(8029C0C0);
-        ENGINE_LEAVE(10, e);
         return 0;
     }
     ENGINE_BLK(8029BFE4);
     ENGINE_BLK(8029C0C0);
-    ENGINE_LEAVE(10, 0);
     return 1;
 }
 
@@ -2080,7 +2070,6 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
         buf1 += 0x40, buf2 += 0x40;
     }
     ENGINE_BLK(8029F9C4);
-    ENGINE_LEAVE(15, 0);
 }
 
 /* the corner's position (the triangle's are the model's << 3, from there
@@ -2169,11 +2158,6 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, CollisionTri *tri) {
         break;
     }
     ENGINE_BLK(8029BEDC);
-    /* (what it leaves: the last edge's working, which the vehicle modules'
-       readers find later) */
-    ENGINE_LEAVE64(10, cc);
-    ENGINE_LEAVE64(19, disc);
-    ENGINE_LEAVE64(20, q);
     return e != 0;
 }
 
@@ -2600,7 +2584,6 @@ static void d040(ObjTris *data, s32 owner, u8 *base, s32 x, s32 z, s32 y, Anim *
             ENGINE_BLK(8029D0F0);
             n--;
             t = func_8029D1D4(q->owner, *b);
-            ENGINE_LEAVE(16, (u32)t);
             ENGINE_BLK(8029D100);
         }
         ENGINE_BLK(8029D108);
@@ -3578,19 +3561,16 @@ void func_8029C52C(s32 kind, VS *vs) {
 
 /* An object's 32 parts' animations one frame on (func_8029E5AC for each
    running one), with base the parts' matrices and D_803B3770 the other
-   frame's.  The original reloads s6 and s7, which func_8029E5AC leaves
-   (engine_save). */
+   frame's. */
 REGS(t0, v0, v1)
 void func_8029E558(Part *parts, u8 *base, u8 *other) {
     Anim *a = ANIM(parts);
     s32 n;
 
-    engine_save(ENGINE_GPR(22) | ENGINE_GPR(23), 0);
     ENGINE_BLK(8029E558);
     D_803B3770 = other;
     for (n = N_PARTS; n != 0; n--, a++) {
         ENGINE_BLK(8029E578);
-        ENGINE_LEAVE(10, a->running);
         if (a->running != 0) {
             ENGINE_BLK(8029E584);
             func_8029E5AC(a, base);
@@ -3598,7 +3578,6 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
         ENGINE_BLK(8029E58C);
     }
     ENGINE_BLK(8029E598);
-    engine_restore();
 }
 
 extern Vehicle D_80364460[];
@@ -3882,8 +3861,7 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
     s16 *cell;
 
     /* (the inputs the vehicle modules' readers find in their registers
-       afterwards: $t4, $t8 and $fp) */
-    ENGINE_LEAVE(12, y);
+       afterwards: $t8 and $fp) */
     ENGINE_LEAVE(24, type);
     ENGINE_LEAVE(30, n);
     engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
@@ -4200,7 +4178,6 @@ REGS(t3, t4, t5, t6, t8 -> a1)
 s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
     s32 hit;
 
-    ENGINE_LEAVE(12, y);
     ENGINE_LEAVE(24, type);
     engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     hit = ab88(x, y, z, r, type);
