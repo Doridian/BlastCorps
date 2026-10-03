@@ -24,6 +24,7 @@
  * renderer then draws those framebuffers on the host (WideFb).
  */
 #include <math.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -75,6 +76,11 @@ void gfx_gl_task_end(void) {}
 void gfx_gl_texture_source(uint32_t addr) { (void)addr; }
 void gfx_gl_interp(int k) { (void)k; }
 unsigned gfx_gl_interp_swap(uint32_t fb) { (void)fb; return 0; }
+void gfx_gl_rec_reset(void) {}
+int gfx_gl_rec_state(int kind, int tile) { (void)kind; (void)tile; return -1; }
+void gfx_gl_rec_force(int id) { (void)id; }
+unsigned gfx_gl_gen;
+unsigned long long gfx_gl_rec_missed;
 int gfx_gl_scale;
 int gfx_gl_max_pixels;
 unsigned gfx_gl_window_flags(void) { return 0; }
@@ -334,6 +340,174 @@ static void load_mtx(float m[4][4], uint32_t addr) {
         }
 }
 
+/* ---- replaying the first pass (--interpolate, OpenGL) ---------------------------
+ *
+ * An in-between pass draws what the first drew, with only the vertices
+ * moved (blended with the previous frame's: below).  So the first pass
+ * records, as it runs, what the in-between passes' drawing depends on: its
+ * vertex loads as the transform and lighting left them (before blending),
+ * the point edits (G_MW_POINTS), the triangles and rectangles, the 2D
+ * projection's changes (the HUD's), and, when a display-list command may
+ * have changed it, the state the drawing reads (RCtx) and the OpenGL draw
+ * state the triangles got (gfx_gl_rec_state).  An in-between pass then
+ * replays that record (replay()): each load's vertices into the vertex
+ * buffer, blended as the full pass would (iblend, from the same records of
+ * the previous frame, in the same order), and each triangle or rectangle
+ * through the same functions as the full pass, drawn with the recorded
+ * draw state.  No display list, transform, lighting, TMEM load or texture
+ * lookup is run again, and the pictures are the full pass's.  The full
+ * pass runs instead where the record isn't valid: the software renderer
+ * (which draws the twins pixel by pixel, the cost being there), a draw
+ * state that may have gone (a texture or target dropped while the first
+ * pass ran: gfx_gl_gen), PORT_INTERP_REPLAY=0. */
+enum { R_CTX, R_LOAD, R_MODV, R_TRI, R_FILL, R_TEXRECT, R_PROJ, R_TLOAD };
+typedef struct {
+    uint32_t geom, om_h, om_l, cc0, cc1, fill;
+    uint8_t prim[4], env[4];
+    float vp_scale[3], vp_trans[3];
+    int sc[4];
+    int tex_on, tex_tile, masks, cms;   /* (wide_2d reads the texture's tile's wrap) */
+    uint32_t timg_addr, cimg_addr, zimg_addr, seg2;
+    int cimg_siz, cimg_w;
+    int tri_state;                      /* the triangles' draw state (gfx_gl_rec_state), -1: none */
+    int snap;                           /* rsnap's, for one made in a replay (-1: none) */
+} RCtx;
+static int recording;                   /* this first pass is recorded */
+static uint32_t *rec;                   /* the events, in order */
+static int rec_n, rec_cap;
+static RCtx *rctx;
+static int rctx_n, rctx_cap;
+static uint32_t rec_serial;             /* gfx_state_serial when rctx[rctx_n - 1] was taken */
+static Vtx4 *rv;                        /* the loads' vertices */
+static int rv_n, rv_cap;
+static float (*rmvp)[4][4];             /* the MVP at each load (HUD tasks: hud_text reads it) */
+static int rmvp_n, rmvp_cap;
+static unsigned rec_gen;
+/* what a draw state is made from (gs from geom on), where the first pass
+   drew nothing to take the state from: a triangle culled there may not be
+   in an in-between pass, which then makes its state as the full pass would
+   (from these, and TMEM brought up to date by the loads, R_TLOAD) */
+#define SNAP_OFF offsetof(GfxState, geom)
+#define SNAP_SZ (sizeof(GfxState) - SNAP_OFF)
+static uint8_t *rsnap;
+static int rsnap_n, rsnap_cap;
+static unsigned long long st_replay[2];  /* in-between passes replayed, run in full */
+static int gl_target(void);
+
+#define GROW(p, n, cap, add, first)                                                 \
+    do {                                                                            \
+        if ((n) + (add) > (cap)) {                                                  \
+            (cap) = (cap) ? (cap) * 2 : (first);                                    \
+            if ((cap) < (n) + (add))                                                \
+                (cap) = (n) + (add);                                                \
+            (p) = realloc((p), (size_t)(cap) * sizeof *(p));                        \
+        }                                                                           \
+    } while (0)
+
+static void rec_reset(void) {
+    rec_n = rctx_n = rv_n = rmvp_n = rsnap_n = 0;
+    rec_gen = gfx_gl_gen;
+    gfx_gl_rec_reset();
+}
+
+/* the state an event's drawing reads, when a command may have changed it */
+NOINLINE static void rec_ctx(void) {
+    rec_serial = gfx_state_serial;
+    GROW(rctx, rctx_n, rctx_cap, 1, 256);
+    RCtx *c = &rctx[rctx_n++];
+    c->geom = gs.geom; c->om_h = gs.om_h; c->om_l = gs.om_l; c->cc0 = gs.cc0; c->cc1 = gs.cc1; c->fill = gs.fill;
+    memcpy(c->prim, gs.prim, 4);
+    memcpy(c->env, gs.env, 4);
+    memcpy(c->vp_scale, gs.vp_scale, sizeof c->vp_scale);
+    memcpy(c->vp_trans, gs.vp_trans, sizeof c->vp_trans);
+    c->sc[0] = gs.sc_x0; c->sc[1] = gs.sc_y0; c->sc[2] = gs.sc_x1; c->sc[3] = gs.sc_y1;
+    c->tex_on = gs.tex_on; c->tex_tile = gs.tex_tile;
+    c->masks = gs.tile[gs.tex_tile & 7].masks; c->cms = gs.tile[gs.tex_tile & 7].cms;
+    c->timg_addr = gs.timg_addr; c->cimg_addr = gs.cimg_addr; c->zimg_addr = gs.zimg_addr; c->seg2 = gs.seg[2];
+    c->cimg_siz = gs.cimg_siz; c->cimg_w = gs.cimg_w;
+    c->tri_state = c->snap = -1;
+    GROW(rec, rec_n, rec_cap, 2, 65536);
+    rec[rec_n++] = R_CTX;
+    rec[rec_n++] = (uint32_t)(rctx_n - 1);
+}
+
+static int rec_snap(void) {
+    if ((rsnap_n + 1) * SNAP_SZ > (size_t)rsnap_cap) {
+        rsnap_cap = rsnap_cap ? rsnap_cap * 2 : 64 * (int)SNAP_SZ;
+        rsnap = realloc(rsnap, (size_t)rsnap_cap);
+    }
+    memcpy(rsnap + rsnap_n * SNAP_SZ, (const uint8_t *)&gs + SNAP_OFF, SNAP_SZ);
+    return rsnap_n++;
+}
+
+static inline uint32_t *rec_raw(int op, int n) {
+    GROW(rec, rec_n, rec_cap, n, 65536);
+    uint32_t *e = rec + rec_n;
+    rec_n += n;
+    e[0] = (uint32_t)op;
+    return e;
+}
+
+static inline uint32_t *rec_ev(int op, int n) {
+    if (rec_serial != gfx_state_serial || !rctx_n)
+        rec_ctx();
+    GROW(rec, rec_n, rec_cap, n, 65536);
+    uint32_t *e = rec + rec_n;
+    rec_n += n;
+    e[0] = (uint32_t)op;
+    return e;
+}
+
+static void rec_load(uint32_t a, int v0, int m) {
+    uint32_t *e = rec_ev(R_LOAD, 5);
+    GROW(rv, rv_n, rv_cap, m, 16384);
+    memcpy(rv + rv_n, gs.v + v0, (size_t)m * sizeof *rv);
+    e[1] = a;
+    e[2] = (uint32_t)(v0 | m << 8);
+    e[3] = (uint32_t)rv_n;
+    e[4] = 0xFFFFFFFFu;
+    rv_n += m;
+    if (hud_task) {
+        GROW(rmvp, rmvp_n, rmvp_cap, 1, 1024);
+        memcpy(rmvp[rmvp_n], gs.mvp, sizeof gs.mvp);
+        e[4] = (uint32_t)rmvp_n++;
+    }
+}
+
+static inline void rec_tri(int i0, int i1, int i2, int flag) {
+    uint32_t *e = rec_ev(R_TRI, 2);
+    e[1] = (uint32_t)((i0 & 0xFF) | (i1 & 0xFF) << 8 | (i2 & 0xFF) << 16 | (uint32_t)(flag & 0xFF) << 24);
+}
+
+/* after it: culled, with no state for its kind yet */
+static inline void rec_tri_done(void) {
+    RCtx *c = &rctx[rctx_n - 1];
+    if (c->tri_state < 0 && c->snap < 0 && gl_target())
+        c->snap = rec_snap();
+}
+
+/* the first pass drew the last triangle (kind GFX_GL_TRI) or rectangle: the
+   draw state it got */
+static int rec_rect_at = -1;            /* the last rectangle's event */
+static void rec_drawn(int kind, int tile) {
+    if (kind == GFX_GL_TRI) {
+        RCtx *c = &rctx[rctx_n - 1];
+        if (c->tri_state < 0)
+            c->tri_state = gfx_gl_rec_state(kind, tile);
+    } else if (rec_rect_at >= 0) {
+        rec[rec_rect_at + 6] = (uint32_t)gfx_gl_rec_state(kind, tile);
+        rec_rect_at = -1;
+    }
+}
+
+static void rec_rect(int op, uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
+    uint32_t *e = rec_ev(op, 8);
+    e[1] = w0; e[2] = w1; e[3] = h2; e[4] = hc; e[5] = (uint32_t)flip;
+    e[6] = 0xFFFFFFFFu;
+    e[7] = gl_target() ? (uint32_t)rec_snap() : 0xFFFFFFFFu;
+    rec_rect_at = (int)(e - rec);
+}
+
 /* ---- the RSP ----------------------------------------------------------------- */
 
 NOINLINE static void do_mtx(uint32_t w0, uint32_t w1) {
@@ -342,6 +516,8 @@ NOINLINE static void do_mtx(uint32_t w0, uint32_t w1) {
     load_mtx(m, seg_to_k0(w1));
     if (p & 1) {                        /* projection */
         hud_proj = seg_to_k0(w1);
+        if (recording && hud_task)
+            rec_ev(R_PROJ, 2)[1] = hud_proj;
         if (p & 2)
             memcpy(gs.proj, m, sizeof m);
         else
@@ -568,6 +744,22 @@ static void iblend(int v0, int n) {
     gfx_st_interp[3] += n;
 }
 
+/* after a vertex load (w1, at a) put m vertices at v0: --interpolate's
+   records and blends, the HUD's extents */
+static void vtx_tail(uint32_t w1, uint32_t a, int v0, int m) {
+    if (itrack) {
+        if (ipass)
+            iblend(v0, m);
+        else
+            irecord(w1, v0, m);
+    }
+    if (hud_task) {
+        for (int i = 0; i < m; i++)
+            hud_vsrc[v0 + i] = a + 16 * i;
+        hud_load(v0, m);
+    }
+}
+
 NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
     const uint8_t *p = port_ptr(seg_to_k0(w1));
@@ -640,23 +832,20 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
         v->s = s * gs.tex_s / 32.0f;
         v->t = t * gs.tex_t / 32.0f;
     }
-    if (itrack) {
-        int m = n < 16 - v0 ? n : 16 - v0;
-        if (ipass)
-            iblend(v0, m);
-        else
-            irecord(w1, v0, m);
-    }
-    if (hud_task) {
-        for (int i = 0; i < n && v0 + i < 16; i++)
-            hud_vsrc[v0 + i] = seg_to_k0(w1) + 16 * i;
-        hud_load(v0, n < 16 - v0 ? n : 16 - v0);
-    }
+    int m = n < 16 - v0 ? n : 16 - v0;
+    if (recording)
+        rec_load(seg_to_k0(w1), v0, m);
+    vtx_tail(w1, seg_to_k0(w1), v0, m);
 }
 
 /* gSPModifyVertex (G_MW_POINTS): the RSP's vertex buffer is 40 bytes a
    vertex; the game rewrites texture coordinates this way */
 NOINLINE static void modify_vertex(int off, uint32_t val) {
+    if (recording) {
+        uint32_t *e = rec_ev(R_MODV, 3);
+        e[1] = (uint32_t)off;
+        e[2] = val;
+    }
     Vtx4 *v = &gs.v[(off / 40) & 15];
     switch (off % 40) {
     case 0x10:                                  /* G_MWO_POINT_RGBA */
@@ -881,15 +1070,29 @@ void gfx_tmem_sync(void) {
     tpend_n = 0;
 }
 
+static void tload_lazy(TLoad l);
+
 static void tload(uint8_t op, uint32_t w0, uint32_t w1) {
     const Tile *t = &gs.tile[(w1 >> 24) & 7];
     TLoad l = { op, w0, w1, gs.timg_addr, gs.timg_siz, gs.timg_w, t->tmem, t->line, { 0 } };
     st_loads[op == 0xF3 ? 0 : op == 0xF4 ? 1 : 2]++;
     st_loads[3] += ipass;
+    if (recording) {
+        uint32_t *e = rec_raw(R_TLOAD, 9);
+        e[1] = op; e[2] = w0; e[3] = w1; e[4] = gs.timg_addr; e[5] = (uint32_t)gs.timg_siz;
+        e[6] = (uint32_t)gs.timg_w; e[7] = (uint32_t)t->tmem; e[8] = (uint32_t)t->line;
+    }
     if (!tmem_lazy) {
         tload_copy(&l);
         return;
     }
+    tload_lazy(l);
+}
+
+/* a load into the pending ones (an in-between pass's) */
+static void tload_lazy(TLoad l) {
+    uint8_t op = l.op;
+    uint32_t w0 = l.w0, w1 = l.w1;
     /* what it writes, as tload_copy does (a 32-bit texture's: all of it) */
     int bpt2 = bytes_per_texel_x2(l.timg_siz);
     if (l.timg_siz == 3) {
@@ -1427,7 +1630,7 @@ static void lerp(Vtx4 *o, const Vtx4 *a, const Vtx4 *b, float t) {
 static int clip_poly(Vtx4 *in, int n, Vtx4 *out, int plane) {
     int m = 0;
     for (int i = 0; i < n; i++) {
-        Vtx4 *a = &in[i], *b = &in[(i + 1) % n];
+        Vtx4 *a = &in[i], *b = &in[i + 1 < n ? i + 1 : 0];
         float da = plane == 0 ? a->w - 1e-3f : a->z + a->w;
         float db = plane == 0 ? b->w - 1e-3f : b->z + b->w;
         if (da >= 0)
@@ -1445,7 +1648,7 @@ static int gl_target(void) { return gfx_gl_enabled && gfx_gl_owns_target(); }
 static void charge_poly(const GfxVtx *s, int n) {
     float area = 0, x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
     for (int i = 0; i < n; i++) {
-        const GfxVtx *a = &s[i], *b = &s[(i + 1) % n];
+        const GfxVtx *a = &s[i], *b = &s[i + 1 < n ? i + 1 : 0];
         area += a->x * b->y - b->x * a->y;
         x0 = min_f(x0, a->x); x1 = max_f(x1, a->x); y0 = min_f(y0, a->y); y1 = max_f(y1, a->y);
     }
@@ -1775,7 +1978,17 @@ static float hud_rect_dx(void) {
    (docs/PORT.md, "Graphics"). */
 static int rsp_only;
 
+__attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i2, int flag);
+
 NOINLINE static void tri(int i0, int i1, int i2, int flag) {
+    if (recording)
+        rec_tri(i0, i1, i2, flag);
+    tri_draw(i0, i1, i2, flag);
+    if (recording)
+        rec_tri_done();
+}
+
+__attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i2, int flag) {
     st_tris++;
     Vtx4 *a = &gs.v[i0 & 15], *b = &gs.v[i1 & 15], *c = &gs.v[i2 & 15];
     float flat[4];
@@ -1828,7 +2041,7 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
         if (cull_late) {
             float area = 0;
             for (int i = 0; i < n; i++) {
-                const Vtx4 *p = &p2[i], *q = &p2[(i + 1) % n];
+                const Vtx4 *p = &p2[i], *q = &p2[i + 1 < n ? i + 1 : 0];
                 area += p->x / p->w * (q->y / q->w) - q->x / q->w * (p->y / p->w);
             }
             if ((gs.geom & 0x2000) && area < 0)
@@ -1839,7 +2052,8 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
         for (int i = 0; i < n; i++)
             to_screen(&p2[i], &s[i]);
     }
-    charge_poly(s, n);
+    if (!ipass)                         /* (an in-between pass's isn't charged) */
+        charge_poly(s, n);
     int gl = gl_target();
     if (hud_task && (gl || cur_wfb)) {
         float dx = hud_tri_dx(i0, i1, i2);
@@ -1850,6 +2064,8 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
         wide_2d(s, n);
     if (gl) {
         gfx_gl_tri(s, n, fl);
+        if (recording)
+            rec_drawn(GFX_GL_TRI, 0);
         return;
     }
     if (ipass && !cur_wfb)              /* RDRAM is the first pass's; a twin only */
@@ -1947,6 +2163,8 @@ NOINLINE static void fill_sw(int ulx, int uly, int lrx, int lry, int cyc) {
 }
 
 NOINLINE static void fill_rect(uint32_t w0, uint32_t w1) {
+    if (recording)
+        rec_rect(R_FILL, w0, w1, 0, 0, 0);
     int lrx = ((w0 >> 12) & 0xFFF) >> 2, lry = (w0 & 0xFFF) >> 2;
     int ulx = ((w1 >> 12) & 0xFFF) >> 2, uly = (w1 & 0xFFF) >> 2;
     int cyc = gfx_cycle_type();
@@ -1992,6 +2210,8 @@ NOINLINE static void fill_rect(uint32_t w0, uint32_t w1) {
             gfx_gl_zclear(wx0, uly, wx1, lry);
     } else if (gl_target()) {
         gfx_gl_fill_rect(wx0, uly, wx1, lry);
+        if (recording)
+            rec_drawn(GFX_GL_FILL, 0);
         return;
     }
     if (cur_wfb) {
@@ -2012,6 +2232,8 @@ static void wide_band_clear(int x0, int y0, int x1, int y1, int gl) {
 }
 
 NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
+    if (recording)
+        rec_rect(R_TEXRECT, w0, w1, h2, hc, flip);
     float lrx = ((w0 >> 12) & 0xFFF) / 4.0f, lry = (w0 & 0xFFF) / 4.0f;
     float ulx = ((w1 >> 12) & 0xFFF) / 4.0f, uly = (w1 & 0xFFF) / 4.0f;
     int tile = (w1 >> 24) & 7;
@@ -2071,6 +2293,8 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
         float sa = s0 + ((flip ? y0 - uly : x0 - ulx)) * dsdx;
         float ta = t0 + ((flip ? x0 - ulx : y0 - uly)) * dtdy;
         gfx_gl_tex_rect(x0, y0, x1, y1, tile, sa, ta, dsdx, dtdy, flip);
+        if (recording)
+            rec_drawn(GFX_GL_TEXRECT, tile);
         return;
     }
     if (ipass && !cur_wfb)
@@ -2107,6 +2331,93 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
             }
             write_pixel(x, y, c);
         }
+}
+
+/* an in-between pass from the first pass's record (above, "replaying the
+   first pass"), from the state the first started from */
+static void replay_snap(int i) {
+    memcpy((uint8_t *)&gs + SNAP_OFF, rsnap + (size_t)i * SNAP_SZ, SNAP_SZ);
+    gfx_state_serial++;                 /* (a state made again, from gs) */
+}
+
+static void replay(void) {
+    const uint32_t *e = rec, *end = rec + rec_n;
+    int tri_state = -1;
+    while (e < end) {
+        switch (e[0]) {
+        case R_CTX: {
+            const RCtx *c = &rctx[e[1]];
+            gs.geom = c->geom; gs.om_h = c->om_h; gs.om_l = c->om_l; gs.cc0 = c->cc0; gs.cc1 = c->cc1;
+            gs.fill = c->fill;
+            memcpy(gs.prim, c->prim, 4);
+            memcpy(gs.env, c->env, 4);
+            memcpy(gs.vp_scale, c->vp_scale, sizeof gs.vp_scale);
+            memcpy(gs.vp_trans, c->vp_trans, sizeof gs.vp_trans);
+            gs.sc_x0 = c->sc[0]; gs.sc_y0 = c->sc[1]; gs.sc_x1 = c->sc[2]; gs.sc_y1 = c->sc[3];
+            gs.tex_on = c->tex_on; gs.tex_tile = c->tex_tile;
+            gs.tile[c->tex_tile & 7].masks = c->masks; gs.tile[c->tex_tile & 7].cms = c->cms;
+            gs.timg_addr = c->timg_addr; gs.cimg_addr = c->cimg_addr; gs.zimg_addr = c->zimg_addr;
+            gs.seg[2] = c->seg2;
+            gs.cimg_siz = c->cimg_siz; gs.cimg_w = c->cimg_w;
+            tri_state = c->tri_state;
+            if (tri_state < 0 && c->snap >= 0)
+                replay_snap(c->snap);
+            else if (tri_state < 0)
+                tri_state = -2;         /* (nothing the GPU draws: none needed) */
+            gfx_gl_rec_force(tri_state);
+            e += 2;
+            break;
+        }
+        case R_LOAD: {
+            int v0 = e[2] & 0xFF, m = (e[2] >> 8) & 0xFF;
+            memcpy(gs.v + v0, rv + e[3], (size_t)m * sizeof *rv);
+            if (e[4] != 0xFFFFFFFFu)
+                memcpy(gs.mvp, rmvp[e[4]], sizeof gs.mvp);
+            vtx_tail(0, e[1], v0, m);
+            e += 5;
+            break;
+        }
+        case R_MODV:
+            modify_vertex((int)e[1], e[2]);
+            e += 3;
+            break;
+        case R_TRI:
+            tri(e[1] & 0xFF, (e[1] >> 8) & 0xFF, (e[1] >> 16) & 0xFF, (int)(e[1] >> 24));
+            e += 2;
+            break;
+        case R_FILL:
+        case R_TEXRECT:
+            if (e[6] != 0xFFFFFFFFu) {
+                gfx_gl_rec_force((int)e[6]);
+            } else if (e[7] != 0xFFFFFFFFu) {
+                replay_snap((int)e[7]);
+                gfx_gl_rec_force(-1);
+            } else {
+                gfx_gl_rec_force(-2);
+            }
+            if (e[0] == R_FILL)
+                fill_rect(e[1], e[2]);
+            else
+                tex_rect(e[1], e[2], e[3], e[4], (int)e[5]);
+            gfx_gl_rec_force(tri_state);
+            e += 8;
+            break;
+        case R_TLOAD: {
+            TLoad l = { (uint8_t)e[1], e[2], e[3], e[4], (int)e[5], (int)e[6], (int)e[7], (int)e[8], { 0 } };
+            tload_lazy(l);
+            e += 9;
+            break;
+        }
+        case R_PROJ:
+            hud_proj = e[1];
+            e += 2;
+            break;
+        default:
+            e = end;
+            break;
+        }
+    }
+    gfx_gl_rec_force(-1);
 }
 
 /* ---- the display list ------------------------------------------------------------------- */
@@ -2346,6 +2657,15 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         if (between) {
             s0 = gs;
             memcpy(tmem0, gfx_tmem, sizeof tmem0);
+            static int replay_on = -1;
+            if (replay_on < 0) {
+                const char *e = getenv("PORT_INTERP_REPLAY");
+                replay_on = !e || atoi(e) != 0;
+            }
+            if (gfx_gl_enabled && replay_on) {
+                recording = 1;
+                rec_reset();
+            }
         }
     }
     host_perf_push(PERF_GFX);
@@ -2355,6 +2675,8 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     hud_begin(dl, rdp);
     hud_rect_i = 0;
     run(dl, 0);
+    int replayable = recording && rec_n && rec_gen == gfx_gl_gen;
+    recording = 0;
     if (gfx_gl_enabled)
         gfx_gl_task_end();
     host_perf_pop();
@@ -2383,7 +2705,13 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
                 gfx_gl_interp(k);
                 gfx_gl_task_begin();
             }
-            run(dl, 0);
+            if (replayable) {
+                replay();
+                st_replay[0]++;
+            } else {
+                run(dl, 0);
+                st_replay[1]++;
+            }
             if (gfx_gl_enabled) {
                 gfx_gl_task_end();
                 gfx_gl_interp(-1);
@@ -2506,6 +2834,8 @@ void host_gfx_interp_report(void) {
     host_log("interpolate: %llu in-between passes for %llu frames; of %llu vertex loads, %llu blended with the "
              "previous frame's, %llu without a match there, %llu vertices (of %llu) in loads that moved too far\n",
              s[5], s[6], s[0], s[1], s[7], s[4], s[2]);
+    host_log("interpolate: %llu in-between passes replayed from the first pass's record, %llu run in full%s\n",
+             st_replay[0], st_replay[1], gfx_gl_rec_missed ? " (and drawn without a state, a bug)" : "");
     host_log("interpolate: %llu rectangles in in-between passes, %llu moved, %llu moved too far\n",
              gfx_st_rect[0], gfx_st_rect[1], gfx_st_rect[2]);
     host_log("interpolate: %llu retraces presented: %llu showed a new frame of the game's, %llu an "
