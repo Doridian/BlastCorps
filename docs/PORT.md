@@ -421,13 +421,18 @@ What's exact: with the timing taken out, every variant plays the same game,
 so the save and the sound are the same in all of them, and so are the
 screenshots, except where the references say otherwise:
 
-- **layout-dependent** (`layout`): the hint box's portrait static at
-  frame 1500 of `=2` and `=3` differs between executables (the software
-  renderer's static samples memory that holds addresses of the image; see
-  "Threads without ucontext"), and so does the story's TV static in
-  `attract.long` (5500 and 8250 in us.v11; 5000, 5250, 7500, 8000 and
-  9500 in jp).  It is compared only within a build; the OpenGL renderer
-  draws it the same everywhere.
+- **layout-dependent** (`layout`, by version and scenario): screenshots
+  compared only within a build.  The software renderer's static (the hint
+  box's portrait, the story's TV) samples memory that holds addresses of
+  the image (see "Threads without ucontext"), so it differs between
+  executables; the OpenGL renderer draws it the same everywhere.  None is
+  listed now: the lists were the portrait at frame 1500 of `=2` and `=3`
+  and the story's TV in `attract.long` (5500 and 8250 in us.v11; 5000,
+  5250, 7500, 8000 and 9500 in jp), and since "The front end's waits"
+  every scenario is 30 retraces further along at each of those frames
+  and no screenshot falls on the static (the portrait is gone by 1500):
+  all eight variants of all three versions give every screenshot the
+  same.  A change of timing can put one back on it.
 - **known failures** (`known`, by variant): the build passes as XFAIL
   while it gives exactly the hashes recorded there, and fails on anything
   else; when the failure goes away it passes with a note to take the
@@ -489,6 +494,8 @@ With the tier running under the variants' table, us.v11 and jp: every
 variant equal to the 64-bit big-endian references but for the
 layout-dependent static (`~`), in all five scenarios.  The
 quick tiers take about two minutes together with `attract.long`.
+(Since "The front end's waits", all eight variants, `wasm` included,
+equal the references in every hash, `=`, for all three versions.)
 
 (jp's first runs found its IDO asm, translated, doing what Rare's code
 doesn't: the movable builds stopped at the pak thread's entry, which only
@@ -602,6 +609,10 @@ What it showed (us.v10, the 32-bit build, main as of 2026-10-02):
   533 frames where the reference took 1,064 (and `rng` differs from the
   first frame: it is seeded from the clock).  The demos read their input
   by frame, so they are what lag can't change.
+- us.v11 and jp (references since "The front end's waits"): `auto1` to
+  `auto3` have us.v10's gameplay hashes (the same Simian Acres, the same
+  input); the attract mode differs from us.v10's in jp (`attract` and
+  `attract.long` only match within a version).
 - `PORT_AUTOSTART=2` and `=3` press their buttons by the retrace count, so
   a change of timing changes their input and their gameplay: their digests
   will differ after such a change by design, and have to be recorded
@@ -2666,7 +2677,12 @@ lands on other frames once the boot is 30 retraces shorter.  With the
 in-level taps' phase moved by the same retraces (119), auto1's and
 auto3's digests are the old runs' frame for frame; attract's and auto2's
 are the same gameplay without that (`digest_cmp.py` against
-`--load-waits n64` runs).  `PORT_AUTOSTART` taps nothing in the first
+`--load-waits n64` runs).  The same for us.v11 and jp (their 32-bit
+builds): with `--load-waits n64` every hash of every scenario is the old
+references' (the layout-dependent static aside), the digests compare as
+us.v10's do (`attract.long` too: 4,611 and 4,805 level frames, the same),
+and their references were recorded again, with gameplay digests for the
+first time.  `PORT_AUTOSTART` taps nothing in the first
 30 retraces now: a button held at the game's first read asks to erase
 the save (mode 0x40000000000000), and that read now comes at once.
 
