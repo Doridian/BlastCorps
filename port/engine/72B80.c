@@ -13,19 +13,15 @@
  * D_803EF2EC..F4: func_802B8480 sets it up (from the level loader),
  * func_802B899C flies it each frame (from hd.c), func_802B8794 is its
  * sound and func_802B8AE4 hands its position to the player when it has
- * landed.  func_802B8D04 is its flight, a state in D_803EF32C: 0 hovering,
- * 1 flying to D_803EF308/30C, 2 slowing down, 3 coming in to land there, 4
- * landing (D_80368030 + 0xFA0 high), 5 down (with the rotor stopping), 6
- * the rotor starting.
+ * landed.  func_802B8D04 is its flight, a state in D_803EF32C (CHOPPER_*).
  *
  * func_802B78F4 and func_802B7980, at the end, are the hotrod's two
  * callbacks for 62740's carrying (shared.h).
  */
-#include "shared.h"
-#include "game/game.h"
-#include "game/camera.h"
+#include "vehicle.h"
 #include "game/level.h"
 #include "game/audio.h"
+#include "buildings.h"
 
 /* the hotrod's .bss (asm/data/hd_code/72B80.bss.s) */
 extern Part D_803EEB70[32];
@@ -34,10 +30,10 @@ extern s32 D_803EEF18, D_803EEF1C, D_803EEF20;  /* x, y, z */
 extern u8 *PTR32 D_803EEF24;                    /* its model file */
 extern u8 *PTR32 D_803EEF28;                    /* two 0x100-byte buffers, one per frame */
 extern u8 *PTR32 D_803EEF2C;
-extern u16 D_803EEF30;                          /* the heading it turns to (with D_803A7425) */
+extern u16 D_803EEF30;                          /* the heading it turns to against a wall (D_803A7425) */
 extern u8 D_803EEF32;                           /* frames until the next sparks */
 extern s8 D_803EEF33;                           /* turning to it */
-extern u8 D_803EEF34;                           /* frames without the gears after a hit */
+extern u8 D_803EEF34;                           /* frames without the throttle after a hit */
 /* the chopper's */
 extern Part D_803EEF40[32];
 extern VS D_803EF240;
@@ -52,23 +48,35 @@ extern s32 D_803EF308, D_803EF30C;              /* where it flies to: x, z */
 extern s32 D_803EF310, D_803EF314, D_803EF318;  /* where the player gets out */
 extern s32 D_803EF31C;                          /* the ground's height under it */
 extern s32 D_803EF320;                          /* the distance to go, last frame */
-extern s16 D_803EF324;                          /* its turn, -4..4 a frame */
+extern s16 D_803EF324;                          /* its turn a frame (4 hovering) */
 extern s16 D_803EF326;
 extern s16 D_803EF328, D_803EF32A;              /* its speed and heading when it landed */
-extern u8 D_803EF32C;                           /* its state */
+extern u8 D_803EF32C;                           /* its state (CHOPPER_*) */
 extern u8 D_803EF32D;                           /* it has landed */
 extern u8 D_803EF32E;                           /* the rotor has stopped */
 
-extern u8 D_80305D30[];                         /* the hotrod's bounce records */
+#define P D_803EEB70
+#define Q D_803EEF40
+#define HR_X D_803EEF18
+#define HR_Y D_803EEF1C
+#define HR_Z D_803EEF20
+#define HR_MODEL D_803EEF24
+#define HR_BUF0 D_803EEF28
+#define HR_BUF1 D_803EEF2C
+#define CH_X D_803EF2EC
+#define CH_Y D_803EF2F0
+#define CH_Z D_803EF2F4
+#define CH_MODEL D_803EF2F8
+#define CH_BUF0 D_803EF2FC
+#define CH_BUF1 D_803EF300
+
+extern u8 D_80305D30[];                         /* the hotrod's parts' collision (56040's func_8029A800) */
 extern char D_80305D40[];                       /* "moving to zoom2\n" */
 
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern s16 D_8036444C, D_80364450;
-extern u8 D_803A7424, D_803A7425;
 extern Part *PTR32 D_803F77D0;
-extern s32 D_803643E4, D_803643E8;
 extern s32 D_80368030, D_80368044, D_80368048;
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 
@@ -117,8 +125,6 @@ REGS(gp)
 void func_802B9B4C(VS *vs);
 
 #define T(p) ((s32)(p))
-#define P D_803EEB70
-#define Q D_803EEF40
 
 static s32 f2i(f32 f) {
     union {
@@ -143,105 +149,89 @@ static s32 part(s32 i, Part *parts, f32 *f0) {
 
 /* ---- the hotrod ---------------------------------------------------------- */
 
-/* set up: from the level loader, with the model file in $s2, the position
-   in $t7, $s3, $s0 and the heading in $s1 */
+/* the hotrod's numbers (a frame, where it's per frame) */
+#define HOTROD_SCALE 0x32C8             /* its model's scale */
+#define HOTROD_SPAN_ALONG 0x2BC         /* its wheels' spans (func_802A8768) */
+#define HOTROD_SPAN_ACROSS 0x190
+#define HOTROD_BRAKE 0x10               /* speed lost braking or against the stick, a frame */
+#define HOTROD_TURN_RATE 0x1770         /* func_802A7FD8: the move heading's turn, times the grip over the speed */
+#define HOTROD_SLOPE_DIV 700.0f         /* func_802A843C: the slope's push is the height difference over this */
+#define HOTROD_STEER_DIV 3.6f           /* the steering rate: the speed over this ... */
+#define HOTROD_STEER_DIV_AIR 11.0f      /* ... or this with a wheel in the air */
+#define HOTROD_WALL_TURN 0.16f          /* func_802A71DC: turning along a wall, times the speed */
+#define HOTROD_HIT_FRAMES 5             /* frames without the throttle after hitting something */
+#define HOTROD_HIT_MIN_SPEED 0x32       /* the speed it bounces back with is at least half this */
+#define HOTROD_GRAVITY 4.0f             /* times the level's */
+#define HOTROD_BOUNCE_MIN 0x3C          /* a landing harder than this bounces ... */
+#define HOTROD_BOUNCE_DIV 3             /* ... at the speed over this */
+
+/* set up: from the level loader, with the model file, the position and
+   the heading */
 REGS(s2, t7, s3, s0, s1)
 void func_802B7340(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EEE70;
-    u8 *buf;
-    s16 *r;
     s32 avg;
 
     ENGINE_COST(802B7340, 219);
-    D_803EEF24 = model;
-    buf = D_80358070;
-    D_803EEF28 = buf;
-    D_803EEF2C = buf + 0x100;
-    D_80358070 = buf + 0x200;
-    func_802A1388(8, 0, D_803EEF28, D_803EEF2C, model);
+    HR_MODEL = model;
+    HR_BUF0 = D_80358070;
+    HR_BUF1 = D_80358070 + 0x100;
+    D_80358070 += 0x200;
+    func_802A1388(VEHICLE_HOTROD, 0, HR_BUF0, HR_BUF1, model);
     func_802A754C(vs);
-    vs->unk52[0] = 0xC8;
-    vs->unk52[1] = 0x15E;
-    vs->unk52[2] = -0xC8;
-    vs->unk52[3] = 0x15E;
-    vs->unk52[4] = 0xC8;
-    vs->unk52[5] = -0x15E;
-    vs->unk5E[0] = 0x140;
-    vs->unk5E[1] = 0x1F4;
-    vs->unk5E[2] = -0x140;
-    vs->unk5E[3] = 0x1F4;
-    vs->unk5E[4] = 0x140;
-    vs->unk5E[5] = -0x1F4;
-    D_803EEF18 = x;
-    D_803EEF1C = y;
-    D_803EEF20 = z;
-    vs->unk4C = heading;
-    vs->unk4E = heading;
-    vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803EEF1C, x, z, vs->unk4, &D_803EEF1C, (s16 *)&vs->unk4C, 8, vs, 0, &avg);
-    func_8029F85C(P, D_803EEF24, D_803EEF28, D_803EEF2C);
+    SET_WHEELS(VS_WHEELS(vs), 0xC8, 0x15E, -0xC8, 0x15E, 0xC8, -0x15E);
+    SET_WHEELS(VS_CARRY_WHEELS(vs), 0x140, 0x1F4, -0x140, 0x1F4, 0x140, -0x1F4);
+    HR_X = x;
+    HR_Y = y;
+    HR_Z = z;
+    VS_HEADING(vs) = heading;
+    VS_MOVE_HEADING(vs) = heading;
+    VS_TURN_HEADING(vs) = heading;
+    func_802A992C(VS_WHEELS(vs), HR_Y, x, z, VS_WHEEL_H(vs), &HR_Y, (s16 *)&VS_HEADING(vs), VEHICLE_HOTROD, vs, 0,
+                  &avg);
+    func_8029F85C(P, HR_MODEL, HR_BUF0, HR_BUF1);
     func_802A039C(0, 100, P);
     func_802A03D4(0, 0, P);
     func_802A040C(0, 0, P);
     func_802A0480(0, 0, P, 0.0f);
     func_802A0290(0, 1, P);
-    func_8029E558(P, D_803EEF28, D_803EEF2C);
+    func_8029E558(P, HR_BUF0, HR_BUF1);
     func_802A0320(0, P);
     func_802A0290(0, 1, P);
-    func_8029E558(P, D_803EEF2C, D_803EEF28);
-    r = vs->unk78;
-    r[0] = -0xB4, r[1] = 0, r[2] = 2;
-    r[3] = 0, r[4] = 0x50, r[5] = 4;
-    r[6] = 0x50, r[7] = 0xA0, r[8] = 5;
-    r[9] = 0xA0, r[10] = 0xFA, r[11] = 3;
-    r[12] = 0xFA, r[13] = 0x15E, r[14] = 2;
+    func_8029E558(P, HR_BUF1, HR_BUF0);
+    SET_GEARS(vs, -0xB4, 0, 2, 0, 0x50, 4, 0x50, 0xA0, 5, 0xA0, 0xFA, 3, 0xFA, 0x15E, 2);
     D_803EEF32 = 0;
     D_803EEF33 = 0;
     D_803EEF34 = 0;
-    model = D_803EEF24;
-    func_8029C354(8, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 0x32C8);
-    func_80258230(8, 0x3C, 0x19, 0x19);
-    vs->unk9A = 1;
+    func_8029C354(VEHICLE_HOTROD, MODEL_AT(HR_MODEL, 4), MODEL_AT(HR_MODEL, 8), HOTROD_SCALE);
+    func_80258230(VEHICLE_HOTROD, 0x3C, 0x19, 0x19);
+    /* its first frame */
+    VS_IN_SETUP(vs) = 1;
     func_802B7A88();
-    vs->unk9A = 0;
-    model = D_803EEF24;
-    func_802AA838(D_803EEF2C, D_803EEF28, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
+    VS_IN_SETUP(vs) = 0;
+    func_802AA838(HR_BUF1, HR_BUF0, MODEL_MTX_OFF(HR_MODEL));
 }
 
 /* hd.c's: the player gets in */
 void func_802B76AC(void) {
-    VS *vs = &D_803EEE70;
-
     ENGINE_COST(802B76AC, 19);
-    vs->unk96[3] = 0;
+    VS_TURNING(&D_803EEE70) = 0;
     D_8036444C = 0xBB8;
     D_80364450 = 0x3E8;
     func_802C4310(0xCE);
 }
 
-/* hd.c's: whether it can be left: not while a wheel is off the ground */
+/* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802B76F8(void) {
-    VS *vs = &D_803EEE70;
-    u8 r = 0;
-
     ENGINE_COST(802B76F8, 23);
-    if (vs->unk96[0] != 1) {
-        if (vs->unk96[1] != 1) {
-            if (vs->unk96[2] != 1) {
-                r = 1;
-            }
-        }
-    }
-    return r;
+    return !ANY_AIRBORNE(&D_803EEE70);
 }
 
 /* hd.c's: the player gets out */
 void func_802B7754(void) {
-    VS *vs = &D_803EEE70;
-
     ENGINE_COST(802B7754, 19);
-    vs->unk76 = 0;
-    func_802A7764((u32 *)D_803EEF28, (u32 *)D_803EEF2C, 0x100);
+    VS_SPEED(&D_803EEE70) = 0;
+    func_802A7764((u32 *)HR_BUF0, (u32 *)HR_BUF1, 0x100);
     func_802C444C();
 }
 
@@ -250,277 +240,211 @@ void func_802B77A0(void) {
     VS *vs = &D_803EEE70;
 
     ENGINE_COST(802B77A0, 35);
-    func_802A9A60(vs->unk52, D_803EEF1C, D_803EEF18, D_803EEF20, vs->unk4, &D_803EEF1C, (s16 *)&vs->unk4C, 8, vs,
+    func_802A9A60(VS_WHEELS(vs), HR_Y, HR_X, HR_Z, VS_WHEEL_H(vs), &HR_Y, (s16 *)&VS_HEADING(vs), VEHICLE_HOTROD, vs,
                   0);
     func_802B8278(vs);
-    func_802A133C(D_803EEF18, D_803EEF1C, D_803EEF20, 8, vs);
+    func_802A133C(HR_X, HR_Y, HR_Z, VEHICLE_HOTROD, vs);
 }
 
 /* its light */
 void func_802B78B0(void) {
     ENGINE_COST(802B78B0, 17);
-    func_802ABD54(8, D_803EEF18, D_803EEF1C, D_803EEF20);
+    func_802ABD54(VEHICLE_HOTROD, HR_X, HR_Y, HR_Z);
+}
+
+/* hit something: back to where it was at the frame's start (and its
+   vertices), the throttle off for HOTROD_HIT_FRAMES, the speed turned
+   round and halved (at least HOTROD_HIT_MIN_SPEED before) */
+static void hotrod_bounce(VS *vs) {
+    s32 v;
+
+    D_803EEF33 = 0;
+    func_802A768C((u8 *)P, &HR_X, &HR_Y, &HR_Z, (u32 *)OTHER_BUF(HR_BUF0, HR_BUF1), (u32 *)FRAME_BUF(HR_BUF0, HR_BUF1),
+                  0x100, (u8 *)vs);
+    D_803EEF34 = HOTROD_HIT_FRAMES;
+    v = VS_SPEED(vs);
+    if (v >= 0) {
+        if (v < HOTROD_HIT_MIN_SPEED)
+            v = HOTROD_HIT_MIN_SPEED;
+    } else if (v > -HOTROD_HIT_MIN_SPEED) {
+        v = -HOTROD_HIT_MIN_SPEED;
+    }
+    VS_SPEED(vs) = -v >> 1;
+    func_802B8278(vs);
 }
 
 /* each frame */
 void func_802B7A88(void) {
     VS *vs = &D_803EEE70;
-    s32 t3 = 0, x, z, rate_i, turn, v, h;
+    s32 step = 0, x, z, rate_i;
     u32 stick_addr;
     s32 stick;
     f32 rate;
-    u8 *a2, *a3;
 
     ENGINE_COST(802B7A88, 213);
     func_802B78B0();
-    func_802A75DC((u8 *)P, &D_803EEF18, &D_803EEF1C, &D_803EEF20, (u8 *)vs);
+    func_802A75DC((u8 *)P, &HR_X, &HR_Y, &HR_Z, (u8 *)vs);
     func_802C4724(0xA4);
-    if (vs->unk9A == 0) {
+    if (VS_IN_SETUP(vs) == 0)
         func_802B7F98(vs);
-    }
-    if (D_80367BFF != 0) {
+    if (D_80367BFF != 0)
         func_802CB690(vs);
-    }
     func_802B8424();
+    /* steering, the throttle, the turn and the slope */
     rate_i = func_802B83B0(vs);
-    turn = func_802A7E70(rate_i, &vs->unk4C, &stick_addr, &stick);
-    (void)turn;
-    if (D_803EEF34 == 0) {
-        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0x10, vs, &t3);
-    } else {
+    func_802A7E70(rate_i, &VS_HEADING(vs), &stick_addr, &stick);
+    if (D_803EEF34 == 0)
+        func_802A785C(step, &VS_SPEED(vs), 3, VS_AIRBORNE(vs), VS_GEARS(vs), HOTROD_BRAKE, vs, &step);
+    else
         D_803EEF34--;
-    }
-    func_802A7FD8(0x1770, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
-    rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
-    func_802A843C(&vs->unk76, 1, 8, (s8 *)vs->unk96, vs->unk4, 700.0f, vs);
-    if (D_803EEF33 != 0) {
+    func_802A7FD8(HOTROD_TURN_RATE, &VS_SPEED(vs), (u16 *)&VS_TURN_HEADING(vs), &VS_HEADING(vs), &VS_MOVE_HEADING(vs),
+                  (s8 *)&VS_TURNING(vs), 1, vs);
+    rate = func_802A83B8(step, &VS_SPEED(vs), VS_AIRBORNE(vs), VS_WHEEL_H(vs), &VS_SLOPE_RATIO(vs), &step);
+    func_802A843C(&VS_SPEED(vs), 1, VEHICLE_HOTROD, (s8 *)VS_AIRBORNE(vs), VS_WHEEL_H(vs), HOTROD_SLOPE_DIV, vs);
+    if (D_803EEF33 != 0)
         func_802A7070((s16 *)&D_803EEF30, vs);
-    }
-    x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EEF18, &D_803EEF20, rate, &z);
+    /* the move, on the ground */
+    x = func_802A860C(VS_MOVE_HEADING(vs), &VS_SPEED(vs), &HR_X, &HR_Z, rate, &z);
     D_803ED40B = 1;
-    func_802A8768(x, z, &D_803EEF18, &D_803EEF20, &D_803EEF1C, 8, 0x2BC, 0x190, vs->unk52, vs->unk28, vs->unk28 + 6,
-                  vs->unk28 + 3, vs->unk5E, vs);
-    if (D_8035805C != 0) {
-        func_8029E558(P, D_803EEF28, D_803EEF2C);
-    } else {
-        func_8029E558(P, D_803EEF2C, D_803EEF28);
-    }
+    func_802A8768(x, z, &HR_X, &HR_Z, &HR_Y, VEHICLE_HOTROD, HOTROD_SPAN_ALONG, HOTROD_SPAN_ACROSS, VS_WHEELS(vs),
+                  VS_WHEEL_FALL(vs), VS_WHEEL_FRAMES(vs), VS_WHEEL_GROUND(vs), VS_CARRY_WHEELS(vs), vs);
+    func_8029E558(P, FRAME_BUF(HR_BUF0, HR_BUF1), OTHER_BUF(HR_BUF0, HR_BUF1));
     func_802B8278(vs);
+    /* what it hits */
     ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
     ENGINE_LEAVE(10, 0x96);
     func_8029A800(D_803EEF18, D_803EEF1C, D_803EEF20, D_80305D30, 1, 1, vs->unk76, 0, 8, vs);
-    func_8029C52C(8, vs);
+    func_8029C52C(VEHICLE_HOTROD, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {
         D_803A7424 = 0;
         D_803F77D0 = P;
-        func_802BE77C(8, vs);
-        if (D_803A7424 == 0) {
+        func_802BE77C(VEHICLE_HOTROD, vs);
+        if (D_803A7424 == 0)
             D_803EEF33 = 0;
-            goto done;
-        }
-        goto hit;
-    }
-    /* D_803A7425: turned toward the camera's heading */
-    func_8029A914(vs);
-    D_803EEF33 = 1;
-    v = func_802A6F6C();
-    /* (the difference from the heading, which nothing uses) */
-    h = (u16)vs->unk4E - 0x800;
-    if (h < 0) {
-        h += 0xFFF;
-    }
-    h -= v;
-    if (h < 0) {
-        h = -h;
-    }
-    if (!(h < 0x801)) {
-    }
-    func_802A70D8(vs);
-    {
-        s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, vs, &a1);
-
-        D_803EEF30 = a0;
-        vs->unk4E = a0;
-        vs->unk74 = a0;
-        func_802A746C(a1, vs);
-    }
-    func_802A6FE4(0, vs);
-    D_803F77D0 = P;
-    func_802BE77C(8, vs);
-    goto done;
-
-hit:
-    /* bounced off something: back to where it was, the speed turned
-       round */
-    D_803EEF33 = 0;
-    if (D_8035805C != 0) {
-        a2 = D_803EEF2C;
-        a3 = D_803EEF28;
+        else
+            hotrod_bounce(vs);
     } else {
-        a2 = D_803EEF28;
-        a3 = D_803EEF2C;
+        D_803EEF33 = 1;
+        turn_along_wall(vs, &D_803EEF30, HOTROD_WALL_TURN);
+        D_803F77D0 = P;
+        func_802BE77C(VEHICLE_HOTROD, vs);
     }
-    func_802A768C((u8 *)P, &D_803EEF18, &D_803EEF1C, &D_803EEF20, (u32 *)a2, (u32 *)a3, 0x100, (u8 *)vs);
-    D_803EEF34 = 5;
-    v = vs->unk76;
-    if (v >= 0) {
-        if (v < 0x32) {
-            v = 0x32;
-        }
-    } else {
-        if (!(v < -0x31)) {
-            v = -0x32;
-        }
-    }
-    vs->unk76 = -v >> 1;
-    func_802B8278(vs);
-
-done:
-    D_803643E0 = D_803EEF18;
-    D_803643E4 = D_803EEF1C;
-    D_803643E8 = D_803EEF20;
-    D_8036443C = vs->unk76;
-    D_8036443E = vs->unk4E;
-    D_80364440 = vs->unk4C;
-    func_802A133C(D_803643E0, D_803643E4, D_803643E8, 8, vs);
+    PLAYER_FROM(HR_X, HR_Y, HR_Z, vs, VEHICLE_HOTROD);
 }
 
-/* the dust, the wheels' sparks off rough ground, and the engine's sound */
+/* the dust, sparks every other frame while turning (with room for them),
+   and the engine's sound */
 REGS(gp)
 void func_802B7F98(VS *vs) {
-    s32 s;
-
     ENGINE_COST(802B7F98, 23);
     func_802B80D8(vs);
     if (D_803EEF32 != 0) {
         D_803EEF32--;
-        goto sound;
+    } else if (VS_TURNING(vs) != 0) {
+        D_803EEF32 = 1;
+        if (func_802A5ED0() < 0xF) {
+            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_HOTROD, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_HOTROD, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(T(D_802C2954), 0x1D4C0, 1, VEHICLE_HOTROD, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(T(D_802C2954), 0x1D4C0, 1, VEHICLE_HOTROD, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+        }
     }
-    if (vs->unk96[3] == 0)
-        goto sound;
-    D_803EEF32 = 1;
-    s = func_802A5ED0();
-    if (!(s < 0xF))
-        goto sound;
-    func_802A6274(T(D_802C2954), 0x29810, 1, 8, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 8, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 8, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 8, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-sound:
-    s = vs->unk76;
-    if (s < 0) {
-        s = -s;
-    }
-    func_802C4584((u32)s >> 5);
+    func_802C4584((u32)iabs(VS_SPEED(vs)) >> 5);
 }
 
-/* dust behind it on the ground */
+/* dust behind it while turning on soft ground (grip under 3, not the
+   static triangles) with its back wheel down */
 REGS(gp)
 void func_802B80D8(VS *vs) {
     ENGINE_COST(802B80D8, 69);
-    if (vs->unk96[3] == 0)
-        goto done;
-    if (vs->unk96[2] == 1)
-        goto done;
-    if (!(vs->unk50 < 3))
-        goto done;
-    if (vs->unk9B != 0)
-        goto done;
-    func_8027BE7C(3, vs->unk4[6], 0xFA, -0x190, -0x190, -0x190, D_803EEF18, D_803EEF20, vs->unk4E, 3, 0x32, 0x32, 0);
-done:
-    ;
+    if (VS_TURNING(vs) != 0 && VS_AIRBORNE(vs)[2] != 1 && VS_GRIP(vs) < 3 && VS_ON_STATIC(vs) == 0)
+        func_8027BE7C(3, VS_WHEEL_H(vs)[6], 0xFA, -0x190, -0x190, -0x190, HR_X, HR_Z, VS_MOVE_HEADING(vs), 3, 0x32,
+                      0x32, 0);
 }
 
 /* the hotrod's matrix, its vertices and its collision */
 REGS(gp)
 void func_802B8278(VS *vs) {
-    u8 *model = D_803EEF24, *buf;
-    s32 *m, off;
+    u8 *model = HR_MODEL, *buf = FRAME_BUF(HR_BUF0, HR_BUF1);
 
     ENGINE_COST(802B8278, 70);
-    off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
-    if (D_8035805C != 0) {
-        m = (s32 *)(D_803EEF28 + off);
-    } else {
-        m = (s32 *)(D_803EEF2C + off);
-    }
-    D_803ED390[1] = vs->unk4C;
-    func_802AA764(D_803EEF18, D_803EEF1C, D_803EEF20, 0x32C8, m);
-    if (D_8035805C != 0) {
-        buf = D_803EEF28;
-    } else {
-        buf = D_803EEF2C;
-    }
-    model = D_803EEF24;
-    func_8029C454(D_803EEF18, D_803EEF1C, D_803EEF20, 8, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
-                  buf);
-    func_802ABBEC(8, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
+    D_803ED390[1] = VS_HEADING(vs);
+    func_802AA764(HR_X, HR_Y, HR_Z, HOTROD_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
+    func_8029C454(HR_X, HR_Y, HR_Z, VEHICLE_HOTROD, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
+    func_802ABBEC(VEHICLE_HOTROD, MODEL_AT(model, 0), MODEL_AT(model, 4), buf);
 }
 
-/* the turn rate: the speed / 3.6, or / 11 with a wheel off the ground */
+/* the steering rate: the speed over HOTROD_STEER_DIV, or over
+   HOTROD_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802B83B0(VS *vs) {
-    f32 d;
-
     ENGINE_COST(802B83B0, 24);
-    if (vs->unk96[0] == 1)
-        goto air;
-    if (vs->unk96[1] == 1)
-        goto air;
-    if (vs->unk96[2] == 1)
-        goto air;
-    d = 3.6f;
-    goto div;
-air:
-    d = 11.0f;
-div:
-    return engine_cvt_w_s((f32)vs->unk76 / d);
+    return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? HOTROD_STEER_DIV_AIR : HOTROD_STEER_DIV));
 }
 
-/* the camera's distance and speed for the hotrod */
+/* the physics' settings for the hotrod: gravity, and how its wheels land */
 REGS()
 void func_802B8424(void) {
     ENGINE_COST(802B8424, 23);
-    D_803EBBF4 = D_803EBBF0 * 4.0f;
-    D_803ED3F6 = 0x3C;
-    D_803ED3F7 = 3;
+    D_803EBBF4 = D_803EBBF0 * HOTROD_GRAVITY;
+    D_803ED3F6 = HOTROD_BOUNCE_MIN;
+    D_803ED3F7 = HOTROD_BOUNCE_DIV;
 }
 
 /* ---- the chopper --------------------------------------------------------- */
 
-/* set up: from the level loader (func_802A3134), with the model file in
-   $s2; its position is the level's (D_803EF2EC..F4, 1D990.c) */
+/* its flight's states (D_803EF32C) */
+#define CHOPPER_HOVER 0                 /* turning round where it is */
+#define CHOPPER_FLY 1                   /* to D_803EF308/30C, speeding up, turning to it */
+#define CHOPPER_SLOW 2                  /* slowing down near it */
+#define CHOPPER_COME_IN 3               /* straight to it, slowly */
+#define CHOPPER_LAND 4                  /* down to the ground (D_80368030) + CHOPPER_LAND_HEIGHT */
+#define CHOPPER_DOWN 5                  /* landed, the rotor stopping; then up again */
+#define CHOPPER_START 6                 /* the rotor starting, then hovering */
+
+/* its numbers (a frame, where it's per frame) */
+#define CHOPPER_SCALE 0x5208            /* its model's scale */
+#define CHOPPER_CLIMB 0x14              /* its height's change a frame */
+#define CHOPPER_HOVER_TURN 4            /* its turn hovering, a frame */
+#define CHOPPER_ACCEL 2                 /* flying: its speed up a frame ... */
+#define CHOPPER_TOP_SPEED 0xA0          /* ... to this */
+#define CHOPPER_SLOW_DOWN 4             /* slowing down: its speed down a frame ... */
+#define CHOPPER_SLOW_SPEED 0x14         /* ... to this */
+#define CHOPPER_SLOW_DIST 0x7D0         /* it slows down within this */
+#define CHOPPER_TURN_SHIFT 6            /* flying: its turn at most the heading's difference >> this */
+#define CHOPPER_LAND_HEIGHT 0xFA0       /* it lands this high above the ground */
+#define CHOPPER_SOUND_RANGE 0x3E80      /* its rotor heard within this of the player */
+
+/* set up: from the level loader (func_802A3134), with the model file; its
+   position is the level's (D_803EF2EC..F4, 1D990.c) */
 REGS(s2)
 void func_802B8480(u8 *model) {
     VS *vs = &D_803EF240;
-    u8 *buf;
 
     ENGINE_COST(802B8480, 197);
-    D_803EF2F8 = model;
-    buf = D_80358070;
-    D_803EF2FC = buf;
-    D_803EF300 = buf + 0x800;
-    D_80358070 = buf + 0x1000;
-    /* ($a1: what func_802A396C left, the heap's top, never 0) */
-    func_802A1388(0xFE, 1, D_803EF2FC, D_803EF300, model);
-    vs->unk4C = 0;
-    vs->unk4E = 0;
+    CH_MODEL = model;
+    CH_BUF0 = D_80358070;
+    CH_BUF1 = D_80358070 + 0x800;
+    D_80358070 += 0x1000;
+    /* (the original's $a1: what func_802A396C left, the heap's top, never 0) */
+    func_802A1388(VEHICLE_CHOPPER, 1, CH_BUF0, CH_BUF1, model);
+    VS_HEADING(vs) = 0;
+    VS_MOVE_HEADING(vs) = 0;
     D_803EF32A = 0;
-    vs->unk76 = 0x14;
+    VS_SPEED(vs) = CHOPPER_SLOW_SPEED;
     D_803EF2E6 = 0;
     D_803EF328 = 0;
-    func_8029F85C(Q, D_803EF2F8, D_803EF2FC, D_803EF300);
+    func_8029F85C(Q, CH_MODEL, CH_BUF0, CH_BUF1);
     func_802A039C(0, 100, Q);
     func_802A03D4(0, 0, Q);
     func_802A040C(0, 0, Q);
     func_802A0480(0, 0, Q, 0.0f);
     func_802A0290(0, 1, Q);
-    func_8029E558(Q, D_803EF2FC, D_803EF300);
+    func_8029E558(Q, CH_BUF0, CH_BUF1);
     func_802A0320(0, Q);
     func_802A0290(0, 1, Q);
-    func_8029E558(Q, D_803EF300, D_803EF2FC);
+    func_8029E558(Q, CH_BUF1, CH_BUF0);
     func_802A039C(1, 9, Q);
     func_802A03D4(1, 0, Q);
     func_802A040C(1, 0, Q);
@@ -531,50 +455,41 @@ void func_802B8480(u8 *model) {
     func_802A03D4(4, 1, Q);
     func_802A040C(4, 1, Q);
     func_802A0290(4, 1, Q);
-    D_803EF32C = 0;
+    D_803EF32C = CHOPPER_HOVER;
     D_803EF324 = 0;
     D_803EF32D = 0;
     D_803EF31C = 0;
-    func_80258230(0xFE, 0x78, 0x2D, 0x2D);
+    func_80258230(VEHICLE_CHOPPER, 0x78, 0x2D, 0x2D);
     chopper_frame();
-    model = D_803EF2F8;
-    func_802AA838(D_803EF300, D_803EF2FC, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
+    func_802AA838(CH_BUF1, CH_BUF0, MODEL_MTX_OFF(CH_MODEL));
 }
 
-/* its rotor's sound: on within 0x3E80 of the player, louder nearer, panned
-   by x */
+/* its rotor's sound: on within CHOPPER_SOUND_RANGE of the player, louder
+   nearer, panned by x */
 void func_802B8794(void) {
-    s32 d, dx, v;
+    s32 d, dx = D_803643E0 - CH_X, pan;
 
     ENGINE_COST(802B8794, 94);
-    dx = D_803643E0 - D_803EF2EC;
-    d = (s32)func_802ABCDC(D_803643E0, D_803643E4, D_803643E8, D_803EF2EC, D_803EF2F0, D_803EF2F4);
-    if (!(d < 0x3E81)) {
-        if (D_803EF2E8 == NULL)
-            goto done;
-        func_802608C8(D_803EF2E8);
-        D_803EF2E8 = NULL;
-        goto done;
-    }
-    if (D_803EF2E8 == NULL) {
-        func_80260650(D_80367738, 0x13, &D_803EF2E8);
-    }
-    d -= 0x1F4;
-    if (d < 0) {
-        d = 0;
-    }
-    func_80260AB8(D_803EF2E8, 8, 0x7FFF - d);
-    v = 0x40 + (dx >> 5);
-    if (v < 0) {
-        v = 0;
-    } else {
-        if (!(v < 0x80)) {
-            v = 0x7F;
+    d = (s32)func_802ABCDC(D_803643E0, D_803643E4, D_803643E8, CH_X, CH_Y, CH_Z);
+    if (d > CHOPPER_SOUND_RANGE) {
+        if (D_803EF2E8 != NULL) {
+            func_802608C8(D_803EF2E8);
+            D_803EF2E8 = NULL;
         }
+        return;
     }
-    func_80260AB8(D_803EF2E8, 4, v);
-done:
-    ;
+    if (D_803EF2E8 == NULL)
+        func_80260650(D_80367738, 0x13, &D_803EF2E8);
+    d -= 0x1F4;
+    if (d < 0)
+        d = 0;
+    func_80260AB8(D_803EF2E8, 8, 0x7FFF - d);
+    pan = 0x40 + (dx >> 5);
+    if (pan < 0)
+        pan = 0;
+    else if (pan > 0x7F)
+        pan = 0x7F;
+    func_80260AB8(D_803EF2E8, 4, pan);
 }
 
 /* each frame: its flight, its rotors, its matrix, where the player would
@@ -588,13 +503,9 @@ static void chopper_frame(void) {
     engine_save(ENGINE_GPR(30), 0);
     func_802B8D04();
     func_802B98E0(vs);
-    if (D_8035805C != 0) {
-        func_8029E558(Q, D_803EF2FC, D_803EF300);
-    } else {
-        func_8029E558(Q, D_803EF300, D_803EF2FC);
-    }
+    func_8029E558(Q, FRAME_BUF(CH_BUF0, CH_BUF1), OTHER_BUF(CH_BUF0, CH_BUF1));
     func_802B9B4C(vs);
-    p = (s32 *)func_802ABC88(0xFE, 1);
+    p = (s32 *)func_802ABC88(VEHICLE_CHOPPER, 1);
     D_803EF310 = p[0];
     D_803EF314 = p[1];
     D_803EF318 = p[2];
@@ -607,33 +518,26 @@ void func_802B899C(void) {
     chopper_frame();
 }
 
-/* hd.c's, when it has landed: the player's start where it is, and the
-   level's end */
+/* hd.c's, when it has landed: the player's start where it is; in the
+   chopper's mode (0x1000) the level's end once it is down or the player is
+   above the ground, else that mode once it is landing */
 void func_802B8AE4(void) {
     VS *vs = &D_803EF240;
-    u8 s;
+    u8 s = D_803EF32C;
 
     ENGINE_COST(802B8AE4, 58);
-    D_803EF32A = vs->unk4E;
-    D_803EF328 = vs->unk76;
+    D_803EF32A = VS_MOVE_HEADING(vs);
+    D_803EF328 = VS_SPEED(vs);
     D_803ED808 = D_803EF310;
     D_803ED80C = D_803EF314;
     D_803ED810 = D_803EF318;
     D_80368030 = D_803EF31C;
-    s = D_803EF32C;
     if (D_80364A90 != 0x1000) {
-        if (s != 4)
-            goto done;
-        D_80364A98 = 0x1000;
-        goto done;
+        if (s == CHOPPER_LAND)
+            D_80364A98 = 0x1000;
+    } else if (s == CHOPPER_DOWN || D_803EF31C >= D_803EF314) {
+        func_80275390(0x2000);
     }
-    if (s != 5) {
-        if (D_803EF31C < D_803EF314)
-            goto done;
-    }
-    func_80275390(0x2000);
-done:
-    ;
 }
 
 /* the ground's height under it (inside the level), and its shadow there */
@@ -641,465 +545,235 @@ REGS(gp)
 void func_802B8C18(VS *vs) {
     /* (the original's $t3, the shadow's height outside the level: the
        model's address func_802B9B4C leaves there) */
-    s32 x = D_803EF2EC, z = D_803EF2F4, t3 = T(D_803EF2F8);
+    s32 x = CH_X, z = CH_Z, h = T(CH_MODEL);
 
     ENGINE_COST(802B8C18, 59);
-    if (x <= 0)
-        goto shadow;
-    if (z <= 0)
-        goto shadow;
-    if (!(x < D_803BE732 << 5))
-        goto shadow;
-    if (!(z < D_803BE736 << 5))
-        goto shadow;
-    t3 = func_802A9B1C(0, x, z, D_803EF31C, 0xFE, vs, 0);
-    D_803EF31C = t3;
-shadow:
-    func_802582C4(0xFE, D_803EF2EC, t3, D_803EF2F4, D_803EF2F0, 0, 0, (s16)vs->unk4C);
-    D_803EF326 = vs->unk4C;
+    if (x > 0 && z > 0 && x < D_803BE732 << 5 && z < D_803BE736 << 5)
+        h = D_803EF31C = func_802A9B1C(0, x, z, D_803EF31C, VEHICLE_CHOPPER, vs, 0);
+    func_802582C4(VEHICLE_CHOPPER, CH_X, h, CH_Z, CH_Y, 0, 0, (s16)VS_HEADING(vs));
+    D_803EF326 = VS_HEADING(vs);
 }
 
-/* its flight (see the top) */
-REGS()
-void func_802B8D04(void) {
-    VS *vs = &D_803EF240;
-    s32 t0, t1, t2, t3, t4, t5, t6, t7, s0, s6, xr, zr, a, b, c, d;
-    s64 s1;
-    u32 u;
-    f32 f0;
+/* one axis's step toward the target at the speed, in proportion to the
+   distance left (dist) */
+static s32 axis_step(s32 cur, s32 target, s32 dist, s32 speed) {
+    s32 d = target - cur, step;
+    u32 u = ((u32)iabs(d) << 10) / (u32)dist;
 
-    ENGINE_COST(802B8D04, 85);
-    t0 = D_803EF32C;
-    if (t0 == 0)
-        goto hover;
-    if (t0 == 1)
-        goto fly;
-    if (t0 == 3)
-        goto come_in;
-    if (t0 == 2)
-        goto slow;
-    if (t0 == 4)
-        goto land;
-    if (t0 == 5)
-        goto down;
-    if (t0 != 6) {
-        engine_trap(0x802B8D58);
-    }
+    step = (u32)(u * (u32)speed) >> 10;
+    return cur + (d < 0 ? -step : step);
+}
 
-    /* 6: the rotor starting */
-    part(4, Q, &f0);
-    if (!(f0 == 0.0f)) {
-        func_802A03D4(4, 1, Q);
-        func_802A0290(4, 1, Q);
-    }
-    D_803EF32C = 0;
-    goto hover;
+/* the heading by the turn, and on at the speed */
+static void chopper_turn(VS *vs) {
+    s32 h = wrap_fff((u16)VS_MOVE_HEADING(vs) + D_803EF324), z;
 
-down:
-    /* 5: down, the rotor stopping; up to the flying height again */
-    t3 = part(4, Q, NULL);
-    if (t3 != 1) {
-        D_803EF32E = 1;
-    }
-    t3 = D_803EF304;
-    t5 = D_803EF2F0;
-    if (t3 != t5) {
-        if (t3 < t5) {
-            t5 -= 0x14;
-            if (t5 < t3) {
-                t5 = t3;
-            }
-        } else {
-            t5 += 0x14;
-            if (t3 < t5) {
-                t5 = t3;
-            }
-        }
-        D_803EF2F0 = t5;
-        goto rest;
-    }
-    if (D_803EF32E == 0)
-        goto rest;
-    D_803EF32C = 0;
-    D_803EF32E = 0;
-    goto rest;
+    VS_MOVE_HEADING(vs) = h;
+    VS_HEADING(vs) = h;
+    CH_X = func_802A860C(h, &VS_SPEED(vs), &CH_X, &CH_Z, 0.0f, &z);
+    CH_Z = z;
+}
 
-land:
-    /* 4: down to D_80368030 + 0xFA0 */
-    t3 = D_80368030 + 0xFA0;
-    t5 = D_803EF2F0;
-    if (t3 != t5) {
-        if (t3 < t5) {
-            t5 -= 0x14;
-            if (t5 < t3) {
-                t5 = t3;
-            }
-        } else {
-            t5 += 0x14;
-            if (t3 < t5) {
-                t5 = t3;
-            }
-        }
-        D_803EF2F0 = t5;
-        goto rest;
-    }
-    t3 = part(4, Q, NULL);
-    if (t3 == 1)
-        goto rest;
-    D_803EF32D = 1;
-    if (D_80364A90 != 0x1000) {
-        t0 = func_8026A610(D_803643E0, D_803643E0, D_803EF2EC, D_803EF2F4);
-        t0 = 0x88B8 - (t0 << 1);
-        if (!(t0 < 0xFA1)) {
-            if (!(t0 < 0x8000)) {
-                t0 = 0x7FFF;
-            }
-            {
-                SndState *h = func_80260650(D_80367738, 0x28, NULL);
+/* flying: toward D_803EF308/30C, speeding up and turning toward it, until
+   within CHOPPER_SLOW_DIST.  On its flight into a level (mode 0x800), near
+   enough (a distance by the level), the next stop is the level's
+   (D_80368044/48) and the intro ends. */
+static void chopper_fly(VS *vs) {
+    s32 x = CH_X, z = CH_Z, tx = D_803EF308, tz = D_803EF30C, near, d1, d2, dir, diff, max, xr, zr;
+    s64 dist = func_802B988C();
 
-                func_80260AB8(h, 8, t0);
-            }
-        }
-    }
-    D_803EF32C = 5;
-    func_802A0290(4, 1, Q);
-    goto rest;
-
-slow:
-    /* 2: slowing down to 0x14, then coming in */
-    t3 = vs->unk76;
-    if (!(t3 < 0x15)) {
-        vs->unk76 = t3 - 4;
-        goto turn;
-    }
-    vs->unk76 = 0x14;
-    D_803EF32C = 3;
-    vs->unk76 = 0x14;
-    s1 = func_802B988C();
-    D_803EF320 = (s32)s1;
-
-come_in:
-    /* 3: straight to D_803EF308/30C, at the speed, until it is there or
-       the distance stops shrinking; then landing */
-    t4 = D_803EF324;
-    if (t4 >= 0) {
-        t4--;
-        if (t4 < 0) {
-            t4 = 0;
-        }
-    } else {
-        t4++;
-        if (t4 > 0) {
-            t4 = 0;
-        }
-    }
-    D_803EF324 = t4;
-    s1 = func_802B988C();
-    if (s1 == 0)
-        goto arrived;
-    t6 = D_803EF2EC;
-    t4 = D_803EF308;
-    t5 = (s32)s1;
-    t2 = vs->unk76;
-    t4 = t4 - t6;
-    t7 = t4;
-    if (t4 < 0) {
-        t7 = -t4;
-    }
-    u = ((u32)t7 << 10) / (u32)t5;
-    t7 = (u32)(u * (u32)t2) >> 10;
-    if (t4 < 0) {
-        t7 = -t7;
-    }
-    t6 += t7;
-    D_803EF2EC = t6;
-    t6 = D_803EF2F4;
-    t4 = D_803EF30C;
-    t5 = (s32)s1;
-    t4 = t4 - t6;
-    t7 = t4;
-    if (t4 < 0) {
-        t7 = -t4;
-    }
-    u = ((u32)t7 << 10) / (u32)t5;
-    t7 = (u32)(u * (u32)t2) >> 10;
-    if (t4 < 0) {
-        t7 = -t7;
-    }
-    t6 += t7;
-    D_803EF2F4 = t6;
-    s1 = func_802B988C();
-    if (s1 < D_803EF320) {
-        D_803EF320 = (s32)s1;
-        goto rest;
-    }
-arrived:
-    D_803EF2EC = D_803EF308;
-    D_803EF2F4 = D_803EF30C;
-    D_803EF32C = 4;
-    func_802A0290(4, 1, Q);
-    goto rest;
-
-hover:
-    /* 0: the turn back to 4 a frame */
-    t4 = D_803EF324;
-    if (!(t4 < 4)) {
-        t4--;
-        if (t4 < 4) {
-            t4 = 4;
-        }
-    } else {
-        t4++;
-        if (!(t4 < 5)) {
-            t4 = 4;
-        }
-    }
-    D_803EF324 = t4;
-    goto turn;
-
-fly:
-    /* 1: toward D_803EF308/30C, speeding up to 0xA0 and turning to it,
-       until within 0x7D0; near enough on its flight to the next level,
-       the next stop is the level's (D_80368044/48) */
-    s1 = func_802B988C();
-    t3 = D_803EF2EC;
-    t5 = D_803EF2F4;
-    t6 = D_803EF308;
-    s0 = D_803EF30C;
     if (D_80364A90 == 0x800) {
-        t4 = D_802E8BDC;
-        if (t4 == 0x1A)
-            goto far;
-        if (t4 == 4)
-            goto far;
-        if (t4 == 0x1D)
-            goto farther;
-        if (t4 == 0x3A)
-            goto farther;
-        if (t4 == 0xD)
-            goto farther;
-        t4 = 0x7530;
-        goto near;
-    far:
-        t4 = 0xBB80;
-        goto near;
-    farther:
-        t4 = 0x11170;
-    near:
-        if (!(t4 < s1)) {
+        switch (D_802E8BDC) {
+        case 0x1A: case 4: near = 0xBB80; break;
+        case 0x1D: case 0x3A: case 0xD: near = 0x11170; break;
+        default: near = 0x7530; break;
+        }
+        if (dist <= near) {
             D_80364A98 = 1;
             func_8029A7E4(D_80305D40);
             D_803EF308 = D_80368044;
-            t3 = D_80368048;
-            D_803EF30C = t3;
+            /* (the original goes on with this in x's register: the heading
+               below is worked out from (D_80368048, z)) */
+            x = D_803EF30C = D_80368048;
             func_8026AF6C(0x4000);
         }
     }
-    if (s1 < 0x7D0) {
-        D_803EF32C = 2;
-        goto turn;
+    if (dist < CHOPPER_SLOW_DIST) {
+        D_803EF32C = CHOPPER_SLOW;
+        chopper_turn(vs);
+        return;
     }
-    t0 = vs->unk76 + 2;
-    if (!(t0 < 0xA1)) {
-        t0 = 0xA0;
+    VS_SPEED(vs) = VS_SPEED(vs) + CHOPPER_ACCEL > CHOPPER_TOP_SPEED ? CHOPPER_TOP_SPEED : VS_SPEED(vs) + CHOPPER_ACCEL;
+    /* the heading to it: func_802ABB1C's angle at the target (by the
+       quadrant), or its reverse, whichever puts a point at that distance
+       nearer the target */
+    dir = func_802ABB1C(tx, tz, 0, (s32)dist, x, z);
+    if (dir > ANGLE_QUARTER) {
+        dir = func_802ABB1C(tx, tz, (s32)dist, 0, x, z) + ANGLE_QUARTER;
+        if (dir > ANGLE_HALF)
+            dir = func_802ABB1C(tx, tz, 0, -(s32)dist, x, z) + ANGLE_HALF;
     }
-    /* the heading to it: func_802ABB1C's angle from (D_803EF308, 30C) to
-       where it is (by the quadrant), checked against the reverse */
-    t7 = t3;
-    t1 = s0;
-    t3 = t6;
-    s0 = t5;
-    vs->unk76 = t0;
-    t4 = t1;
-    s6 = func_802ABB1C(t3, t4, 0, (s32)s1, t7, s0);
-    if (!(s6 < 0x401)) {
-        s6 = func_802ABB1C(t3, t4, (s32)s1, 0, t7, s0);
-        s6 += 0x400;
-        if (!(s6 < 0x801)) {
-            s6 = func_802ABB1C(t3, t4, 0, -(s32)s1, t7, s0);
-            s6 += 0x800;
-        }
-    }
-    func_802ACE38(0, s1, s6, &xr, &zr);
-    a = xr + t7;
-    b = zr + s0;
-    func_802ACE38(0, s1, 0xFFF - s6, &xr, &zr);
-    c = xr + t7;
-    d = zr + s0;
-    a -= t3;
-    b -= t4;
-    c -= t3;
-    d -= t4;
-    if (a < 0) {
-        a = -a;
-    }
-    if (b < 0) {
-        b = -b;
-    }
-    a += b;
-    if (c < 0) {
-        c = -c;
-    }
-    if (d < 0) {
-        d = -d;
-    }
-    c += d;
-    if (!(a < c)) {
-        s6 = 0xFFF - s6;
-    }
-    /* turn toward it: up to (the difference >> 6) a frame */
-    t0 = (u16)vs->unk4E - s6;
-    t3 = t0;
-    if (t3 >= 0) {
-        if (!(t3 < 0x800)) {
-            t3 = 0xFFF - t3;
-        }
+    func_802ACE38(0, dist, dir, &xr, &zr);
+    d1 = iabs(xr + x - tx) + iabs(zr + z - tz);
+    func_802ACE38(0, dist, ANGLE_WRAP - dir, &xr, &zr);
+    d2 = iabs(xr + x - tx) + iabs(zr + z - tz);
+    if (d1 >= d2)
+        dir = ANGLE_WRAP - dir;
+    /* turn toward it: at most the difference >> CHOPPER_TURN_SHIFT, a
+       unit a frame more */
+    diff = (u16)VS_MOVE_HEADING(vs) - dir;
+    if (diff >= 0)
+        max = diff >= ANGLE_HALF ? ANGLE_WRAP - diff : diff;
+    else
+        max = diff < -(ANGLE_HALF - 1) ? diff + ANGLE_WRAP : -diff;
+    max = (u32)max >> CHOPPER_TURN_SHIFT;
+    if (diff > 0 ? diff >= ANGLE_HALF : diff >= -ANGLE_HALF) {
+        D_803EF324 = D_803EF324 + 1 > max ? max : D_803EF324 + 1;
     } else {
-        if (t3 < -0x7FF) {
-            t3 += 0xFFF;
-        } else {
-            t3 = -t3;
-        }
+        D_803EF324 = D_803EF324 - 1 < -max ? -max : D_803EF324 - 1;
     }
-    t3 = (u32)t3 >> 6;
-    t4 = -t3;
-    if (t0 > 0) {
-        if (!(t0 < 0x800))
-            goto right;
-    } else {
-        if (!(t0 < -0x800))
-            goto right;
-    }
-    t2 = D_803EF324 - 1;
-    if (t2 < t4) {
-        t2 = t4;
-    }
-    D_803EF324 = t2;
-    goto turn;
-right:
-    t2 = D_803EF324 + 1;
-    if (t3 < t2) {
-        t2 = t3;
-    }
-    D_803EF324 = t2;
+    chopper_turn(vs);
+}
 
-turn:
-    /* the heading by the turn, and on at the speed */
-    t4 = (u16)vs->unk4E + D_803EF324;
-    if (!(t4 < 0x1000)) {
-        t4 -= 0xFFF;
-    } else {
-        if (t4 < 0) {
-            t4 += 0xFFF;
+/* coming in: its turn back to 0, and straight to the target at the speed
+   until it is there or the distance stops shrinking; then landing */
+static void chopper_come_in(VS *vs) {
+    s64 dist;
+
+    D_803EF324 = step_toward(D_803EF324, 0, 1);
+    dist = func_802B988C();
+    if (dist != 0) {
+        CH_X = axis_step(CH_X, D_803EF308, (s32)dist, VS_SPEED(vs));
+        CH_Z = axis_step(CH_Z, D_803EF30C, (s32)dist, VS_SPEED(vs));
+        dist = func_802B988C();
+        if (dist < D_803EF320) {
+            D_803EF320 = (s32)dist;
+            return;
         }
     }
-    vs->unk4E = t4;
-    vs->unk4C = t4;
-    t0 = func_802A860C(t4, &vs->unk76, &D_803EF2EC, &D_803EF2F4, 0.0f, &t1);
-    D_803EF2EC = t0;
-    D_803EF2F4 = t1;
+    CH_X = D_803EF308;
+    CH_Z = D_803EF30C;
+    D_803EF32C = CHOPPER_LAND;
+    func_802A0290(4, 1, Q);
+}
 
-rest:
-    /* but landing or down, the level's ground, and its height toward
-       D_803EF304 by 0x14 a frame */
-    t0 = D_803EF32C;
-    if (t0 == 4)
-        goto done;
-    if (t0 == 5)
-        goto done;
+/* its flight a frame (see the top); then, but landing or down, the level's
+   ground (func_802A5604) and its height toward its flying height */
+REGS()
+void func_802B8D04(void) {
+    VS *vs = &D_803EF240;
+    f32 f0;
+    s32 t;
+
+    ENGINE_COST(802B8D04, 85);
+    switch (D_803EF32C) {
+    case CHOPPER_START:
+        part(4, Q, &f0);
+        if (!(f0 == 0.0f)) {
+            func_802A03D4(4, 1, Q);
+            func_802A0290(4, 1, Q);
+        }
+        D_803EF32C = CHOPPER_HOVER;
+        /* fall through */
+    case CHOPPER_HOVER:
+        D_803EF324 = step_toward(D_803EF324, CHOPPER_HOVER_TURN, 1);
+        chopper_turn(vs);
+        break;
+    case CHOPPER_FLY:
+        chopper_fly(vs);
+        break;
+    case CHOPPER_SLOW:
+        if (VS_SPEED(vs) > CHOPPER_SLOW_SPEED) {
+            VS_SPEED(vs) -= CHOPPER_SLOW_DOWN;
+            chopper_turn(vs);
+            break;
+        }
+        VS_SPEED(vs) = CHOPPER_SLOW_SPEED;
+        D_803EF32C = CHOPPER_COME_IN;
+        D_803EF320 = (s32)func_802B988C();
+        /* fall through */
+    case CHOPPER_COME_IN:
+        chopper_come_in(vs);
+        break;
+    case CHOPPER_LAND:
+        t = D_80368030 + CHOPPER_LAND_HEIGHT;
+        if (t != CH_Y) {
+            CH_Y = step_toward(CH_Y, t, CHOPPER_CLIMB);
+        } else if (part(4, Q, NULL) != 1) {
+            /* down: the landing's sound by the player's distance */
+            D_803EF32D = 1;
+            if (D_80364A90 != 0x1000) {
+                t = 0x88B8 - (func_8026A610(D_803643E0, D_803643E0, CH_X, CH_Z) << 1);
+                if (t > 0xFA0) {
+                    if (t > 0x7FFF)
+                        t = 0x7FFF;
+                    func_80260AB8(func_80260650(D_80367738, 0x28, NULL), 8, t);
+                }
+            }
+            D_803EF32C = CHOPPER_DOWN;
+            func_802A0290(4, 1, Q);
+        }
+        break;
+    case CHOPPER_DOWN:
+        if (part(4, Q, NULL) != 1)
+            D_803EF32E = 1;
+        if (D_803EF304 != CH_Y) {
+            CH_Y = step_toward(CH_Y, D_803EF304, CHOPPER_CLIMB);
+        } else if (D_803EF32E != 0) {
+            D_803EF32C = CHOPPER_HOVER;
+            D_803EF32E = 0;
+        }
+        break;
+    default:
+        engine_trap(0x802B8D58);
+        break;
+    }
+    if (D_803EF32C == CHOPPER_LAND || D_803EF32C == CHOPPER_DOWN)
+        return;
     func_802A5604(D_80358074);
-    t1 = D_803EF2F0;
-    t3 = D_803EF304;
-    if (t3 == t1)
-        goto done;
-    if (t3 < t1) {
-        t1 -= 0x14;
-        if (t1 < t3) {
-            t1 = t3;
-        }
-    } else {
-        t1 += 0x14;
-        if (t3 < t1) {
-            t1 = t3;
-        }
-    }
-    D_803EF2F0 = t1;
-done:
-    ;
+    if (D_803EF304 != CH_Y)
+        CH_Y = step_toward(CH_Y, D_803EF304, CHOPPER_CLIMB);
 }
 
 /* how far it is from D_803EF308/30C (x and z) */
 REGS(-> s1+f0)
 s64 func_802B988C(void) {
-    s64 d;
-
     ENGINE_COST(802B988C, 21);
-    d = func_802ABCDC(D_803EF2EC, 0, D_803EF2F4, D_803EF308, 0, D_803EF30C);
-    return d;
+    return func_802ABCDC(CH_X, 0, CH_Z, D_803EF308, 0, D_803EF30C);
 }
 
 /* its sound's pitch by its speed, its tail's tilt (part 2) by its speed and
    its body's lean (part 3) by its turn */
 REGS(gp)
 void func_802B98E0(VS *vs) {
-    s32 t0, a0;
-    f32 f20, f;
+    s32 t = CHOPPER_TOP_SPEED - VS_SPEED(vs), last = D_803EF2E6;
+    f32 tilt = (f32)t / (f32)0x140;
 
     ENGINE_COST(802B98E0, 118);
-    t0 = 0xA0 - vs->unk76;
-    f20 = (f32)t0 / (f32)0x140;
-    a0 = D_803EF2E6;
-    D_803EF2E6 = t0;
-    if (a0 == t0)
-        goto tilt;
-    if (D_803EF2E8 == NULL)
-        goto tilt;
-    func_80260AB8(D_803EF2E8, 0x10, f2i(0.8f + (f32)t0 * -0.004f));
-tilt:
-    func_802A0360(2, 0, Q, f20);
-    t0 = D_803EF324;
-    if (t0 == 1)
-        goto zero;
-    if (t0 != -1)
-        goto lean;
-zero:
-    t0 = 0;
-lean:
-    if (t0 >= 0) {
-        f = (f32)(0x20 - t0) / (f32)0x40;
-        func_802A0360(3, 0, Q, f);
-    } else {
-        if (t0 < 0) {
-            t0 = -t0;
-        }
-        f = (f32)t0 / (f32)0x40 + 0.5f;
-        func_802A0360(3, 0, Q, f);
-    }
+    D_803EF2E6 = t;
+    if (last != t && D_803EF2E8 != NULL)
+        func_80260AB8(D_803EF2E8, 0x10, f2i(0.8f + (f32)t * -0.004f));
+    func_802A0360(2, 0, Q, tilt);
+    t = D_803EF324;
+    if (t == 1 || t == -1)
+        t = 0;
+    if (t >= 0)
+        func_802A0360(3, 0, Q, (f32)(0x20 - t) / (f32)0x40);
+    else
+        func_802A0360(3, 0, Q, (f32)-t / (f32)0x40 + 0.5f);
 }
 
 /* the chopper's matrix and its collision */
 REGS(gp)
 void func_802B9B4C(VS *vs) {
-    u8 *model = D_803EF2F8, *buf;
-    s32 *m, off;
+    u8 *model = CH_MODEL, *buf = FRAME_BUF(CH_BUF0, CH_BUF1);
+    s32 *m = (s32 *)(buf + MODEL_MTX_OFF(model));
 
     ENGINE_COST(802B9B4C, 55);
-    off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
-    if (D_8035805C != 0) {
-        m = (s32 *)(D_803EF2FC + off);
-    } else {
-        m = (s32 *)(D_803EF300 + off);
-    }
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
-    D_803ED390[1] = vs->unk4C;
-    func_802AA764(D_803EF2EC, D_803EF2F0, D_803EF2F4, 0x5208, m);
-    if (D_8035805C != 0) {
-        buf = D_803EF2FC;
-    } else {
-        buf = D_803EF300;
-    }
-    model = D_803EF2F8;
+    D_803ED390[1] = VS_HEADING(vs);
+    func_802AA764(CH_X, CH_Y, CH_Z, CHOPPER_SCALE, m);
     /* $t8, which 69BB0.c's driver reads from the context */
     ENGINE_LEAVE(24, T(m));
     /* The driver's shadow (69BB0.c's func_802AF340, which hd.c runs next at
@@ -1109,7 +783,7 @@ void func_802B9B4C(VS *vs) {
     engine_frame(-(ENGINE_C_FRAME + ENGINE_FRAME_S + 8 + 0x28));
     engine_frame_sd(8, 5);
     engine_frame(ENGINE_C_FRAME + ENGINE_FRAME_S + 8 + 0x28);
-    func_802ABBEC(0xFE, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
+    func_802ABBEC(VEHICLE_CHOPPER, MODEL_AT(model, 0), MODEL_AT(model, 4), buf);
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier, and back
