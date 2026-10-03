@@ -421,13 +421,18 @@ What's exact: with the timing taken out, every variant plays the same game,
 so the save and the sound are the same in all of them, and so are the
 screenshots, except where the references say otherwise:
 
-- **layout-dependent** (`layout`): the hint box's portrait static at
-  frame 1500 of `=2` and `=3` differs between executables (the software
-  renderer's static samples memory that holds addresses of the image; see
-  "Threads without ucontext"), and so does the story's TV static in
-  `attract.long` (5500 and 8250 in us.v11; 5000, 5250, 7500, 8000 and
-  9500 in jp).  It is compared only within a build; the OpenGL renderer
-  draws it the same everywhere.
+- **layout-dependent** (`layout`, by version and scenario): screenshots
+  compared only within a build.  The software renderer's static (the hint
+  box's portrait, the story's TV) samples memory that holds addresses of
+  the image (see "Threads without ucontext"), so it differs between
+  executables; the OpenGL renderer draws it the same everywhere.  None is
+  listed now: the lists were the portrait at frame 1500 of `=2` and `=3`
+  and the story's TV in `attract.long` (5500 and 8250 in us.v11; 5000,
+  5250, 7500, 8000 and 9500 in jp), and since "The front end's waits"
+  every scenario is 30 retraces further along at each of those frames
+  and no screenshot falls on the static (the portrait is gone by 1500):
+  all eight variants of all three versions give every screenshot the
+  same.  A change of timing can put one back on it.
 - **known failures** (`known`, by variant): the build passes as XFAIL
   while it gives exactly the hashes recorded there, and fails on anything
   else; when the failure goes away it passes with a note to take the
@@ -489,6 +494,8 @@ With the tier running under the variants' table, us.v11 and jp: every
 variant equal to the 64-bit big-endian references but for the
 layout-dependent static (`~`), in all five scenarios.  The
 quick tiers take about two minutes together with `attract.long`.
+(Since "The front end's waits", all eight variants, `wasm` included,
+equal the references in every hash, `=`, for all three versions.)
 
 (jp's first runs found its IDO asm, translated, doing what Rare's code
 doesn't: the movable builds stopped at the pak thread's entry, which only
@@ -602,6 +609,10 @@ What it showed (us.v10, the 32-bit build, main as of 2026-10-02):
   533 frames where the reference took 1,064 (and `rng` differs from the
   first frame: it is seeded from the clock).  The demos read their input
   by frame, so they are what lag can't change.
+- us.v11 and jp (references since "The front end's waits"): `auto1` to
+  `auto3` have us.v10's gameplay hashes (the same Simian Acres, the same
+  input); the attract mode differs from us.v10's in jp (`attract` and
+  `attract.long` only match within a version).
 - `PORT_AUTOSTART=2` and `=3` press their buttons by the retrace count, so
   a change of timing changes their input and their gameplay: their digests
   will differ after such a change by design, and have to be recorded
@@ -2666,7 +2677,12 @@ lands on other frames once the boot is 30 retraces shorter.  With the
 in-level taps' phase moved by the same retraces (119), auto1's and
 auto3's digests are the old runs' frame for frame; attract's and auto2's
 are the same gameplay without that (`digest_cmp.py` against
-`--load-waits n64` runs).  `PORT_AUTOSTART` taps nothing in the first
+`--load-waits n64` runs).  The same for us.v11 and jp (their 32-bit
+builds): with `--load-waits n64` every hash of every scenario is the old
+references' (the layout-dependent static aside), the digests compare as
+us.v10's do (`attract.long` too: 4,611 and 4,805 level frames, the same),
+and their references were recorded again, with gameplay digests for the
+first time.  `PORT_AUTOSTART` taps nothing in the first
 30 retraces now: a button held at the game's first read asks to erase
 the save (mode 0x40000000000000), and that read now comes at once.
 
@@ -3590,7 +3606,9 @@ a native-endian build (n64, mn32) does.
   `ENGINE_ADDR_`), and the caller loads its own back (`engine_save()`
   with `ENGINE_GPR(31)`).  The TAS needs it: at read 108453 the shadow's
   pitch is the `$ra` that `func_802AB714`'s frame saved, the carrying's,
-  and `__port_icount_c` drifted from there without it.
+  and `__port_icount_c` drifted from there without it.  (O2 later
+  removed all of these frames: the three stores that reach the shadow
+  write its one word directly, "The scaffolding stripped" below.)
 - A native called from another native gets its inputs as C arguments,
   and nothing puts them in the context.  When its original keeps or
   saves an input register, it leaves the input there itself at entry
@@ -3631,6 +3649,98 @@ textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
 - A difference between versions is a `#if` on `VERSION_*` in the native
   code, as in the decompiled C (us.v10's `func_802A2D68` doesn't clear
   `D_803F7812`); `ENGINE_BLK` sizes are each version's.
+
+**The scaffolding stripped** (DISTRIBUTION.md's phase O2, both halves of
+`port/engine`, 2026-10-02).  With nothing translated left, the thread's
+context and the dead N64 stack are only the native code's own: what
+`ENGINE_LEAVE`, `engine_restore()` and the frame stores put there matters
+only where some native code reads it back (`engine_ctx`, `ENGINE_REG`,
+`engine_frame_lw`).  A write no read takes was removed: a read sees the
+last write, and those are never last.  `ENGINE_BLK` stays (the
+`--cpu-model n64` timing uses it).
+- **Finding the readers.**  Two debug builds of the plain 32-bit port
+  answer it, made side by side for the two halves:
+  - `-DPORT_ENGINE_TAINT=ON` tags each value put in the context or a frame
+    slot with the call site that put it there, through the restores and
+    frame stores that copy it, and logs every read with the chain of sites
+    it saw (`ENGINE_TAINT=DIR`; `ENGINE_LWLOG=FILE` logs the words
+    `engine_frame_lw` reads).  `port/tools/taint.py BUILD/blastcorps DIR`
+    lists the readers and their chains, `--live` the sites some reader
+    depends on.
+  - `-DCMAKE_C_FLAGS=-DPORT_PROV` records the same per read as one record:
+    the `ENGINE_LEAVE` that wrote the value, the `engine_restore` that put
+    it back (only one that changed it), and for a stack word its store and
+    the frames around it.  `PROV_OUT=PREFIX` writes `PREFIX.<pid>` at exit
+    (not a `PORT_` variable, so `test.py` passes it on), and
+    `port/tools/engine_prov.py EXE LOG... [--feeds FILE...]` lists every
+    read with its writers, or the writes in some files that a read
+    elsewhere takes.  `port_prov_probe(id)` counts whatever a native
+    function wants counted.
+  Over the quick tier and the TAS, about 300 of the engine's 2,000 sites
+  were live.  The quick tier and the TAS, run unchanged, check what went.
+- **What became ordinary C.**
+  - Half A: 56040's `func_8029C0DC` gives `func_8029BF64`'s eight
+    arguments as a struct to its own callers (`c0dc()`), `func_8029AA10`
+    takes the vehicle type `func_8029A800` was given from a variable,
+    `func_8029C160` no longer makes up a point for a miss its callers
+    ignore, the `$a3` 56040's animation passed from part to part and its
+    three dead stack-argument registers are gone, and 5BF40's
+    `func_802A08E4` is `(dl, end)`.
+  - Half B: `func_802A8768` takes `$s0`, `$s4` and `$s7` from `vs` (every
+    caller has them from there: `unk96`, `&unk4C`, `unk4`), and
+    `func_802A8CCC` returns whether it put the vehicle back (its `$t0`,
+    `$t1`), its pass-through inputs gone; the wheels' material in half B's
+    setups (`$fp`, which reaches a wheel's byte only when wheel 0 stands
+    on a moving object or nothing: 0 in every run) is 0, and
+    `func_802A6274`'s position and speed, unused in its mode 1, are 0 in
+    half B's calls; `func_802AA890`'s `$s0`-`$s2` matter only for a point
+    with no matrices, which no model has (`port_prov_probe` over the quick
+    tier and the TAS), so `func_802ABBEC` and half B's `func_802AABE4`
+    calls pass 0; the crane finds the hook's point as 56040 does
+    (`record_3bd`), the chopper's `func_802A1388` gets 1 for the loader's
+    heap top (only tested against 0), and its shadow's height outside the
+    level is the model's address `func_802B9B4C` left in `$t3`.
+- **The driver's shadow** reads one dead stack word: the third of its
+  stack arguments is at `SHADOW_SLOT`, 0xBC below the N64 `$sp` the game's
+  C runs the engine at, wherever the last native frame that reached that
+  deep left it.  The frame stacks show which: 62740's `func_802ABBEC`
+  under the chopper's frames (762 of the TAS's reads: the `$a1` 679E0's
+  `func_802ACCCC` left), 62740_carry's `func_802AB714` (38: its saved
+  `$ra`) and 69BB0's own `func_802AEC3C` (2).  No frame is left on any of
+  those paths: the shadow reads `engine_frame_lw(SHADOW_SLOT)`, its other
+  two arguments are the constants its frame stored (`0xFFFFFFFF`,
+  `RA_SHADOW`), and the three writers store just that word where their
+  frames did: `func_802AEC3C` (`engine_frame_sw(SHADOW_SLOT, ...)`), the
+  chopper's `func_802B9B4C` and the carrying's `func_802AB670`, each last.
+  That stays while the shadow's tilt is read from there.
+- **What is still left, and why**: values that real game state is made
+  from, that come from leftovers anywhere in a frame, kept with the leaves
+  and the one- or two-register `engine_save()`/`engine_restore()` pairs
+  that carry them:
+  - `func_8029A800`'s two collision settings from `$t0`/`$t2` (the
+    vehicles set them before the call; those that don't get
+    `func_802ABBEC`'s);
+  - the level loader's collision triangles' bytes 0x4F, 0x50, 0x58 from
+    `$t9`, `$v0` and `$s1` (`func_802A41B0`; a hole's in 8A080 too), from
+    62740's `func_802A860C`, `func_802A9DC0`, `func_802AA2E4` and
+    `func_802A8768`, 77E20's drawing (which still mirrors `$t6`-`$t8`,
+    `R()`) and `func_802BD99C`, and even the front end (1B100's `$v0`);
+    60F60's `$t6`;
+  - the wheels' `self` (`$t8`) and material (`$fp`) where the driver and
+    half A's vehicles' setups pass them on, which half B's vehicle frame
+    functions keep by putting back `$s4` and `$fp`;
+  - the vehicle modules' effects' velocity and spin from `$t6`-`$s4`
+    (`func_802A6274(..., engine_ctx(14)...)` in half A's calls), a
+    matrixless point's `$s0`-`$s2` in 56040's `func_8029C454`;
+  - 77E20 and 89250 read `func_8029C0DC`'s corners from the context
+    (`C0DC_LEFT`).
+  They are garbage in the original (registers nobody set for that
+  purpose), so replacing them with defined values is the gameplay
+  digest's call, not the exact TAS's: a few effects' velocities, a byte of
+  some triangles, a wheel's material off the level, the driver's `self`.
+- The check build (`PORT_ENGINE_CHECK`) still compares as before and
+  finds no difference in the quick tier's runs: the leftovers the
+  removed sites made were no checked caller's output.
 
 ## Other versions
 

@@ -61,7 +61,7 @@ void func_80278EB0(s32 a, f32 b, s32 c);
 u8 func_802794F0(void);
 void func_802794A4(void);
 
-/* 77E20 (engine-B's), still translated: an object moved by (dx, dz) */
+/* 77E20's: an object moved by (dx, dz) */
 REGS(v0, a2, a3, t0)
 void func_802BD99C(u8 *obj, s32 dx, s32 a3, s32 dz);
 
@@ -102,7 +102,6 @@ void func_802B5900(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     s32 h;
 
     ENGINE_BLK(802B5900);
-    engine_save(ENGINE_T0_T5, 0);
     D_803EEB44 = model;
     buf = D_80358070;
     D_803EEB48 = buf;
@@ -130,7 +129,7 @@ void func_802B5900(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803EEB3C, x, z, vs->unk4, &D_803EEB3C, (s16 *)&vs->unk4C, 5, vs, engine_ctx(30), &avg);
+    func_802A992C(vs->unk52, D_803EEB3C, x, z, vs->unk4, &D_803EEB3C, (s16 *)&vs->unk4C, 5, vs, 0, &avg);
     ENGINE_BLK(802B5A2C);
     func_8029F85C(p, D_803EEB44, D_803EEB48, D_803EEB4C);
     ENGINE_BLK(802B5A68);
@@ -182,12 +181,6 @@ void func_802B5900(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     }
     ENGINE_BLK(802B5CAC);
     D_803EEB5C = h;
-    engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(18, T(&D_803EEB3C));
-    ENGINE_LEAVE(22, T(D_803EEB48));
-    ENGINE_LEAVE(23, T(D_803EEB4C));
 }
 
 /* hd.c's: the player gets in: the bed and wheels reset */
@@ -259,7 +252,6 @@ u8 func_802B5F04(void) {
     u8 r = 0;
 
     ENGINE_BLK(802B5F04);
-    engine_save(ENGINE_GPR(28), 0);
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802B5F28);
         if (vs->unk96[1] != 1) {
@@ -271,7 +263,6 @@ u8 func_802B5F04(void) {
         }
     }
     ENGINE_BLK(802B5F4C);
-    engine_restore();
     return r;
 }
 
@@ -280,13 +271,11 @@ void func_802B5F60(void) {
     VS *vs = &D_803EEA90;
 
     ENGINE_BLK(802B5F60);
-    engine_save(ENGINE_GPR(28), 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803EEB48, (u32 *)D_803EEB4C, 0x800);
     ENGINE_BLK(802B5F90);
     func_802C444C();
     ENGINE_BLK(802B5F98);
-    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -294,15 +283,13 @@ void func_802B5FAC(void) {
     VS *vs = &D_803EEA90;
 
     ENGINE_BLK(802B5FAC);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803EEB3C, D_803EEB38, D_803EEB40, vs->unk4, &D_803EEB3C, (s16 *)&vs->unk4C, 5, vs,
-                  engine_ctx(30));
+                  0);
     ENGINE_BLK(802B6038);
     func_802B7030(vs);
     ENGINE_BLK(802B6040);
     func_802A133C(D_803EEB38, D_803EEB3C, D_803EEB40, 5, vs);
     ENGINE_BLK(802B606C);
-    engine_restore();
 }
 
 /* its light */
@@ -320,7 +307,8 @@ void func_802B6294(void) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802B6294);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
+    engine_save(ENGINE_GPR(30), 0);
     func_802B60BC();
     ENGINE_BLK(802B62E8);
     func_802A75DC((u8 *)D_803EE790, &D_803EEB38, &D_803EEB3C, &D_803EEB40, (u8 *)vs);
@@ -343,7 +331,6 @@ void func_802B6294(void) {
     ENGINE_BLK(802B636C);
     func_802A7FD8(D_803EEB58, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802B638C);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802B6398);
     func_802A843C(&vs->unk76, 1, 5, (s8 *)vs->unk96, vs->unk4, 720.0f, vs);
@@ -356,9 +343,6 @@ void func_802B6294(void) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EEB38, &D_803EEB40, rate, &z);
     ENGINE_BLK(802B63E0);
     D_803ED40B = 1;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EEB38, &D_803EEB40, &D_803EEB3C, 5, 0x2D0, 0x2D0, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802B6418);
@@ -412,7 +396,7 @@ sparks_done:
     ENGINE_BLK(802B6560);
     func_802B7030(vs);
     ENGINE_BLK(802B6568);
-    ENGINE_LEAVE(8, 8);         /* $t0 and $t2, which func_8029A800 reads too */
+    ENGINE_LEAVE(8, 8);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
     ENGINE_LEAVE(10, 0x64);
     func_8029A800(D_803EEB38, D_803EEB3C, D_803EEB40, D_80305D20, 1, 1, vs->unk76, 0, 5, vs);
     ENGINE_BLK(802B65B4);
@@ -799,7 +783,6 @@ void func_802B7030(VS *vs) {
     ENGINE_BLK(802B7084);
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803EEB38, D_803EEB3C, D_803EEB40, 0x4268, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B70C0);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B70D4);
@@ -863,8 +846,6 @@ f32 func_802B71DC(VS *vs, s32 up) {
         f = 0.5f - f;
     }
     ENGINE_BLK(802B7230);
-    ENGINE_LEAVE(19, 0xF0);     /* ($s3, and $f4) */
-    ENGINE_LEAVE_F(4, 0.5f);
     return f;
 }
 

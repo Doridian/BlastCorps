@@ -162,11 +162,6 @@ void func_802C9B90(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     ENGINE_BLK(802C9F24);
     D_80364A6B = 1;
     engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(18, T(&D_803F8B4C));
-    ENGINE_LEAVE(22, T(D_803F8B58));
-    ENGINE_LEAVE(23, T(D_803F8B5C));
 }
 
 /* hd.c's: the player gets in: the launchers' and wheels' parts reset */
@@ -228,7 +223,6 @@ u8 func_802CA140(void) {
     u8 r = 0;
 
     ENGINE_BLK(802CA140);
-    engine_save(ENGINE_GPR(28), 0);
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802CA164);
         if (vs->unk96[1] != 1) {
@@ -243,7 +237,6 @@ u8 func_802CA140(void) {
         }
     }
     ENGINE_BLK(802CA198);
-    engine_restore();
     return r;
 }
 
@@ -252,13 +245,11 @@ void func_802CA1AC(void) {
     VS *vs = &D_803F8AA0;
 
     ENGINE_BLK(802CA1AC);
-    engine_save(ENGINE_GPR(28), 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803F8B58, (u32 *)D_803F8B5C, 0x700);
     ENGINE_BLK(802CA1DC);
     func_802C444C();
     ENGINE_BLK(802CA1E4);
-    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -266,14 +257,12 @@ void func_802CA1F8(void) {
     VS *vs = &D_803F8AA0;
 
     ENGINE_BLK(802CA1F8);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803F8B4C, D_803F8B48, D_803F8B50, vs->unk4, &D_803F8B4C, (s16 *)&vs->unk4C, 0xA, vs, engine_ctx(30));
     ENGINE_BLK(802CA284);
     func_802CB42C(vs);
     ENGINE_BLK(802CA28C);
     func_802A133C(D_803F8B48, D_803F8B4C, D_803F8B50, 0xA, vs);
     ENGINE_BLK(802CA2B8);
-    engine_restore();
 }
 
 /* its light */
@@ -783,8 +772,8 @@ f32 func_802CB3C8(VS *vs, s32 up) {
         f = 0.5f - f;
     }
     ENGINE_BLK(802CB41C);
-    ENGINE_LEAVE(19, 0x118);    /* ($s3, and $f4) */
-    ENGINE_LEAVE_F(4, 0.5f);
+    /* ($s3, as the J-Bomb's func_802C7C1C leaves its own for its effects) */
+    ENGINE_LEAVE(19, 0x118);
     return f;
 }
 
@@ -806,7 +795,7 @@ void func_802CB42C(VS *vs) {
     ENGINE_BLK(802CB480);
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8B48, D_803F8B4C, D_803F8B50, 0x3E80, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802CB4BC);
     if (D_8035805C != 0) {
         ENGINE_BLK(802CB4D0);

@@ -503,6 +503,14 @@ option(PORT_BLKLOG "log the engine's blocks as they are charged" OFF)
 if(PORT_BLKLOG AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN OR PORT_ENGINE_CHECK))
     message(FATAL_ERROR "PORT_BLKLOG is the plain 32-bit build's")
 endif()
+# PORT_ENGINE_TAINT traces what the native engine leaves in the thread's
+# context and its dead frames to where it is read back (engine_ctx,
+# ENGINE_REG, engine_frame_lw): ENGINE_TAINT=DIR in the environment
+# writes DIR/taint.<pid>.txt at exit (port/tools/taint.py reads it).
+option(PORT_ENGINE_TAINT "trace the engine's leftovers to their readers" OFF)
+if(PORT_ENGINE_TAINT AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN OR PORT_ENGINE_CHECK))
+    message(FATAL_ERROR "PORT_ENGINE_TAINT is the plain 32-bit build's")
+endif()
 file(GLOB ENGINE_C ${CMAKE_CURRENT_SOURCE_DIR}/engine/*.c)
 set(ENGINE_GLUE_FLAGS)
 if(PORT_ENGINE_CHECK)
@@ -921,6 +929,9 @@ if(PORT_ENGINE_CHECK)
 endif()
 if(PORT_BLKLOG)
     target_compile_definitions(host PRIVATE PORT_BLKLOG)
+endif()
+if(PORT_ENGINE_TAINT)
+    target_compile_definitions(host PRIVATE PORT_ENGINE_TAINT)
 endif()
 if(EMSCRIPTEN)
     # (the fibers' stacks are in the arena; -O2 at the link too: without it

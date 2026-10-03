@@ -73,7 +73,7 @@ void func_80260AB8(SndState *state, s16 type, s32 param);
 void func_80258230(u8 a, s32 b, s16 c, s16 d);
 void func_80278318(void);
 
-/* translated */
+/* 60F60.c's */
 REGS()
 void func_802A5E60(void);
 REGS()
@@ -127,30 +127,9 @@ static s32 f2i(f32 f) {
     return u.i;
 }
 
-/* func_802ABD54 (a light), with its arguments left in $a3, $t3..$t5 as
-   the original's are */
-static void light(s32 type, s32 x, s32 y, s32 z) {
-    ENGINE_LEAVE(7, type);
-    ENGINE_LEAVE(11, x);
-    ENGINE_LEAVE(12, y);
-    ENGINE_LEAVE(13, z);
-    func_802ABD54(type, x, y, z);
-}
-
-/* how far the carrier is from where it started (x and z), with the
-   arguments and the result left in $t3..$t7, $s0 and $s1 */
+/* how far the carrier is from where it started (x and z) */
 static s64 dist(void) {
-    s64 d;
-
-    ENGINE_LEAVE(11, D_803EF6DC);
-    ENGINE_LEAVE(12, 0);
-    ENGINE_LEAVE(13, D_803EF6E4);
-    ENGINE_LEAVE(14, D_803EF6F4);
-    ENGINE_LEAVE(15, 0);
-    ENGINE_LEAVE(16, D_803EF6F8);
-    d = func_802ABCDC(D_803EF6DC, 0, D_803EF6E4, D_803EF6F4, 0, D_803EF6F8);
-    ENGINE_LEAVE64(17, d);
-    return d;
+    return func_802ABCDC(D_803EF6DC, 0, D_803EF6E4, D_803EF6F4, 0, D_803EF6F8);
 }
 
 /* part i's frame (func_802A04BC's v1), and its t1 (unk13) and f0 */
@@ -216,10 +195,9 @@ REGS(s2, t4, t5, t6, t7, s1)
 void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     VS *vs = &D_803EF630;
     u8 *buf;
-    s32 *s3, avg;
+    s32 avg;
 
     ENGINE_BLK(802B9C50);
-    engine_save(ENGINE_T0_T5, 0);
     D_803EF70C = model;
     buf = D_80358070;
     D_803EF704 = buf;
@@ -259,15 +237,8 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     vs->unk5E[3] = 0x4D8;
     vs->unk5E[4] = 0x1A4;
     vs->unk5E[5] = -0x4D8;
-    s3 = func_802A992C(vs->unk52, 0x7FFF, D_803EF6DC, D_803EF6E4, vs->unk4, &D_803EF6E0, (s16 *)&vs->unk4C, 0xFF, vs,
-                       engine_ctx(30), &avg);
-    /* (the registers it leaves its caller, but for what func_802BABEC
-       sets again) */
-    ENGINE_LEAVE(16, D_803EF6E4);
-    ENGINE_LEAVE(17, T(vs->unk4));
-    ENGINE_LEAVE(18, T(&D_803EF6E0));
-    ENGINE_LEAVE(19, T(s3));
-    ENGINE_LEAVE(21, avg);
+    func_802A992C(vs->unk52, 0x7FFF, D_803EF6DC, D_803EF6E4, vs->unk4, &D_803EF6E0, (s16 *)&vs->unk4C, 0xFF, vs, 0,
+                  &avg);
     B9C50_BLK(802B9DEC, 802B9DF0);
     func_8029F85C(P, D_803EF70C, D_803EF704, D_803EF708);
     B9C50_BLK(802B9E28, 802B9E2C);
@@ -327,8 +298,6 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     B9C50_BLK(802BA040, 802BA044);
     func_802A0508(D_802C236C, -1);
     B9C50_BLK(802BA050, 802BA054);
-    engine_restore();
-    ENGINE_LEAVE(28, T(vs));
 }
 
 /* how far it goes before D_803EF710 and D_803EF711: the level's record in
@@ -364,7 +333,7 @@ done:
 /* its light */
 void func_802BA104(void) {
     ENGINE_BLK(802BA104);
-    light(0xFF, D_803EF6DC, D_803EF6E0, D_803EF6E4);
+    func_802ABD54(0xFF, D_803EF6DC, D_803EF6E0, D_803EF6E4);
     ENGINE_BLK(802BA138);
 }
 
@@ -374,7 +343,6 @@ void func_802BA148(void) {
     s32 d, dx, v;
 
     ENGINE_BLK(802BA148);
-    engine_save(0x5FFFFFFE, 0);
     dx = D_803643E0 - D_803EF6DC;
     d = (s32)func_802ABCDC(D_803643E0, D_803643E4, D_803643E8, D_803EF6DC, D_803EF6E0, D_803EF6E4);
     ENGINE_BLK(802BA21C);
@@ -417,7 +385,6 @@ void func_802BA148(void) {
     func_80260AB8(D_803EF6D8, 4, v);
 done:
     ENGINE_BLK(802BA2CC);
-    engine_restore();
 }
 
 /* each frame */
@@ -427,7 +394,8 @@ void func_802BA354(void) {
     f32 rate;
 
     ENGINE_BLK(802BA354);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    /* (its $s4 and $fp as it found them: 5CB60.c and the other vehicles read them from the context) */
+    engine_save(ENGINE_GPR(20) | ENGINE_GPR(30), 0);
     func_802BA104();
     ENGINE_BLK(802BA3A4);
     func_802BA5A4();
@@ -459,7 +427,6 @@ void func_802BA354(void) {
     vs->unk76 = s;
     func_802BAD24();
     ENGINE_BLK(802BA42C);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802BA440);
     func_802A843C(&vs->unk76, 0, 0xFF, (s8 *)vs->unk96, vs->unk4, 2400.0f, vs);
@@ -467,9 +434,6 @@ void func_802BA354(void) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EF6DC, &D_803EF6E4, rate, &z);
     ENGINE_BLK(802BA46C);
     D_803ED40B = 1;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EF6DC, &D_803EF6E4, &D_803EF6E0, 0xFF, 0x960, 0x320, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
 placed:
@@ -559,7 +523,6 @@ void func_802BA6AC(VS *vs) {
     f32 f;
 
     ENGINE_BLK(802BA6AC);
-    engine_save(0x5FFFFFFE, 0);
     s = vs->unk76;
     a = D_803EF6D6;
     D_803EF6D6 = s;
@@ -607,7 +570,6 @@ turn:
     ENGINE_BLK(802BA8DC);
     func_802A039C(1, engine_cvt_w_s((f32)s * 0.6f), P);
     ENGINE_BLK(802BA90C);
-    engine_restore();
 }
 
 /* the level is won when it is D_803EF6F0 from where it started */
@@ -637,7 +599,9 @@ void func_802BA9A0(VS *vs, s32 *s7) {
     if (D_803643D6 != 0)
         goto smoke;
     ENGINE_BLK(802BA9BC);
-    ENGINE_LEAVE(8, T(&D_803643D6));    /* ($t0, which func_8029A800 reads too) */
+    /* ($t0: func_8029A800 (56040.c) takes it from the context, and $t2,
+       which this leaves as func_802ABBEC left it) */
+    ENGINE_LEAVE(8, T(&D_803643D6));
     func_8029A800(D_803EF6DC, D_803EF6E0, D_803EF6E4, D_80305D60, 0, 0, vs->unk76, 0, 0xFF, vs);
     ENGINE_BLK(802BAA00);
     func_8029C52C(0xFF, vs);
@@ -715,8 +679,7 @@ smoke:
     ENGINE_BLK(802BAB54);
     if (D_803EF701 == 0) {
         ENGINE_BLK(802BAB64);
-        func_802A6274(T(D_802C3B44), 0x7A120, 1, 0xFF, 2, 0, engine_ctx(14), engine_ctx(15), engine_ctx(16),
-                      engine_ctx(17), engine_ctx(18), engine_ctx(19), engine_ctx(20), 0, 1);
+        func_802A6274(T(D_802C3B44), 0x7A120, 1, 0xFF, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
         ENGINE_BLK(802BAB90);
         D_803EF701 = 1;
         goto done;
@@ -749,13 +712,7 @@ void func_802BABEC(VS *vs) {
     }
     ENGINE_BLK(802BAC40);
     D_803ED390[1] = vs->unk4C;
-    /* (its $s4..$s7, which the setup leaves its caller) */
-    ENGINE_LEAVE(20, D_803EF6DC);
-    ENGINE_LEAVE(21, D_803EF6E0);
-    ENGINE_LEAVE(22, D_803EF6E4);
-    ENGINE_LEAVE(23, 0x59D8);
     func_802AA764(D_803EF6DC, D_803EF6E0, D_803EF6E4, 0x59D8, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802BAC7C);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BAC90);
@@ -766,11 +723,9 @@ void func_802BABEC(VS *vs) {
     }
     ENGINE_BLK(802BACAC);
     model = D_803EF70C;
-    ENGINE_LEAVE(11, T(model));
     func_8029C454(D_803EF6DC, D_803EF6E0, D_803EF6E4, 0xFF, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
                   buf);
     ENGINE_BLK(802BACF4);
-    ENGINE_LEAVE(11, T(model));
     func_802ABBEC(0xFF, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802BAD14);
 }
@@ -789,10 +744,9 @@ REGS(s2, t7, s3, s0, s1)
 void func_802BAD80(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EFA20;
     u8 *buf;
-    s32 *s3, avg;
+    s32 avg;
 
     ENGINE_BLK(802BAD80);
-    engine_save(ENGINE_T0_T5, 0);
     D_803EFAD4 = model;
     buf = D_80358070;
     D_803EFAE4 = buf;
@@ -820,10 +774,7 @@ void func_802BAD80(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    s3 = func_802A992C(vs->unk52, D_803EFACC, x, z, vs->unk4, &D_803EFACC, (s16 *)&vs->unk4C, 6, vs, engine_ctx(30),
-                       &avg);
-    ENGINE_LEAVE(19, T(s3));
-    ENGINE_LEAVE(21, avg);
+    func_802A992C(vs->unk52, D_803EFACC, x, z, vs->unk4, &D_803EFACC, (s16 *)&vs->unk4C, 6, vs, 0, &avg);
     ENGINE_BLK(802BAEAC);
     func_8029F85C(Q, D_803EFAD4, D_803EFAE4, D_803EFAE8);
     ENGINE_BLK(802BAEE8);
@@ -859,14 +810,6 @@ void func_802BAD80(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     model = D_803EFAD4;
     func_802AA838(D_803EFAE8, D_803EFAE4, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802BB030);
-    engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(17, T(vs->unk4));
-    ENGINE_LEAVE(18, T(&D_803EFACC));
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(22, T(D_803EFAE4));
-    ENGINE_LEAVE(23, T(D_803EFAE8));
 }
 
 /* hd.c's: getting in: the camera's, and the crane's arm parts' start */
@@ -896,7 +839,6 @@ void func_802BB054(void) {
     ENGINE_BLK(802BB14C);
     func_802A0290(5, -1, Q);
     ENGINE_BLK(802BB160);
-    ENGINE_LEAVE(28, T(&D_803EFA20));
 }
 
 /* hd.c's: whether the crane can be left: not while its arm is moving */
@@ -909,7 +851,6 @@ u8 func_802BB170(void) {
         r = 0;
     }
     ENGINE_BLK(802BB190);
-    ENGINE_LEAVE(28, T(&D_803EFA20));
     return r;
 }
 
@@ -939,7 +880,7 @@ void func_802BB1A0(void) {
 /* the crane's light */
 void func_802BB230(void) {
     ENGINE_BLK(802BB230);
-    light(6, D_803EFAC8, D_803EFACC, D_803EFAD0);
+    func_802ABD54(6, D_803EFAC8, D_803EFACC, D_803EFAD0);
     ENGINE_BLK(802BB264);
 }
 
@@ -948,7 +889,6 @@ void func_802BB274(void) {
     VS *vs = &D_803EFA20;
 
     ENGINE_BLK(802BB274);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802BB230();
     ENGINE_BLK(802BB2CC);
     if (vs->unk9A == 0) {
@@ -956,7 +896,7 @@ void func_802BB274(void) {
         func_802BB4C0(vs);
     }
     ENGINE_BLK(802BB2E0);
-    func_802A92C8(D_803EFAC8, D_803EFAD0, vs->unk5E, (s16 *)&vs->unk4C, vs->unk4, 6, vs, engine_ctx(30));
+    func_802A92C8(D_803EFAC8, D_803EFAD0, vs->unk5E, (s16 *)&vs->unk4C, vs->unk4, 6, vs, 0);
     ENGINE_BLK(802BB30C);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BB334);
@@ -992,7 +932,6 @@ void func_802BB274(void) {
     D_8036443C = 0;
     D_8036443E = vs->unk4E;
     D_80364440 = vs->unk4C;
-    engine_restore();
 }
 
 /* the crane's controls: its arm (part 5, the C buttons up and down), its
@@ -1153,11 +1092,24 @@ done:
     ENGINE_BLK(802BB854);
 }
 
+extern u8 D_803A6B30[];                 /* 0x14-byte records, to 0xFF in byte 0x13 */
+
+/* D_803A6B30's record func_8029C6E4 finds (kind 6, id 0x3BD): the hook's
+   position (the original has it in $s0..$s2 from there) */
+static s32 *record_3bd(void) {
+    u8 *p;
+
+    for (p = D_803A6B30; (s8)p[0x13] != -1; p += 0x14)
+        if (p[0x12] == 6 && *(s32 *)(p + 0xC) == 0x3BD)
+            return (s32 *)p;
+    return NULL;
+}
+
 /* on level 0x11, whether there is an object under the crane's hook to pick
    up (func_8029C6E4 finds the hook's position) */
 REGS(-> v0)
 s32 func_802BB868(void) {
-    s32 r = 0;
+    s32 r = 0, *p;
 
     ENGINE_BLK(802BB868);
     if (D_802E8BDC != 0x11)
@@ -1168,11 +1120,8 @@ s32 func_802BB868(void) {
     if (r == 0)
         goto done;
     ENGINE_BLK(802BB894);
-    ENGINE_LEAVE(8, engine_ctx(16));
-    ENGINE_LEAVE(10, engine_ctx(17));
-    ENGINE_LEAVE(9, engine_ctx(18));
-    r = func_802AC0BC(engine_ctx(16), engine_ctx(18), engine_ctx(17));
-    ENGINE_LEAVE(5, r);
+    p = record_3bd();
+    r = func_802AC0BC(p[0], p[2], p[1]);
     ENGINE_BLK(802BB8A4);
 done:
     ENGINE_BLK(802BB8A8);
@@ -1198,12 +1147,7 @@ void func_802BB8B8(VS *vs) {
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
-    ENGINE_LEAVE(20, D_803EFAC8);
-    ENGINE_LEAVE(21, D_803EFACC);
-    ENGINE_LEAVE(22, D_803EFAD0);
-    ENGINE_LEAVE(23, 0x1B58);
     func_802AA764(D_803EFAC8, D_803EFACC, D_803EFAD0, 0x1B58, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802BB950);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BB964);
@@ -1214,14 +1158,12 @@ void func_802BB8B8(VS *vs) {
     }
     ENGINE_BLK(802BB980);
     model = D_803EFAD4;
-    ENGINE_LEAVE(11, T(model));
     func_8029C454(D_803EFAC8, D_803EFACC, D_803EFAD0, 6, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
                   buf);
     ENGINE_BLK(802BB9C8);
-    ENGINE_LEAVE(11, T(model));
     func_802ABBEC(6, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802BB9E8);
-    func_802AABE4(6, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
+    func_802AABE4(6, (u16 *)(model + *(s32 *)(model + 8)), buf, 0, 0);
     ENGINE_BLK(802BBA04);
     func_8029D040(D_803EFAC8, D_803EFAD0, 6, model + *(s32 *)(model + 0xC), vs->unk4C, Q, buf);
     ENGINE_BLK(802BBA44);

@@ -320,10 +320,25 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   |---|---|---|---|
   | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4; **done** (2026-10-02, about 3): `PORT_DIGEST`, `digest_cmp.py`, `test.py --gameplay` (docs/PORT.md, "The gameplay digest") |
   | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5; **done** (2026-10-02, about 3): the model is off by default (`--cpu-model n64` brings the N64's lag back), no level frame lags; the TAS with the port's own frame timing (`PORT_REPLAY_TIMING=free`, `test.py tas`'s default) matches every read, 57 platinum, the reference's gameplay digest and save; the levels' clock runs 5% less in all (up to 12% in the busiest), the whole run 9.6% shorter (docs/PORT.md, "Lag frames"); then the front end's hardware waits (the controllers' power-on, the EEPROM's writes, the pak thread's retrace a command, the loads' decompression time) left out, `--load-waits n64` keeps them (about 1.5 agent-hours; docs/PORT.md, "The front end's waits") |
-  | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10 |
+  | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10; **done** (2026-10-02, about 8 over two agents, `ENGINE_BLK` kept for `--cpu-model n64`): below |
   | O3 | Make the engine readable: struct fields for offsets, named per-frame constants, loops and calls in place of the asm's shape, by module over 4 agents | the TAS per module | 15–30 |
   | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10; **outside the engine done** (2026-10-02, about 3): Binaryen's one-caller inlining limited (the game's C 2-3 times faster in the page under Asyncify), the renderer's TMEM loads, texture lookups and per-triangle state cut (the in-between pass 54% less natively, a third in the page); the page's work at 4x on the GPU 6.5 → 3.8 ms a retrace with O1; pictures byte for byte; the engine's hot spots listed for the engine round (docs/PORT.md, "The second round") |
   | O5 | References, docs, the macOS/wasm builds again | — | 1–2 |
+
+  **O2 done** (2026-10-02, two agents in parallel, about 4 agent-hours each: half A 56040, 5CB60,
+  80280, 69BB0, 8AEE0, 1B100, 853D0, 88160, 772A0, 60F60, 679E0, 69944, 5BF40, 7F8B0, 8A080, 60D50,
+  86ED0; half B 62740, 62740_carry, 6B4A0, 6C5E0, 6E200, 71140, 72B80, 75490, 77E20, 83910, 86F60,
+  89250, 8A2E0, 8DDB0).  `ENGINE_BLK` stays (`--cpu-model n64` still charges it), so the quick tier and
+  the TAS, with the n64 model and with free timing, stayed exact.  Two debug builds
+  (`PORT_ENGINE_TAINT`, `PORT_PROV`; PORT.md "The scaffolding stripped") showed which leftovers some
+  later code reads; the rest went.  Half A: 701 `ENGINE_LEAVE`s are 102, the 27 `ENGINE_RA`s and 112
+  of 114 frame calls are gone, 18 of 46 save/restore pairs, 27 of 111 register reads.  Half B: 552
+  leaves are 30, 69 saves 10 (of one or two registers), 110 frame and 32 `$ra` sites the shadow's two
+  word stores, 118 context reads 3.  No frame is left: the driver's shadow reads one dead stack word
+  at a fixed slot, which its three writers store directly.  What is left feeds real state from
+  registers both halves leave (effects' velocities, a wheel's material and `self`, some collision
+  bytes, a building sphere's point, `func_8029A800`'s settings): those become variables or defined
+  values together, the garbage ones only under the digest, since they are garbage in the original.
 
   About 30–60 agent-hours (25–80), 10–20 elapsed over 4 agents.  O0–O2 and O4 alone, the speed
   without the readability, are about 13–30.  The risk is O3: one TAS run is 20–30 minutes, so a

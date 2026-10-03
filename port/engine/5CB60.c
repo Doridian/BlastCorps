@@ -4,9 +4,12 @@
  * into the run-time tables, and (at the end) the loader itself
  * (func_802A1674) with its vehicle and model parts.
  *
- * The originals take the level's header in $t0 and leave registers behind
- * that the loader's translated code then reads (ENGINE_LEAVE): what each
- * leaves is said where it does.
+ * The originals take the level's header in $t0.  Some of what they leave
+ * in registers is still read later (ENGINE_LEAVE, ENGINE_REG): the
+ * collision triangles' bytes 0x4F, 0x50 and 0x58 come from whatever $t9,
+ * $v0 and $s1 hold (func_802A41B0), the vehicles' wheels take $fp, the
+ * vehicle modules' effects $t4; those registers stay until their readers
+ * take values instead (the other half's are most of them).
  */
 #include "engine.h"
 #include "game/game.h"
@@ -128,10 +131,6 @@ void func_802A2D68(u32 h_) {
 #ifndef VERSION_US_V10
     D_803F7812 = 0;         /* (us.v10 doesn't) */
 #endif
-    ENGINE_LEAVE_F(0, (f32)h->gravity);
-    ENGINE_LEAVE(9, h->unk1C);
-    ENGINE_LEAVE(10, (s32)b[3]);
-    ENGINE_LEAVE(11, -1);
 }
 
 /* func_802A1C88: the level's display lists: their G_DL addresses made
@@ -200,7 +199,6 @@ u32 func_802A44E4(u32 a) {
         a = (a & ~7) + 8;
     }
     ENGINE_BLK(802A44FC);
-    ENGINE_LEAVE(2, a);
     return a;
 }
 
@@ -234,15 +232,13 @@ void func_802A1934(void) {
 }
 
 /* func_802A2C54: LevelHeader.unk60's records into D_803BDFD8 (0x24 bytes
-   each).  Leaves $t3 their end, $t4 &D_803BDFD4, $t5 1 and $t6 the last
-   byte copied (as they were, where there are none). */
+   each) */
 REGS(t0)
 void func_802A2C54(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
     u8 *p = AT(h, 0x60);
     u8 *end = AT(h, 0x64);
     u8 *r = D_803BDFD8[0];
-    u32 t5 = ENGINE_REG(13), t6 = ENGINE_REG(14);
 
     ENGINE_BLK(802A2C54);
     D_80364A6E = *p++;
@@ -270,30 +266,23 @@ void func_802A2C54(u32 h_) {
                 break;
             }
             ENGINE_BLK(802A2D10);
-            t6 = *p++;
-            *q++ = t6;
+            *q++ = *p++;
             n--;
         }
         ENGINE_BLK(802A2D28);
         r[0x11] = p[0];
         r[0x14] = p[1];
-        t5 = 1;
         r[0x12] = 1;
         p += 2;
         r += 0x24;
     }
     ENGINE_BLK(802A2D4C);
     D_803BDFD4 = r;
-    ENGINE_LEAVE(11, (u32)r);
-    ENGINE_LEAVE(12, (u32)&D_803BDFD4);
-    ENGINE_LEAVE(13, t5);
-    ENGINE_LEAVE(14, t6);
 }
 
 /* func_802A1A9C: LevelHeader.unk74: its identity matrices (as many bytes
    as its first word says, twice) and its groups of 0x44-byte records, cut
-   down to 0x28 bytes, after them.  Leaves $t5 &D_803F782C, $t6, $t7, $s1,
-   $s2 and $s3 as its walk left them. */
+   down to 0x28 bytes, after them */
 REGS(t0)
 void func_802A1A9C(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
@@ -301,13 +290,12 @@ void func_802A1A9C(u32 h_) {
     u32 size = *(u32 *)src;
     u8 *t = D_80358070;
     u8 *end;
-    u32 t6, t7 = 1, s1 = ENGINE_REG(17), s2 = ENGINE_REG(18), s3 = ENGINE_REG(19);
+    u32 s1;
 
     ENGINE_BLK(802A1A9C);
     D_803F7820 = t;
     D_803F7824 = t + size;
     end = t + size * 2;
-    t6 = (u32)end;
     for (;;) {
         ENGINE_BLK(802A1AE0);
         if (t == end) {
@@ -343,13 +331,11 @@ void func_802A1A9C(u32 h_) {
         s32 more;
 
         ENGINE_BLK(802A1B50);
-        t6 = (u32)(src + 4);
         g = src + 4;
         do {
             u8 *e;
 
             ENGINE_BLK(802A1B58);
-            t7 = (u32)g;
             more = *(s16 *)g;
             s1 = *(u32 *)(g + 0x28);
             e = g + 0x2C;
@@ -369,25 +355,17 @@ void func_802A1A9C(u32 h_) {
                 *(s32 *)(t + 0x18) = *(s16 *)(e + 0xC) << 5;
                 *(s32 *)(t + 0x1C) = *(s16 *)(e + 0xE) << 5;
                 *(s32 *)(t + 0x20) = *(s16 *)(e + 0x10) << 5;
-                s3 = e[0x12];
-                t[0x24] = s3;
+                t[0x24] = e[0x12];
                 t += 0x28;
                 e += 0x44;
             }
             g = e;
-            s2 = (u32)e;
             ENGINE_BLK(802A1BF4);
         } while (more != -1);
     }
     ENGINE_BLK(802A1C00);
     D_803F782C = t;
     D_80358070 = t;
-    ENGINE_LEAVE(13, (u32)&D_803F782C);
-    ENGINE_LEAVE(14, t6);
-    ENGINE_LEAVE(15, t7);
-    ENGINE_LEAVE(17, s1);
-    ENGINE_LEAVE(18, s2);
-    ENGINE_LEAVE(19, s3);
 }
 
 /* ---- the collision triangles -------------------------------------------- */
@@ -426,7 +404,7 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     u8 *src = (u8 *)src_;
     s32 x0, y0, z0, x1, y1, z1, x2, y2, z2;
     s32 dy1, dz1, dx1, dy2, dz2, dx2;
-    s64 nx, ny, nz, ax, ay, az, nzz1, s5;
+    s64 nx, ny, nz, ax, ay, az, nzz1;
     f32 len2, f;
 
     ENGINE_BLK(802A41B0);
@@ -491,17 +469,14 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
         ENGINE_BLK(802A43D0);
         az = -az;
     }
-    s5 = ay;
     ENGINE_BLK(802A43D4);
     if (az < ax || (ENGINE_BLK(802A43E0), az < ay)) {
         ENGINE_BLK(802A43F0);
         if (ay < ax || (ENGINE_BLK(802A43FC), ay < az)) {
             ENGINE_BLK(802A4410);
-            s5 = 2;
             t->axis = 2;
         } else {
             ENGINE_BLK(802A4404);
-            s5 = 1;
             t->axis = 1;
         }
     } else {
@@ -511,20 +486,7 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     ENGINE_BLK(802A4418);
     t->unk54 = 0;
     t->unk4C = src[0x12] << 8 | src[0x13];
-    ENGINE_LEAVE(1, src[0x12] << 8);
-    ENGINE_LEAVE(4, y0);
-    ENGINE_LEAVE(6, x1);
-    ENGINE_LEAVE(7, y1);
-    ENGINE_LEAVE(17, dx2);
-    ENGINE_LEAVE(18, dy2);
-    ENGINE_LEAVE(19, dz2);
-    ENGINE_LEAVE(20, src[0x12] << 8 | src[0x13]);
-    ENGINE_LEAVE64(21, s5);
-    ENGINE_LEAVE64(22, az);
-    ENGINE_LEAVE64(23, t->d);
-    ENGINE_LEAVE64(24, nzz1);
-    ENGINE_LEAVE_F(0, t->nlen);
-    ENGINE_LEAVE_F(2, f);
+    ENGINE_LEAVE(17, dx2);              /* (the next triangle's byte 0x58) */
     return (u32)(t + 1);
 }
 
@@ -566,8 +528,6 @@ void func_802A3D54(u32 h_) {
     ENGINE_BLK(802A3DDC);
     *table = (u32)t;
     D_80358070 = (u8 *)t;
-    ENGINE_LEAVE(14, (u32)end);
-    ENGINE_LEAVE(28, 0);
 }
 
 REGS(t0)
@@ -602,8 +562,6 @@ void func_802A3DF8(u32 h_) {
     ENGINE_BLK(802A3E80);
     *table = (u32)t;
     D_80358070 = (u8 *)t;
-    ENGINE_LEAVE(14, (u32)end);
-    ENGINE_LEAVE(28, 0);
 }
 
 /* func_802A3E9C: the walls (LevelHeader.unk64..unk68) into D_803BD310's
@@ -666,7 +624,6 @@ void func_802A3E9C(u32 h_) {
     D_803BDAF0 = w;
     D_803BD30C = (u8 *)t;
     D_80358070 = (u8 *)t;
-    ENGINE_LEAVE(28, 1);
 }
 
 /* whether a triangle of [D_803B9890, end) has the id `id` (in 0x50):
@@ -705,9 +662,7 @@ void func_802A3F80(u32 h_) {
     u8 *end = AT(h, 0x6C);
     u8 *r = D_803BC1D0;
     CollisionTri *tris = (CollisionTri *)D_803B9890;   /* $fp */
-    u32 last = ENGINE_REG(15);                         /* $t7 */
-    u32 s0 = ENGINE_REG(16), s1 = ENGINE_REG(17);
-    u32 v0 = ENGINE_REG(2), t9 = ENGINE_REG(25);
+    u32 last = 0, s1 = ENGINE_REG(17);
 
     ENGINE_BLK(802A3F80);
     for (;;) {
@@ -748,9 +703,6 @@ void func_802A3F80(u32 h_) {
                 q += 0x18;
             } while (--n != 0);
             s1 = c[2];
-            ENGINE_LEAVE(18, c[3]);
-            ENGINE_LEAVE(19, c[4]);
-            ENGINE_LEAVE(20, c[5]);
             ENGINE_BLK(802A407C);
             last = UNALIGNED_W(p);
             *(u32 *)q = last;
@@ -767,7 +719,6 @@ void func_802A3F80(u32 h_) {
         ENGINE_BLK(802A40B4);
         n = *p++;
         t = tris;
-        t9 = 0;
         ids = r + 0xC8;
         r[0xC7] = n;
         for (;;) {
@@ -778,7 +729,7 @@ void func_802A3F80(u32 h_) {
                 break;
             }
             ENGINE_BLK(802A40D4);
-            v0 = id = p[0x14];
+            id = p[0x14];
             *ids++ = id;
             if (!tri_id_used(id, tris)) {
                 ENGINE_BLK(802A40E4);
@@ -808,19 +759,12 @@ void func_802A3F80(u32 h_) {
                 ENGINE_BLK(802A4114);
             }
         }
-        s0 = (u32)ids;
         ENGINE_BLK(802A4134);
         r += 0xDC;
     }
     ENGINE_BLK(802A413C);
     D_803BD304 = r;
     D_803BD300 = (u8 *)tris;
-    ENGINE_LEAVE(2, v0);
-    ENGINE_LEAVE(15, last);
-    ENGINE_LEAVE(16, s0);
-    ENGINE_LEAVE(17, s1);
-    ENGINE_LEAVE(25, t9);
-    ENGINE_LEAVE(28, 1);
     ENGINE_LEAVE(30, (u32)tris);
 }
 
@@ -830,8 +774,8 @@ void func_802A3F80(u32 h_) {
 
 REGS(t6, fp -> s0)
 u32 func_802A0CFC(u32 id, u32 param);
-REGS(s0, s1, s4 -> s2, s3, s4, s5, s6)
-u32 func_802A08E4(u32 dl, u32 end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out, u32 *s6_out);
+REGS(s0, s1)
+void func_802A08E4(u32 dl, u32 end);
 s32 func_802CE6F8(s32 x, s32 z, s32 y);
 
 extern u8 *PTR32 D_803BE704, *PTR32 D_803BE708;    /* this level's building groups */
@@ -884,14 +828,12 @@ void func_802A1EC8(void) {
     D_803BE704 = NULL;
     D_803BE708 = NULL;
     ENGINE_BLK(802A20E0);
-    ENGINE_LEAVE(1, HI16(&D_803BE708));
     return;
 found:
     ENGINE_BLK(802A20CC);
     D_803BE708 = t;
     D_803BE704 = t + 4;
     ENGINE_BLK(802A20E0);
-    ENGINE_LEAVE(1, HI16(&D_803BE704));
 }
 
 /* func_802A20F4: in game mode 0x800, a model's vertex colours (0xC..0xE of
@@ -994,7 +936,6 @@ void func_802A2608(u32 m_) {
         ENGINE_BLK(802A2648);
         n = a[4] - 1;
         tex = (u32 *)(a + 0x10);
-        ENGINE_LEAVE(17, 0x80000000);
         for (;;) {
             ENGINE_BLK(802A265C);
             if (n == 0) {
@@ -1010,8 +951,6 @@ void func_802A2608(u32 m_) {
         a = (u8 *)tex;
     }
     ENGINE_BLK(802A2684);
-    ENGINE_LEAVE(9, (u32)end);
-    ENGINE_LEAVE(10, (u32)end);
 }
 
 /* func_802A24BC: the three buildings 0xBA..0xBC get texture 0xF81
@@ -1187,7 +1126,6 @@ void func_802A1C20(u32 h_) {
             }
             ENGINE_BLK(802A1C58);
             n--;
-            ENGINE_LEAVE(14, *tex);
             phys = func_802A0CFC(*tex, fp);
             ENGINE_LEAVE(16, phys);
             ENGINE_BLK(802A1C64);
@@ -1200,48 +1138,24 @@ void func_802A1C20(u32 h_) {
 }
 
 /* func_802A3008: the level's display lists' textures (802A08E4 over
-   [unk78, unk84)), leaving its registers */
+   [unk78, unk84)); $s1 the end, the first collision triangles' byte 0x58 */
 REGS(t0)
 void func_802A3008(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
-    u32 s2, s3, s4, s5, s6;
 
     ENGINE_BLK(802A3008);
-    s2 = func_802A08E4((u32)AT(h, 0x78), (u32)AT(h, 0x84), ENGINE_REG(20), &s3, &s4, &s5, &s6);
+    func_802A08E4((u32)AT(h, 0x78), (u32)AT(h, 0x84));
     ENGINE_BLK(802A3028);
     ENGINE_LEAVE(17, (u32)AT(h, 0x84));
-    ENGINE_LEAVE(18, s2);
-    ENGINE_LEAVE(19, s3);
-    ENGINE_LEAVE(20, s4);
-    ENGINE_LEAVE(21, s5);
-    ENGINE_LEAVE(22, s6);
 }
 
 /* ---- the buildings ------------------------------------------------------ */
 
-/* The originals keep their values in registers that the loader's
-   translated code may read after them; these mirror each write of one
-   into the context, in the original's order, so that it ends as the
-   original leaves it. */
-#define R_AT 1
+/* the registers some of them leave values in that are read later */
 #define R_V0 2
-#define R_V1 3
-#define R_A0 4
 #define R_A1 5
-#define R_A2 6
-#define R_A3 7
-#define R_T1 9
-#define R_T2 10
-#define R_T3 11
 #define R_T4 12
-#define R_T5 13
-#define R_T6 14
-#define R_T7 15
-#define R_S0 16
-#define R_S1 17
-#define R_S7 23
 #define R_T9 25
-#define R_GP 28
 
 u32 func_802C4108(u32 src, u32 dst, u32 arg2, u32 *dst_end);
 extern u32 *PTR32 D_803BE6F0;   /* the model table, on the heap */
@@ -1263,19 +1177,12 @@ void func_802A2BB0(void) {
     ENGINE_BLK(802A2BB0);
     D_803BE6F0 = (u32 *)t;
     D_80358070 = t + 0x800;
-    ENGINE_LEAVE(R_T1, (u32)(t + 0x800));
-    ENGINE_LEAVE(R_T2, 0x800);
-    ENGINE_LEAVE(R_S0, (u32)t);
     osInvalDCache(t, 0x800);
     ENGINE_BLK(802A2BF4);
     osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, (u32)D_006EC4C0, t, 0x800, &D_803150A0);
     ENGINE_BLK(802A2C28);
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
     ENGINE_BLK(802A2C3C);
-    ENGINE_LEAVE(R_A0, (u32)&D_803150A0);
-    ENGINE_LEAVE(R_A1, 0);
-    ENGINE_LEAVE(R_A2, 1);
-    ENGINE_LEAVE(R_A3, (u32)D_006EC4C0);
 }
 
 /* func_802A2A98: model `n` of the model table: DMA'd to init's memory,
@@ -1289,7 +1196,6 @@ u32 func_802A2A98(u32 n) {
     u8 *m;
 
     ENGINE_BLK(802A2A98);
-    ENGINE_LEAVE(R_S7, INIT_AREA);
     osInvalDCache((void *)INIT_AREA, size);
     ENGINE_BLK(802A2B04);
     osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, (u32)D_006EC4C0 + start,
@@ -1301,15 +1207,10 @@ u32 func_802A2A98(u32 n) {
     ENGINE_BLK(802A2B60);
     src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
     ENGINE_BLK(802A2B68);
-    ENGINE_LEAVE(R_A0, src);
-    ENGINE_LEAVE(R_A2, GZIP_WINDOW);
-    ENGINE_LEAVE(R_A3, 0xA);
     top = func_802A44E4(dst);
-    ENGINE_LEAVE(R_A1, top);
     ENGINE_BLK(802A2B70);
     m = D_80358070;
     D_80358070 = (u8 *)top;
-    ENGINE_LEAVE(R_S0, (u32)m);
     return (u32)m;
 }
 
@@ -1327,19 +1228,16 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     ENGINE_BLK(802A21AC);
     func_802A2608((u32)m);
     ENGINE_BLK(802A21C4);
-    ENGINE_LEAVE(R_AT, HI16(&D_803F767C));
     if (n == 0x38) {
         ENGINE_BLK(802A21D0);
         D_803F767C = x;
         D_803F767E = y;
         D_803F7680 = z;
-        ENGINE_LEAVE(R_AT, HI16(&D_803F7680));
     }
     ENGINE_BLK(802A21E4);
     b = D_803F7654;
     D_803F7654 = b + 1;
     ENGINE_LEAVE(R_V0, (u32)&D_803F7654);
-    ENGINE_LEAVE(R_V1, (u32)b);
     func_802A2458((u32)b, (u32)m);
     ENGINE_BLK(802A21FC);
     b->unk34 = unk34;
@@ -1388,7 +1286,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
             ENGINE_BLK(802A22C8);
             *(u32 *)D_803BE704 = (u32)b;
             D_803BE704 += 0x18;
-            ENGINE_LEAVE(R_AT, HI16(&D_803BE704));
         }
     }
     ENGINE_BLK(802A22D8);
@@ -1397,9 +1294,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     cell = z / ((u32)D_803BE710 >> 5) * D_803BE714 + x / a0;
     ENGINE_BLK(802A234C);
     b->unkE8 = cell;
-    ENGINE_LEAVE(R_A0, a0);
-    ENGINE_LEAVE(R_T5, x / a0);
-    ENGINE_LEAVE(R_T7, cell);
     func_802A24BC((u32)b);
     ENGINE_BLK(802A2358);
     func_802A23E0((u32)b);
@@ -1408,14 +1302,12 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     end = AT(m, 0x4C);
     t = (CollisionTri *)D_80358070;
     b->unk4 = t;
-    ENGINE_LEAVE(R_S0, 1);
     for (;;) {
         ENGINE_BLK(802A2384);
         if (src == end) {
             break;
         }
         ENGINE_BLK(802A238C);
-        ENGINE_LEAVE(R_T6, src[0x17]);
         if (src[0x17] != 0) {
             ENGINE_BLK(802A2398);
             t->unk51 = 0;
@@ -1424,8 +1316,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
             t->unk51 = 1;
         }
         ENGINE_BLK(802A23A4);
-        ENGINE_LEAVE(R_GP, src[0x18]);
-        ENGINE_LEAVE(R_T7, src[0x14]);
         t = (CollisionTri *)func_802A41B0((u32)t, (u32)src, src[0x15], src[0x14], src[0x18], unk34,
                                           (u32)&D_803F7654, src[0x17], src[0x16]);
         ENGINE_BLK(802A23B8);
@@ -1435,7 +1325,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     b->unk8 = t;
     D_80358070 = (u8 *)t;
     ENGINE_LEAVE(R_T4, (u32)t);
-    ENGINE_LEAVE(R_T5, (u32)end);
 }
 
 /* func_802A1D54: the buildings (LevelHeader.buildings, 14-byte records:
@@ -1450,7 +1339,6 @@ void func_802A1D54(u32 h_) {
 
     ENGINE_BLK(802A1D54);
     D_8036EB93 = 0;
-    ENGINE_LEAVE(R_AT, HI16(&D_8036EB93));
     func_802A1EC8();
     ENGINE_BLK(802A1D68);
     for (i = 1, q = D_803EFED0;; q += 0xA30) {
@@ -1491,50 +1379,32 @@ void func_802A1D54(u32 h_) {
     ENGINE_BLK(802A1DF8);
     p = AT(h, 0x5C);
     end = AT(h, 0x60);
-    ENGINE_LEAVE(R_T2, (u32)end);
     for (;;) {
-        u32 n, x, y, z, s2, s3, s4, s5, s6;
+        u32 n, x, y, z;
         u8 *m;
 
-        ENGINE_LEAVE(R_T1, (u32)p);
         ENGINE_BLK(802A1E08);
         if (p == end) {
             break;
         }
         ENGINE_BLK(802A1E10);
         n = p[6] << 8 | p[7];
-        ENGINE_LEAVE(R_AT, p[6] << 8);
-        ENGINE_LEAVE(R_T3, n);
         m = (u8 *)func_802A2A98(n);
         ENGINE_BLK(802A1E24);
         func_802A2164(n, (u32)m);
         ENGINE_BLK(802A1E2C);
-        ENGINE_LEAVE(R_T4, (u32)m);
-        ENGINE_LEAVE(R_S1, (u32)AT(m, 0x14));
-        s2 = func_802A08E4((u32)AT(m, 0x10), (u32)AT(m, 0x14), ENGINE_REG(20), &s3, &s4, &s5, &s6);
-        ENGINE_LEAVE(18, s2);
-        ENGINE_LEAVE(19, s3);
-        ENGINE_LEAVE(20, s4);
-        ENGINE_LEAVE(21, s5);
-        ENGINE_LEAVE(22, s6);
+        func_802A08E4((u32)AT(m, 0x10), (u32)AT(m, 0x14));
         ENGINE_BLK(802A1E44);
         *(u16 *)(m + 0xE) = *(u16 *)(p + 0xA);
         x = p[0] << 8 | p[1];
         y = p[2] << 8 | p[3];
         z = p[4] << 8 | p[5];
-        ENGINE_LEAVE(R_AT, p[4] << 8);
-        ENGINE_LEAVE(R_T5, x);
-        ENGINE_LEAVE(R_T6, y);
-        ENGINE_LEAVE(R_T7, z);
         func_802A26A8((u32)m, x, y, z);
         ENGINE_BLK(802A1E80);
         func_802A20F4((u32)m, p[8]);
         ENGINE_BLK(802A1E88);
         m[6] = p[9];
         D_8036EB93 += p[9];
-        ENGINE_LEAVE(R_S1, D_8036EB93);
-        ENGINE_LEAVE(R_AT, HI16(&D_8036EB93));
-        ENGINE_LEAVE(R_S0, p[8]);
         ENGINE_LEAVE(R_T9, *(u16 *)(p + 0xC));
         func_802A21AC((u32)m, n, x, y, z, p[8], *(u16 *)(p + 0xC));
         ENGINE_BLK(802A1EB0);
@@ -1603,7 +1473,6 @@ void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     v->unk48 = (u8 *)v->unk24 + delta;
     v->unk4C = (u8 *)v->unk28 + delta;
     v->unk50 = (u8 *)v->unk2C + delta;
-    ENGINE_LEAVE(R_AT, 1);
     if (D_80364AA8 == 1) {
         ENGINE_BLK(802A1518);
         if (a1 == 0) {
@@ -1648,10 +1517,6 @@ extern u8 D_0048FE90[], D_004903C0[], D_00490AC0[], D_00491E00[], D_004929D0[], 
 REGS(s0, s1, s2)
 void func_8029DF78(u32 dl, u32 end, u32 type);
 
-#define R_S2 18
-#define R_S4 20
-#define R_S5 21
-#define R_S6 22
 
 #define MODEL_TEST(b_test, ty, b_go, s, e)                                  \
     ENGINE_BLK(b_test);                                                     \
@@ -1667,7 +1532,7 @@ void func_8029DF78(u32 dl, u32 end, u32 type);
    ($s2), its display list's textures put in (8029DF78 and 802A08E4) */
 REGS(t3 -> s2)
 u32 func_802A396C(u32 type) {
-    u32 start, end, size, src, dst, top, s2, s3, s4, s5, s6;
+    u32 start, end, size, src, dst, top;
     u8 *m;
 
     ENGINE_BLK(802A396C);
@@ -1703,10 +1568,6 @@ u32 func_802A396C(u32 type) {
     *(volatile u32 *)0 = 0;     /* (the original's syscall: an unknown type) */
 found:
     size = end - start;
-    ENGINE_LEAVE(R_S4, start);
-    ENGINE_LEAVE(R_S5, size);
-    ENGINE_LEAVE(R_S7, INIT_AREA);
-    ENGINE_LEAVE(R_S2, type);
     ENGINE_BLK(802A3C54);
     osInvalDCache((void *)INIT_AREA, size);
     ENGINE_BLK(802A3C70);
@@ -1719,23 +1580,15 @@ found:
     ENGINE_BLK(802A3CCC);
     src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
     ENGINE_BLK(802A3CD4);
-    ENGINE_LEAVE(R_A0, src);
-    ENGINE_LEAVE(R_A2, GZIP_WINDOW);
-    ENGINE_LEAVE(R_A3, 0xA);
     top = func_802A44E4(dst);
     ENGINE_LEAVE(R_A1, top);
     ENGINE_BLK(802A3CDC);
     m = D_80358070;
     D_80358070 = (u8 *)top;
-    ENGINE_LEAVE(R_S7, (u32)m);
     func_8029DF78((u32)AT(m, 0x1C), (u32)AT(m, 0x20), type);
     ENGINE_BLK(802A3D04);
-    s2 = func_802A08E4((u32)AT(m, 0x1C), (u32)AT(m, 0x20), ENGINE_REG(R_S4), &s3, &s4, &s5, &s6);
-    ENGINE_LEAVE(R_S4, s4);
-    ENGINE_LEAVE(R_S5, s5);
-    ENGINE_LEAVE(R_S6, s6);
+    func_802A08E4((u32)AT(m, 0x1C), (u32)AT(m, 0x20));
     ENGINE_BLK(802A3D18);
-    ENGINE_LEAVE(R_S2, (u32)m);
     return (u32)m;
 }
 
@@ -1743,7 +1596,7 @@ found:
    9, 10, 13, 14, 15): returns it ($s2), its display list's textures put in */
 REGS(t3 -> s2)
 u32 func_802A32CC(u32 type) {
-    u32 start, end, size, src, dst, top, s2, s3, s4, s5, s6;
+    u32 start, end, size, src, dst, top;
     u8 *m;
 
     ENGINE_BLK(802A32CC);
@@ -1765,10 +1618,6 @@ u32 func_802A32CC(u32 type) {
     *(volatile u32 *)0 = 0;     /* (the original's syscall) */
 found:
     size = end - start;
-    ENGINE_LEAVE(R_S4, start);
-    ENGINE_LEAVE(R_S5, size);
-    ENGINE_LEAVE(R_S7, INIT_AREA);
-    ENGINE_LEAVE(R_S2, type);
     ENGINE_BLK(802A3424);
     osInvalDCache((void *)INIT_AREA, size);
     ENGINE_BLK(802A3440);
@@ -1781,22 +1630,12 @@ found:
     ENGINE_BLK(802A349C);
     src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
     ENGINE_BLK(802A34A4);
-    ENGINE_LEAVE(R_A0, src);
-    ENGINE_LEAVE(R_A2, GZIP_WINDOW);
-    ENGINE_LEAVE(R_A3, 0xA);
     top = func_802A44E4(dst);
-    ENGINE_LEAVE(R_A1, top);
     ENGINE_BLK(802A34AC);
     m = D_80358070;
     D_80358070 = (u8 *)top;
-    ENGINE_LEAVE(R_S7, (u32)m);
-    s2 = func_802A08E4((u32)AT(m, 0x1C), (u32)AT(m, 0x20), ENGINE_REG(R_S4), &s3, &s4, &s5, &s6);
-    ENGINE_LEAVE(19, s3);
-    ENGINE_LEAVE(R_S4, s4);
-    ENGINE_LEAVE(R_S5, s5);
-    ENGINE_LEAVE(R_S6, s6);
+    func_802A08E4((u32)AT(m, 0x1C), (u32)AT(m, 0x20));
     ENGINE_BLK(802A34D4);
-    ENGINE_LEAVE(R_S2, (u32)m);
     return (u32)m;
 }
 
@@ -1963,11 +1802,8 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     u64 mode;
 
     ENGINE_BLK(802A1674);
-    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_GPR(31), ENGINE_F20_F31);
-    engine_frame(-ENGINE_C_FRAME);
-    engine_frame_s();
+    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     D_803BE6F4 = status;
-    ENGINE_LEAVE(8, h);
     func_802A2D68(h);
     ENGINE_BLK(802A16D0);
     func_802A0700();
@@ -2008,15 +1844,10 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     ENGINE_BLK(802A1760);
     func_802C049C();
     ENGINE_BLK(802A1768);
-    ENGINE_LEAVE(8, h);
-    ENGINE_LEAVE(16, h);
-    engine_frame(-0x10);
     func_8028FDA0((s16 *)AT(p, 0x3C), (s16 *)AT(p, 0x40));
-    engine_frame(0x10);
     ENGINE_BLK(802A1784);
     if (D_80364A98 != 0x80) {
         ENGINE_BLK(802A179C);
-        ENGINE_RA(802A17A4);
         func_802A350C(h);
     }
     ENGINE_BLK(802A17A4);
@@ -2029,7 +1860,6 @@ void func_802A1674(LevelHeader *hp, s32 status) {
         if (D_802E8BEC != 0)
             goto extras;
         ENGINE_BLK(802A17E0);
-        ENGINE_RA(802A17E8);
         func_802A303C(h);
         ENGINE_BLK(802A17E8);
         goto extras;
@@ -2041,35 +1871,27 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     if (D_803BE6F4 != 0)
         goto chopper;
     ENGINE_BLK(802A180C);
-    ENGINE_RA(802A1814);
     func_802A303C(h);
     ENGINE_BLK(802A1814);
-    ENGINE_RA(802A181C);
     func_802A30DC();
 chopper:
     ENGINE_BLK(802A181C);
-    ENGINE_RA(802A1824);
     func_802A3134(h);
 extras:
     ENGINE_BLK(802A1824);
-    ENGINE_RA(802A182C);
     func_802A3198();
     ENGINE_BLK(802A182C);
     func_802CEAA0(p);
     ENGINE_BLK(802A1834);
-    ENGINE_RA(802A183C);
     func_802A19F4();
     ENGINE_BLK(802A183C);
     D_803BE6FC = (struct LevelUnk58 *)AT(p, 0x58);
     D_803BE700 = (struct LevelUnk58 *)AT(p, 0x5C);
-    ENGINE_LEAVE(16, h);
-    engine_frame(-0x10);
     func_8026FBB0(AT(p, 0x34), AT(p, 0x38));
     ENGINE_BLK(802A1878);
     func_8028D4C0(AT(p, 0x38), AT(p, 0x3C));
     ENGINE_BLK(802A188C);
     func_8028C190(AT(p, 0x20), AT(p, 0x24));
-    engine_frame(0x10);
     ENGINE_BLK(802A18A0);
     D_80370C50 = 0;
     mode = D_80364A98;
@@ -2085,7 +1907,6 @@ extras:
     func_802C4BF0((u8 *)(__UINTPTR_TYPE__)(u32)D_803BE6F4);
 done:
     ENGINE_BLK(802A18E4);
-    engine_frame(ENGINE_FRAME_S + ENGINE_C_FRAME);
     engine_restore();
 }
 
@@ -2097,9 +1918,6 @@ void func_802A19F4(void) {
     s16 *v, *end;
 
     ENGINE_BLK(802A19F4);
-    engine_frame(-0x10);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
     if (D_8039CAB7 == 0)
         goto done;
     ENGINE_BLK(802A1A0C);
@@ -2122,7 +1940,6 @@ void func_802A19F4(void) {
     D_8039CABC = m + *(s32 *)(m + 0x24);
 done:
     ENGINE_BLK(802A1A88);
-    engine_frame(0x10);
 }
 
 /* the missile carrier (its record first in LevelHeader.unk54: its speed,
@@ -2134,10 +1951,6 @@ void func_802A303C(u32 h_) {
     u32 m;
 
     ENGINE_BLK(802A303C);
-    ENGINE_LEAVE(8, h_);
-    engine_frame(-0x10);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
     if (speed == 0)
         goto done;
     ENGINE_BLK(802A305C);
@@ -2149,7 +1962,6 @@ void func_802A303C(u32 h_) {
     D_803643DB = 1;
 done:
     ENGINE_BLK(802A30C8);
-    engine_frame(0x10);
 }
 
 /* the other chopper (8DDB0), on the levels func_80268EE8 says */
@@ -2158,10 +1970,6 @@ void func_802A30DC(void) {
     u32 m;
 
     ENGINE_BLK(802A30DC);
-    engine_frame(-0x10);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
-    engine_frame(-0x20);
     if (func_80268EE8(D_802E8BDC) == 0) {
         ENGINE_BLK(802A30F8);
         goto done;
@@ -2174,7 +1982,6 @@ void func_802A30DC(void) {
     func_802D2570((u8 *)(__UINTPTR_TYPE__)m);
 done:
     ENGINE_BLK(802A311C);
-    engine_frame(0x20 + 0x10);
 }
 
 /* the BCT chopper, where there is a carrier and outside the attract
@@ -2185,10 +1992,6 @@ void func_802A3134(u32 h_) {
     u32 m;
 
     ENGINE_BLK(802A3134);
-    ENGINE_LEAVE(8, h_);
-    engine_frame(-0x10);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
     if (r[0] == 0)
         goto done;
     ENGINE_BLK(802A3154);
@@ -2202,7 +2005,6 @@ void func_802A3134(u32 h_) {
     D_803643DC = 1;
 done:
     ENGINE_BLK(802A3184);
-    engine_frame(0x10);
 }
 
 /* the missile carrier's extra model (D_8039CA61, model D_8039CA7E): its
@@ -2215,9 +2017,6 @@ void func_802A3198(void) {
     s16 *q;
 
     ENGINE_BLK(802A3198);
-    engine_frame(-0x10);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
     if (D_8039CA61 == 0)
         goto done;
     ENGINE_BLK(802A31B0);
@@ -2271,7 +2070,6 @@ void func_802A3198(void) {
     ENGINE_BLK(802A32B4);
 done:
     ENGINE_BLK(802A32B8);
-    engine_frame(0x10);
 }
 
 /* the level's vehicles (LevelHeader.vehicles: 9-byte records, the type,
@@ -2285,11 +2083,6 @@ void func_802A350C(u32 h_) {
     s32 x, y, z, heading;
 
     ENGINE_BLK(802A350C);
-    engine_save(ENGINE_GPR(31), 0);
-    ENGINE_LEAVE(8, h_);
-    engine_frame(-0x10);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
     func_802A3824(h_);
     ENGINE_BLK(802A351C);
     D_803ED3F5 = 0;
@@ -2341,16 +2134,10 @@ void func_802A350C(u32 h_) {
         z = BE16S(p + 5) << 5;
         heading = BE16S(p + 7);
         p += 9;
-        ENGINE_LEAVE(9, (u32)p);
-        ENGINE_LEAVE(15, x);
-        ENGINE_LEAVE(16, z);
-        ENGINE_LEAVE(17, heading);
-        ENGINE_LEAVE(19, y);
         m = func_802A396C(t3);
         ENGINE_BLK(802A3640);
         if (t3 == 0x0) {
             ENGINE_BLK(802A3648);
-            ENGINE_RA(802A3650);
             func_802AE370((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3650);
             continue;
@@ -2358,7 +2145,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3658);
         if (t3 == 0x1) {
             ENGINE_BLK(802A3664);
-            ENGINE_RA(802A366C);
             func_802AFC60((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A366C);
             continue;
@@ -2366,7 +2152,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3674);
         if (t3 == 0x2) {
             ENGINE_BLK(802A3680);
-            ENGINE_RA(802A3688);
             func_802B0DA0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3688);
             continue;
@@ -2374,7 +2159,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3690);
         if (t3 == 0x3) {
             ENGINE_BLK(802A369C);
-            ENGINE_RA(802A36A4);
             func_802B29C0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36A4);
             continue;
@@ -2382,7 +2166,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A36AC);
         if (t3 == 0x4) {
             ENGINE_BLK(802A36B8);
-            ENGINE_RA(802A36C0);
             func_802B4100((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36C0);
             continue;
@@ -2390,7 +2173,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A36C8);
         if (t3 == 0x5) {
             ENGINE_BLK(802A36D4);
-            ENGINE_RA(802A36DC);
             func_802B5900((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36DC);
             continue;
@@ -2398,7 +2180,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A36E4);
         if (t3 == 0x6) {
             ENGINE_BLK(802A36F0);
-            ENGINE_RA(802A36F8);
             func_802BAD80((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A36F8);
             continue;
@@ -2406,7 +2187,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3700);
         if (t3 == 0x7) {
             ENGINE_BLK(802A370C);
-            ENGINE_RA(802A3714);
             func_802BBA60((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3714);
             continue;
@@ -2414,7 +2194,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A371C);
         if (t3 == 0x8) {
             ENGINE_BLK(802A3728);
-            ENGINE_RA(802A3730);
             func_802B7340((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3730);
             continue;
@@ -2422,7 +2201,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3738);
         if (t3 == 0x9) {
             ENGINE_BLK(802A3744);
-            ENGINE_RA(802A374C);
             func_802C5120((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A374C);
             continue;
@@ -2430,7 +2208,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A3754);
         if (t3 == 0xa) {
             ENGINE_BLK(802A3760);
-            ENGINE_RA(802A3768);
             func_802C9B90((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3768);
             continue;
@@ -2453,7 +2230,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A379C);
         if (t3 == 0xd) {
             ENGINE_BLK(802A37A8);
-            ENGINE_RA(802A37B0);
             func_802CB720((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A37B0);
             continue;
@@ -2461,7 +2237,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A37B8);
         if (t3 == 0xe) {
             ENGINE_BLK(802A37C4);
-            ENGINE_RA(802A37CC);
             func_802CC920((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A37CC);
             continue;
@@ -2469,7 +2244,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A37D4);
         if (t3 == 0xf) {
             ENGINE_BLK(802A37E0);
-            ENGINE_RA(802A37E8);
             func_802CF6A0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A37E8);
             continue;
@@ -2477,7 +2251,6 @@ void func_802A350C(u32 h_) {
         ENGINE_BLK(802A37F0);
         if (t3 == 0x10) {
             ENGINE_BLK(802A37FC);
-            ENGINE_RA(802A3804);
             func_802D07E0((u8 *)(__UINTPTR_TYPE__)m, x, y, z, heading);
             ENGINE_BLK(802A3804);
             continue;
@@ -2486,6 +2259,4 @@ void func_802A350C(u32 h_) {
         engine_trap(0x802A380C);
     }
     ENGINE_BLK(802A3810);
-    engine_frame(0x10);
-    engine_restore();
 }

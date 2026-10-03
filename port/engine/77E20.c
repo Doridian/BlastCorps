@@ -108,7 +108,7 @@ void func_802933A0(s32 arg0, s32 arg1, s32 arg2, s32 arg3, Mtx *arg4, void *arg5
                    s32 arg9, s32 arg10, s32 arg11);
 void func_802619D0(u32 arg0);
 
-/* 56040 (still translated): the object `id`'s state byte */
+/* 56040: the object `id`'s state byte */
 REGS(t4 -> t5)
 s32 func_8029D210(s32 id);
 /* 60F60 (engine-B's) */
@@ -205,9 +205,6 @@ s32 func_802C1A28(s32 group, Building *b);
 #define U64_(p, off) (*(u64 *)((u8 *)(p) + (off)))
 
 #define K0(p) ((u32)(p) - 0x80000000)
-/* %hi() of a symbol, as lui leaves it */
-#define HI(sym) (((u32)(sym) + 0x8000) & 0xFFFF0000)
-
 /* a block table, for code two functions share */
 typedef struct { u16 id, n; } Blk;
 #define BLKT(t, i) ENGINE_BLK_((t)[i].id, (t)[i].n)
@@ -856,13 +853,14 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     Mtx *m;
     s32 first, n, g2, falling, gi, thr, dmg, t, fall, h;
     u32 mtx = 0;
-    /* what the original leaves in $t1-$t8 and $a3 (the game's C goes on to
-       translated code that may read them) */
+    /* what the original leaves in $t6-$t8, which 5CB60.c's collision
+       triangles, 60F60.c and 69BB0.c's driver read from the context */
     u32 rv[32], rset = 0;
 #define R(r, v) (rv[r] = (u32)(v), rset |= 1u << (r))
 
-    ENGINE_SAVE(G(rS0) | G(rS1) | G(rS2) | G(rS3) | G(rS4) | G(rS5) | G(rS6) | G(rS7) | G(rGP) | G(rFP));
     ENGINE_BLK(802BD1F8);
+    /* (its $s4 as it found it: 5CB60.c reads it from the context) */
+    ENGINE_SAVE(G(rS4));
     D_803F7658 = arg4;
     D_803F765C = arg5;
     func_802C08C4((u32 *)g6);
@@ -884,11 +882,8 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             break;
         ENGINE_BLK(802BD2A4);
         cell = D_803C30A8;
-        R(rA3, b->unkE8);
         for (;;) {
             ENGINE_BLK(802BD2B0);
-            R(rT2, (s32)*cell);
-            R(rT1, cell + 1);
             if (*cell++ == -1)
                 goto done;
             ENGINE_BLK(802BD2C4);
@@ -899,7 +894,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         if (b->unk30 == 0x38) {
             ENGINE_BLK(802BD2DC);
             t = func_802BD8C8();
-            R(rT1, t);
             ENGINE_BLK(802BD2E4);
             if (t)
                 goto done;
@@ -923,8 +917,8 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                 b->x = D_803F7664;
                 b->y = D_803F7668;
                 b->z = D_803F766C;
-                ENGINE_SAVE(G(rV0) | G(rV1) | G(rA0) | G(rA1) | G(rA2) | G(rA3) | G(rT0) | G(rT1) | G(rT2) | G(rT3) |
-                            G(rT4) | G(rT5) | G(rT6) | G(rT7) | G(rT8) | G(rT9));
+                /* (its $t8 and $t9 as they were: 5CB60.c and 69BB0.c read them) */
+                ENGINE_SAVE(G(rT8) | G(rT9));
                 func_802BD99C(b, D_803F7664 - ox, D_803F7668 - oy, D_803F766C - oz);
                 ENGINE_RESTORE();
             }
@@ -936,11 +930,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         anim_end = B_SECTION(b, 0x2C);
         grp = B_SECTION(b, 0x38);
         grp_end = B_SECTION(b, 0x3C);
-        R(rT3, model);
-        R(rT1, anim);
-        R(rT2, anim_end);
-        R(rT4, grp);
-        R(rT5, grp_end);
         func_802BDDB4(b, anim, anim_end);
         ENGINE_BLK(802BD4F0);
         g0[0] = 0xBC002406;             /* segment 9: the model's textures */
@@ -956,7 +945,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         src = (u32 *)B_SECTION(b, 0x10);
         src_end = (u32 *)B_SECTION(b, 0x18);
         R(rT6, 0x80000000);
-        R(rA3, src_end);
         R(rT7, src_end);
         for (;;) {
             ENGINE_BLK(802BD568);
@@ -982,9 +970,7 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             gi = U16_(grp, 4) - 1;
             n = U32_(grp, 0);
             grp += 4;
-            R(rA3, gi);
             R(rT7, n);
-            R(rT4, grp);
             for (;;) {
                 ENGINE_BLK(802BD5A8);
                 if (n == 0)
@@ -996,7 +982,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                 t = U8_(grp, 2);
                 grp += 4;
                 R(rT7, n);
-                R(rT4, grp);
                 if (t != 0) {
                     ENGINE_BLK(802BD5D8);
                     if (!(dmg < thr))
@@ -1010,13 +995,11 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                 ENGINE_BLK(802BD5F8);
                 grp += n * 4 + 0x10;
                 R(rT7, n * 4);
-                R(rT4, grp);
                 goto passed;
             }
         draw:
             ENGINE_BLK(802BD608);
             g2 = gi * 2;
-            R(rA3, g2);
             falling = U16_(b, 0x48 + g2);
             if (falling != 0) {
                 ENGINE_BLK(802BD620);
@@ -1029,7 +1012,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                     /* it has landed */
                     ENGINE_BLK(802BD678);
                     U16_(b, 0x48 + g2) = 0;
-                    R(rA3, gi);
                     func_802BFD1C(b, gi);
                     ENGINE_BLK(802BD684);
                     D_802E8BE4 = 10;
@@ -1037,7 +1019,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                     B_DAMAGE(b)[gi] = 100;
                     func_802BD85C(b, gi);
                     ENGINE_BLK(802BD6B8);
-                    R(rA3, g2);
                 }
                 ENGINE_BLK(802BD6BC);
                 mtx = func_802BE574(b, g2, fall);
@@ -1103,7 +1084,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             }
             ENGINE_BLK(802BD79C);
             grp += 0x10;
-            R(rT4, grp);
             if (first)
                 break;
         passed:
@@ -1119,8 +1099,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         d1[0] = 0xB8000000;
         d0 += 2;
         d1 += 2;
-        R(rA3, B_MODEL(b));
-        R(rT1, U16_(B_MODEL(b), 0xE));
         if (U16_(B_MODEL(b), 0xE) != 0) {
             ENGINE_BLK(802BD7D8);
             g0[0] = 0xBD000000;         /* the moving one's matrix popped */
@@ -1137,19 +1115,13 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     for (t = 1; t < 32; t++)
         if (rset >> t & 1)
             ENGINE_LEAVE(t, rv[t]);
-    ENGINE_LEAVE(rA2, (u32)d0);
-    ENGINE_LEAVE(rT0, (u32)d1);
-    ENGINE_LEAVE(rV0, (u32)end);
-    ENGINE_LEAVE(rV1, (u32)end);
+    ENGINE_LEAVE(rV0, (u32)end);        /* ($v0, which 5CB60.c reads) */
     g0 = func_802C12E0(g0, g1, &g1);
     ENGINE_BLK(802BD80C);
     g0[0] = 0xB8000000;
     g0[1] = 0;
     g1[1] = 0;
     g1[0] = 0xB8000000;
-    ENGINE_LEAVE(rAT, 0xB8000000);
-    ENGINE_LEAVE(rA0, (u32)(g0 + 2));
-    ENGINE_LEAVE(rA1, (u32)(g1 + 2));
 #undef R
 }
 
@@ -1188,7 +1160,6 @@ s32 func_802BD8C8(void) {
     s32 r = 0;
 
     ENGINE_BLK(802BD8C8);
-    ENGINE_LEAVE(1, 0x32);              /* ($at) */
     if (D_802E8BDC == 0x32) {
         ENGINE_BLK(802BD930);
         if (func_80286090(D_802E8BDC) != 0) {
@@ -1205,9 +1176,8 @@ s32 func_802BD8C8(void) {
 
 /* Building b moved by (dx, dy, dz) (<< 5): its model's heights, shadow,
    triangles, corners, effect records and group centres, and its pieces,
-   whose planes are made again from their corners.  (The truck's code,
-   679E0's func_802AC2A4, still translated, reads what it leaves in the
-   registers.) */
+   whose planes are made again from their corners.  It leaves its $fp
+   (qz) in the context, which 5CB60.c reads. */
 REGS(v0, a2, a3, t0)
 void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
     u8 *s, *e;
@@ -1216,13 +1186,11 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
     s32 qx = dx >> 2, qy = dy >> 2, qz = dz >> 2;
     s32 n, last = 0;
     Piece *p, *pe;
-    /* the last piece's registers, for the leaves */
+    /* the last piece's values */
     s32 x1 = 0, y1 = 0, z1 = 0, x2 = 0, y2 = 0, z2 = 0, x3 = 0, y3 = 0, z3 = 0;
     s32 ey = 0, ez3 = 0, ez2 = 0, ey3 = 0, ex3 = 0, ex2 = 0;
     s64 nx = 0, ny = 0, nz = 0, dd = 0, t8 = 0, s7;
     f32 f0 = 0.0f, f2 = 0.0f;
-    u32 at = 0;
-    s32 any = 0;
 
     ENGINE_BLK(802BD99C);
     s = B_SECTION(b, 0x40);
@@ -1318,7 +1286,6 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
         if (p == pe)
             break;
         ENGINE_BLK(802BDBF4);
-        any = 1;
         x1 = p->p[0][0] + qx, y1 = p->p[0][1] + qy, z1 = p->p[0][2] + qz;
         x2 = p->p[1][0] + qx, y2 = p->p[1][1] + qy, z2 = p->p[1][2] + qz;
         x3 = p->p[2][0] + qx, y3 = p->p[2][1] + qy, z3 = p->p[2][2] + qz;
@@ -1374,7 +1341,6 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
            y, else x */
         ENGINE_BLK(802BDD58);
         nx = ax, ny = ay, nz = az;
-        at = az < ay;
         if (!(az < ax)) {
             ENGINE_BLK(802BDD64);
             if (!(az < ay)) {
@@ -1384,7 +1350,6 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
             }
         }
         ENGINE_BLK(802BDD74);
-        at = ay < az;
         if (!(ay < ax)) {
             ENGINE_BLK(802BDD80);
             if (!(ay < az)) {
@@ -1402,46 +1367,7 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
         p++;
     }
     ENGINE_BLK(802BDDA4);
-    /* what it leaves in the registers */
-    ENGINE_LEAVE(2, (u32)pe);           /* $v0, $t4: the pieces' end */
-    ENGINE_LEAVE(12, (u32)pe);
-    ENGINE_LEAVE(13, qx);               /* $t5, $t9, $fp */
-    ENGINE_LEAVE(25, qy);
-    ENGINE_LEAVE(30, qz);
-    if (!any) {
-        ENGINE_LEAVE(3, (u32)B_SECTION(b, 0x30));   /* $v1, $s0: the last list's end */
-        ENGINE_LEAVE(16, (u32)B_SECTION(b, 0x30));
-        ENGINE_LEAVE(4, last);          /* $a0: the last value it stored */
-        ENGINE_LEAVE(9, sx);            /* $t1-$t3, $t6, $t7 */
-        ENGINE_LEAVE(10, sy);
-        ENGINE_LEAVE(11, sz);
-        ENGINE_LEAVE(14, wy);
-        ENGINE_LEAVE(15, wz);
-    } else {
-        ENGINE_LEAVE(1, at);
-        ENGINE_LEAVE(3, x1);            /* the last piece's corners */
-        ENGINE_LEAVE(4, y1);
-        ENGINE_LEAVE(5, z1);
-        ENGINE_LEAVE(6, x2);
-        ENGINE_LEAVE(7, y2);
-        ENGINE_LEAVE(8, z2);
-        ENGINE_LEAVE(9, x3);
-        ENGINE_LEAVE(10, y3);
-        ENGINE_LEAVE(11, z3);
-        ENGINE_LEAVE(14, ex2);          /* and their differences */
-        ENGINE_LEAVE(15, ey);
-        ENGINE_LEAVE(16, ez2);
-        ENGINE_LEAVE(17, ex3);
-        ENGINE_LEAVE(18, ey3);
-        ENGINE_LEAVE(19, ez3);
-        ENGINE_LEAVE64(20, nx);         /* |n|, $s5 the axis when it isn't z */
-        ENGINE_LEAVE64(21, ny);
-        ENGINE_LEAVE64(22, nz);
-        ENGINE_LEAVE64(23, dd);
-        ENGINE_LEAVE64(24, t8);
-        ENGINE_LEAVE_F(0, f0);
-        ENGINE_LEAVE_F(2, f2);
-    }
+    ENGINE_LEAVE(30, qz);               /* ($fp, which 5CB60.c reads) */
 }
 
 /* the heading from building b to the camera (16.16 asin by quadrant, a
@@ -1460,8 +1386,6 @@ static s32 heading_to_camera(Building *b, s32 *h_) {
             ENGINE_BLK(802BDEC8);
             q = (f32)(cx - bx) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802BDEF8);
             h = (u32)h >> 4;
@@ -1469,8 +1393,6 @@ static s32 heading_to_camera(Building *b, s32 *h_) {
             ENGINE_BLK(802BDF00);
             q = (f32)(bz - cz) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802BDF30);
             h = ((u32)h >> 4) + 0x400;
@@ -1481,8 +1403,6 @@ static s32 heading_to_camera(Building *b, s32 *h_) {
             ENGINE_BLK(802BDF48);
             q = (f32)(bx - cx) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802BDF78);
             h = ((u32)h >> 4) + 0x800;
@@ -1490,8 +1410,6 @@ static s32 heading_to_camera(Building *b, s32 *h_) {
             ENGINE_BLK(802BDF84);
             q = (f32)(cz - bz) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802BDFB4);
             h = ((u32)h >> 4) + 0xC00;
@@ -1853,16 +1771,13 @@ u32 func_802BE574(Building *b, s32 g2, s32 fall) {
 /* Each frame, from every vehicle module: the vehicle of type `type` (its
    VehicleState in $gp) against the buildings, by its sphere (its Solid,
    D_803A7300), each piece hit doing damage (func_802BEBB0); what happened
-   into vs->unk9C..9E.  (The vehicles' code is still translated in places
-   and reads the registers it leaves.) */
+   into vs->unk9C..9E. */
 REGS(t8, gp)
 void func_802BE77C(s32 type, VS *vs) {
     Solid *s = D_803A7300;
     Building *b, *end;
     s32 x, y, z, r;
 
-    ENGINE_SAVE(G(rA2) | G(rA3) | G(rT0) | G(rT1) | G(rT2) | G(rT3) | G(rT4) | G(rT5) | G(rT7) | G(rS0) | G(rS2) |
-                G(rT8));
     ENGINE_BLK(802BE77C);
     D_803F7802 = 0;
     D_803F7803 = 0;
@@ -1883,9 +1798,6 @@ void func_802BE77C(s32 type, VS *vs) {
     if (s->end != 0) {
         ENGINE_BLK(802BE810);
         x = s->x, y = s->y, z = s->z, r = s->r;
-        ENGINE_LEAVE(3, y);             /* ($v1, $a0, $a1: the sphere, left) */
-        ENGINE_LEAVE(4, z);
-        ENGINE_LEAVE(5, r);
         end = D_803F7654;
         for (b = D_803F4030;; b++) {
             ENGINE_BLK(802BE834);
@@ -1924,19 +1836,14 @@ void func_802BE77C(s32 type, VS *vs) {
         func_802BCC48();
     }
     ENGINE_BLK(802BE8AC);
-    ENGINE_RESTORE();
     if (D_803A7410 != 0) {
-        ENGINE_LEAVE(2, D_803A7410);    /* ($v0, $at as it leaves them) */
         goto turned;
     }
     ENGINE_BLK(802BE8C0);
-    ENGINE_LEAVE(2, D_803A7412);
-    ENGINE_LEAVE(1, 0xFFF);
     if (D_803A7412 != 0xFFF) {
     turned:
         ENGINE_BLK(802BE8D8);
         D_803A7425 = 1;
-        ENGINE_LEAVE(1, HI(&D_803A7425));
     }
     ENGINE_BLK(802BE8E4);
     vs->unk9C = (s8)D_803F7802;
@@ -1953,7 +1860,6 @@ s32 func_802BE944(Building *b, s32 type) {
     s32 model = b->unk30, r = 0;
 
     ENGINE_BLK(802BE944);
-    ENGINE_LEAVE(1, 0x38);
     if (model == 0x38)
         goto out;
     for (;;) {
@@ -1962,7 +1868,6 @@ s32 func_802BE944(Building *b, s32 type) {
         if (p[-1] == 0)
             break;
         ENGINE_BLK(802BE990);
-        ENGINE_LEAVE(1, 0xFFFF);
         if (p[-3] != 0xFFFF) {
             ENGINE_BLK(802BE9A0);
             if (p[-3] != (u32)D_802E8BDC)
@@ -1982,7 +1887,7 @@ s32 func_802BE944(Building *b, s32 type) {
     }
 out:
     ENGINE_BLK(802BE9D8);
-    ENGINE_LEAVE(25, r);
+    ENGINE_LEAVE(25, r);                /* ($t9, which 5CB60.c reads) */
     return r;
 }
 
@@ -2034,9 +1939,8 @@ s32 func_802BEA70(s32 group, Building *b) {
 REGS(t3, v0, v1, a0, a1, t8)
 void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
     Piece *p, *end;
-    s32 px, py, pz, v1, a0, a1, a2, a3, t0, t1, in;
+    s32 px, py, pz, in;
 
-    ENGINE_SAVE(G(rV0) | G(rV1) | G(rA0) | G(rA1) | G(rA2) | G(rT3) | G(rT4));
     ENGINE_BLK(802BEADC);
     x >>= 2;
     y >>= 2;
@@ -2081,12 +1985,7 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
         p++;
     }
     ENGINE_BLK(802BEB88);
-    ENGINE_RESTORE();
-    ENGINE_LEAVE(13, z);                /* ($t5, $t6, $s0, $s1, $t9: it leaves them) */
-    ENGINE_LEAVE(14, r);
-    ENGINE_LEAVE(16, (u32)p);
-    ENGINE_LEAVE(17, (u32)end);
-    ENGINE_LEAVE(25, (u32)b);
+    ENGINE_LEAVE(25, (u32)b);           /* ($t9, which 5CB60.c reads) */
 }
 
 /* us.v10's func_802BEBB0 lacks the check of D_803F7812 (802BED4C), and
@@ -2105,13 +2004,11 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
 REGS(s0, t8, t9)
 void func_802BEBB0(Piece *p, s32 type, Building *b) {
     KindPart *k = D_803A6B30;
-    s32 n = 0, g, in, d, dmg, px, py, pz, v1, a0, a1, a2, a3, t0, t1;
+    s32 n = 0, g, in, d, dmg, px, py, pz;
     s8 *c;
     u8 *pd;
     Piece *q, *end;
 
-    ENGINE_SAVE(G(rT3) | G(rT4) | G(rT5) | G(rT6) | G(rT7) | G(rS0) | G(rS1) | G(rS2) | G(rS3) | G(rS4) | G(rGP) |
-                G(rFP));
     ENGINE_BLK(802BEBB0);
     for (;;) {
         ENGINE_BLK(802BEBF4);
@@ -2323,24 +2220,19 @@ done:
     BLK_V10(802BEF54, 802BEF44);
 out:
     BLK_V10(802BEF60, 802BEF50);
-    ENGINE_RESTORE();
 }
 
 /* level 0x2D's buildings 0xE7-0xE9 end it when hit */
 REGS(t9)
 void func_802BEF9C(Building *b) {
     ENGINE_BLK(802BEF9C);
-    ENGINE_LEAVE(1, 0x2D);
     if (D_802E8BDC == 0x2D) {
         ENGINE_BLK(802BEFBC);
-        ENGINE_LEAVE(1, b->unk30 < 0xE7);
         if (!(b->unk30 < 0xE7)) {
-            ENGINE_LEAVE(1, b->unk30 < 0xEA);
             ENGINE_BLK(802BEFCC);
             if (b->unk30 < 0xEA) {
                 ENGINE_BLK(802BEFD4);
                 D_803BE738 = 1;
-                ENGINE_LEAVE(1, HI(&D_803BE738));
             }
         }
     }
@@ -2484,12 +2376,10 @@ void func_802BF264(Piece *p) {
     s64 d;
     s32 h = p->heading, a, c;
 
-    ENGINE_SAVE(G(rV0) | G(rV1) | G(rA0) | G(rA1) | G(rA2) | G(rA3) | G(rT0));
     ENGINE_BLK(802BF264);
     if (p->pushes == 0)
         goto out;
     ENGINE_BLK(802BF294);
-    ENGINE_LEAVE(1, 1);
     d = (s64)((u64)p->nx * (u64)(s64)(D_803A73F0 >> 2) + (u64)p->ny * (u64)(s64)(D_803A73F4 >> 2) +
               (u64)p->nz * (u64)(s64)(D_803A73F8 >> 2) + (u64)p->d);
     if (p->d > 0) {
@@ -2526,7 +2416,6 @@ push:
     func_8029B7CC(a, c);
 out:
     ENGINE_BLK(802BF35C);
-    ENGINE_RESTORE();
 }
 
 /* the first destruction of one of building b's groups: its effect
@@ -3128,12 +3017,9 @@ s32 func_802BFF6C(s32 group, s32 power, s32 type, Building *b, s32 strength, s32
             r += f13;
             f2 = (f32)(r[5] - r[4]);
             s = engine_cvt_w_s(f4 * f2);
-            ENGINE_LEAVE_FW(0, s);      /* ($f0, $f2) */
-            ENGINE_LEAVE_F(2, f2);
             d = (u32)(s + r[4]) * d;
             goto divide;
         }
-        ENGINE_LEAVE_F(0, f4);          /* (func_802A04BC's) */
         goto next;
     skip:
         ENGINE_BLK(802C0170);
@@ -3919,7 +3805,6 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
         gr = U16_(s, 0x46E);
         sz = U16_(s, 0x46C) + gr;
         gr += 0xF;
-        ENGINE_LEAVE(rA3, sz);
         if (sz < 0x385) {
             ENGINE_BLK(802C134C);
             U16_(s, 0x46E) = gr;
@@ -3936,8 +3821,6 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
             }
         }
         ENGINE_BLK(802C136C);
-        ENGINE_LEAVE(rA2, S16_(s, 0x468));
-        ENGINE_LEAVE(rT1, 0x80000000);
         func_8026A454(S16_(s, 0x464), S16_(s, 0x466), S16_(s, 0x468), sz, U16_(s, 0x46A), m);
         ENGINE_BLK(802C138C);
         g0[0] = 0xBC002406;             /* segment 9: the model's textures */
@@ -4119,8 +4002,6 @@ void func_802C1438(s32 group, Building *b) {
             ENGINE_BLK(802C1748);
             q = (f32)(px - cx) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802C1778);
             h = (u32)h >> 4;
@@ -4128,8 +4009,6 @@ void func_802C1438(s32 group, Building *b) {
             ENGINE_BLK(802C1780);
             q = (f32)(cz - pz) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802C17B0);
             h = ((u32)h >> 4) + 0x400;
@@ -4140,8 +4019,6 @@ void func_802C1438(s32 group, Building *b) {
             ENGINE_BLK(802C17C8);
             q = (f32)(cx - px) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802C17F8);
             h = ((u32)h >> 4) + 0x800;
@@ -4149,8 +4026,6 @@ void func_802C1438(s32 group, Building *b) {
             ENGINE_BLK(802C1804);
             q = (f32)(pz - cz) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802C1834);
             h = ((u32)h >> 4) + 0xC00;
@@ -4177,8 +4052,6 @@ void func_802C18D4(s32 r, s32 x, s32 y, s32 z, s32 amount) {
     s32 cx = (u32)x >> 11, cy = (u32)y >> 11, cz = (u32)z >> 11, n, g, a;
     u8 *d;
 
-    ENGINE_SAVE(G(rV0) | G(rV1) | G(rA0) | G(rA1) | G(rA2) | G(rA3) | G(rT0) | G(rT1) | G(rT2) | G(rT3) | G(rT4) |
-                G(rT5) | G(rT6) | G(rT7) | G(rS0) | G(rT9));
     ENGINE_BLK(802C18D4);
     r <<= 5;
     for (;; b++) {
@@ -4219,7 +4092,6 @@ void func_802C18D4(s32 r, s32 x, s32 y, s32 z, s32 amount) {
         ENGINE_BLK(802C19D4);
     }
     ENGINE_BLK(802C19DC);
-    ENGINE_RESTORE();
 }
 
 /* whether a group of building b's falls lower than group `group` (the

@@ -129,11 +129,6 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803EFEAC, D_803EFEA8, *(s32 *)(D_803EFEA4 + *(s32 *)(D_803EFEA4 + 0x18) + 4));
     ENGINE_BLK(802BBDA4);
     engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(18, T(&D_803EFE9C));
-    ENGINE_LEAVE(22, T(D_803EFEA8));
-    ENGINE_LEAVE(23, T(D_803EFEAC));
 }
 
 /* hd.c's: the player gets in */
@@ -154,12 +149,10 @@ u8 func_802BBE10(void) {
 /* hd.c's: the player gets out */
 void func_802BBE2C(void) {
     ENGINE_BLK(802BBE2C);
-    engine_save(0x10000000, 0);
     func_802A7764((u32 *)D_803EFEA8, (u32 *)D_803EFEAC, 0x800);
     ENGINE_BLK(802BBE58);
     func_802C444C();
     ENGINE_BLK(802BBE60);
-    engine_restore();
 }
 
 /* its light */
@@ -353,7 +346,7 @@ void func_802BC3D0(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     m = func_802AA764(D_803EFE98, D_803EFE9C, D_803EFEA0, 15000, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802BC468);
     if (D_8035805C != 0) {
         ENGINE_BLK(802BC47C);

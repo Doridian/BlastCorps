@@ -58,13 +58,11 @@ void func_802A0700(void) {
 }
 
 /* func_802A08E4: every G_SETTIMG in [dl, end) names a texture by number:
-   load the ones not loaded yet and put their addresses in.  The original
-   leaves $s2..$s6 as it used them, which its callers may see. */
-static u32 tex_fix_dl(u32 *dl, u32 *end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out,
-                      u32 *s6_out) {
+   load the ones not loaded yet and put their addresses in */
+static void tex_fix_dl(u32 *dl, u32 *end) {
     TexCacheEntry *top = D_803B8D40;
     TextureEntry *table = D_803B8D44;
-    TexCacheEntry *c = (TexCacheEntry *)s4;
+    TexCacheEntry *c;
 
     ENGINE_BLK(802A08E4);
     for (;;) {
@@ -127,27 +125,17 @@ static u32 tex_fix_dl(u32 *dl, u32 *end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *
     }
     ENGINE_BLK(802A0AA0);
     D_803B8D40 = top;
-    if (s3_out != NULL) {
-        *s3_out = (u32)top;
-        *s4_out = (u32)c;
-        *s5_out = (u32)table;
-        *s6_out = 0xFF000000;
-    }
-    return (u32)&D_803B8D40;
 }
 
-REGS(s0, s1, s4 -> s2, s3, s4, s5, s6)
-u32 func_802A08E4(u32 dl, u32 end, u32 s4, u32 *s3_out, u32 *s4_out, u32 *s5_out, u32 *s6_out) {
-    u32 s2 = tex_fix_dl((u32 *)dl, (u32 *)end, s4, s3_out, s4_out, s5_out, s6_out);
-
-    ENGINE_LEAVE(16, end);      /* $s0, walked to the end */
-    return s2;
+REGS(s0, s1)
+void func_802A08E4(u32 dl, u32 end) {
+    tex_fix_dl((u32 *)dl, (u32 *)end);
 }
 
 /* func_802A08B4 (DE70.c's) */
 void func_802A08B4(u32 *dl, u32 *end) {
     ENGINE_BLK(802A08B4);
-    tex_fix_dl(dl, end, 0, NULL, NULL, NULL, NULL);
+    tex_fix_dl(dl, end);
     ENGINE_BLK(802A08D0);
 }
 

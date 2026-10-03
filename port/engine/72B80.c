@@ -84,7 +84,7 @@ void func_8026AF6C(u16 arg0);
 void func_80275390(u64);
 void func_8029A7E4(char *, ...);
 
-/* translated */
+/* 60D50.c's */
 REGS(a0)
 void func_802A5604(LevelHeader *level);
 /* 62740's */
@@ -150,10 +150,9 @@ void func_802B7340(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EEE70;
     u8 *buf;
     s16 *r;
-    s32 *s3, avg;
+    s32 avg;
 
     ENGINE_BLK(802B7340);
-    engine_save(ENGINE_T0_T5, 0);
     D_803EEF24 = model;
     buf = D_80358070;
     D_803EEF28 = buf;
@@ -181,10 +180,7 @@ void func_802B7340(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    s3 = func_802A992C(vs->unk52, D_803EEF1C, x, z, vs->unk4, &D_803EEF1C, (s16 *)&vs->unk4C, 8, vs, engine_ctx(30),
-                       &avg);
-    ENGINE_LEAVE(19, T(s3));
-    ENGINE_LEAVE(21, avg);
+    func_802A992C(vs->unk52, D_803EEF1C, x, z, vs->unk4, &D_803EEF1C, (s16 *)&vs->unk4C, 8, vs, 0, &avg);
     ENGINE_BLK(802B747C);
     func_8029F85C(P, D_803EEF24, D_803EEF28, D_803EEF2C);
     ENGINE_BLK(802B74B8);
@@ -227,14 +223,6 @@ void func_802B7340(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     model = D_803EEF24;
     func_802AA838(D_803EEF2C, D_803EEF28, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802B7688);
-    engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(17, T(vs->unk4));
-    ENGINE_LEAVE(18, T(&D_803EEF1C));
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(22, T(D_803EEF28));
-    ENGINE_LEAVE(23, T(D_803EEF2C));
 }
 
 /* hd.c's: the player gets in */
@@ -247,7 +235,6 @@ void func_802B76AC(void) {
     D_80364450 = 0x3E8;
     func_802C4310(0xCE);
     ENGINE_BLK(802B76E8);
-    ENGINE_LEAVE(28, T(vs));
 }
 
 /* hd.c's: whether it can be left: not while a wheel is off the ground */
@@ -275,13 +262,11 @@ void func_802B7754(void) {
     VS *vs = &D_803EEE70;
 
     ENGINE_BLK(802B7754);
-    engine_save(0x10000000, 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803EEF28, (u32 *)D_803EEF2C, 0x100);
     ENGINE_BLK(802B7784);
     func_802C444C();
     ENGINE_BLK(802B778C);
-    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -289,15 +274,13 @@ void func_802B77A0(void) {
     VS *vs = &D_803EEE70;
 
     ENGINE_BLK(802B77A0);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803EEF1C, D_803EEF18, D_803EEF20, vs->unk4, &D_803EEF1C, (s16 *)&vs->unk4C, 8, vs,
-                  engine_ctx(30));
+                  0);
     ENGINE_BLK(802B782C);
     func_802B8278(vs);
     ENGINE_BLK(802B7834);
     func_802A133C(D_803EEF18, D_803EEF1C, D_803EEF20, 8, vs);
     ENGINE_BLK(802B7860);
-    engine_restore();
 }
 
 /* its light */
@@ -317,7 +300,6 @@ void func_802B7A88(void) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802B7A88);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802B78B0();
     ENGINE_BLK(802B7ADC);
     func_802A75DC((u8 *)P, &D_803EEF18, &D_803EEF1C, &D_803EEF20, (u8 *)vs);
@@ -352,7 +334,6 @@ void func_802B7A88(void) {
     ENGINE_BLK(802B7B94);
     func_802A7FD8(0x1770, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802B7BAC);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802B7BB8);
     func_802A843C(&vs->unk76, 1, 8, (s8 *)vs->unk96, vs->unk4, 700.0f, vs);
@@ -365,9 +346,6 @@ void func_802B7A88(void) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EEF18, &D_803EEF20, rate, &z);
     ENGINE_BLK(802B7C00);
     D_803ED40B = 1;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803EEF18, &D_803EEF20, &D_803EEF1C, 8, 0x2BC, 0x190, vs->unk52, vs->unk28, vs->unk28 + 6,
                   vs->unk28 + 3, vs->unk5E, vs);
     ENGINE_BLK(802B7C38);
@@ -382,7 +360,7 @@ void func_802B7A88(void) {
     ENGINE_BLK(802B7C90);
     func_802B8278(vs);
     ENGINE_BLK(802B7C98);
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2, which func_8029A800 reads too */
+    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
     ENGINE_LEAVE(10, 0x96);
     func_8029A800(D_803EEF18, D_803EEF1C, D_803EEF20, D_80305D30, 1, 1, vs->unk76, 0, 8, vs);
     ENGINE_BLK(802B7CE4);
@@ -496,7 +474,6 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 8, vs);
     ENGINE_BLK(802B7F44);
-    engine_restore();
 }
 
 /* the dust, the wheels' sparks off rough ground, and the engine's sound */
@@ -522,17 +499,13 @@ void func_802B7F98(VS *vs) {
     if (!(s < 0xF))
         goto sound;
     ENGINE_BLK(802B7FFC);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 8, 1, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x29810, 1, 8, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802B8028);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 8, 2, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x29810, 1, 8, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802B8054);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 8, 3, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 8, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802B8080);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 8, 4, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 8, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
 sound:
     ENGINE_BLK(802B80AC);
     s = vs->unk76;
@@ -549,7 +522,6 @@ sound:
 REGS(gp)
 void func_802B80D8(VS *vs) {
     ENGINE_BLK(802B80D8);
-    engine_save(0x5FFFFFFE, 0);
     if (vs->unk96[3] == 0)
         goto done;
     ENGINE_BLK(802B8168);
@@ -566,7 +538,6 @@ void func_802B80D8(VS *vs) {
     ENGINE_BLK(802B81F0);
 done:
     ENGINE_BLK(802B81F4);
-    engine_restore();
 }
 
 /* the hotrod's matrix, its vertices and its collision */
@@ -586,12 +557,7 @@ void func_802B8278(VS *vs) {
     }
     ENGINE_BLK(802B82CC);
     D_803ED390[1] = vs->unk4C;
-    ENGINE_LEAVE(20, D_803EEF18);
-    ENGINE_LEAVE(21, D_803EEF1C);
-    ENGINE_LEAVE(22, D_803EEF20);
-    ENGINE_LEAVE(23, 0x32C8);
     func_802AA764(D_803EEF18, D_803EEF1C, D_803EEF20, 0x32C8, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B8308);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B831C);
@@ -602,11 +568,9 @@ void func_802B8278(VS *vs) {
     }
     ENGINE_BLK(802B8338);
     model = D_803EEF24;
-    ENGINE_LEAVE(11, T(model));
     func_8029C454(D_803EEF18, D_803EEF1C, D_803EEF20, 8, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
                   buf);
     ENGINE_BLK(802B8380);
-    ENGINE_LEAVE(11, T(model));
     func_802ABBEC(8, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802B83A0);
 }
@@ -655,33 +619,20 @@ void func_802B8480(u8 *model) {
     u8 *buf;
 
     ENGINE_BLK(802B8480);
-    engine_save(ENGINE_T0_T5, 0);
-    /* its frame, where the flight's frames go (engine_frame()) */
-    engine_frame(-0x38);
-    engine_frame_sd(0x10, 9);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 8);
-    engine_frame_sd(0x18, 10);
-    engine_frame_sd(0x20, 11);
-    engine_frame_sd(0x28, 12);
-    engine_frame_sd(0x30, 13);
     D_803EF2F8 = model;
     buf = D_80358070;
     D_803EF2FC = buf;
     D_803EF300 = buf + 0x800;
     D_80358070 = buf + 0x1000;
-    /* ($a1: what func_802A396C left) */
-    func_802A1388(0xFE, engine_ctx(5), D_803EF2FC, D_803EF300, model);
+    /* ($a1: what func_802A396C left, the heap's top, never 0) */
+    func_802A1388(0xFE, 1, D_803EF2FC, D_803EF300, model);
     ENGINE_BLK(802B84FC);
-    ENGINE_LEAVE(28, T(vs));
     vs->unk4C = 0;
     vs->unk4E = 0;
     D_803EF32A = 0;
     vs->unk76 = 0x14;
     D_803EF2E6 = 0;
     D_803EF328 = 0;
-    ENGINE_LEAVE(22, T(D_803EF2FC));
-    ENGINE_LEAVE(23, T(D_803EF300));
     func_8029F85C(Q, D_803EF2F8, D_803EF2FC, D_803EF300);
     ENGINE_BLK(802B856C);
     func_802A039C(0, 100, Q);
@@ -733,8 +684,6 @@ void func_802B8480(u8 *model) {
     model = D_803EF2F8;
     func_802AA838(D_803EF300, D_803EF2FC, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802B8770);
-    engine_frame(0x38);
-    engine_restore();
 }
 
 /* its rotor's sound: on within 0x3E80 of the player, louder nearer, panned
@@ -788,32 +737,18 @@ done:
 }
 
 /* each frame: its flight, its rotors, its matrix, where the player would
-   get out, and its shadow.  Its frames are the original's (engine_frame()):
-   the driver, whom hd.c runs next at the same depth, takes the tilt of its
-   shadow from a slot func_802ABBEC's frame leaves there. */
+   get out, and its shadow */
 static void chopper_frame(void) {
     VS *vs = &D_803EF240;       /* (the $gp func_802B8D04 sets) */
     s32 *p;
-    int k;
 
     ENGINE_BLK(802B899C);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
-    engine_frame(-0x58);
-    engine_frame_sd(0, 31);
-    for (k = 0; k < 8; k++)
-        engine_frame_sd(8 + 8 * k, 16 + k);
-    engine_frame_sd(0x48, 28);
-    engine_frame_sd(0x50, 30);
-    engine_frame(-0x30);
-    for (k = 0; k < 6; k++)
-        engine_frame_sdc1(8 * k, 20 + 2 * k);
+    /* (its $fp as it found it: 69BB0.c's driver reads it from the context) */
+    engine_save(ENGINE_GPR(30), 0);
     func_802B8D04();
     ENGINE_BLK(802B89EC);
     func_802B98E0(vs);
     ENGINE_BLK(802B89F4);
-    /* (the registers the original loads here, which the code after reads) */
-    ENGINE_LEAVE(4, T(D_803EF2FC));
-    ENGINE_LEAVE(5, T(D_803EF300));
     if (D_8035805C != 0) {
         ENGINE_BLK(802B8A1C);
         func_8029E558(Q, D_803EF2FC, D_803EF300);
@@ -825,29 +760,19 @@ static void chopper_frame(void) {
     ENGINE_BLK(802B8A4C);
     func_802B9B4C(vs);
     ENGINE_BLK(802B8A54);
-    ENGINE_LEAVE(2, 0xFE);
     p = (s32 *)func_802ABC88(0xFE, 1);
-    ENGINE_LEAVE(4, T(p));
     ENGINE_BLK(802B8A60);
     D_803EF310 = p[0];
     D_803EF314 = p[1];
     D_803EF318 = p[2];
-    ENGINE_LEAVE(5, p[0]);
-    ENGINE_LEAVE(6, p[1]);
-    ENGINE_LEAVE(7, p[2]);
-    ENGINE_LEAVE(8, T(&D_803EF318));
     func_802B8C18(vs);
     ENGINE_BLK(802B8A94);
-    engine_frame(0x30 + 0x58);
     engine_restore();
 }
 
-/* hd.c's: the chopper each frame, where the glue would have started the
-   original */
+/* hd.c's: the chopper each frame */
 void func_802B899C(void) {
-    engine_frame(-ENGINE_C_FRAME);
     chopper_frame();
-    engine_frame(ENGINE_C_FRAME);
 }
 
 /* hd.c's, when it has landed: the player's start where it is, and the
@@ -888,11 +813,11 @@ done:
 /* the ground's height under it (inside the level), and its shadow there */
 REGS(gp)
 void func_802B8C18(VS *vs) {
-    s32 x = D_803EF2EC, z = D_803EF2F4, t3 = engine_ctx(11);
+    /* (the original's $t3, the shadow's height outside the level: the
+       model's address func_802B9B4C leaves there) */
+    s32 x = D_803EF2EC, z = D_803EF2F4, t3 = T(D_803EF2F8);
 
     ENGINE_BLK(802B8C18);
-    engine_frame(-8);
-    engine_frame_sd(0, 31);
     if (x <= 0)
         goto shadow;
     ENGINE_BLK(802B8C3C);
@@ -905,22 +830,14 @@ void func_802B8C18(VS *vs) {
     if (!(z < D_803BE736 << 5))
         goto shadow;
     ENGINE_BLK(802B8C74);
-    t3 = func_802A9B1C(0, x, z, D_803EF31C, 0xFE, vs, engine_ctx(30));
-    ENGINE_LEAVE(11, t3);
+    t3 = func_802A9B1C(0, x, z, D_803EF31C, 0xFE, vs, 0);
     ENGINE_BLK(802B8C8C);
     D_803EF31C = t3;
 shadow:
     ENGINE_BLK(802B8C98);
-    /* (the C's stack arguments, in the original's frame) */
-    engine_frame(-0x40);
-    engine_frame_sw(0x14, 0);
-    engine_frame_sw(0x18, 0);
-    engine_frame_sw(0x1C, (s16)vs->unk4C);
-    engine_frame_sw(0x10, D_803EF2F0);
     func_802582C4(0xFE, D_803EF2EC, t3, D_803EF2F4, D_803EF2F0, 0, 0, (s16)vs->unk4C);
     ENGINE_BLK(802B8CE0);
     D_803EF326 = vs->unk4C;
-    engine_frame(0x40 + 8);
 }
 
 /* its flight (see the top) */
@@ -933,7 +850,6 @@ void func_802B8D04(void) {
     f32 f0;
 
     ENGINE_BLK(802B8D04);
-    ENGINE_LEAVE(28, T(vs));    /* (its $gp, which func_802B899C goes on with) */
     t0 = D_803EF32C;
     if (t0 == 0)
         goto hover;
@@ -1457,7 +1373,6 @@ void func_802B98E0(VS *vs) {
     f32 f20, f;
 
     ENGINE_BLK(802B98E0);
-    engine_save(0x5FFFFFFE, 0);
     t0 = 0xA0 - vs->unk76;
     f20 = (f32)t0 / (f32)0x140;
     a0 = D_803EF2E6;
@@ -1500,8 +1415,6 @@ lean:
         func_802A0360(3, 0, Q, f);
     }
     ENGINE_BLK(802B9B3C);
-    engine_restore();
-    ENGINE_LEAVE_F(20, f20);    /* (which it doesn't put back) */
 }
 
 /* the chopper's matrix and its collision */
@@ -1511,8 +1424,6 @@ void func_802B9B4C(VS *vs) {
     s32 *m, off;
 
     ENGINE_BLK(802B9B4C);
-    engine_frame(-8);
-    engine_frame_sd(0, 31);
     off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B9B7C);
@@ -1525,14 +1436,7 @@ void func_802B9B4C(VS *vs) {
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
-    ENGINE_LEAVE(20, D_803EF2EC);
-    ENGINE_LEAVE(21, D_803EF2F0);
-    ENGINE_LEAVE(22, D_803EF2F4);
-    ENGINE_LEAVE(23, 0x5208);
-    ENGINE_LEAVE(10, (u16)vs->unk4C);
-    ENGINE_LEAVE(24, T(m));
     func_802AA764(D_803EF2EC, D_803EF2F0, D_803EF2F4, 0x5208, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802B9BE4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802B9BF8);
@@ -1543,11 +1447,17 @@ void func_802B9B4C(VS *vs) {
     }
     ENGINE_BLK(802B9C14);
     model = D_803EF2F8;
-    ENGINE_LEAVE(2, D_8035805C);
-    ENGINE_LEAVE(11, T(model));
+    /* $t8, which 69BB0.c's driver reads from the context */
+    ENGINE_LEAVE(24, T(m));
+    /* The driver's shadow (69BB0.c's func_802AF340, which hd.c runs next at
+       the same depth) takes a word of dead stack as its tilt: the $a1 the
+       original func_802ABBEC saves in its frame (0x28) under this one (8),
+       chopper_frame's (0x88) and the 16 the glue would have left the C. */
+    engine_frame(-(ENGINE_C_FRAME + ENGINE_FRAME_S + 8 + 0x28));
+    engine_frame_sd(8, 5);
+    engine_frame(ENGINE_C_FRAME + ENGINE_FRAME_S + 8 + 0x28);
     func_802ABBEC(0xFE, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802B9C38);
-    engine_frame(8);
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier, and back
