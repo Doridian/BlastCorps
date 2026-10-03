@@ -523,12 +523,75 @@ static int tile_glyph(const GfxTile *t, int w, int h) {
     return hdtext_glyph_at(src);
 }
 
+/* The last lookups by TMEM's generation (gs.tmem_gen, bumped by every
+   load): the same tile over the same loads is the same texture, without
+   hashing TMEM again.  The in-between passes (--interpolate) run the first
+   pass's loads again, from its generation on, and find all of theirs here
+   (gfx.c doesn't even copy their bytes then, unless a lookup misses:
+   gfx_tmem_sync).  A set of ways per generation (a task's few hundred
+   loads have consecutive ones; a generation's tiles are a texture's
+   levels of detail, or its two halves). */
+typedef struct {
+    uint32_t gen;
+    int params[8];
+    uint64_t key;               /* tcache[slot]'s, if it still holds it (0: none) */
+    unsigned slot;
+} TexMemo;
+#define TM_SETS 2048
+#define TM_WAYS 8
+static TexMemo tmemo[TM_SETS][TM_WAYS];
+static uint8_t tmemo_next[TM_SETS];
+static unsigned long long st_tex_memo;
+
+static TexMemo *tm_find(const int *params) {
+    TexMemo *set = tmemo[gs.tmem_gen & (TM_SETS - 1)];
+    for (int i = 0; i < TM_WAYS; i++)
+        if (set[i].key && set[i].gen == gs.tmem_gen && !memcmp(set[i].params, params, sizeof set[i].params))
+            return &set[i];
+    return NULL;
+}
+
+static void tc_found(const int *params, uint64_t k, unsigned i) {
+    unsigned s = gs.tmem_gen & (TM_SETS - 1);
+    TexMemo *m = tm_find(params);
+    if (!m) {
+        m = &tmemo[s][tmemo_next[s]];
+        tmemo_next[s] = (tmemo_next[s] + 1) % TM_WAYS;
+    }
+    m->gen = gs.tmem_gen;
+    memcpy(m->params, params, sizeof m->params);
+    m->key = k;
+    m->slot = i;
+}
+
 /* the GL texture for a tile as TMEM holds it now; *hd: HDTEXT_K for a
    font glyph drawn from the font (--hd-text), else 0 */
 static GLuint tile_texture(int tile, int *hd) {
     const GfxTile *t = &gs.tile[tile & 7];
     int w, h;
     gfx_tile_dims(t, &w, &h);
+    int params[8] = { t->fmt, t->siz, t->line, t->tmem, t->pal, w, h, t->fmt == 2 ? (int)(gs.om_h >> 14 & 3) : 0 };
+    const TexMemo *m = tm_find(params);
+    if (m && tcache[m->slot].key == m->key) {
+        tcache[m->slot].used = frame_no;
+        st_tex_hits++;
+        st_tex_memo++;
+        *hd = tcache[m->slot].hd;
+        return tcache[m->slot].tex;
+    }
+    {
+        /* what the lookup reads: the tile's rows (as hashed below; at least
+           the 512 bytes of a font glyph, tile_glyph), and the palette */
+        int bpp2 = t->siz == 0 ? 1 : t->siz == 1 ? 2 : 4;
+        int len = (h - 1) * t->line * 8 + (w * bpp2 + 1) / 2 + 8;
+        if (t->siz == 3 || len > 4096 || len < 0) {
+            gfx_tmem_sync();
+        } else {
+            gfx_tmem_sync_range(t->tmem * 8, len < 512 ? 512 : len);
+            if (t->fmt == 2)
+                gfx_tmem_sync_range(0x800, 512);
+        }
+    }
     int glyph = tile_glyph(t, w, h);
     /* a resource pack's texture with a higher-resolution image (pack.c),
        drawn from that image */
@@ -536,7 +599,6 @@ static GLuint tile_texture(int tile, int *hd) {
     const uint8_t *hires = glyph < 0 ? host_tex_hires(gfx_tmem_src[t->tmem & 511], w, h, &hk, &hid) : NULL;
     /* what the tile reads: its rows of TMEM (and the palette) */
     uint64_t k = 0xCBF29CE484222325ull;
-    int params[8] = { t->fmt, t->siz, t->line, t->tmem, t->pal, w, h, t->fmt == 2 ? (int)(gs.om_h >> 14 & 3) : 0 };
     k = hash_words(k, (const uint8_t *)params, sizeof params);
     int bpp2 = t->siz == 0 ? 1 : t->siz == 1 ? 2 : t->siz == 2 ? 4 : 4;
     int rowbytes = (w * bpp2 + 1) / 2;
@@ -576,6 +638,7 @@ static GLuint tile_texture(int tile, int *hd) {
         tcache[i].used = frame_no;
         st_tex_hits++;
         *hd = tcache[i].hd;
+        tc_found(params, k, i);
         return tcache[i].tex;
     }
     if (tc_count > TC_SIZE / 2) {
@@ -610,6 +673,7 @@ static GLuint tile_texture(int tile, int *hd) {
     tcache[i].used = frame_no;
     tcache[i].hd = *hd = img ? HDTEXT_K : hires ? -hk : 0;
     tc_count++;
+    tc_found(params, k, i);
     return tex;
 }
 
@@ -1243,7 +1307,17 @@ static int build_state(int kind, int tile) {
 }
 
 static void begin(int kind, int tile) {
-    int changed = build_state(kind, tile);
+    /* the same command as the last draw's state was made after: the same
+       state (build_state would find its raw state unchanged) */
+    static uint32_t serial;
+    static int last_kind, last_tile;
+    int changed = 0;
+    if (!raw_valid || serial != gfx_state_serial || kind != last_kind || tile != last_tile) {
+        changed = build_state(kind, tile);
+        serial = gfx_state_serial;
+        last_kind = kind;
+        last_tile = tile;
+    }
     if (!batch_valid || (changed && memcmp(&ds_cur, &ds_batch, sizeof ds_cur))) {
         batch_close();
         ds_batch = ds_cur;
@@ -1620,8 +1694,8 @@ void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
     if (adapt > 0)
         fences[1] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     if (host_verbose && frame_no % 300 == 0)
-        host_log("gl: %llu draws, %llu vertices, %llu textures decoded (%llu hits), %d programs\n", st_draws,
-                 st_verts, st_tex_decoded, st_tex_hits, nprogs);
+        host_log("gl: %llu draws, %llu vertices, %llu textures decoded (%llu hits, %llu by TMEM's generation), %d programs\n",
+                 st_draws, st_verts, st_tex_decoded, st_tex_hits, st_tex_memo, nprogs);
 }
 
 #endif

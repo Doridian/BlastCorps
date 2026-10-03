@@ -362,6 +362,16 @@ void func_801F58E8(void) {
                 sp2F = sp2E;
                 sp2E = 0;
             }
+#ifdef TARGET_PC
+            /* A command that is done goes on at once: the wait for the
+               scheduler's next message (one a retrace) paces the N64's slow
+               SI, and the port's is instant.  A message already there is
+               taken, so that a retry still waits for a new one.  Only
+               --load-waits n64 keeps the wait (port_game.h). */
+            if (sp2D != 0 && !port_load_waits()) {
+                osRecvMesg(&D_80219F30, NULL, OS_MESG_NOBLOCK);
+            } else
+#endif
             osRecvMesg(&D_80219F30, NULL, OS_MESG_BLOCK);
         } while (sp2D == 0);
         if (D_80218D24 != 0) {

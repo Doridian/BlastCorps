@@ -2597,24 +2597,78 @@ the 32-bit build; `PORT_PACE`, retraces a frame by mode):
 
 | | CPU model on | off (the default) |
 |---|---|---|
-| the N64 and Rare logos | 1.00 | 1.00 |
-| the title comes up at retrace | 638 | 548 (1.5 s sooner) |
-| the title, waiting (mode 2, 1,163 frames) | 4.09 | 3.63 |
-| the attract story (mode 2, 441 and 587 frames) | 5.81, 2.32 | 4.60, 2.00 |
-| "leaders of" screens | 1.00 | 1.00 |
-| a level's load and start (`PORT_AUTOSTART=1`, Simian Acres' first 28 frames) | 7.86 (220 retraces) | 4.10 (119: 1.7 s sooner) |
+| the N64 and Rare logos | 1.01, 1.30 | 1.00 |
+| the title comes up at retrace | 638 | 548 (1.5 s sooner; 518 since "The front end's waits") |
+| the title and the attract story (mode 2, 7 stretches of 321 to 1,164 frames) | 2.09-2.64 | 2.00 |
+| "leaders of" screens | 1.11-1.14 | 1.00 |
+| a level's load (mode 0x800, `PORT_AUTOSTART=1`'s Simian Acres) | 95 retraces, 8 frames | 36, 17 frames (1 s sooner) |
+| the level's first 29 frames | 2.02 | 2.07 |
 | driving (Simian Acres) | 2.00 | 2.00 |
 | the CMO intro, the map, the results | 1.96-2.04 | 2.00-2.04 |
 
-So the loads and the front end's busier screens are quicker (what is
-still above one or two retraces there is no CPU time: the game waits on
-something else, the cartridge's DMA among it; not looked into further),
-and in the TAS the
+(Retraces a game frame: a controller poll each.  This table first had
+3.63 and 4.60 for the title and the story and 4.10 for the level's start,
+which were retraces over the game's frame count across the points where
+the count starts again in the same mode, not slow frames.  The level's
+load isn't a fixed number of frames: with the model it has fewer, longer
+ones.)  So the loads
+and the front end's busier screens are quicker (what was left above the
+minimum, the loads' waits, is the next section's), and in the TAS the
 time outside the levels drops by 4:50 (92,933 retraces to 75,547).  Sound
 doesn't change: the audio thread runs every second retrace either way.
 A frame still takes more than two retraces where the host can't keep up
 in real time (natively without `--deterministic`, and in the page), which
 is the host's own lag, not the N64's.
+
+### The front end's waits
+
+With the CPU model off, every screen already ran at its minimum (the
+table above): what was left were stalls between screens, where the game
+draws nothing and waits.  Found by sampling, at every retrace, what each
+thread was blocked on and where the polls' time went (us.v10, the 32-bit
+build, `--deterministic`, no save):
+
+| wait | what it is | retraces | now |
+|---|---|---|---|
+| the boot | `osContInit`'s half second for the controllers after power-on (libultra; `port/src/ultra.c` waited it on a timer) | 30, once | gone |
+| Start on the title, before the name entry | the pak thread (hd_front_end `E7B0.c`, `func_801F58E8`) waits for the scheduler's next retrace message after every command, done or not; the front end sends it one command at a time (15 reads of the save's slots, a probe, a check) and waits for each reply | 1 a command: 29 there | the wait after a command that is done is left out; a retry still waits (the "insert a pak" loops) |
+| the name entered, the save written | `osEepromLongWrite`'s 12 ms after each 8-byte block, the EEPROM's write cycle (32 blocks a save) | 23 a save | gone |
+| every load (the front end, the title, the map, each level) | the decompressors' loops (gzip's inflate, the LZSS): without the CPU model the polls on loop back edges still moved virtual time on (2 us for each 64), so a load took about two retraces in `--deterministic` and the page | about 2 a load | no time while `func_8025C230` or `func_8028B4C4` runs (`host_loading`, `port/src/loads.c`) |
+
+Kept, as the game's own (a player sees them as its pacing):
+
+- the 15 retraces before the N64 logo (`func_80244930`, mode 0x10: a
+  spin on the scheduler's count after starting the logo);
+- the logos' 250 frames each, the "leaders of" screens' 740;
+- a mode switch's one or two frames with the picture blacked out
+  (`osViBlack`), which show as 3 or 4 retraces between two polls;
+- the level's load screen (mode 0x800, 17 frames, 36 retraces).
+
+And the cartridge: a PI DMA completes at mupen64plus's rate (a count tick
+per 8 bytes, 1 MB in 2.8 ms), well inside a frame everywhere, so it was
+left as it is.
+
+The title now comes up at retrace 518 (548 before, 638 with the model);
+`PORT_AUTOSTART=1` from no save reaches Simian Acres' first frame at
+retrace 1,205 instead of 1,324 (2 seconds sooner: 30 at the boot, 27 at
+the name entry's reads, 22 at its save, the rest the loads).  In the TAS
+(free timing) the time outside the levels drops from 75,280 retraces to
+73,799 (25 s): there the pak thread's commands go at the movie's frames
+(`port_replay_save_started`) and the boot's half second is the same, so
+most of it is the loads.  The replay passes as before: every read
+matched, 57 platinum, the reference's save and gameplay digest.
+
+`--load-waits n64` (or `PORT_LOAD_WAITS=n64`) keeps all four, and
+`--cpu-model n64` implies it: with it the pacing log is the one before,
+byte for byte.  The quick tier's references were re-recorded (us.v10):
+their scripted input (`PORT_AUTOSTART`) is keyed to retraces, so it
+lands on other frames once the boot is 30 retraces shorter.  With the
+in-level taps' phase moved by the same retraces (119), auto1's and
+auto3's digests are the old runs' frame for frame; attract's and auto2's
+are the same gameplay without that (`digest_cmp.py` against
+`--load-waits n64` runs).  `PORT_AUTOSTART` taps nothing in the first
+30 retraces now: a button held at the game's first read asks to erase
+the save (mode 0x40000000000000), and that read now comes at once.
 
 ### Running the game at 60: a turbo, not 60 fps
 
@@ -3151,13 +3205,129 @@ Natively (Linux, the `mn32` build, OpenGL headless, `--scale 6
 
 The module: 3.50 MB before, 3.52 MB after (0.93 MB gzipped).
 
+### The second round (O4: measured hot spots)
+
+DISTRIBUTION.md's optimization pass, phase O4, outside the engine
+(`port/engine`, being rewritten at the time) and the CPU model: the
+renderer, the WebAssembly build, the host.  How it was measured: the page
+by `web_perf.mjs` with `PORT_ADAPT=0` (the in-between pictures always
+drawn, so that the parts compare), the two builds alternately, twice each,
+on a machine three other agents were building on (so: the means of each
+part over the windows from retrace 3,000, and the ratios between the
+parts, not single samples); natively by deterministic runs
+(`--deterministic --renderer gl --scale 4 --interpolate --widescreen`,
+the same work every run, three times each) and a sampling profiler
+(`setitimer` on the main thread's CPU time, symbolized with inline frames:
+`perf` and valgrind aren't there, or can't run this machine's libc).
+The TAS with `PORT_PERF` and the OpenGL renderer gave the levels by cost:
+Simian Acres, which `PORT_AUTOSTART=3` plays, is among the heaviest on
+average (Argent Towers, Carrick Point and Havoc District with it); the
+heaviest single windows are Tempest City's (its buildings coming down:
+game 0.23 ms, `gfx` 0.58 natively).
+
+**Where the time went** (us.v10, Simian Acres, Chromium on the GPU at 4x
+CPU throttling, ms a retrace; at the start of the round, with the CPU
+model still on): game 2.1-2.6 (of which the game's main loop alone, by
+Chromium's profile, 0.8: see below), `gfx` 1.7, `gfx2` 1.4, GL calls
+0.35, audio 0.3, the browser's own work about 0.5, the loop 0.2; about
+6.5 ms of work.  Natively everything is small (0.75 ms a retrace, the
+renderer three quarters of it): TMEM loads (`load_block`, 25% of the
+main thread), the textures' hashing (6%) and lookup, `tri`, `do_vtx`, a
+`memset`/`memcmp` per triangle in `build_state`, then audio (9%) and the
+GL driver.  The TMEM loads were 3.8 GB over 4,200 retraces: about 300
+LoadBlocks of 3 KB a task, half of them in the in-between pass.
+
+What changed:
+
+- **WebAssembly: Binaryen's inlining.**  `wasm-opt` inlines every
+  function with one caller whatever its size: the game's main loop,
+  `func_80244930`, had taken in most of the game's C (300,000 lines of
+  wat, 272 locals), `main()` most of the host.  Under Asyncify each fiber
+  switch unwinds and rewinds every frame on the stack, and rewinding one
+  walks its body to the call it left from.  The link now passes
+  `--one-caller-inline-max-function-size=200` (20 and 2,000 were slower):
+  the game's C 2.6 → 1.3 ms at 4x in the page with the CPU model on,
+  1.0 → 0.8 with it off (fewer switches); under node, deterministic,
+  0.37 → 0.20 ms (native: 0.13).  The module grows 3.5% (1.5% gzipped).
+  (Running `opt -O2` over the whole N64 side after `port-arena`, which
+  only `llc` follows now, was tried too: 6% off the game natively, nothing
+  measurable in WebAssembly, not kept.)
+- **TMEM loads a row at a time**: a LoadBlock's words are copied a row
+  (the run of words between two of `dxt`'s row changes) at a time, a
+  `memcpy` or a swap of the halves of each word, not a call per word.
+- **Textures found again by TMEM's generation** (`gs.tmem_gen`, bumped
+  by every load): the lookup (`tile_texture`) keeps, per generation, the
+  tiles it found and their GL textures, so the same tile over the same
+  loads isn't hashed again.  The in-between passes run the first pass's
+  loads from the same generation on and find their textures there (all
+  but a few hundred of 900,000 lookups in a run); their loads aren't
+  even copied then (`tload`, `gfx_tmem_sync`): only a lookup that misses
+  (a triangle the first pass culled) copies, and only the loads that
+  write what it reads and those beneath them (9% of the loads).
+- **The interpolation tables** (64K entries each, cleared for every
+  frame: 768 KB of `memset` a frame) are cleared by the entries the frame
+  used.
+- **A draw's state** is made again only after a display-list command that
+  can change it (`gfx_state_serial`), not for every triangle.
+- **The software fills** (the z-buffer's clear in RDRAM, every frame) a
+  row at a time, out of line, and the rasterizer out of line (WebAssembly
+  engines compile one huge function badly).
+
+The pictures are byte for byte what they were: the OpenGL screenshots
+of `PORT_AUTOSTART=3` (84 over 4,200 retraces, with and without
+`--hd-text`) and the software renderer's, against the build before; the
+quick tier passes in all eight variants (wasm equal to mn32 in every
+hash); the TAS (free timing) on 32 and wasm as in "Testing the port".
+
+Results, the same windows, ms a retrace (means of the parts; `PORT_ADAPT=0`):
+
+| | game | `gfx` | `gfx2` | GL calls | audio | work (median) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chromium, GPU, 4x, before (CPU model off) | 1.0 | 1.66 | 1.37 | 0.33 | 0.31 | 6.8 |
+| Chromium, GPU, 4x, after | 0.78 | 1.38 | 0.84 | 0.36 | 0.31 | 5.1 |
+| Chromium, SwiftShader, 4x, before | 1.6 | 2.85 | 2.14 | 8.8 | 0.5 | 7.6 |
+| Chromium, SwiftShader, 4x, after | 1.05 | 2.2 | 1.42 | 9.0 | 0.48 | 5.5 |
+| native (mlp64), before | 0.04 | 0.28 | 0.25 | 0.07 | 0.05 | |
+| native (mlp64), after | 0.04 | 0.19 | 0.11 | 0.07 | 0.05 | |
+
+(SwiftShader at 1278x720 with every in-between picture is the GPU's
+time, "GL calls"; `PORT_ADAPT` lowers the resolution there.)  From the
+start of the round (CPU model on, before O1) to now, the page's work at
+4x on the GPU went from about 6.5 ms a retrace to 3.8.
+
+**Where it goes now** (Chromium's profile, GPU, 4x, 15 s in the level,
+4.6 ms of busy time a retrace): the renderer 2.8 ms (`tri` 0.69, `run`
+0.33, `do_vtx` 0.29, TMEM loads 0.17, `begin` 0.15, texture lookups and
+hashing 0.27, the GL calls and WebGL's JavaScript about 0.3), the game
+0.71 (below), the browser's own work 0.5, audio 0.31 (the microcode's
+commands, the ADPCM decoder and the envelope mixer first) and SDL's
+audio callback 0.1, the loop 0.17 (half of it `PORT_PERF`'s own clock
+reads, then SDL's gamepad polling).
+
+**The engine's hot spots** (for the engine round, O3/O4; by self time,
+natively and in the page, which agree): the collision tests
+(`func_8029C160`, a point against a piece's plane, and `func_8029B02C`,
+`func_8029BD0C`, 56040.c; `func_802AA5E0`, a point in a triangle's box,
+and `func_802AA094`, the ground's height under a point, 62740.c), the
+buildings' display lists (`func_802BD1F8`, 77E20.c, the biggest single
+function of the game in the page), the scaffolding the translation left
+(`engine_leave`/`engine_leave64`, `engine_ctx`: as much as any one of
+the above; O2 takes it out), the polls (`__port_poll`, 6% of the game in
+the page), the matrices (`guMtxCatF`, `func_802ACCCC`), and libaudio's
+voice mixing (`al_voice_mix`, `pull_table`).  None is more than 6% of
+the game; the game as a whole is a sixth of the page's work now.
+
 ### What's left
 
-- **The in-between pass redoes the display list**: TMEM loads, texture
-  hashing, state, every command, for a picture whose only difference is
-  where the vertices are.  Recording the first pass's triangles and
-  running only their vertices again would take off most of `gfx2`
-  (40% of the renderer).
+- **The in-between pass still runs the display list** (vertices, state,
+  every command; no longer the loads or the textures' hashing), for a
+  picture whose only difference is where the vertices are.  Recording
+  the first pass's triangles and running only their vertices again
+  would take off most of what's left of `gfx2` (a third of the renderer).
+- **`tri` in WebAssembly** is three to four times its native cost, the
+  most of any part of the renderer; unexplained (Asyncify instruments
+  it, through the GL calls' paths, but taking the renderer out of
+  Asyncify measured nothing before).
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
