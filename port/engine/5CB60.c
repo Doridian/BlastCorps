@@ -504,12 +504,19 @@ void func_802A1A9C(u32 h_) {
 #define R_T9 25
 #define R_FP 30
 
+/* LEVEL_TRI_BYTES: the level's triangles' owner (0x4F), id (0x50) and
+   pushes (0x58), and the switches' pushes, are 0.  The original stores
+   whatever $t9, $v0 and $s1 held (an address's low byte, an earlier
+   triangle's dx), and nothing reads them back for these triangles: owner
+   and id are only read for the objects' (56040), pushes for the
+   buildings' pieces (77E20's func_802BF264). */
+
 /* func_802A41B0: the triangle at `t` from the file's at `src` (nine
    big-endian s16 corners at any alignment, a u16 at 0x12): its corners
    << 3, the edges' cross product, -(n . v1), |n| and |n|^2, and the
-   normal's largest component.  The bytes 0x4F..0x58 come from registers:
-   $t9, $v0, $t2 (a halfword), $gp, $t7, $t6 and $s1.  Returns `t` + 1, and
-   leaves $s1 as the next caller's byte 0x58 reads it. */
+   normal's largest component.  The bytes 0x4F..0x58 are the caller's
+   (the original's $t9, $v0, $t2 (a halfword), $gp, $t7, $t6 and $s1).
+   Returns `t` + 1. */
 REGS(t4, t5, t2, t7, gp, t9, v0, t6, s1 -> t4)
 u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50, u32 b57,
                   u32 b58) {
@@ -600,7 +607,6 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     ENGINE_BLK(802A4418);
     t->side = 0;
     t->heading = src[0x12] << 8 | src[0x13];
-    ENGINE_LEAVE(R_S1, dx2);            /* (the next triangle's byte 0x58) */
     return (u32)(t + 1);
 }
 
@@ -609,7 +615,7 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
    section, then LevelCollisionTris) into CollisionTris on the heap, a
    pointer to each cell's in `table` and one past them.  The triangles'
    0x52 is the cells left, 0x57 the low byte of the list's end; 0x59 the
-   file triangle's 0x15.  (Both charge 802A3D54's blocks: 802A3DF8's are
+   file triangle's 0x15; 0x4F, 0x50 and 0x58 are 0 (LEVEL_TRI_BYTES).  (Both charge 802A3D54's blocks: 802A3DF8's are
    the same sizes.) */
 static void tri_grid(LevelHeader *h, u8 *base, u32 *table) {
     s32 cells = (s16)h->unk10[0] * (s16)h->unk10[1];
@@ -624,8 +630,7 @@ static void tri_grid(LevelHeader *h, u8 *base, u32 *table) {
             LevelCollisionTri *f = (LevelCollisionTri *)p;
 
             ENGINE_BLK(802A3DB8);
-            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, cells, f->unk14, 0, ENGINE_REG(R_T9),
-                                              ENGINE_REG(R_V0), (u32)end, ENGINE_REG(R_S1));
+            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, cells, f->unk14, 0, 0, 0, (u32)end, 0);
             ENGINE_BLK(802A3DC0);
             t[-1].unk59 = f->unk15;
         }
@@ -689,10 +694,9 @@ void func_802A3E9C(u32 h_) {
             w->tris[k] = t;
             /* 0x52 the section's end, 0x56 the next slot's address, 0x57
                the triangles left (what the original has in those
-               registers) */
-            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, (u32)&w->tris[k + 1], 1,
-                                              ENGINE_REG(R_T9), ENGINE_REG(R_V0), n - 1 - k,
-                                              ENGINE_REG(R_S1));
+               registers); 0x4F, 0x50, 0x58 0 (LEVEL_TRI_BYTES) */
+            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, (u32)&w->tris[k + 1], 1, 0, 0,
+                                              n - 1 - k, 0);
             ENGINE_BLK(802A3F40);
             p += WALL_TRI_SIZE;
         }
@@ -727,6 +731,13 @@ static s32 tri_id_used(u32 id, CollisionTri *end) {
    s16, << 5) and a u32 after them, or (kind not 0) n s16; then n
    triangles (each id once, from D_803B9890 on); then n part bytes.  The
    triangles' 0x58 is the last area's third word, then what each leaves. */
+/* The palette param the models' animated textures load with
+   (func_802A2608, func_802A24BC): the original passes whatever $fp held,
+   which is what func_802A3F80 left there, the end of the level's switch
+   triangles (an address in D_803B9890).  Only the palette types (60F60's
+   4 and 5) use it, as the original's colours: kept, as a value. */
+static u32 tex_param;
+
 REGS(t0)
 void func_802A3F80(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
@@ -734,7 +745,7 @@ void func_802A3F80(u32 h_) {
     u8 *end = LEVEL_PTR(h, collisionXZ);
     TriSwitch *r;
     CollisionTri *tris = D_803B9890;   /* $fp */
-    u32 last = 0, s1 = ENGINE_REG(R_S1);
+    u32 last = 0;
 
     ENGINE_BLK(802A3F80);
     for (r = D_803BC1D0; ENGINE_BLK(802A3FB0), p != end; r++) {
@@ -770,7 +781,6 @@ void func_802A3F80(u32 h_) {
                 p += 0xC;
                 q += 6;
             } while (--n != 0);
-            s1 = c[2];
             ENGINE_BLK(802A407C);
             last = UNALIGNED_W(p);
             *q = last;
@@ -800,8 +810,7 @@ void func_802A3F80(u32 h_) {
             if (!tri_id_used(id, tris)) {
                 ENGINE_BLK(802A40E4);
                 ENGINE_BLK(802A40EC);
-                t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, last, 1, 0, id, n, s1);
-                s1 = ENGINE_REG(R_S1);
+                t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, last, 1, 0, id, n, 0);
             } else {
                 ENGINE_BLK(802A40E4);
             }
@@ -823,7 +832,7 @@ void func_802A3F80(u32 h_) {
     ENGINE_BLK(802A413C);
     D_803BD304 = r;
     D_803BD300 = tris;
-    ENGINE_LEAVE(R_FP, (u32)tris);
+    tex_param = (u32)tris;
 }
 
 /* ---- the buildings' parts and the textures ---------------------------- */
@@ -958,7 +967,7 @@ REGS(t4)
 void func_802A2608(u32 m_) {
     u8 *m = (u8 *)m_;
     u8 *a = MODEL_PTR(m, unk28), *end = MODEL_PTR(m, unk2C);
-    u32 fp = ENGINE_REG(R_FP);
+    u32 fp = tex_param;
 
     ENGINE_BLK(802A2608);
     while (ENGINE_BLK(802A2638), a != end) {
@@ -994,7 +1003,7 @@ void func_802A24BC(u32 b_) {
         return;
     }
     ENGINE_BLK(802A255C);
-    D_80365330 = func_802A0CFC(0xF81, ENGINE_REG(R_FP));
+    D_80365330 = func_802A0CFC(0xF81, tex_param);
     ENGINE_BLK(802A2564);
     b->unk44 = func_802CE6F8(b->x, b->z, b->y);
     ENGINE_BLK(802A2580);
@@ -1132,7 +1141,9 @@ REGS(t0)
 void func_802A1C20(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
     u8 *a = LEVEL_PTR(h, animTextures), *end = LEVEL_PTR(h, terrain);
-    u32 fp = ENGINE_REG(R_FP);
+    /* (the palette param: 0, the original's $fp in all but 4 of the TAS's
+       105 calls; the others an earlier function's working) */
+    u32 fp = 0;
 
     ENGINE_BLK(802A1C20);
     while (ENGINE_BLK(802A1C38), a != end) {

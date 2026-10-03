@@ -319,17 +319,23 @@ static uint32_t *tmem_slot(uint32_t addr) {
 }
 
 static void tread_log(uint32_t site, uint8_t kind, uint32_t reg, uint32_t tag, uint32_t val) {
+    /* ENGINE_TAINT_VALUES=1: every value read is a record of its own (what
+       a garbage read takes, value by value), else the first */
+    static int by_value = -1;
     uint32_t h;
+    if (by_value < 0)
+        by_value = getenv("ENGINE_TAINT_VALUES") != NULL;
     if (!tn)
         tnode(0, 0, 0);         /* (the dump at exit) */
-    h = (site * 2654435761u ^ reg * 97u ^ tag * 40503u ^ kind) & (TR_MAX - 1);
+    h = (site * 2654435761u ^ reg * 97u ^ tag * 40503u ^ kind ^ (by_value ? val * 2246822519u : 0)) & (TR_MAX - 1);
     for (;; h = (h + 1) & (TR_MAX - 1)) {
         if (!tread[h].count) {
             tread[h].site = site, tread[h].kind = kind, tread[h].reg = reg, tread[h].tag = tag;
-            tread[h].val = val;     /* (the first value read) */
+            tread[h].val = val;
             break;
         }
-        if (tread[h].site == site && tread[h].kind == kind && tread[h].reg == reg && tread[h].tag == tag)
+        if (tread[h].site == site && tread[h].kind == kind && tread[h].reg == reg && tread[h].tag == tag &&
+            (!by_value || tread[h].val == val))
             break;
     }
     tread[h].count++;

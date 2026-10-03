@@ -10,14 +10,11 @@
  *
  * Its shadow (func_802AF340) passes func_802582C4 three stack arguments it
  * never stores: two are the halves of the return address its own frame
- * saved (RA_SHADOW), the third whatever was below that frame: the word
- * SHADOW_SLOT below the N64 $sp the game's C runs the engine at, which the
- * last native frame that reached so deep left there (72B80's
- * func_802B9B4C under the chopper, 62740_carry's func_802AB670, or
- * func_802AEC3C here; docs/PORT.md).  The native code here keeps no other
- * frame.  Getting out, it also passes on as its `self` and its material
- * what $t8 and $fp held: garbage, kept (docs/PORT.md, "The engine made
- * readable").
+ * saved (RA_SHADOW, the shadow's heading), the third whatever was below
+ * that frame (its tilt): SHADOW_TILT, what the original finds there all
+ * but a few frames.  Getting out, its `self` is the driver and its
+ * material 0 where the original passed what $t8 and $fp held (docs/PORT.md,
+ * "Garbage made values").
  */
 #include "vehicle.h"
 #include "game/level.h"
@@ -117,10 +114,13 @@ s32 func_802AEC3C(s32 d, VS *vs);
 #define RA_SHADOW 0x802AEF50
 #endif
 
-/* the word below the game C's N64 $sp the shadow's third stack argument
-   is (its frames in the original: func_802AEEC8's 0x10, driver_frame's
-   0x58 + 0x30 + 0x10, its own 0x10 + 0x18, read at 0x14) */
-#define SHADOW_SLOT ((u32)-0xBC)
+/* The shadow's tilt (func_802582C4 keeps its low half as an angle): the
+   original reads the word 0xBC below the game C's N64 $sp, dead stack that
+   72B80's func_802ABBEC call under the chopper leaves &D_803ED3B0 in (762
+   of the TAS's 802 reads), the carrying's func_802AB714 its $ra (38), or
+   func_802AEC3C its $t6 (2).  The first's low half for all of them: about
+   83 degrees, the shadow drawn edge-on as nearly always. */
+#define SHADOW_TILT 0x803ED3B0
 
 #define SAVED_AEC3C (ENGINE_GPR(2) | ENGINE_GPR(3) | ENGINE_GPR(4) | ENGINE_GPR(6) | 0xFFu << 8 | ENGINE_GPR(24) | \
                      ENGINE_GPR(25) | ENGINE_GPR(28))
@@ -175,10 +175,10 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     D_803ED827 = 0;
     D_803ED824 = 0;
     DRV_WALKING(vs) = 0;
-    /* (its material where no ground is found: the $fp the level loader
-       left, garbage; docs/PORT.md "The engine made readable") */
-    func_802A992C(VS_WHEELS(vs), Y, x, z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_DRIVER, vs,
-                  engine_ctx(30), &avg);
+    /* (its material where no ground is found: 0, where the original has
+       the $fp the level loader left) */
+    func_802A992C(VS_WHEELS(vs), Y, x, z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_DRIVER, vs, 0,
+                  &avg);
     func_8029F85C(DRV, MODEL, BUF0, BUF1);
     func_802A039C(0, 100, DRV);
     func_802A03D4(0, 0, DRV);
@@ -306,16 +306,13 @@ s32 func_802AEC3C(s32 d, VS *vs) {
 
     ENGINE_COST(802AEC3C, 110);
     engine_save(SAVED_AEC3C, 0);
-    /* (the original's frame saves $t6 at the shadow's slot: the game's C
-       calls func_802AE888 at the depth it calls func_802AEEC8) */
-    engine_frame_sw(SHADOW_SLOT, engine_ctx(14));
     X = D_803643E0;
     Z = D_803643E8;
     side_step(D_803ED828, d, &X, &Z);
-    /* (its `self` and its material: whatever $t8 and $fp held, garbage;
-       docs/PORT.md "The engine made readable") */
-    func_802A9A60(VS_WHEELS(vs), D_803ED81C, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), engine_ctx(24), vs,
-                  engine_ctx(30));
+    /* (its `self` the driver and its material 0: the original's are
+       whatever $t8 and $fp held) */
+    func_802A9A60(VS_WHEELS(vs), D_803ED81C, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_DRIVER, vs,
+                  0);
     func_802AFA64(vs);
     D_803ED81C = (u32)(VS_WHEEL_H(vs)[3] + VS_WHEEL_H(vs)[6]) >> 1;
     func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, 0, 0, 0, 0, vs);
@@ -427,10 +424,8 @@ void func_802AF340(VS *vs) {
     ENGINE_COST(802AF340, 58);
     VS_SPEED(vs) = DRIVER_OUT_SPEED;
     side_step(D_803ED828, DRIVER_OUT_STEP, &X, &Z);
-    /* (its `self` and its material: whatever $t8 and $fp held, garbage;
-       docs/PORT.md "The engine made readable") */
-    func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), engine_ctx(24), vs,
-                  engine_ctx(30));
+    /* (as func_802AEC3C's) */
+    func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_DRIVER, vs, 0);
     v = D_803ED814;
     switch (D_803ED828) {
     case 0: past = !(Z < v); break;
@@ -443,10 +438,10 @@ void func_802AF340(VS *vs) {
         VS_SPEED(vs) = 0;
     }
     /* the shadow: its last three stack arguments the original never
-       stores: whatever is at SHADOW_SLOT (the tilt), and the halves of the
-       return address its frame saved (the heading) */
-    func_802582C4(VEHICLE_DRIVER, X, (u32)(D_803ED3A8[1] + D_803ED3A8[2]) >> 1, Z, Y, engine_frame_lw(SHADOW_SLOT),
-                  0xFFFFFFFF, RA_SHADOW);
+       stores: the tilt (SHADOW_TILT), and the halves of the return address
+       its frame saved (the heading) */
+    func_802582C4(VEHICLE_DRIVER, X, (u32)(D_803ED3A8[1] + D_803ED3A8[2]) >> 1, Z, Y, SHADOW_TILT, 0xFFFFFFFF,
+                  RA_SHADOW);
 }
 
 /* The walk a frame.  Standing: once, the run's animation handed over to a

@@ -506,7 +506,7 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F7BFC, x, z, vs->unk4, &D_803F7BFC, (s16 *)&vs->unk4C, 9, vs, engine_ctx(30),
+    func_802A992C(vs->unk52, D_803F7BFC, x, z, vs->unk4, &D_803F7BFC, (s16 *)&vs->unk4C, 9, vs, 0 /* (the original: whatever $fp held) */,
                   &avg);
     ENGINE_BLK(802C5240);
     func_8029F85C(JB, D_803F7C04, D_803F7C08, D_803F7C0C);
@@ -708,7 +708,7 @@ void func_802C5860(void) {
 
     ENGINE_BLK(802C5860);
     func_802A9A60(vs->unk52, D_803F7BFC, D_803F7BF8, D_803F7C00, vs->unk4, &D_803F7BFC, (s16 *)&vs->unk4C, 9, vs,
-                  engine_ctx(30));
+                  0 /* (the original: whatever $fp held) */);
     ENGINE_BLK(802C58EC);
     func_802C7CB0(vs);
     ENGINE_BLK(802C58F4);

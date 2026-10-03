@@ -91,6 +91,8 @@ def main():
     ap.add_argument("--feeds", nargs="+", metavar="FILE",
                     help="the sites in these source files that a reader in another file depends on")
     ap.add_argument("--probes", action="store_true", help="the counts engine_probe() made")
+    ap.add_argument("--values", action="store_true",
+                    help="each reader's values and their counts (a run with ENGINE_TAINT_VALUES=1)")
     a = ap.parse_args()
     runs = load(a.dirs)
     if a.probes:
@@ -119,6 +121,19 @@ def main():
             readers[(site, kind, reg)][c] += n
             values.setdefault((site, kind, reg, c), val)
     names = symbolize(a.exe, sites, base)
+    if a.values:
+        vals = collections.defaultdict(collections.Counter)
+        for nodes, reads, b in runs:
+            for site, kind, reg, tag, n, val in reads:
+                vals[(site, kind, reg)][val] += n
+        for (site, kind, reg), c in sorted(vals.items(), key=lambda x: names[x[0][0]]):
+            nm = names[site]
+            if a.file and not nm.startswith(a.file + ":"):
+                continue
+            rn = (REGN[reg] if reg < 32 else f"f{reg - 34}") if kind != "l" else hex(reg)
+            print(f"{nm}: {kind} {rn}: " + ", ".join(f"{v:#x} x{n}" for v, n in c.most_common(12)) +
+                  (f" (+{len(c) - 12} more)" if len(c) > 12 else ""))
+        return
 
     def file_of(nm):
         return nm.split(":")[0]

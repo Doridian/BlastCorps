@@ -75,15 +75,6 @@ void func_802AB50C(s32 carrier) {
 void func_802AB670(u8 carrier) {
     ENGINE_COST(802AB670, 41);
     func_802AB714(carrier);
-    /* the driver's shadow's word: the $ra the original's func_802AB714
-       saved at the bottom of its frame (0x28 under this one's 0x88, under
-       the 16 the glue would have left the C), its return here */
-    engine_save(ENGINE_GPR(31), 0);
-    ENGINE_RA(802AB6C4);
-    engine_frame(-(ENGINE_C_FRAME + ENGINE_FRAME_S + 0x28));
-    engine_frame_sd(0, 31);
-    engine_frame(ENGINE_C_FRAME + ENGINE_FRAME_S + 0x28);
-    engine_restore();
 }
 
 /* each link with this carrier (not 0): the carried vehicle's second

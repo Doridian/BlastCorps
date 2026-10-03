@@ -772,15 +772,6 @@ void func_802B9B4C(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(CH_X, CH_Y, CH_Z, CHOPPER_SCALE, m);
-    /* $t8, which 69BB0.c's driver reads from the context */
-    ENGINE_LEAVE(24, T(m));
-    /* The driver's shadow (69BB0.c's func_802AF340, which hd.c runs next at
-       the same depth) takes a word of dead stack as its tilt: the $a1 the
-       original func_802ABBEC saves in its frame (0x28) under this one (8),
-       chopper_frame's (0x88) and the 16 the glue would have left the C. */
-    engine_frame(-(ENGINE_C_FRAME + ENGINE_FRAME_S + 8 + 0x28));
-    engine_frame_sd(8, 5);
-    engine_frame(ENGINE_C_FRAME + ENGINE_FRAME_S + 8 + 0x28);
     func_802ABBEC(VEHICLE_CHOPPER, MODEL_AT(model, 0), MODEL_AT(model, 4), buf);
 }
 

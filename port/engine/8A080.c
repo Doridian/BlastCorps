@@ -142,8 +142,10 @@ void func_802CE9C8(LevelCollisionTri *tris, u8 n, u8 arg2) {
         t->active = 1;
         /* the triangle's 0x4F, 0x50, 0x57 and 0x58 get what $t9, $v0, $t6
            and $s1 hold: the caller's, left in the context */
-        t = (CollisionTri *)func_802A41B0((u32)t, (u32)tris, arg2, tris->unk14, 0, ENGINE_REG(25),
-                                          ENGINE_REG(2), ENGINE_REG(14), ENGINE_REG(17));
+        /* (0x4F, 0x50, 0x57, 0x58: what $t9, $v0, $t6 and $s1 held in the
+           original; 0 here: nothing reads them for the holes' triangles,
+           5CB60.c's LEVEL_TRI_BYTES) */
+        t = (CollisionTri *)func_802A41B0((u32)t, (u32)tris, arg2, tris->unk14, 0, 0, 0, 0, 0);
         ENGINE_BLK(802CEA28);
     }
     ENGINE_BLK(802CEA30);
