@@ -63,8 +63,8 @@ go (README, "Build it").  `-DPORT_VERSION=us.v10` builds the us.v10 port instead
 directory, from a us.v10 stage 2 and `make -C tools/recomp VERSION=us.v10`),
 which is what the TAS replays on (docs/PORT.md, "The TAS").
 `-DPORT_VERSION=jp` builds Blastdozer the same way (`VERSION=jp`
-throughout); jp's remaining `GLOBAL_ASM` functions are translated by
-`tools/recomp` like the handwritten code (docs/PORT.md, "Other versions").
+throughout); jp's remaining `GLOBAL_ASM` functions are C in
+`port/engine/jp_*.c` like the handwritten code (docs/PORT.md, "Other versions").
 
 `-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
 64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with
@@ -247,7 +247,8 @@ subsegment, not a `c` file full of `GLOBAL_ASM`. That keeps
 `tools/progress.py` honest and marks what a port has to replace.
 `gen_code_yaml.py` classifies it (see `docs/DECOMPILING.md`). About a third
 of hd_code is Rare's handwritten engine; it can't become matching C. For
-the port it is translated to C mechanically by `tools/recomp/` and checked
+the port it is C written by hand in `port/engine/`; `tools/recomp/`'s
+mechanical translation remains only as the check build's reference, checked
 against the original in unicorn (`docs/PORT.md`).
 
 ## Versions
