@@ -197,4 +197,14 @@ void engine_frame_s(void);
 u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)
 
+/* A block as data: a helper that stands for several copies of the
+   original's code (each with its own blocks) takes the caller's as a
+   table of these, ENGINE_B(8029B144) each, and charges one with
+   ENGINE_BLK_AT(table[i]) */
+typedef struct EngineBlk {
+    u16 id, n;
+} EngineBlk;
+#define ENGINE_B(addr) { ENGINE_BLK_##addr }
+#define ENGINE_BLK_AT(b) ENGINE_BLK_((b).id, (b).n)
+
 #endif

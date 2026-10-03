@@ -86,6 +86,21 @@ void func_8029A800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_le
                    s32 t3, s32 type, VS *vs);
 REGS(t8, gp)
 void func_8029C52C(s32 type, VS *vs);
+
+/* func_8029C0DC's work as C (collision.h's CollisionTri; buildings.h's
+   Piece is the same record): a triangle's corners and a point on its
+   plane, seen along the triangle's axis, in 2D; and func_8029BF64 on
+   them, whether the point is inside.  77E20's and 89250's
+       func_8029C0DC((u8 *)p, px, py, pz); ...; in = func_8029BF64(C0DC_LEFT);
+   is
+       FlatTri f; collision_flatten((void *)p, px, py, pz, &f); ...;
+       in = collision_flat_inside(&f); */
+typedef struct FlatTri {
+    s32 u0, v0, u1, v1, u2, v2, pu, pv;
+} FlatTri;
+struct CollisionTri;
+void collision_flatten(const struct CollisionTri *t, s32 x, s32 y, s32 z, FlatTri *f);
+s32 collision_flat_inside(const FlatTri *f);
 REGS()
 void func_8029AA10(void);
 REGS(t0, t1, t2, t3)

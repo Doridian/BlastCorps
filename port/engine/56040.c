@@ -1,14 +1,155 @@
 /*
- * hd_code 56040 (us.v11 0x8029A800-0x802A06F8): the vehicles' parts, as
- * native C (engine.h).  A vehicle's parts are 32 UnkStruct_803ED460
- * records (vehicle.h); the vehicle modules set their fields through these
- * helpers by index, or by their first word through D_803B35F8's list.
+ * hd_code 56040 (us.v11 0x8029A800-0x802A06F8): the vehicles' parts and
+ * their collisions, as native C (engine.h).
+ *
+ *   - Animations.  A vehicle's parts are 32 Part records (vehicle.h's
+ *     UnkStruct_803ED460), each the state of one animation (Anim below);
+ *     the vehicle modules set them through the helpers here, by index or,
+ *     for the texture animations in D_803B35F8, by their data's address.
+ *     func_8029E558 steps a vehicle's animations each frame and builds its
+ *     parts' matrices from key frames or a spline; func_8029E0AC steps the
+ *     texture animations and patches the models' display lists.
+ *   - Collisions.  Each frame a vehicle module calls func_8029A800 (the
+ *     frame's state), func_8029C52C (its spheres against the other
+ *     vehicles') and func_8029AA10 (its spheres against the buildings'
+ *     pieces and the level's triangles, collision.h).
+ *   - The objects' triangles: built from their models (func_8029D24C) and
+ *     switched on and off by D_803BC1D0's records (func_8029D040).
+ *
+ * Angles are 12-bit (0x1000 a turn); positions the game's << 5, and >> 2
+ * of that in the collision triangles and spheres.
  */
 #include "shared.h"
+#include "collision.h"
 #include "game/vehicle.h"
 
-struct Piece; /* buildings.h's 0x60-byte building piece */
+/* ---- the records ---------------------------------------------------------- */
 
+/* A Part as the state of an animation (the same 0x18 bytes as vehicle.h's
+   UnkStruct_803ED460; func_8029F1BC steps it) */
+typedef struct Anim {
+    /* 0x00 */ u8 *PTR32 data;      /* AnimData (key frames), or a TexAnim */
+    /* 0x04 */ f32 t;               /* the fraction from key `key` to the next */
+    /* 0x08 */ f32 tension;         /* the spline's (func_8029F110) */
+    /* 0x0C */ s16 loops;           /* the times it went past an end */
+    /* 0x0E */ s16 limit;           /* the loops it stops at; -1 never */
+    /* 0x10 */ s8 running;
+    /* 0x11 */ s8 back;             /* running backwards */
+    /* 0x12 */ s8 mode;             /* at an end: ANIM_WRAP or ANIM_BOUNCE */
+    /* 0x13 */ s8 key;
+    /* 0x14 */ u8 speed;            /* the rate's multiplier */
+    /* 0x15 */ u8 interp;           /* ANIM_KEYS or ANIM_SPLINE */
+    /* 0x16 */ u8 pad16[2];
+} Anim;
+SIZE_CHECK(Anim, 0x18);
+#define ANIM(p) ((Anim *)(p))
+
+#define ANIM_WRAP 0                     /* Anim.mode: start again */
+#define ANIM_BOUNCE 1                   /* ... turn round */
+#define ANIM_KEYS 0                     /* Anim.interp: straight between two keys */
+#define ANIM_SPLINE 1                   /* ... a cardinal spline through four */
+
+/* An animation's data (Anim.data): n keys, a speed per key boundary (the
+   rate between key k and k + 1 goes from speed[k] to speed[k + 1]), the
+   parts' count, then from the next word each part's record: its matrix's
+   offset and its rest matrix's (from the parts' matrices' base), then n
+   keys.  ANIM_PARTS(d) is the first record, ANIM_STRIDE(d) their size. */
+#define ANIM_KEYS_N(d) ((d)[0])
+#define ANIM_SPEED(d, k) ((d)[(k) + 1])
+#define ANIM_NPARTS(d) ((d)[ANIM_KEYS_N(d) + 1])
+#define ANIM_STRIDE(d) (ANIM_KEYS_N(d) * (s32)sizeof(Key) + 8)
+typedef struct AnimPart {
+    /* 0x00 */ s32 mtx;             /* the part's matrix (Mtx, the RSP's form) */
+    /* 0x04 */ s32 rest;            /* its rest matrix (16.16, then its Mtx at 0x40) */
+    /* 0x08 */ u8 keys[1];          /* Key[n] (not aligned to their size) */
+} AnimPart;
+
+/* a key frame: scale (in 256ths), rotation about x, y and z, translation */
+typedef struct Key {
+    /* 0x00 */ s16 scale[3];
+    /* 0x06 */ s16 rot[3];
+    /* 0x0C */ s16 pos[3];
+    /* 0x12 */ s16 pad;
+} Key;
+SIZE_CHECK(Key, 0x14);
+#define KEY_HALF(k, i) (((s16 *)(k))[i])   /* the key's i-th s16 */
+
+/* the first part record of an animation's data: after its counts,
+   aligned to a word */
+#define ANIM_MISALIGNED(d) ((u32)((d) + ANIM_KEYS_N(d) + 2) & 3)
+static AnimPart *anim_parts(u8 *d) {
+    u8 *r = d + ANIM_KEYS_N(d) + 2;
+
+    if ((u32)r & 3)
+        r += 4 - ((u32)r & 3);
+    return (AnimPart *)r;
+}
+
+/* A texture animation's data (an Anim's for D_803B35F8): the vehicle type
+   whose model it patches, n keys, the textures a key changes (c), whether
+   it blends each into the next key's (by the fraction), n + 1 rates (u16,
+   from 4), then each key's c texture kinds. */
+typedef struct TexAnim {
+    /* 0x00 */ u8 type;
+    /* 0x01 */ u8 n;
+    /* 0x02 */ u8 c;
+    /* 0x03 */ u8 second;
+    /* 0x04 */ u16 rate[1];
+} TexAnim;
+#define TEXANIM_KINDS(T, k) ((u16 *)((u8 *)(T) + (T)->n * 2 + 4) + (T)->c * (k))
+
+/* D_803A7440: the textures the texture animations have loaded */
+typedef struct TexSlot {
+    /* 0x0000 */ TexAnim *PTR32 owner;
+    /* 0x0004 */ u16 kind;
+    /* 0x0006 */ u8 used;
+    /* 0x0007 */ u8 refs;           /* the animations that use it this frame */
+    /* 0x0008 */ u8 pad8[8];
+    /* 0x0010 */ u8 data[0x1000];   /* (the texture; its physical address is
+                                       what goes into the display list) */
+} TexSlot;
+SIZE_CHECK(TexSlot, 0x1010);
+#define TEX_SLOTS 12
+extern TexSlot D_803A7440[TEX_SLOTS];
+
+/* D_803B3500..D_803B35F0: where a model's display list loads an animated
+   texture (a G_SETTIMG's word), by func_8029DF78 */
+typedef struct TexPatch {
+    /* 0x00 */ TexAnim *PTR32 anim;
+    /* 0x04 */ s32 off;             /* the G_SETTIMG's address word, from the list's start */
+    /* 0x08 */ s32 idx;             /* which of the frame's textures */
+} TexPatch;
+SIZE_CHECK(TexPatch, 0xC);
+extern TexPatch D_803B3500[];
+extern TexPatch *PTR32 D_803B35F0;      /* one past the last */
+
+/* D_803B7FC8: the parts' matrices to copy from one frame's buffer to the
+   other's (func_8029DDC8 does it when the frame comes round) */
+typedef struct MtxCopy {
+    /* 0x00 */ u32 *PTR32 from;      /* 0: free */
+    /* 0x04 */ u32 *PTR32 to;
+    /* 0x08 */ u32 frame;           /* the D_8035805C to copy at */
+} MtxCopy;
+SIZE_CHECK(MtxCopy, 0xC);
+#define MTX_COPIES 0x78
+extern MtxCopy D_803B7FC8[MTX_COPIES];
+extern MtxCopy *PTR32 D_803B8568;       /* the last one in use */
+
+/* D_803059F0: which building kinds each vehicle type collides with, on
+   which level (0xFFFF: all), to a zero mask */
+typedef struct BuildingRule {
+    s32 level;
+    s32 kind;                           /* Building.unk30 */
+    u32 types;                          /* a bit per vehicle type */
+} BuildingRule;
+extern BuildingRule D_803059F0[];
+#define ALL_LEVELS 0xFFFF
+#define KIND_RDU 0x38                   /* (func_802BD8C8 says whether it collides) */
+
+REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t7)
+s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz);
+
+/* ---- the parts, by index -------------------------------------------------- */
 
 extern Part D_803B35F8[];
 
@@ -29,7 +170,7 @@ Part *func_802A06B4(void *key) {
     return p;
 }
 
-/* ten halfwords from 20 bytes back; returns the next record */
+/* ten halfwords from 20 bytes back (a key copied); returns the next */
 REGS(t1 -> t1)
 s16 *func_8029FF2C(s16 *d) {
     s32 k;
@@ -40,8 +181,7 @@ s16 *func_8029FF2C(s16 *d) {
     return d + 10;
 }
 
-/* ---- the parts, by index ----------------------------------------------- */
-
+/* start part i's animation, with its loops' limit */
 REGS(v0, v1, a0)
 void func_802A0290(s32 i, s32 v, Part *parts) {
     ENGINE_BLK(802A0290);
@@ -118,7 +258,7 @@ s32 func_802A04BC(s32 i, Part *parts, s32 *f11, s32 *f12, s32 *f14, s32 *fC, s32
     return p->unk10;
 }
 
-/* ---- the parts, by key (D_803B35F8) ------------------------------------- */
+/* ---- the parts, by key (D_803B35F8) --------------------------------------- */
 
 REGS(v0, v1)
 void func_802A0508(void *key, s32 v) {
@@ -213,88 +353,80 @@ void func_802A0674(void *key) {
     ENGINE_BLK(802A0684);
 }
 
-/* ---- the parts' small helpers ------------------------------------------- */
+/* ---- the triangles' small helpers ----------------------------------------- */
 
-extern u8 D_803B9890[];                 /* 0x60-byte records: ids at 0x4F, 0x50, a flag at 0x51 */
 extern u8 D_803649ED, D_803A742B, D_803A7430;
-extern s16 D_803A7410, D_803A7412;     /* the camera's headings (12-bit) */
-extern u8 D_803B7FC8[];                 /* 0x78 records of 0xC bytes */
-extern u8 *PTR32 D_803B8568;
+extern u16 D_803A7410, D_803A7412;      /* the camera's limits (12-bit headings) */
 
-/* part[0x55] = whether kind isn't 7 */
+#define TRAIN_HITS_MAX 0xC9             /* D_803A7430 counts the train's hits up to this */
+
+/* the triangle's unk55: whether its owner isn't the train */
 REGS(t2, s0)
-void func_8029D534(s32 kind, u8 *part) {
+void func_8029D534(s32 kind, CollisionTri *t) {
     ENGINE_BLK(8029D534);
-    if (kind != 7) {
+    if (kind != VEHICLE_TRAIN) {
         ENGINE_BLK(8029D548);
-        part[0x55] = 1;
+        t->unk55 = 1;
     } else {
         ENGINE_BLK(8029D550);
-        part[0x55] = 0;
+        t->unk55 = 0;
     }
     ENGINE_BLK(8029D554);
 }
 
-/* D_803B9890's record with ids (a, b): its flag cleared; returns it ($s0) */
+/* the object triangle of this owner and id switched off; returns it */
 REGS(t7, t6 -> s0)
-u8 *func_8029D1D4(s32 a, s32 b) {
-    u8 *p = D_803B9890;
+CollisionTri *func_8029D1D4(s32 owner, s32 id) {
+    CollisionTri *t = D_803B9890;
 
     ENGINE_BLK(8029D1D4);
-    for (;;) {
+    for (;; t++) {
         ENGINE_BLK(8029D1E4);
-        if (p[0x4F] != a) {
-            p += 0x60;
+        if (t->owner != owner)
             continue;
-        }
         ENGINE_BLK(8029D1F0);
-        if (p[0x50] == b)
+        if (t->id == id)
             break;
-        p += 0x60;
     }
     ENGINE_BLK(8029D1FC);
-    p[0x51] = 0;
-    return p;
+    t->active = 0;
+    return t;
 }
 
-/* the flag of D_803B9890's first record with second id b ($t5) */
+/* whether the first object triangle with this id is on */
 REGS(t4 -> t5)
-s32 func_8029D210(s32 b) {
-    u8 *p = D_803B9890;
+s32 func_8029D210(s32 id) {
+    CollisionTri *t = D_803B9890;
 
     ENGINE_BLK(8029D210);
-    for (;;) {
+    for (;; t++) {
         ENGINE_BLK(8029D228);
-        if (p[0x50] == b)
+        if (t->id == id)
             break;
-        p += 0x60;
     }
     ENGINE_BLK(8029D234);
-    return p[0x51];
+    return t->active;
 }
-
-
 
 /* D_803649ED = id, unless D_803EFECB and func_802AB41C(id, 7) */
 REGS(s1)
 void func_8029CF54(s32 id) {
+    s32 skip = 0;
+
     ENGINE_BLK(8029CF54);
     if (D_803EFECB != 0) {
-        s32 r;
-
         ENGINE_BLK(8029CF70);
-        r = func_802AB41C(id, 7);
+        skip = func_802AB41C(id, 7);
         ENGINE_BLK(8029CF7C);
-        if (r != 0)
-            goto done;
     }
-    ENGINE_BLK(8029CF84);
-    D_803649ED = id;
-done:
+    if (!skip) {
+        ENGINE_BLK(8029CF84);
+        D_803649ED = id;
+    }
     ENGINE_BLK(8029CF90);
 }
 
-/* 64 bytes from src to dst */
+/* a 4x4 matrix (64 bytes) from src to dst */
 REGS(t5, s2)
 void func_8029DE50(u32 *dst, u32 *src) {
     s32 i;
@@ -309,34 +441,33 @@ void func_8029DE50(u32 *dst, u32 *src) {
     ENGINE_BLK(8029DE84);
 }
 
-/* D_803B7FC8's records cleared, and D_803B8568 at the first */
+/* D_803B7FC8's matrix copies cleared, and D_803B8568 at the first */
 void func_8029DC80(void) {
-    u8 *p = D_803B7FC8;
-    s32 n = 0x78;
+    MtxCopy *c = D_803B7FC8;
+    s32 n;
 
     ENGINE_BLK(8029DC80);
-    D_803B8568 = p;
-    for (;;) {
+    D_803B8568 = c;
+    for (n = MTX_COPIES;; n--, c++) {
         ENGINE_BLK(8029DCA4);
         if (n == 0)
             break;
         ENGINE_BLK(8029DCAC);
-        n--;
-        ((u32 *)p)[0] = 0;
-        ((u32 *)p)[1] = 0;
-        p += 0xC;
+        c->from = NULL;
+        c->to = NULL;
     }
     ENGINE_BLK(8029DCC0);
 }
 
-/* a part of kind 7: D_803A742B set and D_803A7430 counted up to 0xC9 */
+/* a hit on one of the train's triangles: D_803A742B set and D_803A7430
+   counted */
 REGS(s0)
-void func_8029B5B8(u8 *part) {
+void func_8029B5B8(CollisionTri *t) {
     ENGINE_BLK(8029B5B8);
-    if (part[0x4F] == 7) {
+    if (t->owner == VEHICLE_TRAIN) {
         ENGINE_BLK(8029B5D4);
         D_803A742B = 1;
-        if (D_803A7430 < 0xC9) {
+        if (D_803A7430 < TRAIN_HITS_MAX) {
             ENGINE_BLK(8029B5F4);
             D_803A7430++;
         }
@@ -346,7 +477,7 @@ void func_8029B5B8(u8 *part) {
 
 /* the camera's turn from D_803A7410 to D_803A7412 (12-bit), folded */
 s32 func_8029B930(void) {
-    s32 from = (u16)D_803A7410, to = (u16)D_803A7412, r;
+    s32 from = D_803A7410, to = D_803A7412, r;
 
     ENGINE_BLK(8029B930);
     if (to < from) {
@@ -364,320 +495,329 @@ s32 func_8029B930(void) {
     return r;
 }
 
-extern u8 D_803A6B30[];                 /* 0x14-byte records, to 0xFF in byte 0x13 */
-extern u8 *PTR32 D_803BD300;            /* the end of D_803B9890's records */
-extern u8 D_803A7440[];                 /* 12 records of 0x1010 bytes */
-extern u8 D_8035805C;
+extern u8 D_8035805C;                   /* which of the two frames' buffers is drawn */
 
-/* whether D_803A6B30 has a record of kind 6 and id 0x3BD ($s4) */
-REGS( -> s4)
-s32 func_8029C6E4(void) {
-    u8 *p = D_803A6B30;
-    s32 t7, s3, r = 0;
+/* the crane's spheres (KindPart, kind VEHICLE_CRANE) are told apart by
+   their radius: its hook's, and one func_8029CD54 leaves out */
+#define CRANE_HOOK_R 0x3BD
+#define CRANE_R_30E 0x30E
+
+/* the crane's hook (its sphere of radius 0x3BD): whether there is one;
+   its centre in *x, *y, *z, and in $s0-$s2 as the original leaves it */
+static s32 crane_hook(s32 *x, s32 *y, s32 *z) {
+    KindPart *p;
 
     ENGINE_BLK(8029C6E4);
-    for (;;) {
+    for (p = D_803A6B30;; p++) {
         ENGINE_BLK(8029C704);
-        t7 = (s8)p[0x13];
-        if (t7 == -1)
+        if (p->end == -1)
             break;
         ENGINE_BLK(8029C710);
-        t7 = p[0x12];
-        if (t7 != 6) {
-            p += 0x14;
+        if (p->kind != VEHICLE_CRANE)
             continue;
-        }
         ENGINE_BLK(8029C71C);
-        s3 = *(s32 *)(p + 0xC);
-        if (s3 != 0x3BD) {
-            p += 0x14;
+        if (p->r != CRANE_HOOK_R)
             continue;
-        }
         ENGINE_BLK(8029C728);
-        ENGINE_LEAVE(16, *(s32 *)p);
-        ENGINE_LEAVE(17, *(s32 *)(p + 4));
-        ENGINE_LEAVE(18, *(s32 *)(p + 8));
-        r = 1;
-        break;
+        *x = p->x, *y = p->y, *z = p->z;
+        ENGINE_LEAVE(16, *x);
+        ENGINE_LEAVE(17, *y);
+        ENGINE_LEAVE(18, *z);
+        ENGINE_BLK(8029C738);
+        return 1;
     }
     ENGINE_BLK(8029C738);
-    return r;
+    return 0;
 }
 
-/* 0 if a part of kind id has its flag clear, else 1 ($v1) */
+/* whether there is one ($s4) */
+REGS( -> s4)
+s32 func_8029C6E4(void) {
+    s32 x, y, z;
+
+    return crane_hook(&x, &y, &z);
+}
+
+/* 0 if a triangle of this owner is off, else 1 */
 REGS(v0 -> v1)
-s32 func_8029DC14(s32 id) {
-    u8 *p = D_803B9890, *end = D_803BD300;
-    s32 r = 1, flag;
+s32 func_8029DC14(s32 owner) {
+    CollisionTri *t;
 
     ENGINE_BLK(8029DC14);
-    for (;;) {
+    for (t = D_803B9890;; t++) {
         ENGINE_BLK(8029DC40);
-        if (p == end)
+        if (t == D_803BD300)
             break;
         ENGINE_BLK(8029DC48);
-        if (p[0x4F] != id) {
-            p += 0x60;
+        if (t->owner != owner)
             continue;
-        }
         ENGINE_BLK(8029DC54);
-        flag = p[0x51];
-        p += 0x60;
-        if (flag != 0)
-            continue;
-        ENGINE_BLK(8029DC64);
-        r = 0;
-        break;
+        if (t->active == 0) {
+            ENGINE_BLK(8029DC64);
+            ENGINE_BLK(8029DC68);
+            return 0;
+        }
     }
     ENGINE_BLK(8029DC68);
-    return r;
+    return 1;
 }
 
-s32 func_8029DBF0(s32 id) {
+s32 func_8029DBF0(s32 owner) {
     s32 r;
 
     ENGINE_BLK(8029DBF0);
-    r = func_8029DC14(id);
+    r = func_8029DC14(owner);
     ENGINE_BLK(8029DC00);
     return r;
 }
 
-/* 0 if one of the n (part, value) byte pairs has the part's byte 0x13
-   (parts 0x18 bytes each, at parts) equal to the value, else 1 ($t4) */
+/* 0 if one of the n (part, key) byte pairs has the part's key (its Anim's
+   at parts, 0x18 each) equal to the given one, else 1 */
 REGS(s4, t5, a2 -> t4)
-s32 func_8029DB7C(u8 *pairs, s32 n, u8 *parts) {
-    s32 r = 1;
-
+s32 func_8029DB7C(u8 *pairs, s32 n, Anim *parts) {
     ENGINE_BLK(8029DB7C);
-    for (;;) {
+    for (;; n--, pairs += 2) {
         ENGINE_BLK(8029DBA0);
         if (n == 0)
             break;
         ENGINE_BLK(8029DBA8);
-        n--;
-        if ((s8)parts[pairs[0] * 0x18 + 0x13] == pairs[1]) {
+        if (parts[pairs[0]].key == pairs[1]) {
             ENGINE_BLK(8029DBD0);
-            r = 0;
-            break;
+            ENGINE_BLK(8029DBD4);
+            return 0;
         }
-        pairs += 2;
     }
     ENGINE_BLK(8029DBD4);
-    return r;
+    return 1;
 }
 
-/* D_803B7FC8's records for id cleared (the last pulling D_803B8568 back) */
+/* the matrix copies to `to` cleared (the last one in use pulling
+   D_803B8568 back) */
 REGS(s2)
-void func_8029DD54(s32 id) {
-    u8 *p = D_803B7FC8, *end = (u8 *)&D_803B8568;
+void func_8029DD54(u32 *to) {
+    /* (sic: the original's end is D_803B8568's address, the word after the
+       records, not its value: the loop goes one record past the last, onto
+       the pointer and the word after it) */
+    MtxCopy *c, *end = (MtxCopy *)&D_803B8568;
 
     ENGINE_BLK(8029DD54);
-    for (;;) {
+    for (c = D_803B7FC8;; c++) {
         ENGINE_BLK(8029DD78);
-        if (end < p)
+        if (end < c)
             break;
         ENGINE_BLK(8029DD84);
-        if (((s32 *)p)[1] != id) {
-            p += 0xC;
+        if (c->to != to)
             continue;
-        }
         ENGINE_BLK(8029DD90);
-        ((u32 *)p)[0] = 0;
-        ((u32 *)p)[1] = 0;
-        if (p == end) {
+        c->from = NULL;
+        c->to = NULL;
+        if (c == end) {
             ENGINE_BLK(8029DD9C);
-            D_803B8568 = p - 0xC;
+            D_803B8568 = c - 1;
         }
         ENGINE_BLK(8029DDA8);
-        p += 0xC;
     }
     ENGINE_BLK(8029DDB0);
 }
 
-/* D_803A7440's used record (byte 6) with this kind (half 4) and id
-   (word 0): its flag (byte 7) cleared; returns the physical address of
-   its data, 0x10 on ($s1), 0 if none */
+/* ---- the animated textures' slots ----------------------------------------- */
+
+/* the physical address of a slot's texture, as a G_SETTIMG takes it */
+#define SLOT_PHYS(s) ((u32)(s)->data - 0x80000000)
+
+/* the slot holding this texture kind for this animation: its refs
+   cleared; its texture's physical address, 0 if none */
 REGS(t6, t3 -> s1)
-u32 func_8029E4E4(s32 kind, s32 id) {
-    u8 *p = D_803A7440;
-    s32 n = 12, a2 = 0, read = 0;
-    u32 r = 0;
+u32 func_8029E4E4(s32 kind, TexAnim *owner) {
+    TexSlot *s = D_803A7440;
+    s32 n;
 
     ENGINE_BLK(8029E4E4);
-    for (;;) {
+    for (n = TEX_SLOTS;; n--, s++) {
         ENGINE_BLK(8029E4FC);
         if (n == 0)
             break;
         ENGINE_BLK(8029E504);
-        a2 = p[6], read = 1;
-        n--;
-        if (a2 == 0)
-            goto next;
-        ENGINE_BLK(8029E514);
-        a2 = *(u16 *)(p + 4);
-        if (a2 != kind)
-            goto next;
-        ENGINE_BLK(8029E520);
-        a2 = *(s32 *)p;
-        if (a2 != id)
-            goto next;
-        ENGINE_BLK(8029E52C);
-        p[7] = 0;
-        r = (u32)(p + 0x10) - 0x80000000;
-        break;
-    next:
+        if (s->used != 0) {
+            ENGINE_BLK(8029E514);
+            if (s->kind == kind) {
+                ENGINE_BLK(8029E520);
+                if (s->owner == owner) {
+                    ENGINE_BLK(8029E52C);
+                    s->refs = 0;
+                    ENGINE_BLK(8029E548);
+                    return SLOT_PHYS(s);
+                }
+            }
+        }
         ENGINE_BLK(8029E540);
-        p += 0x1010;
     }
     ENGINE_BLK(8029E548);
-    return r;
+    return 0;
 }
 
-/* whether the part's point (0x28) is within r of (x, y, z) ($t7) */
+/* A texture (kind, for this animation) into a free slot (the one past them
+   when none is free) through func_802A1074; its physical address */
+REGS(t3, t6, fp -> s1)
+u32 func_8029E47C(TexAnim *owner, s32 kind, s32 fp) {
+    TexSlot *s = D_803A7440;
+    s32 n;
+
+    ENGINE_BLK(8029E47C);
+    for (n = TEX_SLOTS;; n--, s++) {
+        ENGINE_BLK(8029E490);
+        if (n == 0) {
+            ENGINE_BLK(8029E4B0);
+            break;
+        }
+        ENGINE_BLK(8029E498);
+        if (s->used == 0)
+            break;
+        ENGINE_BLK(8029E4A8);
+    }
+    ENGINE_BLK(8029E4B4);
+    s->owner = owner;
+    s->kind = kind;
+    s->used = 1;
+    s->refs = 0;
+    func_802A1074(kind, (u32)s->data, fp);
+    ENGINE_BLK(8029E4D0);
+    return SLOT_PHYS(s);
+}
+
+/* ---- collision tests ------------------------------------------------------ */
+
+/* whether the triangle's first corner is within r of (x, y, z) */
 REGS(s0, t3, t4, t5, t6 -> t7)
-s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r) {
-    s32 px = *(s32 *)(part + 0x28), py = *(s32 *)(part + 0x2C), pz = *(s32 *)(part + 0x30);
-    s32 dx = px - x, dy = py - y, dz = pz - z, in;
-    s64 d2, dy2 = (s64)dy * dy, dz2 = (s64)dz * dz, d;
+s32 func_8029BEE4(CollisionTri *t, s32 x, s32 y, s32 z, s32 r) {
+    s32 dx = t->v[0][0] - x, dy = t->v[0][1] - y, dz = t->v[0][2] - z;
+    s64 dy2 = (s64)dy * dy, dz2 = (s64)dz * dz, d;
 
     ENGINE_BLK(8029BEE4);
-    d2 = (s64)dx * dx + dy2 + dz2;
-    d = engine_cvt_l_s(__builtin_sqrtf((f32)d2));
-    if (r < d) {
+    d = engine_cvt_l_s(__builtin_sqrtf((f32)((s64)dx * dx + dy2 + dz2)));
+    if (r < d)
         ENGINE_BLK(8029BF50);
-        in = 0;
-    } else {
+    else
         ENGINE_BLK(8029BF58);
-        in = 1;
-    }
     ENGINE_BLK(8029BF5C);
-    ENGINE_LEAVE(2, px);
+    ENGINE_LEAVE(2, t->v[0][0]);
     ENGINE_LEAVE64(10, dz2);
-    return in;
+    return r >= d;
 }
 
-/* a free record of D_803B7FC8 (word 0 clear) for (s2, t5, !D_8035805C),
-   D_803B8568 moved up to it */
+/* a free matrix copy (from, to, for the other frame), D_803B8568 moved up
+   to it; none when all 0x78 are in use */
 REGS(s2, t5)
-void func_8029DCD4(s32 a, s32 b) {
-    u8 *p = D_803B7FC8;
-    s32 n = 0x78;
+void func_8029DCD4(u32 *from, u32 *to) {
+    MtxCopy *c = D_803B7FC8;
+    s32 n;
 
     ENGINE_BLK(8029DCD4);
-    for (;;) {
+    for (n = MTX_COPIES;; n--, c++) {
         ENGINE_BLK(8029DCF4);
-        if (n == 0)
-            goto done;
-        ENGINE_BLK(8029DCFC);
-        n--;
-        if (((u32 *)p)[0] != 0) {
-            p += 0xC;
-            continue;
+        if (n == 0) {
+            ENGINE_BLK(8029DD3C);
+            return;
         }
-        break;
+        ENGINE_BLK(8029DCFC);
+        if (c->from == NULL)
+            break;
     }
     ENGINE_BLK(8029DD0C);
-    ((s32 *)p)[0] = a;
-    ((s32 *)p)[1] = b;
-    ((s32 *)p)[2] = D_8035805C ^ 1;
-    if (D_803B8568 < p) {
+    c->from = from;
+    c->to = to;
+    c->frame = D_8035805C ^ 1;
+    if (D_803B8568 < c) {
         ENGINE_BLK(8029DD38);
-        D_803B8568 = p;
+        D_803B8568 = c;
     }
-done:
     ENGINE_BLK(8029DD3C);
 }
 
-/* The part's three points (0x28, 12 bytes each) seen along its axis
-   (byte 0x4E: 0 drops z, 1 y, else x), and the point (x, y, z) likewise:
-   func_8029BF64's arguments */
-typedef struct {
-    s32 v[8];   /* x0, z0, x1, z1, x2, z2, px, pz */
-} Flat;
-
-static void c0dc(u8 *part, s32 x, s32 y, s32 z, Flat *f) {
-    s32 *w = (s32 *)(part + 0x28), p[3];
-    s32 axis = (s8)part[0x4E], i, j;
+/* func_8029C0DC: the triangle's corners and the point (x, y, z) seen along
+   its axis (shared.h's FlatTri, what func_8029BF64 takes) */
+void collision_flatten(const CollisionTri *t, s32 x, s32 y, s32 z, FlatTri *f) {
+    s32 p[3], i, j;
 
     ENGINE_BLK(8029C0DC);
-    if (axis == 0) {
+    if (t->axis == 0) {
         ENGINE_BLK(8029C138);
-        i = 0, j = 1;
-    } else if (axis == 1) {
+        i = 0, j = 1;                   /* (z dropped) */
+    } else if (t->axis == 1) {
         ENGINE_BLK(8029C0E8);
         ENGINE_BLK(8029C114);
-        i = 0, j = 2;
+        i = 0, j = 2;                   /* (y) */
     } else {
         ENGINE_BLK(8029C0E8);
         ENGINE_BLK(8029C0F0);
-        i = 1, j = 2;
+        i = 1, j = 2;                   /* (x) */
     }
     ENGINE_BLK(8029C158);
     p[0] = x, p[1] = y, p[2] = z;
-    f->v[0] = w[i], f->v[1] = w[j];
-    f->v[2] = w[3 + i], f->v[3] = w[3 + j];
-    f->v[4] = w[6 + i], f->v[5] = w[6 + j];
-    f->v[6] = p[i], f->v[7] = p[j];
+    f->u0 = t->v[0][i], f->v0 = t->v[0][j];
+    f->u1 = t->v[1][i], f->v1 = t->v[1][j];
+    f->u2 = t->v[2][i], f->v2 = t->v[2][j];
+    f->pu = p[i], f->pv = p[j];
 }
 
-static s32 bf64(const Flat *f) {
-    return func_8029BF64(f->v[0], f->v[1], f->v[2], f->v[3], f->v[4], f->v[5], f->v[6], f->v[7]);
+/* func_8029BF64 on it: whether the point is inside the triangle */
+s32 collision_flat_inside(const FlatTri *f) {
+    return func_8029BF64(f->u0, f->v0, f->u1, f->v1, f->u2, f->v2, f->pu, f->pv);
 }
 
 /* the same with the results in $v0-$t1, where 77E20's and 89250's callers
-   take them for func_8029BF64 (buildings.h's C0DC_LEFT: the other half's
-   to replace with c0dc()'s struct), and after them the vehicle modules'
-   collision ($t8, $fp, $t4: what 69BB0's and 62740's readers find) */
+   take them for func_8029BF64 (buildings.h's C0DC_LEFT), until they call
+   collision_flatten() */
 REGS(s0, v1, a0, a1)
-void func_8029C0DC(u8 *part, s32 x, s32 y, s32 z) {
-    Flat f;
-    s32 k;
+void func_8029C0DC(u8 *t, s32 x, s32 y, s32 z) {
+    FlatTri f;
 
-    c0dc(part, x, y, z, &f);
-    for (k = 0; k < 8; k++)
-        ENGINE_LEAVE(2 + k, f.v[k]);
+    collision_flatten((CollisionTri *)t, x, y, z, &f);
+    ENGINE_LEAVE(2, f.u0);
+    ENGINE_LEAVE(3, f.v0);
+    ENGINE_LEAVE(4, f.u1);
+    ENGINE_LEAVE(5, f.v1);
+    ENGINE_LEAVE(6, f.u2);
+    ENGINE_LEAVE(7, f.v2);
+    ENGINE_LEAVE(8, f.pu);
+    ENGINE_LEAVE(9, f.pv);
 }
 
-/* D_803B7FC8's records (src, dst, flag): those whose flag is
-   D_8035805C copied (func_8029DE50) and cleared; D_803B8568 left at the
-   last other one */
+/* the matrix copies due this frame (frame D_8035805C) made and freed;
+   D_803B8568 left at the last one still waiting */
 void func_8029DDC8(void) {
-    u8 *p = D_803B7FC8, *end = D_803B8568, *last = p;
-    u32 flag = D_8035805C;
+    MtxCopy *c = D_803B7FC8, *end = D_803B8568, *last = c;
+    u32 frame = D_8035805C;
 
     ENGINE_BLK(8029DDC8);
-    for (;;) {
+    for (;; c++) {
         ENGINE_BLK(8029DDF0);
-        if (end < p)
+        if (end < c)
             break;
         ENGINE_BLK(8029DDFC);
-        if (((u32 *)p)[0] == 0) {
-            p += 0xC;
+        if (c->from == NULL)
             continue;
-        }
         ENGINE_BLK(8029DE08);
-        if (((u32 *)p)[2] != flag) {
+        if (c->frame != frame) {
             ENGINE_BLK(8029DE14);
-            last = p;
-            p += 0xC;
+            last = c;
             continue;
         }
         ENGINE_BLK(8029DE20);
-        func_8029DE50(*(u32 *PTR32 *)(p + 4), *(u32 *PTR32 *)p);
+        func_8029DE50(c->to, c->from);
         ENGINE_BLK(8029DE28);
-        ((u32 *)p)[0] = 0;
-        ((u32 *)p)[1] = 0;
-        p += 0xC;
+        c->from = NULL;
+        c->to = NULL;
     }
     ENGINE_BLK(8029DE38);
     D_803B8568 = last;
 }
 
 /* whether two spheres meet: centres (x1, y1, z1) and (x2, y2, z2), radii
-   r1 and r2 ($t2) */
+   r1 and r2 */
 REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t2)
 s32 func_8029CFA4(s32 x1, s32 y1, s32 z1, s32 r1, s32 x2, s32 y2, s32 z2, s32 r2) {
-    s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1, r = 0;
+    s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
     f32 d, rr;
 
     ENGINE_BLK(8029CFA4);
@@ -685,113 +825,99 @@ s32 func_8029CFA4(s32 x1, s32 y1, s32 z1, s32 r1, s32 x2, s32 y2, s32 z2, s32 r2
     d = __builtin_sqrtf((f32)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz));
     if (d < rr) {
         ENGINE_BLK(8029D020);
-        r = 1;
+        ENGINE_BLK(8029D024);
+        return 1;
     }
     ENGINE_BLK(8029D024);
-    return r;
+    return 0;
 }
 
-/* whether the sphere (x, y, z), r meets the part's (0x10, its radius at
-   0xC, all / 4) ($v1) */
+/* whether the sphere (x, y, z), r meets the building's bounding sphere
+   (its position and unkC, >> 2) */
 REGS(s0, t3, t4, t5, t6 -> v1)
-s32 func_8029B514(u8 *part, s32 x, s32 y, s32 z, s32 r) {
-    s32 *w = (s32 *)part, hit;
+s32 func_8029B514(Building *b, s32 x, s32 y, s32 z, s32 r) {
+    s32 hit;
 
     ENGINE_BLK(8029B514);
-    hit = func_8029CFA4(x, y, z, r, w[4] >> 2, w[5] >> 2, w[6] >> 2, w[3] >> 2);
+    hit = func_8029CFA4(x, y, z, r, b->x >> 2, b->y >> 2, b->z >> 2, b->unkC >> 2);
     ENGINE_BLK(8029B57C);
     return hit;
 }
 
-extern f32 D_803B3778[16];              /* the spline's basis */
+/* ---- the animations' splines and keys ------------------------------------- */
 
-/* with fp 1, D_803B3778 = the cardinal spline basis of tension
-   *(f32 *)(t0 + 8) */
+extern f32 D_803B3778[16];              /* the spline's basis, by columns of 4 */
+
+/* with mode ANIM_SPLINE, D_803B3778 = the cardinal spline basis of the
+   animation's tension */
 REGS(t0, fp)
-void func_8029F110(u8 *spline, s32 mode) {
-    f32 a = *(f32 *)(spline + 8), na = -a, a2;
+void func_8029F110(Anim *a, s32 mode) {
+    f32 c = a->tension, nc = -c, c2;
     f32 *m = D_803B3778;
 
     ENGINE_BLK(8029F110);
-    if (mode == 1) {
+    if (mode == ANIM_SPLINE) {
         ENGINE_BLK(8029F148);
-        a2 = a * 2.0f;
-        m[0] = na;
-        m[2] = na;
-        m[3] = 0.0f;
-        m[6] = 0.0f;
-        m[7] = 1.0f;
-        m[10] = a;
-        m[11] = 0.0f;
-        m[12] = a;
-        m[1] = a2;
-        m[13] = na;
-        m[14] = 0.0f;
-        m[15] = 0.0f;
-        m[9] = 3.0f - a2;
-        m[4] = 2.0f - a;
-        m[5] = a - 3.0f;
-        m[8] = a - 2.0f;
+        c2 = c * 2.0f;
+        m[0] = nc, m[4] = 2.0f - c, m[8] = c - 2.0f, m[12] = c;
+        m[1] = c2, m[5] = c - 3.0f, m[9] = 3.0f - c2, m[13] = nc;
+        m[2] = nc, m[6] = 0.0f, m[10] = c, m[14] = 0.0f;
+        m[3] = 0.0f, m[7] = 1.0f, m[11] = 0.0f, m[15] = 0.0f;
     }
     ENGINE_BLK(8029F1A8);
 }
 
 extern f32 D_803B37B8, D_803B37BC;      /* t^2 and t^3 */
-extern u8 D_803B7FC0, D_803B7FC1, D_803B7FC2, D_803B7FC3;
+extern u8 D_803B7FC0, D_803B7FC1, D_803B7FC2, D_803B7FC3;  /* the spline's four keys */
 
-/* the spline's step: t^2 and t^3 of t, and the four points' indices
-   around i of n, wrapping */
+/* the spline's step: t^2 and t^3 of t, and the four keys around key i of
+   n (the n - 1 keys wrapping) */
 REGS(f30, t2, t6)
 void func_8029F060(f32 t, s32 i, s32 n) {
-    s32 m = n - 1, v;
+    s32 m = n - 1;
     f32 t2 = t * t, t3 = t2 * t;
 
     ENGINE_BLK(8029F060);
     D_803B37B8 = t2;
     D_803B37BC = t3;
-    v = i - 1;
-    if (v >= 0) {
+    if (i - 1 >= 0) {
         ENGINE_BLK(8029F094);
-        D_803B7FC0 = v;
+        D_803B7FC0 = i - 1;
     } else {
         ENGINE_BLK(8029F0A0);
-        D_803B7FC0 = v + m;
+        D_803B7FC0 = i - 1 + m;
     }
     ENGINE_BLK(8029F0AC);
     D_803B7FC1 = i;
-    v = i + 1;
-    if (v < m) {
+    if (i + 1 < m) {
         ENGINE_BLK(8029F0C4);
-        D_803B7FC2 = v;
+        D_803B7FC2 = i + 1;
     } else {
         ENGINE_BLK(8029F0CC);
-        D_803B7FC2 = v - m;
+        D_803B7FC2 = i + 1 - m;
     }
     ENGINE_BLK(8029F0D8);
-    v = i + 2;
-    if (v < m) {
+    if (i + 2 < m) {
         ENGINE_BLK(8029F0E8);
-        D_803B7FC3 = v;
+        D_803B7FC3 = i + 2;
     } else {
         ENGINE_BLK(8029F0F0);
-        D_803B7FC3 = v - m;
+        D_803B7FC3 = i + 2 - m;
     }
     ENGINE_BLK(8029F0FC);
 }
 
-extern f32 D_8030D870;                  /* a full turn, in 16ths */
+extern f32 D_8030D870;                  /* a full turn, in the keys' angles / 16 */
 
-/* the angle from a to b (12-bit) the fraction t of the way, the short way
-   round ($t4) */
+/* the angle from a to b (the keys' 16-bit angles) the fraction t of the
+   way, the short way round, as a 16-bit angle */
 REGS(a0, a1, f30 -> t4)
 s32 func_8029F6B0(s32 a, s32 b, f32 t) {
     f32 turn = D_8030D870, fa, d;
-    s32 r;
 
     ENGINE_BLK(8029F6B0);
     fa = (f32)a / 16.0f;
-    d = (f32)b / 16.0f;
-    d = d - fa;
+    d = (f32)b / 16.0f - fa;
     if (d < -2048.0f) {
         ENGINE_BLK(8029F704);
         d = d + turn;
@@ -803,8 +929,7 @@ s32 func_8029F6B0(s32 a, s32 b, f32 t) {
         }
     }
     ENGINE_BLK(8029F71C);
-    d = d * t;
-    d = d + fa;
+    d = d * t + fa;
     if (d < 0.0f) {
         ENGINE_BLK(8029F730);
         d = d + turn;
@@ -815,86 +940,82 @@ s32 func_8029F6B0(s32 a, s32 b, f32 t) {
         d = d - turn;
     }
     ENGINE_BLK(8029F744);
-    r = engine_cvt_w_s(d * 16.0f);
-    return r;
+    return engine_cvt_w_s(d * 16.0f);
 }
 
-extern u8 *PTR32 D_803BD304;            /* the end of D_803BC1D0's records */
-extern u8 D_803BC1D0[];                 /* 0xDC-byte records: an id at 0xC4, a count at 0xC7 of bytes from 0xC8 */
+/* ---- the objects' triangles switched ----------------------------------------- */
 
-/* The parts of kind id, and those of kind 0 whose byte 0x50 is listed in
-   a D_803BC1D0 record of that id: flagged (0x51) */
-REGS(t2)
-void func_8029D120(s32 id) {
-    u8 *p = D_803B9890, *end = D_803BD300, *q, *qend, *b;
-    s32 k, n, c, t7;
+/* whether one of owner's switches lists the level's triangle `id` */
+static s32 switch_lists(s32 owner, s32 id) {
+    TriSwitch *q, *end = D_803BD304;
+    u8 *b;
+    s32 n;
 
-    ENGINE_BLK(8029D120);
-    for (;; p += 0x60) {
-        ENGINE_BLK(8029D140);
-        if (p == end)
-            break;
-        ENGINE_BLK(8029D148);
-        k = p[0x4F];
-        if (k == id)
-            goto flag;
-        ENGINE_BLK(8029D154);
-        if (k != 0)
-            goto next;
-        ENGINE_BLK(8029D15C);
-        t7 = p[0x50];
-        qend = D_803BD304;
-        for (q = D_803BC1D0;; q += 0xDC) {
-            ENGINE_BLK(8029D174);
-            if (q == qend)
-                goto next;
-            ENGINE_BLK(8029D17C);
-            if (q[0xC4] != id)
-                goto nextq;
+    for (q = D_803BC1D0;; q++) {
+        ENGINE_BLK(8029D174);
+        if (q == end)
+            return 0;
+        ENGINE_BLK(8029D17C);
+        if (q->owner == owner) {
             ENGINE_BLK(8029D188);
-            b = q + 0xC8;
-            n = q[0xC7];
-            for (;;) {
+            for (b = q->level, n = q->nlevel;; b++) {
                 ENGINE_BLK(8029D190);
                 if (n == 0)
                     break;
                 ENGINE_BLK(8029D198);
-                c = *b;
                 --n;
-                if (c == t7)
-                    goto flag;
+                if (*b == id)
+                    return 1;
                 ENGINE_BLK(8029D1A8);
-                b++;
             }
-        nextq:
-            ENGINE_BLK(8029D1B0);
         }
-    flag:
-        ENGINE_BLK(8029D1B8);
-        p[0x51] = 1;
-    next:
+        ENGINE_BLK(8029D1B0);
+    }
+}
+
+/* The owner's triangles switched on, and the level's that one of its
+   switches lists */
+REGS(t2)
+void func_8029D120(s32 owner) {
+    CollisionTri *t, *end = D_803BD300;
+    s32 on;
+
+    ENGINE_BLK(8029D120);
+    for (t = D_803B9890;; t++) {
+        ENGINE_BLK(8029D140);
+        if (t == end)
+            break;
+        ENGINE_BLK(8029D148);
+        if (t->owner == owner) {
+            on = 1;
+        } else {
+            ENGINE_BLK(8029D154);
+            on = 0;
+            if (t->owner == 0) {
+                ENGINE_BLK(8029D15C);
+                on = switch_lists(owner, t->id);
+            }
+        }
+        if (on) {
+            ENGINE_BLK(8029D1B8);
+            t->active = 1;
+        }
         ENGINE_BLK(8029D1BC);
     }
     ENGINE_BLK(8029D1C4);
 }
 
-/* the spline at t: D_803B3778's columns weighted by the four points
-   (f0, f2, f4, f6), times t^3, t^2, t and 1, summed ($f8) */
+/* the spline at t: D_803B3778's columns weighted by the four points,
+   times t^3, t^2, t and 1, summed */
 REGS(f0, f2, f4, f6, f30 -> f8)
 f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
-    f32 *m = D_803B3778, s, a, r = 0.0f;
+    f32 *m = D_803B3778, s, r = 0.0f;
     s32 c;
 
     ENGINE_BLK(8029E878);
     for (c = 3;; c--, m++) {
         ENGINE_BLK(8029E894);
-        s = m[0] * p0;
-        a = m[4] * p1;
-        s = s + a;
-        a = m[8] * p2;
-        s = s + a;
-        a = m[12] * p3;
-        s = s + a;
+        s = m[0] * p0 + m[4] * p1 + m[8] * p2 + m[12] * p3;
         if (c == 3) {
             ENGINE_BLK(8029E8E8);
             r = s * D_803B37BC;
@@ -902,8 +1023,7 @@ f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
             ENGINE_BLK(8029E8CC);
             if (c == 2) {
                 ENGINE_BLK(8029E8FC);
-                s = s * D_803B37B8;
-                r = r + s;
+                r = r + s * D_803B37B8;
             } else {
                 ENGINE_BLK(8029E8D8);
                 if (c != 1) {
@@ -912,8 +1032,7 @@ f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
                     break;
                 }
                 ENGINE_BLK(8029E910);
-                s = s * t;
-                r = r + s;
+                r = r + s * t;
             }
         }
         ENGINE_BLK(8029E918);
@@ -922,12 +1041,11 @@ f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
     return r;
 }
 
-extern s32 D_803BE724, D_803BE728;
-extern s16 D_803BE72C;
-extern s16 D_803A7418[2];
+extern s32 D_803BE724, D_803BE728;      /* the grid's cell size, x and z (<< 5) */
+extern s16 D_803BE72C;                  /* its cells in a row */
+extern s16 D_803A7418[2];               /* the cells to test, to -1 */
 
-/* D_803A7418 = the cell of (x, z): x * 4 / D_803BE724 plus the row
-   (z * 4 / D_803BE728) times D_803BE72C; then -1 */
+/* D_803A7418 = the grid cell of (x, z) (positions >> 2), then -1 */
 REGS(t3, t5)
 void func_8029C284(s32 x, s32 z) {
     s32 cx, cz;
@@ -941,60 +1059,102 @@ void func_8029C284(s32 x, s32 z) {
     D_803A7418[1] = -1;
 }
 
-extern u8 *PTR32 D_803B35F0;
-extern u8 D_803B3500[];
-extern s32 D_802C23B4[];                /* their ids, to -1 */
+extern s32 D_802C23B4[];                /* the texture animations (TexAnim *), to -1 */
+#define TEXANIM_AT(i) (*(TexAnim *PTR32 *)&D_802C23B4[i])
 
-/* D_803A7440's records unused; D_803B35F8's set up from D_802C23B4 */
+/* The texture slots freed; D_803B35F8's records set up for the texture
+   animations of D_802C23B4 (to a key of -1) */
 void func_8029DEA0(void) {
-    u8 *p = D_803A7440;
-    s32 n = 12, *id = D_802C23B4, w;
+    TexSlot *s = D_803A7440;
+    Part *p;
+    s32 n, *id = D_802C23B4, w;
 
     ENGINE_BLK(8029DEA0);
-    for (;;) {
+    for (n = TEX_SLOTS;; n--, s++) {
         ENGINE_BLK(8029DECC);
         if (n == 0)
             break;
         ENGINE_BLK(8029DED4);
-        p[6] = 0;
-        p += 0x1010;
-        n--;
+        s->used = 0;
     }
     ENGINE_BLK(8029DEE4);
     D_803B35F0 = D_803B3500;
-    for (p = (u8 *)D_803B35F8;; p += 0x18) {
+    for (p = D_803B35F8;; p++) {
         ENGINE_BLK(8029DF18);
         w = *id;
-        *(s32 *)p = w;
+        *(s32 *)&p->unk0 = w;
         if (w == -1)
             break;
         ENGINE_BLK(8029DF28);
         id++;
-        *(f32 *)(p + 4) = 0.0f;
-        *(s16 *)(p + 0xC) = 0;
-        *(s16 *)(p + 0xE) = 0;
-        p[0x10] = 0;
-        p[0x11] = 0;
-        p[0x12] = 0;
-        p[0x13] = 0;
-        p[0x14] = 0;
+        p->unk4 = 0.0f;
+        p->unkC = 0;
+        p->unkE = 0;
+        p->unk10 = 0;
+        p->unk11 = 0;
+        p->unk12 = 0;
+        p->unk13 = 0;
+        p->unk14 = 0;
     }
     ENGINE_BLK(8029DF54);
 }
 
-extern s32 D_803B3730[16];              /* a part's matrix (16.16) */
+/* ---- a part's matrix from its keys (D_803B3730) ----------------------------- */
 
-/* D_803B3730 = the translation from (x0, y0, z0) the fraction t of the
-   way to (x1, y1, z1), unless that is 0 ($a0: 0x10000, or 0) */
+extern s32 D_803B3730[16];              /* the matrix (16.16) */
+#define FX_ONE 0x10000                  /* 1.0 in 16.16 */
+
+static void mtx_identity(s32 *m) {
+    m[0] = FX_ONE, m[1] = 0, m[2] = 0, m[3] = 0;
+    m[4] = 0, m[5] = FX_ONE, m[6] = 0, m[7] = 0;
+    m[8] = 0, m[9] = 0, m[10] = FX_ONE, m[11] = 0;
+    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = FX_ONE;
+}
+
+/* D_803B3730 = the rotation by the 16-bit angle a about x (0), y (1) or
+   z (2): its sine (func_802AE160) and cosine (func_802AE104) */
+static void mtx_rotation(s32 axis, s32 a) {
+    s32 *m = D_803B3730, sn, cs;
+
+    sn = func_802AE160((u32)a >> 4);
+    cs = func_802AE104((u32)a >> 4);
+    mtx_identity(m);
+    if (axis == 0)
+        m[5] = cs, m[6] = sn, m[9] = -sn, m[10] = cs;
+    else if (axis == 1)
+        m[0] = cs, m[2] = -sn, m[8] = sn, m[10] = cs;
+    else
+        m[0] = cs, m[1] = sn, m[4] = -sn, m[5] = cs;
+}
+
+/* D_803B3730 = the translation (x, y, z) */
+static void mtx_translation(s32 x, s32 y, s32 z) {
+    s32 *m = D_803B3730;
+
+    mtx_identity(m);
+    m[12] = (u32)x << 16, m[13] = (u32)y << 16, m[14] = (u32)z << 16;
+}
+
+/* D_803B3730 = the scale (x, y, z), in 256ths */
+static void mtx_scale(s32 x, s32 y, s32 z) {
+    s32 *m = D_803B3730;
+
+    mtx_identity(m);
+    m[0] = (s32)((u32)x << 16) >> 8;
+    m[5] = (s32)((u32)y << 16) >> 8;
+    m[10] = (s32)((u32)z << 16) >> 8;
+}
+
+#define SCALE_ONE 0x100                 /* a key's scale of 1 */
+
+/* D_803B3730 = the translation from (x0, y0, z0) the fraction t of the way
+   to (x1, y1, z1), unless that is 0 (0x10000, or 0) */
 REGS(a0, a1, a2, a3, t0, t1, f30 -> a0)
 s32 func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
-    s32 res;
-    s32 x, y, z, *m = D_803B3730;
-    f32 fx;
+    s32 x, y, z;
 
     ENGINE_BLK(8029F3D0);
-    fx = (f32)(x1 - x0) * t;
-    x = engine_cvt_w_s(fx);
+    x = engine_cvt_w_s((f32)(x1 - x0) * t);
     y = engine_cvt_w_s((f32)(y1 - y0) * t) + y0;
     z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
     x += x0;
@@ -1004,205 +1164,103 @@ s32 func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
             ENGINE_BLK(8029F43C);
             if (z == 0) {
                 ENGINE_BLK(8029F444);
-                res = 0;
-                goto done;
+                ENGINE_BLK(8029F4A4);
+                return 0;
             }
         }
     }
     ENGINE_BLK(8029F44C);
-    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
-    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
-    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
-    m[12] = (u32)x << 16, m[13] = (u32)y << 16, m[14] = (u32)z << 16, m[15] = 0x10000;
-    res = 0x10000;
-done:
+    mtx_translation(x, y, z);
     ENGINE_BLK(8029F4A4);
-    return res;
+    return FX_ONE;
 }
 
 /* D_803B3730 = the rotation about x (F4B8), y (F560) or z (F608) by the
    angle from a to b the fraction t of the way (func_8029F6B0), unless
-   that is 0 ($a0: 0x10000, or 0) */
+   that is 0 (0x10000, or 0) */
+#define LERP_ROTATION(axis, a, b, t, B_ENTRY, B_ANGLE, B_ZERO, B_ROT, B_SIN, B_COS, B_END)                    \
+    do {                                                                                                     \
+        s32 r_;                                                                                              \
+        ENGINE_BLK(B_ENTRY);                                                                                 \
+        r_ = func_8029F6B0(a, b, t);                                                                         \
+        ENGINE_BLK(B_ANGLE);                                                                                 \
+        if (r_ == 0) {                                                                                       \
+            ENGINE_BLK(B_ZERO);                                                                              \
+            ENGINE_BLK(B_END);                                                                               \
+            return 0;                                                                                        \
+        }                                                                                                    \
+        ENGINE_BLK(B_ROT);                                                                                   \
+        ENGINE_BLK(B_SIN);                                                                                   \
+        ENGINE_BLK(B_COS);                                                                                   \
+        mtx_rotation(axis, r_);                                                                              \
+        ENGINE_BLK(B_END);                                                                                   \
+        return FX_ONE;                                                                                       \
+    } while (0)
+
 REGS(a0, a1, f30 -> a0)
 s32 func_8029F4B8(s32 a, s32 b, f32 t) {
-    s32 res;
-    s32 r, c, s, *m = D_803B3730;
-
-    ENGINE_BLK(8029F4B8);
-    r = func_8029F6B0(a, b, t);
-    ENGINE_BLK(8029F4D4);
-    if (r == 0) {
-        ENGINE_BLK(8029F4DC);
-        res = 0;
-        goto done;
-    }
-    ENGINE_BLK(8029F4E4);
-    c = func_802AE160((u32)r >> 4);
-    ENGINE_BLK(8029F4EC);
-    s = func_802AE104((u32)r >> 4);
-    ENGINE_BLK(8029F4F4);
-    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
-    m[4] = 0, m[5] = s, m[6] = c, m[7] = 0;
-    m[8] = 0, m[9] = -c, m[10] = s, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    res = 0x10000;
-done:
-    ENGINE_BLK(8029F544);
-    return res;
+    LERP_ROTATION(0, a, b, t, 8029F4B8, 8029F4D4, 8029F4DC, 8029F4E4, 8029F4EC, 8029F4F4, 8029F544);
 }
 
 REGS(a0, a1, f30 -> a0)
 s32 func_8029F560(s32 a, s32 b, f32 t) {
-    s32 res;
-    s32 r, c, s, *m = D_803B3730;
-
-    ENGINE_BLK(8029F560);
-    r = func_8029F6B0(a, b, t);
-    ENGINE_BLK(8029F57C);
-    if (r == 0) {
-        ENGINE_BLK(8029F584);
-        res = 0;
-        goto done;
-    }
-    ENGINE_BLK(8029F58C);
-    c = func_802AE160((u32)r >> 4);
-    ENGINE_BLK(8029F594);
-    s = func_802AE104((u32)r >> 4);
-    ENGINE_BLK(8029F59C);
-    m[0] = s, m[1] = 0, m[2] = -c, m[3] = 0;
-    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
-    m[8] = c, m[9] = 0, m[10] = s, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    res = 0x10000;
-done:
-    ENGINE_BLK(8029F5EC);
-    return res;
+    LERP_ROTATION(1, a, b, t, 8029F560, 8029F57C, 8029F584, 8029F58C, 8029F594, 8029F59C, 8029F5EC);
 }
 
 REGS(a0, a1, f30 -> a0)
 s32 func_8029F608(s32 a, s32 b, f32 t) {
-    s32 res;
-    s32 r, c, s, *m = D_803B3730;
-
-    ENGINE_BLK(8029F608);
-    r = func_8029F6B0(a, b, t);
-    ENGINE_BLK(8029F624);
-    if (r == 0) {
-        ENGINE_BLK(8029F62C);
-        res = 0;
-        goto done;
-    }
-    ENGINE_BLK(8029F634);
-    c = func_802AE160((u32)r >> 4);
-    ENGINE_BLK(8029F63C);
-    s = func_802AE104((u32)r >> 4);
-    ENGINE_BLK(8029F644);
-    m[0] = s, m[1] = c, m[2] = 0, m[3] = 0;
-    m[4] = -c, m[5] = s, m[6] = 0, m[7] = 0;
-    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    res = 0x10000;
-done:
-    ENGINE_BLK(8029F694);
-    return res;
+    LERP_ROTATION(2, a, b, t, 8029F608, 8029F624, 8029F62C, 8029F634, 8029F63C, 8029F644, 8029F694);
 }
 
-/* the angle of four keys' halves at off on the spline at t (func_8029E878),
-   as a word; the keys' first two as floats in *k0, *k1 */
-static s32 spline_angle(u8 *p0, u8 *p1, u8 *p2, u8 *p3, s32 off, f32 t, f32 *k0, f32 *k1) {
-    *k0 = (f32) * (s16 *)(p0 + off);
-    *k1 = (f32) * (s16 *)(p1 + off);
-    return engine_cvt_w_s(func_8029E878(*k0, *k1, (f32) * (s16 *)(p2 + off), (f32) * (s16 *)(p3 + off), t));
+/* the four keys' i-th halves on the spline at t (func_8029E878), as a
+   word; the first two keys' as floats in *k0, *k1 */
+static s32 spline_half(Key *p0, Key *p1, Key *p2, Key *p3, s32 i, f32 t) {
+    return engine_cvt_w_s(func_8029E878((f32)KEY_HALF(p0, i), (f32)KEY_HALF(p1, i), (f32)KEY_HALF(p2, i),
+                                        (f32)KEY_HALF(p3, i), t));
 }
 
 /* D_803B3730 = the rotation about x (E938), y (EA48) or z (EB58) by the
-   keys' angle (halves 6, 8 and 0xA) on the spline at t; $a3 whether it
-   isn't 0 (then D_803B3730 is as it was) */
-REGS(t5, t6, t7, s0, f30 -> a3)
-s32 func_8029E938(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
-    s32 a, c, s, *m = D_803B3730;
-    f32 k0, k1;
+   keys' angle on the spline at t; whether it isn't 0 (else D_803B3730 is
+   as it was) */
+#define SPLINE_ROTATION(axis, B_ENTRY, B_ANGLE, B_ZERO, B_ROT, B_SIN, B_COS, B_END)                            \
+    do {                                                                                                     \
+        s32 a_;                                                                                              \
+        ENGINE_BLK(B_ENTRY);                                                                                 \
+        a_ = spline_half(p0, p1, p2, p3, 3 + (axis), t);                                                     \
+        ENGINE_BLK(B_ANGLE);                                                                                 \
+        if (a_ == 0) {                                                                                       \
+            ENGINE_BLK(B_ZERO);                                                                              \
+            ENGINE_BLK(B_END);                                                                               \
+            return 0;                                                                                        \
+        }                                                                                                    \
+        ENGINE_BLK(B_ROT);                                                                                   \
+        ENGINE_BLK(B_SIN);                                                                                   \
+        ENGINE_BLK(B_COS);                                                                                   \
+        mtx_rotation(axis, a_);                                                                              \
+        ENGINE_BLK(B_END);                                                                                   \
+        return 1;                                                                                            \
+    } while (0)
 
-    ENGINE_BLK(8029E938);
-    a = spline_angle(p0, p1, p2, p3, 6, t, &k0, &k1);
-    ENGINE_BLK(8029E998);
-    if (a == 0) {
-        ENGINE_BLK(8029E9AC);
-        ENGINE_BLK(8029EA18);
-        return 0;
-    }
-    ENGINE_BLK(8029E9B4);
-    c = func_802AE160((u32)a >> 4);
-    ENGINE_BLK(8029E9BC);
-    s = func_802AE104((u32)a >> 4);
-    ENGINE_BLK(8029E9C4);
-    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
-    m[4] = 0, m[5] = s, m[6] = c, m[7] = 0;
-    m[8] = 0, m[9] = -c, m[10] = s, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_BLK(8029EA18);
-    return 1;
+REGS(t5, t6, t7, s0, f30 -> a3)
+s32 func_8029E938(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
+    SPLINE_ROTATION(0, 8029E938, 8029E998, 8029E9AC, 8029E9B4, 8029E9BC, 8029E9C4, 8029EA18);
 }
 
 REGS(t5, t6, t7, s0, f30 -> a3)
-s32 func_8029EA48(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
-    s32 a, c, s, *m = D_803B3730;
-    f32 k0, k1;
-
-    ENGINE_BLK(8029EA48);
-    a = spline_angle(p0, p1, p2, p3, 8, t, &k0, &k1);
-    ENGINE_BLK(8029EAA8);
-    if (a == 0) {
-        ENGINE_BLK(8029EABC);
-        ENGINE_BLK(8029EB28);
-        return 0;
-    }
-    ENGINE_BLK(8029EAC4);
-    c = func_802AE160((u32)a >> 4);
-    ENGINE_BLK(8029EACC);
-    s = func_802AE104((u32)a >> 4);
-    ENGINE_BLK(8029EAD4);
-    m[0] = s, m[1] = 0, m[2] = -c, m[3] = 0;
-    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
-    m[8] = c, m[9] = 0, m[10] = s, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_BLK(8029EB28);
-    return 1;
+s32 func_8029EA48(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
+    SPLINE_ROTATION(1, 8029EA48, 8029EAA8, 8029EABC, 8029EAC4, 8029EACC, 8029EAD4, 8029EB28);
 }
 
 REGS(t5, t6, t7, s0, f30 -> a3)
-s32 func_8029EB58(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
-    s32 a, c, s, *m = D_803B3730;
-    f32 k0, k1;
-
-    ENGINE_BLK(8029EB58);
-    a = spline_angle(p0, p1, p2, p3, 0xA, t, &k0, &k1);
-    ENGINE_BLK(8029EBB8);
-    if (a == 0) {
-        ENGINE_BLK(8029EBCC);
-        ENGINE_BLK(8029EC38);
-        return 0;
-    }
-    ENGINE_BLK(8029EBD4);
-    c = func_802AE160((u32)a >> 4);
-    ENGINE_BLK(8029EBDC);
-    s = func_802AE104((u32)a >> 4);
-    ENGINE_BLK(8029EBE4);
-    m[0] = s, m[1] = c, m[2] = 0, m[3] = 0;
-    m[4] = -c, m[5] = s, m[6] = 0, m[7] = 0;
-    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_BLK(8029EC38);
-    return 1;
+s32 func_8029EB58(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
+    SPLINE_ROTATION(2, 8029EB58, 8029EBB8, 8029EBCC, 8029EBD4, 8029EBDC, 8029EBE4, 8029EC38);
 }
 
-/* D_803B3730 = the scale (in 256ths) from (x0, y0, z0) the fraction t of
-   the way to (x1, y1, z1), unless that is (0x100, 0x100, 0x100) ($a0:
-   0x10000, or 0) */
+/* D_803B3730 = the scale from (x0, y0, z0) the fraction t of the way to
+   (x1, y1, z1), unless that is 1 each way (0x10000, or 0) */
 REGS(a0, a1, a2, a3, t0, t1, f30 -> a0)
 s32 func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
-    s32 res;
-    s32 x, y, z, *m = D_803B3730;
+    s32 x, y, z;
 
     ENGINE_BLK(8029F760);
     x = engine_cvt_w_s((f32)(x1 - x0) * t);
@@ -1210,316 +1268,35 @@ s32 func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
     x += x0;
     y += y0;
-    if (x == 0x100) {
+    if (x == SCALE_ONE) {
         ENGINE_BLK(8029F7C8);
-        if (y == 0x100) {
+        if (y == SCALE_ONE) {
             ENGINE_BLK(8029F7D4);
-            if (z == 0x100) {
+            if (z == SCALE_ONE) {
                 ENGINE_BLK(8029F7DC);
-                res = 0;
-                goto done;
+                ENGINE_BLK(8029F848);
+                return 0;
             }
         }
     }
     ENGINE_BLK(8029F7E4);
-    x = (s32)((u32)x << 16) >> 8;
-    y = (s32)((u32)y << 16) >> 8;
-    z = (s32)((u32)z << 16) >> 8;
-    m[0] = x, m[1] = 0, m[2] = 0, m[3] = 0;
-    m[4] = 0, m[5] = y, m[6] = 0, m[7] = 0;
-    m[8] = 0, m[9] = 0, m[10] = z, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    res = 0x10000;
-done:
+    mtx_scale(x, y, z);
     ENGINE_BLK(8029F848);
-    return res;
+    return FX_ONE;
 }
 
-extern u8 D_803A7300[];                 /* 0x14-byte records, free with byte 0x11 -1 */
-
-/* An object's list (u16s from p to end) into D_803A7300 (its first, the
-   size) and D_803A6B30's free records (then one per entry: half 8, and
-   half 6 as the size), the sizes * 32 * scale / 0x10000, all of id */
-REGS(t0, t1, t2, t3)
-void func_8029C354(s32 id, u8 *p_, u8 *end_, s32 scale_) {
-    u16 *p = (u16 *)p_, *end = (u16 *)end_;
-    u32 scale = scale_;
-    u8 *r = D_803A7300;
-    u32 size;
-
-    ENGINE_BLK(8029C354);
-    size = ((u32)p[0] << 5) * scale / 0x10000;
-    for (;;) {
-        ENGINE_BLK(8029C3A8);
-        if ((s8)r[0x11] == -1)
-            break;
-        r += 0x14;
-    }
-    ENGINE_BLK(8029C3B4);
-    *(u32 *)(r + 0xC) = size;
-    r[0x10] = id;
-    r[0x11] = 0;
-    p += 2;
-    for (r = D_803A6B30;;) {
-        ENGINE_BLK(8029C3CC);
-        if ((s8)r[0x13] == -1)
-            break;
-        r += 0x14;
-    }
-    for (;;) {
-        ENGINE_BLK(8029C3D8);
-        if (p == end)
-            break;
-        ENGINE_BLK(8029C3E0);
-        r[0x12] = id;
-        r[0x13] = 0;
-        *(u16 *)(r + 0x10) = p[4];
-        *(u32 *)(r + 0xC) = ((u32)p[3] << 5) * scale / 0x10000;
-        r += 0x14;
-        ENGINE_BLK(8029C42C);
-        p = (u16 *)((u8 *)p + (u32)p[5] * 4 + 0xC);
-    }
-    ENGINE_BLK(8029C43C);
-}
-
-extern s32 D_803A73FC, D_803A7400, D_803A7404;
-
-/* a doubleword of game memory */
-static s64 dword(u8 *p) {
-    return (s64)((u64) * (u32 *)p << 32 | *(u32 *)(p + 4));
-}
-
-/* Whether (x, y, z) is within lim of the part's plane (a, b, c, d at
-   0-0x18, the distance's scale at 0x20); if so, its foot on the plane
-   (along the normal, over 0x24) in D_803A73FC-D_803A7404 ($v0) */
-REGS(t3, t4, t5, t6, s0 -> v0, v1, a0, a1)
-s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, struct Piece *piece, s32 *px, s32 *py, s32 *pz) {
-    u8 *pl = (u8 *)piece;
-    s64 a = dword(pl), b = dword(pl + 8), c = dword(pl + 0x10), d = dword(pl + 0x18);
-    s64 s1, s2, s3, l2, l4, l6, rx, ry, rz;
-    f32 f0, f2, f4, f6;
-
-    ENGINE_BLK(8029C160);
-    s1 = (s64)((u64)a * (u64)(s64)x + (u64)b * (u64)(s64)y + (u64)c * (u64)(s64)z);
-    s2 = (s64)((u64)s1 + (u64)d);
-    f0 = (f32)s2 / *(f32 *)(pl + 0x20);
-    s2 = engine_cvt_l_s(f0);
-    /* ($f0:$f1, unless it goes on) */
-    if (s2 < 0) {
-        ENGINE_BLK(8029C1D4);
-        s2 = -s2;
-    }
-    ENGINE_BLK(8029C1D8);
-    if (lim < s2) {
-        ENGINE_BLK(8029C26C);
-        ENGINE_LEAVE64(19, d);
-        ENGINE_BLK(8029C270);
-        *px = *py = *pz = 0;            /* (none: its callers don't look) */
-        return 0;
-    }
-    ENGINE_BLK(8029C1E4);
-    s3 = (s64)(0 - (u64)d - (u64)s1);
-    f0 = (f32)s3 / *(f32 *)(pl + 0x24);
-    f2 = f0 * (f32)a;
-    f4 = f0 * (f32)b;
-    f6 = f0 * (f32)c;
-    l2 = engine_cvt_l_s(f2);
-    l4 = engine_cvt_l_s(f4);
-    l6 = engine_cvt_l_s(f6);
-    rx = (s64)((u64)l2 + (u64)(s64)x);
-    ry = (s64)((u64)l4 + (u64)(s64)y);
-    rz = (s64)((u64)l6 + (u64)(s64)z);
-    D_803A73FC = (s32)rx;
-    D_803A7400 = (s32)ry;
-    D_803A7404 = (s32)rz;
-    ENGINE_BLK(8029C270);
-    *px = (s32)rx;
-    *py = (s32)ry;
-    *pz = (s32)rz;
-    return 1;
-}
-
-/* Whether the point (x, z) at height y misses all of the n triangles at
-   tris (0x18 bytes: three (x, z) words) and the height range after them
-   (two halves, the range wrapping when the second is lower) ($t4: 1 if
-   it misses, 0 if it is in) */
-REGS(s4, t5, t0, t1, a1 -> t4)
-s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
-    s32 *t = tris, lo, hi, r = 1;
-
-    ENGINE_BLK(8029DA90);
-    for (;;) {
-        ENGINE_BLK(8029DABC);
-        if (n == 0)
-            break;
-        ENGINE_BLK(8029DAC4);
-        n--;
-        t += 6;
-        if (!func_802AA5E0(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1])) {
-            ENGINE_BLK(8029DAE8);
-            continue;
-        }
-        ENGINE_BLK(8029DAE8);
-        ENGINE_BLK(8029DAF0);
-        if (!func_802AA460(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1])) {
-            ENGINE_BLK(8029DAF8);
-            continue;
-        }
-        ENGINE_BLK(8029DAF8);
-        ENGINE_BLK(8029DB00);
-        n = (u32)n * 0x18;
-        /* (the halves of a word func_802A3F80 stores: through the word,
-           which is how they are in native-endian memory) */
-        lo = *(u32 *)((u8 *)t + n) >> 16;
-        hi = *(u32 *)((u8 *)t + n) & 0xFFFF;
-        if (hi < lo) {
-            ENGINE_BLK(8029DB24);
-            if (!(y < lo))
-                goto in;
-            ENGINE_BLK(8029DB2C);
-            if (!(hi < y))
-                goto in;
-            ENGINE_BLK(8029DB34);
-            goto hit;
-        }
-        ENGINE_BLK(8029DB3C);
-        if (y < lo)
-            goto hit;
-        ENGINE_BLK(8029DB48);
-        if (hi < y)
-            goto hit;
-    in:
-        ENGINE_BLK(8029DB50);
-        r = 0;
-    hit:
-        break;
-    }
-    ENGINE_BLK(8029DB54);
-    return r;
-}
-
-extern u8 D_803A742D, D_803A742E;
-extern s32 D_80358064;
-
-/* The gears (unkA0): D_803A742D (to 0xC8) with D_803A742E set, else one
-   down to 1; unk76 10 when it is 0 and D_80358064; and with unk76
-   negative, the camera's headings turned half way round */
-REGS(gp)
-void func_8029A914(VS *vs) {
-    s32 g, h;
-
-    ENGINE_BLK(8029A914);
-    if (D_803A742E != 0) {
-        ENGINE_BLK(8029A93C);
-        g = D_803A742D;
-        if (g >= 0xC9) {
-            ENGINE_BLK(8029A950);
-            g = 0xC8;
-        }
-        ENGINE_BLK(8029A954);
-        vs->unkA0 = g;
-    } else {
-        ENGINE_BLK(8029A95C);
-        g = vs->unkA0;
-        if (g != 1) {
-            ENGINE_BLK(8029A96C);
-            vs->unkA0 = g - 1;
-        }
-    }
-    ENGINE_BLK(8029A974);
-    if (vs->unk76 == 0) {
-        ENGINE_BLK(8029A980);
-        if (D_80358064 != 0) {
-            ENGINE_BLK(8029A990);
-            vs->unk76 = 10;
-        }
-    }
-    ENGINE_BLK(8029A998);
-    if (vs->unk76 < 0) {
-        ENGINE_BLK(8029A9A4);
-        h = (u16)D_803A7410 - 0x800;
-        if (h < 0) {
-            ENGINE_BLK(8029A9C4);
-            h += 0xFFF;
-        }
-        ENGINE_BLK(8029A9C8);
-        D_803A7410 = h;
-        h = (u16)D_803A7412 + 0x800;
-        if (0xFFF < h) {
-            ENGINE_BLK(8029A9E8);
-            h -= 0xFFF;
-        }
-        ENGINE_BLK(8029A9EC);
-        D_803A7412 = h;
-    }
-    ENGINE_BLK(8029A9F0);
-}
-
-/* For each texture record of D_802C23B4 for this id (byte 0; its first
-   texture number, a half at 4 + byte 1 * 2), the display list's
-   G_SETTIMG commands (0xFD) from dl to end that load it: (record, the
-   command's offset + 4, 0) appended at D_803B35F0 */
-REGS(s0, s1, s2)
-void func_8029DF78(u32 dl_, u32 end_, u32 id) {
-    u32 *dl = (u32 *)(__UINTPTR_TYPE__)dl_, *end = (u32 *)(__UINTPTR_TYPE__)end_;
-    s32 *ids = D_802C23B4, k;
-    u8 *rec, *out = D_803B35F0;
-    u32 *p, w, tex;
-
-    ENGINE_BLK(8029DF78);
-    for (;;) {
-        ENGINE_BLK(8029DFC8);
-        if (*ids == -1)
-            break;
-        ENGINE_BLK(8029DFD8);
-        rec = *(u8 *PTR32 *)ids;
-        ids++;
-        if (rec[0] != id)
-            continue;
-        ENGINE_BLK(8029DFE8);
-        k = -1;
-        if (rec[2] == 0)
-            continue;
-        ENGINE_BLK(8029E008);
-        k++;
-        tex = *(u16 *)(rec + rec[1] * 2 + 4);
-        for (p = dl;;) {
-            ENGINE_BLK(8029E020);
-            if (p == end)
-                break;
-            ENGINE_BLK(8029E028);
-            w = p[0];
-            p += 2;
-            if ((w & 0xFF000000) >> 24 != 0xFD)
-                continue;
-            ENGINE_BLK(8029E044);
-            if (p[-1] != tex)
-                continue;
-            ENGINE_BLK(8029E050);
-            *(u8 *PTR32 *)out = rec;
-            ((u32 *)out)[1] = (u8 *)p - (u8 *)dl - 4;
-            ((u32 *)out)[2] = k;
-            out += 0xC;
-        }
-    }
-    ENGINE_BLK(8029E06C);
-    D_803B35F0 = out;
-}
-
-/* D_803B3730 = the translation by the keys' point (halves 0xC, 0xE,
-   0x10) on the spline at t; $a3 whether it isn't 0 (then D_803B3730 is
-   as it was) */
+/* D_803B3730 = the translation by the keys' position on the spline at t;
+   whether it isn't 0 */
 REGS(t5, t6, t7, s0, f30 -> a3)
-s32 func_8029EC68(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
-    s32 x, y, z, *m = D_803B3730;
-    f32 k0, k1;
+s32 func_8029EC68(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
+    s32 x, y, z;
 
     ENGINE_BLK(8029EC68);
-    x = spline_angle(p0, p1, p2, p3, 0xC, t, &k0, &k1);
+    x = spline_half(p0, p1, p2, p3, 6, t);
     ENGINE_BLK(8029ECC4);
-    y = spline_angle(p0, p1, p2, p3, 0xE, t, &k0, &k1);
+    y = spline_half(p0, p1, p2, p3, 7, t);
     ENGINE_BLK(8029ED00);
-    z = spline_angle(p0, p1, p2, p3, 0x10, t, &k0, &k1);
+    z = spline_half(p0, p1, p2, p3, 8, t);
     ENGINE_BLK(8029ED3C);
     if (x == 0) {
         ENGINE_BLK(8029ED4C);
@@ -1533,33 +1310,29 @@ s32 func_8029EC68(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
         }
     }
     ENGINE_BLK(8029ED64);
-    m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
-    m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
-    m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
-    m[12] = (u32)x << 16, m[13] = (u32)y << 16, m[14] = (u32)z << 16, m[15] = 0x10000;
+    mtx_translation(x, y, z);
     ENGINE_BLK(8029EDC0);
     return 1;
 }
 
-/* D_803B3730 = the scale (in 256ths) by the keys' halves 0, 2 and 4 on
-   the spline at t; $a3 whether it isn't 0x100 each way */
+/* D_803B3730 = the scale by the keys' on the spline at t; whether it
+   isn't 1 each way */
 REGS(t5, t6, t7, s0, f30 -> a3)
-s32 func_8029EDEC(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
-    s32 x, y, z, *m = D_803B3730;
-    f32 k0, k1;
+s32 func_8029EDEC(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
+    s32 x, y, z;
 
     ENGINE_BLK(8029EDEC);
-    x = spline_angle(p0, p1, p2, p3, 0, t, &k0, &k1);
+    x = spline_half(p0, p1, p2, p3, 0, t);
     ENGINE_BLK(8029EE48);
-    y = spline_angle(p0, p1, p2, p3, 2, t, &k0, &k1);
+    y = spline_half(p0, p1, p2, p3, 1, t);
     ENGINE_BLK(8029EE84);
-    z = spline_angle(p0, p1, p2, p3, 4, t, &k0, &k1);
+    z = spline_half(p0, p1, p2, p3, 2, t);
     ENGINE_BLK(8029EEC0);
-    if (x == 0x100) {
+    if (x == SCALE_ONE) {
         ENGINE_BLK(8029EED4);
-        if (y == 0x100) {
+        if (y == SCALE_ONE) {
             ENGINE_BLK(8029EEDC);
-            if (z == 0x100) {
+            if (z == SCALE_ONE) {
                 ENGINE_BLK(8029EEE4);
                 ENGINE_BLK(8029EF54);
                 return 0;
@@ -1567,71 +1340,77 @@ s32 func_8029EDEC(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
         }
     }
     ENGINE_BLK(8029EEEC);
-    m[0] = (s32)((u32)x << 16) >> 8, m[1] = 0, m[2] = 0, m[3] = 0;
-    m[4] = 0, m[5] = (s32)((u32)y << 16) >> 8, m[6] = 0, m[7] = 0;
-    m[8] = 0, m[9] = 0, m[10] = (s32)((u32)z << 16) >> 8, m[11] = 0;
-    m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
+    mtx_scale(x, y, z);
     ENGINE_BLK(8029EF54);
     return 1;
 }
 
-/* A part's frame from its two key frames (k: scale, rotation x, y, z,
-   translation as s16s, the second key 0x14 on), the fraction t of the way:
-   each matrix that isn't the identity into acc (func_802ACCCC) in the
-   order scale, z, y, x, translation */
-/* (fp: what it puts back, as the original reloads it; its rotations
-   leave theirs) */
+/* A part's frame from key k and the next, the fraction t of the way: each
+   matrix that isn't the identity into acc (func_802ACCCC), in the order
+   scale, z, y, x, translation.  (fp: what it puts back, as the original
+   reloads it) */
 REGS(s3, s2, f30, fp)
-void func_8029EF80(s16 *k, s32 *acc, f32 t, s32 fp) {
-    s32 r;
+void func_8029EF80(Key *k, s32 *acc, f32 t, s32 fp) {
+    Key *n = k + 1;
 
     ENGINE_BLK(8029EF80);
-    r = func_8029F760(k[0], k[1], k[2], k[10], k[11], k[12], t);
-    ENGINE_BLK(8029EFA8);
-    if (r != 0) {
+    if (func_8029F760(k->scale[0], k->scale[1], k->scale[2], n->scale[0], n->scale[1], n->scale[2], t)) {
+        ENGINE_BLK(8029EFA8);
         ENGINE_BLK(8029EFB0);
         func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029EFA8);
     }
     ENGINE_BLK(8029EFBC);
-    r = func_8029F608(k[5], k[15], t);
-    ENGINE_BLK(8029EFC8);
-    if (r != 0) {
+    if (func_8029F608(k->rot[2], n->rot[2], t)) {
+        ENGINE_BLK(8029EFC8);
         ENGINE_BLK(8029EFD0);
         func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029EFC8);
     }
     ENGINE_BLK(8029EFDC);
-    r = func_8029F560(k[4], k[14], t);
-    ENGINE_BLK(8029EFE8);
-    if (r != 0) {
+    if (func_8029F560(k->rot[1], n->rot[1], t)) {
+        ENGINE_BLK(8029EFE8);
         ENGINE_BLK(8029EFF0);
         func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029EFE8);
     }
     ENGINE_BLK(8029EFFC);
-    r = func_8029F4B8(k[3], k[13], t);
-    ENGINE_BLK(8029F008);
-    if (r != 0) {
+    if (func_8029F4B8(k->rot[0], n->rot[0], t)) {
+        ENGINE_BLK(8029F008);
         ENGINE_BLK(8029F010);
         func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029F008);
     }
     ENGINE_BLK(8029F01C);
-    r = func_8029F3D0(k[6], k[7], k[8], k[16], k[17], k[18], t);
-    ENGINE_BLK(8029F038);
-    if (r != 0) {
+    if (func_8029F3D0(k->pos[0], k->pos[1], k->pos[2], n->pos[0], n->pos[1], n->pos[2], t)) {
+        ENGINE_BLK(8029F038);
         ENGINE_BLK(8029F040);
         func_802ACCCC(D_803B3730, acc);
+    } else {
+        ENGINE_BLK(8029F038);
     }
     ENGINE_BLK(8029F04C);
     ENGINE_LEAVE(30, fp);
 }
 
-/* the same along a spline: the four keys (D_803B7FC0-D_803B7FC3 of the
-   0x14-byte records 8 on from s1) at t, in the order scale, z, y, x,
-   translation */
-REGS(s1, s2, f30)
-void func_8029E730(u8 *keys, s32 *acc, f32 t) {
-    u8 *k = keys + 8, *p0 = k + D_803B7FC0 * 0x14, *p1 = k + D_803B7FC1 * 0x14, *p2 = k + D_803B7FC2 * 0x14,
-       *p3 = k + D_803B7FC3 * 0x14;
+/* the spline's four keys of a part's record */
+#define SPLINE_KEYS(rec, p0, p1, p2, p3)                                                                       \
+    do {                                                                                                     \
+        Key *k_ = (Key *)(rec)->keys;                                                                        \
+        p0 = k_ + D_803B7FC0, p1 = k_ + D_803B7FC1, p2 = k_ + D_803B7FC2, p3 = k_ + D_803B7FC3;               \
+    } while (0)
 
+/* the same along the spline: the four keys at t, in the order scale, z, y,
+   x, translation */
+REGS(s1, s2, f30)
+void func_8029E730(AnimPart *rec, s32 *acc, f32 t) {
+    Key *p0, *p1, *p2, *p3;
+
+    SPLINE_KEYS(rec, p0, p1, p2, p3);
     ENGINE_BLK(8029E730);
     if (func_8029EDEC(p0, p1, p2, p3, t)) {
         ENGINE_BLK(8029E7C4);
@@ -1675,213 +1454,214 @@ void func_8029E730(u8 *keys, s32 *acc, f32 t) {
     ENGINE_BLK(8029E848);
 }
 
-/* An animation's step (its state at a: 4 the fraction, 0xC the loops so
-   far, 0xE their limit (-1 none), 0x10 running, 0x11 backwards, 0x12 the
-   mode (0 wraps, 1 stops at the end), 0x13 the key, 0x14 the speed):
-   the fraction t on by rate * speed, the key k on by its whole part, over
-   n keys.  At an end it wraps (mode 0) or stops there (1, and it turns
-   round), and when the loops reach their limit it stops (0x10 clear). */
+/* ---- an animation's step --------------------------------------------------- */
+
+/* a key's speed: in 300ths of a key a frame (times the Anim's speed) */
+#define ANIM_RATE_DIV 300.0f
+
+/* the rate at fraction t between keys k and k + 1 of these speeds */
+#define ANIM_RATE(lo, hi, t) (((f32)((hi) - (lo)) * (t) + (f32)(lo)) / ANIM_RATE_DIV)
+
+/* An animation's step: the fraction t on by rate * speed (back, when it
+   runs backwards), the key k on by its whole part, over n keys.  At an end
+   it wraps (ANIM_WRAP) or turns round there (ANIM_BOUNCE), counting a
+   loop; when the loops reach their limit it stops at that end (running
+   cleared).  Returns the key, the fraction in *t_out. */
 REGS(t0, t2, t6, f6, f30 -> t2, f30)
-s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
-    s32 speed = a[0x14], back = (s8)a[0x11], mode = a[0x12], w, c, lim;
-    f32 fspeed = (f32)speed, f;
+s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
+    s32 speed = a->speed, back = a->back, mode = (u8)a->mode, w, c, lim, stop;
+    f32 f;
 
     ENGINE_BLK(8029F1BC);
-    rate = rate * fspeed;
+    rate = rate * (f32)speed;
     if (back != 1) {
         ENGINE_BLK(8029F1E8);
         t = t + rate;
         w = engine_trunc_w_s(t);
         t = t - (f32)w;
         k += w;
-        if (k < n - 1)
-            goto done;
-        ENGINE_BLK(8029F20C);
-        if (n - 1 == 0) {
-            ENGINE_BLK(8029F21C);
-            engine_break(0x8029F21C, 7);
-        }
-        ENGINE_BLK(8029F220);
-        c = *(s16 *)(a + 0xC) + (s32)((u32)k / (u32)(n - 1));
-        lim = *(s16 *)(a + 0xE);
-        *(s16 *)(a + 0xC) = c;
-        if (!(c < lim)) {
-            ENGINE_BLK(8029F244);
-            if (lim != -1) {
+        if (k >= n - 1) {
+            /* past the last key */
+            ENGINE_BLK(8029F20C);
+            if (n - 1 == 0) {
+                ENGINE_BLK(8029F21C);
+                engine_break(0x8029F21C, 7);
+            }
+            ENGINE_BLK(8029F220);
+            c = a->loops + (s32)((u32)k / (u32)(n - 1));
+            lim = a->limit;
+            a->loops = c;
+            stop = 0;
+            if (c >= lim) {
+                ENGINE_BLK(8029F244);
+                stop = lim != -1;
+            }
+            if (stop) {
                 ENGINE_BLK(8029F24C);
                 t = 1.0f;
                 k = n - 2;
-                if (mode == 1) {
+                if (mode == ANIM_BOUNCE) {
                     ENGINE_BLK(8029F25C);
                     back = 1;
                 }
                 ENGINE_BLK(8029F260);
-                a[0x10] = 0;
-                goto done;
+                a->running = 0;
+            } else {
+                ENGINE_BLK(8029F26C);
+                if (mode != ANIM_WRAP) {
+                    ENGINE_BLK(8029F274);
+                    if (mode != ANIM_BOUNCE) {
+                        ENGINE_BLK(8029F27C);
+                        engine_syscall(0x8029F27C);
+                    }
+                    ENGINE_BLK(8029F2A4);
+                    t = 1.0f;
+                    back = 1;
+                    k = n - 2;
+                } else {
+                    ENGINE_BLK(8029F280);
+                    if (n - 1 == 0) {
+                        ENGINE_BLK(8029F298);
+                        engine_break(0x8029F298, 7);
+                    }
+                    k = (u32)k % (u32)(n - 1);
+                    ENGINE_BLK(8029F29C);
+                }
             }
         }
-        ENGINE_BLK(8029F26C);
-        if (mode != 0) {
-            ENGINE_BLK(8029F274);
-            if (mode != 1) {
-                ENGINE_BLK(8029F27C);
-                engine_syscall(0x8029F27C);
+    } else {
+        ENGINE_BLK(8029F2B8);
+        t = t - rate;
+        if (t <= 0.0f) {
+            ENGINE_BLK(8029F2D0);
+            f = (f32)engine_trunc_w_s(t) - 1.0f;
+            t = t - f;
+            k += engine_cvt_w_s(f);
+        }
+        ENGINE_BLK(8029F2F8);
+        if (k < 0) {
+            /* before the first key */
+            ENGINE_BLK(8029F300);
+            c = a->loops + back;
+            lim = a->limit;
+            if (n == 0) {
+                ENGINE_BLK(8029F328);
+                engine_break(0x8029F328, 7);
             }
-            ENGINE_BLK(8029F2A4);
-            t = 1.0f;
-            back = 1;
-            k = n - 2;
-            goto done;
-        }
-        ENGINE_BLK(8029F280);
-        if (n - 1 == 0) {
-            ENGINE_BLK(8029F298);
-            engine_break(0x8029F298, 7);
-        }
-        k = (u32)k % (u32)(n - 1);
-        ENGINE_BLK(8029F29C);
-        goto done;
-    }
-    ENGINE_BLK(8029F2B8);
-    t = t - rate;
-    if (t <= 0.0f) {
-        ENGINE_BLK(8029F2D0);
-        f = (f32)engine_trunc_w_s(t);
-        f = f - 1.0f;
-        t = t - f;
-        w = engine_cvt_w_s(f);
-        k += w;
-    }
-    ENGINE_BLK(8029F2F8);
-    if (k >= 0)
-        goto done;
-    ENGINE_BLK(8029F300);
-    c = *(s16 *)(a + 0xC) + back;
-    lim = *(s16 *)(a + 0xE);
-    if (n == 0) {
-        ENGINE_BLK(8029F328);
-        engine_break(0x8029F328, 7);
-    }
-    ENGINE_BLK(8029F32C);
-    *(s16 *)(a + 0xC) = c;
-    if (!(c < lim)) {
-        ENGINE_BLK(8029F338);
-        if (lim != -1) {
-            ENGINE_BLK(8029F344);
-            t = 0.0f;
-            k = 0;
-            if (mode == 1) {
-                ENGINE_BLK(8029F354);
-                back = 0;
+            ENGINE_BLK(8029F32C);
+            a->loops = c;
+            stop = 0;
+            if (c >= lim) {
+                ENGINE_BLK(8029F338);
+                stop = lim != -1;
             }
-            ENGINE_BLK(8029F358);
-            a[0x10] = 0;
-            goto done;
+            if (stop) {
+                ENGINE_BLK(8029F344);
+                t = 0.0f;
+                k = 0;
+                if (mode == ANIM_BOUNCE) {
+                    ENGINE_BLK(8029F354);
+                    back = 0;
+                }
+                ENGINE_BLK(8029F358);
+                a->running = 0;
+            } else {
+                ENGINE_BLK(8029F364);
+                if (mode != ANIM_WRAP) {
+                    ENGINE_BLK(8029F36C);
+                    if (mode != ANIM_BOUNCE) {
+                        ENGINE_BLK(8029F374);
+                        engine_syscall(0x8029F374);
+                    }
+                    ENGINE_BLK(8029F3A8);
+                    t = 0.0f;
+                    back = 0;
+                    k = 0;
+                } else {
+                    ENGINE_BLK(8029F378);
+                    if (n - 1 == 0) {
+                        ENGINE_BLK(8029F394);
+                        engine_break(0x8029F394, 7);
+                    }
+                    k = (u32)(-k) % (u32)(n - 1);
+                    ENGINE_BLK(8029F398);
+                    if (k != 0) {
+                        ENGINE_BLK(8029F3A0);
+                        k = (n - 1) - k;
+                    }
+                }
+            }
         }
     }
-    ENGINE_BLK(8029F364);
-    if (mode != 0) {
-        ENGINE_BLK(8029F36C);
-        if (mode != 1) {
-            ENGINE_BLK(8029F374);
-            engine_syscall(0x8029F374);
-        }
-        ENGINE_BLK(8029F3A8);
-        t = 0.0f;
-        back = 0;
-        k = 0;
-        goto done;
-    }
-    ENGINE_BLK(8029F378);
-    if (n - 1 == 0) {
-        ENGINE_BLK(8029F394);
-        engine_break(0x8029F394, 7);
-    }
-    k = (u32)(-k) % (u32)(n - 1);
-    ENGINE_BLK(8029F398);
-    if (k != 0) {
-        ENGINE_BLK(8029F3A0);
-        k = (n - 1) - k;
-    }
-done:
     ENGINE_BLK(8029F3B4);
-    a[0x11] = back;
-    a[0x13] = k;
-    *(f32 *)(a + 4) = t;
-    /* (what it leaves) */
-    ENGINE_LEAVE(12, speed);
+    a->back = back;
+    a->key = k;
+    a->t = t;
+    ENGINE_LEAVE(12, speed);            /* (what it leaves) */
     ENGINE_LEAVE(15, back);
     *t_out = t;
     return k;
 }
 
-extern s32 D_803B3770;                  /* the parts' records' base */
+extern u8 *PTR32 D_803B3770;            /* the other frame's matrices' base */
 
-/* An object's animation, one frame on: its state a (func_8029F1BC; the
-   rate from its data's per-key speeds, / 300), then each part's matrix
-   (base + the part's offset) from its rest matrix with the key frames'
-   (mode 0, func_8029EF80) or the spline's (mode 1, func_8029E730) on top,
-   to the RSP's form, and recorded (func_8029DCD4) or, when the animation
-   has stopped, dropped (func_8029DD54).  Leaves its registers in the
-   original's order, around its callees' (ENGINE_LEAVE). */
+/* An object's animation, one frame on: its state (func_8029F1BC; the rate
+   from its data's speeds), then each part's matrix from its rest matrix
+   with the key frames' (func_8029EF80) or the spline's (func_8029E730) on
+   top, to the RSP's form, and its copy into the other frame's buffer
+   queued (func_8029DCD4) or, when the animation has stopped, dropped
+   (func_8029DD54).  base is the parts' matrices'. */
 REGS(t0, v0)
-void func_8029E5AC(u8 *a, u8 *base) {
-    u8 *d = *(u8 *PTR32 *)a, *rec, *dst, *src;
-    s32 k = (s8)a[0x13], n, mode, running, parts, step, rem, i;
-    u32 *s, *w;
-    f32 t = *(f32 *)(a + 4), rate;
+void func_8029E5AC(Anim *a, u8 *base) {
+    u8 *d = a->data;
+    AnimPart *rec;
+    s32 k = a->key, n, interp, running, parts, step, i;
+    u32 *s, *w, *dst;
+    f32 t = a->t;
 
     ENGINE_BLK(8029E5AC);
-    n = d[0];
-    rate = (f32)(d[k + 2] - d[k + 1]) * t + (f32)d[k + 1];
-    rate = rate / 300.0f;
+    n = ANIM_KEYS_N(d);
     ENGINE_LEAVE(14, n);
-    k = func_8029F1BC(a, k, n, rate, t, &t);
+    k = func_8029F1BC(a, k, n, ANIM_RATE(ANIM_SPEED(d, k), ANIM_SPEED(d, k + 1), t), t, &t);
     ENGINE_BLK(8029E604);
-    mode = a[0x15];
-    running = a[0x10];
-    ENGINE_LEAVE(30, mode);
+    interp = a->interp;
+    running = (u8)a->running;
+    ENGINE_LEAVE(30, interp);
     ENGINE_LEAVE(12, running);
-    if (mode != 0) {
+    if (interp != ANIM_KEYS) {
         ENGINE_BLK(8029E614);
-        func_8029F110(a, mode);
+        func_8029F110(a, interp);
         ENGINE_BLK(8029E61C);
         func_8029F060(t, k, n);
     }
     ENGINE_BLK(8029E624);
-    step = 0x14 * n + 8;
-    rec = d + n + 2;
-    parts = d[n + 1];
-    rem = (u32)rec & 3;
-    if (rem != 0) {
+    step = ANIM_STRIDE(d);
+    parts = ANIM_NPARTS(d);
+    if (ANIM_MISALIGNED(d))
         ENGINE_BLK(8029E64C);
-        rec += 4 - rem;
-    }
-    for (;;) {
+    for (rec = anim_parts(d);; parts--, rec = (AnimPart *)((u8 *)rec + step)) {
         ENGINE_BLK(8029E658);
         if (parts == 0)
             break;
         ENGINE_BLK(8029E660);
-        dst = base + ((s32 *)rec)[0];
-        src = base + ((s32 *)rec)[1];
-        ENGINE_LEAVE(19, (u32)(rec + 8 + k * 0x14));
-        ENGINE_LEAVE(20, k * 0x14);
-        s = (u32 *)src;
-        w = (u32 *)dst;
-        for (i = 8; i != 0; i--) {
+        dst = (u32 *)(base + rec->mtx);
+        s = (u32 *)(base + rec->rest);
+        ENGINE_LEAVE(19, (u32)((Key *)rec->keys + k));
+        ENGINE_LEAVE(20, k * (s32)sizeof(Key));
+        for (w = dst, i = 8; i != 0; i--) {
             ENGINE_BLK(8029E694);
             w[0] = s[0];
             w[1] = s[1];
             w += 2, s += 2;
         }
         ENGINE_BLK(8029E6AC);
-        if (mode == 0) {
+        if (interp == ANIM_KEYS) {
             ENGINE_BLK(8029E6C4);
-            func_8029EF80((s16 *)(rec + 8 + k * 0x14), (s32 *)dst, t, mode);
+            func_8029EF80((Key *)rec->keys + k, (s32 *)dst, t, interp);
             ENGINE_BLK(8029E6CC);
         } else {
             ENGINE_BLK(8029E6B4);
-            if (mode != 1) {
+            if (interp != ANIM_SPLINE) {
                 ENGINE_BLK(8029E6C0);
                 engine_syscall(0x8029E6C0);
             }
@@ -1889,185 +1669,390 @@ void func_8029E5AC(u8 *a, u8 *base) {
             func_8029E730(rec, (s32 *)dst, t);
         }
         ENGINE_BLK(8029E6DC);
-        func_802ACCCC((s32 *)(src + 0x40), (s32 *)dst);
+        func_802ACCCC((s32 *)(base + rec->rest + 0x40), (s32 *)dst);
         ENGINE_BLK(8029E6E4);
-        func_802AC8CC((u32 *)dst);
+        func_802AC8CC(dst);
         ENGINE_BLK(8029E6EC);
         if (running != 1) {
             ENGINE_BLK(8029E6F8);
-            func_8029DCD4((u32)dst, D_803B3770 + ((s32 *)rec)[0]);
+            func_8029DCD4(dst, (u32 *)(D_803B3770 + rec->mtx));
             ENGINE_BLK(8029E700);
         } else {
             ENGINE_BLK(8029E708);
-            func_8029DD54((u32)dst);
+            func_8029DD54(dst);
         }
         ENGINE_BLK(8029E710);
-        rec += step;
-        parts--;
     }
     ENGINE_BLK(8029E71C);
     ENGINE_LEAVE(16, 0);
     ENGINE_LEAVE(17, (u32)rec);
 }
 
-REGS(v0, v1, a0, a1, a2, s4, s0, s1, s2 -> v0, v1, a0, s1, s2)
-s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s1, s32 s2, s32 *y_out, s32 *z_out,
-                  s32 *s1_out, s32 *s2_out);
+/* ---- an object's spheres ---------------------------------------------------- */
 
-/* An object's points (from p to end: its first (x, y, z), then records of
-   three s16s, the matrices' count and offsets) into D_803A7300's record
-   of id (the first, as it is) and D_803A6B30's from the first of id on
-   (each through its matrices at base, func_802AA890) */
-static void c454(s32 id, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0, s32 s1, s32 s2) {
-    u8 *r = D_803A7300;
-    s16 *h;
-    s32 ry, rz, called = 0;
+/* An object's spheres in its model (from the word after its bounding
+   sphere's radius): a point, its radius and power, the matrices it goes
+   through (their count and offsets) */
+typedef struct ObjSphere {
+    /* 0x00 */ s16 x, y, z;
+    /* 0x06 */ u16 r;
+    /* 0x08 */ u16 power;
+    /* 0x0A */ u16 nmtx;
+    /* 0x0C */ s32 mtx[1];
+} ObjSphere;
+#define OBJSPHERE_NEXT(s) ((ObjSphere *)((u8 *)(s) + (u32)(s)->nmtx * 4 + 0xC))
+#define OBJSPHERE_FIRST(p) ((ObjSphere *)((u8 *)(p) + 4))
 
-    ENGINE_BLK(8029C454);
-    for (;;) {
-        ENGINE_BLK(8029C480);
-        if (r[0x10] == id)
+/* a size from the model's (<< 5, times scale / 0x10000) */
+#define SCALED(v, scale) (((u32)(v) << 5) * (scale) / 0x10000)
+
+/* An object's spheres (from p to end) into D_803A7300's first free record
+   (its bounding sphere: the first u16 the radius) and D_803A6B30's (one
+   per sphere: its radius and power), all of this kind and not placed */
+REGS(t0, t1, t2, t3)
+void func_8029C354(s32 kind, u8 *p, u8 *end, s32 scale_) {
+    u32 scale = scale_, size;
+    ObjSphere *s;
+    Solid *b;
+    KindPart *r;
+
+    ENGINE_BLK(8029C354);
+    size = SCALED(*(u16 *)p, scale);
+    for (b = D_803A7300;; b++) {
+        ENGINE_BLK(8029C3A8);
+        if (b->end == -1)
             break;
-        r += 0x14;
     }
-    ENGINE_BLK(8029C48C);
-    p += 4;
-    ((s32 *)r)[0] = x;
-    ((s32 *)r)[1] = y;
-    ((s32 *)r)[2] = z;
-    r[0x11] = 1;
-    if (p == end)
-        goto done;
-    ENGINE_BLK(8029C4A8);
-    for (r = D_803A6B30;;) {
-        ENGINE_BLK(8029C4B0);
-        if (r[0x12] == id)
+    ENGINE_BLK(8029C3B4);
+    b->r = size;
+    b->kind = kind;
+    b->end = 0;
+    for (r = D_803A6B30;; r++) {
+        ENGINE_BLK(8029C3CC);
+        if (r->end == -1)
             break;
-        r += 0x14;
     }
-    for (;;) {
-        ENGINE_BLK(8029C4BC);
-        if (p == end)
+    for (s = OBJSPHERE_FIRST(p);; s = OBJSPHERE_NEXT(s)) {
+        ENGINE_BLK(8029C3D8);
+        if ((u8 *)s == end)
             break;
-        ENGINE_BLK(8029C4C4);
-        h = (s16 *)p;
-        x = func_802AA890(h[0], h[1], h[2], (u16)h[5], (s32 *)(p + 0xC), base, s0, s1, s2, &ry, &rz, &s1, &s2);
-        called = 1;
-        ENGINE_BLK(8029C4DC);
-        ((s32 *)r)[0] = x;
-        ((s32 *)r)[1] = ry;
-        ((s32 *)r)[2] = rz;
-        r[0x13] = 1;
-        p += (u16)h[5] * 4 + 0xC;
-        r += 0x14;
+        ENGINE_BLK(8029C3E0);
+        r->kind = kind;
+        r->end = 0;
+        r->power = s->power;
+        r->r = SCALED(s->r, scale);
+        r++;
+        ENGINE_BLK(8029C42C);
     }
-done:
-    ENGINE_BLK(8029C504);
-    if (called) {
-        ENGINE_LEAVE(17, s1);
-        ENGINE_LEAVE(18, s2);
-    }
+    ENGINE_BLK(8029C43C);
 }
 
-/* Whether (px, pz) is inside the triangle (x0, z0), (x1, z1), (x2, z2):
-   on the same side of each edge as a point inside (between the third
-   corner and the first edge's middle), an edge it lies on not counting
-   ($t7) */
+extern s32 D_803A73FC, D_803A7400, D_803A7404;  /* the last plane hit's point */
+
+/* Whether (x, y, z) is within lim of the triangle's plane; if so, its foot
+   on the plane (along the normal) in D_803A73FC-D_803A7404 and *px-*pz */
+REGS(t3, t4, t5, t6, s0 -> v0, v1, a0, a1)
+s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, CollisionTri *t, s32 *px, s32 *py, s32 *pz) {
+    s64 a = t->nx, b = t->ny, c = t->nz, d = t->d;
+    s64 dot, dist, s3, rx, ry, rz;
+    f32 f;
+
+    ENGINE_BLK(8029C160);
+    dot = (s64)((u64)a * (u64)(s64)x + (u64)b * (u64)(s64)y + (u64)c * (u64)(s64)z);
+    dist = engine_cvt_l_s((f32)(s64)((u64)dot + (u64)d) / t->nlen);
+    if (dist < 0) {
+        ENGINE_BLK(8029C1D4);
+        dist = -dist;
+    }
+    ENGINE_BLK(8029C1D8);
+    if (lim < dist) {
+        ENGINE_BLK(8029C26C);
+        ENGINE_LEAVE64(19, d);
+        ENGINE_BLK(8029C270);
+        *px = *py = *pz = 0;            /* (none: its callers don't look) */
+        return 0;
+    }
+    ENGINE_BLK(8029C1E4);
+    s3 = (s64)(0 - (u64)d - (u64)dot);
+    f = (f32)s3 / t->nlen2;
+    rx = (s64)((u64)engine_cvt_l_s(f * (f32)a) + (u64)(s64)x);
+    ry = (s64)((u64)engine_cvt_l_s(f * (f32)b) + (u64)(s64)y);
+    rz = (s64)((u64)engine_cvt_l_s(f * (f32)c) + (u64)(s64)z);
+    D_803A73FC = *px = (s32)rx;
+    D_803A7400 = *py = (s32)ry;
+    D_803A7404 = *pz = (s32)rz;
+    ENGINE_BLK(8029C270);
+    return 1;
+}
+
+/* Whether the point (x, z) at height y misses a switch's area: its n
+   triangles and the height range after them (two halves, wrapping when
+   the second is lower).  0 when it is inside a triangle and the range. */
+REGS(s4, t5, t0, t1, a1 -> t4)
+s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
+    s32 *t = tris, lo, hi, in;
+    u32 range;
+
+    ENGINE_BLK(8029DA90);
+    for (;;) {
+        ENGINE_BLK(8029DABC);
+        if (n == 0) {
+            ENGINE_BLK(8029DB54);
+            return 1;
+        }
+        ENGINE_BLK(8029DAC4);
+        n--;
+        t += 6;
+        in = func_802AA5E0(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1]);
+        ENGINE_BLK(8029DAE8);
+        if (!in)
+            continue;
+        ENGINE_BLK(8029DAF0);
+        in = func_802AA460(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1]);
+        ENGINE_BLK(8029DAF8);
+        if (in)
+            break;
+    }
+    /* inside this triangle: the range after the last (the halves of a word
+       func_802A3F80 stores, read through the word, which is how they are in
+       native-endian memory) */
+    ENGINE_BLK(8029DB00);
+    range = *(u32 *)(t + n * 6);
+    lo = range >> 16;
+    hi = range & 0xFFFF;
+    if (hi < lo) {
+        ENGINE_BLK(8029DB24);
+        in = 1;
+        if (y < lo) {
+            ENGINE_BLK(8029DB2C);
+            if (hi < y) {
+                ENGINE_BLK(8029DB34);
+                in = 0;
+            }
+        }
+    } else {
+        ENGINE_BLK(8029DB3C);
+        in = 0;
+        if (y >= lo) {
+            ENGINE_BLK(8029DB48);
+            in = y <= hi;
+        }
+    }
+    if (in)
+        ENGINE_BLK(8029DB50);
+    ENGINE_BLK(8029DB54);
+    return !in;
+}
+
+extern u8 D_803A742D, D_803A742E;       /* the gears' count, and whether it was stepped */
+extern s32 D_80358064;                  /* the game's frame in this mode */
+
+#define GEARS_MAX 0xC8
+#define BACKUP_SPEED 10                 /* unk76 when it was 0 (after the first frame) */
+#define HALF_TURN 0x800
+#define TURN 0x1000
+
+/* The gears (unkA0): D_803A742D (to 0xC8) when it was stepped this frame,
+   else one down to 1; unk76 10 when it is 0 (but on the mode's first
+   frame); and with unk76 negative, the camera's limits turned half round */
+REGS(gp)
+void func_8029A914(VS *vs) {
+    s32 g, h;
+
+    ENGINE_BLK(8029A914);
+    if (D_803A742E != 0) {
+        ENGINE_BLK(8029A93C);
+        g = D_803A742D;
+        if (g > GEARS_MAX) {
+            ENGINE_BLK(8029A950);
+            g = GEARS_MAX;
+        }
+        ENGINE_BLK(8029A954);
+        vs->unkA0 = g;
+    } else {
+        ENGINE_BLK(8029A95C);
+        g = vs->unkA0;
+        if (g != 1) {
+            ENGINE_BLK(8029A96C);
+            vs->unkA0 = g - 1;
+        }
+    }
+    ENGINE_BLK(8029A974);
+    if (vs->unk76 == 0) {
+        ENGINE_BLK(8029A980);
+        if (D_80358064 != 0) {
+            ENGINE_BLK(8029A990);
+            vs->unk76 = BACKUP_SPEED;
+        }
+    }
+    ENGINE_BLK(8029A998);
+    if (vs->unk76 < 0) {
+        ENGINE_BLK(8029A9A4);
+        h = D_803A7410 - HALF_TURN;
+        if (h < 0) {
+            ENGINE_BLK(8029A9C4);
+            h += TURN - 1;
+        }
+        ENGINE_BLK(8029A9C8);
+        D_803A7410 = h;
+        h = D_803A7412 + HALF_TURN;
+        if (h > TURN - 1) {
+            ENGINE_BLK(8029A9E8);
+            h -= TURN - 1;
+        }
+        ENGINE_BLK(8029A9EC);
+        D_803A7412 = h;
+    }
+    ENGINE_BLK(8029A9F0);
+}
+
+#define G_SETTIMG_OP 0xFD
+#define G_SETPRIMCOLOR_OP 0xFA
+#define GFX_OP(w) (((w) & 0xFF000000) >> 24)
+
+/* For each texture animation of this vehicle type, the G_SETTIMG commands
+   of its display list (dl to end) that load its first texture: (the
+   animation, the command's address word, texture 0) appended at
+   D_803B35F0 */
+REGS(s0, s1, s2)
+void func_8029DF78(u32 dl_, u32 end_, u32 type) {
+    u32 *dl = (u32 *)(__UINTPTR_TYPE__)dl_, *end = (u32 *)(__UINTPTR_TYPE__)end_;
+    s32 *ids = D_802C23B4;
+    TexAnim *T;
+    TexPatch *out = D_803B35F0;
+    u32 *p, w, tex;
+
+    ENGINE_BLK(8029DF78);
+    for (;;) {
+        ENGINE_BLK(8029DFC8);
+        if (*ids == -1)
+            break;
+        ENGINE_BLK(8029DFD8);
+        T = *(TexAnim *PTR32 *)ids;
+        ids++;
+        if (T->type != type)
+            continue;
+        ENGINE_BLK(8029DFE8);
+        if (T->c == 0)
+            continue;
+        ENGINE_BLK(8029E008);
+        tex = TEXANIM_KINDS(T, 0)[0];
+        for (p = dl;;) {
+            ENGINE_BLK(8029E020);
+            if (p == end)
+                break;
+            ENGINE_BLK(8029E028);
+            w = p[0];
+            p += 2;
+            if (GFX_OP(w) != G_SETTIMG_OP)
+                continue;
+            ENGINE_BLK(8029E044);
+            if (p[-1] != tex)
+                continue;
+            ENGINE_BLK(8029E050);
+            out->anim = T;
+            out->off = (u8 *)p - (u8 *)dl - 4;
+            out->idx = 0;
+            out++;
+        }
+    }
+    ENGINE_BLK(8029E06C);
+    D_803B35F0 = out;
+}
+
+/* Whether (px, pz) is inside the triangle (x0, z0), (x1, z1), (x2, z2): on
+   the same side of each edge as a point inside it (between the third
+   corner and the first edge's middle), an edge it lies on not counting */
 REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t7)
 s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz) {
-    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, f2, f4, f14, f22, f24, f26, f28;
-    s32 e = 4, in = 1, ex, ez;
+    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, ax, az, ex, ez, side, inside;
+    s32 e;
 
     ENGINE_BLK(8029BF64);
     cx = (f32)(x0 + x1) / 2.0f;
     cz = (f32)(z0 + z1) / 2.0f;
     cx = ((f32)x2 + cx) / 2.0f;
     cz = ((f32)z2 + cz) / 2.0f;
-    for (;;) {
+    /* the edges 0-1, 0-2 and 1-2 */
+    for (e = 3; e != 0; e--) {
         ENGINE_BLK(8029BFE4);
-        if (--e == 0)
-            break;
         ENGINE_BLK(8029BFF0);
         if (e == 3) {
             ENGINE_BLK(8029C038);
-            f2 = (f32)x0, f4 = (f32)z0;
-            ez = z1 - z0, ex = x1 - x0;
+            ax = (f32)x0, az = (f32)z0;
+            ez = (f32)(z1 - z0), ex = (f32)(x1 - x0);
+        } else if (e == 2) {
+            ENGINE_BLK(8029BFF8);
+            ENGINE_BLK(8029C01C);
+            ax = (f32)x0, az = (f32)z0;
+            ez = (f32)(z2 - z0), ex = (f32)(x2 - x0);
         } else {
-            if (e == 2) {
-                ENGINE_BLK(8029BFF8);
-                ENGINE_BLK(8029C01C);
-                f2 = (f32)x0, f4 = (f32)z0;
-                ez = z2 - z0, ex = x2 - x0;
-            } else {
-                ENGINE_BLK(8029BFF8);
-                ENGINE_BLK(8029C000);
-                f2 = (f32)x1, f4 = (f32)z1;
-                ez = z2 - z1, ex = x2 - x1;
-            }
+            ENGINE_BLK(8029BFF8);
+            ENGINE_BLK(8029C000);
+            ax = (f32)x1, az = (f32)z1;
+            ez = (f32)(z2 - z1), ex = (f32)(x2 - x1);
         }
         ENGINE_BLK(8029C050);
-        f26 = (f32)ez;
-        f28 = (f32)ex;
-        f14 = (fpx - f2) * f26;
-        f14 = f14 - (fpz - f4) * f28;
-        if (f14 == 0.0f)
+        side = (fpx - ax) * ez - (fpz - az) * ex;
+        if (side == 0.0f)
             continue;
         ENGINE_BLK(8029C080);
-        f22 = (cx - f2) * f26;
-        f24 = (cz - f4) * f28;
-        f22 = f22 - f24;
-        if (!(f14 > 0.0f)) {
+        inside = (cx - ax) * ez - (cz - az) * ex;
+        if (side > 0.0f) {
+            ENGINE_BLK(8029C0B0);
+            if (inside > 0.0f)
+                continue;
+        } else {
             ENGINE_BLK(8029C09C);
-            if (f22 < 0.0f)
+            if (inside < 0.0f)
                 continue;
             ENGINE_BLK(8029C0A8);
-        } else {
-            ENGINE_BLK(8029C0B0);
-            if (f22 > 0.0f)
-                continue;
         }
+        /* on the other side of this edge */
         ENGINE_BLK(8029C0BC);
-        in = 0;
-        break;
+        ENGINE_BLK(8029C0C0);
+        ENGINE_LEAVE(10, e);
+        return 0;
     }
+    ENGINE_BLK(8029BFE4);
     ENGINE_BLK(8029C0C0);
-    ENGINE_LEAVE(10, e);
-    return in;
+    ENGINE_LEAVE(10, 0);
+    return 1;
 }
 
-/* An object's 32 parts from its model file (their data at the offsets of
-   the u16 list at model + its word 0x10), then its matrix block (model +
-   its word 0x18: a size, a length, the words) into both buffers, the rest
-   of the size as identity matrices */
+/* ---- an object's parts and matrices from its model ------------------------- */
+
+/* An object's 32 parts from its model file (their animations' data at the
+   offsets of the u16 list at model + its word 0x10), then its matrix block
+   (model + its word 0x18: a size, a length, the words) into both frames'
+   buffers, the rest of the size as identity matrices */
 REGS(t0, t1, v1, a0)
 void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
-    u8 *p = (u8 *)parts, *base = model + *(s32 *)(model + 0x10), *blk, *end;
+    Anim *a = ANIM(parts);
+    u8 *base = model + *(s32 *)(model + 0x10), *blk, *end;
     u16 *off = (u16 *)base;
     s32 n, size;
-    u32 w = 0, *s;
+    u32 w, *s;
 
     ENGINE_BLK(8029F85C);
-    for (n = 0x20; n != 0;) {
+    for (n = 0x20; n != 0; n--, a++, off++) {
         ENGINE_BLK(8029F888);
-        n--;
-        *(f32 *)(p + 4) = 0.0f;
-        *(u8 *PTR32 *)p = base + *off;
-        *(s16 *)(p + 0xC) = 0;
-        *(s16 *)(p + 0xE) = 0;
-        p[0x10] = 0;
-        p[0x11] = 0;
-        p[0x12] = 0;
-        p[0x13] = 0;
-        p[0x14] = 0;
-        p[0x15] = 0;
-        p += 0x18;
-        off++;
+        a->t = 0.0f;
+        a->data = base + *off;
+        a->loops = 0;
+        a->limit = 0;
+        a->running = 0;
+        a->back = 0;
+        a->mode = 0;
+        a->key = 0;
+        a->speed = 0;
+        a->interp = 0;
     }
     ENGINE_BLK(8029F8C8);
     blk = model + *(s32 *)(model + 0x18);
     size = *(s32 *)blk;
     end = blk + 8 + *(s32 *)(blk + 4);
-    for (s = (u32 *)(blk + 8);;) {
+    for (s = (u32 *)(blk + 8);; size -= 4) {
         ENGINE_BLK(8029F8E4);
         if ((u8 *)s == end)
             break;
@@ -2076,9 +2061,8 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
         *(u32 *)buf1 = w;
         *(u32 *)buf2 = w;
         buf1 += 4, buf2 += 4;
-        size -= 4;
     }
-    for (;;) {
+    for (;; size -= 0x40) {
         ENGINE_BLK(8029F90C);
         if (size == 0)
             break;
@@ -2086,39 +2070,30 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
         /* (the identity Mtx; by words, since its halves are a word's in
            native-endian memory, tools/recomp/native_sites.txt) */
         for (n = 0; n < 2; n++) {
-            u8 *m = n == 0 ? buf1 : buf2;
+            u32 *m = (u32 *)(n == 0 ? buf1 : buf2);
 
-            *(u32 *)(m + 0x00) = 0x00010000;
-            *(u32 *)(m + 0x04) = 0;
-            *(u32 *)(m + 0x08) = 0x00000001;
-            *(u32 *)(m + 0x0C) = 0;
-            *(u32 *)(m + 0x10) = 0;
-            *(u32 *)(m + 0x14) = 0x00010000;
-            *(u32 *)(m + 0x18) = 0;
-            *(u32 *)(m + 0x1C) = 0x00000001;
-            *(u32 *)(m + 0x20) = 0;
-            *(u32 *)(m + 0x24) = 0;
-            *(u32 *)(m + 0x28) = 0;
-            *(u32 *)(m + 0x2C) = 0;
-            *(u32 *)(m + 0x30) = 0;
-            *(u32 *)(m + 0x34) = 0;
-            *(u32 *)(m + 0x38) = 0;
-            *(u32 *)(m + 0x3C) = 0;
+            m[0] = 0x00010000, m[1] = 0, m[2] = 0x00000001, m[3] = 0;
+            m[4] = 0, m[5] = 0x00010000, m[6] = 0, m[7] = 0x00000001;
+            m[8] = 0, m[9] = 0, m[10] = 0, m[11] = 0;
+            m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0;
         }
         buf1 += 0x40, buf2 += 0x40;
-        size -= 0x40;
     }
     ENGINE_BLK(8029F9C4);
     ENGINE_LEAVE(15, 0);
 }
 
-/* The plane through the part's three points (0x28 on, each / 8): its
-   normal (a, b, c) as the cross product of two edges, and d (64 bits) */
+/* the corner's position (the triangle's are the model's << 3, from there
+   >> 3 again for the plane) */
+#define CORNER(t, i, j) ((t)->v[i][j] >> 3)
+
+/* The plane through the triangle's corners: its normal (a, b, c) as the
+   cross product of two edges, and d */
 REGS(s0 -> a1, a2, a3, t0)
-s64 func_8029D90C(u8 *part, s64 *b_out, s64 *c_out, s64 *d_out) {
-    s32 *w = (s32 *)(part + 0x28);
-    s32 x1 = w[0] >> 3, y1 = w[1] >> 3, z1 = w[2] >> 3, x2 = w[3] >> 3, y2 = w[4] >> 3, z2 = w[5] >> 3;
-    s32 x3 = w[6] >> 3, y3 = w[7] >> 3, z3 = w[8] >> 3;
+s64 func_8029D90C(CollisionTri *t, s64 *b_out, s64 *c_out, s64 *d_out) {
+    s32 x1 = CORNER(t, 0, 0), y1 = CORNER(t, 0, 1), z1 = CORNER(t, 0, 2);
+    s32 x2 = CORNER(t, 1, 0), y2 = CORNER(t, 1, 1), z2 = CORNER(t, 1, 2);
+    s32 x3 = CORNER(t, 2, 0), y3 = CORNER(t, 2, 1), z3 = CORNER(t, 2, 2);
     s64 dy2 = y1 - y2, dz3 = z1 - z3, dz2 = z1 - z2, dy3 = y1 - y3, dx3 = x1 - x3, dx2 = x1 - x2;
     s64 a, b, c;
 
@@ -2132,71 +2107,65 @@ s64 func_8029D90C(u8 *part, s64 *b_out, s64 *c_out, s64 *d_out) {
     return a;
 }
 
-/* Whether one of the part's triangle's edges (0x28 on: the corners 0-1,
-   0-2, 1-2) passes within r of (x, y, z): the edge's line meets the
-   sphere at a t in [0, 1] ($t7) */
+/* Whether one of the triangle's edges (the corners 0-1, 0-2, 1-2) passes
+   within r of (x, y, z): the edge's line meets the sphere at a t in
+   [0, 1] (either root of |a + t e - p|^2 = r^2) */
 REGS(t3, t4, t5, t6, s0 -> t7)
-s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
-    s32 *w = (s32 *)((u8 *)piece + 0x28), *a, *b;
-    s32 e = 4, hit = 0, ex, ey, ez, px, py, pz;
-    u64 dd, dot2, cc = 0, disc = 0, q = 0;
-    f32 f0, f2, f4, f6;
+s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, CollisionTri *tri) {
+    s32 *a, *b, e, ex, ey, ez, px, py, pz;
+    u64 ee, pe2, cc = 0, disc = 0, q = 0;
+    f32 root, num, den, t;
 
     ENGINE_BLK(8029BD0C);
-    for (;;) {
+    for (e = 3;; e--) {
         ENGINE_BLK(8029BD14);
-        if (--e == 0)
+        if (e == 0)
             break;
         ENGINE_BLK(8029BD20);
         if (e == 3) {
             ENGINE_BLK(8029BD68);
-            a = w, b = w + 3;
+            a = tri->v[0], b = tri->v[1];
+        } else if (e == 2) {
+            ENGINE_BLK(8029BD28);
+            ENGINE_BLK(8029BD4C);
+            a = tri->v[0], b = tri->v[2];
         } else {
             ENGINE_BLK(8029BD28);
-            if (e == 2) {
-                ENGINE_BLK(8029BD4C);
-                a = w, b = w + 6;
-            } else {
-                ENGINE_BLK(8029BD30);
-                a = w + 3, b = w + 6;
-            }
+            ENGINE_BLK(8029BD30);
+            a = tri->v[1], b = tri->v[2];
         }
         ENGINE_BLK(8029BD80);
         px = a[0] - x, ex = b[0] - a[0];
         py = a[1] - y, ey = b[1] - a[1];
         pz = a[2] - z, ez = b[2] - a[2];
-        dd = (u64)(s64)ex * (u64)(s64)ex + (u64)(s64)ey * (u64)(s64)ey + (u64)(s64)ez * (u64)(s64)ez;
-        dot2 = ((u64)(s64)ex * (u64)(s64)px + (u64)(s64)ey * (u64)(s64)py + (u64)(s64)ez * (u64)(s64)pz) << 1;
+        ee = (u64)(s64)ex * (u64)(s64)ex + (u64)(s64)ey * (u64)(s64)ey + (u64)(s64)ez * (u64)(s64)ez;
+        pe2 = ((u64)(s64)ex * (u64)(s64)px + (u64)(s64)ey * (u64)(s64)py + (u64)(s64)ez * (u64)(s64)pz) << 1;
         cc = (u64)(s64)px * (u64)(s64)px + (u64)(s64)py * (u64)(s64)py + (u64)(s64)pz * (u64)(s64)pz -
              (u64)(s64)r * (u64)(s64)r;
-        q = (dd * cc) << 2;
-        disc = dot2 * dot2 - q;
+        q = (ee * cc) << 2;
+        disc = pe2 * pe2 - q;
         if ((s64)disc < 0)
             continue;
         ENGINE_BLK(8029BE60);
-        f2 = __builtin_sqrtf((f32)(s64)disc);
-        dot2 = 0 - dot2;
-        f4 = (f32)(s64)dot2;
-        dd <<= 1;
-        f0 = (f32)(s64)dd;
-        f6 = (f4 + f2) / f0;
-        if (!(f6 < 0.0f)) {
+        root = __builtin_sqrtf((f32)(s64)disc);
+        num = (f32)(s64)(0 - pe2);
+        den = (f32)(s64)(ee << 1);
+        t = (num + root) / den;
+        if (!(t < 0.0f)) {
             ENGINE_BLK(8029BEA4);
-            if (!(f6 > 1.0f)) {
+            if (!(t > 1.0f)) {
                 ENGINE_BLK(8029BEB0);
-                hit = 1;
                 break;
             }
         }
         ENGINE_BLK(8029BEB8);
-        f6 = (f4 - f2) / f0;
-        if (f6 < 0.0f)
+        t = (num - root) / den;
+        if (t < 0.0f)
             continue;
         ENGINE_BLK(8029BECC);
-        if (f6 > 1.0f)
+        if (t > 1.0f)
             continue;
         ENGINE_BLK(8029BED8);
-        hit = 1;
         break;
     }
     ENGINE_BLK(8029BEDC);
@@ -2205,124 +2174,114 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
     ENGINE_LEAVE64(10, cc);
     ENGINE_LEAVE64(19, disc);
     ENGINE_LEAVE64(20, q);
-    return hit;
+    return e != 0;
 }
 
 extern u8 D_803A742C, D_803A742F;
 
-/* The camera's two headings (D_803A7410, D_803A7412) widened to take in
-   a and b (12-bit, wrapped): set to them when unset (0 and 0xFFF).  When
-   that widens the turn between them (func_8029B930) with D_80358064 set,
-   D_803A742F is set, and with D_803A742C (and D_803A742E clear) the
-   count D_803A742D steps on (1 to 8, else up one) and D_803A742E is set. */
+/* The camera's limits (D_803A7410, D_803A7412) widened to take in a and b
+   (12-bit, wrapped): set to them when unset (0 and 0xFFF).  When that
+   widens the turn between them (func_8029B930) after the mode's first
+   frame, D_803A742F is set, and with D_803A742C (and D_803A742E clear) the
+   gears D_803A742D step on (1 to 8, else up one) and D_803A742E is set. */
 REGS(a0, a1)
 void func_8029B7CC(s32 a, s32 b) {
-    s32 before, h0, h1, d;
+    s32 before, h0, h1;
 
     ENGINE_BLK(8029B7CC);
     if (a < 0) {
         ENGINE_BLK(8029B7DC);
-        a += 0xFFF;
+        a += TURN - 1;
     }
     ENGINE_BLK(8029B7E0);
-    if (a >= 0x1000) {
+    if (a >= TURN) {
         ENGINE_BLK(8029B7EC);
-        a -= 0xFFF;
+        a -= TURN - 1;
     }
     ENGINE_BLK(8029B7F0);
     if (b < 0) {
         ENGINE_BLK(8029B7F8);
-        b += 0xFFF;
+        b += TURN - 1;
     }
     ENGINE_BLK(8029B7FC);
-    if (b >= 0x1000) {
+    if (b >= TURN) {
         ENGINE_BLK(8029B808);
-        b -= 0xFFF;
+        b -= TURN - 1;
     }
     ENGINE_BLK(8029B80C);
     before = func_8029B930();
     ENGINE_BLK(8029B814);
-    h0 = (u16)D_803A7410;
-    h1 = (u16)D_803A7412;
+    h0 = D_803A7410;
+    h1 = D_803A7412;
     if (h0 == 0) {
         ENGINE_BLK(8029B834);
-        if (h1 == 0xFFF) {
+        if (h1 == TURN - 1) {
             ENGINE_BLK(8029B840);
             D_803A7410 = a;
             D_803A7412 = b;
-            goto done;
+            ENGINE_BLK(8029B91C);
+            return;
         }
     }
+    /* the wider of each, compared as 12-bit angles (in the top bits) */
     ENGINE_BLK(8029B850);
     h1 = (u32)h1 << 20;
     b = (u32)b << 20;
     h0 = (u32)h0 << 20;
     a = (u32)a << 20;
-    d = (s32)((u32)b - h1);
-    if (d <= 0) {
+    if ((s32)((u32)b - h1) <= 0) {
         ENGINE_BLK(8029B868);
         h1 = b;
     }
     ENGINE_BLK(8029B86C);
-    d = (s32)((u32)a - h0);
-    if (d > 0) {
+    if ((s32)((u32)a - h0) > 0) {
         ENGINE_BLK(8029B878);
         h0 = a;
     }
     ENGINE_BLK(8029B87C);
     D_803A7410 = (u32)h0 >> 20;
     D_803A7412 = (u32)h1 >> 20;
-    {
-        s32 after = func_8029B930();
-
+    if (before < func_8029B930()) {
         ENGINE_BLK(8029B8A0);
-        if (!(before < after))
-            goto done;
-    }
-    ENGINE_BLK(8029B8AC);
-    if (D_80358064 == 0)
-        goto done;
-    ENGINE_BLK(8029B8BC);
-    D_803A742F = 1;
-    if (D_803A742C == 0)
-        goto done;
-    ENGINE_BLK(8029B8D8);
-    if (D_803A742E != 0)
-        goto done;
-    ENGINE_BLK(8029B8E8);
-    if (D_803A742D == 1) {
-        ENGINE_BLK(8029B8FC);
-        d = 8;
+        ENGINE_BLK(8029B8AC);
+        if (D_80358064 != 0) {
+            ENGINE_BLK(8029B8BC);
+            D_803A742F = 1;
+            if (D_803A742C != 0) {
+                ENGINE_BLK(8029B8D8);
+                if (D_803A742E == 0) {
+                    ENGINE_BLK(8029B8E8);
+                    if (D_803A742D == 1) {
+                        ENGINE_BLK(8029B8FC);
+                        D_803A742D = 8;
+                    } else {
+                        ENGINE_BLK(8029B904);
+                        D_803A742D = D_803A742D + 1;
+                    }
+                    ENGINE_BLK(8029B908);
+                    D_803A742E = 1;
+                }
+            }
+        }
     } else {
-        ENGINE_BLK(8029B904);
-        d = D_803A742D + 1;
+        ENGINE_BLK(8029B8A0);
     }
-    ENGINE_BLK(8029B908);
-    D_803A742D = d;
-    D_803A742E = 1;
-done:
     ENGINE_BLK(8029B91C);
 }
 
-REGS(v1 -> fp)
-s32 func_802AD7FC(u32 x);
-
-
-/* The part's heading in the ground plane (0x4C, 12-bit) from its
-   triangle's normal (corners / 8 at 0x28): the arctangent
-   (func_802AD7FC) of the normal's x over its length across, by quadrant;
-   turned half round (0x56 set) when the corner moved 100 along the
-   normal lies on the other side of the plane (func_8029D90C) than the
+/* The triangle's heading in the ground plane (12-bit) from its normal: the
+   arctangent (func_802AD7FC) of the normal's x over its length across, by
+   quadrant; turned half round (unk56 set) when the corner moved 100 along
+   the normal lies on the other side of the plane (func_8029D90C) than the
    origin does */
 REGS(s0)
-void func_8029D56C(u8 *part) {
-    u32 *w = (u32 *)(part + 0x28);
-    s32 x1 = w[0] >> 3, y1 = w[1] >> 3, z1 = w[2] >> 3, x2 = w[3] >> 3, y2 = w[4] >> 3, z2 = w[5] >> 3;
-    s32 x3 = w[6] >> 3, y3 = w[7] >> 3, z3 = w[8] >> 3, h, px, py, pz;
+void func_8029D56C(CollisionTri *t) {
+    s32 x1 = CORNER(t, 0, 0), y1 = CORNER(t, 0, 1), z1 = CORNER(t, 0, 2);
+    s32 x2 = CORNER(t, 1, 0), y2 = CORNER(t, 1, 1), z2 = CORNER(t, 1, 2);
+    s32 x3 = CORNER(t, 2, 0), y3 = CORNER(t, 2, 1), z3 = CORNER(t, 2, 2), h, px, py, pz;
     s64 ey3 = y3 - y1, ez2 = z2 - z1, ez3 = z3 - z1, ey2 = y2 - y1, ex2 = x2 - x1, ex3 = x3 - x1;
-    s64 nx, ny, nz, ax, az, num, len, q, dn, nb, nc, nd, side;
-    f64 f0, f2, f4, f6;
-    s64 l2, l4, l6;
+    s64 nx, ny, nz, ax, az, num, len, dn, nb, nc, nd, side;
+    f64 nlen;
 
     ENGINE_BLK(8029D56C);
     nx = (s64)((u64)ey3 * (u64)ez2 - (u64)ez3 * (u64)ey2);
@@ -2355,43 +2314,33 @@ void func_8029D56C(u8 *part) {
         }
     }
     ENGINE_BLK(8029D72C);
-    q = num / len;
-    h = func_802AD7FC((u32)q);
+    h = func_802AD7FC((u32)(num / len));
     ENGINE_BLK(8029D738);
     h = (u32)h >> 4;
     if (nx < 0) {
         ENGINE_BLK(8029D740);
         if (nz < 0) {
             ENGINE_BLK(8029D754);
-            h += 0x800;
+            h += HALF_TURN;
         } else {
             ENGINE_BLK(8029D748);
-            h = 0xFFF - h;
+            h = TURN - 1 - h;
         }
     } else {
         ENGINE_BLK(8029D75C);
         if (nz < 0) {
             ENGINE_BLK(8029D764);
-            h = 0x800 - h;
+            h = HALF_TURN - h;
         }
     }
     ENGINE_BLK(8029D76C);
-    f0 = __builtin_sqrt((f64)(s64)((u64)nx * (u64)nx + (u64)ny * (u64)ny + (u64)nz * (u64)nz));
-    f2 = (f64)nx / f0;
-    f4 = (f64)ny / f0;
-    f2 = f2 * 100.0;
-    l2 = engine_cvt_l_d(f2);
-    px = x1 + (s32)l2;
-    f6 = (f64)nz / f0;
-    f4 = f4 * 100.0;
-    l4 = engine_cvt_l_d(f4);
-    py = y1 + (s32)l4;
-    f6 = f6 * 100.0;
-    l6 = engine_cvt_l_d(f6);
-    pz = z1 + (s32)l6;
-    dn = func_8029D90C(part, &nb, &nc, &nd);
+    nlen = __builtin_sqrt((f64)(s64)((u64)nx * (u64)nx + (u64)ny * (u64)ny + (u64)nz * (u64)nz));
+    px = x1 + (s32)engine_cvt_l_d((f64)nx / nlen * 100.0);
+    py = y1 + (s32)engine_cvt_l_d((f64)ny / nlen * 100.0);
+    pz = z1 + (s32)engine_cvt_l_d((f64)nz / nlen * 100.0);
+    dn = func_8029D90C(t, &nb, &nc, &nd);
     ENGINE_BLK(8029D81C);
-    part[0x56] = 0;
+    t->unk56 = 0;
     side = (s64)((u64)(s64)px * (u64)dn + (u64)(s64)py * (u64)nb + (u64)(s64)pz * (u64)nc + (u64)nd);
     if (side > 0) {
         ENGINE_BLK(8029D868);
@@ -2403,105 +2352,161 @@ void func_8029D56C(u8 *part) {
             goto done;
         ENGINE_BLK(8029D860);
     }
+    /* the point and the origin on the same side: it faces away */
     ENGINE_BLK(8029D870);
-    h -= 0x800;
-    part[0x56] = 1;
+    h -= HALF_TURN;
+    t->unk56 = 1;
     if (h < 0) {
         ENGINE_BLK(8029D880);
-        h += 0xFFF;
+        h += TURN - 1;
     }
 done:
     ENGINE_BLK(8029D884);
-    *(s16 *)(part + 0x4C) = h;
+    t->heading = h;
 }
 
-/* a doubleword into game memory, the high word first */
-static void put_dword(u8 *p, s64 v) {
+/* ---- an object's spheres and triangles placed --------------------------------- */
+
+REGS(v0, v1, a0, a1, a2, s4, s0, s1, s2 -> v0, v1, a0, s1, s2)
+s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s1, s32 s2, s32 *y_out, s32 *z_out,
+                  s32 *s1_out, s32 *s2_out);
+
+/* An object's spheres (from p to end) placed: its bounding sphere (its
+   D_803A7300 record) at (x, y, z), and each of its D_803A6B30's at its
+   point through its matrices at base (func_802AA890; s0-s2 its point
+   when it has none) */
+static void c454(s32 kind, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0, s32 s1, s32 s2) {
+    Solid *b;
+    KindPart *r;
+    ObjSphere *s;
+    s32 ry, rz, called = 0;
+
+    ENGINE_BLK(8029C454);
+    for (b = D_803A7300;; b++) {
+        ENGINE_BLK(8029C480);
+        if (b->kind == kind)
+            break;
+    }
+    ENGINE_BLK(8029C48C);
+    s = OBJSPHERE_FIRST(p);
+    b->x = x;
+    b->y = y;
+    b->z = z;
+    b->end = 1;
+    if ((u8 *)s != end) {
+        ENGINE_BLK(8029C4A8);
+        for (r = D_803A6B30;; r++) {
+            ENGINE_BLK(8029C4B0);
+            if (r->kind == kind)
+                break;
+        }
+        for (;; s = OBJSPHERE_NEXT(s), r++) {
+            ENGINE_BLK(8029C4BC);
+            if ((u8 *)s == end)
+                break;
+            ENGINE_BLK(8029C4C4);
+            r->x = func_802AA890(s->x, s->y, s->z, s->nmtx, s->mtx, base, s0, s1, s2, &ry, &rz, &s1, &s2);
+            called = 1;
+            ENGINE_BLK(8029C4DC);
+            r->y = ry;
+            r->z = rz;
+            r->end = 1;
+        }
+    }
+    ENGINE_BLK(8029C504);
+    if (called) {
+        ENGINE_LEAVE(17, s1);
+        ENGINE_LEAVE(18, s2);
+    }
+}
+
+/* an object model's triangles (func_8029D24C's data): their count, the
+   matrices' count and offsets, then the triangles, three s16 corners */
+typedef struct ObjTris {
+    /* 0x00 */ u16 count;
+    /* 0x02 */ u16 nmtx;
+    /* 0x04 */ s32 mtx[1];
+} ObjTris;
+#define OBJTRI(o, i) ((s16 *)((u8 *)(o) + 4 + (o)->nmtx * 4 + (i) * 0x14))
+
+/* a 64-bit plane component into game memory, the high word first */
+static void put_dword(s64 *p, s64 v) {
     ((u32 *)p)[0] = (u32)((u64)v >> 32);
     ((u32 *)p)[1] = (u32)v;
 }
 
-/* The parts of kind id from a model's triangles (data: their count, the
-   matrices' count and offsets, then 0x14-byte triangles of three s16
-   points): each part (D_803B9890's of (id, its number), new ones past
-   D_803BD300's end) gets the triangle's corners through the matrices at
-   base (func_802AA890, / 4), its plane (the normal at 0, 8, 0x10, d at
-   0x18, 64 bits; |n|^2 and |n| at 0x24 and 0x20), the axis the normal is
-   most along (0x4E: 0 z, 1 y, 2 x), its heading (func_8029D56C) and
-   func_8029D534 */
+/* the triangle's corner i through the matrices at base (func_802AA890,
+   / 4) */
+#define PLACE_CORNER(i, B_AFTER)                                                                               \
+    do {                                                                                                     \
+        s32 x_, y_, z_;                                                                                      \
+        x_ = func_802AA890(c[3 * (i)], c[3 * (i) + 1], c[3 * (i) + 2], data->nmtx, data->mtx, base, (u32)t, s1, \
+                           s2, &y_, &z_, &s1, &s2);                                                          \
+        ENGINE_BLK(B_AFTER);                                                                                 \
+        t->v[i][0] = x_ >> 2, t->v[i][1] = y_ >> 2, t->v[i][2] = z_ >> 2;                                   \
+    } while (0)
+
+/* The triangles of owner id from its model (the next ids from 1; new
+   ones past D_803BD300): each placed through the matrices at base, its
+   plane (the normal, d, |n|^2 and |n|), the axis the normal is most
+   along, its heading (func_8029D56C) and unk55 (func_8029D534) */
 REGS(t6, t2, s4)
-void func_8029D24C(u16 *data, s32 id, u8 *base) {
-    s32 count = data[0], idx = 1, n = data[1], x, y, z, *pw;
-    s32 *offs = (s32 *)(data + 2);
-    s16 *t;
-    u8 *p, *end;
-    s32 s1, s2, y1, z1, x1, y2, x2, z2, x3, y3, z3;
+void func_8029D24C(ObjTris *data, s32 owner, u8 *base) {
+    s32 count = data->count, id = 1, x1, y1, z1, x2, y2, z2, x3, y3, z3, s1, s2;
     s32 dy2, dz3, dz2, dy3, dx3, dx2;
+    s16 *c;
+    CollisionTri *t, *end;
     s64 nx, ny, nz, d, ax, ay, az;
-    f32 f0, f2;
+    f32 len2;
 
     ENGINE_BLK(8029D24C);
-    for (;;) {
+    for (;; id++, count--) {
         ENGINE_BLK(8029D278);
         if (count == 0)
             break;
+        /* its triangle of this id, or a new one */
         ENGINE_BLK(8029D280);
-        p = D_803B9890;
         end = D_803BD300;
-        for (;;) {
+        for (t = D_803B9890;; t++) {
             ENGINE_BLK(8029D294);
-            if (p == end) {
-                end += 0x60;
+            if (t == end) {
+                end++;
                 break;
             }
             ENGINE_BLK(8029D29C);
-            if (p[0x4F] != id) {
-                p += 0x60;
+            if (t->owner != owner)
                 continue;
-            }
             ENGINE_BLK(8029D2A8);
-            if (p[0x50] == idx)
+            if (t->id == id)
                 break;
-            p += 0x60;
         }
         ENGINE_BLK(8029D2B4);
         D_803BD300 = end;
-        p[0x4F] = id;
-        p[0x50] = idx;
-        t = (s16 *)((u8 *)data + 4 + n * 4 + (idx - 1) * 0x14);
-        pw = (s32 *)(p + 0x28);
+        t->owner = owner;
+        t->id = id;
+        c = OBJTRI(data, id - 1);
+        /* (what $s1 and $s2 hold: func_802AA890's point when there are no
+           matrices) */
         s1 = (u32)end;
         s2 = (u32)&D_803BD300;
-        x = func_802AA890(t[0], t[1], t[2], n, offs, base, (u32)p, s1, s2, &y, &z, &s1, &s2);
-        ENGINE_BLK(8029D2F8);
-        pw[0] = x >> 2, pw[1] = y >> 2, pw[2] = z >> 2;
-        x = func_802AA890(t[3], t[4], t[5], n, offs, base, (u32)p, s1, s2, &y, &z, &s1, &s2);
-        ENGINE_BLK(8029D320);
-        pw[3] = x >> 2, pw[4] = y >> 2, pw[5] = z >> 2;
-        x = func_802AA890(t[6], t[7], t[8], n, offs, base, (u32)p, s1, s2, &y, &z, &s1, &s2);
-        ENGINE_BLK(8029D348);
-        x3 = pw[6] = x >> 2, y3 = pw[7] = y >> 2, z3 = pw[8] = z >> 2;
-        x1 = pw[0], y1 = pw[1], z1 = pw[2], x2 = pw[3], y2 = pw[4], z2 = pw[5];
+        PLACE_CORNER(0, 8029D2F8);
+        PLACE_CORNER(1, 8029D320);
+        PLACE_CORNER(2, 8029D348);
+        x1 = t->v[0][0], y1 = t->v[0][1], z1 = t->v[0][2];
+        x2 = t->v[1][0], y2 = t->v[1][1], z2 = t->v[1][2];
+        x3 = t->v[2][0], y3 = t->v[2][1], z3 = t->v[2][2];
         dz3 = z1 - z3, dy2 = y1 - y2, dy3 = y1 - y3, dz2 = z1 - z2, dx3 = x1 - x3, dx2 = x1 - x2;
         nx = (s64)((u64)(s64)dy2 * (u64)(s64)dz3 - (u64)(s64)dz2 * (u64)(s64)dy3);
-        put_dword(p, nx);
-        f0 = (f32)nx;
-        f0 = f0 * f0;
         ny = (s64)((u64)(s64)dz2 * (u64)(s64)dx3 - (u64)(s64)dx2 * (u64)(s64)dz3);
-        put_dword(p + 8, ny);
-        f2 = (f32)ny;
-        f2 = f2 * f2;
-        f0 = f0 + f2;
         nz = (s64)((u64)(s64)dx2 * (u64)(s64)dy3 - (u64)(s64)dy2 * (u64)(s64)dx3);
-        put_dword(p + 0x10, nz);
-        f2 = (f32)nz;
-        f2 = f2 * f2;
-        f0 = f0 + f2;
-        *(f32 *)(p + 0x24) = f0;
-        f0 = __builtin_sqrtf(f0);
         d = (s64)(0 - ((u64)nx * (u64)(s64)x2 + (u64)ny * (u64)(s64)y2 + (u64)nz * (u64)(s64)z2));
-        put_dword(p + 0x18, d);
-        *(f32 *)(p + 0x20) = f0;
+        put_dword(&t->nx, nx);
+        put_dword(&t->ny, ny);
+        put_dword(&t->nz, nz);
+        put_dword(&t->d, d);
+        len2 = (f32)nx * (f32)nx + (f32)ny * (f32)ny + (f32)nz * (f32)nz;
+        t->nlen2 = len2;
+        t->nlen = __builtin_sqrtf(len2);
         ax = nx;
         if (nx < 0) {
             ENGINE_BLK(8029D47C);
@@ -2520,108 +2525,85 @@ void func_8029D24C(u16 *data, s32 id, u8 *base) {
             az = -nz;
         }
         ENGINE_BLK(8029D498);
-        if (!(az < ax)) {
-            ENGINE_BLK(8029D4A4);
-            if (!(az < ay)) {
-                ENGINE_BLK(8029D4AC);
-                p[0x4E] = 0;
-                goto axis;
-            }
-        }
-        ENGINE_BLK(8029D4B4);
-        if (!(ay < ax)) {
-            ENGINE_BLK(8029D4C0);
-            if (!(ay < az)) {
+        if (az >= ax && (ENGINE_BLK(8029D4A4), az >= ay)) {
+            ENGINE_BLK(8029D4AC);
+            t->axis = 0;
+        } else {
+            ENGINE_BLK(8029D4B4);
+            if (ay >= ax && (ENGINE_BLK(8029D4C0), ay >= az)) {
                 ENGINE_BLK(8029D4C8);
-                p[0x4E] = 1;
-                goto axis;
+                t->axis = 1;
+            } else {
+                ENGINE_BLK(8029D4D4);
+                t->axis = 2;
             }
         }
-        ENGINE_BLK(8029D4D4);
-        p[0x4E] = 2;
-    axis:
         ENGINE_BLK(8029D4DC);
-        func_8029D56C(p);
+        func_8029D56C(t);
         ENGINE_BLK(8029D4E4);
-        func_8029D534(id, p);
+        func_8029D534(owner, t);
         ENGINE_BLK(8029D4EC);
-        idx++;
-        count--;
     }
     ENGINE_BLK(8029D50C);
 }
 
-/* An object's parts set up (func_8029D24C, flagged by func_8029D120),
-   then each train stop of this id (D_803BC1D0's records) that the point
-   (x, z) at y doesn't miss (by its triangles, func_8029DA90, or its part
-   pairs, func_8029DB7C): the parts it lists (kind 0, then this id's)
-   unflagged (func_8029D1D4) */
-static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
-    u8 *q, *end, *b, *part;
-    s32 kind, n, miss, t7;
+/* The owner's triangles placed (func_8029D24C) and switched on
+   (func_8029D120); then each of its switches whose area the point (x, z)
+   at height y is in (func_8029DA90), or whose (part, key) pairs its parts
+   match (func_8029DB7C), switches its triangles off (func_8029D1D4) */
+static void d040(ObjTris *data, s32 owner, u8 *base, s32 x, s32 z, s32 y, Anim *parts) {
+    TriSwitch *q, *end;
+    CollisionTri *t;
+    u8 *b;
+    s32 n, miss;
 
     ENGINE_BLK(8029D040);
-    func_8029D24C(data, id, base);
+    func_8029D24C(data, owner, base);
     ENGINE_BLK(8029D050);
-    func_8029D120(id);
+    func_8029D120(owner);
     ENGINE_BLK(8029D058);
     end = D_803BD304;
-    for (q = D_803BC1D0;;) {
+    for (q = D_803BC1D0;; q++) {
         ENGINE_BLK(8029D06C);
         if (q == end)
             break;
         ENGINE_BLK(8029D074);
-        if (q[0xC4] != id) {
-            q += 0xDC;
+        if (q->owner != owner)
             continue;
-        }
         ENGINE_BLK(8029D080);
-        kind = q[0xC5];
-        n = q[0xC6];
-        if (kind == 0) {
+        if (q->kind == 0) {
             ENGINE_BLK(8029D090);
-            miss = func_8029DA90((s32 *)q, n, x, z, y);
+            miss = func_8029DA90(q->area, q->n, x, z, y);
             ENGINE_BLK(8029D098);
         } else {
             ENGINE_BLK(8029D0A0);
-            miss = func_8029DB7C(q, n, parts);
+            miss = func_8029DB7C((u8 *)q->area, q->n, parts);
         }
         ENGINE_BLK(8029D0A8);
-        if (miss != 0) {
-            q += 0xDC;
+        if (miss != 0)
             continue;
-        }
         ENGINE_BLK(8029D0B0);
-        b = q + 0xC8;
-        n = q[0xC7];
-        t7 = 0;
-        for (;;) {
+        for (b = q->level, n = q->nlevel;; b++) {
             ENGINE_BLK(8029D0BC);
             if (n == 0)
                 break;
             ENGINE_BLK(8029D0C4);
             n--;
-            func_8029D1D4(t7, *b);
-            b++;
+            func_8029D1D4(0, *b);
             ENGINE_BLK(8029D0D4);
         }
         ENGINE_BLK(8029D0DC);
-        b = q + 0xD1;
-        n = q[0xD0];
-        t7 = q[0xC4];
-        for (;;) {
+        for (b = q->own, n = q->nown;; b++) {
             ENGINE_BLK(8029D0E8);
             if (n == 0)
                 break;
             ENGINE_BLK(8029D0F0);
             n--;
-            part = func_8029D1D4(t7, *b);
-            ENGINE_LEAVE(16, (u32)part);
-            b++;
+            t = func_8029D1D4(q->owner, *b);
+            ENGINE_LEAVE(16, (u32)t);
             ENGINE_BLK(8029D100);
         }
         ENGINE_BLK(8029D108);
-        q += 0xDC;
     }
     ENGINE_BLK(8029D110);
 }
@@ -2629,123 +2611,105 @@ static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
 void func_8028FAC0(s32 x, s32 y, s32 z, s32 id);
 void func_802920DC(s32 x, s32 y, s32 z, s32 id);
 
-/* D_803A6B30's record func_8029C6E4 finds (kind 6, id 0x3BD), looked up
-   again for its point (no cost: the original keeps it in registers) */
-static s32 *record_3bd(void) {
-    u8 *p;
-
-    for (p = D_803A6B30; (s8)p[0x13] != -1; p += 0x14)
-        if (p[0x12] == 6 && *(s32 *)(p + 0xC) == 0x3BD)
-            return (s32 *)p;
-    return NULL;
-}
-
-/* With D_803A6B30's record 0x3BD (func_8029C6E4), its point to
-   func_8028FAC0 and func_802920DC */
+/* With the crane's hook (func_8029C6E4), its point to func_8028FAC0 and
+   func_802920DC */
 void func_8029C5EC(void) {
-    s32 found, *r;
+    s32 x, y, z;
 
     ENGINE_BLK(8029C5EC);
-    found = func_8029C6E4();
-    ENGINE_BLK(8029C650);
-    if (found != 0) {
-        r = record_3bd();
+    if (crane_hook(&x, &y, &z)) {
+        ENGINE_BLK(8029C650);
         ENGINE_BLK(8029C658);
-        func_8028FAC0(r[0], r[1], r[2], 0x3BD);
+        func_8028FAC0(x, y, z, CRANE_HOOK_R);
         ENGINE_BLK(8029C66C);
-        func_802920DC(r[0], r[1], r[2], 0x3BD);
+        func_802920DC(x, y, z, CRANE_HOOK_R);
+    } else {
+        ENGINE_BLK(8029C650);
     }
     ENGINE_BLK(8029C680);
 }
 
-/* The animation a's nine values (the halves of its four current keys,
-   D_803B7FC0-D_803B7FC3 of the 0x14-byte records 8 on from keys) on the
-   spline at its fraction, into out; the basis set up for its mode
-   (func_8029F110, func_8029F060).  $t1 is out's end + 2. */
+/* ---- the animations' blends ------------------------------------------------- */
+
+/* The animation's frame at its fraction on the spline (its four keys,
+   D_803B7FC0-D_803B7FC3, of the part's record rec): the nine halves into
+   out, the basis set up for its mode (func_8029F110, func_8029F060) */
 REGS(t4, t5, t1)
-void func_8029FFA0(u8 *a, u8 *keys, s16 *out) {
-    u8 *d = *(u8 *PTR32 *)a, *k = keys + 8;
-    s16 *p0, *p1, *p2, *p3;
-    s32 i, v = 0;
-    f32 t = *(f32 *)(a + 4), k0 = 0.0f, k1 = 0.0f;
+void func_8029FFA0(Anim *a, AnimPart *rec, s16 *out) {
+    Key *p0, *p1, *p2, *p3;
+    s32 i;
+    f32 t = a->t;
 
     ENGINE_BLK(8029FFA0);
-    func_8029F110(a, a[0x15]);
+    func_8029F110(a, a->interp);
     ENGINE_BLK(8029FFFC);
-    func_8029F060(t, a[0x13], d[0]);
+    func_8029F060(t, (u8)a->key, ANIM_KEYS_N(a->data));
     ENGINE_BLK(802A0004);
-    p0 = (s16 *)(k + D_803B7FC0 * 0x14);
-    p1 = (s16 *)(k + D_803B7FC1 * 0x14);
-    p2 = (s16 *)(k + D_803B7FC2 * 0x14);
-    p3 = (s16 *)(k + D_803B7FC3 * 0x14);
-    for (i = 9;;) {
+    SPLINE_KEYS(rec, p0, p1, p2, p3);
+    for (i = 0;; i++) {
         ENGINE_BLK(802A0070);
-        if (i == 0)
+        if (i == 9)
             break;
         ENGINE_BLK(802A0078);
-        k0 = (f32)*p0;
-        k1 = (f32)*p1;
-        v = engine_cvt_w_s(func_8029E878(k0, k1, (f32)*p2, (f32)*p3, t));
+        *out++ = spline_half(p0, p1, p2, p3, i, t);
         ENGINE_BLK(802A00AC);
-        p0++, p1++, p2++, p3++;
-        *out++ = v;
-        i--;
     }
     ENGINE_BLK(802A00D4);
 }
 
-/* The key k (nine s16s: scale or position, three angles, position) the
-   fraction t of the way to the next (0x14 on), into out: the six
-   positions straight, the angles the short way round (func_8029F6B0) */
+/* The key k the fraction t of the way to the next, into out: the
+   positions and scales straight, the angles the short way round
+   (func_8029F6B0) */
 REGS(t5, t1, f30)
-void func_802A0118(s16 *k, s16 *out, f32 t) {
-    s32 w0, w;
+void func_802A0118(Key *k, s16 *out, f32 t) {
+    Key *n = k + 1;
+    s32 i;
 
     ENGINE_BLK(802A0118);
-    w0 = engine_cvt_w_s((f32)(k[10] - k[0]) * t);
-    out[0] = k[0] + w0;
-    out[1] = k[1] + engine_cvt_w_s((f32)(k[11] - k[1]) * t);
-    out[2] = k[2] + engine_cvt_w_s((f32)(k[12] - k[2]) * t);
-    out[3] = func_8029F6B0(k[3], k[13], t);
+    for (i = 0; i < 3; i++)
+        out[i] = k->scale[i] + engine_cvt_w_s((f32)(n->scale[i] - k->scale[i]) * t);
+    out[3] = func_8029F6B0(k->rot[0], n->rot[0], t);
     ENGINE_BLK(802A01C4);
-    out[4] = func_8029F6B0(k[4], k[14], t);
+    out[4] = func_8029F6B0(k->rot[1], n->rot[1], t);
     ENGINE_BLK(802A01D4);
-    out[5] = func_8029F6B0(k[5], k[15], t);
+    out[5] = func_8029F6B0(k->rot[2], n->rot[2], t);
     ENGINE_BLK(802A01E4);
-    w = engine_cvt_w_s((f32)(k[16] - k[6]) * t);
-    out[6] = k[6] + w;
-    out[7] = k[7] + engine_cvt_w_s((f32)(k[17] - k[7]) * t);
-    out[8] = k[8] + engine_cvt_w_s((f32)(k[18] - k[8]) * t);
+    for (i = 0; i < 3; i++)
+        out[6 + i] = k->pos[i] + engine_cvt_w_s((f32)(n->pos[i] - k->pos[i]) * t);
 }
 
 extern u8 D_803A7428, D_80370C3C;
-extern u8 D_802C2984[];                 /* the effect's description */
+extern u8 D_802C2984[];                 /* the hit effect's description */
 
-/* An effect (func_802A6274: D_802C2984, D_803A7428 * 7000 long) at the
-   point D_803A73FC-D_803A7404, and D_80370C3C set */
+#define HIT_FX_UNIT 7000                /* the effect's length, per func_8029A800's fx_len */
+
+/* The hit effect (func_802A6274) at the point D_803A73FC-D_803A7404, and
+   D_80370C3C set */
 void func_8029B994(void) {
     ENGINE_BLK(8029B994);
-    func_802A6274((s32)(u32)D_802C2984, D_803A7428 * 0x1B58, 0, (u32)D_803A73FC << 13, (u32)D_803A7400 << 13,
+    func_802A6274((s32)(u32)D_802C2984, D_803A7428 * HIT_FX_UNIT, 0, (u32)D_803A73FC << 13, (u32)D_803A7400 << 13,
                   (u32)D_803A7404 << 13, 0, 0, 0, 0, 0, 0, 0, 1, 0);
     ENGINE_BLK(8029BA98);
     D_80370C3C = 1;
 }
 
-extern s32 D_803A73F0, D_803A73F4, D_803A73F8, D_803A7408, D_80358060;
+extern s32 D_803A73F0, D_803A73F4, D_803A73F8;  /* the vehicle's point */
+extern s32 D_80358060;                  /* a frame count; 0 before the first */
+extern s8 *PTR32 D_803A7408;            /* the kinds whose hit turns the camera, to a negative byte */
 extern u8 D_803F7811, D_803F7801, D_803A7427, D_803A7429, D_803A7424, D_803A7425;
 extern s16 D_803A7422, D_803F77FC;
 
-/* A vehicle's collision state for the frame: the camera's headings
-   unset, its point and settings from the caller's registers, the gears
-   into D_803A742D; the building lists reset (func_802BCC10 when
-   D_80358060 is clear or with a2 for a vehicle other than 0xFF, then
-   func_802BCBD8).  Returns D_80358060 ($v0). */
-static s32 a800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s32 t2, s32 t3, s32 type, VS *vs) {
-    s32 v;
+/* A vehicle's collision state for the frame (func_8029A800): the camera's
+   limits unset, its point and settings, the gears into D_803A742D; the
+   building lists reset (func_802BCC10 before the first frame, or with a2
+   for a vehicle other than the carrier, then func_802BCBD8). */
+static void a800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len, s32 speed, s32 fx_speed, s32 t3,
+                 s32 type, VS *vs) {
+    s32 first;
 
     ENGINE_BLK(8029A800);
     D_803A7410 = 0;
-    D_803A7412 = 0xFFF;
+    D_803A7412 = TURN - 1;
     D_803A73F0 = x;
     D_803A73F4 = y;
     D_803A73F8 = z;
@@ -2755,23 +2719,23 @@ static s32 a800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s32
     D_803A742D = vs->unkA0;
     D_803A742F = 0;
     D_803F7801 = t3;
-    D_803A7427 = a3;
-    D_803A7428 = t0;
+    D_803A7427 = hit_fx;
+    D_803A7428 = fx_len;
     D_803A7429 = 0;
-    D_803A7422 = t2;
-    D_803F77FC = t1;
-    D_803A7408 = a1;
+    D_803A7422 = fx_speed;
+    D_803F77FC = speed;
+    D_803A7408 = (s8 *)kinds;
     D_803A7424 = 0;
     D_803A7425 = 0;
-    v = D_80358060;
-    if (v == 0) {
+    first = D_80358060 == 0;
+    if (first) {
         ENGINE_BLK(8029A8D8);
         func_802BCC10();
     }
     ENGINE_BLK(8029A8E0);
     if (a2 != 0) {
         ENGINE_BLK(8029A8E8);
-        if (type != 0xFF) {
+        if (type != VEHICLE_CMO) {
             ENGINE_BLK(8029A8F0);
             func_802BCC10();
         }
@@ -2779,384 +2743,316 @@ static s32 a800(s32 x, s32 y, s32 z, s32 a1, s32 a2, s32 a3, s32 t0, s32 t1, s32
     ENGINE_BLK(8029A8F8);
     func_802BCBD8();
     ENGINE_BLK(8029A900);
-    return v;
 }
 
-extern u8 D_803B67C0[], D_803B37C0[];   /* a blend's animation, built and its copy */
+extern u8 D_803B67C0[], D_803B37C0[], D_803B4FC0[];  /* a blend's data, built and its copies */
+#define BLEND_SIZE 0x1800
 
-/* the frame of the animation in part p's state (spline: func_8029FFA0;
-   key frames: func_802A0118) for its record rec, into out */
-static u8 *anim_frame(u8 *p, u8 *rec, u8 *out, s32 *t5) {
-    if (p[0x15] == 0) {
-        u8 *k = rec + (s8)p[0x13] * 0x14 + 8;
-
-        *t5 = (u32)k;
-        func_802A0118((s16 *)k, (s16 *)out, *(f32 *)(p + 4));
-    } else {
-        *t5 = (u32)rec;
-        func_8029FFA0(p, rec, (s16 *)out);
-    }
-    return out + 0x14;
+/* the frame of an animation (spline: func_8029FFA0; keys: func_802A0118)
+   for its part's record rec, into out; returns out past it */
+static u8 *anim_frame(Anim *a, AnimPart *rec, u8 *out) {
+    if (a->interp == ANIM_KEYS)
+        func_802A0118((Key *)rec->keys + a->key, (s16 *)out, a->t);
+    else
+        func_8029FFA0(a, rec, (s16 *)out);
+    return out + sizeof(Key);
 }
 
-/* A blend of the animations of parts[a] and parts[b] (0x18 each): a
-   two-key animation (speeds 1) whose parts are those both have, each with
-   its frame in a and in b, built at D_803B67C0 and kept at D_803B37C0 for
-   parts[31] (from its start) */
-REGS(v0, v1, a0)
-void func_8029F9D4(s32 a, s32 b, Part *parts_) {
-    u8 *parts = (u8 *)parts_;
-    u8 *pa = parts + a * 0x18, *pb = parts + b * 0x18, *da = *(u8 *PTR32 *)pa, *db = *(u8 *PTR32 *)pb;
-    u8 *ra, *rb, *rb0, *out = D_803B67C0 + 4, *p31;
-    s32 na = da[da[0] + 1], nb = db[db[0] + 1], sa = da[0] * 0x14 + 8, sb = db[0] * 0x14 + 8, n = 0, j;
-    s32 t5;
-    u32 *s, *d;
+/* anim_frame() with its blocks: the spline's mode checked */
+#define ANIM_FRAME(a, rec, out, B_SPLINE, B_BAD, B_CALL, B_DONE, B_KEYS)                                       \
+    do {                                                                                                     \
+        if ((a)->interp != ANIM_KEYS) {                                                                      \
+            ENGINE_BLK(B_SPLINE);                                                                            \
+            if ((a)->interp != ANIM_SPLINE) {                                                                \
+                ENGINE_BLK(B_BAD);                                                                           \
+                engine_syscall(0x##B_BAD);                                                                   \
+            }                                                                                                \
+            ENGINE_BLK(B_CALL);                                                                              \
+            out = anim_frame(a, rec, out);                                                                   \
+            ENGINE_BLK(B_DONE);                                                                              \
+        } else {                                                                                             \
+            ENGINE_BLK(B_KEYS);                                                                              \
+            out = anim_frame(a, rec, out);                                                                   \
+        }                                                                                                    \
+    } while (0)
 
-    ENGINE_BLK(8029F9D4);
+/* a blend's header: two keys, at speeds 1 */
+static void blend_start(void) {
     D_803B67C0[0] = 2;
     D_803B67C0[1] = 1;
     D_803B67C0[2] = 1;
-    ra = da + da[0] + 2;
-    if ((u32)ra & 3) {
+}
+
+/* the blend in D_803B67C0 (n parts) copied to `to`, and part p set to run
+   it from its start (not running: the caller starts it) */
+#define BLEND_FINISH(p, n, to, B_LOOP, B_COPY, B_END)                                                          \
+    do {                                                                                                     \
+        u32 *s_ = (u32 *)D_803B67C0, *d_ = (u32 *)(to);                                                      \
+        s32 j_;                                                                                              \
+        D_803B67C0[3] = (n);                                                                                 \
+        (p)->running = 0;                                                                                    \
+        (p)->back = 0;                                                                                       \
+        (p)->mode = 0;                                                                                       \
+        (p)->interp = 0;                                                                                     \
+        (p)->key = 0;                                                                                        \
+        (p)->data = (to);                                                                                    \
+        (p)->t = 0.0f;                                                                                       \
+        for (j_ = BLEND_SIZE;; j_ -= 8) {                                                                    \
+            ENGINE_BLK(B_LOOP);                                                                              \
+            if (j_ == 0)                                                                                     \
+                break;                                                                                       \
+            ENGINE_BLK(B_COPY);                                                                              \
+            d_[0] = s_[0];                                                                                   \
+            d_[1] = s_[1];                                                                                   \
+            d_ += 2, s_ += 2;                                                                                \
+        }                                                                                                    \
+        ENGINE_BLK(B_END);                                                                                   \
+    } while (0)
+
+/* A blend from parts[a]'s animation to parts[b]'s: a two-key animation
+   whose parts are those both have, each from its frame in a to its frame
+   in b, built at D_803B67C0 and kept at D_803B37C0 for parts[31] */
+REGS(v0, v1, a0)
+void func_8029F9D4(s32 a, s32 b, Part *parts_) {
+    Anim *parts = ANIM(parts_), *pa = &parts[a], *pb = &parts[b];
+    u8 *da = pa->data, *db = pb->data, *out = D_803B67C0 + 4;
+    AnimPart *ra, *rb, *rb0;
+    s32 na = ANIM_NPARTS(da), nb = ANIM_NPARTS(db), sa = ANIM_STRIDE(da), sb = ANIM_STRIDE(db), n = 0, j;
+
+    ENGINE_BLK(8029F9D4);
+    blend_start();
+    if (ANIM_MISALIGNED(da))
         ENGINE_BLK(8029FA94);
-        ra += 4 - ((u32)ra & 3);
-    }
+    ra = anim_parts(da);
     ENGINE_BLK(8029FAA0);
-    rb0 = db + db[0] + 2;
-    t5 = (u32)(db + db[0]);
-    if ((u32)rb0 & 3) {
+    if (ANIM_MISALIGNED(db))
         ENGINE_BLK(8029FAC8);
-        rb0 += 4 - ((u32)rb0 & 3);
-    }
-    for (;;) {
+    rb0 = anim_parts(db);
+    for (;; na--, ra = (AnimPart *)((u8 *)ra + sa)) {
         ENGINE_BLK(8029FAD4);
         if (na == 0)
             break;
+        /* the same part in b's */
         ENGINE_BLK(8029FADC);
-        rb = rb0;
-        for (j = nb;; j--, rb += sb) {
+        for (rb = rb0, j = nb;; j--, rb = (AnimPart *)((u8 *)rb + sb)) {
             ENGINE_BLK(8029FAE8);
             if (j == 0)
-                goto next;
+                break;
             ENGINE_BLK(8029FAF0);
-            t5 = *(s32 *)rb;
-            if (*(u32 *)ra == *(u32 *)rb)
+            if (ra->mtx == rb->mtx)
                 break;
             ENGINE_BLK(8029FAFC);
         }
-        ENGINE_BLK(8029FB08);
-        ((u32 *)out)[0] = *(u32 *)ra;
-        ((u32 *)out)[1] = t5 = ((s32 *)ra)[1];
-        out += 8;
-        n++;
-        if (pa[0x15] != 0) {
-            ENGINE_BLK(8029FB28);
-            if (pa[0x15] != 1) {
-                ENGINE_BLK(8029FB30);
-                engine_syscall(0x8029FB30);
-            }
-            ENGINE_BLK(8029FB34);
-            out = anim_frame(pa, ra, out, &t5);
-            ENGINE_BLK(8029FB40);
-        } else {
-            ENGINE_BLK(8029FB48);
-            out = anim_frame(pa, ra, out, &t5);
+        if (j != 0) {
+            ENGINE_BLK(8029FB08);
+            ((s32 *)out)[0] = ra->mtx;
+            ((s32 *)out)[1] = ra->rest;
+            out += 8;
+            n++;
+            ANIM_FRAME(pa, ra, out, 8029FB28, 8029FB30, 8029FB34, 8029FB40, 8029FB48);
+            ENGINE_BLK(8029FB68);
+            ANIM_FRAME(pb, rb, out, 8029FB74, 8029FB7C, 8029FB80, 8029FB8C, 8029FB94);
         }
-        ENGINE_BLK(8029FB68);
-        if (pb[0x15] != 0) {
-            ENGINE_BLK(8029FB74);
-            if (pb[0x15] != 1) {
-                ENGINE_BLK(8029FB7C);
-                engine_syscall(0x8029FB7C);
-            }
-            ENGINE_BLK(8029FB80);
-            out = anim_frame(pb, rb, out, &t5);
-            ENGINE_BLK(8029FB8C);
-        } else {
-            ENGINE_BLK(8029FB94);
-            out = anim_frame(pb, rb, out, &t5);
-        }
-    next:
         ENGINE_BLK(8029FBB4);
-        ra += sa;
-        na--;
     }
     ENGINE_BLK(8029FBC0);
-    D_803B67C0[3] = n;
-    p31 = parts + 0x2E8;
-    p31[0x10] = 0;
-    p31[0x11] = 0;
-    p31[0x12] = 0;
-    p31[0x15] = 0;
-    p31[0x13] = 0;
-    *(u8 *PTR32 *)p31 = D_803B37C0;
-    *(f32 *)(p31 + 4) = 0.0f;
-    s = (u32 *)D_803B67C0;
-    d = (u32 *)D_803B37C0;
-    for (j = 0x1800;;) {
-        ENGINE_BLK(8029FC04);
-        if (j == 0)
-            break;
-        ENGINE_BLK(8029FC0C);
-        d[0] = s[0];
-        d[1] = s[1];
-        d += 2, s += 2;
-        j -= 8;
-    }
-    ENGINE_BLK(8029FC24);
+    BLEND_FINISH(&parts[31], n, D_803B37C0, 8029FC04, 8029FC0C, 8029FC24);
 }
 
-extern u8 D_803B4FC0[];                 /* the held frames' animation */
-
 /* the parts of one animation, each its current frame held (both keys the
-   same frame, func_8029FF2C), appended at out */
-static u8 *held_frames(u8 *p, u8 *out, s32 *n, s32 *t5, s32 first) {
-    u8 *d = *(u8 *PTR32 *)p, *r = d + d[0] + 2;
-    s32 cnt = d[d[0] + 1], stride = d[0] * 0x14 + 8;
+   same, func_8029FF2C), appended at out; `first` picks the copy of the
+   code (and its blocks) for parts[a] or parts[b] */
+#define BLK2(first, A, B)                                                                                      \
+    do {                                                                                                     \
+        if (first)                                                                                           \
+            ENGINE_BLK(A);                                                                                   \
+        else                                                                                                 \
+            ENGINE_BLK(B);                                                                                   \
+    } while (0)
 
-    *t5 = (u32)(d + d[0]);
-    if ((u32)r & 3) {
-        if (first)
-            ENGINE_BLK(8029FD34);
-        else
-            ENGINE_BLK(8029FDEC);
-        r += 4 - ((u32)r & 3);
-    }
-    for (;;) {
-        if (first)
-            ENGINE_BLK(8029FD40);
-        else
-            ENGINE_BLK(8029FDF8);
+static u8 *held_frames(Anim *p, u8 *out, s32 *n, s32 first) {
+    u8 *d = p->data;
+    AnimPart *r;
+    s32 cnt = ANIM_NPARTS(d), stride = ANIM_STRIDE(d);
+
+    if (ANIM_MISALIGNED(d))
+        BLK2(first, 8029FD34, 8029FDEC);
+    for (r = anim_parts(d);; cnt--, r = (AnimPart *)((u8 *)r + stride)) {
+        BLK2(first, 8029FD40, 8029FDF8);
         if (cnt == 0)
             break;
-        if (first)
-            ENGINE_BLK(8029FD48);
-        else
-            ENGINE_BLK(8029FE00);
-        ((u32 *)out)[0] = *(u32 *)r;
-        ((u32 *)out)[1] = *t5 = ((s32 *)r)[1];
+        BLK2(first, 8029FD48, 8029FE00);
+        ((s32 *)out)[0] = r->mtx;
+        ((s32 *)out)[1] = r->rest;
         out += 8;
         (*n)++;
-        if (p[0x15] != 0) {
-            if (first)
-                ENGINE_BLK(8029FD6C);
-            else
-                ENGINE_BLK(8029FE24);
-            if (p[0x15] != 1) {
-                if (first) {
-                    ENGINE_BLK(8029FD74);
-                    engine_syscall(0x8029FD74);
-                } else {
-                    ENGINE_BLK(8029FE2C);
-                    engine_syscall(0x8029FE2C);
-                }
-            }
-            if (first)
-                ENGINE_BLK(8029FD78);
-            else
-                ENGINE_BLK(8029FE30);
-            out = anim_frame(p, r, out, t5);
-            if (first)
-                ENGINE_BLK(8029FD84);
-            else
-                ENGINE_BLK(8029FE3C);
-        } else {
-            if (first)
-                ENGINE_BLK(8029FD8C);
-            else
-                ENGINE_BLK(8029FE44);
-            out = anim_frame(p, r, out, t5);
-        }
         if (first)
-            ENGINE_BLK(8029FDAC);
+            ANIM_FRAME(p, r, out, 8029FD6C, 8029FD74, 8029FD78, 8029FD84, 8029FD8C);
         else
-            ENGINE_BLK(8029FE64);
+            ANIM_FRAME(p, r, out, 8029FE24, 8029FE2C, 8029FE30, 8029FE3C, 8029FE44);
+        BLK2(first, 8029FDAC, 8029FE64);
         out = (u8 *)func_8029FF2C((s16 *)out);
-        if (first)
-            ENGINE_BLK(8029FDB4);
-        else
-            ENGINE_BLK(8029FE6C);
-        r += stride;
-        cnt--;
+        BLK2(first, 8029FDB4, 8029FE6C);
     }
     return out;
 }
 
 /* parts[a]'s animation then parts[b]'s, each frame held as it is now: a
    two-key animation built at D_803B67C0 and kept at D_803B4FC0 for
-   parts[30] (from its start) */
+   parts[30] */
 REGS(v0, v1, a0)
-void func_8029FC74(s32 a, s32 b, u8 *parts) {
-    u8 *out = D_803B67C0 + 4, *p30;
-    s32 n = 0, t5, j;
-    u32 *s, *d;
+void func_8029FC74(s32 a, s32 b, Part *parts_) {
+    Anim *parts = ANIM(parts_);
+    u8 *out = D_803B67C0 + 4;
+    s32 n = 0;
 
     ENGINE_BLK(8029FC74);
-    D_803B67C0[0] = 2;
-    D_803B67C0[1] = 1;
-    D_803B67C0[2] = 1;
-    out = held_frames(parts + a * 0x18, out, &n, &t5, 1);
+    blend_start();
+    out = held_frames(&parts[a], out, &n, 1);
     ENGINE_BLK(8029FDC0);
-    out = held_frames(parts + b * 0x18, out, &n, &t5, 0);
+    out = held_frames(&parts[b], out, &n, 0);
     ENGINE_BLK(8029FE78);
-    D_803B67C0[3] = n;
-    p30 = parts + 0x2D0;
-    p30[0x10] = 0;
-    p30[0x11] = 0;
-    p30[0x12] = 0;
-    p30[0x15] = 0;
-    p30[0x13] = 0;
-    *(u8 *PTR32 *)p30 = D_803B4FC0;
-    *(f32 *)(p30 + 4) = 0.0f;
-    s = (u32 *)D_803B67C0;
-    d = (u32 *)D_803B4FC0;
-    for (j = 0x1800;;) {
-        ENGINE_BLK(8029FEBC);
-        if (j == 0)
-            break;
-        ENGINE_BLK(8029FEC4);
-        d[0] = s[0];
-        d[1] = s[1];
-        d += 2, s += 2;
-        j -= 8;
-    }
-    ENGINE_BLK(8029FEDC);
+    BLEND_FINISH(&parts[30], n, D_803B4FC0, 8029FEBC, 8029FEC4, 8029FEDC);
 }
 
-extern u8 D_803BE738;
+/* ---- a vehicle's hits ----------------------------------------------------------- */
 
-/* A vehicle hitting building piece p of this kind: the kind into the
-   frame's list (func_802BCCD4); unless D_803A7408's list (to a negative
-   byte) has it, D_803A7424 set and the camera turned to take in the
-   piece's heading +-0x400, the way round given by which side of its plane
-   the vehicle (D_803A73F0-D_803A73F8, / 4) is on, when the piece is
-   one-sided (0x55) or faces it (0x56) (func_8029B7CC; its sound 0x59 into
-   D_803BE738).  Then, once (D_803A7429), when |D_803F77FC| reaches
-   |D_803A7422| with D_803A7427, the hit effect (func_8029B994). */
+extern u8 D_803BE738;                   /* a hit's sound */
+extern u8 D_803ED825;
+extern s32 D_802E8BDC;                  /* the level */
+
+#define QUARTER_TURN 0x400
+
+/* the side of the triangle's plane the vehicle's point (D_803A73F0..F8,
+   >> 2) is on, as the plane's d: whether it is the origin's other side */
+static s32 vehicle_in_front(const CollisionTri *t) {
+    s64 side = (s64)((u64)t->nx * (u64)(s64)(D_803A73F0 >> 2) + (u64)t->ny * (u64)(s64)(D_803A73F4 >> 2) +
+                     (u64)t->nz * (u64)(s64)(D_803A73F8 >> 2) + (u64)t->d);
+
+    return t->d > 0 ? side > 0 : side < 0;
+}
+
+/* A vehicle hitting triangle t of this kind: the kind into the frame's
+   list (func_802BCCD4); unless the frame's kinds (D_803A7408) list it,
+   D_803A7424 set and the camera turned to take in the triangle's heading
+   +-a quarter turn, the way round given by the side the vehicle is on,
+   when the triangle pushes both ways (unk55) or faces it (unk56) (its
+   sound unk59 into D_803BE738).  Then, once a frame (D_803A7429), when the
+   vehicle's speed reaches the frame's fx_speed with hit_fx, the hit
+   effect (func_8029B994). */
 REGS(s0, fp)
-void func_8029B614(u8 *p, s32 kind) {
+void func_8029B614(CollisionTri *t, s32 kind) {
     s8 *list;
-    s64 a, b, c, d, side;
-    s32 h, lo, hi, v, w;
+    s32 h, lo, hi, v, w, front, turn, listed = 0;
 
     ENGINE_BLK(8029B614);
     func_802BCCD4(kind);
     ENGINE_BLK(8029B63C);
-    for (list = *(s8 *PTR32 *)&D_803A7408;;) {
+    for (list = D_803A7408;; list++) {
         ENGINE_BLK(8029B648);
         v = *list;
-        if (v == kind)
-            goto effect;
+        if (v == kind) {
+            listed = 1;
+            break;
+        }
         ENGINE_BLK(8029B654);
-        list++;
         if (v < 0)
             break;
     }
-    ENGINE_BLK(8029B65C);
-    D_803A7424 = 1;
-    a = dword(p), b = dword(p + 8), c = dword(p + 0x10), d = dword(p + 0x18);
-    side = (s64)((u64)a * (u64)(s64)(D_803A73F0 >> 2) + (u64)b * (u64)(s64)(D_803A73F4 >> 2) +
-                 (u64)c * (u64)(s64)(D_803A73F8 >> 2) + (u64)d);
-    h = *(u16 *)(p + 0x4C);
-    if (d > 0) {
-        ENGINE_BLK(8029B6E8);
-        if (side > 0)
-            goto front;
-    } else {
-        ENGINE_BLK(8029B6D8);
-        if (side < 0)
-            goto front;
-        ENGINE_BLK(8029B6E0);
+    if (!listed) {
+        ENGINE_BLK(8029B65C);
+        D_803A7424 = 1;
+        h = t->heading;
+        if (t->d > 0)
+            ENGINE_BLK(8029B6E8);
+        else
+            ENGINE_BLK(8029B6D8);
+        front = vehicle_in_front(t);
+        if (!front && t->d <= 0)
+            ENGINE_BLK(8029B6E0);
+        if (front) {
+            ENGINE_BLK(8029B710);
+            lo = h - QUARTER_TURN, hi = h + QUARTER_TURN;
+        } else {
+            ENGINE_BLK(8029B6F0);
+            lo = h + QUARTER_TURN, hi = h - QUARTER_TURN;
+        }
+        turn = t->unk55 == 1;
+        if (!turn) {
+            if (front)
+                ENGINE_BLK(8029B720);
+            else
+                ENGINE_BLK(8029B6FC);
+            /* one-way: only from the side it faces */
+            turn = front == (t->unk56 != 0);
+            if (!turn && !front)
+                ENGINE_BLK(8029B708);
+        }
+        if (turn) {
+            ENGINE_BLK(8029B72C);
+            func_8029B7CC(lo, hi);
+            ENGINE_BLK(8029B734);
+            if (t->unk59 != 0) {
+                ENGINE_BLK(8029B740);
+                D_803BE738 = t->unk59;
+            }
+        }
     }
-    ENGINE_BLK(8029B6F0);
-    lo = h + 0x400, hi = h - 0x400;
-    if (p[0x55] == 1)
-        goto turn;
-    ENGINE_BLK(8029B6FC);
-    if (p[0x56] == 0)
-        goto turn;
-    ENGINE_BLK(8029B708);
-    goto effect;
-front:
-    ENGINE_BLK(8029B710);
-    lo = h - 0x400, hi = h + 0x400;
-    if (p[0x55] == 1)
-        goto turn;
-    ENGINE_BLK(8029B720);
-    if (p[0x56] == 0)
-        goto effect;
-turn:
-    ENGINE_BLK(8029B72C);
-    func_8029B7CC(lo, hi);
-    ENGINE_BLK(8029B734);
-    if (p[0x59] != 0) {
-        ENGINE_BLK(8029B740);
-        D_803BE738 = p[0x59];
-    }
-effect:
+    /* the hit effect */
     ENGINE_BLK(8029B744);
-    if (D_803A7429 != 0)
-        goto done;
-    ENGINE_BLK(8029B758);
-    v = D_803F77FC;
-    w = D_803A7422;
-    if (v < 0) {
-        ENGINE_BLK(8029B770);
-        v = -v;
+    if (D_803A7429 == 0) {
+        ENGINE_BLK(8029B758);
+        v = D_803F77FC;
+        w = D_803A7422;
+        if (v < 0) {
+            ENGINE_BLK(8029B770);
+            v = -v;
+        }
+        ENGINE_BLK(8029B774);
+        if (w < 0) {
+            ENGINE_BLK(8029B77C);
+            w = -w;
+        }
+        ENGINE_BLK(8029B780);
+        if (v >= w) {
+            ENGINE_BLK(8029B78C);
+            if (D_803A7427 != 0) {
+                ENGINE_BLK(8029B79C);
+                D_803A7429 = D_803A7427;
+                func_8029B994();
+            }
+        }
     }
-    ENGINE_BLK(8029B774);
-    if (w < 0) {
-        ENGINE_BLK(8029B77C);
-        w = -w;
-    }
-    ENGINE_BLK(8029B780);
-    if (v < w)
-        goto done;
-    ENGINE_BLK(8029B78C);
-    if (D_803A7427 == 0)
-        goto done;
-    ENGINE_BLK(8029B79C);
-    D_803A7429 = D_803A7427;
-    func_8029B994();
-done:
     ENGINE_BLK(8029B7A4);
 }
 
-extern u8 D_803BD310[];                 /* the walls: 0xFC bytes, kinds from 0, pieces from 8 */
-extern u8 D_803ED825;
-extern s32 D_802E8BDC;                  /* the level */
+#define WALL_ANY_KIND_LEVEL 9           /* the level whose walls have sides for every kind */
+#define VEHICLE_TYPES 0x13              /* the vehicles' types (the others' walls have no sides) */
 
-/* a wall's piece count (0xF8) and its flag (0xF9): the high bytes of the
-   word there, which native-endian memory keeps as one (native_sites.txt's
-   x3) */
-#define WALL_COUNT(w) (*(u32 *)((w) + 0xF8) >> 24)
-#define WALL_FLAG(w) ((*(u32 *)((w) + 0xF8) >> 16) & 0xFF)
-
-/* Building piece p hit by vehicle kind: through its wall (D_803BD310's
-   that lists it), a hit (func_8029B614, $a1 1) when the wall is solid to
-   that kind; otherwise, for a wall with sides (0xF9; kinds below 0x13, or
-   any on level 9), the side of its plane the vehicle is on (1 or 2) kept
-   in p[0x54], and when it changes, D_803ED825 toggled and every piece's
-   side swapped ($a1 0) */
+/* Wall triangle t hit by vehicle kind: through its wall (D_803BD310's
+   that lists it), a hit (func_8029B614, 1) when the wall stops that kind;
+   otherwise, for a wall with sides (vehicles' kinds, or any on level 9),
+   the side of its plane the vehicle is on (1 in front, 2 behind) kept in
+   t->side, and when it changes, D_803ED825 toggled and every triangle's
+   side of the wall swapped (0) */
 REGS(s0, t8, fp -> a1)
-s32 func_8029BB28(u8 *p, s32 kind, s32 fp) {
-    u8 *w = D_803BD310, *k;
-    u32 n, *pc;
-    s64 a, b, c, d, side;
-    s32 s, cur;
+s32 func_8029BB28(CollisionTri *t, s32 kind, s32 fp) {
+    Wall *w = D_803BD310;
+    CollisionTri *PTR32 *pc;
+    u8 *k;
+    u32 n;
+    s32 s, cur, front;
 
     ENGINE_BLK(8029BB28);
-    for (;; w += 0xFC) {
+    for (;; w++) {
         ENGINE_BLK(8029BB48);
-        n = WALL_COUNT(w);
-        pc = (u32 *)(w + 8);
-        for (;;) {
+        for (n = WALL_COUNT(w), pc = w->tris;; pc++) {
             ENGINE_BLK(8029BB50);
             if (n == 0)
                 break;
             ENGINE_BLK(8029BB58);
             n--;
-            if (*pc++ == (u32)p)
+            if (*pc == t)
                 goto found;
             ENGINE_BLK(8029BB6C);
         }
@@ -3164,16 +3060,15 @@ s32 func_8029BB28(u8 *p, s32 kind, s32 fp) {
     }
 found:
     ENGINE_BLK(8029BB7C);
-    n = w[0];
-    for (k = w + 1;;) {
+    for (n = w->nkinds, k = w->kinds;; k++) {
         ENGINE_BLK(8029BB84);
         if (n == 0)
             break;
         ENGINE_BLK(8029BB8C);
         n--;
-        if (*k++ == kind) {
+        if (*k == kind) {
             ENGINE_BLK(8029BCE4);
-            func_8029B614(p, fp);
+            func_8029B614(t, fp);
             ENGINE_BLK(8029BCEC);
             ENGINE_BLK(8029BCF0);
             return 1;
@@ -3181,224 +3076,203 @@ found:
         ENGINE_BLK(8029BBA0);
     }
     ENGINE_BLK(8029BBA8);
-    if (D_802E8BDC != 9) {
+    if (D_802E8BDC != WALL_ANY_KIND_LEVEL) {
         ENGINE_BLK(8029BBC0);
-        if (!(kind < 0x13))
-            goto done;
-    }
-    ENGINE_BLK(8029BBC8);
-    if (WALL_FLAG(w) == 0)
-        goto done;
-    ENGINE_BLK(8029BBD4);
-    a = dword(p), b = dword(p + 8), c = dword(p + 0x10), d = dword(p + 0x18);
-    side = (s64)((u64)(s64)(D_803A73F0 >> 2) * (u64)a + (u64)(s64)(D_803A73F4 >> 2) * (u64)b +
-                 (u64)(s64)(D_803A73F8 >> 2) * (u64)c + (u64)d);
-    if (d > 0) {
-        ENGINE_BLK(8029BC54);
-        if (side > 0)
-            goto same;
-    } else {
-        ENGINE_BLK(8029BC44);
-        if (side < 0)
-            goto same;
-        ENGINE_BLK(8029BC4C);
-    }
-    ENGINE_BLK(8029BC5C);
-    s = 2;
-    goto have;
-same:
-    ENGINE_BLK(8029BC64);
-    s = 1;
-have:
-    ENGINE_BLK(8029BC68);
-    cur = p[0x54];
-    if (cur == 0) {
-        ENGINE_BLK(8029BCDC);
-        p[0x54] = s;
-        goto done;
-    }
-    ENGINE_BLK(8029BC74);
-    if (cur == s)
-        goto done;
-    ENGINE_BLK(8029BC7C);
-    D_803ED825 ^= 1;
-    n = WALL_COUNT(w);
-    for (pc = (u32 *)(w + 8);;) {
-        u8 *q;
-
-        ENGINE_BLK(8029BC98);
-        if (n == 0)
-            break;
-        ENGINE_BLK(8029BCA0);
-        n--;
-        q = *(u8 *PTR32 *)pc;
-        pc++;
-        if (q[0x54] == 0)
-            continue;
-        ENGINE_BLK(8029BCB8);
-        if (q[0x54] != 1) {
-            ENGINE_BLK(8029BCC4);
-            q[0x54] = 1;
-        } else {
-            ENGINE_BLK(8029BCD0);
-            q[0x54] = 2;
+        if (kind >= VEHICLE_TYPES) {
+            ENGINE_BLK(8029BCF0);
+            return 0;
         }
     }
-done:
+    ENGINE_BLK(8029BBC8);
+    if (WALL_SIDED(w) != 0) {
+        ENGINE_BLK(8029BBD4);
+        if (t->d > 0)
+            ENGINE_BLK(8029BC54);
+        else
+            ENGINE_BLK(8029BC44);
+        front = vehicle_in_front(t);
+        if (front) {
+            ENGINE_BLK(8029BC64);
+            s = 1;
+        } else {
+            if (t->d <= 0)
+                ENGINE_BLK(8029BC4C);
+            ENGINE_BLK(8029BC5C);
+            s = 2;
+        }
+        ENGINE_BLK(8029BC68);
+        cur = t->side;
+        if (cur == 0) {
+            ENGINE_BLK(8029BCDC);
+            t->side = s;
+        } else {
+            ENGINE_BLK(8029BC74);
+            if (cur != s) {
+                /* through the wall */
+                ENGINE_BLK(8029BC7C);
+                D_803ED825 ^= 1;
+                for (n = WALL_COUNT(w), pc = w->tris;;) {
+                    CollisionTri *q;
+
+                    ENGINE_BLK(8029BC98);
+                    if (n == 0)
+                        break;
+                    ENGINE_BLK(8029BCA0);
+                    n--;
+                    q = *pc++;
+                    if (q->side == 0)
+                        continue;
+                    ENGINE_BLK(8029BCB8);
+                    if (q->side != 1) {
+                        ENGINE_BLK(8029BCC4);
+                        q->side = 1;
+                    } else {
+                        ENGINE_BLK(8029BCD0);
+                        q->side = 2;
+                    }
+                }
+            }
+        }
+    }
     ENGINE_BLK(8029BCF0);
     return 0;
 }
 
-/* The sphere (x, y, z, r) against kind's records of D_803A6B30 (spheres
-   in a row of that kind): each one it meets (func_8029CFA4) through
-   func_802CE204 and into the frame's list by its number in the row
-   (func_802BCCD4, 1 on) */
+/* ---- the vehicles' spheres against each other's ------------------------------ */
+
+/* the communication points' spheres (8A2E0's CommPoint: x, y, z, r first) */
+extern s32 D_803FBBB0[][5];
+extern u8 D_803FC1F0;                   /* how many */
+/* the objects' spheres (8A080's CollisionObject: a key, -1 free, then x, y,
+   z, r) */
+extern s32 D_803FB8B8[][5];
+#define N_OBJ_SPHERES 25
+#define KEY_FREE (-1)
+
+/* The sphere (x, y, z, r) against kind's spheres (D_803A6B30's run of
+   them): each one it meets through func_802CE204 and into the frame's
+   list by its number in the run (func_802BCCD4, 1 on) */
 REGS(t8, a2, a3, t0, t1)
 void func_8029C914(s32 kind, s32 x, s32 y, s32 z, s32 r) {
-    u8 *p = D_803A6B30;
-    s32 n = 0, s0, s1 = 0, s1set = 0;
+    KindPart *p;
+    s32 n = 0;
 
     ENGINE_BLK(8029C914);
-    for (;;) {
+    for (p = D_803A6B30;; p++) {
         ENGINE_BLK(8029C940);
-        s0 = (s8)p[0x13];
-        if (s0 == -1)
-            goto done;
+        if (p->end == -1) {
+            ENGINE_BLK(8029C9B0);
+            return;
+        }
         ENGINE_BLK(8029C94C);
-        s0 = p[0x12];
-        if (s0 == kind)
+        if (p->kind == kind)
             break;
-        p += 0x14;
     }
     ENGINE_BLK(8029C958);
-    for (;;) {
-        s32 *w;
-
+    for (;; p++) {
         ENGINE_BLK(8029C95C);
-        s1 = (s8)p[0x13], s1set = 1;
-        if (s1 == -1)
+        if (p->end == -1)
             break;
         ENGINE_BLK(8029C968);
-        s1 = p[0x12];
-        if (s1 != kind)
+        if (p->kind != kind)
             break;
         ENGINE_BLK(8029C974);
         n++;
-        w = (s32 *)p;
-        p += 0x14;
-        if (!func_8029CFA4(w[0], w[1], w[2], w[3], x, y, z, r)) {
+        if (func_8029CFA4(p->x, p->y, p->z, p->r, x, y, z, r)) {
             ENGINE_BLK(8029C990);
-            continue;
+            ENGINE_BLK(8029C998);
+            func_802CE204(p->x, p->z, x, z);
+            ENGINE_BLK(8029C9A0);
+            func_802BCCD4(n);
+            ENGINE_BLK(8029C9A8);
+        } else {
+            ENGINE_BLK(8029C990);
         }
-        ENGINE_BLK(8029C990);
-        ENGINE_BLK(8029C998);
-        func_802CE204(w[0], w[2], x, z);
-        ENGINE_BLK(8029C9A0);
-        func_802BCCD4(n);
-        ENGINE_BLK(8029C9A8);
     }
-done:
     ENGINE_BLK(8029C9B0);
 }
 
-extern u8 D_803FBBB0[], D_803FB8B8[];   /* two lists of 0x14-byte spheres */
-extern u8 D_803FC1F0;                   /* the first's count */
-
-/* Kind's sphere (its D_803A7300 record, when active: 0x11 is 1) against
-   the spheres of D_803FBBB0: for each it meets, kind's row against that
-   one (func_8029C914) */
+/* Kind's bounding sphere, when placed, against the communication points'
+   spheres: for each it meets, kind's spheres against that one
+   (func_8029C914) */
 REGS(t8)
 void func_8029C748(s32 kind) {
-    u8 *r = D_803A7300, *q;
-    s32 *s, n;
+    Solid *s;
+    s32 *w, n;
 
     ENGINE_BLK(8029C748);
-    for (;;) {
+    for (s = D_803A7300;; s++) {
         ENGINE_BLK(8029C780);
-        if (r[0x10] == kind)
+        if (s->kind == kind)
             break;
-        r += 0x14;
     }
     ENGINE_BLK(8029C78C);
-    if ((s8)r[0x11] != 1)
-        goto done;
-    ENGINE_BLK(8029C79C);
-    s = (s32 *)r;
-    q = D_803FBBB0;
-    for (n = D_803FC1F0;; q += 0x14) {
-        s32 *w;
-
-        ENGINE_BLK(8029C7BC);
-        if (n == 0)
-            break;
-        ENGINE_BLK(8029C7C4);
-        n--;
-        w = (s32 *)q;
-        if (!func_8029CFA4(s[0], s[1], s[2], s[3], w[0], w[1], w[2], w[3])) {
-            ENGINE_BLK(8029C7DC);
-            continue;
+    if (s->end == 1) {
+        ENGINE_BLK(8029C79C);
+        for (n = D_803FC1F0, w = D_803FBBB0[0];; w += 5) {
+            ENGINE_BLK(8029C7BC);
+            if (n == 0)
+                break;
+            ENGINE_BLK(8029C7C4);
+            n--;
+            if (func_8029CFA4(s->x, s->y, s->z, s->r, w[0], w[1], w[2], w[3])) {
+                ENGINE_BLK(8029C7DC);
+                ENGINE_BLK(8029C7E4);
+                func_8029C914(kind, w[0], w[1], w[2], w[3]);
+                ENGINE_BLK(8029C7EC);
+            } else {
+                ENGINE_BLK(8029C7DC);
+            }
         }
-        ENGINE_BLK(8029C7DC);
-        ENGINE_BLK(8029C7E4);
-        func_8029C914(kind, w[0], w[1], w[2], w[3]);
-        ENGINE_BLK(8029C7EC);
     }
-done:
     ENGINE_BLK(8029C7F4);
 }
 
-/* the same against D_803FB8B8's 25 (word 0 -1 when free, the sphere 4 on) */
+/* the same against the objects' 25 spheres (the free ones skipped) */
 REGS(t8)
 void func_8029C828(s32 kind) {
-    u8 *r = D_803A7300, *q;
-    s32 *s, n;
+    Solid *s;
+    s32 *w, n;
 
     ENGINE_BLK(8029C828);
-    for (;;) {
+    for (s = D_803A7300;; s++) {
         ENGINE_BLK(8029C860);
-        if (r[0x10] == kind)
+        if (s->kind == kind)
             break;
-        r += 0x14;
     }
     ENGINE_BLK(8029C86C);
-    if ((s8)r[0x11] != 1)
-        goto done;
-    ENGINE_BLK(8029C87C);
-    s = (s32 *)r;
-    q = D_803FB8B8;
-    for (n = 0x19;; q += 0x14) {
-        s32 *w;
-
-        ENGINE_BLK(8029C898);
-        if (n == 0)
-            break;
-        ENGINE_BLK(8029C8A0);
-        n--;
-        w = (s32 *)q;
-        if (w[0] == -1)
-            continue;
-        ENGINE_BLK(8029C8B4);
-        if (!func_8029CFA4(s[0], s[1], s[2], s[3], w[1], w[2], w[3], w[4])) {
-            ENGINE_BLK(8029C8C8);
-            continue;
+    if (s->end == 1) {
+        ENGINE_BLK(8029C87C);
+        for (n = N_OBJ_SPHERES, w = D_803FB8B8[0];; w += 5) {
+            ENGINE_BLK(8029C898);
+            if (n == 0)
+                break;
+            ENGINE_BLK(8029C8A0);
+            n--;
+            if (w[0] == KEY_FREE)
+                continue;
+            ENGINE_BLK(8029C8B4);
+            if (func_8029CFA4(s->x, s->y, s->z, s->r, w[1], w[2], w[3], w[4])) {
+                ENGINE_BLK(8029C8C8);
+                ENGINE_BLK(8029C8D0);
+                func_8029C914(kind, w[1], w[2], w[3], w[4]);
+                ENGINE_BLK(8029C8D8);
+            } else {
+                ENGINE_BLK(8029C8C8);
+            }
         }
-        ENGINE_BLK(8029C8C8);
-        ENGINE_BLK(8029C8D0);
-        func_8029C914(kind, w[1], w[2], w[3], w[4]);
-        ENGINE_BLK(8029C8D8);
     }
-done:
     ENGINE_BLK(8029C8E0);
 }
 
-/* v over the vehicle's unkA0 (when it isn't 1), unless id is 0xFF: the
-   two forms, which share their end ($t1) */
+/* a radius over the vehicle's gears (unkA0, when it isn't 1), unless the
+   other is the carrier: the two copies, which share their end */
 REGS(t4, t1, gp -> t1)
-s32 func_8029CB04(s32 id, u32 v, VS *vs) {
+s32 func_8029CB04(s32 kind, u32 v, VS *vs) {
     s32 d;
 
     ENGINE_BLK(8029CB04);
-    if (id == 0xFF) {
+    if (kind == VEHICLE_CMO) {
         ENGINE_BLK(8029CF40);
         return v;
     }
@@ -3417,208 +3291,194 @@ s32 func_8029CB04(s32 id, u32 v, VS *vs) {
 }
 
 REGS(s1, t1, gp -> t1)
-s32 func_8029CF04(s32 id, u32 v, VS *vs) {
+s32 func_8029CF04(s32 kind, u32 v, VS *vs) {
     s32 d;
 
     ENGINE_BLK(8029CF04);
-    if (id == 0xFF) {
-        goto done;
-    }
-    ENGINE_BLK(8029CF18);
-    d = vs->unkA0;
-    if (d != 1) {
-        ENGINE_BLK(8029CF28);
-        if (d == 0) {
-            ENGINE_BLK(8029CF3C);
-            engine_break(0x8029CF3C, 7);
+    if (kind != VEHICLE_CMO) {
+        ENGINE_BLK(8029CF18);
+        d = vs->unkA0;
+        if (d != 1) {
+            ENGINE_BLK(8029CF28);
+            if (d == 0) {
+                ENGINE_BLK(8029CF3C);
+                engine_break(0x8029CF3C, 7);
+            }
+            v /= (u32)d;
         }
-        v /= (u32)d;
     }
-done:
     ENGINE_BLK(8029CF40);
     return v;
 }
 
 extern u8 D_803A7426;
 
-/* the angle (12-bit) of (n, d) in its quadrant: func_802AD7FC of n over
+/* the 12-bit angle of a direction in its quadrant: func_802AD7FC of n over
    the distance, scaled to 16 bits, / 16 */
 static s32 quad_angle(s32 n, f32 dist) {
     f32 q = (f32)n / dist;
-    s32 w;
 
-    q = 65536.0f * q;
-    w = engine_cvt_w_s(q);
-    return (u32)func_802AD7FC(w) >> 4;
+    return (u32)func_802AD7FC(engine_cvt_w_s(65536.0f * q)) >> 4;
 }
 
-/* A vehicle (type, at (x, z)) hitting object kind at (ox, oz), the object's
-   record at rec: the kind into the frame's list (func_802BCCD4);
-   D_803A7426 set when a vehicle of type 0xFF hits a marked object
-   (rec[-2]) or another vehicle an object marked 0xFF; the camera turned
-   to take in the direction from the vehicle to the object +-0x400
-   (func_8029B7CC), and D_803A742C set */
+/* Vehicle type's sphere number n (at (x, z)) hitting the other kind's
+   sphere at (ox, oz): the number into the frame's list (func_802BCCD4);
+   D_803A7426 set when the carrier and a vehicle other than the driver
+   meet; the camera turned to take in the direction from the vehicle to
+   the sphere +-a quarter turn (func_8029B7CC), and D_803A742C set.
+   (The original takes the other's kind from the byte before the end of
+   its record, through the record after it.) */
 REGS(fp, t8, s0, v0, a0, a2, t0)
-void func_8029CB54(s32 kind, s32 type, u8 *rec, s32 x, s32 z, s32 ox, s32 oz) {
-    s32 dx, dz, h = 0;
+void func_8029CB54(s32 n, s32 type, KindPart *other, s32 x, s32 z, s32 ox, s32 oz) {
+    s32 dx, dz, h = 0, set;
     f32 d;
 
     ENGINE_BLK(8029CB54);
-    func_802BCCD4(kind);
+    func_802BCCD4(n);
     ENGINE_BLK(8029CB84);
-    if (type == 0xFF) {
+    if (type == VEHICLE_CMO) {
         ENGINE_BLK(8029CB90);
-        if (rec[-2] == 0)
-            goto angle;
-        ENGINE_BLK(8029CB9C);
+        set = other->kind != VEHICLE_DRIVER;
+        if (set)
+            ENGINE_BLK(8029CB9C);
     } else {
         ENGINE_BLK(8029CBA4);
-        if (type == 0)
-            goto angle;
-        ENGINE_BLK(8029CBAC);
-        if (rec[-2] != 0xFF)
-            goto angle;
+        set = 0;
+        if (type != VEHICLE_DRIVER) {
+            ENGINE_BLK(8029CBAC);
+            set = other->kind == VEHICLE_CMO;
+        }
     }
-    ENGINE_BLK(8029CBBC);
-    D_803A7426 = 1;
-angle:
+    if (set) {
+        ENGINE_BLK(8029CBBC);
+        D_803A7426 = 1;
+    }
     ENGINE_BLK(8029CBC8);
     dx = ox - x;
     dz = oz - z;
-    if (dx == 0) {
+    if (dx == 0)
         ENGINE_BLK(8029CBD8);
-        if (dz == 0)
-            goto turn;
-    }
-    ENGINE_BLK(8029CBE0);
-    d = (f32)dx * (f32)dx;
-    d = d + (f32)dz * (f32)dz;
-    d = __builtin_sqrtf(d);
-    if (!(ox < x)) {
-        ENGINE_BLK(8029CC0C);
-        if (!(oz < z)) {
-            ENGINE_BLK(8029CC18);
-            h = quad_angle(ox - x, d);
-            ENGINE_BLK(8029CC48);
+    if (dx != 0 || dz != 0) {
+        ENGINE_BLK(8029CBE0);
+        d = __builtin_sqrtf((f32)dx * (f32)dx + (f32)dz * (f32)dz);
+        if (!(ox < x)) {
+            ENGINE_BLK(8029CC0C);
+            if (!(oz < z)) {
+                ENGINE_BLK(8029CC18);
+                h = quad_angle(ox - x, d);
+                ENGINE_BLK(8029CC48);
+            } else {
+                ENGINE_BLK(8029CC50);
+                h = quad_angle(z - oz, d);
+                ENGINE_BLK(8029CC80);
+                h += QUARTER_TURN;
+            }
         } else {
-            ENGINE_BLK(8029CC50);
-            h = quad_angle(z - oz, d);
-            ENGINE_BLK(8029CC80);
-            h += 0x400;
-        }
-    } else {
-        ENGINE_BLK(8029CC8C);
-        if (oz < z) {
-            ENGINE_BLK(8029CC98);
-            h = quad_angle(x - ox, d);
-            ENGINE_BLK(8029CCC8);
-            h += 0x800;
-        } else {
-            ENGINE_BLK(8029CCD4);
-            h = quad_angle(oz - z, d);
-            ENGINE_BLK(8029CD04);
-            h += 0xC00;
+            ENGINE_BLK(8029CC8C);
+            if (oz < z) {
+                ENGINE_BLK(8029CC98);
+                h = quad_angle(x - ox, d);
+                ENGINE_BLK(8029CCC8);
+                h += 2 * QUARTER_TURN;
+            } else {
+                ENGINE_BLK(8029CCD4);
+                h = quad_angle(oz - z, d);
+                ENGINE_BLK(8029CD04);
+                h += 3 * QUARTER_TURN;
+            }
         }
     }
-turn:
     ENGINE_BLK(8029CD0C);
-    func_8029B7CC(h + 0x400, h - 0x400);
+    func_8029B7CC(h + QUARTER_TURN, h - QUARTER_TURN);
     ENGINE_BLK(8029CD18);
     D_803A742C = 1;
 }
 
-/* Kind a's row of spheres (D_803A6B30) against kind b's: each pair that
+/* Kind a's spheres (D_803A6B30's run) against kind b's: each pair that
    meets (b's radius over the gears, func_8029CF04; func_8029CFA4), but
-   not a 6's 0x30E nor a 6's 0x3BD, counts a 7's hit (D_803A7430, to 0xC9)
-   and, unless func_802AB41C(b, a) says otherwise, is a hit
+   not the crane's sphere 0x30E nor its hook, counts the train's hits
+   (D_803A7430) and, unless func_802AB41C(b, a) says otherwise, is a hit
    (func_8029CB54, func_8029CF54) */
 REGS(t8, t4, gp)
 void func_8029CD54(s32 a, s32 b, VS *vs) {
-    u8 *ra = D_803A6B30, *rb0, *rb;
+    KindPart *ra, *rb0, *rb, *pa, *pb;
     s32 n = 0, r, hit;
-    s32 *wa, *wb;
 
     ENGINE_BLK(8029CD54);
-    for (;;) {
+    for (ra = D_803A6B30;; ra++) {
         ENGINE_BLK(8029CD94);
-        if ((s8)ra[0x13] == -1)
+        if (ra->end == -1)
             goto done;
         ENGINE_BLK(8029CDA0);
-        if (ra[0x12] == a)
+        if (ra->kind == a)
             break;
-        ra += 0x14;
     }
     ENGINE_BLK(8029CDAC);
-    for (rb0 = D_803A6B30;;) {
+    for (rb0 = D_803A6B30;; rb0++) {
         ENGINE_BLK(8029CDB4);
-        if ((s8)rb0[0x13] == -1)
+        if (rb0->end == -1)
             goto done;
         ENGINE_BLK(8029CDC0);
-        if (rb0[0x12] == b)
+        if (rb0->kind == b)
             break;
-        rb0 += 0x14;
     }
     ENGINE_BLK(8029CDCC);
     for (;;) {
         ENGINE_BLK(8029CDD0);
-        rb = rb0;
-        if ((s8)ra[0x13] == -1)
+        if (ra->end == -1)
             break;
         ENGINE_BLK(8029CDE0);
-        if (ra[0x12] != a)
+        if (ra->kind != a)
             break;
         ENGINE_BLK(8029CDEC);
         n++;
-        wa = (s32 *)ra;
-        ra += 0x14;
-        for (;;) {
+        pa = ra++;
+        for (rb = rb0;;) {
             ENGINE_BLK(8029CE04);
-            if ((s8)rb[0x13] == -1)
+            if (rb->end == -1)
                 break;
             ENGINE_BLK(8029CE10);
-            if (rb[0x12] != b)
+            if (rb->kind != b)
                 break;
             ENGINE_BLK(8029CE1C);
-            wb = (s32 *)rb;
-            r = func_8029CF04(b, wb[3], vs);
+            pb = rb++;
+            r = func_8029CF04(b, pb->r, vs);
             ENGINE_BLK(8029CE30);
-            rb += 0x14;
-            if (a == 6) {
+            if (a == VEHICLE_CRANE) {
                 ENGINE_BLK(8029CE3C);
-                if (wa[3] == 0x30E)
+                if (pa->r == CRANE_R_30E)
                     continue;
             }
             ENGINE_BLK(8029CE48);
-            if (b == 6) {
+            if (b == VEHICLE_CRANE) {
                 ENGINE_BLK(8029CE54);
-                if (r == 0x3BD)
+                if (r == CRANE_HOOK_R)
                     continue;
             }
             ENGINE_BLK(8029CE5C);
-            hit = func_8029CFA4(wa[0], wa[1], wa[2], wa[3], wb[0], wb[1], wb[2], r);
+            hit = func_8029CFA4(pa->x, pa->y, pa->z, pa->r, pb->x, pb->y, pb->z, r);
             ENGINE_BLK(8029CE64);
             if (hit == 0)
                 continue;
             ENGINE_BLK(8029CE6C);
-            if (b == 7) {
+            if (b == VEHICLE_TRAIN) {
                 ENGINE_BLK(8029CE78);
-                if (D_803A7430 < 0xC9) {
+                if (D_803A7430 < TRAIN_HITS_MAX) {
                     ENGINE_BLK(8029CE8C);
                     ++D_803A7430;
                 }
             }
             ENGINE_BLK(8029CE98);
-            if (a != 0) {
+            if (a != VEHICLE_DRIVER) {
                 ENGINE_BLK(8029CEA0);
-                if (func_802AB41C(b, a) != 0) {
-                    ENGINE_BLK(8029CEA8);
-                    continue;
-                }
+                hit = func_802AB41C(b, a) == 0;
                 ENGINE_BLK(8029CEA8);
+                if (!hit)
+                    continue;
                 ENGINE_BLK(8029CEB0);
             }
             ENGINE_BLK(8029CEB4);
-            func_8029CB54(n, a, rb, wa[0], wa[2], wb[0], wb[2]);
+            func_8029CB54(n, a, pb, pa->x, pa->z, pb->x, pb->z);
             ENGINE_BLK(8029CEBC);
             func_8029CF54(b);
             ENGINE_BLK(8029CEC4);
@@ -3630,76 +3490,66 @@ done:
 
 extern s32 D_803649E8;
 
-/* Kind's sphere (its D_803A7300 record, when active) against every other
-   kind's (their radius over the gears, func_8029CB04): for a kind 6 not
-   where func_802AB41C says, and not kind 0 with D_803649E8, the two rows
-   against each other (func_8029CD54) where they meet */
+/* Kind's bounding sphere, when placed, against every other kind's (their
+   radius over the gears, func_8029CB04): for the crane not where
+   func_802AB41C says, and not the driver with D_803649E8, the two kinds'
+   spheres against each other (func_8029CD54) where they meet */
 REGS(t8, gp)
 void func_8029C9D4(s32 kind, VS *vs) {
-    u8 *r = D_803A7300, *q;
-    s32 *s, *w, k, rr;
+    Solid *s, *q;
+    s32 k, rr, skip;
 
     ENGINE_BLK(8029C9D4);
-    for (;;) {
+    for (s = D_803A7300;; s++) {
         ENGINE_BLK(8029CA10);
-        if (r[0x10] == kind)
+        if (s->kind == kind)
             break;
-        r += 0x14;
     }
     ENGINE_BLK(8029CA1C);
-    if ((s8)r[0x11] != 1)
+    if (s->end != 1)
         goto done;
     ENGINE_BLK(8029CA2C);
-    s = (s32 *)r;
-    for (q = D_803A7300;;) {
+    for (q = D_803A7300;; q++) {
         ENGINE_BLK(8029CA48);
-        if ((s8)q[0x11] == -1)
+        if (q->end == -1)
             break;
         ENGINE_BLK(8029CA54);
-        k = q[0x10];
-        if (k == kind) {
-            q += 0x14;
+        k = q->kind;
+        if (k == kind)
             continue;
-        }
         ENGINE_BLK(8029CA60);
-        if (kind == 6) {
+        if (kind == VEHICLE_CRANE) {
             ENGINE_BLK(8029CA6C);
-            if (func_802AB41C(k, kind) != 0) {
-                ENGINE_BLK(8029CA74);
-                q += 0x14;
-                continue;
-            }
+            skip = func_802AB41C(k, kind) != 0;
             ENGINE_BLK(8029CA74);
+            if (skip)
+                continue;
         }
         ENGINE_BLK(8029CA7C);
         if (D_803649E8 != 0) {
             ENGINE_BLK(8029CA90);
-            if (k == 0) {
-                q += 0x14;
+            if (k == VEHICLE_DRIVER)
                 continue;
-            }
         }
         ENGINE_BLK(8029CA98);
-        w = (s32 *)q;
-        rr = func_8029CB04(k, w[3], vs);
+        rr = func_8029CB04(k, q->r, vs);
         ENGINE_BLK(8029CAAC);
-        q += 0x14;
-        if (!func_8029CFA4(s[0], s[1], s[2], s[3], w[0], w[1], w[2], rr)) {
+        if (func_8029CFA4(s->x, s->y, s->z, s->r, q->x, q->y, q->z, rr)) {
             ENGINE_BLK(8029CAB4);
-            continue;
+            ENGINE_BLK(8029CABC);
+            func_8029CD54(kind, k, vs);
+            ENGINE_BLK(8029CAC4);
+        } else {
+            ENGINE_BLK(8029CAB4);
         }
-        ENGINE_BLK(8029CAB4);
-        ENGINE_BLK(8029CABC);
-        func_8029CD54(kind, k, vs);
-        ENGINE_BLK(8029CAC4);
     }
 done:
     ENGINE_BLK(8029CACC);
 }
 
-/* A vehicle kind's collisions with the others, the sphere lists and its
-   own row (func_8029C9D4, func_8029C828, func_8029C748); D_803A7424 and
-   D_803A7425 set when the camera's headings were moved */
+/* A vehicle kind's spheres against the other vehicles', the objects' and
+   the communication points' (func_8029C9D4, func_8029C828, func_8029C748);
+   D_803A7424 and D_803A7425 set when the camera's limits were moved */
 REGS(t8, gp)
 void func_8029C52C(s32 kind, VS *vs) {
     ENGINE_BLK(8029C52C);
@@ -3709,227 +3559,181 @@ void func_8029C52C(s32 kind, VS *vs) {
     ENGINE_BLK(8029C56C);
     func_8029C748(kind);
     ENGINE_BLK(8029C574);
-    if ((u16)D_803A7410 == 0) {
+    if (D_803A7410 == 0) {
         ENGINE_BLK(8029C588);
-        if ((u16)D_803A7412 == 0xFFF)
-            goto done;
+        if (D_803A7412 == TURN - 1) {
+            ENGINE_BLK(8029C5B4);
+            return;
+        }
     }
     ENGINE_BLK(8029C5A0);
     D_803A7425 = 1;
     D_803A7424 = 1;
-done:
     ENGINE_BLK(8029C5B4);
 }
 
+/* ---- the animations each frame ------------------------------------------------ */
+
+#define N_PARTS 32
+
 /* An object's 32 parts' animations one frame on (func_8029E5AC for each
-   running one, 0x10), with base the parts' matrices and D_803B3770 the
-   records' base.  The original reloads s6 and s7, which func_8029E5AC
-   leaves (engine_save). */
+   running one), with base the parts' matrices and D_803B3770 the other
+   frame's.  The original reloads s6 and s7, which func_8029E5AC leaves
+   (engine_save). */
 REGS(t0, v0, v1)
 void func_8029E558(Part *parts, u8 *base, u8 *other) {
-    u8 *p = (u8 *)parts;
-    s32 n, f;
+    Anim *a = ANIM(parts);
+    s32 n;
 
     engine_save(ENGINE_GPR(22) | ENGINE_GPR(23), 0);
     ENGINE_BLK(8029E558);
-    D_803B3770 = (u32)other;
-    for (n = 0x20;;) {
+    D_803B3770 = other;
+    for (n = N_PARTS; n != 0; n--, a++) {
         ENGINE_BLK(8029E578);
-        f = (s8)p[0x10];
-        ENGINE_LEAVE(10, f);
-        if (f != 0) {
+        ENGINE_LEAVE(10, a->running);
+        if (a->running != 0) {
             ENGINE_BLK(8029E584);
-            func_8029E5AC(p, base);
+            func_8029E5AC(a, base);
         }
         ENGINE_BLK(8029E58C);
-        p += 0x18;
-        if (--n == 0)
-            break;
     }
     ENGINE_BLK(8029E598);
     engine_restore();
 }
 
-/* (D_80364460: the models, 0x74 bytes: the id at 0x5C, the display lists at 0xC and 0x30) */
+extern Vehicle D_80364460[];
+#define TEX_REFS_STALE 2                /* a slot counted this often wasn't refreshed */
 
-/* A texture (kind, for animation id) into a free record of D_803A7440
-   (the one past them when none is free) through func_802A1074; returns
-   the physical address of its data, 0x10 on ($s1) */
-REGS(t3, t6, fp -> s1)
-u32 func_8029E47C(s32 id, s32 kind, s32 fp) {
-    u8 *r = D_803A7440;
-    s32 n = 12, a2 = 0, read = 0;
-    u32 dst;
-
-    ENGINE_BLK(8029E47C);
-    for (;;) {
-        ENGINE_BLK(8029E490);
-        if (n == 0) {
-            ENGINE_BLK(8029E4B0);
-            break;
-        }
-        ENGINE_BLK(8029E498);
-        a2 = r[6], read = 1;
-        n--;
-        if (a2 == 0)
-            break;
-        ENGINE_BLK(8029E4A8);
-        r += 0x1010;
-    }
-    ENGINE_BLK(8029E4B4);
-    *(s32 *)r = id;
-    *(u16 *)(r + 4) = kind;
-    r[6] = 1;
-    r[7] = 0;
-    dst = (u32)(r + 0x10);
-    func_802A1074(kind, dst, fp);
-    ENGINE_BLK(8029E4D0);
-    return dst - 0x80000000;
-}
-
-/* A texture animation one frame on (its state at a: the descriptor T at 0,
-   the fraction at 4, the key at 0x13; T: an id, the key count n, the
-   textures a frame c, a second texture's flag, n per-key speeds, then the
-   frames' texture kinds): the textures still in use counted (D_803A7440's
-   0x7), the state stepped (func_8029F1BC, the rate from the speeds / 300),
-   each of the frame's textures found (func_8029E4E4) or loaded
-   (func_8029E47C) and put into the model's display list where D_803B3500
-   says (with the second texture and the fraction as G_SETPRIMCOLOR's),
-   and the textures no frame uses any more freed */
+/* A texture animation one frame on: the slots it uses counted, its state
+   stepped (func_8029F1BC), each of the key's textures found (func_8029E4E4)
+   or loaded (func_8029E47C) and put into its vehicle's display list where
+   D_803B3500 says (and, blending, the next key's, with the fraction as
+   G_SETPRIMCOLOR's LOD), and the slots no key uses any more freed */
 REGS(t0, fp)
-void func_8029E21C(u8 *a, s32 fp) {
-    u8 *T = *(u8 *PTR32 *)a, *r, *m, *e, *dl, *end;
-    s32 k, n, c, second, idx;
+void func_8029E21C(Anim *a, s32 fp) {
+    TexAnim *T = (TexAnim *)a->data;
+    TexSlot *s;
+    TexPatch *e, *end;
+    Vehicle *m;
+    u8 *dl;
     u16 *h1, *h2;
-    u32 s1 = 0, s5 = 0, *w;
-    f32 t = *(f32 *)(a + 4), rate;
+    u32 tex1, tex2 = 0, *w, cmd;
+    s32 k, n, c, second, idx;
+    f32 t = a->t;
 
     ENGINE_BLK(8029E21C);
-    for (r = D_803A7440, n = 12;; r += 0x1010) {
+    for (s = D_803A7440, n = TEX_SLOTS;; n--, s++) {
         ENGINE_BLK(8029E238);
         if (n == 0)
             break;
         ENGINE_BLK(8029E240);
-        n--;
-        if (*(u32 *)r != (u32)T)
-            goto next1;
-        ENGINE_BLK(8029E250);
-        if (r[6] == 0)
-            goto next1;
-        ENGINE_BLK(8029E25C);
-        r[7]++;
-    next1:
+        if (s->owner == T) {
+            ENGINE_BLK(8029E250);
+            if (s->used != 0) {
+                ENGINE_BLK(8029E25C);
+                s->refs++;
+            }
+        }
         ENGINE_BLK(8029E268);
     }
     ENGINE_BLK(8029E270);
-    k = (s8)a[0x13];
-    {
-        u16 *sp = (u16 *)(T + 4 + k * 2);
-
-        rate = (f32)(sp[1] - sp[0]) * t + (f32)sp[0];
-        rate = rate / 300.0f;
-    }
-    k = func_8029F1BC(a, k, T[1], rate, t, &t);
+    k = a->key;
+    k = func_8029F1BC(a, k, T->n, ANIM_RATE(T->rate[k], T->rate[k + 1], t), t, &t);
     ENGINE_BLK(8029E2BC);
-    c = T[2];
-    second = T[3];
-    h1 = (u16 *)(T + T[1] * 2 + 4 + c * 2 * k);
+    c = T->c;
+    second = T->second;
+    h1 = TEXANIM_KINDS(T, k);
     h2 = h1 + c;
     ENGINE_LEAVE(19, second);
-    for (idx = -1;;) {
+    for (idx = 0;; idx++) {
         ENGINE_BLK(8029E2E8);
         if (c == 0)
             break;
         ENGINE_BLK(8029E2F0);
         c--;
-        idx++;
-        s1 = func_8029E4E4(*h1, (s32)T);
+        tex1 = func_8029E4E4(*h1, T);
         h1++;
         ENGINE_BLK(8029E304);
-        if (s1 == 0) {
+        if (tex1 == 0) {
             ENGINE_BLK(8029E30C);
-            s1 = func_8029E47C((s32)T, h1[-1], fp);
+            tex1 = func_8029E47C(T, h1[-1], fp);
         }
         ENGINE_BLK(8029E314);
-        s5 = s1;
         if (second != 0) {
             ENGINE_BLK(8029E31C);
-            s1 = func_8029E4E4(*h2, (s32)T);
+            tex2 = func_8029E4E4(*h2, T);
             h2++;
             ENGINE_BLK(8029E328);
-            if (s1 == 0) {
+            if (tex2 == 0) {
                 ENGINE_BLK(8029E330);
-                s1 = func_8029E47C((s32)T, h2[-1], fp);
+                tex2 = func_8029E47C(T, h2[-1], fp);
             }
         }
         ENGINE_BLK(8029E338);
-        for (m = (u8 *)D_80364460;; m += 0x74) {
+        for (m = D_80364460;; m++) {
             ENGINE_BLK(8029E350);
-            if (*(u32 *)(m + 0x5C) == T[0])
+            if (m->type == T->type)
                 break;
             ENGINE_BLK(8029E35C);
         }
         ENGINE_BLK(8029E364);
         if (D_8035805C != 0) {
             ENGINE_BLK(8029E36C);
-            dl = *(u8 *PTR32 *)(m + 0xC);
+            dl = m->unkC;
         } else {
             ENGINE_BLK(8029E374);
-            dl = *(u8 *PTR32 *)(m + 0x30);
+            dl = m->unk30;
         }
         ENGINE_BLK(8029E378);
         end = D_803B35F0;
-        for (e = D_803B3500;; e += 0xC) {
+        for (e = D_803B3500;; e++) {
             ENGINE_BLK(8029E38C);
             if (e == end)
                 break;
             ENGINE_BLK(8029E394);
-            if (*(u32 *)e != (u32)T)
-                goto next2;
-            ENGINE_BLK(8029E3A0);
-            if (((s32 *)e)[2] != idx)
-                goto next2;
-            ENGINE_BLK(8029E3AC);
-            *(u32 *)(dl + ((s32 *)e)[1]) = s5;
-            if (second == 0)
-                goto next2;
-            ENGINE_BLK(8029E3BC);
-            w = (u32 *)(dl + ((s32 *)e)[4]);
-            e += 0xC;
-            *w++ = s1;
-            for (;;) {
-                u32 cmd;
-
-                ENGINE_BLK(8029E3D4);
-                cmd = *w;
-                w += 2;
-                if ((cmd & 0xFF000000) >> 24 == 0xFA)
-                    break;
+            if (e->anim == T) {
+                ENGINE_BLK(8029E3A0);
+                if (e->idx == idx) {
+                    ENGINE_BLK(8029E3AC);
+                    *(u32 *)(dl + e->off) = tex1;
+                    if (second != 0) {
+                        /* the next record: the second texture's G_SETTIMG,
+                           then the G_SETPRIMCOLOR after it gets the blend */
+                        ENGINE_BLK(8029E3BC);
+                        e++;
+                        w = (u32 *)(dl + e->off);
+                        *w++ = tex2;
+                        for (;;) {
+                            ENGINE_BLK(8029E3D4);
+                            cmd = *w;
+                            w += 2;
+                            if (GFX_OP(cmd) == G_SETPRIMCOLOR_OP)
+                                break;
+                        }
+                        ENGINE_BLK(8029E3F0);
+                        w[-2] = engine_cvt_w_s(t * 255.0f) | ((u32)G_SETPRIMCOLOR_OP << 24);
+                    }
+                }
             }
-            ENGINE_BLK(8029E3F0);
-            w[-2] = engine_cvt_w_s(t * 255.0f) | 0xFA000000;
-        next2:
             ENGINE_BLK(8029E414);
         }
     }
     ENGINE_BLK(8029E41C);
-    for (r = D_803A7440, n = 12;; r += 0x1010) {
+    for (s = D_803A7440, n = TEX_SLOTS;; n--, s++) {
         ENGINE_BLK(8029E428);
         if (n == 0)
             break;
         ENGINE_BLK(8029E430);
-        n--;
-        if (r[6] == 0)
-            goto next3;
-        ENGINE_BLK(8029E440);
-        if (r[7] < 2)
-            goto next3;
-        ENGINE_BLK(8029E450);
-        if (*(u32 *)r != (u32)T)
-            goto next3;
-        ENGINE_BLK(8029E45C);
-        r[6] = 0;
-    next3:
+        if (s->used != 0) {
+            ENGINE_BLK(8029E440);
+            if (s->refs >= TEX_REFS_STALE) {
+                ENGINE_BLK(8029E450);
+                if (s->owner == T) {
+                    ENGINE_BLK(8029E45C);
+                    s->used = 0;
+                }
+            }
+        }
         ENGINE_BLK(8029E460);
     }
     ENGINE_BLK(8029E468);
@@ -3940,144 +3744,164 @@ void func_8029E21C(u8 *a, s32 fp) {
 /* The texture animations (D_803B35F8's running records) one frame on */
 REGS(fp)
 void func_8029E0AC(s32 fp) {
-    u8 *p = (u8 *)D_803B35F8;
+    Part *p;
 
     ENGINE_BLK(8029E0AC);
-    for (;; p += 0x18) {
+    for (p = D_803B35F8;; p++) {
         ENGINE_BLK(8029E150);
-        if (*(s32 *)p == -1)
+        if (*(s32 *)&p->unk0 == -1)
             break;
         ENGINE_BLK(8029E160);
-        if ((s8)p[0x10] != 0) {
+        if (p->unk10 != 0) {
             ENGINE_BLK(8029E16C);
-            func_8029E21C(p, fp);
+            func_8029E21C(ANIM(p), fp);
         }
         ENGINE_BLK(8029E174);
     }
     ENGINE_BLK(8029E17C);
 }
 
+/* ---- a vehicle's spheres against the buildings and the level ------------------- */
+
 REGS(-> t1)
 s32 func_802BD8C8(void);
-extern s32 D_803059F0[];                /* (level or 0xFFFF, object kind, vehicle mask) triples, to a zero mask */
-extern u8 D_803F4030[];                 /* the level's objects: 0xFC bytes, their pieces from word 1 to word 2 */
-extern u8 *PTR32 D_803F7654;
-extern u8 D_803F9330[];
-extern u8 *PTR32 D_803FB8B0;
-extern u8 *PTR32 D_803BD308, *PTR32 D_803BD30C;
-extern u32 D_803BDE40[], D_803BDCA8[];  /* the grid's cells: their pieces from one word to the next */
-extern u8 D_803A742A;
+extern BuildingRule D_803059F0[];
+extern CollisionTri D_803F9330[];       /* the holes' triangles (8A080) */
+extern CollisionTri *PTR32 D_803FB8B0;  /* one past the last */
+extern u32 D_803BDE40[], D_803BDCA8[];  /* the grid's cells: their triangles from one word to the next */
+extern u8 D_803A742A;                   /* the hole group a vehicle of type 0xC8 stands on */
+#define CELL_TRIS(tab, i) (*(CollisionTri *PTR32 *)&(tab)[i])
+#define VEHICLE_ON_HOLE 0xC8            /* (the type that skips the hole group it stands on) */
+#define NO_GRID_TYPE VEHICLE_JETPACK    /* the J-Bomb skips the first grid */
 
-/* The vehicle's sphere against one building piece p: across its plane
-   (func_8029C160), and then inside its triangle there (func_8029C0DC,
+/* the blocks of one copy of the piece test */
+typedef struct PieceBlks {
+    EngineBlk c160, plane, c0dc, bf64, in, bd0c, edge, bee4, corner;
+} PieceBlks;
+#define PIECE_BLKS(a, b, c, d, e, f, g, h, i)                                                                   \
+    {                                                                                                        \
+        ENGINE_B(a), ENGINE_B(b), ENGINE_B(c), ENGINE_B(d), ENGINE_B(e), ENGINE_B(f), ENGINE_B(g),            \
+            ENGINE_B(h), ENGINE_B(i)                                                                         \
+    }
+
+/* The sphere (x, y, z, r) against one triangle: across its plane
+   (func_8029C160), and then inside it there (collision_flatten,
    func_8029BF64), across one of its edges (func_8029BD0C) or holding its
-   first corner (func_8029BEE4).  Each step's blocks are the section's
-   own; HIT and MISS are where it goes. */
-#define PIECE_TEST(p, B_C160, B_PLANE, B_C0DC, B_BF64, B_IN, B_BD0C, B_EDGE, B_BEE4, B_CORNER, HIT, MISS)        \
-    do {                                                                                                         \
-        s32 px_, py_, pz_;                                                                                       \
-        Flat f_;                                                                                                 \
-        ENGINE_BLK(B_C160);                                                                                      \
-        if (!func_8029C160(x, y, z, r, (struct Piece *)(p), &px_, &py_, &pz_)) {                                 \
-            ENGINE_BLK(B_PLANE);                                                                                 \
-            goto MISS;                                                                                           \
-        }                                                                                                        \
-        ENGINE_BLK(B_PLANE);                                                                                     \
-        ENGINE_BLK(B_C0DC);                                                                                      \
-        c0dc((p), px_, py_, pz_, &f_);                                                                           \
-        ENGINE_BLK(B_BF64);                                                                                      \
-        if (bf64(&f_)) {                                                                                         \
-            ENGINE_BLK(B_IN);                                                                                    \
-            goto HIT;                                                                                            \
-        }                                                                                                        \
-        ENGINE_BLK(B_IN);                                                                                        \
-        ENGINE_BLK(B_BD0C);                                                                                      \
-        if (func_8029BD0C(x, y, z, r, (struct Piece *)(p))) {                                                    \
-            ENGINE_BLK(B_EDGE);                                                                                  \
-            goto HIT;                                                                                            \
-        }                                                                                                        \
-        ENGINE_BLK(B_EDGE);                                                                                      \
-        ENGINE_BLK(B_BEE4);                                                                                      \
-        if (func_8029BEE4((p), x, y, z, r)) {                                                                    \
-            ENGINE_BLK(B_CORNER);                                                                                \
-            goto HIT;                                                                                            \
-        }                                                                                                        \
-        ENGINE_BLK(B_CORNER);                                                                                    \
-        goto MISS;                                                                                               \
-    } while (0)
+   first corner (func_8029BEE4) */
+static s32 piece_hit(CollisionTri *t, s32 x, s32 y, s32 z, s32 r, const PieceBlks *b) {
+    s32 px, py, pz, hit;
+    FlatTri f;
+
+    ENGINE_BLK_AT(b->c160);
+    hit = func_8029C160(x, y, z, r, t, &px, &py, &pz);
+    ENGINE_BLK_AT(b->plane);
+    if (!hit)
+        return 0;
+    ENGINE_BLK_AT(b->c0dc);
+    collision_flatten(t, px, py, pz, &f);
+    ENGINE_BLK_AT(b->bf64);
+    hit = collision_flat_inside(&f);
+    ENGINE_BLK_AT(b->in);
+    if (hit)
+        return 1;
+    ENGINE_BLK_AT(b->bd0c);
+    hit = func_8029BD0C(x, y, z, r, t);
+    ENGINE_BLK_AT(b->edge);
+    if (hit)
+        return 1;
+    ENGINE_BLK_AT(b->bee4);
+    hit = func_8029BEE4(t, x, y, z, r);
+    ENGINE_BLK_AT(b->corner);
+    return hit;
+}
+
+/* whether the rule applies to this vehicle type on this level (the blocks
+   of its tests, which func_8029B02C and func_8029AB88 have each) */
+static s32 rule_applies(const BuildingRule *e, s32 type, const EngineBlk *b) {
+    ENGINE_BLK_AT(b[0]);
+    if ((e->types & (1u << (type & 31))) == 0)
+        return 0;
+    ENGINE_BLK_AT(b[1]);
+    if (e->level != ALL_LEVELS) {
+        ENGINE_BLK_AT(b[2]);
+        if (e->level != D_802E8BDC)
+            return 0;
+    }
+    ENGINE_BLK_AT(b[3]);
+    if (e->kind == KIND_RDU) {
+        s32 v;
+
+        ENGINE_BLK_AT(b[4]);
+        v = func_802BD8C8();
+        ENGINE_BLK_AT(b[5]);
+        if (v != 0) {
+            ENGINE_BLK_AT(b[6]);
+            return 0;
+        }
+    }
+    ENGINE_BLK_AT(b[7]);
+    return 1;
+}
 
 /* the registers func_8029AA10, func_8029AB88 and func_8029B02C save and
    load back (and t8 for the last two): what their callees leave there
    (func_8029BF64's t8, say) doesn't get out */
-/* (and the inputs the vehicle modules' readers find in their registers
-   afterwards: $t4 (62740's func_802A8768), $t8 and $fp (69BB0's, 75490's,
-   5CB60's)) */
-#define ENGINE_INPUTS(y, type, kind)                                                                           \
-    do {                                                                                                       \
-        ENGINE_LEAVE(12, y);                                                                                   \
-        ENGINE_LEAVE(24, type);                                                                                \
-        ENGINE_LEAVE(30, kind);                                                                                \
-    } while (0)
 #define B02C_SAVED                                                                                             \
     (ENGINE_GPR(3) | ENGINE_GPR(8) | ENGINE_GPR(9) | ENGINE_GPR(11) | ENGINE_GPR(14) | ENGINE_GPR(15) |         \
      ENGINE_GPR(16) | ENGINE_GPR(17) | ENGINE_GPR(18) | ENGINE_GPR(20) | ENGINE_GPR(23) | ENGINE_GPR(25))
 
-/* The vehicle (type, its sphere (x, y, z, r), kind) against the
-   buildings: the objects of the level's kinds for this vehicle that its
-   sphere meets (func_8029B514), their pieces; D_803F9330's pieces (not
-   the one a vehicle 0xC8 stands on); the walls' (func_8029BB28 on a hit);
-   the parts not of its own kind (func_8029B5B8 after a hit); and the
-   pieces in its grid cells (func_8029C284; the first table not for
-   vehicle 9).  A hit is func_8029B614.  (a1-a3 are nothing to it: what
+/* The vehicle (type, the sphere (x, y, z, r), its number n) against the
+   buildings: the pieces of the level's buildings of the kinds its rules
+   give, whose bounding sphere it meets (func_8029B514); the holes' (not
+   the one a vehicle 0xC8 stands on); the walls' (func_8029BB28 on a
+   hit); the objects' not of its own type (func_8029B5B8 after a hit); and
+   the triangles in its grid cell (func_8029C284; the first grid not for
+   the J-Bomb).  A hit is func_8029B614.  (a1-a3 are nothing to it: what
    its callers had in those registers.) */
 REGS(a1, a2, a3, t3, t4, t5, t6, t8, fp)
-void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type, s32 kind) {
-    s32 *e = D_803059F0, v;
-    u8 *o, *oend, *p, *pend;
+void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type, s32 n) {
+    static const EngineBlk rule[] = {
+        ENGINE_B(8029B07C), ENGINE_B(8029B090), ENGINE_B(8029B0A0), ENGINE_B(8029B0B0),
+        ENGINE_B(8029B0C0), ENGINE_B(8029B0C8), ENGINE_B(8029B0D0), ENGINE_B(8029B0D8),
+    };
+    static const PieceBlks b1 = PIECE_BLKS(8029B144, 8029B14C, 8029B154, 8029B15C, 8029B164, 8029B16C,
+                                           8029B174, 8029B17C, 8029B184);
+    static const PieceBlks b2 = PIECE_BLKS(8029B208, 8029B210, 8029B218, 8029B220, 8029B228, 8029B230,
+                                           8029B238, 8029B240, 8029B248);
+    static const PieceBlks b3 = PIECE_BLKS(8029B284, 8029B28C, 8029B294, 8029B29C, 8029B2A4, 8029B2AC,
+                                           8029B2B4, 8029B2BC, 8029B2C4);
+    static const PieceBlks b4 = PIECE_BLKS(8029B320, 8029B328, 8029B330, 8029B338, 8029B340, 8029B348,
+                                           8029B350, 8029B358, 8029B360);
+    static const PieceBlks b5 = PIECE_BLKS(8029B3D8, 8029B3E0, 8029B3E8, 8029B3F0, 8029B3F8, 8029B400,
+                                           8029B408, 8029B410, 8029B418);
+    static const PieceBlks b6 = PIECE_BLKS(8029B474, 8029B47C, 8029B484, 8029B48C, 8029B494, 8029B49C,
+                                           8029B4A4, 8029B4AC, 8029B4B4);
+    BuildingRule *e;
+    Building *o, *oend;
+    CollisionTri *t, *tend;
     s16 *cell;
 
-    ENGINE_INPUTS(y, type, kind);
+    /* (the inputs the vehicle modules' readers find in their registers
+       afterwards: $t4, $t8 and $fp) */
+    ENGINE_LEAVE(12, y);
+    ENGINE_LEAVE(24, type);
+    ENGINE_LEAVE(30, n);
     engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029B02C);
-    /* the objects */
-    for (;;) {
+    /* the buildings */
+    for (e = D_803059F0;; e++) {
         ENGINE_BLK(8029B070);
-        if (e[2] == 0)
+        if (e->types == 0)
             break;
-        ENGINE_BLK(8029B07C);
-        if ((e[2] & (1u << (type & 31))) == 0) {
-            e += 3;
+        if (!rule_applies(e, type, rule))
             continue;
-        }
-        ENGINE_BLK(8029B090);
-        if (e[0] != 0xFFFF) {
-            ENGINE_BLK(8029B0A0);
-            if (e[0] != D_802E8BDC) {
-                e += 3;
-                continue;
-            }
-        }
-        ENGINE_BLK(8029B0B0);
-        if (e[1] == 0x38) {
-            ENGINE_BLK(8029B0C0);
-            v = func_802BD8C8();
-            ENGINE_BLK(8029B0C8);
-            if (v != 0) {
-                ENGINE_BLK(8029B0D0);
-                e += 3;
-                continue;
-            }
-        }
-        ENGINE_BLK(8029B0D8);
-        v = e[1];
-        e += 3;
         oend = D_803F7654;
-        for (o = D_803F4030;; o += 0xFC) {
+        for (o = D_803F4030;; o++) {
             ENGINE_BLK(8029B0F0);
             if (o == oend)
                 break;
             ENGINE_BLK(8029B0F8);
-            if (*(s32 *)(o + 0x30) != v)
+            if (o->unk30 != e->kind)
                 continue;
             ENGINE_BLK(8029B104);
             if (!func_8029B514(o, x, y, z, r)) {
@@ -4086,206 +3910,178 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
             }
             ENGINE_BLK(8029B10C);
             ENGINE_BLK(8029B114);
-            pend = ((u8 *PTR32 *)o)[2];
-            for (p = ((u8 *PTR32 *)o)[1];; p += 0x60) {
+            tend = o->unk8;
+            for (t = o->unk4;; t++) {
                 ENGINE_BLK(8029B130);
-                if (p == pend)
+                if (t == tend)
                     break;
                 ENGINE_BLK(8029B138);
-                if (p[0x51] == 0)
+                if (t->active == 0)
                     continue;
-                PIECE_TEST(p, 8029B144, 8029B14C, 8029B154, 8029B15C, 8029B164, 8029B16C, 8029B174, 8029B17C,
-                           8029B184, hit1, miss1);
-            hit1:
-                ENGINE_BLK(8029B194);
-                func_8029B614(p, kind);
-                ENGINE_BLK(8029B19C);
-                continue;
-            miss1:
-                ENGINE_BLK(8029B18C);
+                if (piece_hit(t, x, y, z, r, &b1)) {
+                    ENGINE_BLK(8029B194);
+                    func_8029B614(t, n);
+                    ENGINE_BLK(8029B19C);
+                } else {
+                    ENGINE_BLK(8029B18C);
+                }
             }
             ENGINE_BLK(8029B1A4);
         }
     }
-    /* D_803F9330's pieces */
+    /* the holes */
     ENGINE_BLK(8029B1C0);
-    pend = D_803FB8B0;
-    for (p = D_803F9330;; p += 0x60) {
+    tend = D_803FB8B0;
+    for (t = D_803F9330;; t++) {
         ENGINE_BLK(8029B1D4);
-        if (p == pend)
+        if (t == tend)
             break;
         ENGINE_BLK(8029B1DC);
-        if (p[0x51] == 0)
+        if (t->active == 0)
             continue;
         ENGINE_BLK(8029B1E8);
-        if (type == 0xC8) {
+        if (type == VEHICLE_ON_HOLE) {
             ENGINE_BLK(8029B1F4);
-            if (*(u16 *)(p + 0x52) == D_803A742A)
+            if (t->group == D_803A742A)
                 continue;
         }
-        PIECE_TEST(p, 8029B208, 8029B210, 8029B218, 8029B220, 8029B228, 8029B230, 8029B238, 8029B240, 8029B248,
-                   hit2, miss2);
-    hit2:
-        ENGINE_BLK(8029B258);
-        func_8029B614(p, kind);
-        ENGINE_BLK(8029B260);
-        continue;
-    miss2:
-        ENGINE_BLK(8029B250);
+        if (piece_hit(t, x, y, z, r, &b2)) {
+            ENGINE_BLK(8029B258);
+            func_8029B614(t, n);
+            ENGINE_BLK(8029B260);
+        } else {
+            ENGINE_BLK(8029B250);
+        }
     }
-    /* the walls' pieces */
+    /* the walls */
     ENGINE_BLK(8029B268);
-    pend = D_803BD30C;
-    for (p = D_803BD308;; p += 0x60) {
+    tend = D_803BD30C;
+    for (t = D_803BD308;; t++) {
         ENGINE_BLK(8029B27C);
-        if (p == pend)
+        if (t == tend)
             break;
-        PIECE_TEST(p, 8029B284, 8029B28C, 8029B294, 8029B29C, 8029B2A4, 8029B2AC, 8029B2B4, 8029B2BC, 8029B2C4,
-                   hit3, miss3);
-    hit3:
-        ENGINE_BLK(8029B2D4);
-        func_8029BB28(p, type, kind);
-        ENGINE_BLK(8029B2DC);
-        continue;
-    miss3:
-        ENGINE_BLK(8029B2CC);
+        if (piece_hit(t, x, y, z, r, &b3)) {
+            ENGINE_BLK(8029B2D4);
+            func_8029BB28(t, type, n);
+            ENGINE_BLK(8029B2DC);
+        } else {
+            ENGINE_BLK(8029B2CC);
+        }
     }
-    /* the parts */
+    /* the objects */
     ENGINE_BLK(8029B2E4);
-    pend = D_803BD300;
-    for (p = D_803B9890;; p += 0x60) {
+    tend = D_803BD300;
+    for (t = D_803B9890;; t++) {
         ENGINE_BLK(8029B2F8);
-        if (p == pend)
+        if (t == tend)
             break;
         ENGINE_BLK(8029B300);
-        if (p[0x51] == 0)
+        if (t->active == 0)
             continue;
         ENGINE_BLK(8029B30C);
-        if (p[0x4F] != 0) {
+        if (t->owner != 0) {
             ENGINE_BLK(8029B318);
-            if (p[0x4F] == type)
+            if (t->owner == type)
                 continue;
         }
-        PIECE_TEST(p, 8029B320, 8029B328, 8029B330, 8029B338, 8029B340, 8029B348, 8029B350, 8029B358, 8029B360,
-                   hit4, miss4);
-    hit4:
-        ENGINE_BLK(8029B370);
-        func_8029B614(p, kind);
-        ENGINE_BLK(8029B378);
-        func_8029B5B8(p);
-        ENGINE_BLK(8029B380);
-        continue;
-    miss4:
-        ENGINE_BLK(8029B368);
+        if (piece_hit(t, x, y, z, r, &b4)) {
+            ENGINE_BLK(8029B370);
+            func_8029B614(t, n);
+            ENGINE_BLK(8029B378);
+            func_8029B5B8(t);
+            ENGINE_BLK(8029B380);
+        } else {
+            ENGINE_BLK(8029B368);
+        }
     }
     /* the grid cells */
     ENGINE_BLK(8029B388);
     func_8029C284(x, z);
     ENGINE_BLK(8029B390);
-    if (type != 9) {
+    if (type != NO_GRID_TYPE) {
         ENGINE_BLK(8029B39C);
-        for (cell = (s16 *)D_803A7418;;) {
+        for (cell = D_803A7418;; cell++) {
             ENGINE_BLK(8029B3A4);
             if (*cell == -1)
                 break;
             ENGINE_BLK(8029B3B4);
-            p = *(u8 *PTR32 *)&D_803BDE40[*cell];
-            pend = *(u8 *PTR32 *)&D_803BDE40[*cell + 1];
-            cell++;
-            for (;; p += 0x60) {
+            tend = CELL_TRIS(D_803BDE40, *cell + 1);
+            for (t = CELL_TRIS(D_803BDE40, *cell);; t++) {
                 ENGINE_BLK(8029B3D0);
-                if (p == pend)
+                if (t == tend)
                     break;
-                PIECE_TEST(p, 8029B3D8, 8029B3E0, 8029B3E8, 8029B3F0, 8029B3F8, 8029B400, 8029B408, 8029B410,
-                           8029B418, hit5, miss5);
-            hit5:
-                ENGINE_BLK(8029B428);
-                func_8029B614(p, kind);
-                ENGINE_BLK(8029B430);
-                continue;
-            miss5:
-                ENGINE_BLK(8029B420);
+                if (piece_hit(t, x, y, z, r, &b5)) {
+                    ENGINE_BLK(8029B428);
+                    func_8029B614(t, n);
+                    ENGINE_BLK(8029B430);
+                } else {
+                    ENGINE_BLK(8029B420);
+                }
             }
         }
     }
     ENGINE_BLK(8029B438);
-    for (cell = (s16 *)D_803A7418;;) {
+    for (cell = D_803A7418;; cell++) {
         ENGINE_BLK(8029B440);
         if (*cell == -1)
             break;
         ENGINE_BLK(8029B450);
-        p = *(u8 *PTR32 *)&D_803BDCA8[*cell];
-        pend = *(u8 *PTR32 *)&D_803BDCA8[*cell + 1];
-        cell++;
-        for (;; p += 0x60) {
+        tend = CELL_TRIS(D_803BDCA8, *cell + 1);
+        for (t = CELL_TRIS(D_803BDCA8, *cell);; t++) {
             ENGINE_BLK(8029B46C);
-            if (p == pend)
+            if (t == tend)
                 break;
-            PIECE_TEST(p, 8029B474, 8029B47C, 8029B484, 8029B48C, 8029B494, 8029B49C, 8029B4A4, 8029B4AC, 8029B4B4,
-                       hit6, miss6);
-        hit6:
-            ENGINE_BLK(8029B4C4);
-            func_8029B614(p, kind);
-            ENGINE_BLK(8029B4CC);
-            continue;
-        miss6:
-            ENGINE_BLK(8029B4BC);
+            if (piece_hit(t, x, y, z, r, &b6)) {
+                ENGINE_BLK(8029B4C4);
+                func_8029B614(t, n);
+                ENGINE_BLK(8029B4CC);
+            } else {
+                ENGINE_BLK(8029B4BC);
+            }
         }
     }
     ENGINE_BLK(8029B4D4);
     engine_restore();
 }
 
-/* Whether the sphere (x, y, z, r) meets any building piece func_8029B02C
-   would test, for this vehicle type ($a1) */
-REGS(t3, t4, t5, t6, t8 -> a1)
-s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
-    s32 *e = D_803059F0, v;
-    u8 *o, *oend, *p, *pend;
+/* Whether the sphere (x, y, z, r) meets any triangle func_8029B02C would
+   test, for this vehicle type: the same walk, stopping at a hit */
+static s32 ab88(s32 x, s32 y, s32 z, s32 r, s32 type) {
+    static const EngineBlk rule[] = {
+        ENGINE_B(8029ABD8), ENGINE_B(8029ABEC), ENGINE_B(8029ABFC), ENGINE_B(8029AC0C),
+        ENGINE_B(8029AC1C), ENGINE_B(8029AC24), ENGINE_B(8029AC2C), ENGINE_B(8029AC34),
+    };
+    static const PieceBlks b1 = PIECE_BLKS(8029ACA0, 8029ACA8, 8029ACB0, 8029ACB8, 8029ACC0, 8029ACC8,
+                                           8029ACD0, 8029ACD8, 8029ACE0);
+    static const PieceBlks b2 = PIECE_BLKS(8029AD6C, 8029AD74, 8029AD7C, 8029AD84, 8029AD8C, 8029AD94,
+                                           8029AD9C, 8029ADA4, 8029ADAC);
+    static const PieceBlks b3 = PIECE_BLKS(8029ADD8, 8029ADE0, 8029ADE8, 8029ADF0, 8029ADF8, 8029AE00,
+                                           8029AE08, 8029AE10, 8029AE18);
+    static const PieceBlks b4 = PIECE_BLKS(8029AE64, 8029AE6C, 8029AE74, 8029AE7C, 8029AE84, 8029AE8C,
+                                           8029AE94, 8029AE9C, 8029AEA4);
+    static const PieceBlks b5 = PIECE_BLKS(8029AF04, 8029AF0C, 8029AF14, 8029AF1C, 8029AF24, 8029AF2C,
+                                           8029AF34, 8029AF3C, 8029AF44);
+    static const PieceBlks b6 = PIECE_BLKS(8029AF90, 8029AF98, 8029AFA0, 8029AFA8, 8029AFB0, 8029AFB8,
+                                           8029AFC0, 8029AFC8, 8029AFD0);
+    BuildingRule *e;
+    Building *o, *oend;
+    CollisionTri *t, *tend;
     s16 *cell;
 
-    ENGINE_LEAVE(12, y);
-    ENGINE_LEAVE(24, type);
-    engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029AB88);
-    for (;;) {
+    for (e = D_803059F0;; e++) {
         ENGINE_BLK(8029ABCC);
-        if (e[2] == 0)
+        if (e->types == 0)
             break;
-        ENGINE_BLK(8029ABD8);
-        if ((e[2] & (1u << (type & 31))) == 0) {
-            e += 3;
+        if (!rule_applies(e, type, rule))
             continue;
-        }
-        ENGINE_BLK(8029ABEC);
-        if (e[0] != 0xFFFF) {
-            ENGINE_BLK(8029ABFC);
-            if (e[0] != D_802E8BDC) {
-                e += 3;
-                continue;
-            }
-        }
-        ENGINE_BLK(8029AC0C);
-        if (e[1] == 0x38) {
-            ENGINE_BLK(8029AC1C);
-            v = func_802BD8C8();
-            ENGINE_BLK(8029AC24);
-            if (v != 0) {
-                ENGINE_BLK(8029AC2C);
-                e += 3;
-                continue;
-            }
-        }
-        ENGINE_BLK(8029AC34);
-        v = e[1];
-        e += 3;
         oend = D_803F7654;
-        for (o = D_803F4030;; o += 0xFC) {
+        for (o = D_803F4030;; o++) {
             ENGINE_BLK(8029AC4C);
             if (o == oend)
                 break;
             ENGINE_BLK(8029AC54);
-            if (*(s32 *)(o + 0x30) != v)
+            if (o->unk30 != e->kind)
                 continue;
             ENGINE_BLK(8029AC60);
             if (!func_8029B514(o, x, y, z, r)) {
@@ -4294,194 +4090,183 @@ s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
             }
             ENGINE_BLK(8029AC68);
             ENGINE_BLK(8029AC70);
-            pend = ((u8 *PTR32 *)o)[2];
-            for (p = ((u8 *PTR32 *)o)[1];; p += 0x60) {
+            tend = o->unk8;
+            for (t = o->unk4;; t++) {
                 ENGINE_BLK(8029AC8C);
-                if (p == pend)
+                if (t == tend)
                     break;
                 ENGINE_BLK(8029AC94);
-                if (p[0x51] == 0)
+                if (t->active == 0)
                     continue;
-                PIECE_TEST(p, 8029ACA0, 8029ACA8, 8029ACB0, 8029ACB8, 8029ACC0, 8029ACC8, 8029ACD0, 8029ACD8,
-                           8029ACE0, hit1, miss1);
-            hit1:
-                ENGINE_BLK(8029AD0C);
-                goto found;
-            miss1:
+                if (piece_hit(t, x, y, z, r, &b1)) {
+                    ENGINE_BLK(8029AD0C);
+                    return 1;
+                }
                 ENGINE_BLK(8029ACE8);
             }
             ENGINE_BLK(8029ACF0);
         }
     }
     ENGINE_BLK(8029AD24);
-    pend = D_803FB8B0;
-    for (p = D_803F9330;; p += 0x60) {
+    tend = D_803FB8B0;
+    for (t = D_803F9330;; t++) {
         ENGINE_BLK(8029AD38);
-        if (p == pend)
+        if (t == tend)
             break;
         ENGINE_BLK(8029AD40);
-        if (p[0x51] == 0)
+        if (t->active == 0)
             continue;
         ENGINE_BLK(8029AD4C);
-        if (type == 0xC8) {
+        if (type == VEHICLE_ON_HOLE) {
             ENGINE_BLK(8029AD58);
-            if (*(u16 *)(p + 0x52) == D_803A742A)
+            if (t->group == D_803A742A)
                 continue;
         }
-        PIECE_TEST(p, 8029AD6C, 8029AD74, 8029AD7C, 8029AD84, 8029AD8C, 8029AD94, 8029AD9C, 8029ADA4, 8029ADAC,
-                   found, miss2);
-    miss2:
+        if (piece_hit(t, x, y, z, r, &b2))
+            return 1;
         ENGINE_BLK(8029ADB4);
     }
     ENGINE_BLK(8029ADBC);
-    pend = D_803BD30C;
-    for (p = D_803BD308;; p += 0x60) {
+    tend = D_803BD30C;
+    for (t = D_803BD308;; t++) {
         ENGINE_BLK(8029ADD0);
-        if (p == pend)
+        if (t == tend)
             break;
-        PIECE_TEST(p, 8029ADD8, 8029ADE0, 8029ADE8, 8029ADF0, 8029ADF8, 8029AE00, 8029AE08, 8029AE10, 8029AE18,
-                   found, miss3);
-    miss3:
+        if (piece_hit(t, x, y, z, r, &b3))
+            return 1;
         ENGINE_BLK(8029AE20);
     }
     ENGINE_BLK(8029AE28);
-    pend = D_803BD300;
-    for (p = D_803B9890;; p += 0x60) {
+    tend = D_803BD300;
+    for (t = D_803B9890;; t++) {
         ENGINE_BLK(8029AE3C);
-        if (p == pend)
+        if (t == tend)
             break;
         ENGINE_BLK(8029AE44);
-        if (p[0x51] == 0)
+        if (t->active == 0)
             continue;
         ENGINE_BLK(8029AE50);
-        if (p[0x4F] != 0) {
+        if (t->owner != 0) {
             ENGINE_BLK(8029AE5C);
-            if (p[0x4F] == type)
+            if (t->owner == type)
                 continue;
         }
-        PIECE_TEST(p, 8029AE64, 8029AE6C, 8029AE74, 8029AE7C, 8029AE84, 8029AE8C, 8029AE94, 8029AE9C, 8029AEA4,
-                   found, miss4);
-    miss4:
+        if (piece_hit(t, x, y, z, r, &b4))
+            return 1;
         ENGINE_BLK(8029AEAC);
     }
     ENGINE_BLK(8029AEB4);
     func_8029C284(x, z);
     ENGINE_BLK(8029AEBC);
-    if (type != 9) {
+    if (type != NO_GRID_TYPE) {
         ENGINE_BLK(8029AEC8);
-        for (cell = (s16 *)D_803A7418;;) {
+        for (cell = D_803A7418;; cell++) {
             ENGINE_BLK(8029AED0);
             if (*cell == -1)
                 break;
             ENGINE_BLK(8029AEE0);
-            p = *(u8 *PTR32 *)&D_803BDE40[*cell];
-            pend = *(u8 *PTR32 *)&D_803BDE40[*cell + 1];
-            cell++;
-            for (;; p += 0x60) {
+            tend = CELL_TRIS(D_803BDE40, *cell + 1);
+            for (t = CELL_TRIS(D_803BDE40, *cell);; t++) {
                 ENGINE_BLK(8029AEFC);
-                if (p == pend)
+                if (t == tend)
                     break;
-                PIECE_TEST(p, 8029AF04, 8029AF0C, 8029AF14, 8029AF1C, 8029AF24, 8029AF2C, 8029AF34, 8029AF3C,
-                           8029AF44, found, miss5);
-            miss5:
+                if (piece_hit(t, x, y, z, r, &b5))
+                    return 1;
                 ENGINE_BLK(8029AF4C);
             }
         }
     }
     ENGINE_BLK(8029AF54);
-    for (cell = (s16 *)D_803A7418;;) {
+    for (cell = D_803A7418;; cell++) {
         ENGINE_BLK(8029AF5C);
         if (*cell == -1)
             break;
         ENGINE_BLK(8029AF6C);
-        p = *(u8 *PTR32 *)&D_803BDCA8[*cell];
-        pend = *(u8 *PTR32 *)&D_803BDCA8[*cell + 1];
-        cell++;
-        for (;; p += 0x60) {
+        tend = CELL_TRIS(D_803BDCA8, *cell + 1);
+        for (t = CELL_TRIS(D_803BDCA8, *cell);; t++) {
             ENGINE_BLK(8029AF88);
-            if (p == pend)
+            if (t == tend)
                 break;
-            PIECE_TEST(p, 8029AF90, 8029AF98, 8029AFA0, 8029AFA8, 8029AFB0, 8029AFB8, 8029AFC0, 8029AFC8, 8029AFD0,
-                       found, miss6);
-        miss6:
+            if (piece_hit(t, x, y, z, r, &b6))
+                return 1;
             ENGINE_BLK(8029AFD8);
         }
     }
     ENGINE_BLK(8029AFE8);
-    ENGINE_BLK(8029AFEC);
-    engine_restore();
     return 0;
-found:
-    ENGINE_BLK(8029AFE0);
-    ENGINE_BLK(8029AFEC);
-    engine_restore();
-    return 1;
 }
 
-extern u8 D_803A7425;
+REGS(t3, t4, t5, t6, t8 -> a1)
+s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
+    s32 hit;
+
+    ENGINE_LEAVE(12, y);
+    ENGINE_LEAVE(24, type);
+    engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
+    hit = ab88(x, y, z, r, type);
+    if (hit)
+        ENGINE_BLK(8029AFE0);
+    ENGINE_BLK(8029AFEC);
+    engine_restore();
+    return hit;
+}
+
 extern s32 D_803A740C, D_80358068;
 
-/* The vehicle of this type ($t8) against the buildings: its D_803A7300
-   record's sphere first (func_8029AB88, when the record is live), and on a
-   hit each of its D_803A6B30 records' spheres (func_8029B02C, numbered from
-   1 in $fp).  D_803A742B is cleared, and D_803A740C set to the frame when
-   the camera is turning (D_803A7410/D_803A7412). */
+/* The vehicle of this type against the buildings: its bounding sphere
+   first (func_8029AB88, when placed), and on a hit each of its spheres
+   (func_8029B02C, numbered from 1).  D_803A742B is cleared, and
+   D_803A740C set to the frame when the camera's limits were moved. */
 static void aa10(s32 type) {
-    u8 *r = D_803A7300;
-    s32 hit = 0, n = 0, x, y, z, rad;
+    Solid *s;
+    KindPart *p;
+    s32 n = 0;
 
     engine_save(B02C_SAVED, 0);
     ENGINE_BLK(8029AA10);
     D_803A742B = 0;
-    for (;;) {
+    for (s = D_803A7300;; s++) {
         ENGINE_BLK(8029AA58);
-        if (r[0x10] == type)
+        if (s->kind == type)
             break;
-        r += 0x14;
     }
     ENGINE_BLK(8029AA64);
-    if ((s8)r[0x11] == 0)
-        goto tail;
-    ENGINE_BLK(8029AA74);
-    x = ((s32 *)r)[0] >> 2, y = ((s32 *)r)[1] >> 2, z = ((s32 *)r)[2] >> 2, rad = ((s32 *)r)[3] >> 2;
-    hit = func_8029AB88(x, y, z, rad, type);
-    ENGINE_BLK(8029AA98);
-    if (hit == 0)
-        goto tail;
-    ENGINE_BLK(8029AAA0);
-    for (r = D_803A6B30;;) {
-        ENGINE_BLK(8029AAAC);
-        if ((s8)r[0x13] == -1)
-            break;
-        ENGINE_BLK(8029AABC);
-        if ((s8)r[0x13] == 0) {
-            r += 0x14;
-            continue;
+    if (s->end != 0) {
+        ENGINE_BLK(8029AA74);
+        if (func_8029AB88(s->x >> 2, s->y >> 2, s->z >> 2, s->r >> 2, type)) {
+            ENGINE_BLK(8029AA98);
+            ENGINE_BLK(8029AAA0);
+            for (p = D_803A6B30;; p++) {
+                ENGINE_BLK(8029AAAC);
+                if (p->end == -1)
+                    break;
+                ENGINE_BLK(8029AABC);
+                if (p->end == 0)
+                    continue;
+                ENGINE_BLK(8029AAC4);
+                if (p->kind != type)
+                    continue;
+                ENGINE_BLK(8029AAD0);
+                n++;
+                func_8029B02C(0, 0, 0, p->x >> 2, p->y >> 2, p->z >> 2, p->r >> 2, type, n);
+                ENGINE_BLK(8029AAFC);
+            }
+        } else {
+            ENGINE_BLK(8029AA98);
         }
-        ENGINE_BLK(8029AAC4);
-        if (r[0x12] != type) {
-            r += 0x14;
-            continue;
-        }
-        ENGINE_BLK(8029AAD0);
-        x = ((s32 *)r)[0] >> 2, y = ((s32 *)r)[1] >> 2, z = ((s32 *)r)[2] >> 2, rad = ((s32 *)r)[3] >> 2;
-        r += 0x14;
-        n++;
-        func_8029B02C(0, 0, 0, x, y, z, rad, type, n);
-        ENGINE_BLK(8029AAFC);
     }
-tail:
     ENGINE_BLK(8029AB04);
     if (D_803A7410 == 0) {
         ENGINE_BLK(8029AB18);
-        if ((u16)D_803A7412 == 0xFFF) {
-            goto out;
+        if (D_803A7412 == TURN - 1) {
+            ENGINE_BLK(8029AB4C);
+            engine_restore();
+            return;
         }
     }
     ENGINE_BLK(8029AB30);
     D_803A7425 = 1;
     D_803A740C = D_80358068;
-out:
     ENGINE_BLK(8029AB4C);
     engine_restore();
 }
@@ -4499,7 +4284,7 @@ void func_8029C454(s32 x, s32 y, s32 z, s32 type, u8 *a, u8 *b, u8 *buf) {
 
 REGS(t0, t1, t2, t6, a1, a2, s4)
 void func_8029D040(s32 x, s32 z, s32 type, u8 *t6, s32 heading, Part *parts, u8 *buf) {
-    d040((u16 *)t6, type, buf, x, z, heading, (u8 *)parts);
+    d040((ObjTris *)t6, type, buf, x, z, heading, ANIM(parts));
 }
 
 /* the vehicle type func_8029A800 was last given: func_8029AA10's, which
@@ -4511,11 +4296,10 @@ void func_8029A800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_le
                    s32 t3, s32 type, VS *vs) {
     ENGINE_LEAVE(24, type);
     a800_type = type;
-    a800(x, y, z, (u32)kinds, a2, hit_fx, fx_len, speed, fx_speed, t3, type, vs);
+    a800(x, y, z, kinds, a2, hit_fx, fx_len, speed, fx_speed, t3, type, vs);
 }
 
 REGS()
 void func_8029AA10(void) {
     aa10(a800_type);
 }
-
