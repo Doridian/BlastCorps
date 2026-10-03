@@ -4008,13 +4008,20 @@ for poll.
   compares with D_803B8568's address, not its value): kept, with a note.
 - After `func_8029A800` and `func_8029C454` took values, the taint build
   over the TAS showed thirteen more of 56040's leftovers that no reader
-  takes; they are gone.  What 56040 still leaves, and for whom
-  (`taint.py --feeds 56040.c`): `func_8029C0DC`'s corners (77E20, 89250),
-  `func_8029E5AC`/`func_8029F1BC`/`func_8029E21C`'s registers (the effects'
-  velocities in 80280 and 8AEE0's `engine_ctx(14..20)`), `func_8029C454`'s
-  `$s1`/`$s2` (772A0's `func_802AABE4`, a matrixless point again: it can
-  pass 0 as half B's calls do), `func_8029B02C`'s `$t8`/`$fp` and its
-  restores (69BB0's wheels, 5CB60's triangles), `func_8029EF80`'s `$fp`.
+  takes; they are gone.  After the merge with the buildings' and the
+  vehicles' halves (their callers take `collision_flatten()`'s struct and
+  pass 0 to the effects' and `func_802AABE4`'s dead inputs), nine more
+  went: `func_8029C0DC`'s corners are no native code's any more, nor
+  `func_8029E5AC`/`func_8029F1BC`/`func_8029E21C`'s effect registers, nor
+  `func_8029C454`'s `$s1`/`$s2`.  What 56040 still leaves, and for whom
+  (`taint.py --feeds 56040.c`, over the TAS and the quick tier): `$fp`
+  (`func_8029EF80`, `func_8029B02C`) and `$t8` (`func_8029A800`,
+  `func_8029B02C`, `func_8029AB88`) and their restores, which 69BB0's
+  wheels and 5CB60's `func_802A1C20` read; `func_8029E5AC`'s `$t6` (69BB0's
+  shadow word); and `$v0` from `func_8029BEE4`/`func_8029E21C`, which
+  5CB60's triangle bytes take.  All of them end as garbage the original
+  never meant (a wheel's material, a triangle's byte 0x50): the gameplay
+  digest's to replace with defined values.
 - 5CB60 reads the level file and the models by `LevelHeader`, `Model`
   and `VehicleModel` field (`LEVEL_PTR()`, `MODEL_PTR()`, `VMODEL_PTR()`),
   with structs for the file's records and the tables they become

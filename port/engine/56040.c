@@ -761,9 +761,9 @@ s32 collision_flat_inside(const FlatTri *f) {
     return func_8029BF64(f->u0, f->v0, f->u1, f->v1, f->u2, f->v2, f->pu, f->pv);
 }
 
-/* the same with the results in $v0-$t1, where 77E20's and 89250's callers
-   take them for func_8029BF64 (buildings.h's C0DC_LEFT), until they call
-   collision_flatten() */
+/* the original's entry, with the results in $v0-$t1 where its callers took
+   them; no native code calls it now (77E20's and 89250's use
+   collision_flatten()), only the check build's translated callers */
 REGS(s0, v1, a0, a1)
 void func_8029C0DC(u8 *t, s32 x, s32 y, s32 z) {
     FlatTri f;
@@ -1593,7 +1593,6 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
     a->back = back;
     a->key = k;
     a->t = t;
-    ENGINE_LEAVE(15, back);
     *t_out = t;
     return k;
 }
@@ -1639,8 +1638,6 @@ void func_8029E5AC(Anim *a, u8 *base) {
         ENGINE_BLK(8029E660);
         dst = (u32 *)(base + rec->mtx);
         s = (u32 *)(base + rec->rest);
-        ENGINE_LEAVE(19, (u32)((Key *)rec->keys + k));
-        ENGINE_LEAVE(20, k * (s32)sizeof(Key));
         for (w = dst, i = 8; i != 0; i--) {
             ENGINE_BLK(8029E694);
             w[0] = s[0];
@@ -1677,8 +1674,6 @@ void func_8029E5AC(Anim *a, u8 *base) {
         ENGINE_BLK(8029E710);
     }
     ENGINE_BLK(8029E71C);
-    ENGINE_LEAVE(16, 0);
-    ENGINE_LEAVE(17, (u32)rec);
 }
 
 /* ---- an object's spheres ---------------------------------------------------- */
@@ -2363,7 +2358,7 @@ static void c454(s32 kind, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0
     Solid *b;
     KindPart *r;
     ObjSphere *s;
-    s32 ry, rz, called = 0;
+    s32 ry, rz;
 
     ENGINE_BLK(8029C454);
     for (b = D_803A7300;; b++) {
@@ -2390,7 +2385,6 @@ static void c454(s32 kind, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0
                 break;
             ENGINE_BLK(8029C4C4);
             r->x = func_802AA890(s->x, s->y, s->z, s->nmtx, s->mtx, base, s0, s1, s2, &ry, &rz, &s1, &s2);
-            called = 1;
             ENGINE_BLK(8029C4DC);
             r->y = ry;
             r->z = rz;
@@ -2398,10 +2392,6 @@ static void c454(s32 kind, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0
         }
     }
     ENGINE_BLK(8029C504);
-    if (called) {
-        ENGINE_LEAVE(17, s1);
-        ENGINE_LEAVE(18, s2);
-    }
 }
 
 /* an object model's triangles (func_8029D24C's data): their count, the
@@ -3623,7 +3613,6 @@ void func_8029E21C(Anim *a, s32 fp) {
     second = T->second;
     h1 = TEXANIM_KINDS(T, k);
     h2 = h1 + c;
-    ENGINE_LEAVE(19, second);
     for (idx = 0;; idx++) {
         ENGINE_BLK(8029E2E8);
         if (c == 0)
@@ -3717,7 +3706,6 @@ void func_8029E21C(Anim *a, s32 fp) {
     }
     ENGINE_BLK(8029E468);
     ENGINE_LEAVE(2, 0);
-    ENGINE_LEAVE(20, (u32)h2);
 }
 
 /* The texture animations (D_803B35F8's running records) one frame on */
