@@ -2720,7 +2720,9 @@ either renderer:
   is what the first started from, and after them, what the first ended
   with.  The in-between passes draw nothing but the twins (the 8-bit
   render-to-texture images and the RDRAM z-image stay the first pass's),
-  skip the read-backs, and charge no RDP time.
+  skip the read-backs, and charge no RDP time.  With OpenGL an in-between
+  pass doesn't run the display list again: it replays what the first
+  pass recorded (Performance, "The third round"), to the same pictures.
 - **Blending vertices.**  The first pass records where each vertex load
   (`G_VTX`) put its vertices in clip space.  The second pass moves each
   vertex halfway from where the previous frame put the same vertex.  For
@@ -3333,17 +3335,107 @@ the page), the matrices (`guMtxCatF`, `func_802ACCCC`), and libaudio's
 voice mixing (`al_voice_mix`, `pull_table`).  None is more than 6% of
 the game; the game as a whole is a sixth of the page's work now.
 
+### The third round (the in-between pass replayed; `tri` in the page)
+
+The two renderer items the second round left.  Measured as it was: the
+page by `web_perf.mjs` (Chromium on the GPU, 4x throttling,
+`PORT_ADAPT=0`, Simian Acres, the builds alternately), natively by the
+deterministic runs, a sampling profiler and, new, the main thread's
+instructions retired (`perf_event_open` from an `LD_PRELOAD`, 4,200
+retraces) and `rdtsc` around `tri` (a scratch build).
+
+- **The in-between pass replays the first** (`gfx.c`, "replaying the
+  first pass"; OpenGL).  The first pass, when in-between passes will
+  follow, records what their drawing depends on, as it runs: each vertex
+  load's vertices as the transform and lighting left them (before
+  blending), the point edits (`G_MW_POINTS`), each triangle and
+  rectangle command, the TMEM loads, the 2D projection's changes (the
+  HUD's), and, where a display-list command may have changed it
+  (`gfx_state_serial`), the part of the state the drawing reads (the
+  geometry and other modes, scissor, viewport, the color and z images,
+  the texture's wrap) and the OpenGL draw state the first pass drew
+  with (`gfx_gl_rec_state`: the program, the textures, the uniforms).
+  An in-between pass then goes through the record: each load's vertices
+  back into the vertex buffer and blended (`iblend`, the same records of
+  the previous frame in the same order), each triangle and rectangle
+  through the same functions as before (`tri`, `fill_rect`, `tex_rect`:
+  the culling and clipping, the HUD at the sides, widescreen), drawn with
+  the recorded draw state (`gfx_gl_rec_force`).  No display list is
+  decoded, no matrix multiplied, no vertex transformed or lit, no
+  texture looked up.  A triangle the first pass culled (behind the
+  camera there, in view in between) may need a state the first pass
+  never made: for those a snapshot of the state is kept (the second half
+  of `GfxState`, taken only where everything of a state was culled) and
+  the state made from it as the full pass would, TMEM brought up to date
+  by the recorded loads as before (`tload_lazy`).  The full pass runs
+  where a recorded state may have gone stale (a texture-cache flush, a
+  new render target or resolution while the first pass ran:
+  `gfx_gl_gen`; 46 of 2,673 passes in `PORT_AUTOSTART=3`, 316 of 203,855
+  in the TAS), with the software renderer (whose cost is the pixels, not
+  the list) and with `PORT_INTERP_REPLAY=0`.
+- **`tri` in the page isn't three to four times native.**  The second
+  round compared the page's profile at 4x throttling (0.69 ms a retrace)
+  with native time.  At 1x, Chromium's profile gives `tri` 0.16 ms a
+  retrace before (0.11 after); natively, from `rdtsc` around it, 0.14 ms
+  (0.12 after) for the same triangles: WebAssembly costs 1.0-1.2 times
+  native there, and the generated code has nothing to fix (no 64-bit
+  arithmetic, the struct copies as `i64` loads and stores, the calls
+  `to_screen`, `clip_poly`, `gfx_gl_tri` only).  What did cost: Asyncify
+  instrumented 26 of the renderer's functions (`tri`, `run`, `begin`,
+  `tile_texture`, `gfx_gl_tri`...: everything that can reach a GL call
+  or `host_log`, whose indirect calls might unwind), a check of its state
+  after every call and a save/restore path in each.  A graphics task
+  never switches fibers (it runs on the loop's stack to its end), so
+  `port/web/asyncify_remove.txt` takes them out (`-sASYNCIFY_REMOVE`;
+  `port/tools/asyncify_names.py` checks the names are each defined once,
+  `-DPORT_WASM_ASYNCIFY_ALL=ON` puts the instrumentation back).  Only
+  `gfx_gl_init`, `gfx_gl_present`, `set_geometry` and the task's entry
+  stay instrumented.  The second round's try at this measured nothing
+  among the in-between pass's larger cost; now it is about a tenth of
+  the renderer in the page (below).
+
+The pictures are byte for byte the full pass's: the OpenGL screenshots
+of `PORT_AUTOSTART=3` (every 250 retraces to 4,200, and every retrace
+of 2,500-2,700, which alternate between frames and in-between images),
+with `--hd-text`, at 4:3, with `--display-hz 144` (every retrace and
+present of 2,500-2,650), `PORT_AUTOSTART=1` and `2` (6,000 retraces,
+every 53rd), without `--interpolate`, and the software renderer's, all
+against main's build, with the same sound and save; and the TAS replayed
+with `--renderer gl --interpolate --widescreen` (137 screenshots over
+275,373 retraces, the same save and replay report).  The quick tier in
+all eight variants, the TAS (free timing) on 32 and wasm as in "Testing
+the port".
+
+Results, ms a retrace in the level (means of the parts from retrace
+3,000; the page's runs scaled to the same audio time, 0.33 ms, as the
+machine was shared and the runs drifted together by up to 30%):
+
+| | `gfx` | `gfx2` | the two |
+| --- | --- | --- | --- |
+| Chromium, GPU, 4x, main | 1.36 | 0.88 | 2.24 |
+| Chromium, GPU, 4x, the replay, Asyncify as before | 1.54 | 0.50 | 2.04 |
+| Chromium, GPU, 4x, the replay, the renderer out of Asyncify | 1.43 | 0.45 | 1.88 |
+| Chromium, GPU, 1x, profile (the renderer's own time, `gfx_task_call` down) | 0.64 before | 0.49 after | |
+| native (mlp64, `--scale 4`), main | 0.188 | 0.110 | 0.298 |
+| native (mlp64, `--scale 4`), after | 0.197 | 0.065 | 0.262 |
+
+The in-between pass costs a third of the first now (it was two thirds),
+and in the page the two passes together about a sixth less; the
+recording costs the first pass 5-10%.  Natively the run's main thread
+retires 10% fewer instructions (32.8 → 29.4 billion over 4,200
+retraces); `tri` itself, by `rdtsc`, is 210 cycles a triangle in the
+first pass and 59 in a replay (111 in a full in-between pass before,
+which also culled what wasn't drawn).  Asyncify's checks were a tenth
+of the renderer in the page.
+
 ### What's left
 
-- **The in-between pass still runs the display list** (vertices, state,
-  every command; no longer the loads or the textures' hashing), for a
-  picture whose only difference is where the vertices are.  Recording
-  the first pass's triangles and running only their vertices again
-  would take off most of what's left of `gfx2` (a third of the renderer).
-- **`tri` in WebAssembly** is three to four times its native cost, the
-  most of any part of the renderer; unexplained (Asyncify instruments
-  it, through the GL calls' paths, but taking the renderer out of
-  Asyncify measured nothing before).
+- **The first pass's own cost** is now most of the renderer: `tri`
+  (the culling, clipping and screen transform of every triangle, then
+  `gfx_gl_tri`'s copy), `run`, `do_vtx`, the TMEM loads and texture
+  lookups.  A triangle's state is already made once per command that
+  changes it; the next step would be the vertices transformed in
+  batches (SIMD: `-msimd128` in the page, four lanes of a load at once).
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
