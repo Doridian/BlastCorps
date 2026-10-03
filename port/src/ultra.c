@@ -380,9 +380,10 @@ static void delay(Delay *d, OSTime ticks) {
 
 s32 osContInit(OSMesgQueue *mq, u8 *bitpattern, OSContStatus *status) {
     int i;
-    /* libultra's: the controllers need half a second after power-on */
+    /* libultra's: the controllers need half a second after power-on (the
+       port's are ready at once: only with --load-waits n64) */
     OSTime t = osGetTime();
-    if (t < OS_USEC_TO_CYCLES(500000)) {
+    if (host_load_waits() && t < OS_USEC_TO_CYCLES(500000)) {
         static Delay d;
         delay(&d, OS_USEC_TO_CYCLES(500000) - t);
     }
@@ -462,12 +463,14 @@ s32 osEepromLongRead(OSMesgQueue *mq, u8 addr, u8 *buf, int n) {
     return 0;
 }
 
-/* libultra's: 12 ms after each block, the EEPROM's write cycle */
+/* libultra's: 12 ms after each block, the EEPROM's write cycle (the
+   port's file takes it at once: only with --load-waits n64) */
 s32 osEepromLongWrite(OSMesgQueue *mq, u8 addr, u8 *buf, int n) {
     static Delay d;
     for (; n > 0; n -= 8, addr++, buf += 8) {
         host_eeprom_write(addr, (u32)buf);
-        delay(&d, OS_USEC_TO_CYCLES(12000));
+        if (host_load_waits())
+            delay(&d, OS_USEC_TO_CYCLES(12000));
     }
     return 0;
 }
@@ -539,6 +542,8 @@ void port_irq_vi(void) {
 }
 
 uint32_t port_vi_sent(void) { return vi_sent; }
+
+int port_load_waits(void) { return host_load_waits(); }
 
 /* ---- SP/DP ---------------------------------------------------------------------------- */
 

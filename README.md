@@ -192,6 +192,7 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--hud edges` / `centre`     | wider than 4:3: the levels' HUD (radar, money, counters, timer, TV) at the picture's sides (the default), or where the game puts it, in the 4:3 middle; menus, panels and full-screen pictures stay centred either way |
 | `--hd-text [FONT]`           | OpenGL: the game's text drawn from a font at the internal resolution (built in: Stardos Stencil, SIL OFL; docs/FONTS.md) |
 | `--cpu-model n64`            | the N64's lag frames back: the game's work takes as long as on the N64, and busy scenes slow down as they did there (default `off`: no lag, every level frame 1/30 s; docs/PORT.md, "Lag frames") |
+| `--load-waits n64`           | the N64's waits for its hardware back: the controllers' half second at power-on, the EEPROM's write cycles, the pak thread's retrace a command (default `off`; `--cpu-model n64` implies it; docs/PORT.md, "The front end's waits") |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 
