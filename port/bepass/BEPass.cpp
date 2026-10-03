@@ -380,6 +380,11 @@ struct BEPass : PassInfoMixin<BEPass> {
                places the game's variables at their N64 addresses */
             if (!g->getMetadata("port.align"))      /* port-ilp32 did it */
                 g->setAlignment(dl.getABITypeAlign(g->getValueType()));
+            /* what it is now, which KeepAlign holds it to after the
+               optimiser */
+            g->setMetadata("port.align.set",
+                           MDNode::get(c, {ConstantAsMetadata::get(ConstantInt::get(
+                                              i32, g->getAlign().value_or(Align(1)).value()))}));
             if (g->hasSection() && g->getSection().starts_with("llvm."))
                 continue;
             std::vector<std::pair<uint64_t, unsigned>> items;
@@ -495,6 +500,67 @@ struct BEPass : PassInfoMixin<BEPass> {
 
 bool BEPass::native = false;
 
+/* The optimiser may raise a global's alignment to suit the code it made
+   (clang 23's InferAlignment, after the SLP vectoriser read a float[4][4]
+   as <8 x i32>: 23C20.c's D_8036B8C8 went to 32), but the port places the
+   game's variables at their N64 addresses (gen_ld.py), which the raised
+   alignment doesn't fit (the link fails) or the code's aligned accesses
+   would fault on.  So each global goes back to what BEPass gave it
+   (port.align.set), and in a function that uses one that was raised, no
+   access claims more than 8 bytes' alignment (none of x86's instructions
+   that need more is chosen then). */
+struct KeepAlign : PassInfoMixin<KeepAlign> {
+    static bool isRequired() { return true; }
+
+    PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
+        std::vector<GlobalVariable *> raised;
+        for (GlobalVariable &g : m.globals()) {
+            MDNode *md = g.getMetadata("port.align.set");
+            if (!md)
+                continue;
+            uint64_t set = mdconst::extract<ConstantInt>(md->getOperand(0))->getZExtValue();
+            if (g.getAlign() && g.getAlign()->value() > set) {
+                g.setAlignment(Align(set));
+                raised.push_back(&g);
+            }
+        }
+        if (raised.empty())
+            return PreservedAnalyses::all();
+        const Align most(8);
+        for (Function &f : m) {
+            bool uses = false;
+            for (GlobalVariable *g : raised)
+                for (User *u : g->users()) {
+                    Instruction *i = dyn_cast<Instruction>(u);
+                    if (auto *ce = dyn_cast<ConstantExpr>(u))
+                        for (User *cu : ce->users())
+                            if (auto *ci = dyn_cast<Instruction>(cu))
+                                uses |= ci->getFunction() == &f;
+                    uses |= i && i->getFunction() == &f;
+                }
+            if (!uses)
+                continue;
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb) {
+                    if (auto *ld = dyn_cast<LoadInst>(&i)) {
+                        if (ld->getAlign() > most)
+                            ld->setAlignment(most);
+                    } else if (auto *st = dyn_cast<StoreInst>(&i)) {
+                        if (st->getAlign() > most)
+                            st->setAlignment(most);
+                    } else if (auto *mi = dyn_cast<MemIntrinsic>(&i)) {
+                        if (mi->getDestAlign() && *mi->getDestAlign() > most)
+                            mi->setDestAlignment(most);
+                        if (auto *mt = dyn_cast<MemTransferInst>(mi))
+                            if (mt->getSourceAlign() && *mt->getSourceAlign() > most)
+                                mt->setSourceAlignment(most);
+                    }
+                }
+        }
+        return PreservedAnalyses::none();
+    }
+};
+
 struct ICount : PassInfoMixin<ICount> {
     static bool isRequired() { return true; }
 
@@ -568,6 +634,7 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
                     [](ModulePassManager &mpm, OptimizationLevel) { mpm.addPass(BEPass()); });
                 pb.registerOptimizerLastEPCallback(
                     [](ModulePassManager &mpm, OptimizationLevel, ThinOrFullLTOPhase) {
+                        mpm.addPass(KeepAlign());
                         mpm.addPass(ICount());
                     });
                 portRegisterArena(pb);      /* after ICount: BEPASS_ARENA=1 */
