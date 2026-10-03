@@ -3493,14 +3493,102 @@ their caller), `cpuprofile_report.py` (node's profiles of a
 `engine_costs.py` (O3's per-function charges: measuring the blocks,
 writing `ENGINE_COST`).
 
+### The fourth round (SIMD vertices; the draw calls measured)
+
+The vertex transform in four lanes, and what batching the draw calls
+would take.  Measured as before, and, new, by amplification: a scratch
+build that runs `do_vtx`'s vertex loop N times over each load (the
+results are the same each time) makes its cost stand out of the
+machine's noise, natively, under node (deterministic, `PORT_VTX_REP`)
+and in the page; and a micro-benchmark of the two loops, taken from
+`gfx.c` as they are, under node and in Chromium.
+
+- **`PORT_SIMD`** (CMake option, on by default; gfx.c): `do_vtx`'s loop
+  (`vtx_simd`) and `mtx_mul` in four-lane vectors, through the
+  compiler's vector extensions (`__attribute__((vector_size(16)))`,
+  `__builtin_shufflevector`, `__builtin_convertvector`), which lower to
+  SSE on x86, NEON on AArch64 and SIMD128 in WebAssembly, where gfx.c
+  is built with `-msimd128`.  A vertex's 16 bytes come in one load (the
+  halfwords swapped from big-endian by a shuffle, not in the
+  native-endian builds), its position is the matrix's rows times x, y
+  and z summed, its color one vector; with `G_LIGHTING` the lights' dot
+  products four lights at a time and the colors summed as one vector.
+  The results are the scalar code's to the bit: each lane does the
+  scalar code's operations in its order, the host is built with
+  `-ffp-contract=off` (no FMA: clang for AArch64 would otherwise fuse
+  them), a light facing away adds +0 where the scalar code skips it
+  (the colors are never -0), and the clamp at 255 is the scalar
+  comparison's select.  A test (scratch: both loops on random matrices,
+  vertices, lights and flags, NaN and infinities included, 300,000
+  trials on x86-64, i386, wasm with and without SIMD128, big- and
+  native-endian) finds no differing bit, and finds them at once when
+  built with `-ffp-contract=fast -mfma`.  Off, or with the access
+  profiler, the scalar loop is what it was.  In WebAssembly gfx.c is
+  also built with `-fno-slp-vectorize`: with SIMD128 the SLP vectorizer
+  turned the scalar loop (and code like it) into vector code V8 ran 30%
+  slower.
+- **What the browsers have**: WebAssembly SIMD128 is in Chrome and Edge
+  91, Firefox 89 and Safari 16.4 (all of 2021-2023), so the page needs
+  no fallback build for the browsers it is for; an older browser fails
+  to compile the module (`-DPORT_SIMD=OFF` builds one without).
+- **A store that cost three times the loop**: the first version stored
+  the color as one 16-byte store, and in the game (under node and in
+  Chromium) the loop ran three times slower than the scalar one, though
+  1.5-2 times faster in the micro-benchmark; stored a float at a time
+  it is 1.4 times faster than the scalar loop in the game.  Natively it
+  is a wash: clang at `-O3 -msse4.1` had vectorized the scalar loop
+  already.
+
+The pictures are byte for byte main's: the OpenGL screenshots of
+`PORT_AUTOSTART=3` (every 250 retraces to 4,200, every retrace of
+2,500-2,700), with `--hd-text`, at 4:3, `--display-hz 144`,
+`PORT_AUTOSTART=1` and `2`, without `--interpolate`, and the software
+renderer's, with the same sound and save, in the `mlp64` and the 32-bit
+builds; the variants and the TAS (free timing) on 32 and wasm as in
+"Testing the port".
+
+Results (us.v10, Simian Acres):
+
+| | before | after |
+| --- | --- | --- |
+| vertex loop, node, ms a retrace (amplified, per pass over the loads) | 0.0137 | 0.0094 |
+| `do_vtx` (with `vtx_simd`), Chromium, GPU, 4x, profile, ms a retrace | 0.084-0.104 | 0.074-0.075 |
+| `gfx`, Chromium, GPU, 4x | 1.19-1.36 | 1.17-1.28 |
+| native (mlp64, `--scale 4`), `gfx` / `gfx2` | 0.218 / 0.075 | 0.196 / 0.068 (the machine's noise) |
+
+So the vertices were never much of the cost: about 3,400 a retrace in
+the level, 2% of them lit (texture-mapped by `G_TEXTURE_GEN` mostly),
+none fogged; the transform is a few microseconds a retrace at 1x.  The
+page's renderer gains about 0.02 ms a retrace at 4x, half a percent of
+its work.  Tried and not kept: `to_screen` and the culling's divisions
+in vectors (no difference measurable).
+
+**The draw calls** (a scratch count over 4,200 retraces): about 300
+draws a pass in the level (1.24 million in the run, 28 vertices each),
+and of two batches one after the other, 99% differ in their textures,
+71% in their textures and tile parameters only (`tex`, `tA`, `tB`,
+`tul`), 29% in their program, 4% in their colors (`prim`, `env`...),
+3% in their depth state, none in their scissor or target.  Batches of
+the same state are merged already (`begin` compares the state with the
+batch's).  What batching could still take is the texture changes: all
+textures in an atlas (or arrays by size), each vertex carrying its
+tile's place and parameters as flat attributes in place of the
+uniforms, the shader's `texelFetch` offset by them (the HD glyphs,
+drawn filtered by `texture()`, kept apart); that would leave about 90
+draws a pass.  What it would save: the GL part is 0.08-0.09 ms a
+retrace at 1x and 0.30-0.39 at 4x in the page (of 2.6-3.1), of which
+WebGL's binding, uniform and draw calls are about 0.05 ms at 1x by the
+profile: at most 0.1-0.2 ms at 4x, 3-6% of the page's work, for
+4-6 agent-hours and the shaders' texture addressing redone.  Not done.
+
 ### What's left
 
 - **The first pass's own cost** is now most of the renderer: `tri`
   (the culling, clipping and screen transform of every triangle, then
-  `gfx_gl_tri`'s copy), `run`, `do_vtx`, the TMEM loads and texture
-  lookups.  A triangle's state is already made once per command that
-  changes it; the next step would be the vertices transformed in
-  batches (SIMD: `-msimd128` in the page, four lanes of a load at once).
+  `gfx_gl_tri`'s copy: a quarter of the renderer in the page), the TMEM
+  loads (`tload_copy`) and texture lookups (`tile_texture`,
+  `hash_words`), `run`, `vtx_tail` (the in-between pass's records).
+  The vertex transform is done (the fourth round) and was small.
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
@@ -3508,8 +3596,9 @@ writing `ENGINE_COST`).
   on) the page fails with "no WebAssembly compiler available".  Its
   numbers are the baseline compiler's; a Firefox with Ion should do
   better, unmeasured.
-- **Draw calls**: one per texture change; a texture array or atlas would
-  batch them.
+- **Draw calls**: one per texture change, about 300 a pass; an atlas
+  would make them about 90, for 3-6% of the page's work at 4x (the
+  fourth round).
 - **A retrace whose work runs over** is shown late even when the next is
   short (at 6x the render retrace takes 17-19 ms, the other 7): a queue
   of pictures presented a retrace later would absorb it, for a retrace

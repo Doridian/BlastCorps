@@ -769,8 +769,19 @@ if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})
 endif()
+# PORT_SIMD (docs/PORT.md, "The fourth round"): the renderer's vertex
+# transform and lighting in four-lane vectors, the same bits as the scalar
+# code; in WebAssembly gfx.c is built with SIMD128 (-msimd128), which every
+# browser the page is for has (Chrome 91, Firefox 89, Safari 16.4), and
+# without the SLP vectorizer, whose vector code from scalar code V8 ran slower
+option(PORT_SIMD "the renderer's vertices in four-lane vectors (WebAssembly: SIMD128)" ON)
+if(PORT_SIMD)
+    target_compile_definitions(host PRIVATE PORT_SIMD)
+endif()
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86|i.86|amd64|AMD64" AND NOT EMSCRIPTEN)
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3;-msse4.1")
+elseif(EMSCRIPTEN AND PORT_SIMD)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3;-msimd128;-fno-slp-vectorize")
 else()
     set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/gfx.c PROPERTIES COMPILE_OPTIONS "-O3")
 endif()
