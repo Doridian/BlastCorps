@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "recomp.h"
 #include "host.h"
@@ -125,6 +126,155 @@ void engine_trap(uint32_t pc) {
     host_fatal("the engine trapped: syscall at %08X", pc);
 }
 
+#ifdef PORT_PROV
+/* -DPORT_PROV (the 32-bit build; port/tools/engine_prov.py): where each
+   value the native code reads from the context or the dead stack comes
+   from.  Every register of each thread's context carries the site (the
+   return address into the native code) of the ENGINE_LEAVE that wrote it
+   last, and of the engine_restore that put it back when one changed it;
+   every stack word the site of its engine_frame store, the register's
+   sites and the frames around the store.  Each read (engine_ctx,
+   ENGINE_REG, engine_frame_lw) is counted by its site and those; at exit
+   PROV_OUT=PREFIX writes them to PREFIX.<pid>.  port_prov_probe(id) counts
+   whatever a native function wants counted (PROBE lines). */
+#define PSITE() ((uint32_t)(uintptr_t)__builtin_return_address(0))
+#define PV_CHAIN 6                      /* the frames kept for a store */
+#define PV_LOG (1u << 18)
+#define PV_WORDS (1u << 21)             /* RDRAM's words */
+
+typedef struct {
+    uint32_t ps, rs;                    /* the writer's site, the restore's */
+} pvr;
+typedef struct {
+    uint32_t fs, ps, rs, reg, ch[PV_CHAIN];
+} pvm;
+typedef struct {
+    uint32_t rsite, key, n, val;
+    pvm m;
+} pve;
+
+static struct pv {
+    recomp_context *ctx;
+    pvr g[32], f[32];
+    uint32_t fsp[64], fsite[64];
+    int nf;
+} pvt[16];
+static pvm *pv_mem;
+static pve *pv_log;
+static unsigned long pv_probe_n[64];
+static uint32_t pv_fsite;               /* engine_frame_s()'s, for its stores */
+#define FSITE (pv_fsite ? pv_fsite : PSITE())
+
+static struct pv *pv_of(recomp_context *c) {
+    int i;
+    for (i = 0; i < 16; i++) {
+        if (pvt[i].ctx == c)
+            return &pvt[i];
+        if (!pvt[i].ctx) {
+            pvt[i].ctx = c;
+            return &pvt[i];
+        }
+    }
+    return &pvt[15];
+}
+
+void port_prov_probe(unsigned id) {
+    if (id < 64)
+        pv_probe_n[id]++;
+}
+
+static void pv_dump(void) {
+    const char *fn = getenv("PROV_OUT");
+    char name[512];
+    FILE *f;
+    unsigned i, k;
+
+    if (!fn || !pv_log)
+        return;
+    snprintf(name, sizeof name, "%s.%d", fn, (int)getpid());
+    if (!(f = fopen(name, "w")))
+        return;
+    for (i = 0; i < 64; i++)
+        if (pv_probe_n[i])
+            fprintf(f, "PROBE %u %lu\n", i, pv_probe_n[i]);
+    for (i = 0; i < PV_LOG; i++) {
+        if (!pv_log[i].n)
+            continue;
+        fprintf(f, "R %08x K %u P %08x RS %08x F %08x REG %u N %u V %08x CH", pv_log[i].rsite, pv_log[i].key,
+                pv_log[i].m.ps, pv_log[i].m.rs, pv_log[i].m.fs, pv_log[i].m.reg, pv_log[i].n, pv_log[i].val);
+        for (k = 0; k < PV_CHAIN; k++)
+            fprintf(f, " %08x", pv_log[i].m.ch[k]);
+        fprintf(f, "\n");
+    }
+    fclose(f);
+}
+
+static void pv_init(void) {
+    if (pv_log)
+        return;
+    pv_log = calloc(PV_LOG, sizeof *pv_log);
+    pv_mem = calloc(PV_WORDS, sizeof *pv_mem);
+    atexit(pv_dump);
+}
+
+static void pv_note(uint32_t rsite, uint32_t key, const pvm *m, uint32_t val) {
+    uint32_t h = rsite * 2654435761u ^ key * 40503u ^ m->ps * 97u ^ m->fs * 31u ^ m->rs * 7u, k;
+
+    for (k = 0; k < PV_CHAIN; k++)
+        h = h * 31u + m->ch[k];
+    h &= PV_LOG - 1;
+    pv_init();
+    while (pv_log[h].n && !(pv_log[h].rsite == rsite && pv_log[h].key == key && !memcmp(&pv_log[h].m, m, sizeof *m)))
+        h = (h + 1) & (PV_LOG - 1);
+    if (!pv_log[h].n) {
+        pv_log[h].rsite = rsite;
+        pv_log[h].key = key;
+        pv_log[h].m = *m;
+        pv_log[h].val = val;
+    }
+    pv_log[h].n++;
+}
+
+static void pv_reg(uint32_t rsite, uint32_t key, const pvr *r, uint32_t val) {
+    pvm m;
+
+    memset(&m, 0, sizeof m);
+    m.ps = r->ps;
+    m.rs = r->rs;
+    pv_note(rsite, key, &m, val);
+}
+
+static void pv_st(recomp_context *ctx, uint32_t a, uint32_t fs, const pvr *r, uint32_t reg) {
+    struct pv *v = pv_of(ctx);
+    pvm *m;
+    int k, j;
+
+    pv_init();
+    m = &pv_mem[(a >> 2) & (PV_WORDS - 1)];
+    m->fs = fs;
+    m->ps = r ? r->ps : 0;
+    m->rs = r ? r->rs : 0;
+    m->reg = reg;
+    for (k = 0, j = v->nf - 1; k < PV_CHAIN; k++, j--)
+        m->ch[k] = j >= 0 ? v->fsite[j] : 0;
+}
+
+static void pv_frame(recomp_context *ctx, uint32_t oldsp, uint32_t newsp, uint32_t site) {
+    struct pv *v = pv_of(ctx);
+
+    if ((int32_t)(newsp - oldsp) < 0) {
+        if (v->nf < 64) {
+            v->fsp[v->nf] = oldsp;
+            v->fsite[v->nf] = site;
+            v->nf++;
+        }
+    } else {
+        while (v->nf > 0 && v->fsp[v->nf - 1] <= newsp)
+            v->nf--;
+    }
+}
+#endif
+
 /* engine.h's ENGINE_SAVE/ENGINE_RESTORE: the registers the original saves
    on its stack and loads back before it returns (gmask: GPRs, fmask: FPR
    words), kept here for the thread's context, so that what its translated
@@ -132,6 +282,9 @@ void engine_trap(uint32_t pc) {
    the calls are; each thread's own (a context switch inside one is
    possible, through the game's C). */
 static struct {
+#ifdef PORT_PROV
+    pvr pg[32], pf[32];
+#endif
     recomp_context *ctx;
     uint32_t gmask, fmask;
     uint64_t r[32];
@@ -147,6 +300,10 @@ void engine_save(uint32_t gmask, uint32_t fmask) {
     save_stack[save_n].ctx = ctx;
     save_stack[save_n].gmask = gmask;
     save_stack[save_n].fmask = fmask;
+#ifdef PORT_PROV
+    memcpy(save_stack[save_n].pg, pv_of(ctx)->g, sizeof save_stack[save_n].pg);
+    memcpy(save_stack[save_n].pf, pv_of(ctx)->f, sizeof save_stack[save_n].pf);
+#endif
     for (k = 0; k < 32; k++) {
         if (gmask >> k & 1)
             save_stack[save_n].r[k] = ctx->r[k];
@@ -157,6 +314,10 @@ void engine_save(uint32_t gmask, uint32_t fmask) {
 }
 
 uint32_t engine_ctx(unsigned int reg) {
+#ifdef PORT_PROV
+    if (reg < 32)
+        pv_reg(PSITE(), reg, &pv_of(port_ctx())->g[reg], (uint32_t)port_ctx()->r[reg]);
+#endif
     return reg < 32 ? (uint32_t)port_ctx()->r[reg] : 0;
 }
 
@@ -168,6 +329,17 @@ void engine_restore(void) {
     if (n < 0)
         host_fatal("engine_restore: nothing saved");
     for (k = 0; k < 32; k++) {
+#ifdef PORT_PROV
+        /* (a register the restore changes: its value is the saved one's) */
+        if ((save_stack[n].gmask >> k & 1) && ctx->r[k] != save_stack[n].r[k]) {
+            pv_of(ctx)->g[k] = save_stack[n].pg[k];
+            pv_of(ctx)->g[k].rs = PSITE();
+        }
+        if ((save_stack[n].fmask >> k & 1) && ctx->f[k] != save_stack[n].f[k]) {
+            pv_of(ctx)->f[k] = save_stack[n].pf[k];
+            pv_of(ctx)->f[k].rs = PSITE();
+        }
+#endif
         if (save_stack[n].gmask >> k & 1)
             ctx->r[k] = save_stack[n].r[k];
         if (save_stack[n].fmask >> k & 1)
@@ -186,6 +358,15 @@ void engine_syscall(uint32_t pc) {
    VR4300 holds one), 34-65 an FPR word */
 void engine_leave(unsigned int reg, uint32_t value) {
     recomp_context *ctx = port_ctx();
+#ifdef PORT_PROV
+    {
+        pvr r = { PSITE(), 0 };
+        if (reg < 32)
+            pv_of(ctx)->g[reg] = r;
+        else if (reg >= 34 && reg < 66)
+            pv_of(ctx)->f[reg - 34] = r;
+    }
+#endif
     if (reg < 32) {
         if (reg)
             ctx->r[reg] = S32(value);
@@ -195,6 +376,12 @@ void engine_leave(unsigned int reg, uint32_t value) {
 
 void engine_leave64(unsigned int reg, uint32_t lo, uint32_t hi) {
     recomp_context *ctx = port_ctx();
+#ifdef PORT_PROV
+    if (reg < 32) {
+        pvr r = { PSITE(), 0 };
+        pv_of(ctx)->g[reg] = r;
+    }
+#endif
     if (reg && reg < 32)
         ctx->r[reg] = (uint64_t)hi << 32 | lo;
 }
@@ -203,6 +390,9 @@ void engine_leave64(unsigned int reg, uint32_t lo, uint32_t hi) {
    RDRAM as the translated code's addiu, sd, sdc1 and sw leave it */
 uint32_t engine_frame(int32_t n) {
     recomp_context *ctx = port_ctx();
+#ifdef PORT_PROV
+    pv_frame(ctx, (uint32_t)ctx->sp, (uint32_t)ctx->sp + (uint32_t)n, FSITE);
+#endif
     ctx->sp = S32((uint32_t)ctx->sp + (uint32_t)n);
     return (uint32_t)ctx->sp;
 }
@@ -210,24 +400,49 @@ uint32_t engine_frame(int32_t n) {
 void engine_frame_sd(uint32_t off, unsigned int reg) {
     recomp_context *ctx = port_ctx();
     uint8_t *rdram = RDRAM;
+#ifdef PORT_PROV
+    {
+        uint32_t fs = FSITE;
+        const pvr *r = reg < 32 ? &pv_of(ctx)->g[reg] : 0;
+        pv_st(ctx, (uint32_t)ctx->sp + off, fs, r, reg);
+        pv_st(ctx, (uint32_t)ctx->sp + off + 4, fs, r, reg);
+    }
+#endif
     mem_w64(rdram, (uint32_t)ctx->sp + off, reg < 32 ? ctx->r[reg] : 0);
 }
 
 void engine_frame_sdc1(uint32_t off, unsigned int fpr) {
     recomp_context *ctx = port_ctx();
     uint8_t *rdram = RDRAM;
+#ifdef PORT_PROV
+    {
+        uint32_t fs = FSITE;
+        pv_st(ctx, (uint32_t)ctx->sp + off, fs, &pv_of(ctx)->f[fpr], 100 + fpr);
+        pv_st(ctx, (uint32_t)ctx->sp + off + 4, fs, &pv_of(ctx)->f[fpr + 1], 101 + fpr);
+    }
+#endif
     mem_w64(rdram, (uint32_t)ctx->sp + off, fpr_l(ctx, (int)fpr));
 }
 
 void engine_frame_sw(uint32_t off, uint32_t v) {
     recomp_context *ctx = port_ctx();
     uint8_t *rdram = RDRAM;
+#ifdef PORT_PROV
+    pv_st(ctx, (uint32_t)ctx->sp + off, FSITE, 0, 99);
+#endif
     mem_w32(rdram, (uint32_t)ctx->sp + off, v);
 }
 
 uint32_t engine_frame_lw(uint32_t off) {
     recomp_context *ctx = port_ctx();
     uint8_t *rdram = RDRAM;
+#ifdef PORT_PROV
+    {
+        uint32_t a = (uint32_t)ctx->sp + off;
+        pv_init();
+        pv_note(PSITE(), 1000 + off, &pv_mem[(a >> 2) & (PV_WORDS - 1)], mem_r32(rdram, a));
+    }
+#endif
     return mem_r32(rdram, (uint32_t)ctx->sp + off);
 }
 
@@ -235,6 +450,9 @@ uint32_t engine_frame_lw(uint32_t off) {
    $s0..$s7, $gp, $fp and $f20..$f31 in */
 void engine_frame_s(void) {
     unsigned int k;
+#ifdef PORT_PROV
+    pv_fsite = PSITE();
+#endif
     engine_frame(-0x58);
     engine_frame_sd(0, 31);
     for (k = 0; k < 8; k++)
@@ -244,6 +462,9 @@ void engine_frame_s(void) {
     engine_frame(-0x30);
     for (k = 0; k < 6; k++)
         engine_frame_sdc1(8 * k, 20 + 2 * k);
+#ifdef PORT_PROV
+    pv_fsite = 0;
+#endif
 }
 
 /* engine.h's: a COP0 register, as the translated code's mfc0 reads it */
@@ -254,6 +475,12 @@ uint32_t engine_mfc0(unsigned int reg) {
 /* engine.h's ENGINE_REG: what the context holds, in the same numbering */
 uint32_t engine_reg(unsigned int reg) {
     recomp_context *ctx = port_ctx();
+#ifdef PORT_PROV
+    if (reg < 32)
+        pv_reg(PSITE(), 200 + reg, &pv_of(ctx)->g[reg], (uint32_t)ctx->r[reg]);
+    else if (reg >= 34 && reg < 66)
+        pv_reg(PSITE(), 200 + reg, &pv_of(ctx)->f[reg - 34], ctx->f[reg - 34]);
+#endif
     if (reg < 32)
         return (uint32_t)ctx->r[reg];
     if (reg >= 34 && reg < 66)

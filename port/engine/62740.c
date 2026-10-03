@@ -5,8 +5,10 @@
  * (unk4C, unk4E: 12-bit angles), its speed (unk76), its gear table (unk78:
  * five (s16, s16, s16) rows) and its flags.
  *
- * Still translated: the functions whose register conventions are all
- * pass-through, which go native with their callers (the vehicle modules).
+ * A few registers stay in the context (ENGINE_LEAVE) because the other
+ * half of port/engine still reads them from there: 5CB60.c's collision
+ * triangles, 60F60.c, 69BB0.c's driver and the other vehicles' setups
+ * (docs/PORT.md, "Replacing the engine").
  */
 #include "shared.h"
 #include "game/vehicle.h"
@@ -89,7 +91,6 @@ void func_802A6FE4(s32 limit, VS *vs) {
         if (v >= 0) {
             ENGINE_BLK(802A7028);
             v -= 3;
-            ENGINE_LEAVE(1, limit < v);         /* ($at, the compare's) */
             if (!(limit < v)) {
                 ENGINE_BLK(802A7038);
                 v = limit;
@@ -97,7 +98,6 @@ void func_802A6FE4(s32 limit, VS *vs) {
         } else {
             ENGINE_BLK(802A7040);
             v += 3;
-            ENGINE_LEAVE(1, v < -limit);
             if (!(v < -limit)) {
                 ENGINE_BLK(802A7050);
                 v = -limit;
@@ -204,13 +204,9 @@ done:
 /* unk4C turned by `turn` toward unk4E, not past it */
 REGS(a1, gp)
 void func_802A746C(s32 turn, VS *vs) {
-    s32 h = vs->unk4C, target = vs->unk4E, n, at;
+    s32 h = vs->unk4C, target = vs->unk4E, n;
 
     ENGINE_BLK(802A746C);
-    /* (what it leaves in $v0, $a0 and $at, $v1, which the vehicle modules
-       read on) */
-    ENGINE_LEAVE(2, h);
-    ENGINE_LEAVE(4, target);
     if (h == target)
         goto done;
     ENGINE_BLK(802A7484);
@@ -224,13 +220,11 @@ void func_802A746C(s32 turn, VS *vs) {
         ENGINE_BLK(802A74A0);
         n -= 0xFFF;
     }
-    ENGINE_LEAVE(3, n);
     ENGINE_BLK(802A74A4);
     if (turn >= 0) {
         ENGINE_BLK(802A74AC);
         if (h < target) {
             ENGINE_BLK(802A74B4);
-            at = n < h;
             if (target < n)
                 goto clamp;
             ENGINE_BLK(802A74BC);
@@ -240,11 +234,9 @@ void func_802A746C(s32 turn, VS *vs) {
             goto set;
         }
         ENGINE_BLK(802A74CC);
-        at = n < h;
         if (!(target < h))
             goto set;
         ENGINE_BLK(802A74D8);
-        at = target < n;
         if (!(n < h))
             goto set;
         ENGINE_BLK(802A74E0);
@@ -256,7 +248,6 @@ void func_802A746C(s32 turn, VS *vs) {
     ENGINE_BLK(802A74F0);
     if (target < h) {
         ENGINE_BLK(802A74FC);
-        at = n < h;
         if (!(target < n))
             goto clamp;
         ENGINE_BLK(802A7504);
@@ -266,11 +257,9 @@ void func_802A746C(s32 turn, VS *vs) {
         goto set;
     }
     ENGINE_BLK(802A7514);
-    at = n < target;
     if (!(h < target))
         goto set;
     ENGINE_BLK(802A7520);
-    at = h < n;
     if (!(n < target))
         goto set;
     ENGINE_BLK(802A7528);
@@ -279,12 +268,10 @@ void func_802A746C(s32 turn, VS *vs) {
 clamp:
     ENGINE_BLK(802A7530);
     vs->unk4C = target;
-    ENGINE_LEAVE(1, at);
     goto done;
 set:
     ENGINE_BLK(802A7538);
     vs->unk4C = n;
-    ENGINE_LEAVE(1, at);
 done:
     ENGINE_BLK(802A753C);
 }
@@ -314,7 +301,6 @@ void func_802A754C(VS *vs) {
     vs->unkA4 = 0;
     vs->unkA5 = 0;
     vs->unk0 = 0.0f;
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 /* the current vehicle's parts (0x300 bytes), state (0xA6) and position
@@ -378,8 +364,6 @@ void func_802A768C(u8 *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n,
         src += 2, dst += 2, n -= 8;
     }
     ENGINE_BLK(802A771C);
-    ENGINE_LEAVE(6, (u32)src);          /* ($a2, $a3 as the copy leaves them) */
-    ENGINE_LEAVE(7, (u32)dst);
     *x = ((UnalignedWord *)s)[0].v;
     *y = ((UnalignedWord *)s)[1].v;
     *z = ((UnalignedWord *)s)[2].v;
@@ -732,7 +716,7 @@ s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick) {
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
     f32 fx, fz, cx, cz, ex, ez, d, c = 2.0f, a, b, b2, dx, dz;
-    s32 edge, r = 1, tx, tz, at, set = 0;
+    s32 edge, r = 1, tx, tz;
 
     ENGINE_BLK(802AA460);
     cx = (f32)(x2 + x3) / 2.0f;
@@ -743,11 +727,9 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
     fz = (f32)z;
     for (edge = 4;;) {
         ENGINE_BLK(802AA4E4);
-        at = 3;
         if (--edge == 0)
             break;
         ENGINE_BLK(802AA4F0);
-        at = 2;
         if (edge == 3) {
             ENGINE_BLK(802AA538);
             ex = (f32)x1, ez = (f32)z1;
@@ -776,7 +758,6 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
         a = (cx - ex) * dx;
         b2 = (cz - ez) * dz;
         c = a - b2;
-        set = 1;
         if (d > 0.0f) {
             ENGINE_BLK(802AA5B0);
             if (c > 0.0f)
@@ -792,24 +773,6 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
         break;
     }
     ENGINE_BLK(802AA5C0);
-    /* (the floats it leaves, which the vehicle modules' code reads on) */
-    ENGINE_LEAVE(1, at);
-    ENGINE_LEAVE_F(0, 0.0f);
-    ENGINE_LEAVE_F(10, fx);
-    ENGINE_LEAVE_F(12, fz);
-    ENGINE_LEAVE_F(18, cx);
-    ENGINE_LEAVE_F(20, cz);
-    ENGINE_LEAVE_F(22, c);
-    {
-        ENGINE_LEAVE_F(2, ex);
-        ENGINE_LEAVE_F(4, ez);
-        ENGINE_LEAVE_F(26, dx);
-        ENGINE_LEAVE_F(28, dz);
-        ENGINE_LEAVE_F(14, d);
-        ENGINE_LEAVE_F(16, b);
-    }
-    if (set)
-        ENGINE_LEAVE_F(24, b2);
     return r;
 }
 
@@ -860,15 +823,12 @@ s32 func_802AA5E0(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
     }
     ENGINE_BLK(802AA684);
     /* ($at as the compares in the delay slots leave it) */
-    ENGINE_LEAVE(1, hix < x);
     if (x < lox)
         goto out;
     ENGINE_BLK(802AA690);
-    ENGINE_LEAVE(1, z < loz);
     if (hix < x)
         goto out;
     ENGINE_BLK(802AA698);
-    ENGINE_LEAVE(1, hiz < z);
     if (z < loz)
         goto out;
     ENGINE_BLK(802AA6A0);
@@ -1030,7 +990,6 @@ s32 func_802AB3C0(s32 type) {
         break;
     }
     ENGINE_BLK(802AB408);
-    ENGINE_LEAVE(1, -1);
     return r;
 }
 
@@ -1060,7 +1019,6 @@ s32 func_802AB41C(s32 a, s32 b) {
         break;
     }
     ENGINE_BLK(802AB464);
-    ENGINE_LEAVE(1, -1);
     return r;
 }
 
@@ -1093,12 +1051,6 @@ s32 func_802ABB1C(s32 x, s32 z, s32 dx, s32 dz, s32 x2, s32 z2) {
     }
     ENGINE_BLK(802ABBD0);
     r = func_802AD7FC(r);
-    /* (what it leaves: the second point, the squares, the arctangent) */
-    ENGINE_LEAVE(17, ex);
-    ENGINE_LEAVE(18, ez);
-    ENGINE_LEAVE64(19, (s64)a * a + (s64)b * b);
-    ENGINE_LEAVE64(20, (s64)b * b);
-    ENGINE_LEAVE(30, r);
     ENGINE_BLK(802ABBD8);
     return (u32)r >> 3;
 }
@@ -1122,9 +1074,7 @@ void *func_802ABC88(s32 id, s32 n) {
     if (--n != 0) {
         ENGINE_BLK(802ABCB4);
         p += (u32)n * 0x10;
-        ENGINE_LEAVE(3, (u32)n * 0x10);      /* ($v1, as it leaves it) */
     } else {
-        ENGINE_LEAVE(3, 0);
     }
     ENGINE_BLK(802ABCC8);
     return p;
@@ -1138,8 +1088,6 @@ s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2) {
 
     ENGINE_BLK(802ABCDC);
     r = engine_cvt_l_d(__builtin_sqrt((f64)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz)));
-    ENGINE_LEAVE_FW(0, (u32)r);         /* (cvt.l.d left it in $f0/$f1 too) */
-    ENGINE_LEAVE_FW(1, (u32)(r >> 32));
     return r;
 }
 
@@ -1155,9 +1103,7 @@ REGS(a3, t3, t4, t5)
 void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
     u8 *p = D_803BDFD8, *end = D_803BDFD4, *t;
     s64 d;
-    s32 r, n, amb, at = 0, q;
-    s32 seen = 0, s3set = 0, s4set = 0, s5set = 0, atset = 0;
-    s32 s3 = 0, s4 = 0, s5 = 0;
+    s32 r, n, amb, q;
     Vehicle *v;
 
     ENGINE_BLK(802ABD54);
@@ -1170,71 +1116,49 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
         }
         ENGINE_BLK(802ABD78);
         d = func_802ABCDC(x, y, z, ((s32 *)p)[0], ((s32 *)p)[1], ((s32 *)p)[2]);
-        seen = 1;
-        ENGINE_LEAVE(17, (s32)d);           /* ($s1: the distance) */
-        ENGINE_LEAVE(14, ((s32 *)p)[0]);    /* ($t6, $t7, $s0: the light's position) */
-        ENGINE_LEAVE(15, ((s32 *)p)[1]);
-        ENGINE_LEAVE(16, ((s32 *)p)[2]);
         ENGINE_BLK(802ABD88);
         r = ((s32 *)p)[3];
-        ENGINE_LEAVE(18, r);                /* ($s2: its range) */
-        at = (s64)r < d, atset = 1;
-        if (at)
+        if ((s64)r < d)
             goto next;
         ENGINE_BLK(802ABD98);
-        s3 = p[0x12], s3set = 1;
-        if (s3 == 0)
+        if (p[0x12] == 0)
             goto next;
         ENGINE_BLK(802ABDA4);
         n = p[0x13];
         t = p + 0x15;
-        s3 = n, s4 = (u32)t, s4set = 1;
         for (;;) {
             ENGINE_BLK(802ABDAC);
             if (n == 0)
                 goto next;
             ENGINE_BLK(802ABDB4);
-            s5 = *t, s5set = 1;
             if (type == *t)
                 break;
             ENGINE_BLK(802ABDC0);
             t++, n--;
-            s3 = n, s4 = (u32)t;
         }
         ENGINE_BLK(802ABDCC);
         n = p[0x14];
-        s3 = n;
         amb = D_80364A6E[0];
         if (n == 0) {
             ENGINE_BLK(802ABDD8);
-            at = 1;
-            s3 = p[0x10];
             if (p[0x10] == 1) {
                 ENGINE_BLK(802ABE34);
                 r = 0xFF;
             } else {
                 ENGINE_BLK(802ABDE8);
                 ENGINE_BLK(802ABE28);
-                s5 = amb;
                 q = (u32)((0xFF - amb) * (u32)d) / (u32)r;
-                ENGINE_LEAVE(17, q);
-                ENGINE_LEAVE(18, r);
                 r = 0xFF - amb - q + amb;
             }
         } else {
             ENGINE_BLK(802ABE3C);
-            at = 1;
-            s4 = p[0x10];
             if (p[0x10] == 1) {
                 ENGINE_BLK(802ABE90);
                 r = n;
             } else {
                 ENGINE_BLK(802ABE4C);
                 ENGINE_BLK(802ABE88);
-                s5 = amb - n;
                 q = (u32)((amb - n) * (u32)d) / (u32)r;
-                ENGINE_LEAVE(17, q);
-                ENGINE_LEAVE(18, r);
                 r = n + q;
             }
         }
@@ -1250,20 +1174,6 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
     }
     ENGINE_BLK(802ABEC4);
     v->unk60 = r;
-    /* (what it leaves for the vehicle modules, which read on) */
-    ENGINE_LEAVE(2, (u32)p);
-    ENGINE_LEAVE(3, (u32)end);
-    ENGINE_LEAVE(8, (u32)v);
-    ENGINE_LEAVE(9, type);
-    ENGINE_LEAVE(22, r);
-    if (atset)
-        ENGINE_LEAVE(1, at);
-    if (s3set)
-        ENGINE_LEAVE(19, s3);
-    if (s4set)
-        ENGINE_LEAVE(20, s4);
-    if (s5set)
-        ENGINE_LEAVE(21, s5);
 }
 
 extern s32 D_803A740C;          /* a frame count */
@@ -1312,19 +1222,15 @@ f32 func_802A83B8(s32 t3, s16 *speed, u8 *flags, s32 *pos, f32 *ratio, s32 *t3_o
 
     ENGINE_BLK(802A83B8);
     /* ($t1: the flag it looked at last, or s7[1]) */
-    ENGINE_LEAVE(9, flags[1]);
     if (flags[1] == 1)
         goto old;
     ENGINE_BLK(802A83D4);
-    ENGINE_LEAVE(9, flags[2]);
     if (flags[2] == 1)
         goto old;
     ENGINE_BLK(802A83E4);
-    ENGINE_LEAVE(9, flags[0]);
     if (flags[0] == 1)
         goto old;
     ENGINE_BLK(802A83F4);
-    ENGINE_LEAVE(9, pos[1]);
     t3 = *speed;
     if (t3 == 0)
         goto old;
@@ -1369,8 +1275,6 @@ s32 func_802A8590(s32 *s7) {
         r = a;
     }
     ENGINE_BLK(802A85F0);
-    ENGINE_LEAVE(1, bb < aa);
-    ENGINE_LEAVE(10, s7[6]);            /* ($t2, as it leaves it) */
     return r;
 }
 
@@ -1433,12 +1337,9 @@ s32 func_802A860C(s32 angle, s16 *speed, s32 *x, s32 *z, f32 rate, s32 *z_out) {
         }
     }
     ENGINE_BLK(802A8750);
-    /* (what it leaves for the vehicle modules, which read on) */
-    ENGINE_LEAVE(1, at);
+    /* ($v0 and $fp: 5CB60.c's collision triangles and 69BB0.c's driver read
+       them from the context) */
     ENGINE_LEAVE(2, 0x400);
-    ENGINE_LEAVE(3, rem);
-    ENGINE_LEAVE(13, rem);
-    ENGINE_LEAVE(19, px);
     ENGINE_LEAVE(30, c);
     *z_out = rz;
     return rx;
@@ -1847,7 +1748,6 @@ void func_802A9164(u8 *flags, s32 type, VS *vs) {
     D_803BE738 = t2 = 1;
 done:
     ENGINE_BLK(802A92B8);
-    ENGINE_LEAVE(10, t2);               /* ($t2, as it leaves it) */
 }
 
 REGS(a0, a2, a3 -> a1, a3, t1)
@@ -1891,11 +1791,6 @@ void func_802A9540(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 v) {
     state[i] = 2;
     ground[i] = g;
     *(u8 *)((u32)&D_803ED3EE + i) = 1;
-    /* (what it leaves: $s3, $s0, $t3, $t7) */
-    ENGINE_LEAVE(19, v);
-    ENGINE_LEAVE(16, 1);
-    ENGINE_LEAVE(11, i << 2);
-    ENGINE_LEAVE(15, (u32)&D_803ED3EE + i);
 }
 
 /* ---- the ground under a point: triangles, nearest in height ------------- */
@@ -1925,9 +1820,7 @@ s32 func_802AA2E4(s32 x, s32 z, s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2, 
     w = -(s64)((u64)nx * (u64)(s64)x2 + (u64)ny * (u64)(s64)y2 + (u64)nz * (u64)(s64)z2);
     t = (s64)((u64)nx * (u64)(s64)x + (u64)ny * (u64)(s64)-1000 + (u64)nz * (u64)(s64)z + (u64)w);
     f0 = (f64)t;
-    /* (what it leaves: three of the differences, and the doubles) */
-    ENGINE_LEAVE(12, c);
-    ENGINE_LEAVE(13, e);
+    /* ($t6, which 8A080.c's func_802CE9C8 passes on from the context) */
     ENGINE_LEAVE(14, d);
     if (ny != 0) {
         ENGINE_BLK(802AA3F8);
@@ -1938,14 +1831,7 @@ s32 func_802AA2E4(s32 x, s32 z, s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2, 
         f4 = f2 * f0;
         l = engine_cvt_l_d(f4);
         r = (s32)l - 1000;
-        ENGINE_LEAVE_FW(2, (u32)double_bits(f2));
-        ENGINE_LEAVE_FW(3, (u32)(double_bits(f2) >> 32));
-        ENGINE_LEAVE_FW(4, (u32)l);
-        ENGINE_LEAVE_FW(5, (u32)((u64)l >> 32));
     }
-    ENGINE_LEAVE_FW(0, (u32)double_bits(f0));
-    ENGINE_LEAVE_FW(1, (u32)(double_bits(f0) >> 32));
-    ENGINE_LEAVE64(7, (u64)nz * (u64)(s64)z2);
     ENGINE_BLK(802AA438);
     return r;
 }
@@ -2005,7 +1891,7 @@ s32 func_802A9DC0(s32 x, s32 z, s32 y, s32 mat, s32 *mat_out) {
         mat = p[-4];
     }
     ENGINE_BLK(802A9EC4);
-    ENGINE_LEAVE(14, 0);                /* ($t6) */
+    ENGINE_LEAVE(14, 0);                /* ($t6, which 60F60.c reads from the context) */
     *mat_out = mat;
     return best;
 }
@@ -2061,7 +1947,6 @@ s32 func_802A9F24(s32 x, s32 z, s32 y, s32 self, s32 *id_out) {
         id = k;
     }
     ENGINE_BLK(802AA034);
-    ENGINE_LEAVE(6, self);              /* ($a2) */
     *id_out = id;
     return best;
 }
@@ -2203,7 +2088,7 @@ done:
    D_803ED3A8[i]; unk9B set when the static one won. */
 REGS(v0, t0, t1, t2, t8, gp, fp -> t3)
 s32 func_802A9B1C(s32 i, s32 x, s32 z, s32 y, s32 self, VS *vs, s32 mat) {
-    s32 s0, s1, t3, t4, t5, t6, t7, s2, at, fp, a1;
+    s32 s0, s1, t3, t4, t5, t6, t7, s2, fp, a1;
 
     ENGINE_BLK(802A9B1C);
     y += 0x78;
@@ -2318,7 +2203,7 @@ s32 func_802A9514(s32 v);
 REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp, fp -> s3, s5)
 s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s32 self, VS *vs, s32 mat,
                    s32 *avg_out) {
-    s32 i, dx, dz, h, id, found = -1, s5, s6, at = 3;
+    s32 i, dx, dz, h, id, s5, s6;
     s32 *o = out;
     u8 *p;
 
@@ -2331,7 +2216,7 @@ s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
         ENGINE_BLK(802A9958);
         if (id == 0) {
             ENGINE_BLK(802A9960);
-            found = func_802AA094(x + dx, z + dz, y, h, mat, &h, &mat);
+            func_802AA094(x + dx, z + dz, y, h, mat, &h, &mat);
             ENGINE_BLK(802A9968);
             id = 0;
         }
@@ -2354,7 +2239,6 @@ s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
         if (p[0] == self)
             break;
         ENGINE_BLK(802A9A10);
-        at = 0xFF;
         if (p[0] != 0xFF) {
             p += 4;
             continue;
@@ -2372,18 +2256,6 @@ s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
     p[1] = D_803ED3EA;
     p[2] = D_803ED3EB;
     p[3] = D_803ED3EC;
-    /* (what it leaves: the last value's registers) */
-    ENGINE_LEAVE(1, at);
-    if (found >= 0)
-        ENGINE_LEAVE(5, found);         /* (func_802AA094's, last) */
-    ENGINE_LEAVE(2, 3);
-    ENGINE_LEAVE(8, (u32)p);
-    ENGINE_LEAVE(9, (u32)&D_803ED3EA);
-    ENGINE_LEAVE(10, D_803ED3EC);
-    ENGINE_LEAVE(11, h);
-    ENGINE_LEAVE(13, dx);
-    ENGINE_LEAVE(14, id);
-    ENGINE_LEAVE(22, s6);
     *avg_out = s5;
     return out;
 }
@@ -2417,16 +2289,6 @@ s32 *func_802A9A60(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
     ENGINE_BLK(802A9B10);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
-    ENGINE_LEAVE(2, 3);
-    ENGINE_LEAVE(8, (u32)&D_803ED3F2);
-    ENGINE_LEAVE(9, (u32)(D_803ED3F2 + D_803ED3F3 + D_803ED3F4) / 3);
-    ENGINE_LEAVE(10, 3);
-    ENGINE_LEAVE(11, h);
-    ENGINE_LEAVE(13, dx);
-    ENGINE_LEAVE(14, dz);
-    ENGINE_LEAVE(19, (u32)out);
-    ENGINE_LEAVE(21, s5);
-    ENGINE_LEAVE(22, s6);
     return o;
 }
 
@@ -2435,7 +2297,7 @@ s32 *func_802A9A60(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
    vehicle's record in D_803ED3B8 */
 REGS(t0, t1, t3, s4, s7, t8, gp, fp)
 void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *vs, s32 mat) {
-    s32 i, dx, dz, t3, at = 3;
+    s32 i, dx, dz;
     u8 *p;
 
     ENGINE_BLK(802A92C8);
@@ -2451,17 +2313,14 @@ void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *v
     ENGINE_BLK(802A9334);
     for (p = D_803ED3B8;;) {
         ENGINE_BLK(802A9340);
-        t3 = p[0];
         if (p[0] == self)
             break;
         ENGINE_BLK(802A934C);
-        at = 0xFF;
         if (p[0] != 0xFF) {
             p += 4;
             continue;
         }
         ENGINE_BLK(802A9358);
-        t3 = *(s32 *)p;
         if (*(s32 *)p != -1) {
             p += 4;
             continue;
@@ -2474,16 +2333,6 @@ void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *v
     p[1] = D_803ED3EA;
     p[2] = D_803ED3EB;
     p[3] = D_803ED3EC;
-    ENGINE_LEAVE(1, at);
-    ENGINE_LEAVE(2, 3);
-    ENGINE_LEAVE(3, (u32)pts);
-    ENGINE_LEAVE(10, -1);
-    ENGINE_LEAVE(11, t3);
-    ENGINE_LEAVE(12, (u32)&D_803ED3EA);
-    ENGINE_LEAVE(13, D_803ED3EA);
-    ENGINE_LEAVE(14, D_803ED3EB);
-    ENGINE_LEAVE(21, x);
-    ENGINE_LEAVE(22, z);
 }
 
 /* One wheel (i) on the ground: its height above its last
@@ -2504,7 +2353,6 @@ s32 func_802A93B0(s32 i, s16 *pts, s32 *h, s32 *state, s32 *ground, s32 x, s32 z
     s3 = func_802A9514(t2 - s1);
     ENGINE_BLK(802A9408);
     s4 = engine_cvt_w_s(D_803EBBF4);
-    ENGINE_LEAVE_FW(0, s4);             /* (cvt.w.s's $f0, unless the ground's left another) */
     s4 = s3 + s4 + t2;
     t3 = func_802A9B1C(i, x + dx, z + dz, t2, self, vs, mat);
     ENGINE_BLK(802A942C);
@@ -2519,8 +2367,6 @@ s32 func_802A93B0(s32 i, s16 *pts, s32 *h, s32 *state, s32 *ground, s32 x, s32 z
     }
     ENGINE_BLK(802A9460);
     *(s32 *)((u32)&D_803ED398 + 4 * i) = t3;
-    ENGINE_LEAVE(10, t2);
-    ENGINE_LEAVE(13, dx);
     return s3;
 }
 
@@ -2663,8 +2509,6 @@ s32 func_802AC0BC(s32 x, s32 z, s32 y) {
         }
         ENGINE_BLK(802AC164);
         /* (the distance stays in $a0, and the delay slot's lui in $at) */
-        ENGINE_LEAVE(4, d);
-        ENGINE_LEAVE(1, ((u32)&D_803EBBFC + 0x8000) & 0xFFFF0000);
         if (dist < d)
             goto next;
         ENGINE_BLK(802AC170);
@@ -2677,18 +2521,7 @@ s32 func_802AC0BC(s32 x, s32 z, s32 y) {
     ENGINE_BLK(802AC184);
     /* (it saves nothing: the vehicle modules read on what the last
        triangle's loads and the loop left) */
-    ENGINE_LEAVE(15, (u32)end);
-    ENGINE_LEAVE(30, (u32)end);
     if (w != NULL) {
-        ENGINE_LEAVE(17, w[0] << 5);
-        ENGINE_LEAVE(18, w[1] << 5);
-        ENGINE_LEAVE(19, w[2] << 5);
-        ENGINE_LEAVE(20, w[3] << 5);
-        ENGINE_LEAVE(21, w[4] << 5);
-        ENGINE_LEAVE(22, w[5] << 5);
-        ENGINE_LEAVE(23, w[6] << 5);
-        ENGINE_LEAVE(24, w[7] << 5);
-        ENGINE_LEAVE(25, w[8] << 5);
     }
     return found;
 }
@@ -2812,13 +2645,6 @@ map:
     v1 = engine_cvt_w_s(f14);
     /* what the callers read on: the point on the first triangle (f22,
        f24), and the last temporaries */
-    ENGINE_LEAVE_F(0, f0);
-    ENGINE_LEAVE_F(2, f2);
-    ENGINE_LEAVE_FW(8, u1);
-    ENGINE_LEAVE_F(20, f20);
-    ENGINE_LEAVE_F(22, f16 + (f32)x);
-    ENGINE_LEAVE_F(24, (f32)dz * f10 + (f32)z);
-    ENGINE_LEAVE_F(26, (f32)z);
 done:
     ENGINE_BLK(802AB1A0);
     *v_out = v1;
@@ -3019,7 +2845,7 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
                   s32 *s1_out, s32 *s2_out) {
     u8 *cur = (u8 *)D_803EBB58, *m;
     u32 *s, *d;
-    s32 i, j, k, prod = 0;
+    s32 i, j, k;
     u64 sum;
 
     ENGINE_BLK(802AA890);
@@ -3061,7 +2887,6 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
                 *d++ = *s++;
             }
             ENGINE_BLK(802AAA54);
-            prod = 1;
             offs++, n--;
         }
         ENGINE_BLK(802AAA60);
@@ -3071,9 +2896,6 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
              (u32)mtx_el(cur, 0x1A);
         s2 = (u32)mtx_el(cur, 0x04) * x + (u32)mtx_el(cur, 0x0C) * y + (u32)mtx_el(cur, 0x14) * z +
              (u32)mtx_el(cur, 0x1C);
-        ENGINE_LEAVE(7, (u32)m);
-        if (prod)
-            ENGINE_LEAVE(1, 4);
     }
     ENGINE_BLK(802AABA4);
     *y_out = s1 >> 11;
@@ -3090,7 +2912,7 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
    matrices at base (the words). */
 REGS(t3, t4, s4, s1, s2)
 void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2) {
-    s32 n = data[1], count = data[0], x, y = 0, z = 0, ran = 0;
+    s32 n = data[1], count = data[0], x, y = 0, z = 0;
     s32 *offs = (s32 *)(data + 2);
     s16 *t = (s16 *)((u8 *)data + 4 + n * 4);
     u8 *end = D_803EBBEC, *r = D_803EBDB0;
@@ -3133,17 +2955,9 @@ void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2) {
         w[6] = x, w[7] = y, w[8] = z;
         t += 10;
         r += 0x38;
-        ran = 1;
     }
     ENGINE_BLK(802AACC0);
     D_803EBBEC = end;
-    /* (what it leaves: the last point's y and z, the loop's end) */
-    if (ran) {
-        ENGINE_LEAVE(3, y);
-        ENGINE_LEAVE(4, z);
-    }
-    ENGINE_LEAVE(15, 0);
-    ENGINE_LEAVE(19, (u32)t);
 }
 
 /* ---- the speed on a slope ------------------------------------------------ */
@@ -3174,9 +2988,7 @@ s32 func_802A843C(s16 *speed, s32 limit, s32 mode, s8 *wheels, s32 *h, f32 div, 
         if (t1 >= 0) {
             ENGINE_BLK(802A8474);
             lim = vs->unk78[13];
-            ENGINE_LEAVE(24, lim >> 1);
             lim += lim >> 1;
-            ENGINE_LEAVE(10, lim);
             if (lim < t1) {
                 ENGINE_BLK(802A848C);
                 *speed = lim;
@@ -3184,9 +2996,7 @@ s32 func_802A843C(s16 *speed, s32 limit, s32 mode, s8 *wheels, s32 *h, f32 div, 
         } else {
             ENGINE_BLK(802A8494);
             lim = vs->unk78[0];
-            ENGINE_LEAVE(24, lim >> 1);
             lim += lim >> 1;
-            ENGINE_LEAVE(10, lim);
             if (t1 < lim) {
                 ENGINE_BLK(802A84AC);
                 *speed = lim;
@@ -3229,7 +3039,6 @@ three:
     t2 = 3;
 have:
     ENGINE_BLK(802A8540);
-    ENGINE_LEAVE(10, t2);
     if (t1 != 0) {
         ENGINE_BLK(802A8548);
         if (t1 <= 0) {
@@ -3326,7 +3135,7 @@ extern s16 D_803ED3E8;                  /* an angle func_802A94A4 turns by */
    wheel (func_802A94A4 of pts) comes nearer the second point ($t0). */
 REGS(a3, t0, t1, s1, s2, v1, a2 -> t0)
 s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
-    s32 ox, oz, px, pz, dx, dz, s5 = 0, set5 = 0, a, t0, t1, s1, s2, s3, s4, s6;
+    s32 ox, oz, px, pz, dx, dz, s5 = 0, a, t0, t1, s1, s2, s3, s4, s6;
 
     ENGINE_BLK(802AB9A4);
     ox = func_802AAE54(id, x, z, &oz);
@@ -3346,7 +3155,6 @@ s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
         }
         ENGINE_BLK(802ABA04);
         D_803ED3E8 = s5;
-        set5 = 1;
         dx = func_802A94A4(0, pts, &D_803ED3E8, &dz);
         ENGINE_BLK(802ABA14);
         s6 = func_802ABB1C(px, pz, dx, dz, ox, oz);
@@ -3423,23 +3231,6 @@ s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
         t0 = t1;
     }
     ENGINE_BLK(802ABB0C);
-    /* (what it leaves: everything it worked with) */
-    ENGINE_LEAVE(2, 0);
-    ENGINE_LEAVE(4, a);
-    ENGINE_LEAVE(9, t1);
-    ENGINE_LEAVE(11, px);
-    ENGINE_LEAVE(12, pz);
-    ENGINE_LEAVE(13, dx);
-    ENGINE_LEAVE(14, dz);
-    ENGINE_LEAVE(15, ox);
-    ENGINE_LEAVE(16, oz);
-    ENGINE_LEAVE(17, s1);
-    ENGINE_LEAVE(18, s2);
-    ENGINE_LEAVE(19, s3);
-    ENGINE_LEAVE(20, s4);
-    if (set5)
-        ENGINE_LEAVE(21, s5);
-    ENGINE_LEAVE(22, s6);
     return t0;
 }
 
@@ -3486,13 +3277,9 @@ s32 func_802A9710(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 y) {
         ENGINE_BLK(802A98F4);
         func_802A9540(i, h, state, ground, g, y);
         ENGINE_BLK(802A98FC);
-        /* (what it leaves: the distance in $s3 too, the ground in $t2) */
-        ENGINE_LEAVE(19, y);
-        ENGINE_LEAVE(10, g);
     } else {
         ENGINE_BLK(802A9904);
         WHEEL_BYTE(D_803ED3EE, i) = 0;
-        ENGINE_LEAVE(16, 0);
     }
     ENGINE_BLK(802A9918);
     return y;
@@ -3714,8 +3501,6 @@ store:
     }
 done:
     ENGINE_BLK(802A8300);
-    ENGINE_LEAVE(10, t2);
-    ENGINE_LEAVE(11, t3);
 }
 
 /* whether h lies inside the camera's range from lo to hi (12-bit, the
@@ -3862,8 +3647,6 @@ h_in:
     f = (f32)s;
     rate = rate * f;
     s = engine_cvt_w_s(rate);
-    ENGINE_LEAVE_FW(0, s);
-    ENGINE_LEAVE_F(2, f);
     if (at) {
         ENGINE_BLK(802A73FC);
         d = h - h2;
@@ -3915,11 +3698,10 @@ void func_80277EDC(s32 a, s32 b, s32 c, s32 d);
    type, or 1, or the vehicle when D_80364AA8 is 1 or 0x80) in *xo, *yo,
    *zo, its state at rest (func_802A754C, the nine words from 4 the
    height), the matrices (func_802AC6FC) and a sound (func_80277EDC).
-   The original saves and reloads every register around that, so v1, t2,
-   t3, t4 and fp are put back as they came. */
-REGS(t0, t1, t7, s2, s1, t8, gp, v1, t2, t3, t4, fp)
-void func_802A8CCC(s32 x, s32 z, s32 *xo, s32 *yo, s32 *zo, s32 type, VS *vs, s32 v1, s32 t2, s32 t3, s32 t4,
-                   s32 fp) {
+   Returns whether it put it back (the original leaves its x and z in $t0
+   and $t1 then, which its caller goes on with). */
+REGS(t0, t1, t7, s2, s1, t8, gp -> v0)
+s32 func_802A8CCC(s32 x, s32 z, s32 *xo, s32 *yo, s32 *zo, s32 type, VS *vs) {
     s32 cx = x >> 5, cz = z >> 5, key, rx, ry, rz, i;
     u8 *r;
 
@@ -3999,34 +3781,23 @@ have:
     A8CCC_BLK(802A8EFC, 802A8E98);
     func_80277EDC(1, 1, 4, 0x6C);
     A8CCC_BLK(802A8F10, 802A8EAC);
-    ENGINE_LEAVE(8, rx);
-    ENGINE_LEAVE(9, rz);
+    A8CCC_BLK(802A8F94, 802A8F30);
+    return 1;
 done:
     A8CCC_BLK(802A8F94, 802A8F30);
-    ENGINE_LEAVE(3, v1);
-    ENGINE_LEAVE(10, t2);
-    ENGINE_LEAVE(11, t3);
-    ENGINE_LEAVE(12, t4);
-    ENGINE_LEAVE(30, fp);
+    return 0;
 }
 
 /* The points of a part list (p to end: (x, y, z) s16s, the matrices'
    count and offsets) through their matrices at base (func_802AA890), into
    D_803EBC10's records of this id from the first of it (or its end) on.
-   s0, s1 and s2 are func_802AA890's for a point with no matrices. */
-static void abbec(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
+   (A point with no matrices would be whatever the original's s0, s1 and
+   s2 held: no model has one.) */
+static void abbec(s32 id, u8 *p, u8 *end, u8 *base) {
     u8 *r = D_803EBC10;
     s16 *h;
-    s32 x, y, z, n, called = 0;
+    s32 x, y, z, n, s1, s2;
 
-    /* (its frame, as the original's: the driver's shadow later reads the
-       $t3 slot, func_802AF340's stack argument it never stores) */
-    engine_frame(-0x28);
-    engine_frame_sd(0x18, 11);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 5);
-    engine_frame_sd(0x10, 6);
-    engine_frame_sd(0x20, 12);
     ENGINE_BLK(802ABBEC);
     for (;;) {
         ENGINE_BLK(802ABC10);
@@ -4044,8 +3815,7 @@ static void abbec(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
         ENGINE_BLK(802ABC30);
         h = (s16 *)p;
         n = (u16)h[3];
-        x = func_802AA890(h[0], h[1], h[2], n, (s32 *)(p + 8), base, s0, s1, s2, &y, &z, &s1, &s2);
-        called = 1;
+        x = func_802AA890(h[0], h[1], h[2], n, (s32 *)(p + 8), base, 0, 0, 0, &y, &z, &s1, &s2);
         ENGINE_BLK(802ABC48);
         ((s32 *)r)[0] = x;
         ((s32 *)r)[1] = y;
@@ -4055,18 +3825,6 @@ static void abbec(s32 id, u8 *p, u8 *end, u8 *base, s32 s0, s32 s1, s32 s2) {
         r += 0x10;
     }
     ENGINE_BLK(802ABC6C);
-    /* (what it leaves: the last point, the end) */
-    if (called) {
-        ENGINE_LEAVE(2, x);
-        ENGINE_LEAVE(3, y);
-        ENGINE_LEAVE(4, z);
-        ENGINE_LEAVE(17, s1);
-        ENGINE_LEAVE(18, s2);
-    } else {
-        ENGINE_LEAVE(2, -1);
-    }
-    ENGINE_LEAVE(9, (u32)p);
-    engine_frame(0x28);
 }
 
 /* ---- a wheeled vehicle one step on the ground ---------------------------- */
@@ -4075,15 +3833,15 @@ extern s16 D_803ED406;                  /* *$s4 (the heading) */
 extern u8 D_803ED40E, D_803ED40F;
 void func_802582C4(u8 type, s32 x, s32 y, s32 z, s32 h, s32 along, s32 across, s32 heading);
 
-#define CTX_PTR(T, reg) ((T *)(__UINTPTR_TYPE__)engine_ctx(reg))
-
 /* The wheeled vehicle (type, at (x, z), vs) one step on: back in the
    level's bounds (func_802A8CCC), the spans (t9 along, fp across), its
-   heading (*$s4) and first flag (*$s0) kept; then each of its three
-   wheels on the ground (func_802A93B0) or stepping (func_802A95A4) as its
-   flag in $s0 says (from the second on only when D_803ED410 is clear, else
-   func_802A9038).  The wheels' heights (D_803ED398) go into $s7's three
-   triples and the flags back into $s0; *px and *pz are (x, z), *py the
+   heading (vs->unk4C, s4) and first flag (vs->unk96, s0) kept; then each
+   of its three wheels on the ground (func_802A93B0) or stepping
+   (func_802A95A4) as its flag in s0 says (from the second on only when
+   D_803ED410 is clear, else func_802A9038).  The wheels' heights
+   (D_803ED398) go into vs->unk4's three triples (s7) and the flags back
+   into s0 (the original takes s0, s4 and s7 in those registers: every
+   caller has them from vs); *px and *pz are (x, z), *py the
    average of the two rear wheels; D_803ED390's angles from the height
    differences over the spans (func_802ACF64); the sound (func_802582C4
    with the angles of func_802A8B10); the gears (func_802A9164); and the
@@ -4091,30 +3849,21 @@ void func_802582C4(u8 type, s32 x, s32 y, s32 z, s32 h, s32 along, s32 across, s
 REGS(t0, t1, t7, s1, s2, t8, t9, fp, v1, a1, a2, a3, t3, gp)
 void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s32 fp, s16 *v1, s32 *a1, s32 *a2,
                    s32 *a3, s16 *t3, VS *vs) {
-    u8 *s0 = CTX_PTR(u8, 16);
-    s16 *s4 = CTX_PTR(s16, 20);
-    s32 *s7 = CTX_PTR(s32, 23);
-    s32 t4 = engine_ctx(12), i, t5, h, h0, h1, h2, s5, q, r, along, across, t2;
+    u8 *s0 = (u8 *)vs->unk96;
+    s16 *s4 = (s16 *)&vs->unk4C;
+    s32 *s7 = vs->unk4;
+    s32 i, t5, h, h0, h1, h2, s5, q, r, along, across, t2;
 
     ENGINE_BLK(802A8768);
-    /* (the inputs in their registers: a native caller doesn't put them there) */
-    ENGINE_LEAVE(8, x);
-    ENGINE_LEAVE(9, z);
+    /* ($t7, $t8 and $t9: 5CB60.c's collision triangles and 69BB0.c's driver
+       read them from the context) */
     ENGINE_LEAVE(15, (u32)px);
-    ENGINE_LEAVE(17, (u32)pz);
-    ENGINE_LEAVE(18, (u32)py);
     ENGINE_LEAVE(24, type);
     ENGINE_LEAVE(25, t9);
-    ENGINE_LEAVE(30, fp);
-    ENGINE_LEAVE(3, (u32)v1);
-    ENGINE_LEAVE(5, (u32)a1);
-    ENGINE_LEAVE(6, (u32)a2);
-    ENGINE_LEAVE(7, (u32)a3);
-    ENGINE_LEAVE(11, (u32)t3);
-    ENGINE_LEAVE(28, (u32)vs);
-    func_802A8CCC(x, z, px, py, pz, type, vs, (u32)v1, engine_ctx(10), (u32)t3, t4, fp);
-    x = engine_ctx(8);
-    z = engine_ctx(9);
+    if (func_802A8CCC(x, z, px, py, pz, type, vs)) {
+        x = *px;
+        z = *pz;
+    }
     ENGINE_BLK(802A8778);
     D_803ED402 = t9;
     D_803ED404 = fp;
@@ -4140,13 +3889,10 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
         }
         ENGINE_BLK(802A87E4);
         t5 = (s8)s0[i];
-        ENGINE_LEAVE(4, (u32)(s0 + i));
-        ENGINE_LEAVE(13, t5);
         if (t5 == 1) {
             ENGINE_BLK(802A87F4);
             ENGINE_BLK(802A8820);
             r = func_802A95A4(i, a1, a2, a3, x, z, s7, v1, s4, type, vs, fp);
-            ENGINE_LEAVE(22, r);
             ENGINE_BLK(802A8828);
             if (++i == 3)
                 break;
@@ -4159,7 +3905,6 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
         }
         ENGINE_BLK(802A8800);
         r = func_802A93B0(i, v1, a1, a2, a3, x, z, s4, s7, type, vs, fp);
-        ENGINE_LEAVE(19, r);
         ENGINE_BLK(802A8808);
         if (++i == 3) {
             ENGINE_BLK(802A8818);
@@ -4184,8 +3929,6 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
     *px = x;
     *pz = z;
     *py = ((u32)h1 + (u32)h2) >> 1;
-    ENGINE_LEAVE(2, (u32)&D_803ED398);
-    ENGINE_LEAVE(10, t2);
     /* the pitch (D_803ED390[2]) from the second wheel's height over fp */
     s5 = h1 - h0;
     if (s5 >= 0) {
@@ -4230,55 +3973,38 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
     }
     D_803ED390[0] = r;
     fp = r;
-    ENGINE_LEAVE(3, q);
-    ENGINE_LEAVE(8, (u32)D_803ED390);
-    ENGINE_LEAVE(21, q);
-    ENGINE_LEAVE(30, fp);
+    ENGINE_LEAVE(30, fp);               /* ($fp: 5CB60.c and the other vehicles read it from the context) */
     /* the sound */
     ENGINE_BLK(802A8A28);
     h = ((u32)D_803ED3A8[1] + (u32)D_803ED3A8[2]) >> 1;
     h1 = ((u32)h1 + (u32)h2) >> 1;
     along = func_802A8B10(&across);
     ENGINE_BLK(802A8A78);
-    ENGINE_LEAVE(4, type);
-    ENGINE_LEAVE(5, *px);
-    ENGINE_LEAVE(6, h);
-    ENGINE_LEAVE(7, *pz);
     func_802582C4(type, *px, h, *pz, h1, along, across, D_803ED406);
     ENGINE_BLK(802A8A9C);
     func_802A9164(s0, type, vs);
     ENGINE_BLK(802A8AB8);
-    ENGINE_LEAVE(1, 0xFF);
-    ENGINE_LEAVE(5, (u8)D_803ED3F5);
     if (D_803ED3F5 != 0)
         goto out;
     ENGINE_BLK(802A8ACC);
     if (type == 0xFF)
         goto out;
     ENGINE_BLK(802A8AD4);
-    ENGINE_LEAVE(11, D_803ED40F);
     if (D_803ED40F == 0)
         goto out;
     ENGINE_BLK(802A8AE4);
-    ENGINE_LEAVE(11, (u32)vs->unk5E);
-    ENGINE_LEAVE(8, *px);
-    ENGINE_LEAVE(9, *pz);
-    ENGINE_LEAVE(23, (u32)vs->unk4);
-    ENGINE_LEAVE(20, (u32)&vs->unk4C);
     func_802A92C8(*px, *pz, vs->unk5E, (s16 *)&vs->unk4C, vs->unk4, type, vs, fp);
 out:
     ENGINE_BLK(802A8AFC);
-    ENGINE_LEAVE(12, t4);
 }
 
-/* func_802ABBEC as the vehicle modules declare it (shared.h): s0, s1 and
-   s2 from the context, where they leave them */
+/* func_802ABBEC as the vehicle modules declare it (shared.h).  Its $t0
+   and $t2 stay in the context: 56040.c's func_8029A800 takes those of a
+   vehicle that doesn't set them itself from there. */
 REGS(t0, t1, t2, s4)
 void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf) {
     ENGINE_LEAVE(8, id);
-    ENGINE_LEAVE(9, (u32)verts);
     ENGINE_LEAVE(10, (u32)end);
-    ENGINE_LEAVE(20, (u32)buf);
-    abbec(id, verts, end, buf, engine_ctx(16), engine_ctx(17), engine_ctx(18));
+    abbec(id, verts, end, buf);
 }
 

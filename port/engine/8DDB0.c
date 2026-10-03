@@ -45,7 +45,6 @@ void func_802D2570(u8 *model) {
     VS *vs;
 
     ENGINE_BLK(802D2570);
-    engine_save(ENGINE_T0_T5, 0);
     D_803FCD54 = model;
     buf = D_80358070;
     D_803FCD58 = buf;
@@ -133,11 +132,6 @@ void func_802D2570(u8 *model) {
     /* the frame's vertices into the other buffer */
     func_802AA838(D_803FCD5C, D_803FCD58, *(s32 *)(D_803FCD54 + *(s32 *)(D_803FCD54 + 0x18) + 4));
     ENGINE_BLK(802D28F8);
-    engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, (u32)vs);
-    ENGINE_LEAVE(22, (u32)D_803FCD58);
-    ENGINE_LEAVE(23, (u32)D_803FCD5C);
 }
 
 /* each frame */
@@ -146,7 +140,8 @@ void func_802D291C(void) {
     u8 *a, *b;
 
     ENGINE_BLK(802D291C);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
+    /* (its $s4 as it found it: 5CB60.c reads it from the context) */
+    engine_save(ENGINE_GPR(20), 0);
     func_802D2A40();
     ENGINE_BLK(802D2974);
     if (vs->unk9A == 0) {
@@ -174,10 +169,8 @@ void func_802D291C(void) {
 
 void func_802D2A40(void) {
     ENGINE_BLK(802D2A40);
-    engine_save(0x10000000, 0);
     func_80269258();
     ENGINE_BLK(802D2A58);
-    engine_restore();
 }
 
 /* the rotor's sound, quieter with the camera's distance */
@@ -185,7 +178,6 @@ void func_802D2A74(void) {
     s32 d, v;
 
     ENGINE_BLK(802D2A74);
-    engine_save(ENGINE_S0_S7_GP_FP | ENGINE_T0_T5 | 0x0F00C0FE, 0);
     if (D_803FCD64 != NULL) {
         ENGINE_BLK(802D2B04);
         d = (s32)func_802ABCDC(D_803643F8 >> 11, D_803643FC >> 11, D_80364400 >> 11, D_803FCD48, D_803FCD4C,
@@ -206,7 +198,6 @@ void func_802D2A74(void) {
         func_80260AB8(D_803FCD64, 8, v);
     }
     ENGINE_BLK(802D2B98);
-    engine_restore();
 }
 
 /* the event in D_803FCD70, the waypoints' sounds and the effects */
@@ -215,7 +206,6 @@ void func_802D2C20(void) {
     s32 s0 = 0;
 
     ENGINE_BLK(802D2C20);
-    engine_save(0x10000000, 0);
     if (e != 0) {
         ENGINE_BLK(802D2C3C);
         if (e == 2) {
@@ -338,7 +328,6 @@ void func_802D2C20(void) {
         }
     }
     ENGINE_BLK(802D2F8C);
-    engine_restore();
 }
 
 /* the chopper's matrix (its position and D_803FCD6A..6E's angles) into the
@@ -366,7 +355,6 @@ void func_802D2FA4(VS *vs) {
     D_803ED390[1] = h;
     D_803ED390[2] = D_803FCD6E;
     func_802AA764(D_803FCD48, D_803FCD4C, D_803FCD50, 0x11558, m);
-    ENGINE_LEAVE(18, (s32)m);         /* (its $s2, as the glue would) */
     ENGINE_BLK(802D3060);
     if (D_8035805C != 0) {
         ENGINE_BLK(802D3074);

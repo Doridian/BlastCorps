@@ -114,7 +114,7 @@ s32 func_802CDB70(s16 r, s16 damage) {
 REGS(t3, v0, v1, a0, a1, fp -> fp)
 s32 func_802CDC7C(Building *b, s32 x, s32 y, s32 z, s32 r, s32 hit) {
     Piece *p, *end;
-    s32 px, py, pz, v1, a0, a1, a2, a3, t0, t1, in;
+    s32 px, py, pz, in;
 
     ENGINE_BLK(802CDC7C);
     x >>= 2;
@@ -357,7 +357,6 @@ s32 func_802CE0E4(s32 x, s32 y, s32 z, s32 r, s32 kind) {
     }
 out:
     ENGINE_BLK(802CE1CC);
-    ENGINE_LEAVE(13, -1);               /* ($t5, the end mark) */
     return any;
 }
 
@@ -384,8 +383,6 @@ void func_802CE204(s32 x, s32 z, s32 tx, s32 tz) {
             ENGINE_BLK(802CE284);
             q = (f32)(tx - x) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802CE2B4);
             h = (u32)h >> 4;
@@ -393,8 +390,6 @@ void func_802CE204(s32 x, s32 z, s32 tx, s32 tz) {
             ENGINE_BLK(802CE2BC);
             q = (f32)(z - tz) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802CE2EC);
             h = ((u32)h >> 4) + 0x400;
@@ -405,8 +400,6 @@ void func_802CE204(s32 x, s32 z, s32 tx, s32 tz) {
             ENGINE_BLK(802CE304);
             q = (f32)(x - tx) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802CE334);
             h = ((u32)h >> 4) + 0x800;
@@ -414,8 +407,6 @@ void func_802CE204(s32 x, s32 z, s32 tx, s32 tz) {
             ENGINE_BLK(802CE340);
             q = (f32)(tz - z) / d;
             v = engine_cvt_w_s(65536.0f * q);
-            ENGINE_LEAVE_FW(0, v);
-            ENGINE_LEAVE_F(2, q);
             h = func_802AD7FC(v);
             ENGINE_BLK(802CE370);
             h = ((u32)h >> 4) + 0xC00;

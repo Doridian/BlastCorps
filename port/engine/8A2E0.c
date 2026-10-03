@@ -38,13 +38,13 @@ s32 func_80285B10(u8 i);
 void func_80285B68(s32 i);
 void func_80285CA0(void);
 
-/* 5CB60 (engine-B's), still translated: model n, loaded */
+/* 5CB60's: model n, loaded */
 REGS(t3 -> s2)
 u8 *func_802A396C(s32 n);
-/* 60F60 (engine-B's), still translated */
+/* 60F60's */
 REGS()
 void func_802A5E60(void);
-/* 56040, still translated */
+/* 56040's */
 REGS(t0, t1, v1, a0)
 void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2);
 REGS(t0, v0, v1)
@@ -144,8 +144,6 @@ void func_802CEAA0(u8 *level) {
     }
     ENGINE_BLK(802CEB48);
     if (D_803FC1F0 == 0) {
-        ENGINE_LEAVE(9, (u32)end);      /* ($t1, $t2 as it leaves them) */
-        ENGINE_LEAVE(10, 0);
         goto out;
     }
     ENGINE_BLK(802CEB58);
@@ -155,9 +153,6 @@ void func_802CEAA0(u8 *level) {
     D_803FC1E8 = heap + 0x600;
     D_803FC1EC = heap + 0x900;
     D_80358070 = heap + 0xC00;
-    ENGINE_LEAVE(10, (u32)D_803FBBD8);  /* ($t2, and $s6, $s7: the original leaves them) */
-    ENGINE_LEAVE(22, (u32)D_803FC1E0);
-    ENGINE_LEAVE(23, (u32)D_803FC1E4);
     dish_parts(D_803FBBE0, D_803FC1E0, D_803FC1E4, 0);
     ENGINE_BLK(802CEC7C);
     func_802A039C(1, 2, D_803FBBE0);
@@ -176,9 +171,6 @@ void func_802CEAA0(u8 *level) {
     ENGINE_BLK(802CED08);
     func_802A0290(2, -1, D_803FBBE0);
     ENGINE_BLK(802CED1C);
-    ENGINE_LEAVE(10, (u32)D_803FBBD8);
-    ENGINE_LEAVE(22, (u32)D_803FC1E8);
-    ENGINE_LEAVE(23, (u32)D_803FC1EC);
     dish_parts(D_803FBEE0, D_803FC1E8, D_803FC1EC, 1);
 out:
     ENGINE_BLK(802CEE00);

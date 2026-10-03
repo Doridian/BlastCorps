@@ -3247,6 +3247,8 @@ a native-endian build (n64, mn32) does.
   `engine_frame_lw(off)`, and writes the return address its `sd $ra`
   saves, each version's own, since two of the shadow's arguments are its
   halves.
+  (O2 has replaced the frames below with the one word they leave the
+  shadow: "The scaffolding stripped".)
   Since `func_802ABBEC` keeps its frame, every native path to it keeps
   the original's frames down to it: the level loader, the vehicles'
   setups, their functions each frame, their put-backs and the matrix
@@ -3299,6 +3301,68 @@ textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
 - A difference between versions is a `#if` on `VERSION_*` in the native
   code, as in the decompiled C (us.v10's `func_802A2D68` doesn't clear
   `D_803F7812`); `ENGINE_BLK` sizes are each version's.
+
+**The scaffolding stripped (O2, docs/DISTRIBUTION.md).**  With no translated
+code left, the context (the registers `ENGINE_LEAVE` writes, `engine_save`
+and `engine_restore` put back, `engine_frame` moves `$sp` for) is read only
+by the native code itself: `engine_ctx`, `ENGINE_REG` and `engine_frame_lw`.
+Everything else that writes it is invisible, and the O2 pass removes it.
+What a read takes is found by provenance, not by reading the asm:
+- A 32-bit build with `-DCMAKE_C_FLAGS=-DPORT_PROV` records, for each value
+  in the context and each word of the dead stack, the site of the
+  `ENGINE_LEAVE` (or frame store) that wrote it, the `engine_restore` that
+  put it back when that changed it, and the frames around a stack store;
+  each read is counted with those.  `PROV_OUT=PREFIX` (not a `PORT_`
+  variable, so `test.py` passes it on) writes `PREFIX.<pid>` at exit, and
+  `port/tools/engine_prov.py EXE LOG... [--feeds FILE...]` lists every read
+  with its writers, or the writes in some files that a read elsewhere
+  takes.  `port_prov_probe(id)` counts whatever a native function wants
+  counted.  Run over the quick tier and the TAS, it is the list of what
+  must stay; the rest goes, and the quick tier and the TAS, run
+  unchanged, check it.
+- Half B (62740, 62740_carry, 6B4A0, 6C5E0, 6E200, 71140, 72B80, 75490,
+  77E20, 83910, 86F60, 89250, 8A2E0, 8DDB0, 2026-10-02): every leftover,
+  save, restore, frame and `$ra` gone but what the other files still read,
+  and its own reads made plain C:
+  - `func_802A8768` takes `$s0`, `$s4` and `$s7` from `vs` (every caller
+    has them from there: `unk96`, `&unk4C`, `unk4`), and
+    `func_802A8CCC` returns whether it put the vehicle back (its `$t0`,
+    `$t1`), its pass-through inputs gone;
+  - the wheels' material in the vehicles' setups (`$fp`, which reaches a
+    wheel's byte only when wheel 0 stands on a moving object or nothing:
+    0 in every run) is 0, and `func_802A6274`'s position and speed, unused
+    in its mode 1, are 0;
+  - `func_802AA890`'s `$s0`-`$s2` matter only for a point with no
+    matrices, which no model has (`port_prov_probe` over the quick tier
+    and the TAS): `func_802ABBEC` and the barges', the carrier's and the
+    crane's `func_802AABE4` pass 0;
+  - the crane finds the hook's point as 56040 does (`record_3bd`), and
+    the chopper's `func_802A1388` gets 1 for the loader's heap top
+    (only tested against 0); its shadow's height outside the level is
+    the model's address `func_802B9B4C` left in `$t3`.
+- What half B still leaves, and why (all the other half's reads): `$t0`
+  and `$t2` before `func_8029A800` (56040, its collision settings; the
+  vehicles that don't set them get `func_802ABBEC`'s); `$v0`, `$t6`,
+  `$t7`, `$t9`, `$fp` and `$s4` for 5CB60's collision triangles and
+  60F60 (from `func_802A860C`, `func_802A9DC0`, `func_802AA2E4`,
+  `func_802A8768`, 77E20's drawing, `func_802BD99C` and its sphere
+  tests); `$t8` and `$fp` for 69BB0's driver and the other vehicles'
+  setups (the wheels' `self` and material).  The vehicles' frame
+  functions put back only `$s4` and `$fp`, 77E20's drawing `$s4`, `$t8`
+  and `$t9`, and the rest of each save went.  77E20's drawing still
+  mirrors `$t6`-`$t8` (`R()`).  77E20 reads `func_8029C0DC`'s corners from
+  the context (`C0DC_LEFT`).
+- The driver's shadow (69BB0's `func_802AF340`) reads one word of dead
+  stack, 0xBC under hd.c's `$sp`: in the TAS the `$a1` the chopper's
+  `func_802ABBEC` saved there (762 times: 679E0's `func_802ACCCC` left it),
+  the `$ra` of the carrying's `func_802AB714` (38), or 69BB0's own frame
+  (2).  The chopper's and the carrying's frames are gone; each writes that
+  one word where the original's frame would have (`func_802B9B4C`,
+  `func_802AB670`), last.  That stays while the shadow reads it (its cost
+  in `__port_icount_c` moves the TAS).
+- The check build still compares what it did: only calls from the C into
+  functions whose translation calls nothing else, which none of this
+  changes (0 differ over the four quick scenarios, every call checked).
 
 ## Other versions
 
