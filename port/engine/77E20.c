@@ -799,16 +799,24 @@ void func_802BD10C(s32 t_) {
 
 /* ---- drawing them ---------------------------------------------------- */
 
-/* Display list commands copied from src to src_end at *d (and *d1, when
-   not NULL), in one go; the original's loop charged its test block once
-   more than its copy block. */
+/* n display list commands copied from src to d (a loop the compiler keeps
+   inline: these are a few commands each, too few for a call to memcpy) */
+static inline u32 *copy_cmds(u32 *d, const u32 *src, s32 n) {
+    s32 i;
+
+    for (i = 0; i < n * 2; i++)
+        d[i] = src[i];
+    return d + n * 2;
+}
+
+/* Display list commands copied from src to src_end at d, in one go; the
+   original's loop charged its test block once more than its copy block. */
 #define COPY_CMDS(d, src, src_end, B_TEST, B_COPY)                          \
     do {                                                                    \
-        u32 ncmd_ = ((u8 *)(src_end) - (u8 *)(src)) / 8;                    \
+        s32 ncmd_ = ((u8 *)(src_end) - (u8 *)(src)) / 8;                    \
         ENGINE_BLKN(B_TEST, ncmd_ + 1);                                     \
         ENGINE_BLKN(B_COPY, ncmd_);                                         \
-        __builtin_memcpy((d), (src), ncmd_ * 8);                            \
-        (d) += ncmd_ * 2;                                                   \
+        (d) = copy_cmds((d), (src), ncmd_);                                 \
     } while (0)
 
 /* One look of building b's group gi (0-based): a falling group gets its
@@ -896,6 +904,31 @@ static void draw_look(Building *b, s32 gi, GroupDls *dls, AnimTex *anim, AnimTex
     *d1p = d1;
 }
 
+/* Each visible cell's place in D_803C30A8 (the visible cells, to -1) + 1,
+   0 for the others: the original searched the list for each building,
+   its blocks charged by the place.  Marked for one func_802BD1F8 and
+   cleared after it (the cells it marked). */
+static u16 cell_at[256];
+static u8 cells_marked[256];
+static s32 ncells_marked;
+
+static s32 visible_cells_mark(void) {
+    s32 n;
+    s16 c;
+
+    for (n = 0; (c = D_803C30A8[n]) != -1; n++)
+        if ((u16)c < 256 && cell_at[c] == 0) {
+            cell_at[c] = n + 1;
+            cells_marked[ncells_marked++] = c;
+        }
+    return n;
+}
+
+static void visible_cells_clear(void) {
+    while (ncells_marked != 0)
+        cell_at[cells_marked[--ncells_marked]] = 0;
+}
+
 /* Each frame (hd.c): the buildings in the visible cells drawn into two
    display lists (g0, g1: the frame's two passes), each building's lists
    made at d0 and d1; the falling groups' matrices from D_803F3964
@@ -917,9 +950,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     Mtx *m;
     s32 first, n, gi, dmg, i, nvis, hidden;
     GroupCond *c;
-    /* each visible cell's place in D_803C30A8 (the original searched the
-       list for each building, its blocks charged by the place) */
-    s16 cell_at[256];
     /* what the original leaves in $t6-$t8, which 5CB60.c's collision
        triangles, 60F60.c and 69BB0.c's driver read from the context */
     u32 t6 = 0, t7 = 0, t8 = 0;
@@ -942,14 +972,11 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         D_803F3964 = D_803F2ED0;
     }
     ENGINE_BLK(802BD27C);
-    __builtin_memset(cell_at, 0xFF, sizeof cell_at);
-    for (nvis = 0; D_803C30A8[nvis] != -1; nvis++)
-        if ((u16)D_803C30A8[nvis] < 256 && cell_at[D_803C30A8[nvis]] < 0)
-            cell_at[D_803C30A8[nvis]] = nvis;
+    nvis = visible_cells_mark();
     end = D_803F7654;
     for (b = D_803F4030; ENGINE_BLK(802BD29C), b != end; b++) {
         ENGINE_BLK(802BD2A4);
-        i = cell_at[B_CELL(b)];
+        i = cell_at[B_CELL(b)] - 1;
         if (i < 0) {
             ENGINE_BLKN(802BD2B0, nvis + 1);
             ENGINE_BLKN(802BD2C4, nvis);
@@ -1015,8 +1042,8 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         n = ((u8 *)src_end - (u8 *)src) / 8;
         ENGINE_BLKN(802BD568, n + 1);
         ENGINE_BLKN(802BD570, n);
-        __builtin_memcpy(d0, src, n * 8);
-        __builtin_memcpy(d1, src, n * 8);
+        copy_cmds(d0, src, n);
+        copy_cmds(d1, src, n);
         d0 += n * 2;
         d1 += n * 2;
         ENGINE_BLK(802BD58C);
@@ -1081,6 +1108,7 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         ENGINE_BLK(802BD7FC);
     }
     ENGINE_BLK(802BD804);
+    visible_cells_clear();
     ENGINE_RESTORE();
     if (drawn) {
         ENGINE_LEAVE(rT6, t6);
