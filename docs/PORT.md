@@ -4013,19 +4013,12 @@ for poll.
   pass 0 to the effects' and `func_802AABE4`'s dead inputs), nine more
   went: `func_8029C0DC`'s corners are no native code's any more, nor
   `func_8029E5AC`/`func_8029F1BC`/`func_8029E21C`'s effect registers, nor
-  `func_8029C454`'s `$s1`/`$s2`.  What 56040 still leaves, and for whom
-  (`taint.py --feeds 56040.c`, over the TAS and the quick tier): `$fp`
-  (`func_8029EF80`, `func_8029B02C`) and `$t8` (`func_8029A800`,
-  `func_8029B02C`, `func_8029AB88`) and their restores, which 69BB0's
-  wheels and 5CB60's `func_802A1C20` read; `func_8029E5AC`'s `$t6` (69BB0's
-  shadow word); and `$v0` from `func_8029BEE4`/`func_8029E21C`, which
-  5CB60's triangle bytes take.  All of them end as garbage the original
-  never meant (a wheel's material, a triangle's byte 0x50): the gameplay
-  digest's to replace with defined values.
+  `func_8029C454`'s `$s1`/`$s2`.  The rest went with their readers
+  ("Garbage made values", below).
 - 5CB60 reads the level file and the models by `LevelHeader`, `Model`
   and `VehicleModel` field (`LEVEL_PTR()`, `MODEL_PTR()`, `VMODEL_PTR()`),
   with structs for the file's records and the tables they become
-  (`UnkStruct_80306480`, `LevelLight`, `MovingGroup`/`MovingTri`,
+  (level_tables.h's `TargetObj` and `LevelLight`, `MovingGroup`/`MovingTri`,
   `FileVehicle`, `FileCarrier`, `FileBuilding`, `BuildingTri`,
   `ModelEffect`); 8A080's `CollisionObject`, 60D50's `HeightBox`; 5FD50's
   `QuadNode`, `TerrainGroup`, `TerrainSpan`, `TexAnim` and the header's
@@ -4061,6 +4054,36 @@ runs once a game frame):
 
 The loaders (5CB60, 5BF40, 8A080, 60D50) and 1B100, 69944, 69014 have
 none: they run at a level's load, or are pure functions.
+
+### Garbage made values
+
+The last code that read what other code left in registers or on the dead
+stack now takes values, so nothing reads the thread's context or the N64
+stack any more: every `ENGINE_LEAVE`, `engine_save()`/`engine_restore()`
+pair, `ENGINE_RA` and frame store in `port/engine` went with them (engine.h
+keeps the mechanism for the check build, which still runs; its one
+difference over `PORT_AUTOSTART=3` is 60F60's `func_802A5FA8`'s cost, its
+`ENGINE_COST` average).  The taint build gave each reader's values over the
+TAS (`ENGINE_TAINT_VALUES=1` and `taint.py --values`: every value a read
+took, with its count), and the values chosen are:
+
+| read | what the original takes | now | why no one can tell |
+|---|---|---|---|
+| the level's grid and wall triangles' owner, id and pushes (0x4F, 0x50, 0x58), the switch triangles' pushes, the holes' too and their group2 (5CB60's `func_802A41B0` callers, 8A080) | `$t9`, `$v0`, `$s1`, `$t6`: an address's low byte, an earlier triangle's dx | 0 (`LEVEL_TRI_BYTES`) | nothing reads them for those triangles: owner and id only for the objects' (56040), pushes only for the buildings' pieces (func_802BF264), group2 only for those |
+| the driver getting out (69BB0's `func_802A9A60` calls): its `self` | `$t8`: the last vehicle collision's type (0xFF, 4, 0xBE...) or a matrix's address | `VEHICLE_DRIVER` | `self` only keeps a vehicle off its own moving triangles; the TAS's replays and digest are the same |
+| the same: its wheels' material | `$fp`: 0 in 2,169 of 2,814 reads, else 2 or an odd halfword | 0 | the next frame's ground sets it again; the TAS is the same |
+| the vehicles' setups (69BB0, 772A0, 80280, 853D0, 88160, 8AEE0): the material where no ground is | `$fp`: 0, or the level loader's pointer | 0 | only used where no ground is found under a wheel at a level's start |
+| 5CB60's models' animated textures (`func_802A2608`, `func_802A24BC`): the palette param | `$fp`: what `func_802A3F80` left, the end of the switch triangles | that value, kept (`tex_param`) | it is the original's palette pointer for the palette types (60F60's 4 and 5): the same colours |
+| 5CB60's level's animated textures (`func_802A1C20`) | `$fp`: 0 in 105 of 109 calls | 0 | as above, for the 4 others' textures if any are palette types |
+| the driver's shadow's tilt (`func_802582C4`'s sixth argument) | the dead word 0xBC below the C's `$sp`: `&D_803ED3B0` (762 of 802 TAS frames, the chopper's frame), a `$ra` (38, the carrying's), 0 (2) | `SHADOW_TILT`, the first | its low half is the angle: about 83 degrees, as nearly always; 40 frames of the whole TAS draw the shadow at that tilt instead of another |
+
+The TAS with these (us.v10, 32-bit, free timing): all 125,297 reads, 57
+platinum, the reference's save and gameplay digest (`7ec6ef73a5265afa`);
+the quick tier's every hash as before (so no reference changed).  Also:
+buildings.h's `Piece` is now collision.h's `CollisionTri` (77E20's `p`,
+`unk20`, `unk24` are `v`, `nlen`, `nlen2`), and level_tables.h has the
+objects to destroy (`TargetObj`, D_80306480) and the lights
+(`LevelLight`, D_803BDFD8) once for 5CB60, 62740 and 77E20.
 
 ### Vehicles
 
