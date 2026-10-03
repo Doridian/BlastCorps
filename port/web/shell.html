@@ -178,7 +178,7 @@
   /* the browser may start the sound suspended, or suspend it later: any
      input is a chance to resume it */
   function resumeAudio() {
-    var ac = Module.SDL2 && Module.SDL2.audioContext;
+    var ac = Module.audioContext || (Module.SDL2 && Module.SDL2.audioContext);
     if (ac && ac.state !== 'running' && ac.state !== 'closed') ac.resume();
   }
   ['keydown', 'pointerdown', 'touchstart'].forEach(function (e) { addEventListener(e, resumeAudio, true); });
