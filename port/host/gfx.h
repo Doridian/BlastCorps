@@ -155,6 +155,18 @@ void gfx_gl_texture_source(uint32_t addr);      /* SETTIMG: read back a GPU targ
 #define GFX_TWINS 7
 void gfx_gl_interp(int k);
 unsigned gfx_gl_interp_swap(uint32_t fb);
+/* the replays of the first pass (gfx.c): gfx_gl_rec_state(kind, tile) is
+   the number of the draw state a draw of that kind would get now (kept
+   until gfx_gl_rec_reset); gfx_gl_rec_force(n) draws with state n from
+   now on, whatever gs says (-1: as gs says); gfx_gl_gen changes when a
+   kept state may no longer be what a draw would get (a texture or target
+   gone, the resolution changed) */
+enum { GFX_GL_TRI, GFX_GL_FILL, GFX_GL_TEXRECT };
+void gfx_gl_rec_reset(void);
+int gfx_gl_rec_state(int kind, int tile);
+void gfx_gl_rec_force(int id);     /* (-2: none recorded, nothing should be drawn) */
+extern unsigned gfx_gl_gen;
+extern unsigned long long gfx_gl_rec_missed;
 /* which image a present at this retrace shows of fb: twin k (>= 0) or the
    frame itself (-1).  gfx_interp_image counts the retraces (once per VI
    present); gfx_interp_image_at is a present between retraces, `phase`
