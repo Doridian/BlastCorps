@@ -622,7 +622,7 @@ static void jbomb_frame(void) {
         sel = 2;
     else
         sel = 0;
-    func_8029A800(X, Y, Z, D_80306400, 1, 0, VS_SPEED(vs), sel, VEHICLE_JETPACK, vs);
+    func_8029A800(X, Y, Z, D_80306400, 1, 0, 0, VS_SPEED(vs), 0, sel, VEHICLE_JETPACK, vs);
     func_8029C52C(VEHICLE_JETPACK, vs);
     func_8029AA10();
     if (D_803A742B != 0 && JB_MODE(vs) != JB_WALK && JB_MODE(vs) != JB_LANDED) {
@@ -1190,9 +1190,6 @@ void func_802C7864(VS *vs) {
     f = step_toward_f(f, 0.5f, JBOMB_TILT_BACK);
 set4:
     D_803F7C2C = f;
-    /* ($t2: 56040's func_8029A800 takes its setting from the context, and
-       the J-Bomb sets none of its own) */
-    ENGINE_LEAVE(10, engine_cvt_w_s((1.0f - f) * 100.0f));
     show_tilt(4, 1.0f - f);
     /* part 3 */
     f = D_803F7C28;

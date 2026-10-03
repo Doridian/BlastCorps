@@ -197,6 +197,25 @@ void engine_frame_s(void);
 u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)
 
+/* A block as data: a helper that stands for several copies of the
+   original's code (each with its own blocks) takes the caller's as a
+   table of these, ENGINE_B(8029B144) each, and charges one with
+   ENGINE_BLK_AT(table[i]) */
+typedef struct EngineBlk {
+    u16 id, n;
+} EngineBlk;
+#define ENGINE_B(addr) { ENGINE_BLK_##addr }
+#define ENGINE_BLK_AT(b) ENGINE_BLK_((b).id, (b).n)
+
+/* A count for the taint build (-DPORT_ENGINE_TAINT=ON, port/host/engine.c;
+   port/tools/taint.py --probes): whether a path some leftover feeds is
+   ever taken, say.  Nothing in the other builds. */
+#ifdef PORT_ENGINE_TAINT
+void engine_probe(unsigned id);
+#else
+#define engine_probe(id) ((void)0)
+#endif
+
 /* A function's charge in one: n instructions at its entry, under its entry
    block's id (for the check build's and PORT_BLKLOG's traces), in place of
    its blocks one by one.  n is what its original took a call on average

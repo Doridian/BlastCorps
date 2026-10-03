@@ -306,9 +306,7 @@ void func_802CFDE8(void) {
     func_8029E558(SK, FRAME_BUF(SK_BUF0, SK_BUF1), OTHER_BUF(SK_BUF0, SK_BUF1));
     func_802D05D8(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x96);
-    func_8029A800(SK_X, SK_Y, SK_Z, D_80306460, 1, 1, VS_SPEED(vs), 0, VEHICLE_STARSKI, vs);
+    func_8029A800(SK_X, SK_Y, SK_Z, D_80306460, 1, 1, 7, VS_SPEED(vs), 0x96, 0, VEHICLE_STARSKI, vs);
     func_8029C52C(VEHICLE_STARSKI, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {
@@ -565,7 +563,7 @@ void func_802D0F98(void) {
     func_8029E558(CS, FRAME_BUF(CS_BUF0, CS_BUF1), OTHER_BUF(CS_BUF0, CS_BUF1));
     func_802D22F4(vs);
     /* what it hits */
-    func_8029A800(CS_X, CS_Y, CS_Z, D_80306470, 0, 0, VS_SPEED(vs), 0, VEHICLE_MINIMAGOO, vs);
+    func_8029A800(CS_X, CS_Y, CS_Z, D_80306470, 0, 0, 0, VS_SPEED(vs), 0, 0, VEHICLE_MINIMAGOO, vs);
     func_8029C52C(VEHICLE_MINIMAGOO, vs);
     func_8029AA10();
     D_803F77D0 = CS;

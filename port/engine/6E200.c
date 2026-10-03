@@ -280,9 +280,7 @@ static void skyfall_frame(void) {
     func_8029E558(SKY, FRAME_BUF(SKY_BUF0, SKY_BUF1), OTHER_BUF(SKY_BUF0, SKY_BUF1));
     func_802B3E40(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 6);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x64);
-    func_8029A800(D_803EE38C, D_803EE390, D_803EE394, D_80305D00, 1, 1, vs->unk76, 0, 3, vs);
+    func_8029A800(D_803EE38C, D_803EE390, D_803EE394, D_80305D00, 1, 1, 6, vs->unk76, 0x64, 0, 3, vs);
     func_8029C52C(VEHICLE_BUGGY, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {
@@ -704,9 +702,7 @@ static void ramdozer_frame(void) {
     func_8029E558(RAM, FRAME_BUF(RAM_BUF0, RAM_BUF1), OTHER_BUF(RAM_BUF0, RAM_BUF1));
     func_802B568C(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 8);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x78);
-    func_8029A800(D_803EE768, D_803EE76C, D_803EE770, D_80305D10, 0, 1, vs->unk76, 0, 4, vs);
+    func_8029A800(D_803EE768, D_803EE76C, D_803EE770, D_80305D10, 0, 1, 8, vs->unk76, 0x78, 0, 4, vs);
     func_8029C52C(VEHICLE_BULLDOZER, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {

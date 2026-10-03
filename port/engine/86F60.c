@@ -237,9 +237,7 @@ void func_802CBEF0(void) {
     func_8029E558(PARTS, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802CC70C(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x96);
-    func_8029A800(D_803F8F28, D_803F8F2C, D_803F8F30, D_80306430, 1, 1, vs->unk76, 0, 0xD, vs);
+    func_8029A800(D_803F8F28, D_803F8F2C, D_803F8F30, D_80306430, 1, 1, 7, vs->unk76, 0x96, 0, 0xD, vs);
     func_8029C52C(VEHICLE_POLICE, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {

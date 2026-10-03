@@ -268,7 +268,7 @@ void func_802B152C(void) {
     func_8029E558(P, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802B2768(vs);
     /* what it hits */
-    func_8029A800(D_803EDFB8, D_803EDFBC, D_803EDFC0, D_80305CF0, 0, 0, vs->unk76, 0, 2, vs);
+    func_8029A800(D_803EDFB8, D_803EDFBC, D_803EDFC0, D_80305CF0, 0, 0, 0, vs->unk76, 0, 0, 2, vs);
     func_8029C52C(VEHICLE_MAGOO, vs);
     func_8029AA10();
     D_803F77D0 = P;

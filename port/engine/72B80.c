@@ -311,9 +311,7 @@ void func_802B7A88(void) {
     func_8029E558(P, FRAME_BUF(HR_BUF0, HR_BUF1), OTHER_BUF(HR_BUF0, HR_BUF1));
     func_802B8278(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x96);
-    func_8029A800(D_803EEF18, D_803EEF1C, D_803EEF20, D_80305D30, 1, 1, vs->unk76, 0, 8, vs);
+    func_8029A800(D_803EEF18, D_803EEF1C, D_803EEF20, D_80305D30, 1, 1, 7, vs->unk76, 0x96, 0, 8, vs);
     func_8029C52C(VEHICLE_HOTROD, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {

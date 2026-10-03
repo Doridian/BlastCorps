@@ -318,7 +318,7 @@ s32 func_802AEC3C(s32 d, VS *vs) {
                   engine_ctx(30));
     func_802AFA64(vs);
     D_803ED81C = (u32)(VS_WHEEL_H(vs)[3] + VS_WHEEL_H(vs)[6]) >> 1;
-    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, 0, 0, vs);
+    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, 0, 0, 0, 0, vs);
     func_8029AA10();
     D_803F77D0 = DRV;
     func_802BE77C(VEHICLE_DRIVER, vs);
@@ -401,7 +401,7 @@ static void driver_frame(void) {
             D_803ED824 = 0;
         } else {
             /* what it hits */
-            func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, vs->unk76, 0, 0, vs);
+            func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, vs->unk76, 0, 0, 0, vs);
             func_8029C52C(VEHICLE_DRIVER, vs);
             func_8029AA10();
             D_803F77D0 = DRV;

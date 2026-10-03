@@ -195,7 +195,7 @@ void func_802BBEB8(void) {
     D_803EFEC4++;
     /* what it hits */
     if (VS_IN_SETUP(vs) == 0) {
-        func_8029A800(X, Y, Z, D_80305E00, 0, 0, VS_SPEED(vs), 0, VEHICLE_TRAIN, vs);
+        func_8029A800(X, Y, Z, D_80305E00, 0, 0, 0, VS_SPEED(vs), 0, 0, VEHICLE_TRAIN, vs);
         func_8029C52C(VEHICLE_TRAIN, vs);
         func_8029AA10();
         D_803F77D0 = TR;

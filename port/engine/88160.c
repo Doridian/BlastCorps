@@ -223,9 +223,7 @@ void func_802CD068(void) {
     func_8029E558(PARTS, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802CD800(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x96);
-    func_8029A800(X, Y, Z, D_80306440, 1, 1, VS_SPEED(vs), 0, VEHICLE_ATEAM, vs);
+    func_8029A800(X, Y, Z, D_80306440, 1, 1, 7, VS_SPEED(vs), 0x96, 0, VEHICLE_ATEAM, vs);
     func_8029C52C(VEHICLE_ATEAM, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {

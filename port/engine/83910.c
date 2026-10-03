@@ -130,7 +130,7 @@ static void barge_frame(s32 n) {
     func_8029E558(parts, FRAME_BUF(BUF0(n), BUF1(n)), OTHER_BUF(BUF0(n), BUF1(n)));
     barge_draw_fn[n](vs);
     /* what it hits */
-    func_8029A800(pos[0], pos[1], pos[2], D_80306410, 0, 0, VS_SPEED(vs), 0, type, vs);
+    func_8029A800(pos[0], pos[1], pos[2], D_80306410, 0, 0, 0, VS_SPEED(vs), 0, 0, type, vs);
     func_8029C52C(type, vs);
     func_8029AA10();
     D_803F77D0 = parts;

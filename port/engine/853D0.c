@@ -298,9 +298,7 @@ void func_802CA4E0(void) {
     func_8029E558(BK, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802CB42C(vs);
     /* what it hits */
-    ENGINE_LEAVE(8, 8);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x64);
-    func_8029A800(X, Y, Z, D_80306420, 1, 1, VS_SPEED(vs), 0, VEHICLE_BIKE, vs);
+    func_8029A800(X, Y, Z, D_80306420, 1, 1, 8, VS_SPEED(vs), 0x64, 0, VEHICLE_BIKE, vs);
     func_8029C52C(VEHICLE_BIKE, vs);
     func_8029AA10();
     D_803F8B79 = BIKE_WALL_SOUND;

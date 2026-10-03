@@ -392,41 +392,15 @@ REGS(s0, t3, t4, t5, t6 -> t7)
 s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r);
 
 /* Piece p's corners and the point (x, y, z) seen along its axis (0 drops
-   z, 1 y, else x): func_8029BF64's arguments.  This is 56040.c's c0dc()
-   (static there), func_8029C0DC's body, with its blocks; like
-   func_8029C0DC it also leaves them in $v0-$t1, where the original's
-   callers took them from and later code might find them. */
-typedef struct PieceFlat {
-    s32 x1, z1, x2, z2, x3, z3, x, z;
-} PieceFlat;
+   z, 1 y, else x): func_8029BF64's arguments, by 56040.c's
+   collision_flatten() (func_8029C0DC's body, with its blocks; shared.h's
+   FlatTri, the same words).  (The original also leaves them in $v0-$t1;
+   the taint build finds no reader of those but the callers here, which
+   take them from the struct now.) */
+typedef FlatTri PieceFlat;
 
 static inline void piece_flat(Piece *p, s32 x, s32 y, s32 z, PieceFlat *f) {
-    s32 *w = &p->p[0][0], q[3];
-    s32 i, j;
-
-    ENGINE_BLK(8029C0DC);
-    if (p->axis == 0) {
-        ENGINE_BLK(8029C138);
-        i = 0, j = 1;
-    } else if (p->axis == 1) {
-        ENGINE_BLK(8029C0E8);
-        ENGINE_BLK(8029C114);
-        i = 0, j = 2;
-    } else {
-        ENGINE_BLK(8029C0E8);
-        ENGINE_BLK(8029C0F0);
-        i = 1, j = 2;
-    }
-    ENGINE_BLK(8029C158);
-    q[0] = x, q[1] = y, q[2] = z;
-    f->x1 = w[i], f->z1 = w[j];
-    f->x2 = w[3 + i], f->z2 = w[3 + j];
-    f->x3 = w[6 + i], f->z3 = w[6 + j];
-    f->x = q[i], f->z = q[j];
-    ENGINE_LEAVE(rV0, f->x1), ENGINE_LEAVE(rV1, f->z1);
-    ENGINE_LEAVE(rA0, f->x2), ENGINE_LEAVE(rA1, f->z2);
-    ENGINE_LEAVE(rA2, f->x3), ENGINE_LEAVE(rA3, f->z3);
-    ENGINE_LEAVE(rT0, f->x), ENGINE_LEAVE(rT1, f->z);
+    collision_flatten((const struct CollisionTri *)p, x, y, z, f);
 }
 
 /* The sphere (x, y, z, r) (>> 2) against piece p: across its plane
@@ -450,7 +424,7 @@ static inline s32 piece_touched(Piece *p, s32 x, s32 y, s32 z, s32 r, const Piec
     BLKT(k->cross);
     piece_flat(p, px, py, pz, &f);
     BLKT(k->flat);
-    in = func_8029BF64(f.x1, f.z1, f.x2, f.z2, f.x3, f.z3, f.x, f.z);
+    in = collision_flat_inside(&f);
     BLKT(k->tri);
     if (in)
         return 1;

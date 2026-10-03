@@ -304,9 +304,7 @@ void func_802B6294(void) {
     func_802AC284(&X, &Y, &Z);
     func_802B7030(vs);
     /* what it hits (not once the level is over, D_80364AA8 0x40) */
-    ENGINE_LEAVE(8, 8);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x64);
-    func_8029A800(D_803EEB38, D_803EEB3C, D_803EEB40, D_80305D20, 1, 1, vs->unk76, 0, 5, vs);
+    func_8029A800(D_803EEB38, D_803EEB3C, D_803EEB40, D_80305D20, 1, 1, 8, vs->unk76, 0x64, 0, 5, vs);
     func_8029C52C(VEHICLE_TRUCK, vs);
     func_8029AA10();
     if (D_803A7425 == 0) {
@@ -491,7 +489,7 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
     ENGINE_COST(802AC2A4, 12);
     if (D_80364AA8 != 0x40)
         return;
-    func_8029A800(x, y, z, a1, 1, 0, 0, 0, type, vs);
+    func_8029A800(x, y, z, a1, 1, 0, 0, 0, 0, 0, type, vs);
     func_802BE77C(type, vs);
     if (D_803F3910 == D_803F3960)
         return;

@@ -3751,7 +3751,8 @@ only where some native code reads it back (`engine_ctx`, `ENGINE_REG`,
 last write, and those are never last.  `ENGINE_BLK` stays (the
 `--cpu-model n64` timing uses it).
 - **Finding the readers.**  Two debug builds of the plain 32-bit port
-  answer it, made side by side for the two halves:
+  answer it, made side by side for the two halves (one since O3: the
+  taint build does both, "The engine made readable"):
   - `-DPORT_ENGINE_TAINT=ON` tags each value put in the context or a frame
     slot with the call site that put it there, through the restores and
     frame stores that copy it, and logs every read with the chain of sites
@@ -3896,10 +3897,10 @@ level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
   (`jbomb_mode`: landed, slamming, walking, dropping, flying, and the slam
   and the bounce).
 - **Leftovers**: 77E20 and 89250 take `func_8029BF64`'s arguments from
-  `piece_flat()` (56040's `c0dc()`, static there, with its blocks) instead
-  of the context (`C0DC_LEFT` is gone); `piece_flat` still leaves them in
-  `$v0`-`$t1` as `func_8029C0DC` did, since later code may find them
-  there.  80280's and 8AEE0's `func_802A6274` calls (mode 1, which never
+  `piece_flat()` (56040's `collision_flatten()`, with its blocks) instead
+  of the context (`C0DC_LEFT` is gone; the leaves in `$v0`-`$t1` went too,
+  since the taint build finds no other reader of them).
+  80280's and 8AEE0's `func_802A6274` calls (mode 1, which never
   reads them) and 772A0's `func_802AABE4` (a matrixless point no model
   has) pass 0 instead of context registers.  Kept, for 5CB60's collision
   bytes and 69BB0's driver (their readers are the core agent's): 77E20's
@@ -3968,6 +3969,98 @@ ladders (the hit, the camera turn, the J-Bomb's first half), alike in 72B80
 and 6C5E0 and best done with the vehicles agent's names for the
 VehicleState fields; `unkXX` fields named as their meaning is found; and
 the leftovers above once 5CB60's collision bytes are defined values.
+
+### The parts, collisions and loaders
+
+56040, 5CB60, 5BF40, 60D50, 8A080, 5FD50, 1B100, 69944, 69014;
+collision.h, shared.h.  A helper standing for several copies of the
+original's code takes the caller's blocks as a table here too
+(engine.h's `EngineBlk`, `ENGINE_B()`, `ENGINE_BLK_AT()`); where the
+charges were meant to stay the same, `PORT_ICOUNT_LOG` over
+`PORT_AUTOSTART=0..3` against the file before gave the same log, poll
+for poll.
+
+8A080, 5FD50, 1B100, 69944, 69014; collision.h, shared.h):
+- collision.h has the collision records once: `CollisionTri` (the
+  0x60-byte triangle and plane: `nx..d`, `nlen`, `nlen2`, `v[3][3]`,
+  `heading`, `axis`, `owner`, `id`, `active`, `group`, `side`, `group2`,
+  `pushes`, with buildings.h's `Piece` names), `Solid` (a kind's bounding
+  sphere, D_803A7300), `KindPart` (its spheres, D_803A6B30), `TriSwitch`
+  (D_803BC1D0's switches) and `Wall` (D_803BD310).  56040 adds `Anim` (a
+  Part as an animation's state: data, t, tension, loops, limit, running,
+  back, mode, key, speed, interp), `Key`, `AnimPart`, `TexAnim`,
+  `TexSlot`, `TexPatch`, `MtxCopy`, `ObjSphere`, `ObjTris` and
+  `BuildingRule`.  The kinds are vehicle.h's `VEHICLE_*`: the crane's hook
+  is its sphere of radius 0x3BD, the train's hits are counted.
+- 56040: the matrix builders share one identity/rotation/translation/scale;
+  the twelve copies of the piece test are `piece_hit()` with each copy's
+  blocks, and `func_8029AB88` is `func_8029B02C`'s walk stopping at a hit.
+  `func_8029A800` takes `$t0`/`$t2` as parameters (the hit effect's length
+  and the speed it needs: every vehicle that leaves them non-zero also
+  enables the effect; the others pass 0), and `func_8029C454`'s
+  matrixless point is 0.  `collision_flatten()` and
+  `collision_flat_inside()` (shared.h's `FlatTri`) are `func_8029C0DC` and
+  `func_8029BF64` for C callers (buildings.h's `piece_flat()` is one).
+- Two things the names showed: a texture animation's "second texture" is
+  the next key's (each key's kinds follow the last's; the blend's fraction
+  goes into the `G_SETPRIMCOLOR`), and `func_8029DD54` walks one record
+  past D_803B7FC8's 0x78 onto the pointer after them (the original
+  compares with D_803B8568's address, not its value): kept, with a note.
+- After `func_8029A800` and `func_8029C454` took values, the taint build
+  over the TAS showed thirteen more of 56040's leftovers that no reader
+  takes; they are gone.  After the merge with the buildings' and the
+  vehicles' halves (their callers take `collision_flatten()`'s struct and
+  pass 0 to the effects' and `func_802AABE4`'s dead inputs), nine more
+  went: `func_8029C0DC`'s corners are no native code's any more, nor
+  `func_8029E5AC`/`func_8029F1BC`/`func_8029E21C`'s effect registers, nor
+  `func_8029C454`'s `$s1`/`$s2`.  What 56040 still leaves, and for whom
+  (`taint.py --feeds 56040.c`, over the TAS and the quick tier): `$fp`
+  (`func_8029EF80`, `func_8029B02C`) and `$t8` (`func_8029A800`,
+  `func_8029B02C`, `func_8029AB88`) and their restores, which 69BB0's
+  wheels and 5CB60's `func_802A1C20` read; `func_8029E5AC`'s `$t6` (69BB0's
+  shadow word); and `$v0` from `func_8029BEE4`/`func_8029E21C`, which
+  5CB60's triangle bytes take.  All of them end as garbage the original
+  never meant (a wheel's material, a triangle's byte 0x50): the gameplay
+  digest's to replace with defined values.
+- 5CB60 reads the level file and the models by `LevelHeader`, `Model`
+  and `VehicleModel` field (`LEVEL_PTR()`, `MODEL_PTR()`, `VMODEL_PTR()`),
+  with structs for the file's records and the tables they become
+  (`UnkStruct_80306480`, `LevelLight`, `MovingGroup`/`MovingTri`,
+  `FileVehicle`, `FileCarrier`, `FileBuilding`, `BuildingTri`,
+  `ModelEffect`); 8A080's `CollisionObject`, 60D50's `HeightBox`; 5FD50's
+  `QuadNode`, `TerrainGroup`, `TerrainSpan`, `TexAnim` and the header's
+  display lists by index.  Their copies of the same code are helpers
+  (`tri_grid`, `load_gz_model`, `tex_load_now`, `highest_box`, 5FD50's
+  `dl_append`/`dl_patch`/`cell_visible`); 5CB60's shared helpers charge one
+  copy's block ids (the same sizes), and `func_802A3F80` charges 802A4114
+  once more per switch at a level's load.  No goto is left in these.
+  Every `ENGINE_REG`/`ENGINE_LEAVE` they had stays: the triangles' bytes
+  from `$t9`, `$v0`, `$s1` and the rest are still the gameplay digest's
+  call.
+- The debug builds are one: `-DPORT_ENGINE_TAINT=ON` also records each
+  read's first value and `engine_probe(id)` counts (what `PORT_PROV` and
+  `port_prov_probe` did), and `taint.py --feeds FILE...` lists what some
+  files' sites give readers elsewhere (`engine_prov.py --feeds`).
+
+**Per-frame constants** (what a different tick rate has to scale; each
+runs once a game frame):
+
+| where | name | value | what |
+|---|---|---|---|
+| 56040 | `ANIM_RATE_DIV` | 300 | an animation's key speed is in 300ths of a key a frame (times `Anim.speed`); the texture animations' too |
+| 56040 | (`func_8029A914`) | 1 | the gears (`unkA0`) fall one a frame to 1 when nothing stepped them |
+| 56040 | `GEARS_MAX` | 0xC8 | their limit; a hit steps them 1 to 8, else up one (`func_8029B7CC`) |
+| 56040 | `BACKUP_SPEED` | 10 | `unk76` once it reaches 0 (after the mode's first frame) |
+| 56040 | `TRAIN_HITS_MAX` | 0xC9 | the train's hits, counted once per hit per frame |
+| 56040 | `HIT_FX_UNIT` | 7000 | the hit effect's life per `fx_len` (60F60's units) |
+| 56040 | `D_803A7429` | once | one hit effect a frame |
+| 5FD50 | `VIS_NODES_PER_FRAME` | 1 | the terrain quadtree's nodes the visibility walk tests a frame |
+| 5FD50 | `D_803C3248` | the caller's | frames before the walk starts, one down a frame |
+| 5FD50 | `TexAnim.period`, `.count` | the level's | frames per terrain texture frame; `count` steps one a frame |
+| 5FD50 | `ANIM_LOD_MAX` | 0xFF | the blend is `255 * count / period`: 1/period a frame |
+
+The loaders (5CB60, 5BF40, 8A080, 60D50) and 1B100, 69944, 69014 have
+none: they run at a level's load, or are pure functions.
 
 ### Vehicles
 
