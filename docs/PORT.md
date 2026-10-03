@@ -3428,6 +3428,71 @@ first pass and 59 in a replay (111 in a full in-between pass before,
 which also culled what wasn't drawn).  Asyncify's checks were a tenth
 of the renderer in the page.
 
+### Engine hot spots
+
+Measured after O3 (main d85d741), the default build (us.v10, the CPU
+model off), for the engine's next round.  Natively: the 32-bit build
+replaying the whole TAS (free timing) headless with `--renderer gl
+--scale 1`, under `port/tools/sprof.c` (a sampling profiler preloaded
+into the process: `perf` and valgrind can't be used here), every 250 µs
+of CPU time, 106,671 samples (26.7 s of CPU for the run's 250,000
+retraces, about 107 µs a retrace); `port/tools/sprof_report.py` gives
+self time by function, a library's samples by a guess at their caller.
+In WebAssembly: the `wasm` build linked with `--profiling-funcs` (the
+names; otherwise the same module) under node's `--cpu-prof`, the
+attract mode and `PORT_AUTOSTART=1` and `=3` (`port/tools/
+cpuprofile_report.py`); node has no OpenGL, so there the renderer is the
+software one.
+
+Where the time goes, natively (the main thread, 91% of the samples; the
+other is the GL driver's): the renderer 44% (`tri` 7.0, `hash_words` 6.9,
+`run` 4.9, `tload_copy` 4.7 and its `memcpy` 1.5, `do_vtx` 3.1, `raster`
+2.8, `tile_texture` 2.7, `gfx_fetch_texel` 2.0), the audio microcode
+(`host_audio_task`, its commands inlined) 20.6%, the GL driver's calls
+5.5%, the engine 3.8% with 7% more in the libm calls it makes (below),
+the game's C 2.5%.  In node: the software rasterizer 91% (`sample` 30,
+`raster` 17, `combine` 17, `gfx_fetch_texel` 16, `blend` 6), the host
+3.5%, the game's C 0.6%, the engine 0.3-0.4% (about 16 µs a frame).
+
+So the engine is no hot spot anywhere but in one place: natively, its
+float-to-integer rounding.  The VR4300's conversions (`engine_cvt_w_s`,
+`_l_s`, `_l_d`, recomp.h's `recomp_rint`/`recomp_rintf`) are `floor(x +
+0.5)` in a replay (the TAS's emulator rounded halves up) and `nearbyint`
+otherwise, and in the 32-bit build (SSE2, no SSE4.1 `round`) both are
+calls into libm, `nearbyint` saving and restoring the FP environment
+besides.  That is 7.2% of the whole process's CPU, two thirds of all the
+engine's time.  In WebAssembly they are instructions (`f64.floor`,
+`f32.nearest`) and cost nothing.
+
+The engine's functions, by the share of the native TAS's samples (their
+own and the libm calls under them):
+
+| | function | what it does | share | why it costs | possible win | agent-hours |
+|---|---|---|---|---|---|---|
+| 1 | the rounding (`engine_cvt_*`, `recomp_rint*`) | float to integer as the VR4300 rounds | 7.2% (of it under `func_8029C160` 4.8, `engine_cvt_w_s` 1.6, `func_802AE160`/`AE104` 0.3, `piece_hit` 0.3) | a libm call each (`floor`, `nearbyint`) | all of it: exact inline versions (an `int64` conversion and a correction for `floor(x + 0.5)`; adding and subtracting 2^23 / 2^52 for round-to-even, which is `nearbyint` in the default mode) | 0.5-1 with the TAS (port/host/engine.c, recomp.h) |
+| 2 | `func_8029C160` (56040) | a point against a collision triangle's plane: the distance (a 64-bit dot product over the normal's length) and the nearest point | 0.4 (+4.4 rounding) | called for every piece of every vehicle near something, a frame | after 1, little; skipping the projection when the distance already misses (its callers ignore the point then) | 1 |
+| 3 | `func_802A57DC` (60F60) | a texture's decode: the stream copied aside, then decoded over where it was | 0.65 | the copy, and a branch a word | perhaps half: decode the literals' runs a word pair at a time | 1-2 |
+| 4 | `func_802AA094` (62740) | a wheel's ground in the level's grid cell: each triangle's box, edges and plane (64-bit) | 0.34 | every wheel every frame walks its cell's triangles from scratch | most of it: each static triangle's box and plane worked out once at the level's load | 2-3 (the layout the C shares) |
+| 5 | `piece_hit`, `func_8029BEE4`, `func_8029BD0C`, `func_8029B02C` (56040) | the parts' collision walks over the buildings' pieces | 0.5 together | many pieces per vehicle per frame | a coarse box test first | 2 |
+| 6 | `func_802A4CDC`, `span_visible` (5FD50) | the terrain's visibility walk and its display lists | 0.33 | the quadtree walked every frame | little without changing the walk | - |
+| 7 | `func_802ACCCC`, `func_802AA890` (679E0, 62740) and the game's `guMtxCatF` | matrix products (16.16, 64-bit sums), the vehicles' and the parts' | 0.6 together | many small products a frame | some: the product built in registers, not through D_803ED420 (kept only if nothing reads it) | 1 |
+| 8 | `func_802BD1F8`, `copy_dl` (77E20) | the buildings' display lists | 0.19 | copies of each building's list | little | - |
+| 9 | `func_802ABCDC` (62740) | a distance (`sqrt` of a 64-bit sum, rounded) | 0.11 | the rounding (1) and `sqrt` | 1 takes most | (in 1) |
+| 10 | `func_802C41C0` (7F8B0) | the vehicles' engine sound | 0.10 | | none worth it | - |
+
+Outside the engine the big ones are the audio microcode natively (a fifth
+of the main thread: the ADPCM decoder, the resampler and the envelope
+mixer, sample by sample) and, in the page, the renderer's first pass
+("What's left").
+
+The tools: `sprof.c` and `sprof_report.py` (native, any build;
+`--area` splits the engine, the game's C, the renderer and the host by
+where each function is defined, `--callers` names a library's samples by
+their caller), `cpuprofile_report.py` (node's profiles of a
+`--profiling-funcs` WebAssembly build, the same areas by name), and
+`engine_costs.py` (O3's per-function charges: measuring the blocks,
+writing `ENGINE_COST`).
+
 ### What's left
 
 - **The first pass's own cost** is now most of the renderer: `tri`
