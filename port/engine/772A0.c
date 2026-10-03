@@ -1,17 +1,18 @@
 /*
  * hd_code 772A0 (us.v11 0x802BBA60-0x802BC5D4): the train (VEHICLE_TRAIN),
- * as native C (engine.h).  Its parts are D_803EFAF0, its state D_803EFDF0
- * and its position D_803EFE98..A0 (vehicle.h).  func_802BBA60 sets it up
+ * as native C (engine.h, vehicle.h).  Its parts are D_803EFAF0, its state
+ * D_803EFDF0 and its position D_803EFE98..A0.  func_802BBA60 sets it up
  * (from the level loader), func_802BBEB8 runs it each frame (from hd.c and
  * at the end of the setup); the others are hd.c's hooks for it.
  *
  * The train runs on rails: with D_803EFEC8 set, its x follows its z along
- * the line from (D_803EFEB0, D_803EFEB4) to (D_803EFEB8, D_803EFEBC).
+ * the line from (D_803EFEB0, D_803EFEB4) to (D_803EFEB8, D_803EFEBC).  At
+ * the line's ends (its parts 2 and 3 hitting something) it is sent back.
  */
-#include "shared.h"
-#include "game/game.h"
-#include "game/camera.h"
+#include "vehicle.h"
+#include "game/level.h"
 #include "game/audio.h"
+#include "buildings.h"
 
 /* the train's .bss (asm/data/hd_code/772A0.bss.s) */
 extern Part D_803EFAF0[32];
@@ -20,19 +21,23 @@ extern s32 D_803EFE98, D_803EFE9C, D_803EFEA0;  /* x, y, z */
 extern u8 *PTR32 D_803EFEA4;                    /* its model file */
 extern u8 *PTR32 D_803EFEA8;                    /* two 0x800-byte buffers, one per frame */
 extern u8 *PTR32 D_803EFEAC;
-extern s32 D_803EFEC0, D_803EFEC4;              /* frames since it last stopped at each end */
+extern s32 D_803EFEC0, D_803EFEC4;              /* frames since it was last at each end */
 extern u8 D_803EFEC9;                           /* the wheels' sparks: frames to wait */
 extern u8 D_803EFECA;
+
+#define TR D_803EFAF0
+#define X D_803EFE98
+#define Y D_803EFE9C
+#define Z D_803EFEA0
+#define MODEL D_803EFEA4
+#define BUF0 D_803EFEA8
+#define BUF1 D_803EFEAC
 
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern s16 D_8036444C, D_80364450;
-extern u8 D_80370C1C, D_80370C23;
-extern u8 D_803A7425;
 extern Part *PTR32 D_803F77D0;
-extern u8 D_80305E00[];
-extern s32 D_803643E4, D_803643E8;
+extern u8 D_80305E00[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2984[];                         /* the sparks' effect record (60F60) */
 
 SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
@@ -47,335 +52,198 @@ void func_802BC578(void);
 
 #define T(p) ((s32)(p))
 
-/* the train's numbers (62740's helpers'; a rate is a frame's) */
-#define TRAIN_TURN_RATE 0x2328          /* func_802A7FD8: the heading's turning rate */
-#define TRAIN_BRAKE 6                   /* func_802A785C: the speed's fall a frame, braking */
-#define TRAIN_SLOPE_DIV 160.0f          /* func_802A843C: the slope's push divided by */
-#define TRAIN_SHUNT_SPEED 0x28          /* sent back from an end of the line */
-#define TRAIN_SHUNT_FRAMES 6            /* and stopped instead if it left the other end
-                                           fewer frames ago (D_803EFEC0, D_803EFEC4) */
-#define TRAIN_SPARK_WAIT 1              /* frames between sparks (D_803EFEC9) */
-#define TRAIN_SPARK_SPEED 0x9C40        /* func_802A6274's speed for them */
+/* ---- the train's numbers (a frame, where it's per frame) ----------------- */
 
-/* set up: from the level loader, with the model file in $s2, the position
-   in $t7, $s3, $s0 and the heading in $s1 */
+#define TRAIN_SCALE 15000               /* its model's scale */
+#define TRAIN_SPAN 0xA0                 /* its wheels' spans, both ways (func_802A8768) */
+#define TRAIN_BRAKE 6                   /* speed lost braking or against the stick, a frame */
+#define TRAIN_TURN_RATE 0x2328          /* func_802A7FD8: the move heading's turn, times the grip over the speed */
+#define TRAIN_SLOPE_DIV 160.0f          /* func_802A843C: the slope's push is the height difference over this */
+#define TRAIN_SHUNT_SPEED 0x28          /* sent back from an end of the line at this */
+#define TRAIN_SHUNT_FRAMES 6            /* ... or stopped, if it left the other end fewer frames ago */
+#define TRAIN_GRAVITY 2.0f              /* times the level's */
+#define TRAIN_BOUNCE_MIN 0x3C           /* a landing harder than this bounces ... */
+#define TRAIN_BOUNCE_DIV 4              /* ... at the speed over this */
+
+/* set up: from the level loader, with the model file, the position and
+   the heading */
 REGS(s2, t7, s3, s0, s1)
 void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
-    s32 avg;
     VS *vs = &D_803EFDF0;
-    u8 *buf;
-    s16 *r;
+    s32 avg;
 
-    ENGINE_BLK(802BBA60);
-    D_803EFEA4 = model;
-    buf = D_80358070;
-    D_803EFEA8 = buf;
-    D_803EFEAC = buf + 0x800;
-    D_80358070 = buf + 0x1000;
-    func_802A1388(7, 0, D_803EFEA8, D_803EFEAC, model);
-    ENGINE_BLK(802BBAE0);
+    ENGINE_COST(802BBA60, 218);
+    MODEL = model;
+    BUF0 = D_80358070;
+    BUF1 = D_80358070 + 0x800;
+    D_80358070 += 0x1000;
+    func_802A1388(VEHICLE_TRAIN, 0, BUF0, BUF1, model);
     func_802A754C(vs);
-    ENGINE_BLK(802BBAEC);
-    vs->unk52[0] = 0x50;
-    vs->unk52[1] = 0x50;
-    vs->unk52[2] = -0x50;
-    vs->unk52[3] = 0x50;
-    vs->unk52[4] = 0x50;
-    vs->unk52[5] = -0x50;
-    vs->unk5E[0] = 0x5A;
-    vs->unk5E[1] = 0x5A;
-    vs->unk5E[2] = -0x5A;
-    vs->unk5E[3] = 0x5A;
-    vs->unk5E[4] = 0x5A;
-    vs->unk5E[5] = -0x5A;
-    D_803EFE98 = x;
-    D_803EFE9C = y;
-    D_803EFEA0 = z;
-    vs->unk4C = heading;
-    vs->unk4E = heading;
-    vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803EFE9C, x, z, vs->unk4, &D_803EFE9C, (s16 *)&vs->unk4C, 7, vs, 0 /* (the original: whatever $fp held) */, &avg);
-    ENGINE_BLK(802BBB8C);
-    func_8029F85C(D_803EFAF0, D_803EFEA4, D_803EFEA8, D_803EFEAC);
-    ENGINE_BLK(802BBBC8);
-    func_802A039C(0, 100, D_803EFAF0);
-    ENGINE_BLK(802BBBDC);
-    func_802A03D4(0, 0, D_803EFAF0);
-    ENGINE_BLK(802BBBF0);
-    func_802A040C(0, 0, D_803EFAF0);
-    ENGINE_BLK(802BBC04);
-    func_802A0480(0, 0, D_803EFAF0, 0.0f);
-    ENGINE_BLK(802BBC1C);
-    func_802A0290(0, 1, D_803EFAF0);
-    ENGINE_BLK(802BBC30);
-    func_8029E558(D_803EFAF0, D_803EFEA8, D_803EFEAC);
-    ENGINE_BLK(802BBC44);
-    func_802A0320(0, D_803EFAF0);
-    ENGINE_BLK(802BBC54);
-    func_802A0290(0, 1, D_803EFAF0);
-    ENGINE_BLK(802BBC68);
-    func_8029E558(D_803EFAF0, D_803EFEAC, D_803EFEA8);
-    ENGINE_BLK(802BBC7C);
-    /* the gears: (top speed, ?, ?) */
-    r = vs->unk78;
-    r[0] = -0xB4, r[1] = 0, r[2] = 1;
-    r[3] = 0, r[4] = 0x50, r[5] = 1;
-    r[6] = 0x50, r[7] = 0x8C, r[8] = 1;
-    r[9] = 0x8C, r[10] = 0xBE, r[11] = 1;
-    r[12] = 0xBE, r[13] = 0xFA, r[14] = 1;
+    SET_WHEELS(VS_WHEELS(vs), 0x50, 0x50, -0x50, 0x50, 0x50, -0x50);
+    SET_WHEELS(VS_CARRY_WHEELS(vs), 0x5A, 0x5A, -0x5A, 0x5A, 0x5A, -0x5A);
+    X = x;
+    Y = y;
+    Z = z;
+    VS_HEADING(vs) = heading;
+    VS_MOVE_HEADING(vs) = heading;
+    VS_TURN_HEADING(vs) = heading;
+    func_802A992C(VS_WHEELS(vs), Y, x, z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_TRAIN, vs, 0, &avg);
+    func_8029F85C(TR, MODEL, BUF0, BUF1);
+    func_802A039C(0, 100, TR);
+    func_802A03D4(0, 0, TR);
+    func_802A040C(0, 0, TR);
+    func_802A0480(0, 0, TR, 0.0f);
+    func_802A0290(0, 1, TR);
+    func_8029E558(TR, BUF0, BUF1);
+    func_802A0320(0, TR);
+    func_802A0290(0, 1, TR);
+    func_8029E558(TR, BUF1, BUF0);
+    SET_GEARS(vs, -0xB4, 0, 1, 0, 0x50, 1, 0x50, 0x8C, 1, 0x8C, 0xBE, 1, 0xBE, 0xFA, 1);
     D_803EFEC9 = 0;
     D_803EFECA = 0;
     D_803EFEC0 = 999999;
     D_803EFEC4 = 999999;
-    func_8029C354(7, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8), 15000);
-    ENGINE_BLK(802BBD44);
-    func_80258230(7, 0x96, 0x2D, 0x2D);
-    ENGINE_BLK(802BBD5C);
-    vs->unk9A = 1;
+    func_8029C354(VEHICLE_TRAIN, MODEL_AT(model, 4), MODEL_AT(model, 8), TRAIN_SCALE);
+    func_80258230(VEHICLE_TRAIN, 0x96, 0x2D, 0x2D);
+    /* its first frame */
+    VS_IN_SETUP(vs) = 1;
     func_802BBEB8();
-    ENGINE_BLK(802BBD6C);
-    vs->unk9A = 0;
-    func_802AA838(D_803EFEAC, D_803EFEA8, *(s32 *)(D_803EFEA4 + *(s32 *)(D_803EFEA4 + 0x18) + 4));
-    ENGINE_BLK(802BBDA4);
+    VS_IN_SETUP(vs) = 0;
+    func_802AA838(BUF1, BUF0, MODEL_MTX_OFF(MODEL));
 }
 
 /* hd.c's: the player gets in */
 void func_802BBDC8(void) {
-    ENGINE_BLK(802BBDC8);
+    ENGINE_COST(802BBDC8, 18);
     D_8036444C = 3000;
     D_80364450 = 0;
     func_802C4310(0x20);
-    ENGINE_BLK(802BBE00);
 }
 
 /* hd.c's: whether it can be left (always) */
 u8 func_802BBE10(void) {
-    ENGINE_BLK(802BBE10);
+    ENGINE_COST(802BBE10, 7);
     return 1;
 }
 
 /* hd.c's: the player gets out */
 void func_802BBE2C(void) {
-    ENGINE_BLK(802BBE2C);
-    func_802A7764((u32 *)D_803EFEA8, (u32 *)D_803EFEAC, 0x800);
-    ENGINE_BLK(802BBE58);
+    ENGINE_COST(802BBE2C, 18);
+    func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x800);
     func_802C444C();
-    ENGINE_BLK(802BBE60);
 }
 
 /* its light */
 void func_802BBE74(void) {
-    ENGINE_BLK(802BBE74);
-    func_802ABD54(7, D_803EFE98, D_803EFE9C, D_803EFEA0);
-    ENGINE_BLK(802BBEA8);
+    ENGINE_COST(802BBE74, 17);
+    func_802ABD54(VEHICLE_TRAIN, X, Y, Z);
+}
+
+/* at an end of the line (D_803A7425: its front, part 2, or its back, part
+   3, hit something this frame): sent back the other way, or stopped if it
+   was at the other end only TRAIN_SHUNT_FRAMES ago, or both ends hit */
+static void train_shunt(VS *vs) {
+    s32 front = func_802BCD80(2), back = func_802BCD80(3);
+
+    if (back != 0) {
+        if (front != 0) {
+            VS_SPEED(vs) = 0;
+            return;
+        }
+        D_803EFEC0 = 0;
+        VS_SPEED(vs) = D_803EFEC4 < TRAIN_SHUNT_FRAMES ? 0 : -TRAIN_SHUNT_SPEED;
+    } else if (front != 0) {
+        D_803EFEC4 = 0;
+        VS_SPEED(vs) = D_803EFEC0 < TRAIN_SHUNT_FRAMES ? 0 : TRAIN_SHUNT_SPEED;
+    }
 }
 
 /* each frame */
 void func_802BBEB8(void) {
     VS *vs = &D_803EFDF0;
-    s32 t3 = D_803EFE98, t2, x, z, z0, x0;
+    s32 step = X, x, z, x0, z0;
     f32 rate, f;
-    s32 near, far;
 
-    ENGINE_BLK(802BBEB8);
+    ENGINE_COST(802BBEB8, 187);
+    /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802BBE74();
-    ENGINE_BLK(802BBF08);
-    if (vs->unk9A == 0) {
-        ENGINE_BLK(802BBF1C);
+    if (VS_IN_SETUP(vs) == 0)
         func_802BC2C8();
-    }
-    ENGINE_BLK(802BBF24);
     func_802BC578();
-    ENGINE_BLK(802BBF2C);
-    t2 = func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, TRAIN_BRAKE, vs, &t3);
-    ENGINE_BLK(802BBF44);
-    func_802A7FD8(TRAIN_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
-    ENGINE_BLK(802BBF60);
-    rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
-    ENGINE_BLK(802BBF6C);
-    func_802A843C(&vs->unk76, 1, 7, (s8 *)vs->unk96, vs->unk4, TRAIN_SLOPE_DIV, vs);
-    ENGINE_BLK(802BBF80);
-    x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EFE98, &D_803EFEA0, rate, &z);
-    ENGINE_BLK(802BBF98);
+    /* the throttle (no steering), the turn and the slope */
+    func_802A785C(step, &VS_SPEED(vs), 3, VS_AIRBORNE(vs), VS_GEARS(vs), TRAIN_BRAKE, vs, &step);
+    func_802A7FD8(TRAIN_TURN_RATE, &VS_SPEED(vs), (u16 *)&VS_TURN_HEADING(vs), &VS_HEADING(vs), &VS_MOVE_HEADING(vs),
+                  (s8 *)&VS_TURNING(vs), 0, vs);
+    rate = func_802A83B8(step, &VS_SPEED(vs), VS_AIRBORNE(vs), VS_WHEEL_H(vs), &VS_SLOPE_RATIO(vs), &step);
+    func_802A843C(&VS_SPEED(vs), 1, VEHICLE_TRAIN, (s8 *)VS_AIRBORNE(vs), VS_WHEEL_H(vs), TRAIN_SLOPE_DIV, vs);
+    /* the move, on the rails: x from z */
+    x = func_802A860C(VS_MOVE_HEADING(vs), &VS_SPEED(vs), &X, &Z, rate, &z);
     if (D_803EFEC8 != 0) {
-        /* on the rails: x from z */
-        ENGINE_BLK(802BBFA8);
         z0 = D_803EFEB4;
-        f = (f32)(D_803EFEA0 - z0) / (f32)(D_803EFEBC - z0);
+        f = (f32)(Z - z0) / (f32)(D_803EFEBC - z0);
         x0 = D_803EFEB0;
         x = x0 + engine_cvt_w_s((f32)(D_803EFEB8 - x0) * f);
-        D_803EFE98 = x;
+        X = x;
     }
-    ENGINE_BLK(802BC02C);
     D_803ED40B = 0;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    func_802A8768(x, z, &D_803EFE98, &D_803EFEA0, &D_803EFE9C, 7, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6,
-                  vs->unk28 + 3, vs->unk5E, vs);
-    ENGINE_BLK(802BC060);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802BC088);
-        func_8029E558(D_803EFAF0, D_803EFEA8, D_803EFEAC);
-        ENGINE_BLK(802BC09C);
-    } else {
-        ENGINE_BLK(802BC0A4);
-        func_8029E558(D_803EFAF0, D_803EFEAC, D_803EFEA8);
-    }
-    ENGINE_BLK(802BC0B8);
+    func_802A8768(x, z, &X, &Z, &Y, VEHICLE_TRAIN, TRAIN_SPAN, TRAIN_SPAN, VS_WHEELS(vs), VS_WHEEL_FALL(vs),
+                  VS_WHEEL_FRAMES(vs), VS_WHEEL_GROUND(vs), VS_CARRY_WHEELS(vs), vs);
+    func_8029E558(TR, FRAME_BUF(BUF0, BUF1), OTHER_BUF(BUF0, BUF1));
     func_802BC3D0(vs);
-    ENGINE_BLK(802BC0C0);
     D_803EFEC0++;
     D_803EFEC4++;
-    if (vs->unk9A == 0) {
-        ENGINE_BLK(802BC0F4);
-        func_8029A800(D_803EFE98, D_803EFE9C, D_803EFEA0, D_80305E00, 0, 0, 0, vs->unk76, 0, 0, 7, vs);
-        ENGINE_BLK(802BC138);
-        func_8029C52C(7, vs);
-        ENGINE_BLK(802BC140);
+    /* what it hits */
+    if (VS_IN_SETUP(vs) == 0) {
+        func_8029A800(X, Y, Z, D_80305E00, 0, 0, 0, VS_SPEED(vs), 0, 0, VEHICLE_TRAIN, vs);
+        func_8029C52C(VEHICLE_TRAIN, vs);
         func_8029AA10();
-        ENGINE_BLK(802BC148);
-        D_803F77D0 = D_803EFAF0;
-        func_802BE77C(7, vs);
-        ENGINE_BLK(802BC164);
-        if (D_803A7425 != 0) {
-            /* at the ends of the line: stopped, then sent back */
-            ENGINE_BLK(802BC174);
-            near = func_802BCD80(2);
-            ENGINE_BLK(802BC17C);
-            far = func_802BCD80(3);
-            ENGINE_BLK(802BC188);
-            if (far != 0) {
-                ENGINE_BLK(802BC190);
-                if (near != 0) {
-                    ENGINE_BLK(802BC198);
-                    vs->unk76 = 0;
-                    goto done;
-                }
-                ENGINE_BLK(802BC1A0);
-                D_803EFEC0 = 0;
-                if (D_803EFEC4 < TRAIN_SHUNT_FRAMES)
-                    goto stop;
-                ENGINE_BLK(802BC1BC);
-                vs->unk76 = -TRAIN_SHUNT_SPEED;
-            } else {
-                ENGINE_BLK(802BC1C8);
-                if (near == 0)
-                    goto done;
-                ENGINE_BLK(802BC1D0);
-                D_803EFEC4 = 0;
-                if (D_803EFEC0 < TRAIN_SHUNT_FRAMES)
-                    goto stop;
-                ENGINE_BLK(802BC1EC);
-                vs->unk76 = TRAIN_SHUNT_SPEED;
-            }
-            goto done;
-        stop:
-            ENGINE_BLK(802BC1F8);
-            vs->unk76 = 0;
-        }
+        D_803F77D0 = TR;
+        func_802BE77C(VEHICLE_TRAIN, vs);
+        if (D_803A7425 != 0)
+            train_shunt(vs);
     }
-done:
-    ENGINE_BLK(802BC1FC);
-    D_803643E0 = D_803EFE98;
-    D_803643E4 = D_803EFE9C;
-    D_803643E8 = D_803EFEA0;
-    D_8036443C = vs->unk76;
-    D_8036443E = vs->unk4E;
-    D_80364440 = vs->unk4C;
-    func_802A133C(D_803643E0, D_803643E4, D_803643E8, 7, vs);
-    ENGINE_BLK(802BC278);
+    PLAYER_FROM(X, Y, Z, vs, VEHICLE_TRAIN);
 }
 
-/* the wheels' sparks and sound */
+/* the wheels' sparks every other frame while it accelerates (A going
+   forward, B or Z going back), with their sound; the engine's sound */
 void func_802BC2C8(void) {
     VS *vs = &D_803EFDF0;
-    s32 s;
 
-    ENGINE_BLK(802BC2C8);
+    ENGINE_COST(802BC2C8, 29);
     if (D_803EFEC9 != 0) {
-        ENGINE_BLK(802BC2E8);
         D_803EFEC9--;
-        goto sound;
+    } else if (VS_SPEED(vs) > 0 ? PAD_B_OR_Z != 0 : PAD_A != 0) {
+        func_802A6274(T(D_802C2984), 0x9C40, 1, VEHICLE_TRAIN, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        func_802A6274(T(D_802C2984), 0x9C40, 1, VEHICLE_TRAIN, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        func_80260650(D_80367738, 0x29, NULL);
+        D_803EFEC9 = 1;
     }
-    ENGINE_BLK(802BC2F4);
-    if (vs->unk76 > 0) {
-        ENGINE_BLK(802BC318);
-        if (D_80370C23 == 0)
-            goto sound;
-    } else {
-        ENGINE_BLK(802BC300);
-        if (D_80370C1C == 0)
-            goto sound;
-        ENGINE_BLK(802BC310);
-    }
-    ENGINE_BLK(802BC328);
-    func_802A6274(T(D_802C2984), TRAIN_SPARK_SPEED, 1, 7, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    ENGINE_BLK(802BC350);
-    func_802A6274(T(D_802C2984), TRAIN_SPARK_SPEED, 1, 7, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    ENGINE_BLK(802BC378);
-    func_80260650(D_80367738, 0x29, NULL);
-    ENGINE_BLK(802BC38C);
-    D_803EFEC9 = TRAIN_SPARK_WAIT;
-sound:
-    ENGINE_BLK(802BC398);
-    s = vs->unk76 >> 4;
-    if (s < 0) {
-        ENGINE_BLK(802BC3A8);
-        s = -s;
-    }
-    ENGINE_BLK(802BC3AC);
-    func_802C4584(s);
-    ENGINE_BLK(802BC3B4);
+    func_802C4584(iabs(VS_SPEED(vs) >> 4));
     func_802C4724(0x21);
-    ENGINE_BLK(802BC3BC);
 }
 
 /* the train's matrix, its vertices, its collision and its shadow */
 REGS(gp)
 void func_802BC3D0(VS *vs) {
-    u8 *model = D_803EFEA4, *buf;
-    s32 *m, off;
+    u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_BLK(802BC3D0);
-    off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802BC400);
-        m = (s32 *)(D_803EFEA8 + off);
-    } else {
-        ENGINE_BLK(802BC414);
-        m = (s32 *)(D_803EFEAC + off);
-    }
-    ENGINE_BLK(802BC424);
+    ENGINE_COST(802BC3D0, 98);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
-    D_803ED390[1] = vs->unk4C;
-    m = func_802AA764(D_803EFE98, D_803EFE9C, D_803EFEA0, 15000, m);
-    ENGINE_BLK(802BC468);
-    if (D_8035805C != 0) {
-        ENGINE_BLK(802BC47C);
-        buf = D_803EFEA8;
-    } else {
-        ENGINE_BLK(802BC48C);
-        buf = D_803EFEAC;
-    }
-    ENGINE_BLK(802BC498);
-    model = D_803EFEA4;
-    func_8029C454(D_803EFE98, D_803EFE9C, D_803EFEA0, 7, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
-                  buf);
-    ENGINE_BLK(802BC4E0);
-    func_802ABBEC(7, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
-    ENGINE_BLK(802BC500);
-    func_802AABE4(7, (u16 *)(model + *(s32 *)(model + 8)), buf, 0, 0);
-    ENGINE_BLK(802BC51C);
-    func_8029D040(D_803EFE98, D_803EFEA0, 7, model + *(s32 *)(model + 0xC), vs->unk4C, D_803EFAF0, buf);
-    ENGINE_BLK(802BC55C);
-    D_803EFECB = func_8029DC14(7);
-    ENGINE_BLK(802BC564);
+    D_803ED390[1] = VS_HEADING(vs);
+    func_802AA764(X, Y, Z, TRAIN_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
+    func_8029C454(X, Y, Z, VEHICLE_TRAIN, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
+    func_802ABBEC(VEHICLE_TRAIN, MODEL_AT(model, 0), MODEL_AT(model, 4), buf);
+    func_802AABE4(VEHICLE_TRAIN, (u16 *)MODEL_AT(model, 8), buf, 0, 0);
+    func_8029D040(X, Z, VEHICLE_TRAIN, MODEL_AT(model, 0xC), VS_HEADING(vs), TR, buf);
+    D_803EFECB = func_8029DC14(VEHICLE_TRAIN);
 }
 
-/* the camera's distance and speed for the train */
+/* the physics' settings for the train: gravity, and how its wheels land */
 void func_802BC578(void) {
-    ENGINE_BLK(802BC578);
-    D_803EBBF4 = D_803EBBF0 * 2.0f;
-    D_803ED3F6 = 0x3C;
-    D_803ED3F7 = 4;
+    ENGINE_COST(802BC578, 23);
+    D_803EBBF4 = D_803EBBF0 * TRAIN_GRAVITY;
+    D_803ED3F6 = TRAIN_BOUNCE_MIN;
+    D_803ED3F7 = TRAIN_BOUNCE_DIV;
 }

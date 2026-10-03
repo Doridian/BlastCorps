@@ -281,18 +281,6 @@ extern s8 *PTR32 D_803A7408;                    /* the kinds that turn the camer
 /* the level's solid objects (Solid, D_803A7300) and the kinds' parts
    (KindPart, D_803A6B30): collision.h */
 
-/* the registers by number, for engine_save()'s masks (engine.h) */
-enum {
-    rAT = 1, rV0, rV1, rA0, rA1, rA2, rA3, rT0, rT1, rT2, rT3, rT4, rT5, rT6, rT7,
-    rS0, rS1, rS2, rS3, rS4, rS5, rS6, rS7, rT8, rT9, rK0, rK1, rGP, rSP, rFP, rRA
-};
-#define G(r) ENGINE_GPR(r)
-/* what the original saves and loads back, undone in the thread's context
-   as it undoes it (the registers its translated callees, and their REGS(),
-   leave there) */
-#define ENGINE_SAVE(gmask) engine_save((gmask), 0)
-#define ENGINE_RESTORE() engine_restore()
-
 /* divu, as the VR4300 (and the translation) gives it for 0 */
 static inline u32 engine_divu(u32 n, u32 d) { return d != 0 ? n / d : 0xFFFFFFFFu; }
 static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }

@@ -47,20 +47,62 @@ static uint16_t dry_right, wet_left, wet_right;
 static int16_t vol[2], target[2], dry, wet;
 static int32_t rate[2];
 static const uint8_t *resample_lut;     /* 64 x 4 s16, big-endian */
+static int16_t taps[64][4];             /* ... in the host's order (audio_task) */
 
 static inline int16_t clamp16(int32_t v) {
     return v > 32767 ? 32767 : v < -32768 ? -32768 : (int16_t)v;
 }
 
-/* DMEM samples, at byte addresses (as the microcode sees them) */
+/* a big-endian half at p, read or written as one access */
+static inline int16_t be16_ld(const uint8_t *p) {
+    uint16_t v;
+    memcpy(&v, p, 2);
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    v = __builtin_bswap16(v);
+#endif
+    return (int16_t)v;
+}
+static inline void be16_st(uint8_t *p, int16_t v) {
+    uint16_t u = (uint16_t)v;
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    u = __builtin_bswap16(u);
+#endif
+    memcpy(p, &u, 2);
+}
+
+/* DMEM samples, at byte addresses (as the microcode sees them; only a half
+   at 0xFFF wraps between its bytes) */
 static inline int16_t ld(uint32_t a) {
     a &= 0xFFF;
-    return (int16_t)(dmem[a] << 8 | dmem[(a + 1) & 0xFFF]);
+    if (a != 0xFFF)
+        return be16_ld(dmem + a);
+    return (int16_t)(dmem[a] << 8 | dmem[0]);
 }
 static inline void st(uint32_t a, int16_t v) {
     a &= 0xFFF;
+    if (a != 0xFFF) {
+        be16_st(dmem + a, v);
+        return;
+    }
     dmem[a] = (uint8_t)((uint16_t)v >> 8);
-    dmem[(a + 1) & 0xFFF] = (uint8_t)v;
+    dmem[0] = (uint8_t)v;
+}
+
+/* whether bytes [a, a + n) of DMEM run without wrapping (a buffer the loops
+   below can walk with pointers) */
+static inline int flat(uint32_t a, uint32_t n) {
+    return (a & 0xFFF) + n <= 0x1000;
+}
+/* DMEM bytes: n from s to d, a byte at a time forward (overlapping copies
+   repeat, as the microcode's own loop would), wrapping */
+static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
+    d &= 0xFFF, s &= 0xFFF;
+    if (flat(d, n) && flat(s, n) && (d + n <= s || s + n <= d)) {
+        memcpy(dmem + d, dmem + s, n);
+        return;
+    }
+    for (uint32_t i = 0; i < n; i++)
+        dmem[(d + i) & 0xFFF] = dmem[(s + i) & 0xFFF];
 }
 
 /* RDRAM, through the segment table (bit 28, a host stack's, kept as in
@@ -135,11 +177,27 @@ static void resample(int flags, uint32_t pitch, uint32_t state) {
     if (!(flags & F_INIT))
         frac = (uint16_t)ram16(s, 4);
     uint32_t step = pitch << 1;         /* UQ16.16 */
-    for (int i = 0; i < count_ / 2; i++) {
-        const uint8_t *c = resample_lut + ((frac >> 10) & 63) * 8;
+    int n = count_ / 2, i = 0;
+    /* the input it reads: up to the last step's four samples */
+    uint32_t reach = (uint32_t)(((uint64_t)step * (uint32_t)n + frac) >> 16) * 2 + 8;
+    if (flat(in, reach) && flat(out, 2 * (uint32_t)n)) {
+        uint8_t *pin = dmem + (in & 0xFFF), *pout = dmem + (out & 0xFFF);
+        for (; i < n; i++) {
+            const int16_t *c = taps[(frac >> 10) & 63];
+            int32_t acc = be16_ld(pin) * c[0] + be16_ld(pin + 2) * c[1] + be16_ld(pin + 4) * c[2] +
+                          be16_ld(pin + 6) * c[3];
+            be16_st(pout + 2 * i, clamp16(acc >> 15));
+            frac += step;
+            pin += (frac >> 16) * 2;
+            in += (frac >> 16) * 2;
+            frac &= 0xFFFF;
+        }
+    }
+    for (; i < n; i++) {
+        const int16_t *c = taps[(frac >> 10) & 63];
         int32_t acc = 0;
         for (int k = 0; k < 4; k++)
-            acc += ld(in + 2 * k) * (int16_t)port_be16(c + 2 * k);
+            acc += ld(in + 2 * k) * c[k];
         st(out + 2 * i, clamp16(acc >> 15));
         frac += step;
         in += (frac >> 16) * 2;
@@ -151,6 +209,52 @@ static void resample(int flags, uint32_t pitch, uint32_t state) {
 }
 
 /* ---- the envelope mixer: linear ramps, dry and wet sends ------------------- */
+
+/* the envelope mixer's samples [0, n) where nothing wraps: the volumes
+   ramped, each sample into the nout outputs (nout a constant where it is
+   called, so the loop over them unrolls) */
+static inline __attribute__((always_inline)) void env_walk(int nout, int n, uint32_t in, const uint32_t *dst,
+                                                           int64_t *v, const int64_t *tgt, const int32_t *r,
+                                                           int16_t d, int16_t w) {
+    uint8_t *pin = dmem + (in & 0xFFF), *pd[4];
+    int64_t v0 = v[0], v1 = v[1];
+
+    for (int k = 0; k < nout; k++)
+        pd[k] = dmem + (dst[k] & 0xFFF);
+    for (int i = 0; i < n; i++) {
+        int32_t g[4], x, c0 = (int32_t)(v0 >> 19), c1 = (int32_t)(v1 >> 19);
+
+        /* both volumes at rest (no ramp, or at its target, where every
+           step lands back on it): the gains are the same for the rest */
+        if ((r[0] == 0 || v0 == tgt[0]) && (r[1] == 0 || v1 == tgt[1])) {
+            g[0] = (c0 * d) >> 15;
+            g[2] = (c0 * w) >> 15;
+            g[1] = (c1 * d) >> 15;
+            g[3] = (c1 * w) >> 15;
+            for (; i < n; i++) {
+                x = be16_ld(pin + 2 * i);
+                for (int k = 0; k < nout; k++)
+                    be16_st(pd[k] + 2 * i, clamp16(be16_ld(pd[k] + 2 * i) + ((x * g[k] + 0x4000) >> 15)));
+            }
+            break;
+        }
+
+        g[0] = (c0 * d) >> 15;
+        g[2] = (c0 * w) >> 15;
+        g[1] = (c1 * d) >> 15;
+        g[3] = (c1 * w) >> 15;
+        v0 += r[0];
+        if ((r[0] > 0 && v0 > tgt[0]) || (r[0] < 0 && v0 < tgt[0]))
+            v0 = tgt[0];
+        v1 += r[1];
+        if ((r[1] > 0 && v1 > tgt[1]) || (r[1] < 0 && v1 < tgt[1]))
+            v1 = tgt[1];
+        x = be16_ld(pin + 2 * i);
+        for (int k = 0; k < nout; k++)
+            be16_st(pd[k] + 2 * i, clamp16(be16_ld(pd[k] + 2 * i) + ((x * g[k] + 0x4000) >> 15)));
+    }
+    v[0] = v0, v[1] = v1;
+}
 
 /* The volumes are 16.16 plus three bits: the rate is the step per eight
    samples (env.c: _getVol adds rate * samples / 8). */
@@ -179,7 +283,17 @@ static void envmixer(int flags, uint32_t state) {
     uint32_t in = DMEM_BASE + in_;
     uint32_t dst[4] = { DMEM_BASE + out_, DMEM_BASE + dry_right, DMEM_BASE + wet_left, DMEM_BASE + wet_right };
     int nout = (flags & F_AUX) ? 4 : 2;
-    for (int i = 0; i < count_ / 2; i++) {
+    int n = count_ / 2, ok = flat(in, 2 * n), i = 0;
+    for (int k = 0; k < nout; k++)
+        ok &= flat(dst[k], 2 * n);
+    if (ok) {
+        if (nout == 4)
+            env_walk(4, n, in, dst, v, tgt, r, d, w);
+        else
+            env_walk(2, n, in, dst, v, tgt, r, d, w);
+        i = n;
+    }
+    for (; i < n; i++) {
         int32_t g[4];
         for (int c = 0; c < 2; c++) {
             int32_t cv = (int32_t)(v[c] >> 19);
@@ -246,6 +360,8 @@ static void polef(int flags, int16_t gain, uint32_t state) {
 static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data) {
     const uint8_t *cmd = port_ptr(data_ptr);
     resample_lut = (const uint8_t *)port_ptr(ucode_data) + 0xD0;
+    for (int k = 0; k < 64 * 4; k++)
+        taps[k / 4][k % 4] = (int16_t)port_be16(resample_lut + 2 * k);
     for (uint32_t off = 0; off + 8 <= data_size; off += 8) {
         uint32_t w0 = port_g32(cmd + off), w1 = port_g32(cmd + off + 4);
         int op = w0 >> 24, flags = (w0 >> 16) & 0xFF;
@@ -257,8 +373,11 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         case A_CLEARBUFF: {
             uint32_t d = DMEM_BASE + (w0 & 0xFFFF), n = ((w1 & 0xFFFF) + 15) & ~15u;
-            for (uint32_t i = 0; i < n; i++)
-                dmem[(d + i) & 0xFFF] = 0;
+            if (flat(d, n))
+                memset(dmem + (d & 0xFFF), 0, n);
+            else
+                for (uint32_t i = 0; i < n; i++)
+                    dmem[(d + i) & 0xFFF] = 0;
             break;
         }
         case A_ENVMIXER:
@@ -267,8 +386,11 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
         case A_LOADBUFF: {
             const uint8_t *src = ram(w1 & ~7u);
             uint32_t d = (DMEM_BASE + in_) & ~7u, n = (count_ + 7) & ~7u;
-            for (uint32_t i = 0; i < n; i++)
-                dmem[(d + i) & 0xFFF] = src[i];
+            if (flat(d, n))
+                memcpy(dmem + (d & 0xFFF), src, n);
+            else
+                for (uint32_t i = 0; i < n; i++)
+                    dmem[(d + i) & 0xFFF] = src[i];
             break;
         }
         case A_RESAMPLE:
@@ -277,8 +399,11 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
         case A_SAVEBUFF: {
             uint8_t *dst = ram(w1 & ~7u);
             uint32_t s = (DMEM_BASE + out_) & ~7u, n = (count_ + 7) & ~7u;
-            for (uint32_t i = 0; i < n; i++)
-                dst[i] = dmem[(s + i) & 0xFFF];
+            if (flat(s, n))
+                memcpy(dst, dmem + (s & 0xFFF), n);
+            else
+                for (uint32_t i = 0; i < n; i++)
+                    dst[i] = dmem[(s + i) & 0xFFF];
             break;
         }
         case A_SEGMENT:
@@ -311,9 +436,7 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         case A_DMEMMOVE: {
             uint32_t s = DMEM_BASE + (w0 & 0xFFFF), d = DMEM_BASE + (w1 >> 16);
-            uint32_t n = ((w1 & 0xFFFF) + 3) & ~3u;
-            for (uint32_t i = 0; i < n; i++)
-                dmem[(d + i) & 0xFFF] = dmem[(s + i) & 0xFFF];
+            dmem_copy(d, s, ((w1 & 0xFFFF) + 3) & ~3u);
             break;
         }
         case A_LOADADPCM: {
@@ -326,8 +449,13 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
         case A_MIXER: {
             int16_t gain = (int16_t)w0;
             uint32_t s = DMEM_BASE + (w1 >> 16), d = DMEM_BASE + (w1 & 0xFFFF);
-            int n = ((count_ + 31) & ~31) / 2;
-            for (int i = 0; i < n; i++)
+            int n = ((count_ + 31) & ~31) / 2, i = 0;
+            if (flat(s, 2 * n) && flat(d, 2 * n)) {
+                uint8_t *ps = dmem + (s & 0xFFF), *pd = dmem + (d & 0xFFF);
+                for (; i < n; i++)
+                    be16_st(pd + 2 * i, clamp16(be16_ld(pd + 2 * i) + ((be16_ld(ps + 2 * i) * gain + 0x4000) >> 15)));
+            }
+            for (; i < n; i++)
                 st(d + 2 * i, clamp16(ld(d + 2 * i) + ((ld(s + 2 * i) * gain + 0x4000) >> 15)));
             break;
         }

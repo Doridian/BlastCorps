@@ -3428,14 +3428,198 @@ first pass and 59 in a replay (111 in a full in-between pass before,
 which also culled what wasn't drawn).  Asyncify's checks were a tenth
 of the renderer in the page.
 
+### Engine hot spots
+
+Measured after O3 (main d85d741), the default build (us.v10, the CPU
+model off), for the engine's next round.  Natively: the 32-bit build
+replaying the whole TAS (free timing) headless with `--renderer gl
+--scale 1`, under `port/tools/sprof.c` (a sampling profiler preloaded
+into the process: `perf` and valgrind can't be used here), every 250 µs
+of CPU time, 106,671 samples (26.7 s of CPU for the run's 250,000
+retraces, about 107 µs a retrace); `port/tools/sprof_report.py` gives
+self time by function, a library's samples by a guess at their caller.
+In WebAssembly: the `wasm` build linked with `--profiling-funcs` (the
+names; otherwise the same module) under node's `--cpu-prof`, the
+attract mode and `PORT_AUTOSTART=1` and `=3` (`port/tools/
+cpuprofile_report.py`); node has no OpenGL, so there the renderer is the
+software one.
+
+Where the time goes, natively (the main thread, 91% of the samples; the
+other is the GL driver's): the renderer 44% (`tri` 7.0, `hash_words` 6.9,
+`run` 4.9, `tload_copy` 4.7 and its `memcpy` 1.5, `do_vtx` 3.1, `raster`
+2.8, `tile_texture` 2.7, `gfx_fetch_texel` 2.0), the audio microcode
+(`host_audio_task`, its commands inlined) 20.6%, the GL driver's calls
+5.5%, the engine 3.8% with 7% more in the libm calls it makes (below),
+the game's C 2.5%.  In node: the software rasterizer 91% (`sample` 30,
+`raster` 17, `combine` 17, `gfx_fetch_texel` 16, `blend` 6), the host
+3.5%, the game's C 0.6%, the engine 0.3-0.4% (about 16 µs a frame).
+
+So the engine is no hot spot anywhere but in one place: natively, its
+float-to-integer rounding.  The VR4300's conversions (`engine_cvt_w_s`,
+`_l_s`, `_l_d`, recomp.h's `recomp_rint`/`recomp_rintf`) are `floor(x +
+0.5)` in a replay (the TAS's emulator rounded halves up) and `nearbyint`
+otherwise, and in the 32-bit build (SSE2, no SSE4.1 `round`) both are
+calls into libm, `nearbyint` saving and restoring the FP environment
+besides.  That is 7.2% of the whole process's CPU, two thirds of all the
+engine's time.  In WebAssembly they are instructions (`f64.floor`,
+`f32.nearest`) and cost nothing.
+
+The engine's functions, by the share of the native TAS's samples (their
+own and the libm calls under them):
+
+| | function | what it does | share | why it costs | possible win | agent-hours |
+|---|---|---|---|---|---|---|
+| 1 | the rounding (`engine_cvt_*`, `recomp_rint*`; done, below) | float to integer as the VR4300 rounds | 7.2% (of it under `func_8029C160` 4.8, `engine_cvt_w_s` 1.6, `func_802AE160`/`AE104` 0.3, `piece_hit` 0.3) | a libm call each (`floor`, `nearbyint`) | all of it: exact inline versions (an `int64` conversion and a correction for `floor(x + 0.5)`; adding and subtracting 2^23 / 2^52 for round-to-even, which is `nearbyint` in the default mode) | 0.5-1 with the TAS (port/host/engine.c, recomp.h) |
+| 2 | `func_8029C160` (56040) | a point against a collision triangle's plane: the distance (a 64-bit dot product over the normal's length) and the nearest point | 0.4 (+4.4 rounding) | called for every piece of every vehicle near something, a frame | after 1, little; skipping the projection when the distance already misses (its callers ignore the point then) | 1 |
+| 3 | `func_802A57DC` (60F60) | a texture's decode: the stream copied aside, then decoded over where it was | 0.65 | the copy, and a branch a word | perhaps half: decode the literals' runs a word pair at a time | 1-2 |
+| 4 | `func_802AA094` (62740) | a wheel's ground in the level's grid cell: each triangle's box, edges and plane (64-bit) | 0.34 | every wheel every frame walks its cell's triangles from scratch | most of it: each static triangle's box and plane worked out once at the level's load | 2-3 (the layout the C shares) |
+| 5 | `piece_hit`, `func_8029BEE4`, `func_8029BD0C`, `func_8029B02C` (56040) | the parts' collision walks over the buildings' pieces | 0.5 together | many pieces per vehicle per frame | a coarse box test first | 2 |
+| 6 | `func_802A4CDC`, `span_visible` (5FD50) | the terrain's visibility walk and its display lists | 0.33 | the quadtree walked every frame | little without changing the walk | - |
+| 7 | `func_802ACCCC`, `func_802AA890` (679E0, 62740) and the game's `guMtxCatF` | matrix products (16.16, 64-bit sums), the vehicles' and the parts' | 0.6 together | many small products a frame | some: the product built in registers, not through D_803ED420 (kept only if nothing reads it) | 1 |
+| 8 | `func_802BD1F8`, `copy_dl` (77E20) | the buildings' display lists | 0.19 | copies of each building's list | little | - |
+| 9 | `func_802ABCDC` (62740) | a distance (`sqrt` of a 64-bit sum, rounded) | 0.11 | the rounding (1) and `sqrt` | 1 takes most | (in 1) |
+| 10 | `func_802C41C0` (7F8B0) | the vehicles' engine sound | 0.10 | | none worth it | - |
+
+Outside the engine the big ones were the audio microcode natively (a fifth
+of the main thread before the changes below: the ADPCM decoder, the resampler and the envelope
+mixer, sample by sample) and, in the page, the renderer's first pass
+("What's left").
+
+The tools: `sprof.c` and `sprof_report.py` (native, any build;
+`--area` splits the engine, the game's C, the renderer and the host by
+where each function is defined, `--callers` names a library's samples by
+their caller), `cpuprofile_report.py` (node's profiles of a
+`--profiling-funcs` WebAssembly build, the same areas by name), and
+`engine_costs.py` (O3's per-function charges: measuring the blocks,
+writing `ENGINE_COST`).
+
+**Done since** (the same measure, the TAS natively with `--renderer gl
+--scale 1`; the runs' own totals vary with the machine's load, so the
+shares and the ratio to `tri`, which didn't change, are what compare):
+
+- **The rounding (1).**  recomp.h's `recomp_rint` and `recomp_rintf`, and
+  so `engine_cvt_w_s`/`_l_s`/`_l_d` and the translated code's
+  conversions, no longer call libm: round-to-even is adding and taking
+  away 2^52 (2^23 for a float) in the default rounding mode, `floor` that
+  less one where it rounded up, a zero result with the input's sign.
+  `port/tools/rint_check.c` compares them with `nearbyint`,
+  `nearbyintf` and `floor (x + 0.5)` bit for bit over the edge cases
+  (halves, the 2^23, 2^31, 2^52 and 2^63 boundaries, both zeros, the
+  infinities, NaN), every quarter from -1024 to 1024 and 120 million
+  random inputs: no difference natively in 32 and 64 bits, nor under
+  emcc and node.  The engine with its rounding went from 11% of the main
+  thread to 4% (3.8% of its own and 7% in libm before), the main thread
+  about 10% less in all.
+- **The audio microcode.**  `port/host/aspmain.c` reads and writes DMEM's
+  halves as one access (a byte pair only at 0xFFF, where one wraps),
+  walks the buffers that don't wrap with pointers (the envelope mixer,
+  the mixer, the resampler), copies and clears with `memcpy` and `memset`
+  (a move only where it doesn't overlap: the microcode's byte loop
+  repeats an overlap), converts the resampler's taps once a task, unrolls
+  the envelope mixer's outputs and, once both volumes are at rest (no
+  ramp, or at the target every step lands back on), works its gains out
+  once.  Nothing it computes changed: the whole TAS's sound (`--wav`,
+  364 MB) is byte for byte what it was, and the quick tier's.
+  `host_audio_task` went from 20% of the main thread to under 10% (from
+  2.5 times `tri` to 1.1); what is left is spread over the ADPCM
+  decoder, the reverb's filter, the mixer and the resampler.
+
+### The fourth round (SIMD vertices; the draw calls measured)
+
+The vertex transform in four lanes, and what batching the draw calls
+would take.  Measured as before, and, new, by amplification: a scratch
+build that runs `do_vtx`'s vertex loop N times over each load (the
+results are the same each time) makes its cost stand out of the
+machine's noise, natively, under node (deterministic, `PORT_VTX_REP`)
+and in the page; and a micro-benchmark of the two loops, taken from
+`gfx.c` as they are, under node and in Chromium.
+
+- **`PORT_SIMD`** (CMake option, on by default; gfx.c): `do_vtx`'s loop
+  (`vtx_simd`) and `mtx_mul` in four-lane vectors, through the
+  compiler's vector extensions (`__attribute__((vector_size(16)))`,
+  `__builtin_shufflevector`, `__builtin_convertvector`), which lower to
+  SSE on x86, NEON on AArch64 and SIMD128 in WebAssembly, where gfx.c
+  is built with `-msimd128`.  A vertex's 16 bytes come in one load (the
+  halfwords swapped from big-endian by a shuffle, not in the
+  native-endian builds), its position is the matrix's rows times x, y
+  and z summed, its color one vector; with `G_LIGHTING` the lights' dot
+  products four lights at a time and the colors summed as one vector.
+  The results are the scalar code's to the bit: each lane does the
+  scalar code's operations in its order, the host is built with
+  `-ffp-contract=off` (no FMA: clang for AArch64 would otherwise fuse
+  them), a light facing away adds +0 where the scalar code skips it
+  (the colors are never -0), and the clamp at 255 is the scalar
+  comparison's select.  A test (scratch: both loops on random matrices,
+  vertices, lights and flags, NaN and infinities included, 300,000
+  trials on x86-64, i386, wasm with and without SIMD128, big- and
+  native-endian) finds no differing bit, and finds them at once when
+  built with `-ffp-contract=fast -mfma`.  Off, or with the access
+  profiler, the scalar loop is what it was.  In WebAssembly gfx.c is
+  also built with `-fno-slp-vectorize`: with SIMD128 the SLP vectorizer
+  turned the scalar loop (and code like it) into vector code V8 ran 30%
+  slower.
+- **What the browsers have**: WebAssembly SIMD128 is in Chrome and Edge
+  91, Firefox 89 and Safari 16.4 (all of 2021-2023), so the page needs
+  no fallback build for the browsers it is for; an older browser fails
+  to compile the module (`-DPORT_SIMD=OFF` builds one without).
+- **A store that cost three times the loop**: the first version stored
+  the color as one 16-byte store, and in the game (under node and in
+  Chromium) the loop ran three times slower than the scalar one, though
+  1.5-2 times faster in the micro-benchmark; stored a float at a time
+  it is 1.4 times faster than the scalar loop in the game.  Natively it
+  is a wash: clang at `-O3 -msse4.1` had vectorized the scalar loop
+  already.
+
+The pictures are byte for byte main's: the OpenGL screenshots of
+`PORT_AUTOSTART=3` (every 250 retraces to 4,200, every retrace of
+2,500-2,700), with `--hd-text`, at 4:3, `--display-hz 144`,
+`PORT_AUTOSTART=1` and `2`, without `--interpolate`, and the software
+renderer's, with the same sound and save, in the `mlp64` and the 32-bit
+builds; the variants and the TAS (free timing) on 32 and wasm as in
+"Testing the port".
+
+Results (us.v10, Simian Acres):
+
+| | before | after |
+| --- | --- | --- |
+| vertex loop, node, ms a retrace (amplified, per pass over the loads) | 0.0137 | 0.0094 |
+| `do_vtx` (with `vtx_simd`), Chromium, GPU, 4x, profile, ms a retrace | 0.084-0.104 | 0.074-0.075 |
+| `gfx`, Chromium, GPU, 4x | 1.19-1.36 | 1.17-1.28 |
+| native (mlp64, `--scale 4`), `gfx` / `gfx2` | 0.218 / 0.075 | 0.196 / 0.068 (the machine's noise) |
+
+So the vertices were never much of the cost: about 3,400 a retrace in
+the level, 2% of them lit (texture-mapped by `G_TEXTURE_GEN` mostly),
+none fogged; the transform is a few microseconds a retrace at 1x.  The
+page's renderer gains about 0.02 ms a retrace at 4x, half a percent of
+its work.  Tried and not kept: `to_screen` and the culling's divisions
+in vectors (no difference measurable).
+
+**The draw calls** (a scratch count over 4,200 retraces): about 300
+draws a pass in the level (1.24 million in the run, 28 vertices each),
+and of two batches one after the other, 99% differ in their textures,
+71% in their textures and tile parameters only (`tex`, `tA`, `tB`,
+`tul`), 29% in their program, 4% in their colors (`prim`, `env`...),
+3% in their depth state, none in their scissor or target.  Batches of
+the same state are merged already (`begin` compares the state with the
+batch's).  What batching could still take is the texture changes: all
+textures in an atlas (or arrays by size), each vertex carrying its
+tile's place and parameters as flat attributes in place of the
+uniforms, the shader's `texelFetch` offset by them (the HD glyphs,
+drawn filtered by `texture()`, kept apart); that would leave about 90
+draws a pass.  What it would save: the GL part is 0.08-0.09 ms a
+retrace at 1x and 0.30-0.39 at 4x in the page (of 2.6-3.1), of which
+WebGL's binding, uniform and draw calls are about 0.05 ms at 1x by the
+profile: at most 0.1-0.2 ms at 4x, 3-6% of the page's work, for
+4-6 agent-hours and the shaders' texture addressing redone.  Not done.
+
 ### What's left
 
 - **The first pass's own cost** is now most of the renderer: `tri`
   (the culling, clipping and screen transform of every triangle, then
-  `gfx_gl_tri`'s copy), `run`, `do_vtx`, the TMEM loads and texture
-  lookups.  A triangle's state is already made once per command that
-  changes it; the next step would be the vertices transformed in
-  batches (SIMD: `-msimd128` in the page, four lanes of a load at once).
+  `gfx_gl_tri`'s copy: a quarter of the renderer in the page), the TMEM
+  loads (`tload_copy`) and texture lookups (`tile_texture`,
+  `hash_words`), `run`, `vtx_tail` (the in-between pass's records).
+  The vertex transform is done (the fourth round) and was small.
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
@@ -3443,8 +3627,9 @@ of the renderer in the page.
   on) the page fails with "no WebAssembly compiler available".  Its
   numbers are the baseline compiler's; a Firefox with Ion should do
   better, unmeasured.
-- **Draw calls**: one per texture change; a texture array or atlas would
-  batch them.
+- **Draw calls**: one per texture change, about 300 a pass; an atlas
+  would make them about 90, for 3-6% of the page's work at 4x (the
+  fourth round).
 - **A retrace whose work runs over** is shown late even when the next is
   short (at 6x the render retrace takes 17-19 ms, the other 7): a queue
   of pictures presented a retrace later would absorb it, for a retrace
@@ -3948,27 +4133,50 @@ charges are the same on every path the TAS takes.
 | `SHAKE_HIT_FRAMES`, `SHAKE_DOWN_FRAMES` | 10, 15 | the screen's shake (00000.c: its size falls by a sixth a frame) |
 | `AnimTex.lo` (kind 0) | per model | an animated texture's frames per step; kind 1 every `lo` sixteenths of `D_803649D8` |
 | the frame counters | — | `D_80358068` (consecutive hits: `func_802C0284`, `func_802BEFF4`), `D_803F77F8`, `D_803F77F4` |
-| `TRAIN_*` | 0x2328, 6, 160.0, 0x28, 6, 1 | turn rate, brake, slope divisor, shunting speed, frames between the ends, between sparks |
-| `VAN_*`, `HOTROD_*` | 0x4E20/0x1F40, 0x19/0x10, 800/500, 0.16, 5, 0x32, 1, 3.6, 11.0 | turn rate, brake, slope divisor, turn toward the camera, frames without gears after a bounce, a bounce's least speed, frames between sparks, steering divisors |
-| `SUIT_*` | 0x59D8, 0xC, 120.0, 0.25, 0x6E, 5, 30 | the Cyclone Suit: as above, its steering walking and rolling, an idle animation one frame in 30 |
-| `BIKE_*` | 0x3E80, 0x10, 640, 0.36, 5, 1, 2.2, 6.0 | the Ballista: as above |
-| `BIKE_LEAN_RATE`, `BIKE_MISSILE_WAIT` | 0.05, 5 | its lean a frame; frames between missiles |
+| vehicle modules' (as the vehicles agent's, below) | | `*_TURN_RATE`, `*_BRAKE`, `*_SLOPE_DIV`, `*_STEER_DIV(_AIR)`, `*_WALL_TURN`, `*_HIT_FRAMES`, `*_HIT_MIN_SPEED`, `*_GRAVITY`, `*_BOUNCE_MIN/_DIV` for `TRAIN_`, `VAN_`, `STARSKI_` (the other hotrod), `SUIT_`, `BIKE_`, `BARGE_`, `JBOMB_` |
+| `TRAIN_SHUNT_SPEED`, `_SHUNT_FRAMES` | 0x28, 6 | sent back from an end of the line, or stopped if it left the other end fewer frames ago |
+| `SUIT_ROLL_SPEED`, `_UNCURL_SPEED`, `_IDLE_CHANCE` | 0x118, 0x3C, 30 | the Cyclone Suit rolling, getting up, an idle animation one frame in 31 |
+| `BIKE_LEAN_RATE`, `BIKE_MISSILE_WAIT`, `BIKE_WHEEL_SPIN_DIV` | 0.05, 5, 6 | the Ballista's lean a frame; frames between missiles; its wheels' spin |
 | `BIKE_WHEELIE_*` | G 16, V 0x3C, HOLD 0x17, BOOST 0x33, BOUNCE 0x3C | its wheelie: height `v t - 16 t^2`, held up to 0x17 frames |
-| `BARGE_*` | 0x2328, 6, 160, 0x50, 10.6 | the barges: turn rate, brake, slope divisor, a bump's least speed, steering divisor |
-| `JBOMB_*` | drag 8, air 9, grace 3, lift 0x1E, climb 0xA, slam 0x14, land 0x1E, air steering 0x14 +2 a frame to 100 | the J-Bomb |
-| `JBOMB_SLAM_PUSH`, `_BOUNCE_LIFT`, `_BOUNCE_SPEED`, `_SLAM_SHAKE(_FRAMES)` | -0x4B0, 0x14A, 0x14, 0x320 (0x14) | its slam's push down, a bounce's push up and speed, the slam's shake |
+| `JBOMB_AIR_DRAG`, `_AIR_FRAMES`, `_MODE_GRACE`, `_JET_LIFT`, `_JET_TOP_PUSH`, `_CLIMB_FRAMES` | 8, 9, 3, 0x1E, 0x1E, 0xA | the J-Bomb in the air: speed lost a frame, its timers, the jets' push |
+| `JBOMB_SLAM_FRAMES`, `_SLAM_PUSH`, `_PRESS_FRAMES`, `_LAND_FRAMES` | 0x14, -0x4B0, 4, 0x1E | the slam (three presses each within 4 frames), standing still 30 frames lands it |
+| `JBOMB_AIR_STEER(_UP, _MAX)`, `_TILT_RATE/_BACK`, `_PITCH_RATE/_BACK`, `_FLAMES_MAX` | 0x14 (+2 to 100), 0.02/0.01, 0.03/0.005, 0x32 | its steering and its jets' tilts and flames, a frame |
+| `JBOMB_BOUNCE_SPEED`, `_BOUNCE_LIFT`, `_SLAM_SHAKE(_FRAMES)` | 0x14, 0x14A, 0x320 (0x14) | a bounce in flight, the slam's shake |
 
-(The vehicles' turn rates, brakes and slope divisors are arguments to
-62740's helpers, the vehicles agent's: what a frame of each does is there.
-The sparks' `func_802A6274` speeds and the animations' frame counts
+(The sparks' `func_802A6274` speeds and the animations' frame counts
 (`func_802A039C`) are the effects' and 56040's.)
 
-What is left (about 3-5 agent-hours): the vehicle modules' frame
-functions' remaining branch
-ladders (the hit, the camera turn, the J-Bomb's first half), alike in 72B80
-and 6C5E0 and best done with the vehicles agent's names for the
-VehicleState fields; `unkXX` fields named as their meaning is found; and
-the leftovers above once 5CB60's collision bytes are defined values.
+**The vehicle modules, second pass** (after the vehicles agent's
+vehicle.h): 80280's J-Bomb, 8AEE0 (the other hotrod, `STARSKI_`, and the
+Cyclone Suit), 853D0 (Ballista), 88160 (A-Team van), 772A0 (train) and
+83910 (barges) are written as the vehicles agent wrote theirs: the
+`VS_*` accessors, `SET_WHEELS`/`SET_GEARS`, `FRAME_BUF`/`MODEL_AT`, the
+frame's tail an `if` between the bounce (a function in each module) and
+`turn_along_wall`, `PLAYER_FROM`; the van is 86F60's police car with its
+own numbers, the hotrod 72B80's, the suit 6C5E0's Thunderfist with a third
+leg (`SUIT_*` states, a switch); the J-Bomb's modes are named (`JB_WALK`,
+`JB_FLY`, `JB_FALL`, `JB_DROP`, `JB_SLAM`, `JB_LANDED`) and
+`func_802C61F0` is its timers, jets, mode changes and a switch over the
+modes; the level's status packs and unpacks its bits with two helpers.
+They charge as the vehicles part does, one `ENGINE_COST` a function at
+its average, measured the same way (a counting build over the TAS and
+the quick tier); the engine's total over the TAS with the model off is
+34,832,520,465 instructions against 34,832,528,727 before (8,262 less, two
+millionths of a percent), with the same digest and save.  77E20 keeps
+its exact blocks (the n64 model's quick-tier hashes are unchanged by its
+second pass: the delayed hits, the group sets and the effects' firing as
+functions, the loops that went to a trailing block as `continue`s).
+Leftovers dropped in this pass, the tests showing nothing reads them:
+the frame functions' `$s0`-`$s7` saves (only `$fp`, as the vehicles
+agent's), their setups' `$t0`-`$t5` saves, the matrices' `$s2`, the
+wheels' material from `$fp` (0), the lean limits' `$s3`, the J-Bomb's
+`$t2` (dead since func_8029A800 takes its settings as arguments, core
+agent).
+
+What is left (about 1-2 agent-hours): `unkXX` fields named as their
+meaning is found; the 77E20 functions that still jump to a shared exit
+(the damage rules, the push, the camera's push); the leftovers above
+once 5CB60's collision bytes are defined values.
 
 ### The parts, collisions and loaders
 

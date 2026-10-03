@@ -554,8 +554,33 @@ static inline uint32_t recomp_cvt_s_d(uint64_t a) {
    with recomp_round_half_up set, halves up as mupen64plus's MSVC build does
    (floor(x + 0.5), in double; what the TAS was made on, docs/PORT.md) */
 extern int recomp_round_half_up;
-static inline double recomp_rint(double x) { return recomp_round_half_up ? floor(x + 0.5) : nearbyint(x); }
-static inline float recomp_rintf(float x) { return recomp_round_half_up ? (float)floor(x + 0.5) : nearbyintf(x); }
+
+/* nearbyint and floor without libm, the same results bit for bit
+   (port/tools/rint_check.c): in the 32-bit build they were calls, and
+   nearbyint saves and restores the FP environment, 7% of the port's CPU
+   (docs/PORT.md, "Engine hot spots").  Round-to-even by adding and taking
+   away 2^52 (2^23 for a float) in the default rounding mode, which the
+   port never changes; anything that large is an integer already, and NaN
+   and the infinities fail the range test and come back as they are.  A
+   zero result takes x's sign, as nearbyint's and floor's do. */
+static inline double recomp_rne(double x) {
+    double r;
+    if (!(x < 4503599627370496.0 && x > -4503599627370496.0)) return x;
+    r = x >= 0 ? (x + 4503599627370496.0) - 4503599627370496.0 : (x - 4503599627370496.0) + 4503599627370496.0;
+    return r == 0 ? x * 0.0 : r;
+}
+static inline float recomp_rnef(float x) {
+    float r;
+    if (!(x < 8388608.0f && x > -8388608.0f)) return x;
+    r = x >= 0 ? (x + 8388608.0f) - 8388608.0f : (x - 8388608.0f) + 8388608.0f;
+    return r == 0 ? x * 0.0f : r;
+}
+static inline double recomp_floor(double x) {
+    double r = recomp_rne(x);
+    return r > x ? r - 1.0 : r;
+}
+static inline double recomp_rint(double x) { return recomp_round_half_up ? recomp_floor(x + 0.5) : recomp_rne(x); }
+static inline float recomp_rintf(float x) { return recomp_round_half_up ? (float)recomp_floor(x + 0.5) : recomp_rnef(x); }
 
 /* float -> integer; NaN and out-of-range give 2^31-1 / 2^63-1 as the VR4300
    does with the invalid-operation exception disabled.  `r` is the value
