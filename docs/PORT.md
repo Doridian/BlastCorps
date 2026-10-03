@@ -3799,7 +3799,10 @@ level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
   of the same code (83910) are one setup, one frame and one drawing
   function over the barge's number, each copy's blocks in a table named by
   the first copy's addresses (`BB(802C8C90)`); the nine original
-  functions call them.
+  functions call them.  The J-Bomb's mode machine (80280's
+  `func_802C61F0`, a ladder of gotos) is a function per mode
+  (`jbomb_mode`: landed, slamming, walking, dropping, flying, and the slam
+  and the bounce).
 - **Leftovers**: 77E20 and 89250 take `func_8029BF64`'s arguments from
   `piece_flat()` (56040's `c0dc()`, static there, with its blocks) instead
   of the context (`C0DC_LEFT` is gone); `piece_flat` still leaves them in
@@ -3850,6 +3853,7 @@ level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
 | `BIKE_WHEELIE_*` | G 16, V 0x3C, HOLD 0x17, BOOST 0x33, BOUNCE 0x3C | its wheelie: height `v t - 16 t^2`, held up to 0x17 frames |
 | `BARGE_*` | 0x2328, 6, 160, 0x50, 10.6 | the barges: turn rate, brake, slope divisor, a bump's least speed, steering divisor |
 | `JBOMB_*` | drag 8, air 9, grace 3, lift 0x1E, climb 0xA, slam 0x14, land 0x1E, air steering 0x14 +2 a frame to 100 | the J-Bomb |
+| `JBOMB_SLAM_PUSH`, `_BOUNCE_LIFT`, `_BOUNCE_SPEED`, `_SLAM_SHAKE(_FRAMES)` | -0x4B0, 0x14A, 0x14, 0x320 (0x14) | its slam's push down, a bounce's push up and speed, the slam's shake |
 
 (The vehicles' turn rates, brakes and slope divisors are arguments to
 62740's helpers, the vehicles agent's: what a frame of each does is there.
@@ -3858,7 +3862,7 @@ The sparks' `func_802A6274` speeds and the animations' frame counts
 
 What is left (about 3-5 agent-hours): the vehicle modules' frame
 functions' remaining branch
-ladders (the hit, the camera turn, the J-Bomb's modes), alike in 72B80
+ladders (the hit, the camera turn, the J-Bomb's first half), alike in 72B80
 and 6C5E0 and best done with the vehicles agent's names for the
 VehicleState fields; `unkXX` fields named as their meaning is found; and
 the leftovers above once 5CB60's collision bytes are defined values.
