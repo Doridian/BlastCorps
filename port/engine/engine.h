@@ -207,4 +207,13 @@ typedef struct EngineBlk {
 #define ENGINE_B(addr) { ENGINE_BLK_##addr }
 #define ENGINE_BLK_AT(b) ENGINE_BLK_((b).id, (b).n)
 
+/* A count for the taint build (-DPORT_ENGINE_TAINT=ON, port/host/engine.c;
+   port/tools/taint.py --probes): whether a path some leftover feeds is
+   ever taken, say.  Nothing in the other builds. */
+#ifdef PORT_ENGINE_TAINT
+void engine_probe(unsigned id);
+#else
+#define engine_probe(id) ((void)0)
+#endif
+
 #endif

@@ -4,10 +4,17 @@ the engine"): reads the taint.<pid>.txt files a PORT_ENGINE_TAINT build
 writes (ENGINE_TAINT=DIR) and prints, for each reader (engine_ctx,
 ENGINE_REG, engine_frame_lw), the chains of sites its values came from:
 an ENGINE_LEAVE (L), an engine_restore (R) of a saved register, a frame
-store of a register (D, sd; F, sdc1) or of a value (W, sw).  --live lists
-every site that is in some chain: the scaffolding a reader depends on.
+store of a register (D, sd; F, sdc1) or of a value (W, sw), and the first
+value it read.  --live lists every site that is in some chain: the
+scaffolding a reader depends on.  --feeds lists the sites in some files
+that a reader in another file depends on (what those files still owe the
+others), --probes the counts engine_probe() made.
 
     port/tools/taint.py BUILD/blastcorps DIR... [--live] [--file 56040.c]
+    port/tools/taint.py BUILD/blastcorps DIR... --feeds 56040.c 5CB60.c
+    port/tools/taint.py BUILD/blastcorps DIR... --probes
+
+(It does what O2's PORT_PROV build and engine_prov.py did too.)
 """
 import argparse
 import collections
@@ -15,6 +22,9 @@ import glob
 import os
 import subprocess
 import sys
+
+
+probes = collections.Counter()
 
 
 def load(paths):
@@ -32,7 +42,10 @@ def load(paths):
                 elif w[0] == "N":
                     nodes[int(w[1])] = (w[2], int(w[3], 16), int(w[4]))
                 elif w[0] == "R":
-                    reads.append((int(w[1], 16), w[2], int(w[3]), int(w[4]), int(w[5])))
+                    val = int(w[6], 16) if len(w) > 6 else None
+                    reads.append((int(w[1], 16), w[2], int(w[3]), int(w[4]), int(w[5]), val))
+                elif w[0] == "P":
+                    probes[int(w[1])] += int(w[2])
             runs.append((nodes, reads, base))
     return runs
 
@@ -75,10 +88,18 @@ def main():
     ap.add_argument("dirs", nargs="+")
     ap.add_argument("--live", action="store_true", help="list the sites some reader depends on")
     ap.add_argument("--file", help="only readers or live sites in this source file")
+    ap.add_argument("--feeds", nargs="+", metavar="FILE",
+                    help="the sites in these source files that a reader in another file depends on")
+    ap.add_argument("--probes", action="store_true", help="the counts engine_probe() made")
     a = ap.parse_args()
     runs = load(a.dirs)
+    if a.probes:
+        for i, n in sorted(probes.items()):
+            print(f"probe {i}: {n}")
+        return
     # per run the tags are its own: chains as tuples of (kind, site)
     readers = collections.defaultdict(collections.Counter)
+    values = {}
     sites = set()
     base = 0
     for nodes, reads, b in runs:
@@ -92,10 +113,28 @@ def main():
                 sites.add(s)
                 t = p
             return tuple(c)
-        for site, kind, reg, tag, n in reads:
+        for site, kind, reg, tag, n, val in reads:
             sites.add(site)
-            readers[(site, kind, reg)][chain(tag)] += n
+            c = chain(tag)
+            readers[(site, kind, reg)][c] += n
+            values.setdefault((site, kind, reg, c), val)
     names = symbolize(a.exe, sites, base)
+
+    def file_of(nm):
+        return nm.split(":")[0]
+    if a.feeds:
+        mine = set(a.feeds)
+        owed = collections.defaultdict(set)
+        for (site, kind, reg), chains in readers.items():
+            if file_of(names[site]) in mine:
+                continue
+            for c in chains:
+                for k, s in c:
+                    if file_of(names[s]) in mine:
+                        owed[(k, names[s])].add(names[site])
+        for (k, nm), rd in sorted(owed.items(), key=lambda x: x[0][1]):
+            print(f"{k} {nm}  -> " + ", ".join(sorted(rd)))
+        return
     if a.live:
         live = collections.Counter()
         for key, chains in readers.items():
@@ -115,7 +154,9 @@ def main():
         rn = (REGN[reg] if reg < 32 else f"f{reg - 34}") if kind != "l" else hex(reg)
         print(f"{nm}: {what}({rn})")
         for c, n in chains.most_common():
-            print(f"    {n:9d}  " + (" <- ".join(f"{k} {names[s]}" for k, s in c) or "(nothing left there)"))
+            v = values.get((site, kind, reg, c))
+            vs = f"  (first {v:#x})" if v is not None else ""
+            print(f"    {n:9d}  " + (" <- ".join(f"{k} {names[s]}" for k, s in c) or "(nothing left there)") + vs)
 
 
 if __name__ == "__main__":
