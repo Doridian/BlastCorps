@@ -2720,7 +2720,9 @@ either renderer:
   is what the first started from, and after them, what the first ended
   with.  The in-between passes draw nothing but the twins (the 8-bit
   render-to-texture images and the RDRAM z-image stay the first pass's),
-  skip the read-backs, and charge no RDP time.
+  skip the read-backs, and charge no RDP time.  With OpenGL an in-between
+  pass doesn't run the display list again: it replays what the first
+  pass recorded (Performance, "The third round"), to the same pictures.
 - **Blending vertices.**  The first pass records where each vertex load
   (`G_VTX`) put its vertices in clip space.  The second pass moves each
   vertex halfway from where the previous frame put the same vertex.  For
@@ -3333,17 +3335,107 @@ the page), the matrices (`guMtxCatF`, `func_802ACCCC`), and libaudio's
 voice mixing (`al_voice_mix`, `pull_table`).  None is more than 6% of
 the game; the game as a whole is a sixth of the page's work now.
 
+### The third round (the in-between pass replayed; `tri` in the page)
+
+The two renderer items the second round left.  Measured as it was: the
+page by `web_perf.mjs` (Chromium on the GPU, 4x throttling,
+`PORT_ADAPT=0`, Simian Acres, the builds alternately), natively by the
+deterministic runs, a sampling profiler and, new, the main thread's
+instructions retired (`perf_event_open` from an `LD_PRELOAD`, 4,200
+retraces) and `rdtsc` around `tri` (a scratch build).
+
+- **The in-between pass replays the first** (`gfx.c`, "replaying the
+  first pass"; OpenGL).  The first pass, when in-between passes will
+  follow, records what their drawing depends on, as it runs: each vertex
+  load's vertices as the transform and lighting left them (before
+  blending), the point edits (`G_MW_POINTS`), each triangle and
+  rectangle command, the TMEM loads, the 2D projection's changes (the
+  HUD's), and, where a display-list command may have changed it
+  (`gfx_state_serial`), the part of the state the drawing reads (the
+  geometry and other modes, scissor, viewport, the color and z images,
+  the texture's wrap) and the OpenGL draw state the first pass drew
+  with (`gfx_gl_rec_state`: the program, the textures, the uniforms).
+  An in-between pass then goes through the record: each load's vertices
+  back into the vertex buffer and blended (`iblend`, the same records of
+  the previous frame in the same order), each triangle and rectangle
+  through the same functions as before (`tri`, `fill_rect`, `tex_rect`:
+  the culling and clipping, the HUD at the sides, widescreen), drawn with
+  the recorded draw state (`gfx_gl_rec_force`).  No display list is
+  decoded, no matrix multiplied, no vertex transformed or lit, no
+  texture looked up.  A triangle the first pass culled (behind the
+  camera there, in view in between) may need a state the first pass
+  never made: for those a snapshot of the state is kept (the second half
+  of `GfxState`, taken only where everything of a state was culled) and
+  the state made from it as the full pass would, TMEM brought up to date
+  by the recorded loads as before (`tload_lazy`).  The full pass runs
+  where a recorded state may have gone stale (a texture-cache flush, a
+  new render target or resolution while the first pass ran:
+  `gfx_gl_gen`; 46 of 2,673 passes in `PORT_AUTOSTART=3`, 316 of 203,855
+  in the TAS), with the software renderer (whose cost is the pixels, not
+  the list) and with `PORT_INTERP_REPLAY=0`.
+- **`tri` in the page isn't three to four times native.**  The second
+  round compared the page's profile at 4x throttling (0.69 ms a retrace)
+  with native time.  At 1x, Chromium's profile gives `tri` 0.16 ms a
+  retrace before (0.11 after); natively, from `rdtsc` around it, 0.14 ms
+  (0.12 after) for the same triangles: WebAssembly costs 1.0-1.2 times
+  native there, and the generated code has nothing to fix (no 64-bit
+  arithmetic, the struct copies as `i64` loads and stores, the calls
+  `to_screen`, `clip_poly`, `gfx_gl_tri` only).  What did cost: Asyncify
+  instrumented 26 of the renderer's functions (`tri`, `run`, `begin`,
+  `tile_texture`, `gfx_gl_tri`...: everything that can reach a GL call
+  or `host_log`, whose indirect calls might unwind), a check of its state
+  after every call and a save/restore path in each.  A graphics task
+  never switches fibers (it runs on the loop's stack to its end), so
+  `port/web/asyncify_remove.txt` takes them out (`-sASYNCIFY_REMOVE`;
+  `port/tools/asyncify_names.py` checks the names are each defined once,
+  `-DPORT_WASM_ASYNCIFY_ALL=ON` puts the instrumentation back).  Only
+  `gfx_gl_init`, `gfx_gl_present`, `set_geometry` and the task's entry
+  stay instrumented.  The second round's try at this measured nothing
+  among the in-between pass's larger cost; now it is about a tenth of
+  the renderer in the page (below).
+
+The pictures are byte for byte the full pass's: the OpenGL screenshots
+of `PORT_AUTOSTART=3` (every 250 retraces to 4,200, and every retrace
+of 2,500-2,700, which alternate between frames and in-between images),
+with `--hd-text`, at 4:3, with `--display-hz 144` (every retrace and
+present of 2,500-2,650), `PORT_AUTOSTART=1` and `2` (6,000 retraces,
+every 53rd), without `--interpolate`, and the software renderer's, all
+against main's build, with the same sound and save; and the TAS replayed
+with `--renderer gl --interpolate --widescreen` (137 screenshots over
+275,373 retraces, the same save and replay report).  The quick tier in
+all eight variants, the TAS (free timing) on 32 and wasm as in "Testing
+the port".
+
+Results, ms a retrace in the level (means of the parts from retrace
+3,000; the page's runs scaled to the same audio time, 0.33 ms, as the
+machine was shared and the runs drifted together by up to 30%):
+
+| | `gfx` | `gfx2` | the two |
+| --- | --- | --- | --- |
+| Chromium, GPU, 4x, main | 1.36 | 0.88 | 2.24 |
+| Chromium, GPU, 4x, the replay, Asyncify as before | 1.54 | 0.50 | 2.04 |
+| Chromium, GPU, 4x, the replay, the renderer out of Asyncify | 1.43 | 0.45 | 1.88 |
+| Chromium, GPU, 1x, profile (the renderer's own time, `gfx_task_call` down) | 0.64 before | 0.49 after | |
+| native (mlp64, `--scale 4`), main | 0.188 | 0.110 | 0.298 |
+| native (mlp64, `--scale 4`), after | 0.197 | 0.065 | 0.262 |
+
+The in-between pass costs a third of the first now (it was two thirds),
+and in the page the two passes together about a sixth less; the
+recording costs the first pass 5-10%.  Natively the run's main thread
+retires 10% fewer instructions (32.8 → 29.4 billion over 4,200
+retraces); `tri` itself, by `rdtsc`, is 210 cycles a triangle in the
+first pass and 59 in a replay (111 in a full in-between pass before,
+which also culled what wasn't drawn).  Asyncify's checks were a tenth
+of the renderer in the page.
+
 ### What's left
 
-- **The in-between pass still runs the display list** (vertices, state,
-  every command; no longer the loads or the textures' hashing), for a
-  picture whose only difference is where the vertices are.  Recording
-  the first pass's triangles and running only their vertices again
-  would take off most of what's left of `gfx2` (a third of the renderer).
-- **`tri` in WebAssembly** is three to four times its native cost, the
-  most of any part of the renderer; unexplained (Asyncify instruments
-  it, through the GL calls' paths, but taking the renderer out of
-  Asyncify measured nothing before).
+- **The first pass's own cost** is now most of the renderer: `tri`
+  (the culling, clipping and screen transform of every triangle, then
+  `gfx_gl_tri`'s copy), `run`, `do_vtx`, the TMEM loads and texture
+  lookups.  A triangle's state is already made once per command that
+  changes it; the next step would be the vertices transformed in
+  batches (SIMD: `-msimd128` in the page, four lanes of a load at once).
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
@@ -3744,12 +3836,145 @@ last write, and those are never last.  `ENGINE_BLK` stays (the
 
 ## The engine made readable
 
-DISTRIBUTION.md's phase O3: `port/engine` as ordinary C, by area, each
-area checked by the quick tier (exact: the CPU model is off there, so no
-change of a charge shows) and the TAS (125,297 polls, 57 platinum, the
-gameplay digest and the save).
+DISTRIBUTION.md's phase O3: `port/engine` in ordinary C, by module over
+four agents (2026-10-03).  Each agent's part is a subsection below.  What
+all of them keep:
+
+- **The CPU model's charges stay.**  `ENGINE_BLK` charges the original's
+  blocks for `--cpu-model n64`; the readable code charges, on every path,
+  the same blocks as before (in its own order: a C loop's test is
+  `for (...; ENGINE_BLK(test), cond; ...)`, its body's block inside), so
+  the n64 timing is exactly what it was.  A loop that became one copy
+  charges its blocks in bulk (`ENGINE_BLKN(addr, k)`, buildings.h), and
+  code several functions share takes its callers' blocks from a table
+  (`Blk`, `BLKT`).  The check build (`PORT_ENGINE_CHECK`) compares the
+  cost and the state, which stay; its block trace, a diagnostic for a
+  difference, now comes in another order.
+- **The check.**  Besides the quick tier and the TAS (free timing): the
+  quick tier's four scenarios with `PORT_COUNT_PER_OP=2` (the n64 model,
+  lag frames and all), whose save, sound, digest and every screenshot have
+  to be the build before's, byte for byte: the CPU model's clock turns any
+  difference in the charges into a different game.
+
+### Buildings and the world
+
+77E20 (the buildings and their destruction), 89250 (the game's C's
+collision tests against them), 8A2E0 (the communication points), and the
+vehicle modules that are copies of others' (80280 the J-Bomb and the
+level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
+853D0 the Ballista, 88160 the A-Team van, 772A0 the train; 7F8B0 and
+86ED0 were readable already).
+
+- **Typed records** (buildings.h): the model header's fields the buildings
+  read (`M_STRENGTH`, `M_DEBRIS`, `M_SHADOWS`, `M_MAIN`, `M_VALUE`,
+  `M_MOVES`, ...), its sections (`MS_*`, each up to the next), a group's
+  looks (`GroupDl`: the conditions on other groups' damage that hide it,
+  `GroupCond`, then its two lists, `GroupDls`), the animated textures
+  (`AnimTex`), what a group rests on (`MS_SUPPORTS`), a building's
+  per-group state past objects.h's fields (`B_FALLING`, `B_FALL_T`,
+  `B_SPIN_X..Z`), the effect records' fields (`FX_*`; still read through
+  `FX_W/H/B`, whose halves and bytes native-endian memory keeps at their
+  N64 places), the delayed-damage queue (`DelayedHit`), the smoke, dust and
+  falling-shadow slots (`Smoke`, `Dust`, `FallShadow`), and in 77E20 the
+  target objects (`TargetObj`), the level's group sets (`GroupSet`) and the
+  models a vehicle can't harm (`Immune`).  The display-list commands they
+  write are `DL_*`.  Names only where the code shows the meaning (a field
+  `unkXX` otherwise).
+- **Control flow**: the asm's head-tested loops are C loops, its branch
+  ladders `if`s; what three functions did alike is one helper with each
+  caller's blocks: the sphere against a piece (`piece_touched`: its plane,
+  its triangle, an edge, a corner), the heading to a point
+  (`heading_to`), whether the level's goal is open (`goal_open`), an
+  object destroyed (`obj_destroyed`), a look shown as its group goes
+  (`look_shown`), a limited copy of a look (`copy_cmds_n`); the Ballista's
+  wheelie height (four copies) is `wheelie()`.  The barges' three copies
+  of the same code (83910) are one setup, one frame and one drawing
+  function over the barge's number, each copy's blocks in a table named by
+  the first copy's addresses (`BB(802C8C90)`); the nine original
+  functions call them.  The J-Bomb's mode machine (80280's
+  `func_802C61F0`, a ladder of gotos) is a function per mode
+  (`jbomb_mode`: landed, slamming, walking, dropping, flying, and the slam
+  and the bounce).
+- **Leftovers**: 77E20 and 89250 take `func_8029BF64`'s arguments from
+  `piece_flat()` (56040's `c0dc()`, static there, with its blocks) instead
+  of the context (`C0DC_LEFT` is gone); `piece_flat` still leaves them in
+  `$v0`-`$t1` as `func_8029C0DC` did, since later code may find them
+  there.  80280's and 8AEE0's `func_802A6274` calls (mode 1, which never
+  reads them) and 772A0's `func_802AABE4` (a matrixless point no model
+  has) pass 0 instead of context registers.  Kept, for 5CB60's collision
+  bytes and 69BB0's driver (their readers are the core agent's): 77E20's
+  `$v0` (`func_802BD1F8`), `$fp` (`func_802BD99C`), `$t9`
+  (`func_802BE944`, `func_802BEADC`), `func_802BD1F8`'s `$t6`-`$t8`
+  (three locals now, left at its end) and its `$s4`, `$t8`, `$t9` saves.
+- **`func_802BD1F8`** (the buildings' display lists, the biggest single
+  game function in the page, O4): it looked up each building's cell in
+  the visible cells' list; now a table marked from the list once a frame
+  (and cleared after) gives the place, and its blocks are charged by it.
+  The display lists are copied by plain loops (a memcpy call for a few
+  commands cost more than the copy) with their blocks charged in bulk.
+  Natively (the 32-bit build, `PORT_AUTOSTART=3`, rdtsc around the
+  function's own work, its callees left out): 21.3-22.6 Mcycles per 1,500
+  calls before, 18.4-18.8 after, about 14% less; Simian Acres draws about
+  37 buildings, 54 looks and 112 head commands a frame.  With every
+  `ENGINE_BLK` taken out (an upper bound, not a build) it would be 11%
+  less again: what is left is the work, mostly reading the models.
+  Pictures byte for byte (the quick tier's screenshots, both CPU models).
+
+**Checked** (us.v10, 32-bit, each batch): the quick tier as the
+references, its four scenarios under `--cpu-model n64` byte for byte the
+build before's, and the TAS (free timing: 125,297 reads, 57 platinum, the
+reference's save and gameplay digest).  At the end: all eight variants
+(`test.py variants --gameplay`, `wasm` included) equal to the references
+in every hash, jp's quick tier as its references, and the whole TAS
+replayed with the n64 model (`PORT_COUNT_PER_OP=2`, free timing) gives
+the same digest (its clock included) and save as main before O3: the
+charges are the same on every path the TAS takes.
+
+**The per-frame numbers** (for the 60-tick mode; DISTRIBUTION.md's
+"(a) at N=2"): a rate is a frame's, a count is in frames.
+
+| name | value | what |
+|---|---|---|
+| `FALL_ACCEL` | 30000 | a falling group comes down `FALL_ACCEL * t^2` (16.16, t its frames, `B_FALL_T`) |
+| `B_SPIN_X..Z` × `B_FALL_T` | `D_803649E0..E4` | its spin: the rates (12-bit angles a frame) times its frames |
+| `DELAY_MAX` | 20 | a queued hit (explosions, `func_802BC888`) waits 1..19 frames |
+| `SMOKE_FADE`, `SMOKE_ALPHA`, `SMOKE_WAIT` | 20, 0xFF, 3 | a smoke cloud fades by 20 a frame from 0xFF; rests 3 frames |
+| `DUST_ACCEL`, `DUST_SHAKE`, `DUST_WAIT` | 16, 32, 3 | the dust rises faster by 16 a frame, shaken ±32 each frame; rests 3 |
+| `SHADOW_ACCEL`, `SHADOW_SIZE_MAX`, `SHADOW_HOLD`, `SHADOW_WAIT` | 15, 0x385, 6, 3 | a falling group's shadow grows faster by 15 a frame to 0x385, lasts 6 more, rests 3 |
+| `FX_DEBRIS_DELAY` | 10 | each debris piece but the first starts 10 frames later (`FX_DELAY` counts down a frame) |
+| `COMM_SPARKS` | 24 | a communication point's sparks, one a frame (`FX_DELAY` 0..23) |
+| `PUSH_FRAMES` | 20 | pushed this many frames in a row brings the group down (`func_802BEFF4`) |
+| `SHAKE_HIT_FRAMES`, `SHAKE_DOWN_FRAMES` | 10, 15 | the screen's shake (00000.c: its size falls by a sixth a frame) |
+| `AnimTex.lo` (kind 0) | per model | an animated texture's frames per step; kind 1 every `lo` sixteenths of `D_803649D8` |
+| the frame counters | — | `D_80358068` (consecutive hits: `func_802C0284`, `func_802BEFF4`), `D_803F77F8`, `D_803F77F4` |
+| `TRAIN_*` | 0x2328, 6, 160.0, 0x28, 6, 1 | turn rate, brake, slope divisor, shunting speed, frames between the ends, between sparks |
+| `VAN_*`, `HOTROD_*` | 0x4E20/0x1F40, 0x19/0x10, 800/500, 0.16, 5, 0x32, 1, 3.6, 11.0 | turn rate, brake, slope divisor, turn toward the camera, frames without gears after a bounce, a bounce's least speed, frames between sparks, steering divisors |
+| `SUIT_*` | 0x59D8, 0xC, 120.0, 0.25, 0x6E, 5, 30 | the Cyclone Suit: as above, its steering walking and rolling, an idle animation one frame in 30 |
+| `BIKE_*` | 0x3E80, 0x10, 640, 0.36, 5, 1, 2.2, 6.0 | the Ballista: as above |
+| `BIKE_LEAN_RATE`, `BIKE_MISSILE_WAIT` | 0.05, 5 | its lean a frame; frames between missiles |
+| `BIKE_WHEELIE_*` | G 16, V 0x3C, HOLD 0x17, BOOST 0x33, BOUNCE 0x3C | its wheelie: height `v t - 16 t^2`, held up to 0x17 frames |
+| `BARGE_*` | 0x2328, 6, 160, 0x50, 10.6 | the barges: turn rate, brake, slope divisor, a bump's least speed, steering divisor |
+| `JBOMB_*` | drag 8, air 9, grace 3, lift 0x1E, climb 0xA, slam 0x14, land 0x1E, air steering 0x14 +2 a frame to 100 | the J-Bomb |
+| `JBOMB_SLAM_PUSH`, `_BOUNCE_LIFT`, `_BOUNCE_SPEED`, `_SLAM_SHAKE(_FRAMES)` | -0x4B0, 0x14A, 0x14, 0x320 (0x14) | its slam's push down, a bounce's push up and speed, the slam's shake |
+
+(The vehicles' turn rates, brakes and slope divisors are arguments to
+62740's helpers, the vehicles agent's: what a frame of each does is there.
+The sparks' `func_802A6274` speeds and the animations' frame counts
+(`func_802A039C`) are the effects' and 56040's.)
+
+What is left (about 3-5 agent-hours): the vehicle modules' frame
+functions' remaining branch
+ladders (the hit, the camera turn, the J-Bomb's first half), alike in 72B80
+and 6C5E0 and best done with the vehicles agent's names for the
+VehicleState fields; `unkXX` fields named as their meaning is found; and
+the leftovers above once 5CB60's collision bytes are defined values.
 
 ### Vehicles
+
+(The vehicles part charges differently from the other parts: one average a function, not the
+original's blocks path by path, so with the n64 model a frame of vehicle code costs about what
+it did but not exactly, and the `PORT_COUNT_PER_OP=2` byte-for-byte check above doesn't hold
+for it; the quick tier and the TAS, with the model off as by default, are exact.)
 
 62740 (the shared physics), 62740_carry, 60F60 (texture decoders and the
 effects' sprites), 679E0 (math and matrices) and the vehicle modules

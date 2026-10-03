@@ -73,6 +73,36 @@ void func_802CB5D8(void);
 
 #define T(p) ((s32)(p))
 
+/* the Ballista's numbers (62740's helpers'; a rate is a frame's) */
+#define BIKE_BRAKE 0x10         /* func_802A785C: the speed's fall a frame, braking */
+#define BIKE_TURN_RATE 0x3E80   /* func_802A7FD8: the heading's turning rate */
+#define BIKE_SLOPE_DIV 640.0f   /* func_802A843C: the slope's push divided by */
+#define BIKE_CAMERA_TURN 0.36f  /* func_802A71DC: the share of the way to the camera's heading it turns a frame, turned (D_803A7425) */
+#define BIKE_STUN 5             /* frames without the gears (func_802A785C) after a bounce */
+#define BIKE_SPARK_WAIT 1       /* frames between the wheels' sparks */
+#define BIKE_STEER_DIV 2.2f     /* the steering's rate: the speed over this (func_802A7E70) */
+#define BIKE_STEER_DIV_AIR 6.0f
+#define BIKE_LEAN_RATE 0.05f            /* the lean (part 3, D_803F8B60) a frame, to func_802CB3C8's limits */
+#define BIKE_UPRIGHT 0.5f               /* and back to this */
+#define BIKE_MISSILE_WAIT 5             /* frames between missiles (D_803F8B7D) */
+/* the wheelie: the front wheel's height t frames up is v t - BIKE_WHEELIE_G t^2
+   (D_803F8B64 v, D_803F8B68 t, from D_803F8B6C), v BIKE_WHEELIE_V to start
+   with; while the stick stays up (BIKE_WHEELIE_STICK), for BIKE_WHEELIE_HOLD
+   frames at most, it starts again from where it is BIKE_WHEELIE_BOOST
+   faster; landing faster than BIKE_WHEELIE_BOUNCE it bounces at half */
+#define BIKE_WHEELIE_G 16.0f
+#define BIKE_WHEELIE_V 0x3C
+#define BIKE_WHEELIE_STICK 0x3C
+#define BIKE_WHEELIE_HOLD 0x17
+#define BIKE_WHEELIE_BOOST 0x33
+#define BIKE_WHEELIE_BOUNCE 0x3C
+#define BIKE_WHEELIE_TOP 3400.0f        /* the height part 2's frame is all the way up at */
+
+/* the wheelie's height t frames up at speed v */
+static s32 wheelie(s32 v, s32 t) {
+    return (s32)((u32)v * (u32)t) + engine_cvt_w_s(-BIKE_WHEELIE_G * (f32)(s32)((u32)t * (u32)t));
+} /* and with a wheel off the ground */
+
 /* set up: from the level loader, with the model file in $s2, the position
    in $t7, $s3, $s0 and the heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
@@ -305,19 +335,19 @@ void func_802CA4E0(void) {
     ENGINE_BLK(802CA5B8);
     if (D_803F8B7A == 0) {
         ENGINE_BLK(802CA5C8);
-        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0x10, vs, &t3);
+        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, BIKE_BRAKE, vs, &t3);
         ENGINE_BLK(802CA5D0);
     } else {
         ENGINE_BLK(802CA5D8);
         D_803F8B7A--;
     }
     ENGINE_BLK(802CA5E4);
-    func_802A7FD8(0x3E80, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
+    func_802A7FD8(BIKE_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802CA5FC);
     ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802CA608);
-    func_802A843C(&vs->unk76, 1, 0xA, (s8 *)vs->unk96, vs->unk4, 640.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0xA, (s8 *)vs->unk96, vs->unk4, BIKE_SLOPE_DIV, vs);
     ENGINE_BLK(802CA61C);
     if (D_803F8B78 != 0) {
         ENGINE_BLK(802CA62C);
@@ -398,7 +428,7 @@ void func_802CA4E0(void) {
     ENGINE_BLK(802CA8A4);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.36f, vs, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, BIKE_CAMERA_TURN, vs, &a1);
 
         ENGINE_BLK(802CA8B8);
         D_803F8B74 = a0;
@@ -425,7 +455,7 @@ hit:
     if (D_803F8B7A != 0)
         goto done;
     ENGINE_BLK(802CA82C);
-    D_803F8B7A = 5;
+    D_803F8B7A = BIKE_STUN;
     v = vs->unk76;
     if (v >= 0) {
         ENGINE_BLK(802CA844);
@@ -495,7 +525,7 @@ void func_802CAAFC(VS *vs) {
     if (vs->unk96[3] == 0)
         goto wheels;
     ENGINE_BLK(802CAB34);
-    D_803F8B76 = 1;
+    D_803F8B76 = BIKE_SPARK_WAIT;
     s = func_802A5ED0();
     ENGINE_BLK(802CAB48);
     if (!(s < 4))
@@ -535,7 +565,7 @@ wheels:
     f = D_803F8B60;
     if (D_80370C15 != 0) {
         ENGINE_BLK(802CAC3C);
-        f = f - 0.05f;
+        f = f - BIKE_LEAN_RATE;
         g = func_802CB3C8(vs, 0);
         ENGINE_BLK(802CAC4C);
         if (f < g) {
@@ -546,7 +576,7 @@ wheels:
         ENGINE_BLK(802CAC60);
         if (D_80370C16 != 0) {
             ENGINE_BLK(802CAC74);
-            f = f + 0.05f;
+            f = f + BIKE_LEAN_RATE;
             g = func_802CB3C8(vs, 1);
             ENGINE_BLK(802CAC84);
             if (!(f <= g)) {
@@ -556,17 +586,17 @@ wheels:
         } else {
             /* back upright */
             ENGINE_BLK(802CAC98);
-            h = 0.5f;
+            h = BIKE_UPRIGHT;
             if (f < h) {
                 ENGINE_BLK(802CACB8);
-                f = f + 0.05f;
+                f = f + BIKE_LEAN_RATE;
                 if (!(f <= h)) {
                     ENGINE_BLK(802CACC8);
                     f = h;
                 }
             } else {
                 ENGINE_BLK(802CACD0);
-                f = f - 0.05f;
+                f = f - BIKE_LEAN_RATE;
                 if (f < h) {
                     ENGINE_BLK(802CACE0);
                     f = h;
@@ -633,7 +663,7 @@ wheels:
     ENGINE_BLK(802CAEC4);
     func_80292288(q, a1, a2, a3, s10, s14, s18, 0, 0x1A4);
     ENGINE_BLK(802CAECC);
-    D_803F8B7D = 5;
+    D_803F8B7D = BIKE_MISSILE_WAIT;
 jump:
     ENGINE_BLK(802CAEE0);
     if (func_802A7CB0(0xA, vs) != 0) {
@@ -642,7 +672,7 @@ jump:
     }
     ENGINE_BLK(802CAEE8);
     ENGINE_BLK(802CAEF0);
-    if (D_80370C2D < 0x3C)
+    if (D_80370C2D < BIKE_WHEELIE_STICK)
         goto fly;
     ENGINE_BLK(802CAF04);
     if (D_803F8B7C == 0) {
@@ -650,49 +680,41 @@ jump:
         D_803F8B7C = 1;
         D_803F8B6C = 0;
         D_803F8B68 = 1;
-        D_803F8B64 = 0x3C;
+        D_803F8B64 = BIKE_WHEELIE_V;
         D_803F8B70 = 0;
         goto fly;
     }
     ENGINE_BLK(802CAF48);
     t4 = D_803F8B70;
-    if (!(t4 < 0x17))
+    if (t4 >= BIKE_WHEELIE_HOLD)
         goto fly;
     /* a higher jump while the stick is held: the parabola started again from
        its height with the speed it has */
     ENGINE_BLK(802CAF5C);
     D_803F8B70 = t4 + 1;
-    t2 = D_803F8B68;
-    t4 = (s32)((u32)D_803F8B64 * (u32)t2);
-    t5 = engine_cvt_w_s(-16.0f * (f32)(s32)((u32)t2 * (u32)t2));
-    s6 = t4 + t5;
+    s6 = wheelie(D_803F8B64, D_803F8B68);
     D_803F8B6C = D_803F8B6C + s6;
-    t2 = D_803F8B68 - 1;
-    t4 = (s32)((u32)D_803F8B64 * (u32)t2);
-    t5 = engine_cvt_w_s(-16.0f * (f32)(s32)((u32)t2 * (u32)t2));
-    s7 = t4 + t5;
-    D_803F8B64 = s6 - s7 + 0x33;
+    s7 = wheelie(D_803F8B64, D_803F8B68 - 1);
+    D_803F8B64 = s6 - s7 + BIKE_WHEELIE_BOOST;
     D_803F8B68 = 1;
 fly:
     ENGINE_BLK(802CB03C);
     if (D_803F8B7C == 0)
         goto down;
     ENGINE_BLK(802CB04C);
-    t2 = D_803F8B68;
-    s6 = (s32)((u32)D_803F8B64 * (u32)t2) + engine_cvt_w_s(-16.0f * (f32)(s32)((u32)t2 * (u32)t2));
+    s6 = wheelie(D_803F8B64, D_803F8B68);
     a3 = D_803F8B6C + s6;
     if (!(a3 > 0)) {
         /* landed: a bounce, unless it was a small one or a wheel is off */
         ENGINE_BLK(802CB0B0);
-        t2 = D_803F8B68 - 1;
-        s7 = (s32)((u32)D_803F8B64 * (u32)t2) + engine_cvt_w_s(-16.0f * (f32)(s32)((u32)t2 * (u32)t2));
+        s7 = wheelie(D_803F8B64, D_803F8B68 - 1);
         s7 -= s6;
         if (s7 < 0) {
             ENGINE_BLK(802CB110);
             s7 = -s7;
         }
         ENGINE_BLK(802CB114);
-        if (s7 < 0x3D)
+        if (s7 <= BIKE_WHEELIE_BOUNCE)
             goto down;
         ENGINE_BLK(802CB120);
         if (vs->unk96[0] == 1)
@@ -711,7 +733,7 @@ fly:
         a3 = 0;
     }
     ENGINE_BLK(802CB18C);
-    f = (f32)a3 / 3400.0f;
+    f = (f32)a3 / BIKE_WHEELIE_TOP;
     if (!(f <= 1.0f)) {
         ENGINE_BLK(802CB1B8);
         f = 1.0f;
@@ -828,11 +850,11 @@ s32 func_802CB564(VS *vs) {
     if (vs->unk96[2] == 1)
         goto air;
     ENGINE_BLK(802CB598);
-    d = 2.2f;
+    d = BIKE_STEER_DIV;
     goto div;
 air:
     ENGINE_BLK(802CB5A0);
-    d = 6.0f;
+    d = BIKE_STEER_DIV_AIR;
 div:
     ENGINE_BLK(802CB5AC);
     return engine_cvt_w_s((f32)vs->unk76 / d);

@@ -98,6 +98,17 @@ void func_802D249C(void);
 
 #define T(p) ((s32)(p))
 
+/* the hotrod's numbers (62740's helpers'; a rate is a frame's) */
+#define HOTROD_BRAKE 0x10       /* func_802A785C: the speed's fall a frame, braking */
+#define HOTROD_TURN_RATE 0x1F40 /* func_802A7FD8: the heading's turning rate */
+#define HOTROD_SLOPE_DIV 500.0f /* func_802A843C: the slope's push divided by */
+#define HOTROD_CAMERA_TURN 0.16f /* func_802A71DC: the share of the way to the camera's heading it turns a frame, turned (D_803A7425) */
+#define HOTROD_STUN 5           /* frames without the gears (func_802A785C) after a bounce */
+#define HOTROD_BOUNCE_MIN 0x32  /* a bounce's speed at least (then halved, turned round) */
+#define HOTROD_SPARK_WAIT 1     /* frames between the wheels' sparks */
+#define HOTROD_STEER_DIV 3.6f   /* the steering's rate: the speed over this (func_802A7E70) */
+#define HOTROD_STEER_DIV_AIR 11.0f /* and with a wheel off the ground */
+
 /* ---- the hotrod ---------------------------------------------------------- */
 
 #define P D_803FC200
@@ -288,19 +299,19 @@ void func_802CFDE8(void) {
     ENGINE_BLK(802CFEC8);
     if (D_803FC5C4 == 0) {
         ENGINE_BLK(802CFED8);
-        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0x10, vs, &t3);
+        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, HOTROD_BRAKE, vs, &t3);
         ENGINE_BLK(802CFEE0);
     } else {
         ENGINE_BLK(802CFEE8);
         D_803FC5C4--;
     }
     ENGINE_BLK(802CFEF4);
-    func_802A7FD8(0x1F40, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
+    func_802A7FD8(HOTROD_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802CFF0C);
     ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802CFF18);
-    func_802A843C(&vs->unk76, 1, 0xF, (s8 *)vs->unk96, vs->unk4, 500.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0xF, (s8 *)vs->unk96, vs->unk4, HOTROD_SLOPE_DIV, vs);
     ENGINE_BLK(802CFF2C);
     if (D_803FC5C3 != 0) {
         ENGINE_BLK(802CFF3C);
@@ -378,7 +389,7 @@ void func_802CFDE8(void) {
     ENGINE_BLK(802D01CC);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, vs, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, HOTROD_CAMERA_TURN, vs, &a1);
 
         ENGINE_BLK(802D01E0);
         D_803FC5C0 = a0;
@@ -411,19 +422,19 @@ hit:
     ENGINE_BLK(802D014C);
     func_802A768C((u8 *)P, &D_803FC5A8, &D_803FC5AC, &D_803FC5B0, (u32 *)a2, (u32 *)a3, 0x100, (u8 *)vs);
     ENGINE_BLK(802D0174);
-    D_803FC5C4 = 5;
+    D_803FC5C4 = HOTROD_STUN;
     v = vs->unk76;
     if (v >= 0) {
         ENGINE_BLK(802D018C);
-        if (v < 0x32) {
+        if (v < HOTROD_BOUNCE_MIN) {
             ENGINE_BLK(802D0194);
-            v = 0x32;
+            v = HOTROD_BOUNCE_MIN;
         }
     } else {
         ENGINE_BLK(802D019C);
-        if (!(v < -0x31)) {
+        if (v > -HOTROD_BOUNCE_MIN) {
             ENGINE_BLK(802D01A8);
-            v = -0x32;
+            v = -HOTROD_BOUNCE_MIN;
         }
     }
     ENGINE_BLK(802D01AC);
@@ -461,23 +472,19 @@ void func_802D02F8(VS *vs) {
     if (vs->unk96[3] == 0)
         goto sound;
     ENGINE_BLK(802D0338);
-    D_803FC5C2 = 1;
+    D_803FC5C2 = HOTROD_SPARK_WAIT;
     s = func_802A5ED0();
     ENGINE_BLK(802D034C);
     if (!(s < 0xF))
         goto sound;
     ENGINE_BLK(802D035C);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 1, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802D0388);
-    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 2, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x29810, 1, 0xF, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802D03B4);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 3, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     ENGINE_BLK(802D03E0);
-    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 4, 1, engine_ctx(14), engine_ctx(15), engine_ctx(16), engine_ctx(17),
-                  engine_ctx(18), engine_ctx(19), engine_ctx(20), 1, 1);
+    func_802A6274(T(D_802C2954), 0x1D4C0, 1, 0xF, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
 sound:
     ENGINE_BLK(802D040C);
     s = vs->unk76;
@@ -565,11 +572,11 @@ s32 func_802D0710(VS *vs) {
     if (vs->unk96[2] == 1)
         goto air;
     ENGINE_BLK(802D0744);
-    d = 3.6f;
+    d = HOTROD_STEER_DIV;
     goto div;
 air:
     ENGINE_BLK(802D074C);
-    d = 11.0f;
+    d = HOTROD_STEER_DIV_AIR;
 div:
     ENGINE_BLK(802D0758);
     return engine_cvt_w_s((f32)vs->unk76 / d);
@@ -588,6 +595,16 @@ void func_802D0784(void) {
 
 #undef P
 #define P D_803FC5D0
+
+/* the suit's numbers (62740's helpers'; a rate is a frame's) */
+#define SUIT_BRAKE 0xC          /* func_802A785C: the speed's fall a frame, braking */
+#define SUIT_TURN_RATE 0x59D8   /* func_802A7FD8: the heading's turning rate */
+#define SUIT_SLOPE_DIV 120.0f   /* func_802A843C: the slope's push divided by */
+#define SUIT_CAMERA_TURN 0.25f  /* func_802A71DC: the share of the way to the camera's heading it turns a frame, turned (D_803A7425) */
+#define SUIT_FACING 0x190       /* within this of the camera's heading: D_803FC99A */
+#define SUIT_STEER 0x6E         /* func_802D2444's steering rate walking */
+#define SUIT_STEER_ROLLING 5    /* and rolling or landing */
+#define SUIT_IDLE_CHANCE 0x1E   /* standing, an idle animation starts one frame in this many */
 
 /* part i's frame (func_802A04BC's v1), and its a0 (unk11) and t1 (unk13) */
 static s32 part(s32 i, s32 *a0, s32 *t1) {
@@ -779,19 +796,19 @@ void func_802D0F98(void) {
     turn = func_802A7E70(rate_i, &vs->unk4C, &stick_addr, &stick);
     (void)turn;
     ENGINE_BLK(802D1034);
-    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0xC, vs, &t3);
+    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, SUIT_BRAKE, vs, &t3);
     ENGINE_BLK(802D103C);
     if (vs->unkA1 == 0) {
         ENGINE_BLK(802D1048);
         func_802A77D0(vs);
     }
     ENGINE_BLK(802D1050);
-    func_802A7FD8(0x59D8, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
+    func_802A7FD8(SUIT_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802D1068);
     ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802D1074);
-    func_802A843C(&vs->unk76, 0, 0x10, (s8 *)vs->unk96, vs->unk4, 120.0f, vs);
+    func_802A843C(&vs->unk76, 0, 0x10, (s8 *)vs->unk96, vs->unk4, SUIT_SLOPE_DIV, vs);
     ENGINE_BLK(802D1088);
     if (D_803FC998 != 0) {
         ENGINE_BLK(802D1098);
@@ -859,7 +876,7 @@ void func_802D0F98(void) {
         h = 0xFFF - h;
     }
     ENGINE_BLK(802D1228);
-    if (h < 0x190) {
+    if (h < SUIT_FACING) {
         ENGINE_BLK(802D1234);
         D_803FC99A = 1;
     }
@@ -868,7 +885,7 @@ void func_802D0F98(void) {
     ENGINE_BLK(802D1248);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.25f, vs, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, SUIT_CAMERA_TURN, vs, &a1);
 
         ENGINE_BLK(802D125C);
         D_803FC994 = a0;
@@ -956,11 +973,11 @@ s32 func_802D2444(VS *vs) {
         if (vs->unkA1 == 4)
             goto rolling;
         ENGINE_BLK(802D2480);
-        r = 0x6E;
+        r = SUIT_STEER;
         goto done;
     rolling:
         ENGINE_BLK(802D2488);
-        r = 5;
+        r = SUIT_STEER_ROLLING;
     }
 done:
     ENGINE_BLK(802D248C);
@@ -1134,7 +1151,7 @@ static void stand(VS *vs) {
     if (r == 1)
         return;
     ENGINE_BLK(802D1668);
-    r = func_8026A8E0(0, 0x1E);
+    r = func_8026A8E0(0, SUIT_IDLE_CHANCE);
     ENGINE_BLK(802D1674);
     if (r != 0)
         return;

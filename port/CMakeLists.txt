@@ -956,6 +956,13 @@ if(EMSCRIPTEN)
         # emscripten's fibers (fiber_asyncify.c), and the loop's sleeps
         # hand the page its thread back (main.c)
         target_link_options(blastcorps PRIVATE -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536)
+        # (the renderer never switches fibers: web/asyncify_remove.txt)
+        if(NOT PORT_WASM_ASYNCIFY_ALL)
+            target_link_options(blastcorps PRIVATE
+                -sASYNCIFY_REMOVE=@${CMAKE_CURRENT_SOURCE_DIR}/web/asyncify_remove.txt)
+            set_property(TARGET blastcorps APPEND PROPERTY LINK_DEPENDS
+                ${CMAKE_CURRENT_SOURCE_DIR}/web/asyncify_remove.txt)
+        endif()
     endif()
     if(PORT_WASM_TARGET STREQUAL "node")
         if(WASM_PTHREAD)
@@ -971,8 +978,8 @@ if(EMSCRIPTEN)
             -lidbfs.js -sFORCE_FILESYSTEM -sINVOKE_RUN=0 -sEXIT_RUNTIME=0
             -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV
             --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html)
-        set_target_properties(blastcorps PROPERTIES SUFFIX ".html"
-            LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html)
+        set_target_properties(blastcorps PROPERTIES SUFFIX ".html")
+        set_property(TARGET blastcorps APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/web/shell.html)
         target_compile_definitions(host PRIVATE PORT_WASM_WEB PORT_HAVE_GL)     # (gfx_gl.c on WebGL 2)
     endif()
 elseif(PORT_MOVABLE AND APPLE)

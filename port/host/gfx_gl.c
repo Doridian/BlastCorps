@@ -299,6 +299,7 @@ static Target *get_target(uint32_t addr) {
         memmove(targets, targets + 1, 7 * sizeof targets[0]);
         ntargets--;
     }
+    gfx_gl_gen++;                                   /* (recorded draw states name targets) */
     t = &targets[ntargets++];
     memset(t, 0, sizeof *t);
     t->addr = addr;
@@ -335,6 +336,7 @@ static void set_geometry(int s, float aspect) {
     int off = gfx_wide_off_for(aspect), npx = (TW + 2 * off) * s;
     if (s == scale && npx == tw_px && depth_rb)
         return;
+    gfx_gl_gen++;
     int old_w = tw_px, old_h = th_px;
     GLC_DIRTY();
     if (!depth_rb)
@@ -447,6 +449,7 @@ static void tc_sweep(void) {
     int n = 0;
     flush();                    /* the pending batch may use them */
     GLC_DIRTY();
+    gfx_gl_gen++;               /* (and recorded draw states) */
     for (int i = 0; i < TC_SIZE; i++)
         if (tcache[i].tex && !tcache[i].hd) {   /* (a font glyph's is shared: hd_texture) */
             glDeleteTextures(1, &tcache[i].tex);
@@ -1091,6 +1094,16 @@ static int raw_valid;
 static DrawState ds_cur, ds_batch;
 static int batch_valid;
 
+/* --interpolate's replays (gfx.c, "replaying the first pass"): the draw
+   states of a task's first pass, kept by number, and the one a replay
+   draws with instead of making one from gs */
+static DrawState *ds_rec;
+static int ds_rec_n, ds_rec_cap;
+static int ds_batch_id = -1;            /* ds_batch's number in ds_rec (-1: not kept) */
+static int ds_forced = -1;
+unsigned gfx_gl_gen;
+unsigned long long gfx_gl_rec_missed;
+
 typedef struct {
     float x, y, z, w, s, t, r, g, b, a;     /* GfxVtx's */
     float box[4];                           /* s, t kept within: low s, t, high s, t */
@@ -1307,6 +1320,24 @@ static int build_state(int kind, int tile) {
 }
 
 static void begin(int kind, int tile) {
+    if (ds_forced == -2) {              /* (a replay drawing what it has no state for: made from gs) */
+        gfx_gl_rec_missed++;
+        ds_forced = -1;
+        raw_valid = 0;
+    }
+    if (ds_forced >= 0) {
+        if (batch_valid && ds_batch_id == ds_forced)
+            return;
+        const DrawState *d = &ds_rec[ds_forced];
+        if (!batch_valid || memcmp(d, &ds_batch, sizeof *d)) {
+            batch_close();
+            ds_batch = *d;
+            batch_valid = 1;
+            st_flushes_state++;
+        }
+        ds_batch_id = ds_forced;
+        return;
+    }
     /* the same command as the last draw's state was made after: the same
        state (build_state would find its raw state unchanged) */
     static uint32_t serial;
@@ -1322,8 +1353,32 @@ static void begin(int kind, int tile) {
         batch_close();
         ds_batch = ds_cur;
         batch_valid = 1;
+        ds_batch_id = -1;
         st_flushes_state++;
     }
+}
+
+void gfx_gl_rec_reset(void) { ds_rec_n = 0; ds_batch_id = -1; }
+
+/* the draw state a draw of this kind gets now (made if need be, as the draw
+   would), kept: its number */
+int gfx_gl_rec_state(int kind, int tile) {
+    begin(kind == GFX_GL_FILL ? K_FILL : kind == GFX_GL_TEXRECT ? K_TEXRECT : K_TRI, tile);
+    if (ds_batch_id < 0) {
+        if (ds_rec_n == ds_rec_cap) {
+            ds_rec_cap = ds_rec_cap ? ds_rec_cap * 2 : 256;
+            ds_rec = realloc(ds_rec, (size_t)ds_rec_cap * sizeof *ds_rec);
+        }
+        ds_rec[ds_rec_n] = ds_batch;
+        ds_batch_id = ds_rec_n++;
+    }
+    return ds_batch_id;
+}
+
+void gfx_gl_rec_force(int id) {
+    ds_forced = id;
+    if (id < 0)                         /* (ds_cur may not be what was drawn since) */
+        raw_valid = 0;
 }
 
 static GLVtx *push(int n) {
@@ -1458,6 +1513,7 @@ void gfx_gl_texture_source(uint32_t addr) {
 void gfx_gl_task_begin(void) {
     raw_valid = 0;
     batch_valid = 0;
+    ds_batch_id = -1;
     cur_cimg = 1;
 }
 
@@ -1473,6 +1529,8 @@ void gfx_gl_task_end(void) {
 void gfx_gl_interp(int k) {
     flush();
     batch_valid = 0;
+    ds_batch_id = -1;
+    ds_forced = -1;
     raw_valid = 0;
     ipass_gl = k + 1;
 }
