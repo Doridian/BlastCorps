@@ -1711,10 +1711,7 @@ s32 func_802BE944(Building *b, s32 type) {
 
     ENGINE_BLK(802BE944);
     if (model != MODEL_GOAL) {
-        for (p = D_803059F0;; p++) {
-            ENGINE_BLK(802BE980);
-            if (p->types == 0)
-                break;
+        for (p = D_803059F0; ENGINE_BLK(802BE980), p->types != 0; p++) {
             ENGINE_BLK(802BE990);
             if (p->level != 0xFFFF) {
                 ENGINE_BLK(802BE9A0);
@@ -3326,10 +3323,7 @@ void func_802C0E8C(s32 group, Building *b) {
     if ((D_80364A90 & 0x440) != 0)
         goto out;
     ENGINE_BLK(802C0F1C);
-    for (id = D_80305E38;; id++) {
-        ENGINE_BLK(802C0F28);
-        if (B_ID(b) == *id)
-            break;
+    for (id = D_80305E38; ENGINE_BLK(802C0F28), B_ID(b) != *id; id++) {
         ENGINE_BLK(802C0F34);
         if (*id < 0)
             goto out;

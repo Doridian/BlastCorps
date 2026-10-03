@@ -47,6 +47,16 @@ void func_802BC578(void);
 
 #define T(p) ((s32)(p))
 
+/* the train's numbers (62740's helpers'; a rate is a frame's) */
+#define TRAIN_TURN_RATE 0x2328          /* func_802A7FD8: the heading's turning rate */
+#define TRAIN_BRAKE 6                   /* func_802A785C: the speed's fall a frame, braking */
+#define TRAIN_SLOPE_DIV 160.0f          /* func_802A843C: the slope's push divided by */
+#define TRAIN_SHUNT_SPEED 0x28          /* sent back from an end of the line */
+#define TRAIN_SHUNT_FRAMES 6            /* and stopped instead if it left the other end
+                                           fewer frames ago (D_803EFEC0, D_803EFEC4) */
+#define TRAIN_SPARK_WAIT 1              /* frames between sparks (D_803EFEC9) */
+#define TRAIN_SPARK_SPEED 0x9C40        /* func_802A6274's speed for them */
+
 /* set up: from the level loader, with the model file in $s2, the position
    in $t7, $s3, $s0 and the heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
@@ -180,14 +190,14 @@ void func_802BBEB8(void) {
     ENGINE_BLK(802BBF24);
     func_802BC578();
     ENGINE_BLK(802BBF2C);
-    t2 = func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
+    t2 = func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, TRAIN_BRAKE, vs, &t3);
     ENGINE_BLK(802BBF44);
-    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
+    func_802A7FD8(TRAIN_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802BBF60);
     ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802BBF6C);
-    func_802A843C(&vs->unk76, 1, 7, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 7, (s8 *)vs->unk96, vs->unk4, TRAIN_SLOPE_DIV, vs);
     ENGINE_BLK(802BBF80);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803EFE98, &D_803EFEA0, rate, &z);
     ENGINE_BLK(802BBF98);
@@ -248,20 +258,20 @@ void func_802BBEB8(void) {
                 }
                 ENGINE_BLK(802BC1A0);
                 D_803EFEC0 = 0;
-                if (D_803EFEC4 < 6)
+                if (D_803EFEC4 < TRAIN_SHUNT_FRAMES)
                     goto stop;
                 ENGINE_BLK(802BC1BC);
-                vs->unk76 = -0x28;
+                vs->unk76 = -TRAIN_SHUNT_SPEED;
             } else {
                 ENGINE_BLK(802BC1C8);
                 if (near == 0)
                     goto done;
                 ENGINE_BLK(802BC1D0);
                 D_803EFEC4 = 0;
-                if (D_803EFEC0 < 6)
+                if (D_803EFEC0 < TRAIN_SHUNT_FRAMES)
                     goto stop;
                 ENGINE_BLK(802BC1EC);
-                vs->unk76 = 0x28;
+                vs->unk76 = TRAIN_SHUNT_SPEED;
             }
             goto done;
         stop:
@@ -305,13 +315,13 @@ void func_802BC2C8(void) {
         ENGINE_BLK(802BC310);
     }
     ENGINE_BLK(802BC328);
-    func_802A6274(T(D_802C2984), 0x9C40, 1, 7, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    func_802A6274(T(D_802C2984), TRAIN_SPARK_SPEED, 1, 7, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     ENGINE_BLK(802BC350);
-    func_802A6274(T(D_802C2984), 0x9C40, 1, 7, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    func_802A6274(T(D_802C2984), TRAIN_SPARK_SPEED, 1, 7, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     ENGINE_BLK(802BC378);
     func_80260650(D_80367738, 0x29, NULL);
     ENGINE_BLK(802BC38C);
-    D_803EFEC9 = 1;
+    D_803EFEC9 = TRAIN_SPARK_WAIT;
 sound:
     ENGINE_BLK(802BC398);
     s = vs->unk76 >> 4;

@@ -51,17 +51,11 @@ s32 func_802C4A40(u8 *buf) {
     s32 n = 0, k, i;
 
     ENGINE_BLK(802C4A40);
-    for (b = D_803F4030;; b++) {
-        ENGINE_BLK(802C4A8C);
-        if (b == D_803F7654)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802C4A8C), b != D_803F7654; b++) {
         ENGINE_BLK(802C4A94);
         k = b->unkE9;
         p = &b->unkEC;
-        for (;;) {
-            ENGINE_BLK(802C4A9C);
-            if (k == 0)
-                break;
+        while (ENGINE_BLK(802C4A9C), k != 0) {
             ENGINE_BLK(802C4AA4);
             v = *p++;
             k--;
@@ -92,10 +86,7 @@ s32 func_802C4A40(u8 *buf) {
     k = D_8036EB90;
     bits = 0;
     n = 0;
-    for (i = 0;; i++) {
-        ENGINE_BLK(802C4B24);
-        if (k == 0)
-            break;
+    for (i = 0; ENGINE_BLK(802C4B24), k != 0; i++) {
         ENGINE_BLK(802C4B2C);
         k--;
         v = func_8026FE6C(i);
@@ -130,20 +121,14 @@ void func_802C4BF0(u8 *buf) {
     s32 k, g, all, any, total = 0, i, n;
 
     ENGINE_BLK(802C4BF0);
-    for (b = D_803F4030;; b++) {
-        ENGINE_BLK(802C4C38);
-        if (b == D_803F7654)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802C4C38), b != D_803F7654; b++) {
         ENGINE_BLK(802C4C40);
         k = b->unkE9;
         g = 0;
         p = &b->unkEC;
         all = 1;
         any = 0;
-        for (;;) {
-            ENGINE_BLK(802C4C54);
-            if (k == 0)
-                break;
+        while (ENGINE_BLK(802C4C54), k != 0) {
             ENGINE_BLK(802C4C5C);
             k--;
             g++;
@@ -182,25 +167,16 @@ void func_802C4BF0(u8 *buf) {
     }
     ENGINE_BLK(802C4CF4);
     D_80368040 = total;
-    for (b = D_803F4030;; b++) {
-        ENGINE_BLK(802C4D0C);
-        if (b == D_803F7654)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802C4D0C), b != D_803F7654; b++) {
         ENGINE_BLK(802C4D14);
         k = b->unkE9;
         g = 1;
-        for (i = 0;; i++, g++) {
-            ENGINE_BLK(802C4D20);
-            if (k == 0)
-                break;
+        for (i = 0; ENGINE_BLK(802C4D20), k != 0; i++, g++) {
             ENGINE_BLK(802C4D28);
             k--;
             if ((&b->unkEC)[i] == 0x64) {
                 ENGINE_BLK(802C4D40);
-                for (q = b->unk4;; q++) {
-                    ENGINE_BLK(802C4D48);
-                    if (q == (Piece *)b->unk8)
-                        break;
+                for (q = b->unk4; ENGINE_BLK(802C4D48), q != (Piece *)b->unk8; q++) {
                     ENGINE_BLK(802C4D50);
                     n = q->group;
                     if (n == g) {
@@ -225,10 +201,7 @@ void func_802C4BF0(u8 *buf) {
     ENGINE_BLK(802C4DA8);
     k = D_8036EB90;
     mask = 1;
-    for (i = 0;; i++) {
-        ENGINE_BLK(802C4DB8);
-        if (k == 0)
-            break;
+    for (i = 0; ENGINE_BLK(802C4DB8), k != 0; i++) {
         ENGINE_BLK(802C4DC0);
         k--;
         if (mask == 1) {
@@ -260,10 +233,7 @@ s32 func_802C4E58(u8 *buf, u8 medal) {
 
     ENGINE_BLK(802C4E58);
     medal--;
-    for (b = D_803F4030;; b++) {
-        ENGINE_BLK(802C4EA4);
-        if (b == D_803F7654)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802C4EA4), b != D_803F7654; b++) {
         ENGINE_BLK(802C4EAC);
         if (b->unk30 != 0x38) {
             ENGINE_BLK(802C4EBC);
@@ -275,10 +245,7 @@ s32 func_802C4E58(u8 *buf, u8 medal) {
         ENGINE_BLK(802C4ED4);
     }
     ENGINE_BLK(802C4EDC);
-    for (b = D_803F4030;; b++) {
-        ENGINE_BLK(802C4EEC);
-        if (b == D_803F7654)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802C4EEC), b != D_803F7654; b++) {
         ENGINE_BLK(802C4EF4);
         if (b->unkEB != 0) {
             ENGINE_BLK(802C4F00);
@@ -301,10 +268,7 @@ s32 func_802C4E58(u8 *buf, u8 medal) {
         }
     }
     ENGINE_BLK(802C4F68);
-    for (b = D_803F4030;; b++) {
-        ENGINE_BLK(802C4F80);
-        if (b == D_803F7654)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802C4F80), b != D_803F7654; b++) {
         ENGINE_BLK(802C4F88);
         k = b->unkE9;
         if (b->unk30 == 0x38)
@@ -327,10 +291,7 @@ s32 func_802C4E58(u8 *buf, u8 medal) {
         ENGINE_BLK(802C4FD0);
         bit = 0;
     bits:
-        for (;;) {
-            ENGINE_BLK(802C4FD4);
-            if (k == 0)
-                break;
+        while (ENGINE_BLK(802C4FD4), k != 0) {
             ENGINE_BLK(802C4FDC);
             k--;
             bits = bits << 1 | bit;
@@ -354,10 +315,7 @@ s32 func_802C4E58(u8 *buf, u8 medal) {
     ENGINE_BLK(802C5078);
     bits = 0;
     n = 0;
-    for (;;) {
-        ENGINE_BLK(802C5088);
-        if (k == 0)
-            break;
+    while (ENGINE_BLK(802C5088), k != 0) {
         ENGINE_BLK(802C5090);
         k--;
         if (want != 0) {

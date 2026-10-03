@@ -55,6 +55,17 @@ void func_802CD9AC(void);
 
 #define T(p) ((s32)(p))
 
+/* the van's numbers (62740's helpers'; a rate is a frame's) */
+#define VAN_BRAKE 0x19          /* func_802A785C: the speed's fall a frame, braking */
+#define VAN_TURN_RATE 0x4E20    /* func_802A7FD8: the heading's turning rate */
+#define VAN_SLOPE_DIV 800.0f    /* func_802A843C: the slope's push divided by */
+#define VAN_CAMERA_TURN 0.16f   /* func_802A71DC: the share of the way to the camera's heading it turns a frame, turned (D_803A7425) */
+#define VAN_STUN 5              /* frames without the gears (func_802A785C) after a bounce */
+#define VAN_BOUNCE_MIN 0x32     /* a bounce's speed at least (then halved, turned round) */
+#define VAN_SPARK_WAIT 1        /* frames between the wheels' sparks */
+#define VAN_STEER_DIV 3.6f      /* the steering's rate: the speed over this (func_802A7E70) */
+#define VAN_STEER_DIV_AIR 11.0f /* and with a wheel off the ground */
+
 /* set up: from the level loader, with the model file in $s2, the position
    in $t7, $s3, $s0 and the heading in $s1 */
 REGS(s2, t7, s3, s0, s1)
@@ -237,19 +248,19 @@ void func_802CD068(void) {
     ENGINE_BLK(802CD148);
     if (D_803F9314 == 0) {
         ENGINE_BLK(802CD158);
-        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 0x19, vs, &t3);
+        func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, VAN_BRAKE, vs, &t3);
         ENGINE_BLK(802CD160);
     } else {
         ENGINE_BLK(802CD168);
         D_803F9314--;
     }
     ENGINE_BLK(802CD174);
-    func_802A7FD8(0x4E20, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
+    func_802A7FD8(VAN_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 1, vs);
     ENGINE_BLK(802CD18C);
     ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802CD198);
-    func_802A843C(&vs->unk76, 1, 0xE, (s8 *)vs->unk96, vs->unk4, 800.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0xE, (s8 *)vs->unk96, vs->unk4, VAN_SLOPE_DIV, vs);
     ENGINE_BLK(802CD1AC);
     if (D_803F9313 != 0) {
         ENGINE_BLK(802CD1BC);
@@ -327,7 +338,7 @@ void func_802CD068(void) {
     ENGINE_BLK(802CD44C);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.16f, vs, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, VAN_CAMERA_TURN, vs, &a1);
 
         ENGINE_BLK(802CD460);
         D_803F9310 = a0;
@@ -360,19 +371,19 @@ hit:
     ENGINE_BLK(802CD3CC);
     func_802A768C((u8 *)D_803F8F50, &D_803F92F8, &D_803F92FC, &D_803F9300, (u32 *)a2, (u32 *)a3, 0x100, (u8 *)vs);
     ENGINE_BLK(802CD3F4);
-    D_803F9314 = 5;
+    D_803F9314 = VAN_STUN;
     v = vs->unk76;
     if (v >= 0) {
         ENGINE_BLK(802CD40C);
-        if (v < 0x32) {
+        if (v < VAN_BOUNCE_MIN) {
             ENGINE_BLK(802CD414);
-            v = 0x32;
+            v = VAN_BOUNCE_MIN;
         }
     } else {
         ENGINE_BLK(802CD41C);
-        if (!(v < -0x31)) {
+        if (v > -VAN_BOUNCE_MIN) {
             ENGINE_BLK(802CD428);
-            v = -0x32;
+            v = -VAN_BOUNCE_MIN;
         }
     }
     ENGINE_BLK(802CD42C);
@@ -410,7 +421,7 @@ void func_802CD578(VS *vs) {
     if (vs->unk96[3] == 0)
         goto sound;
     ENGINE_BLK(802CD5B8);
-    D_803F9312 = 1;
+    D_803F9312 = VAN_SPARK_WAIT;
     s = func_802A5ED0();
     ENGINE_BLK(802CD5CC);
     if (!(s < 0xF))
@@ -506,11 +517,11 @@ s32 func_802CD938(VS *vs) {
     if (vs->unk96[2] == 1)
         goto air;
     ENGINE_BLK(802CD96C);
-    d = 3.6f;
+    d = VAN_STEER_DIV;
     goto div;
 air:
     ENGINE_BLK(802CD974);
-    d = 11.0f;
+    d = VAN_STEER_DIV_AIR;
 div:
     ENGINE_BLK(802CD980);
     return engine_cvt_w_s((f32)vs->unk76 / d);
