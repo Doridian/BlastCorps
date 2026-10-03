@@ -321,8 +321,6 @@ static void hand_over(const s32 *parts, s32 n, s32 to, s32 stop_first) {
     func_8029F9D4(parts[0], to, P);
 }
 
-static const s32 LEGS[] = { 1, 5 }, IDLES[] = { 7, 8, 9 };
-
 /* standing: once, the walk's animation (the body's, then the legs')
    handed over to idle 7; then now and then (1 in MAGOO_IDLE_CHANCE + 1) a
    random idle (7, 8 or 9) when none plays */
@@ -336,7 +334,9 @@ static void stand(VS *vs) {
             func_802A02E4(0x1F, P);
             func_8029F9D4(0x1F, 7, P);
         } else {
-            hand_over(LEGS, 2, 7, 1);
+            s32 legs[2] = { 1, 5 };
+
+            hand_over(legs, 2, 7, 1);
         }
         body_anim(0x1E);
     }
@@ -366,12 +366,12 @@ static void leg_speed(s32 leg) {
    front (dust now and then); its step done, the next one: the right leg's
    (part 5) at MAGOO_STRIDE_SPEED or more, else the left's. */
 static void walk(VS *vs) {
-    s32 a0, leg;
+    s32 a0, leg, idles[3] = { 7, 8, 9 };
 
     ENGINE_COST(802B1C74, 54);
     if (MAGOO_WALKING(vs) != 1) {
         func_802A0360(1, 0, P, 0.0f);
-        hand_over(IDLES, 3, 1, 0);
+        hand_over(idles, 3, 1, 0);
         body_anim(0x28);
     }
     MAGOO_WALKING(vs) = 1;
