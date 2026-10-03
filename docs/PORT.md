@@ -3469,7 +3469,7 @@ own and the libm calls under them):
 
 | | function | what it does | share | why it costs | possible win | agent-hours |
 |---|---|---|---|---|---|---|
-| 1 | the rounding (`engine_cvt_*`, `recomp_rint*`) | float to integer as the VR4300 rounds | 7.2% (of it under `func_8029C160` 4.8, `engine_cvt_w_s` 1.6, `func_802AE160`/`AE104` 0.3, `piece_hit` 0.3) | a libm call each (`floor`, `nearbyint`) | all of it: exact inline versions (an `int64` conversion and a correction for `floor(x + 0.5)`; adding and subtracting 2^23 / 2^52 for round-to-even, which is `nearbyint` in the default mode) | 0.5-1 with the TAS (port/host/engine.c, recomp.h) |
+| 1 | the rounding (`engine_cvt_*`, `recomp_rint*`; done, below) | float to integer as the VR4300 rounds | 7.2% (of it under `func_8029C160` 4.8, `engine_cvt_w_s` 1.6, `func_802AE160`/`AE104` 0.3, `piece_hit` 0.3) | a libm call each (`floor`, `nearbyint`) | all of it: exact inline versions (an `int64` conversion and a correction for `floor(x + 0.5)`; adding and subtracting 2^23 / 2^52 for round-to-even, which is `nearbyint` in the default mode) | 0.5-1 with the TAS (port/host/engine.c, recomp.h) |
 | 2 | `func_8029C160` (56040) | a point against a collision triangle's plane: the distance (a 64-bit dot product over the normal's length) and the nearest point | 0.4 (+4.4 rounding) | called for every piece of every vehicle near something, a frame | after 1, little; skipping the projection when the distance already misses (its callers ignore the point then) | 1 |
 | 3 | `func_802A57DC` (60F60) | a texture's decode: the stream copied aside, then decoded over where it was | 0.65 | the copy, and a branch a word | perhaps half: decode the literals' runs a word pair at a time | 1-2 |
 | 4 | `func_802AA094` (62740) | a wheel's ground in the level's grid cell: each triangle's box, edges and plane (64-bit) | 0.34 | every wheel every frame walks its cell's triangles from scratch | most of it: each static triangle's box and plane worked out once at the level's load | 2-3 (the layout the C shares) |
@@ -3480,8 +3480,8 @@ own and the libm calls under them):
 | 9 | `func_802ABCDC` (62740) | a distance (`sqrt` of a 64-bit sum, rounded) | 0.11 | the rounding (1) and `sqrt` | 1 takes most | (in 1) |
 | 10 | `func_802C41C0` (7F8B0) | the vehicles' engine sound | 0.10 | | none worth it | - |
 
-Outside the engine the big ones are the audio microcode natively (a fifth
-of the main thread: the ADPCM decoder, the resampler and the envelope
+Outside the engine the big ones were the audio microcode natively (a fifth
+of the main thread before the changes below: the ADPCM decoder, the resampler and the envelope
 mixer, sample by sample) and, in the page, the renderer's first pass
 ("What's left").
 
@@ -3492,6 +3492,37 @@ their caller), `cpuprofile_report.py` (node's profiles of a
 `--profiling-funcs` WebAssembly build, the same areas by name), and
 `engine_costs.py` (O3's per-function charges: measuring the blocks,
 writing `ENGINE_COST`).
+
+**Done since** (the same measure, the TAS natively with `--renderer gl
+--scale 1`; the runs' own totals vary with the machine's load, so the
+shares and the ratio to `tri`, which didn't change, are what compare):
+
+- **The rounding (1).**  recomp.h's `recomp_rint` and `recomp_rintf`, and
+  so `engine_cvt_w_s`/`_l_s`/`_l_d` and the translated code's
+  conversions, no longer call libm: round-to-even is adding and taking
+  away 2^52 (2^23 for a float) in the default rounding mode, `floor` that
+  less one where it rounded up, a zero result with the input's sign.
+  `port/tools/rint_check.c` compares them with `nearbyint`,
+  `nearbyintf` and `floor (x + 0.5)` bit for bit over the edge cases
+  (halves, the 2^23, 2^31, 2^52 and 2^63 boundaries, both zeros, the
+  infinities, NaN), every quarter from -1024 to 1024 and 120 million
+  random inputs: no difference natively in 32 and 64 bits, nor under
+  emcc and node.  The engine with its rounding went from 11% of the main
+  thread to 4% (3.8% of its own and 7% in libm before), the main thread
+  about 10% less in all.
+- **The audio microcode.**  `port/host/aspmain.c` reads and writes DMEM's
+  halves as one access (a byte pair only at 0xFFF, where one wraps),
+  walks the buffers that don't wrap with pointers (the envelope mixer,
+  the mixer, the resampler), copies and clears with `memcpy` and `memset`
+  (a move only where it doesn't overlap: the microcode's byte loop
+  repeats an overlap), converts the resampler's taps once a task, unrolls
+  the envelope mixer's outputs and, once both volumes are at rest (no
+  ramp, or at the target every step lands back on), works its gains out
+  once.  Nothing it computes changed: the whole TAS's sound (`--wav`,
+  364 MB) is byte for byte what it was, and the quick tier's.
+  `host_audio_task` went from 20% of the main thread to under 10% (from
+  2.5 times `tri` to 1.1); what is left is spread over the ADPCM
+  decoder, the reverb's filter, the mixer and the resampler.
 
 ### What's left
 
