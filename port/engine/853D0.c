@@ -344,9 +344,7 @@ void func_802CA4E0(void) {
     ENGINE_BLK(802CA6E0);
     func_802CB42C(vs);
     ENGINE_BLK(802CA6E8);
-    ENGINE_LEAVE(8, 8);         /* $t0 and $t2, which func_8029A800 reads too */
-    ENGINE_LEAVE(10, 0x64);
-    func_8029A800(D_803F8B48, D_803F8B4C, D_803F8B50, D_80306420, 1, 1, vs->unk76, 0, 0xA, vs);
+    func_8029A800(D_803F8B48, D_803F8B4C, D_803F8B50, D_80306420, 1, 1, 8, vs->unk76, 0x64, 0, 0xA, vs);
     ENGINE_BLK(802CA734);
     func_8029C52C(0xA, vs);
     ENGINE_BLK(802CA73C);

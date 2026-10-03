@@ -223,7 +223,7 @@ void func_802BBEB8(void) {
     D_803EFEC4++;
     if (vs->unk9A == 0) {
         ENGINE_BLK(802BC0F4);
-        func_8029A800(D_803EFE98, D_803EFE9C, D_803EFEA0, D_80305E00, 0, 0, vs->unk76, 0, 7, vs);
+        func_8029A800(D_803EFE98, D_803EFE9C, D_803EFEA0, D_80305E00, 0, 0, 0, vs->unk76, 0, 0, 7, vs);
         ENGINE_BLK(802BC138);
         func_8029C52C(7, vs);
         ENGINE_BLK(802BC140);

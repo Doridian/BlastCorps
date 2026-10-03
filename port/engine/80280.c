@@ -944,7 +944,7 @@ sel2:
     sel = 2;
 bounce:
     ENGINE_BLK(802C5E34);
-    func_8029A800(D_803F7BF8, D_803F7BFC, D_803F7C00, D_80306400, 1, 0, vs->unk76, sel, 9, vs);
+    func_8029A800(D_803F7BF8, D_803F7BFC, D_803F7C00, D_80306400, 1, 0, 0, vs->unk76, 0, sel, 9, vs);
     ENGINE_BLK(802C5E3C);
     func_8029C52C(9, vs);
     ENGINE_BLK(802C5E44);

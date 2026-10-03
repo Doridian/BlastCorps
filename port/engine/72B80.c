@@ -360,9 +360,7 @@ void func_802B7A88(void) {
     ENGINE_BLK(802B7C90);
     func_802B8278(vs);
     ENGINE_BLK(802B7C98);
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x96);
-    func_8029A800(D_803EEF18, D_803EEF1C, D_803EEF20, D_80305D30, 1, 1, vs->unk76, 0, 8, vs);
+    func_8029A800(D_803EEF18, D_803EEF1C, D_803EEF20, D_80305D30, 1, 1, 7, vs->unk76, 0x96, 0, 8, vs);
     ENGINE_BLK(802B7CE4);
     func_8029C52C(8, vs);
     ENGINE_BLK(802B7CEC);

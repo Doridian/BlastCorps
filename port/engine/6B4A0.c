@@ -314,9 +314,7 @@ void func_802B03F4(void) {
     ENGINE_BLK(802B0588);
     func_802B0B3C(vs);
     ENGINE_BLK(802B0590);
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x64);
-    func_8029A800(D_803EDBE8, D_803EDBEC, D_803EDBF0, D_80305CE0, 0, 1, vs->unk76, 0, 1, vs);
+    func_8029A800(D_803EDBE8, D_803EDBEC, D_803EDBF0, D_80305CE0, 0, 1, 7, vs->unk76, 0x64, 0, 1, vs);
     ENGINE_BLK(802B05DC);
     func_8029C52C(1, vs);
     ENGINE_BLK(802B05E4);

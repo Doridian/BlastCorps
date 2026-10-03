@@ -327,9 +327,7 @@ void func_802CFDE8(void) {
     ENGINE_BLK(802CFFF0);
     func_802D05D8(vs);
     ENGINE_BLK(802CFFF8);
-    ENGINE_LEAVE(8, 7);         /* $t0 and $t2, which func_8029A800 reads too */
-    ENGINE_LEAVE(10, 0x96);
-    func_8029A800(D_803FC5A8, D_803FC5AC, D_803FC5B0, D_80306460, 1, 1, vs->unk76, 0, 0xF, vs);
+    func_8029A800(D_803FC5A8, D_803FC5AC, D_803FC5B0, D_80306460, 1, 1, 7, vs->unk76, 0x96, 0, 0xF, vs);
     ENGINE_BLK(802D0044);
     func_8029C52C(0xF, vs);
     ENGINE_BLK(802D004C);
@@ -818,7 +816,7 @@ void func_802D0F98(void) {
     ENGINE_BLK(802D1148);
     func_802D22F4(vs);
     ENGINE_BLK(802D1150);
-    func_8029A800(D_803FC978, D_803FC97C, D_803FC980, D_80306470, 0, 0, vs->unk76, 0, 0x10, vs);
+    func_8029A800(D_803FC978, D_803FC97C, D_803FC980, D_80306470, 0, 0, 0, vs->unk76, 0, 0, 0x10, vs);
     ENGINE_BLK(802D1194);
     func_8029C52C(0x10, vs);
     ENGINE_BLK(802D119C);

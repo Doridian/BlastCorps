@@ -599,10 +599,7 @@ void func_802BA9A0(VS *vs, s32 *s7) {
     if (D_803643D6 != 0)
         goto smoke;
     ENGINE_BLK(802BA9BC);
-    /* ($t0: func_8029A800 (56040.c) takes it from the context, and $t2,
-       which this leaves as func_802ABBEC left it) */
-    ENGINE_LEAVE(8, T(&D_803643D6));
-    func_8029A800(D_803EF6DC, D_803EF6E0, D_803EF6E4, D_80305D60, 0, 0, vs->unk76, 0, 0xFF, vs);
+    func_8029A800(D_803EF6DC, D_803EF6E0, D_803EF6E4, D_80305D60, 0, 0, 0, vs->unk76, 0, 0, 0xFF, vs);
     ENGINE_BLK(802BAA00);
     func_8029C52C(0xFF, vs);
     ENGINE_BLK(802BAA08);
@@ -910,7 +907,7 @@ void func_802BB274(void) {
     func_802BB8B8(vs);
     ENGINE_BLK(802BB36C);
     vs->unkA2 = 0;
-    func_8029A800(D_803EFAC8, D_803EFACC, D_803EFAD0, D_80305DF0, 0, 0, 0, 0, 6, vs);
+    func_8029A800(D_803EFAC8, D_803EFACC, D_803EFAD0, D_80305DF0, 0, 0, 0, 0, 0, 0, 6, vs);
     ENGINE_BLK(802BB3B4);
     func_8029C52C(6, vs);
     ENGINE_BLK(802BB3BC);

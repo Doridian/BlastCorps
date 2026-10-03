@@ -396,9 +396,7 @@ sparks_done:
     ENGINE_BLK(802B6560);
     func_802B7030(vs);
     ENGINE_BLK(802B6568);
-    ENGINE_LEAVE(8, 8);         /* $t0 and $t2: func_8029A800 (56040.c) takes them from the context */
-    ENGINE_LEAVE(10, 0x64);
-    func_8029A800(D_803EEB38, D_803EEB3C, D_803EEB40, D_80305D20, 1, 1, vs->unk76, 0, 5, vs);
+    func_8029A800(D_803EEB38, D_803EEB3C, D_803EEB40, D_80305D20, 1, 1, 8, vs->unk76, 0x64, 0, 5, vs);
     ENGINE_BLK(802B65B4);
     func_8029C52C(5, vs);
     ENGINE_BLK(802B65BC);
@@ -910,7 +908,7 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
     if (D_80364AA8 != 0x40)
         goto done;
     ENGINE_BLK(802AC2BC);
-    func_8029A800(x, y, z, a1, 1, 0, 0, 0, type, vs);
+    func_8029A800(x, y, z, a1, 1, 0, 0, 0, 0, 0, type, vs);
     ENGINE_BLK(802AC2D0);
     func_802BE77C(type, vs);
     ENGINE_BLK(802AC2D8);

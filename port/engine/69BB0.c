@@ -480,7 +480,7 @@ s32 func_802AEC3C(s32 d, VS *vs) {
     func_802AFA64(vs);
     ENGINE_BLK(802AED68);
     D_803ED81C = (u32)(vs->unk4[3] + vs->unk4[6]) >> 1;
-    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, 0, 0, vs);
+    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, 0, 0, 0, 0, vs);
     ENGINE_BLK(802AEDC8);
     func_8029AA10();
     ENGINE_BLK(802AEDD0);
@@ -612,7 +612,7 @@ parts:
     if (mode & 0x1801)
         goto still;
     ENGINE_BLK(802AF104);
-    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, vs->unk76, 0, 0, vs);
+    func_8029A800(D_803ED808, D_803ED80C, D_803ED810, D_80305CB0, 0, 0, 0, vs->unk76, 0, 0, 0, vs);
     ENGINE_BLK(802AF148);
     func_8029C52C(0, vs);
     ENGINE_BLK(802AF150);

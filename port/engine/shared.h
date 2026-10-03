@@ -76,9 +76,14 @@ REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
 s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
                   s32 s3, s32 s4, s32 s5, s32 a3);
 
-/* 56040, still translated: the parts' frame */
-REGS(v0, v1, a0, a1, a2, a3, t1, t3, t8, gp)
-void func_8029A800(s32 x, s32 y, s32 z, u8 *a1, s32 a2, s32 a3, s32 speed, s32 t3, s32 type, VS *vs);
+/* 56040: a vehicle's collisions each frame.  func_8029A800 sets up the
+   frame's state: its point, the kinds whose hit turns the camera (`kinds`,
+   to a negative byte), whether a hit makes the effect (hit_fx) and how
+   long it is (fx_len * 7000), its speed and the speed a hit needs for the
+   effect (fx_speed) */
+REGS(v0, v1, a0, a1, a2, a3, t0, t1, t2, t3, t8, gp)
+void func_8029A800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len, s32 speed, s32 fx_speed,
+                   s32 t3, s32 type, VS *vs);
 REGS(t8, gp)
 void func_8029C52C(s32 type, VS *vs);
 REGS()

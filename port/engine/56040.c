@@ -4488,24 +4488,17 @@ out:
 
 /* ---- the entry points as the vehicle modules declare them (shared.h) ----- */
 
-/* What shared.h leaves out they take from the context, where the vehicle
-   modules (both halves) leave it: func_8029C454 $s0-$s2 (func_802AA890's
-   point when it has no matrices) and func_8029A800 $t0 and $t2 (into
-   D_803A7428 and D_803A7422).  Parameters, once the vehicle modules pass
-   them (most are the other half's).  They leave some of their inputs, as
-   the original has them, for the readers after them. */
-
+/* (They leave some of their inputs, as the original has them, for the
+   readers after them.)  func_8029C454's point when it has no matrices
+   (func_802AA890's $s0-$s2: whatever the caller had there) is 0: no
+   model has such a point. */
 REGS(v0, v1, a0, t0, t1, t2, s4)
 void func_8029C454(s32 x, s32 y, s32 z, s32 type, u8 *a, u8 *b, u8 *buf) {
-    ENGINE_LEAVE(8, type);
-    ENGINE_LEAVE(10, (u32)b);
-    c454(type, a, b, x, y, z, buf, engine_ctx(16), engine_ctx(17), engine_ctx(18));
+    c454(type, a, b, x, y, z, buf, 0, 0, 0);
 }
 
 REGS(t0, t1, t2, t6, a1, a2, s4)
 void func_8029D040(s32 x, s32 z, s32 type, u8 *t6, s32 heading, Part *parts, u8 *buf) {
-    ENGINE_LEAVE(8, x);
-    ENGINE_LEAVE(10, type);
     d040((u16 *)t6, type, buf, x, z, heading, (u8 *)parts);
 }
 
@@ -4513,11 +4506,12 @@ void func_8029D040(s32 x, s32 z, s32 type, u8 *t6, s32 heading, Part *parts, u8 
    the original has in $t8 */
 static s32 a800_type;
 
-REGS(v0, v1, a0, a1, a2, a3, t1, t3, t8, gp)
-void func_8029A800(s32 x, s32 y, s32 z, u8 *a1, s32 a2, s32 a3, s32 speed, s32 t3, s32 type, VS *vs) {
+REGS(v0, v1, a0, a1, a2, a3, t0, t1, t2, t3, t8, gp)
+void func_8029A800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len, s32 speed, s32 fx_speed,
+                   s32 t3, s32 type, VS *vs) {
     ENGINE_LEAVE(24, type);
     a800_type = type;
-    a800(x, y, z, (u32)a1, a2, a3, engine_ctx(8), speed, engine_ctx(10), t3, type, vs);
+    a800(x, y, z, (u32)kinds, a2, hit_fx, fx_len, speed, fx_speed, t3, type, vs);
 }
 
 REGS()

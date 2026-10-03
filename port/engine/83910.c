@@ -174,7 +174,7 @@ void func_802C8C90(u8 type) {
     ENGINE_BLK(802C8DE8);
     func_802C9624(vs);
     ENGINE_BLK(802C8DF0);
-    func_8029A800(D_803F8748[0], D_803F8748[1], D_803F8748[2], D_80306410, 0, 0, vs->unk76, 0, 0xB, vs);
+    func_8029A800(D_803F8748[0], D_803F8748[1], D_803F8748[2], D_80306410, 0, 0, 0, vs->unk76, 0, 0, 0xB, vs);
     ENGINE_BLK(802C8E34);
     func_8029C52C(0xB, vs);
     ENGINE_BLK(802C8E3C);
@@ -398,7 +398,7 @@ void func_802C8FA8(u8 type) {
     ENGINE_BLK(802C9100);
     func_802C97C0(vs);
     ENGINE_BLK(802C9108);
-    func_8029A800(D_803F8748[3], D_803F8748[4], D_803F8748[5], D_80306410, 0, 0, vs->unk76, 0, 0x11, vs);
+    func_8029A800(D_803F8748[3], D_803F8748[4], D_803F8748[5], D_80306410, 0, 0, 0, vs->unk76, 0, 0, 0x11, vs);
     ENGINE_BLK(802C914C);
     func_8029C52C(0x11, vs);
     ENGINE_BLK(802C9154);
@@ -622,7 +622,7 @@ void func_802C92C0(u8 type) {
     ENGINE_BLK(802C9418);
     func_802C995C(vs);
     ENGINE_BLK(802C9420);
-    func_8029A800(D_803F8748[6], D_803F8748[7], D_803F8748[8], D_80306410, 0, 0, vs->unk76, 0, 0x12, vs);
+    func_8029A800(D_803F8748[6], D_803F8748[7], D_803F8748[8], D_80306410, 0, 0, 0, vs->unk76, 0, 0, 0x12, vs);
     ENGINE_BLK(802C9464);
     func_8029C52C(0x12, vs);
     ENGINE_BLK(802C946C);
