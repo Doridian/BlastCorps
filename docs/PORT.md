@@ -3742,6 +3742,127 @@ last write, and those are never last.  `ENGINE_BLK` stays (the
   finds no difference in the quick tier's runs: the leftovers the
   removed sites made were no checked caller's output.
 
+## The engine made readable
+
+DISTRIBUTION.md's phase O3: `port/engine` in ordinary C, by module over
+four agents (2026-10-03).  Each agent's part is a subsection below.  What
+all of them keep:
+
+- **The CPU model's charges stay.**  `ENGINE_BLK` charges the original's
+  blocks for `--cpu-model n64`; the readable code charges, on every path,
+  the same blocks as before (in its own order: a C loop's test is
+  `for (...; ENGINE_BLK(test), cond; ...)`, its body's block inside), so
+  the n64 timing is exactly what it was.  A loop that became one copy
+  charges its blocks in bulk (`ENGINE_BLKN(addr, k)`, buildings.h), and
+  code several functions share takes its callers' blocks from a table
+  (`Blk`, `BLKT`).  The check build (`PORT_ENGINE_CHECK`) compares the
+  cost and the state, which stay; its block trace, a diagnostic for a
+  difference, now comes in another order.
+- **The check.**  Besides the quick tier and the TAS (free timing): the
+  quick tier's four scenarios with `PORT_COUNT_PER_OP=2` (the n64 model,
+  lag frames and all), whose save, sound, digest and every screenshot have
+  to be the build before's, byte for byte: the CPU model's clock turns any
+  difference in the charges into a different game.
+
+### Buildings and the world
+
+77E20 (the buildings and their destruction), 89250 (the game's C's
+collision tests against them), 8A2E0 (the communication points), and the
+vehicle modules that are copies of others' (80280 the J-Bomb and the
+level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
+853D0 the Ballista, 88160 the A-Team van, 772A0 the train; 7F8B0 and
+86ED0 were readable already).
+
+- **Typed records** (buildings.h): the model header's fields the buildings
+  read (`M_STRENGTH`, `M_DEBRIS`, `M_SHADOWS`, `M_MAIN`, `M_VALUE`,
+  `M_MOVES`, ...), its sections (`MS_*`, each up to the next), a group's
+  looks (`GroupDl`: the conditions on other groups' damage that hide it,
+  `GroupCond`, then its two lists, `GroupDls`), the animated textures
+  (`AnimTex`), what a group rests on (`MS_SUPPORTS`), a building's
+  per-group state past objects.h's fields (`B_FALLING`, `B_FALL_T`,
+  `B_SPIN_X..Z`), the effect records' fields (`FX_*`; still read through
+  `FX_W/H/B`, whose halves and bytes native-endian memory keeps at their
+  N64 places), the delayed-damage queue (`DelayedHit`), the smoke, dust and
+  falling-shadow slots (`Smoke`, `Dust`, `FallShadow`), and in 77E20 the
+  target objects (`TargetObj`), the level's group sets (`GroupSet`) and the
+  models a vehicle can't harm (`Immune`).  The display-list commands they
+  write are `DL_*`.  Names only where the code shows the meaning (a field
+  `unkXX` otherwise).
+- **Control flow**: the asm's head-tested loops are C loops, its branch
+  ladders `if`s; what three functions did alike is one helper with each
+  caller's blocks: the sphere against a piece (`piece_touched`: its plane,
+  its triangle, an edge, a corner), the heading to a point
+  (`heading_to`), whether the level's goal is open (`goal_open`), an
+  object destroyed (`obj_destroyed`), a look shown as its group goes
+  (`look_shown`), a limited copy of a look (`copy_cmds_n`); the Ballista's
+  wheelie height (four copies) is `wheelie()`.  The barges' three copies
+  of the same code (83910) are one setup, one frame and one drawing
+  function over the barge's number, each copy's blocks in a table named by
+  the first copy's addresses (`BB(802C8C90)`); the nine original
+  functions call them.
+- **Leftovers**: 77E20 and 89250 take `func_8029BF64`'s arguments from
+  `piece_flat()` (56040's `c0dc()`, static there, with its blocks) instead
+  of the context (`C0DC_LEFT` is gone); `piece_flat` still leaves them in
+  `$v0`-`$t1` as `func_8029C0DC` did, since later code may find them
+  there.  80280's and 8AEE0's `func_802A6274` calls (mode 1, which never
+  reads them) and 772A0's `func_802AABE4` (a matrixless point no model
+  has) pass 0 instead of context registers.  Kept, for 5CB60's collision
+  bytes and 69BB0's driver (their readers are the core agent's): 77E20's
+  `$v0` (`func_802BD1F8`), `$fp` (`func_802BD99C`), `$t9`
+  (`func_802BE944`, `func_802BEADC`), `func_802BD1F8`'s `$t6`-`$t8`
+  (three locals now, left at its end) and its `$s4`, `$t8`, `$t9` saves.
+- **`func_802BD1F8`** (the buildings' display lists, the biggest single
+  game function in the page, O4): it looked up each building's cell in
+  the visible cells' list; now a table marked from the list once a frame
+  (and cleared after) gives the place, and its blocks are charged by it.
+  The display lists are copied by plain loops (a memcpy call for a few
+  commands cost more than the copy) with their blocks charged in bulk.
+  Natively (the 32-bit build, `PORT_AUTOSTART=3`, rdtsc around the
+  function's own work, its callees left out): 21.3-22.6 Mcycles per 1,500
+  calls before, 18.4-18.8 after, about 14% less; Simian Acres draws about
+  37 buildings, 54 looks and 112 head commands a frame.  With every
+  `ENGINE_BLK` taken out (an upper bound, not a build) it would be 11%
+  less again: what is left is the work, mostly reading the models.
+  Pictures byte for byte (the quick tier's screenshots, both CPU models).
+
+**The per-frame numbers** (for the 60-tick mode; DISTRIBUTION.md's
+"(a) at N=2"): a rate is a frame's, a count is in frames.
+
+| name | value | what |
+|---|---|---|
+| `FALL_ACCEL` | 30000 | a falling group comes down `FALL_ACCEL * t^2` (16.16, t its frames, `B_FALL_T`) |
+| `B_SPIN_X..Z` × `B_FALL_T` | `D_803649E0..E4` | its spin: the rates (12-bit angles a frame) times its frames |
+| `DELAY_MAX` | 20 | a queued hit (explosions, `func_802BC888`) waits 1..19 frames |
+| `SMOKE_FADE`, `SMOKE_ALPHA`, `SMOKE_WAIT` | 20, 0xFF, 3 | a smoke cloud fades by 20 a frame from 0xFF; rests 3 frames |
+| `DUST_ACCEL`, `DUST_SHAKE`, `DUST_WAIT` | 16, 32, 3 | the dust rises faster by 16 a frame, shaken ±32 each frame; rests 3 |
+| `SHADOW_ACCEL`, `SHADOW_SIZE_MAX`, `SHADOW_HOLD`, `SHADOW_WAIT` | 15, 0x385, 6, 3 | a falling group's shadow grows faster by 15 a frame to 0x385, lasts 6 more, rests 3 |
+| `FX_DEBRIS_DELAY` | 10 | each debris piece but the first starts 10 frames later (`FX_DELAY` counts down a frame) |
+| `COMM_SPARKS` | 24 | a communication point's sparks, one a frame (`FX_DELAY` 0..23) |
+| `PUSH_FRAMES` | 20 | pushed this many frames in a row brings the group down (`func_802BEFF4`) |
+| `SHAKE_HIT_FRAMES`, `SHAKE_DOWN_FRAMES` | 10, 15 | the screen's shake (00000.c: its size falls by a sixth a frame) |
+| `AnimTex.lo` (kind 0) | per model | an animated texture's frames per step; kind 1 every `lo` sixteenths of `D_803649D8` |
+| the frame counters | — | `D_80358068` (consecutive hits: `func_802C0284`, `func_802BEFF4`), `D_803F77F8`, `D_803F77F4` |
+| `TRAIN_*` | 0x2328, 6, 160.0, 0x28, 6, 1 | turn rate, brake, slope divisor, shunting speed, frames between the ends, between sparks |
+| `VAN_*`, `HOTROD_*` | 0x4E20/0x1F40, 0x19/0x10, 800/500, 0.16, 5, 0x32, 1, 3.6, 11.0 | turn rate, brake, slope divisor, turn toward the camera, frames without gears after a bounce, a bounce's least speed, frames between sparks, steering divisors |
+| `SUIT_*` | 0x59D8, 0xC, 120.0, 0.25, 0x6E, 5, 30 | the Cyclone Suit: as above, its steering walking and rolling, an idle animation one frame in 30 |
+| `BIKE_*` | 0x3E80, 0x10, 640, 0.36, 5, 1, 2.2, 6.0 | the Ballista: as above |
+| `BIKE_LEAN_RATE`, `BIKE_MISSILE_WAIT` | 0.05, 5 | its lean a frame; frames between missiles |
+| `BIKE_WHEELIE_*` | G 16, V 0x3C, HOLD 0x17, BOOST 0x33, BOUNCE 0x3C | its wheelie: height `v t - 16 t^2`, held up to 0x17 frames |
+| `BARGE_*` | 0x2328, 6, 160, 0x50, 10.6 | the barges: turn rate, brake, slope divisor, a bump's least speed, steering divisor |
+| `JBOMB_*` | drag 8, air 9, grace 3, lift 0x1E, climb 0xA, slam 0x14, land 0x1E, air steering 0x14 +2 a frame to 100 | the J-Bomb |
+
+(The vehicles' turn rates, brakes and slope divisors are arguments to
+62740's helpers, the vehicles agent's: what a frame of each does is there.
+The sparks' `func_802A6274` speeds and the animations' frame counts
+(`func_802A039C`) are the effects' and 56040's.)
+
+What is left (about 3-5 agent-hours): the vehicle modules' frame
+functions' remaining branch
+ladders (the hit, the camera turn, the J-Bomb's modes), alike in 72B80
+and 6C5E0 and best done with the vehicles agent's names for the
+VehicleState fields; `unkXX` fields named as their meaning is found; and
+the leftovers above once 5CB60's collision bytes are defined values.
+
 ## Other versions
 
 `PORT_VERSION` is `us.v11` (the default), `us.v10` or `jp` (Blastdozer).

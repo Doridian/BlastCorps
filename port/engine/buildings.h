@@ -100,8 +100,6 @@ typedef struct GroupDls {
 #define GDL_GROUP(r) (GDL_COND(r)->group)
 #define GDL_DLS(r, n) ((GroupDls *)((u8 *)(r) + 4 + (n) * 4))
 #define GDL_NEXT(r) ((u8 *)GDL_DLS(r, GDL_N(r)) + sizeof(GroupDls))
-/* whether condition c hides a look at damage `dmg` */
-#define GCOND_HIDES(c, dmg) ((c)->below ? (dmg) < (c)->limit : (c)->limit < (dmg))
 /* the damage a hidden-look test takes for the group being destroyed itself
    (func_802C09B8, func_802C0E8C, func_802C1438: the look it had just
    before) */
@@ -359,17 +357,10 @@ static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }
         while (blkn_--)                                                     \
             ENGINE_BLK(addr);                                               \
     } while (0)
-#define ENGINE_BLKN_T(b, k)                                                 \
-    do {                                                                    \
-        u32 blkn_ = (k);                                                    \
-        while (blkn_--)                                                     \
-            ENGINE_BLK_((b).id, (b).n);                                     \
-    } while (0)
 #else
 #define ENGINE_BLKN_(id, n, k) (__port_icount += (u32)(n) * (u32)(k))
 #define ENGINE_BLKN_X(...) ENGINE_BLKN_(__VA_ARGS__)
 #define ENGINE_BLKN(addr, k) ENGINE_BLKN_X(ENGINE_BLK_##addr, (k))
-#define ENGINE_BLKN_T(b, k) (__port_icount += (u32)(b).n * (u32)(k))
 #endif
 
 /* a block named in a table, for code several functions share with blocks
