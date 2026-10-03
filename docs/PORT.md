@@ -3828,6 +3828,16 @@ level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
   less again: what is left is the work, mostly reading the models.
   Pictures byte for byte (the quick tier's screenshots, both CPU models).
 
+**Checked** (us.v10, 32-bit, each batch): the quick tier as the
+references, its four scenarios under `--cpu-model n64` byte for byte the
+build before's, and the TAS (free timing: 125,297 reads, 57 platinum, the
+reference's save and gameplay digest).  At the end: all eight variants
+(`test.py variants --gameplay`, `wasm` included) equal to the references
+in every hash, jp's quick tier as its references, and the whole TAS
+replayed with the n64 model (`PORT_COUNT_PER_OP=2`, free timing) gives
+the same digest (its clock included) and save as main before O3: the
+charges are the same on every path the TAS takes.
+
 **The per-frame numbers** (for the 60-tick mode; DISTRIBUTION.md's
 "(a) at N=2"): a rate is a frame's, a count is in frames.
 
