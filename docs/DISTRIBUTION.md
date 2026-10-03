@@ -308,7 +308,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
     2 ticks, and report the time to the first divergence from `polls.csv` and whether the level still
     finishes with its medal.  That is a drift measure, not a pass/fail: the integration isn't linear
     and collisions are chaotic, so the TAS can't stay in sync.
-- **First: an optimization pass under that bar** (O0 and O1 done, the rest not started).  The engine in `port/engine` still
+- **First: an optimization pass under that bar** (O0 and O1 done, O4 outside the engine done, the rest not started).  The engine in `port/engine` still
   carries what made it checkable against the asm: 9,844 `ENGINE_BLK` charges for the CPU model,
   about 1,200 `ENGINE_LEAVE*` sites leaving registers as the asm did, about 300
   `engine_frame*`/`engine_save`/`engine_restore` sites keeping dead stack frames that other code's
@@ -322,7 +322,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5; **done** (2026-10-02, about 3): the model is off by default (`--cpu-model n64` brings the N64's lag back), no level frame lags; the TAS with the port's own frame timing (`PORT_REPLAY_TIMING=free`, `test.py tas`'s default) matches every read, 57 platinum, the reference's gameplay digest and save; the levels' clock runs 5% less in all (up to 12% in the busiest), the whole run 9.6% shorter (docs/PORT.md, "Lag frames") |
   | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10 |
   | O3 | Make the engine readable: struct fields for offsets, named per-frame constants, loops and calls in place of the asm's shape, by module over 4 agents | the TAS per module | 15–30 |
-  | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10 |
+  | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10; **outside the engine done** (2026-10-02, about 3): Binaryen's one-caller inlining limited (the game's C 2-3 times faster in the page under Asyncify), the renderer's TMEM loads, texture lookups and per-triangle state cut (the in-between pass 54% less natively, a third in the page); the page's work at 4x on the GPU 6.5 → 3.8 ms a retrace with O1; pictures byte for byte; the engine's hot spots listed for the engine round (docs/PORT.md, "The second round") |
   | O5 | References, docs, the macOS/wasm builds again | — | 1–2 |
 
   About 30–60 agent-hours (25–80), 10–20 elapsed over 4 agents.  O0–O2 and O4 alone, the speed

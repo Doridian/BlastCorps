@@ -3151,13 +3151,129 @@ Natively (Linux, the `mn32` build, OpenGL headless, `--scale 6
 
 The module: 3.50 MB before, 3.52 MB after (0.93 MB gzipped).
 
+### The second round (O4: measured hot spots)
+
+DISTRIBUTION.md's optimization pass, phase O4, outside the engine
+(`port/engine`, being rewritten at the time) and the CPU model: the
+renderer, the WebAssembly build, the host.  How it was measured: the page
+by `web_perf.mjs` with `PORT_ADAPT=0` (the in-between pictures always
+drawn, so that the parts compare), the two builds alternately, twice each,
+on a machine three other agents were building on (so: the means of each
+part over the windows from retrace 3,000, and the ratios between the
+parts, not single samples); natively by deterministic runs
+(`--deterministic --renderer gl --scale 4 --interpolate --widescreen`,
+the same work every run, three times each) and a sampling profiler
+(`setitimer` on the main thread's CPU time, symbolized with inline frames:
+`perf` and valgrind aren't there, or can't run this machine's libc).
+The TAS with `PORT_PERF` and the OpenGL renderer gave the levels by cost:
+Simian Acres, which `PORT_AUTOSTART=3` plays, is among the heaviest on
+average (Argent Towers, Carrick Point and Havoc District with it); the
+heaviest single windows are Tempest City's (its buildings coming down:
+game 0.23 ms, `gfx` 0.58 natively).
+
+**Where the time went** (us.v10, Simian Acres, Chromium on the GPU at 4x
+CPU throttling, ms a retrace; at the start of the round, with the CPU
+model still on): game 2.1-2.6 (of which the game's main loop alone, by
+Chromium's profile, 0.8: see below), `gfx` 1.7, `gfx2` 1.4, GL calls
+0.35, audio 0.3, the browser's own work about 0.5, the loop 0.2; about
+6.5 ms of work.  Natively everything is small (0.75 ms a retrace, the
+renderer three quarters of it): TMEM loads (`load_block`, 25% of the
+main thread), the textures' hashing (6%) and lookup, `tri`, `do_vtx`, a
+`memset`/`memcmp` per triangle in `build_state`, then audio (9%) and the
+GL driver.  The TMEM loads were 3.8 GB over 4,200 retraces: about 300
+LoadBlocks of 3 KB a task, half of them in the in-between pass.
+
+What changed:
+
+- **WebAssembly: Binaryen's inlining.**  `wasm-opt` inlines every
+  function with one caller whatever its size: the game's main loop,
+  `func_80244930`, had taken in most of the game's C (300,000 lines of
+  wat, 272 locals), `main()` most of the host.  Under Asyncify each fiber
+  switch unwinds and rewinds every frame on the stack, and rewinding one
+  walks its body to the call it left from.  The link now passes
+  `--one-caller-inline-max-function-size=200` (20 and 2,000 were slower):
+  the game's C 2.6 → 1.3 ms at 4x in the page with the CPU model on,
+  1.0 → 0.8 with it off (fewer switches); under node, deterministic,
+  0.37 → 0.20 ms (native: 0.13).  The module grows 3.5% (1.5% gzipped).
+  (Running `opt -O2` over the whole N64 side after `port-arena`, which
+  only `llc` follows now, was tried too: 6% off the game natively, nothing
+  measurable in WebAssembly, not kept.)
+- **TMEM loads a row at a time**: a LoadBlock's words are copied a row
+  (the run of words between two of `dxt`'s row changes) at a time, a
+  `memcpy` or a swap of the halves of each word, not a call per word.
+- **Textures found again by TMEM's generation** (`gs.tmem_gen`, bumped
+  by every load): the lookup (`tile_texture`) keeps, per generation, the
+  tiles it found and their GL textures, so the same tile over the same
+  loads isn't hashed again.  The in-between passes run the first pass's
+  loads from the same generation on and find their textures there (all
+  but a few hundred of 900,000 lookups in a run); their loads aren't
+  even copied then (`tload`, `gfx_tmem_sync`): only a lookup that misses
+  (a triangle the first pass culled) copies, and only the loads that
+  write what it reads and those beneath them (9% of the loads).
+- **The interpolation tables** (64K entries each, cleared for every
+  frame: 768 KB of `memset` a frame) are cleared by the entries the frame
+  used.
+- **A draw's state** is made again only after a display-list command that
+  can change it (`gfx_state_serial`), not for every triangle.
+- **The software fills** (the z-buffer's clear in RDRAM, every frame) a
+  row at a time, out of line, and the rasterizer out of line (WebAssembly
+  engines compile one huge function badly).
+
+The pictures are byte for byte what they were: the OpenGL screenshots
+of `PORT_AUTOSTART=3` (84 over 4,200 retraces, with and without
+`--hd-text`) and the software renderer's, against the build before; the
+quick tier passes in all eight variants (wasm equal to mn32 in every
+hash); the TAS (free timing) on 32 and wasm as in "Testing the port".
+
+Results, the same windows, ms a retrace (means of the parts; `PORT_ADAPT=0`):
+
+| | game | `gfx` | `gfx2` | GL calls | audio | work (median) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chromium, GPU, 4x, before (CPU model off) | 1.0 | 1.66 | 1.37 | 0.33 | 0.31 | 6.8 |
+| Chromium, GPU, 4x, after | 0.78 | 1.38 | 0.84 | 0.36 | 0.31 | 5.1 |
+| Chromium, SwiftShader, 4x, before | 1.6 | 2.85 | 2.14 | 8.8 | 0.5 | 7.6 |
+| Chromium, SwiftShader, 4x, after | 1.05 | 2.2 | 1.42 | 9.0 | 0.48 | 5.5 |
+| native (mlp64), before | 0.04 | 0.28 | 0.25 | 0.07 | 0.05 | |
+| native (mlp64), after | 0.04 | 0.19 | 0.11 | 0.07 | 0.05 | |
+
+(SwiftShader at 1278x720 with every in-between picture is the GPU's
+time, "GL calls"; `PORT_ADAPT` lowers the resolution there.)  From the
+start of the round (CPU model on, before O1) to now, the page's work at
+4x on the GPU went from about 6.5 ms a retrace to 3.8.
+
+**Where it goes now** (Chromium's profile, GPU, 4x, 15 s in the level,
+4.6 ms of busy time a retrace): the renderer 2.8 ms (`tri` 0.69, `run`
+0.33, `do_vtx` 0.29, TMEM loads 0.17, `begin` 0.15, texture lookups and
+hashing 0.27, the GL calls and WebGL's JavaScript about 0.3), the game
+0.71 (below), the browser's own work 0.5, audio 0.31 (the microcode's
+commands, the ADPCM decoder and the envelope mixer first) and SDL's
+audio callback 0.1, the loop 0.17 (half of it `PORT_PERF`'s own clock
+reads, then SDL's gamepad polling).
+
+**The engine's hot spots** (for the engine round, O3/O4; by self time,
+natively and in the page, which agree): the collision tests
+(`func_8029C160`, a point against a piece's plane, and `func_8029B02C`,
+`func_8029BD0C`, 56040.c; `func_802AA5E0`, a point in a triangle's box,
+and `func_802AA094`, the ground's height under a point, 62740.c), the
+buildings' display lists (`func_802BD1F8`, 77E20.c, the biggest single
+function of the game in the page), the scaffolding the translation left
+(`engine_leave`/`engine_leave64`, `engine_ctx`: as much as any one of
+the above; O2 takes it out), the polls (`__port_poll`, 6% of the game in
+the page), the matrices (`guMtxCatF`, `func_802ACCCC`), and libaudio's
+voice mixing (`al_voice_mix`, `pull_table`).  None is more than 6% of
+the game; the game as a whole is a sixth of the page's work now.
+
 ### What's left
 
-- **The in-between pass redoes the display list**: TMEM loads, texture
-  hashing, state, every command, for a picture whose only difference is
-  where the vertices are.  Recording the first pass's triangles and
-  running only their vertices again would take off most of `gfx2`
-  (40% of the renderer).
+- **The in-between pass still runs the display list** (vertices, state,
+  every command; no longer the loads or the textures' hashing), for a
+  picture whose only difference is where the vertices are.  Recording
+  the first pass's triangles and running only their vertices again
+  would take off most of what's left of `gfx2` (a third of the renderer).
+- **`tri` in WebAssembly** is three to four times its native cost, the
+  most of any part of the renderer; unexplained (Asyncify instruments
+  it, through the GL calls' paths, but taking the renderer out of
+  Asyncify measured nothing before).
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
