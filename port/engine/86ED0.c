@@ -30,8 +30,4 @@ void func_802CB690(VS *vs) {
     func_80278EB0(6, 0.25f, 100);
     ENGINE_BLK(802CB6F8);
     D_80367C00 = 1;
-    /* what the original leaves in $a0-$a2 */
-    ENGINE_LEAVE(4, 1);
-    ENGINE_LEAVE(5, 0x3E800000);
-    ENGINE_LEAVE(6, 100);
 }

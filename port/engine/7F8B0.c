@@ -201,8 +201,6 @@ void func_802C4584(s32 speed) {
         scale = 0.03f;
     }
     ENGINE_BLK(802C467C);
-    ENGINE_LEAVE_F(0, (f32)speed);      /* (its callers may read $f0 and $f2) */
-    ENGINE_LEAVE_F(2, scale);
     pitch = 0.5f + (f32)speed * scale;
     func_80260AB8(D_803F7844, 0x10, *(s32 *)&pitch);
     ENGINE_BLK(802C469C);

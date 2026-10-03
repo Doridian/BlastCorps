@@ -70,15 +70,12 @@ void func_802A5510(LevelHeader *h) {
 }
 
 /* func_802A5604 (72B80's): the same for the position at D_803EF2EC, from
-   bounds44's boxes, into D_803EF304.  Its caller reads what it left in $v0
-   (the last height it looked at), $t4 (the last coordinate), $t5 and
-   $t6. */
+   bounds44's boxes, into D_803EF304 */
 void func_802A5604(LevelHeader *h) {
     HeightBox *b = (HeightBox *)((u8 *)h + h->bounds44);
     HeightBox *end = (HeightBox *)((u8 *)h + h->unk48);
     s32 x = (u32)(&D_803EF2EC)[0] >> 5, z = (u32)(&D_803EF2EC)[2] >> 5;
     s32 best = -1;
-    u32 t4 = (u32)&(&D_803EF2EC)[2];
 
     ENGINE_BLK(802A5604);
     for (;;) {
@@ -87,19 +84,14 @@ void func_802A5604(LevelHeader *h) {
             break;
         }
         ENGINE_BLK(802A5648);
-        t4 = b->x1;
         if (b->x1 <= x) {
             ENGINE_BLK(802A5658);
-            t4 = b->z1;
             if (b->z1 <= z) {
                 ENGINE_BLK(802A5668);
-                t4 = b->x2;
                 if (b->x2 >= x) {
                     ENGINE_BLK(802A5678);
-                    t4 = b->z2;
                     if (b->z2 >= z) {
                         ENGINE_BLK(802A5688);
-                        ENGINE_LEAVE(2, b->height);
                         if (b->height >= best) {
                             ENGINE_BLK(802A5698);
                             best = b->height;
@@ -113,9 +105,6 @@ void func_802A5604(LevelHeader *h) {
     }
     ENGINE_BLK(802A56A4);
     D_803EF304 = best << 5;
-    ENGINE_LEAVE(12, t4);
-    ENGINE_LEAVE(13, (u32)end);
-    ENGINE_LEAVE(14, best << 5);
 }
 
 /* func_802A56C4 (00000.c's): this level's three values; returns the third */
