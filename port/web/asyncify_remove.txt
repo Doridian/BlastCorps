@@ -1,0 +1,61 @@
+# The renderer's functions, which Asyncify leaves alone (-sASYNCIFY_REMOVE):
+# a graphics task runs to its end without a fiber switch (nothing under
+# gfx_task_call sleeps or yields: the GL calls, host_log and the CPU model's
+# charge don't), so no unwind or rewind ever passes through them, and the
+# instrumentation (a check after each call that might unwind: here every
+# call that reaches printf's indirect calls, or GL's) only costs.  One name
+# a line; each is defined once in the link (a static of the same name in
+# another file would be ambiguous: port/tools/asyncify_names.py checks).
+begin
+blend
+cat
+clip_poly
+combine
+compile
+do_mtx
+do_vtx
+fill_rect
+fill_sw
+flush
+get_prog
+gfx_cc_decode
+gfx_fetch_texel
+gfx_gl_clear_rect
+gfx_gl_fill_rect
+gfx_gl_interp
+gfx_gl_owns_target
+gfx_gl_rec_state
+gfx_gl_task_begin
+gfx_gl_task_end
+gfx_gl_tri
+gfx_gl_zclear
+gfx_task_call
+gfx_tmem_sync_range
+gfx_uses_tex1
+hash_words
+irecord_at
+irect
+load_block
+load_tile
+load_tlut
+modify_vertex
+mtx_mul
+quad
+raster
+read_back
+rec_ctx
+run
+sample
+sw_target
+target_storage
+tex_rect
+tile_texture
+tload
+tload_copy
+tm_find
+to_screen
+tri
+twin_storage
+upload_rdram
+vtx_tail
+write_pixel

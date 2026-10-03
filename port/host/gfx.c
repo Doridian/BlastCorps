@@ -272,27 +272,23 @@ static double st_cover;         /* pixels covered, as the geometry says: the RDP
 /* fminf and fmaxf as musl has them (NaN loses, -0 is below +0), inline:
    emscripten's are calls, a dozen a triangle */
 static inline float min_f(float x, float y) {
-    if (x < y)
-        return x;
-    if (y < x)
-        return y;
-    if (x != x)                         /* (an ordered pair is decided above) */
-        return y;
-    if (y != y)
-        return x;
-    return signbit(x) ? x : y;          /* equal: -0 below +0 */
-}
-
-static inline float max_f(float x, float y) {
-    if (x < y)
-        return y;
-    if (y < x)
-        return x;
     if (x != x)
         return y;
     if (y != y)
         return x;
-    return signbit(x) ? y : x;
+    if (signbit(x) != signbit(y))
+        return signbit(x) ? x : y;
+    return x < y ? x : y;
+}
+
+static inline float max_f(float x, float y) {
+    if (x != x)
+        return y;
+    if (y != y)
+        return x;
+    if (signbit(x) != signbit(y))
+        return signbit(x) ? y : x;
+    return x < y ? y : x;
 }
 
 /* (the display list's commands that do real work are functions of their
@@ -481,6 +477,10 @@ static void rec_load(uint32_t a, int v0, int m) {
 static inline void rec_tri(int i0, int i1, int i2, int flag) {
     uint32_t *e = rec_ev(R_TRI, 2);
     e[1] = (uint32_t)((i0 & 0xFF) | (i1 & 0xFF) << 8 | (i2 & 0xFF) << 16 | (uint32_t)(flag & 0xFF) << 24);
+}
+
+/* after it: culled, with no state for its kind yet */
+static inline void rec_tri_done(void) {
     RCtx *c = &rctx[rctx_n - 1];
     if (c->tri_state < 0 && c->snap < 0 && gl_target())
         c->snap = rec_snap();
@@ -1630,7 +1630,7 @@ static void lerp(Vtx4 *o, const Vtx4 *a, const Vtx4 *b, float t) {
 static int clip_poly(Vtx4 *in, int n, Vtx4 *out, int plane) {
     int m = 0;
     for (int i = 0; i < n; i++) {
-        Vtx4 *a = &in[i], *b = &in[(i + 1) % n];
+        Vtx4 *a = &in[i], *b = &in[i + 1 < n ? i + 1 : 0];
         float da = plane == 0 ? a->w - 1e-3f : a->z + a->w;
         float db = plane == 0 ? b->w - 1e-3f : b->z + b->w;
         if (da >= 0)
@@ -1648,7 +1648,7 @@ static int gl_target(void) { return gfx_gl_enabled && gfx_gl_owns_target(); }
 static void charge_poly(const GfxVtx *s, int n) {
     float area = 0, x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
     for (int i = 0; i < n; i++) {
-        const GfxVtx *a = &s[i], *b = &s[(i + 1) % n];
+        const GfxVtx *a = &s[i], *b = &s[i + 1 < n ? i + 1 : 0];
         area += a->x * b->y - b->x * a->y;
         x0 = min_f(x0, a->x); x1 = max_f(x1, a->x); y0 = min_f(y0, a->y); y1 = max_f(y1, a->y);
     }
@@ -1978,9 +1978,17 @@ static float hud_rect_dx(void) {
    (docs/PORT.md, "Graphics"). */
 static int rsp_only;
 
+__attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i2, int flag);
+
 NOINLINE static void tri(int i0, int i1, int i2, int flag) {
     if (recording)
         rec_tri(i0, i1, i2, flag);
+    tri_draw(i0, i1, i2, flag);
+    if (recording)
+        rec_tri_done();
+}
+
+__attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i2, int flag) {
     st_tris++;
     Vtx4 *a = &gs.v[i0 & 15], *b = &gs.v[i1 & 15], *c = &gs.v[i2 & 15];
     float flat[4];
@@ -2033,7 +2041,7 @@ NOINLINE static void tri(int i0, int i1, int i2, int flag) {
         if (cull_late) {
             float area = 0;
             for (int i = 0; i < n; i++) {
-                const Vtx4 *p = &p2[i], *q = &p2[(i + 1) % n];
+                const Vtx4 *p = &p2[i], *q = &p2[i + 1 < n ? i + 1 : 0];
                 area += p->x / p->w * (q->y / q->w) - q->x / q->w * (p->y / p->w);
             }
             if ((gs.geom & 0x2000) && area < 0)
