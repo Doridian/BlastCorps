@@ -17,6 +17,8 @@
  * owed goes "busy" until the clock catches up: it holds the CPU (nothing
  * of lower priority runs meanwhile) but a higher-priority one that wakes
  * up can preempt it, which pushes the busy thread's end back by as much.
+ * That is the CPU model, off by default (--cpu-model n64 turns it on):
+ * without it the game's work takes no time and no frame lags.
  */
 #include <stdlib.h>
 #include <string.h>
@@ -247,7 +249,9 @@ uint32_t __port_icount_c;                   /* LLVM IR instructions: the C (BEPa
 /* IDO's -O1 code is bigger than clang's -O2 IR: MIPS instructions per
    counted IR instruction, set so the attract mode's pace is mupen64plus's */
 double host_c_scale = 1.6;
-double host_ns_per_instr = 2 * 64.0 / 3;    /* mupen64plus's CountPerOp = 2 */
+/* 0: the CPU model is off, the default (main.c: --cpu-model n64 sets
+   mupen64plus's CountPerOp = 2, 2 * 64 / 3 ns) */
+double host_ns_per_instr = 0;
 #define MIN_BUSY_NS 50000                    /* run ahead of the clock by up to 50 us */
 
 /* The thread's clock runs on from where its last busy stretch ended, not

@@ -144,6 +144,20 @@ static int next_known;
 static uint64_t last_mode = ~0ull;
 static unsigned skipped, unmatched, forced;
 static int nogate;              /* PORT_REPLAY_NOGATE: the pads only, for comparison */
+/* PORT_REPLAY_TIMING=free: the port's own frame timing, as a player gets
+   it (no lag: docs/PORT.md, "Lag frames").  Each frame takes the retraces
+   the port gives it, not the log's, and so the level timer runs at the
+   port's pace.  The game's reads of the counts mid-frame (the message
+   windows' timing, func_8026BCE0, which holds the player while one is up)
+   and the audio thread's answers are still the movie's: they depend on
+   where in the N64's frame a retrace fell, which no timing but the
+   movie's emulator's reproduces, and with the port's own the windows close
+   a frame early or late and the movie's input falls out of step (Simian
+   Acres, frame 1101).  The pads, the save thread and the checkpoints are as
+   with the movie's timing (=movie, the default).
+   PORT_REPLAY_FREE=vi,counts,audio picks the port's own one by one. */
+static int free_timing, free_counts, free_audio;
+static unsigned rng_diffs;      /* matched reads where the generator isn't the log's */
 static int has_rng;             /* the log has the generator's state */
 static int has_pos;             /* ... and the player's position */
 static unsigned pos_diffs;      /* reads where the position differs */
@@ -236,6 +250,20 @@ void host_replay_load(const char *path) {
     if (!nreads)
         host_fatal("%s: no reads", path);
     nogate = getenv("PORT_REPLAY_NOGATE") != NULL;
+    const char *tm = getenv("PORT_REPLAY_TIMING");
+    if (tm && !strcmp(tm, "free"))
+        free_timing = 1;
+    else if (tm && *tm && strcmp(tm, "movie"))
+        host_fatal("PORT_REPLAY_TIMING=%s: movie or free", tm);
+    const char *fr = getenv("PORT_REPLAY_FREE");
+    if (fr) {
+        free_timing = strstr(fr, "vi") != NULL;
+        free_counts = strstr(fr, "counts") != NULL;
+        free_audio = strstr(fr, "audio") != NULL;
+    }
+    if (free_timing || free_counts || free_audio)
+        host_log("replay: the port's own%s%s%s\n", free_timing ? " retraces" : "", free_counts ? " counts" : "",
+                 free_audio ? " audio answers" : "");
 
     char cpath[1024];
     const char *slash = strrchr(path, '/');
@@ -447,6 +475,11 @@ void host_replay_read_started(void) {
     if ((seeded || found > prev + 1 || gap) && has_rng && port_be32(D_8036B968) != cur_read->rng) {
         port_wg32(D_8036B968, cur_read->rng);    /* a game variable: its own width */
         seeds++;
+    } else if (has_rng && mode == 4 && port_be32(D_8036B968) != cur_read->rng) {     /* (in a level) */
+        if (rng_diffs++ < 5 || host_verbose > 1)
+            host_log("replay: read %u (the log's %d, mode %016llX frame %u): the random state %08X, the log "
+                     "has %08X\n", reads, found + 1, (unsigned long long)mode, frames, port_be32(D_8036B968),
+                     cur_read->rng);
     }
     seeded = 0;
     gap = 0;
@@ -481,7 +514,10 @@ extern char D_803156C0[];
 #define D_803156C0 PORT_VAR(D_803156C0)
 #endif
 unsigned int port_counter(int timer, const char *func) {
-    if (counts && cur_read) {
+    static const char *free_funcs = (const char *)1;    /* PORT_REPLAY_FREE_FUNCS=f,...: these read their own */
+    if (free_funcs == (const char *)1)
+        free_funcs = getenv("PORT_REPLAY_FREE_FUNCS");
+    if (counts && cur_read && !free_counts && !(free_funcs && strstr(free_funcs, func))) {
         int id = func_named(func);
         unsigned k, n = 0;
         for (k = 0; k < nframe_reads && frame_reads[k].func != id; k++)
@@ -600,7 +636,7 @@ static const char *set_caller;
 void port_replay_set_caller(const char *name) { set_caller = name; }
 
 int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
-    if (!audio || !cur_read)
+    if (!audio || !cur_read || free_audio)
         return real;
 #ifdef PORT_MOVABLE
     const char *name = set_caller ? set_caller : "?";
@@ -707,9 +743,22 @@ static void force_mode(unsigned k) {
    isn't where it would go, it goes there instead, with the state the movie
    had (force_mode). */
 void port_replay_mode_switch(void) {
+    uint64_t want = (uint64_t)port_be32(D_80364A98) << 32 | port_be32(D_80364A98 + 4);
+    /* a level's end: the time in it, as the results screen counts it
+       (1D990.c: the level timer since the level's intro, 0x2000, which
+       sets D_80364A58, or its 0x800; in tenths), the frames it took, and
+       the retraces (test.py tas).  The port's own timer: the game's reads
+       of it are the movie's (port_counter). */
+    static uint32_t level_start;
+    if (log_reads && (want == 0x2000 || want == 0x800))
+        level_start = port_be32(D_803156C0);
+    if (log_reads && mode_now() == 4 && want != 4) {
+        uint32_t t = port_be32(D_803156C0) - level_start;
+        host_log("replay: level %u ends at the log's read %d: %u frames, %u retraces, time %u.%u s\n",
+                 port_be32(D_802E8BDC), matched + 1, port_be32(D_80358064), t, t / 60, t / 6 % 10);
+    }
     if (!checkpoints || !switches || matched < 0)
         return;
-    uint64_t want = (uint64_t)port_be32(D_80364A98) << 32 | port_be32(D_80364A98 + 4);
     while (next_switch < nswitches && switches[next_switch].read < (unsigned)matched + 1)
         next_switch++;
     if (next_switch >= nswitches)
@@ -843,7 +892,7 @@ void port_replay_seeded(void) {
 int host_replay_poll_si(void) {
     /* by the retraces sent: the scheduler counts one only once it has run,
        and it counts every one */
-    if (!si_waiting || (!nogate && port_vi_sent() < target))
+    if (!si_waiting || (!nogate && !free_timing && port_vi_sent() < target))
         return 0;
     si_waiting = 0;
     base = port_vi_sent();
@@ -856,7 +905,7 @@ int host_replay_poll_si(void) {
 
 /* the loop, at a retrace: 0 to hold it back */
 int host_replay_vi_ok(void) {
-    if (nogate)
+    if (nogate || free_timing)
         return 1;
     if (si_waiting)
         return port_vi_sent() < target;
@@ -912,5 +961,6 @@ void host_replay_report(void) {
              "counts and %u audio answers the log doesn't have, %u save commands let go early, %u modes "
              "forced\n", reads, matched + 1 - (int)skipped, nreads, skipped, unmatched, forced, seeds, pos_diffs,
              counts_unlogged, audio_unlogged, saves_early, forced_modes);
+    host_log("replay: the random state not the log's at %u matched reads\n", rng_diffs);
 }
 

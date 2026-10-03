@@ -3,12 +3,13 @@
 
     port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--update] [--gameplay]
     port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack] [--update] [--gameplay]
+                           [--timing free|movie|both]
     port/tools/test.py recomp [--trials N]
-    port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack]] [--only NAME,...]
+    port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
                                 [--emsdk DIR] [--gameplay]
 
-quick: deterministic headless runs (PORT_COUNT_PER_OP=0 --deterministic,
-the software renderer), a few thousand frames each; the save, the --wav and
+quick: deterministic headless runs (--deterministic, the CPU model off as
+by default, the software renderer), a few thousand frames each; the save, the --wav and
 a screenshot every 250 frames are hashed and compared with the committed
 references (port/tools/test_refs.json, by version), with --against another
 build's results, and within the build (the pthread backend against
@@ -39,7 +40,12 @@ tas: the TAS replay (docs/PORT.md, "The TAS"), several builds at once:
 reads matched, none skipped, no mode forced, unless the references list
 the variant's current report as a known drift (then that report, exactly,
 passes as a known failure and anything else fails).  --pack: from the
-resource pack made from the ROM instead.  The replay's gameplay digest must
+resource pack made from the ROM instead.  --timing free (the default) plays
+it with the port's own frame timing, as the game plays by default (no lag
+frames: every level frame two retraces), movie with the movie's retraces
+for every frame (its lag frames), both both (docs/PORT.md, "Lag frames");
+each has its save in the references (save_free, save), and the levels'
+time by the port's level timer is reported.  The replay's gameplay digest must
 be the reference's (test_refs.json's "digest", "tas"; --update records it);
 with --gameplay a save that differs (it holds the levels' times) is only
 reported.
@@ -749,8 +755,12 @@ def rom_scan(build):
 
 # ---- tas ---------------------------------------------------------------------
 
-def tas_one(build, polls, again=False, pack=None):
-    out = os.path.join(build.path, "test", "tas" if pack is None else "tas-pack")
+def tas_dir(build, pack, timing):
+    return os.path.join(build.path, "test", ("tas" if not pack else "tas-pack") + ("-free" if timing == "free" else ""))
+
+
+def tas_one(build, polls, again=False, pack=None, timing="free"):
+    out = tas_dir(build, pack, timing)
     if again:           # the last run's results, checked again
         try:
             rc, t = map(float, open(os.path.join(out, "exit.txt")).read().split())
@@ -762,7 +772,7 @@ def tas_one(build, polls, again=False, pack=None):
     os.makedirs(out)
     exe = build.copy_exe(out)
     e = {k: v for k, v in os.environ.items() if not k.startswith("PORT_")}
-    e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST)
+    e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST, PORT_REPLAY_TIMING=timing)
     t = time.time()
     with open(os.path.join(out, "log.txt"), "w") as log:
         rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep",
@@ -774,7 +784,14 @@ def tas_one(build, polls, again=False, pack=None):
     return out, rc, t
 
 
-def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gameplay=False):
+def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gameplay=False, timing="free"):
+    """timing: "free", the port's own frame timing (no lag frames: the
+    default play, docs/PORT.md "Lag frames"), "movie", the movie's retraces
+    for every frame (the movie's lag), or "both" """
+    if timing == "both":
+        a = tas(builds, refs, polls, jobs, again, pack, update, gameplay, "free")
+        b = tas(builds, refs, polls, jobs, again, pack, update, gameplay, "movie")
+        return None if a is None and b is None else (a or 0) + (b or 0)
     polls = os.path.abspath(polls)
     if not again and not os.path.exists(polls):
         say("SKIP", "tas", f"no {polls} (port/tools/tas.sh makes it)")
@@ -792,25 +809,30 @@ def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gamepl
             say("SKIP", f"{b.name} tas", f"the movie is us.v10's, this build is {b.version}")
         elif not os.path.exists(b.rom()):
             say("SKIP", f"{b.name} tas", f"no {os.path.basename(b.rom())}")
-        elif again and not os.path.exists(os.path.join(b.path, "test", "tas-pack" if pack else "tas", "log.txt")):
+        elif again and not os.path.exists(os.path.join(tas_dir(b, pack, timing), "log.txt")):
             say("SKIP", f"{b.name} tas", "no replay to check again")
         else:
             todo.append(b)
-    print(f"== tas{' from the pack' if pack else ''}{' (the last runs, checked again)' if again else ''}: "
+    print(f"== tas, {timing} timing{' from the pack' if pack else ''}"
+          f"{' (the last runs, checked again)' if again else ''}: "
           f"{', '.join(b.name for b in todo)} ({min(jobs, len(todo))} at a time, "
           f"about 10-20 minutes each)", flush=True)
     with cf.ThreadPoolExecutor(max(1, jobs)) as ex:
-        futs = {ex.submit(tas_one, b, polls, again, pack_path): b for b in todo}
+        futs = {ex.submit(tas_one, b, polls, again, pack_path, timing): b for b in todo}
         for fut in cf.as_completed(futs):
             b = futs[fut]
             out, rc, t = fut.result()
             ran += 1
-            fails += tas_check(b, refs, out, rc, t, update, gameplay)
+            fails += tas_check(b, refs, out, rc, t, update, gameplay, timing)
     return fails if ran else None
 
 
-def tas_check(b, refs, out, rc, t, update=False, gameplay=False):
-    label = f"{b.name} tas{' (pack)' if out.endswith('-pack') else ''} ({t / 60:.1f} min)"
+LEVEL_END = re.compile(r"replay: level \d+ ends at the log's read -?\d+: (\d+) frames, (\d+) retraces")
+
+
+def tas_check(b, refs, out, rc, t, update=False, gameplay=False, timing="movie"):
+    pk = " (pack)" if "tas-pack" in out else ""
+    label = f"{b.name} tas, {timing} timing{pk} ({t / 60:.1f} min)"
     log = open(os.path.join(out, "log.txt"), errors="replace").read()
     m = None
     for m in REPORT.finditer(log):
@@ -833,15 +855,24 @@ def tas_check(b, refs, out, rc, t, update=False, gameplay=False):
            "save": sha(savep) if os.path.exists(savep) else None}
     summary = (f"{matched} of the log's {total} matched ({skipped} skipped), {forced} modes forced; "
                f"{given} retraces given anyway, {early} save commands let go early")
+    ends = [tuple(map(int, x)) for x in LEVEL_END.findall(log)]
+    if ends:        # the levels by the port's level timer (the save's times are the movie's)
+        lt = sum(r // 6 for _, r in ends)
+        summary += (f"; {len(ends)} levels played in {sum(f for f, _ in ends)} frames, "
+                    f"{lt // 600}:{lt // 10 % 60:02d}.{lt % 10} by the level timer")
     with open(os.path.join(out, "summary.json"), "w") as f:
         json.dump(dict(got, given=given, early=early), f)
-    tref = refs.get("tas", {}).get(b.version, {})
+    tref = dict(refs.get("tas", {}).get(b.version, {}))
+    if timing == "free":        # its own save (docs/PORT.md, "Lag frames")
+        tref["save"] = tref.get("save_free")
     exact = matched == total and skipped == 0 and forced == 0
     known = next((k for k in tref.get("known", []) if b.variant in k["variants"]), None)
     dpath = os.path.join(out, DIGEST)
-    dfail = digest_check(f"{b.name} tas{' (pack)' if out.endswith('-pack') else ''} gameplay", dpath,
+    dfail = digest_check(f"{b.name} tas, {timing} timing{pk} gameplay", dpath,
                          digest_cmp.gameplay_hash(digest_cmp.parse(dpath)) if os.path.exists(dpath) else None,
                          b.version, "tas", refs, update) or 0
+    if update and timing == "free" and exact and not problems:
+        refs.setdefault("tas", {}).setdefault(b.version, {})["save_free"] = tref["save"] = got["save"]
     if update:
         with _refs_lock:
             save_refs(refs)
@@ -987,7 +1018,8 @@ def variants(args, refs):
     table(builds, refs)
     print(f"== variants: build {tb - t0:.0f}s, quick {time.time() - tb:.0f}s", flush=True)
     if args.tas:
-        r = tas(builds, refs, args.polls, args.jobs or len(builds), pack=args.tas_pack, gameplay=args.gameplay)
+        r = tas(builds, refs, args.polls, args.jobs or len(builds), pack=args.tas_pack, gameplay=args.gameplay,
+                timing=args.timing)
         fails += r or 0
     return None if skipped == len(builds) and not fails else fails
 
@@ -1086,6 +1118,9 @@ def main():
     t = sub.add_parser("tas")
     t.add_argument("builds", nargs="+")
     t.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
+    t.add_argument("--timing", choices=("free", "movie", "both"), default="free",
+                   help="the port's own frame timing (no lag frames, as it plays; the default), the movie's "
+                        "retraces for every frame (its lag: the save is the movie's), or both")
     t.add_argument("-j", "--jobs", type=int, default=0, help="replays at a time (default: all)")
     t.add_argument("--again", action="store_true", help="check the last replays' results again, without running")
     t.add_argument("--pack", action="store_true",
@@ -1104,6 +1139,8 @@ def main():
     v.add_argument("--no-build", action="store_true", help="use build/test-* as they are")
     v.add_argument("--tas", action="store_true", help="and the TAS on each")
     v.add_argument("--tas-pack", action="store_true", help="with --tas: from the resource pack, not the ROM")
+    v.add_argument("--timing", choices=("free", "movie", "both"), default="free",
+                   help="with --tas: the port's own frame timing (no lag, the default), the movie's, or both")
     v.add_argument("--emsdk", help="emsdk's directory, for the wasm variant (default: $EMSDK, or emcmake)")
     v.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
@@ -1119,7 +1156,7 @@ def main():
     elif args.cmd == "tas":
         builds = [Build(b) for b in args.builds]
         fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again, args.pack, args.update,
-                    args.gameplay)
+                    args.gameplay, args.timing)
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return

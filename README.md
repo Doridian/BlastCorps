@@ -191,6 +191,7 @@ An SDL game controller works too.  Some options (`--help` lists them all):
 | `--aspect window` / `W:H`, `--widescreen` | the picture's shape: the window's, followed as it is resized (the default with a window), or a fixed W:H (`4:3`, the N64's, is the default headless and with `--deterministic` or `--replay`; `--widescreen` is `16:9`).  Wider than 4:3 (up to 32:9) shows more of the 3D world; narrower gets bars above and below |
 | `--hud edges` / `centre`     | wider than 4:3: the levels' HUD (radar, money, counters, timer, TV) at the picture's sides (the default), or where the game puts it, in the 4:3 middle; menus, panels and full-screen pictures stay centred either way |
 | `--hd-text [FONT]`           | OpenGL: the game's text drawn from a font at the internal resolution (built in: Stardos Stencil, SIL OFL; docs/FONTS.md) |
+| `--cpu-model n64`            | the N64's lag frames back: the game's work takes as long as on the N64, and busy scenes slow down as they did there (default `off`: no lag, every level frame 1/30 s; docs/PORT.md, "Lag frames") |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 
