@@ -12,6 +12,9 @@
  *   func_8028B4C4(rom, dst, &len, ...) DMA and gzip or Rare's LZSS (method
  *                                     2: the sound banks, static_data, the
  *                                     background images), by ROM address
+ *
+ * While either runs, its loops' polls take no time without the CPU model
+ * (host_loading; docs/PORT.md, "The front end's waits").
  */
 #include "common.h"
 #include "port.h"
@@ -22,12 +25,16 @@ void __real_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 meth
 void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap) {
     u8 *s = *src, *d = *dst;
 
+    host_loading(1);
     __real_func_8025C230(src, dst, heap);
+    host_loading(0);
     host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d));
 }
 
 void __wrap_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method) {
+    host_loading(1);
     __real_func_8028B4C4(rom, dst, len, bits, bits2, method);
+    host_loading(0);
     if (method == 2 && (bits != 0 || bits2 != 0))
         host_loaded_lzss(rom, (u32)dst, *len);
 }

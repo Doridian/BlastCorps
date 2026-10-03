@@ -342,7 +342,14 @@ static uint16_t scripted_buttons(int *sy) {
             return 0;
         }
     }
-    int f = (*s >= '2' ? (int)port_be32(D_803156C4) : frame) % 120;
+    int f = *s >= '2' ? (int)port_be32(D_803156C4) : frame;
+    /* nothing for the first half second: a button held at the game's first
+       read asks to erase the save (00000.c's mode 0x40000000000000), and
+       the first read is at once now that the controllers' power-on wait is
+       gone (docs/PORT.md, "The front end's waits") */
+    if (f < 30)
+        return 0;
+    f %= 120;
     if (f < 4)
         return B_START;
     if (f >= 60 && f < 64)

@@ -315,12 +315,32 @@ static unsigned spins_held;
 
 int port_ints_masked;
 
+/* --load-waits n64: the N64's hardware waits (port.h); off by default */
+static int load_waits;
+int host_load_waits(void) { return load_waits; }
+
+/* the thread a decompressor runs on (loads.c), or 0 */
+static uint32_t loading_thread;
+static int loading_depth;
+
+void host_loading(int on) {
+    if (on && loading_depth++ == 0)
+        loading_thread = host_thread_current();
+    else if (!on && --loading_depth == 0)
+        loading_thread = 0;
+}
+
 void __port_poll(void) {
     static unsigned n;
     if (++n & 63 || port_ints_masked)
         return;
     host_cpu_sync();                /* spinning takes time too */
-    if ((deterministic || host_paced) && host_ns_per_instr <= 0)
+    /* Without the CPU model a poll is where virtual time passes for a
+       thread that spins on what another thread or an interrupt changes.
+       A decompressor's loops don't wait for anything: they take no time
+       (unless --load-waits n64), as the rest of the game's work. */
+    if ((deterministic || host_paced) && host_ns_per_instr <= 0 &&
+        (load_waits || !loading_thread || loading_thread != host_thread_current()))
         virtual_ns += 2000;
     if (replay_vi_held)
         spins_held++;
@@ -658,6 +678,10 @@ static void usage(const char *argv0) {
             "  --cpu-model off|n64  off (the default): the game's work takes no time, and it\n"
             "                       never lags; n64: as long as on the N64, whose lag frames\n"
             "                       come back (PORT_CPU_MODEL=n64 too)\n"
+            "  --load-waits off|n64 off (the default): no waits for hardware the port doesn't\n"
+            "                       have (the controllers' power-on, the EEPROM's writes, the\n"
+            "                       pak thread's SI pacing, decompression); n64: as on the\n"
+            "                       N64 (PORT_LOAD_WAITS=n64 too; --cpu-model n64 implies it)\n"
             "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
             "at the Nth controller read (and on a crash); PORT_PACE=FILE logs the pacing\n"
             "per controller read; PORT_COUNT_PER_OP=N: CPU count ticks charged per\n"
@@ -671,6 +695,7 @@ static void usage(const char *argv0) {
 int main(int argc, char **argv) {
     const char *rom_path = ROM_DEFAULT;
     const char *cpu_model = NULL;
+    const char *load_waits_arg = NULL;
     int aspect_set = 0;
     main_argv = argv;
     for (int i = 1; i < argc; i++) {
@@ -690,6 +715,8 @@ int main(int argc, char **argv) {
             deterministic = 1;
         else if (!strcmp(argv[i], "--cpu-model") && i + 1 < argc)
             cpu_model = argv[++i];
+        else if (!strcmp(argv[i], "--load-waits") && i + 1 < argc)
+            load_waits_arg = argv[++i];
         else if (!strcmp(argv[i], "--replay") && i + 1 < argc) {
             host_replay_load(argv[++i]);
             deterministic = 1;
@@ -790,6 +817,16 @@ int main(int argc, char **argv) {
     const char *cpo = getenv("PORT_COUNT_PER_OP");
     if (cpo)
         host_ns_per_instr = atof(cpo) * 64.0 / 3;     /* not real time, or no one listening */
+    /* the N64's hardware waits (docs/PORT.md, "The front end's waits"): off
+       by default; on with the CPU model unless asked otherwise, so that
+       --cpu-model n64 is the N64's timing throughout */
+    if (!load_waits_arg)
+        load_waits_arg = getenv("PORT_LOAD_WAITS");
+    if (load_waits_arg && *load_waits_arg)
+        load_waits = !strcmp(load_waits_arg, "n64") ? 1
+                   : !strcmp(load_waits_arg, "off") ? 0 : (usage(argv[0]), 0);
+    else
+        load_waits = host_ns_per_instr > 0;
 #ifdef __linux__
     prctl(PR_SET_TIMERSLACK, 1);    /* wake on time: the pacing is in 50 us steps */
 #endif

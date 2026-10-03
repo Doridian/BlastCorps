@@ -36,6 +36,10 @@ int port_pad_read_due(int free);
 /* the pak/EEPROM thread starts a command (E7B0.c): with --replay, it waits
    for the frame the movie's thread did (port/src/replay_hooks.c) */
 void port_replay_save_started(void);
+/* 1 with --load-waits n64: the waits that are only there because the
+   N64's hardware is slow are kept; 0, the default, leaves them out
+   (docs/PORT.md, "The front end's waits") */
+int port_load_waits(void);
 /* the game switches mode (00000.c's loop, before the new mode's init) */
 void port_replay_mode_switch(void);
 #define D_803156C0 port_counter(1, __func__)

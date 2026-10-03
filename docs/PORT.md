@@ -2597,24 +2597,78 @@ the 32-bit build; `PORT_PACE`, retraces a frame by mode):
 
 | | CPU model on | off (the default) |
 |---|---|---|
-| the N64 and Rare logos | 1.00 | 1.00 |
-| the title comes up at retrace | 638 | 548 (1.5 s sooner) |
-| the title, waiting (mode 2, 1,163 frames) | 4.09 | 3.63 |
-| the attract story (mode 2, 441 and 587 frames) | 5.81, 2.32 | 4.60, 2.00 |
-| "leaders of" screens | 1.00 | 1.00 |
-| a level's load and start (`PORT_AUTOSTART=1`, Simian Acres' first 28 frames) | 7.86 (220 retraces) | 4.10 (119: 1.7 s sooner) |
+| the N64 and Rare logos | 1.01, 1.30 | 1.00 |
+| the title comes up at retrace | 638 | 548 (1.5 s sooner; 518 since "The front end's waits") |
+| the title and the attract story (mode 2, 7 stretches of 321 to 1,164 frames) | 2.09-2.64 | 2.00 |
+| "leaders of" screens | 1.11-1.14 | 1.00 |
+| a level's load (mode 0x800, `PORT_AUTOSTART=1`'s Simian Acres) | 95 retraces, 8 frames | 36, 17 frames (1 s sooner) |
+| the level's first 29 frames | 2.02 | 2.07 |
 | driving (Simian Acres) | 2.00 | 2.00 |
 | the CMO intro, the map, the results | 1.96-2.04 | 2.00-2.04 |
 
-So the loads and the front end's busier screens are quicker (what is
-still above one or two retraces there is no CPU time: the game waits on
-something else, the cartridge's DMA among it; not looked into further),
-and in the TAS the
+(Retraces a game frame: a controller poll each.  This table first had
+3.63 and 4.60 for the title and the story and 4.10 for the level's start,
+which were retraces over the game's frame count across the points where
+the count starts again in the same mode, not slow frames.  The level's
+load isn't a fixed number of frames: with the model it has fewer, longer
+ones.)  So the loads
+and the front end's busier screens are quicker (what was left above the
+minimum, the loads' waits, is the next section's), and in the TAS the
 time outside the levels drops by 4:50 (92,933 retraces to 75,547).  Sound
 doesn't change: the audio thread runs every second retrace either way.
 A frame still takes more than two retraces where the host can't keep up
 in real time (natively without `--deterministic`, and in the page), which
 is the host's own lag, not the N64's.
+
+### The front end's waits
+
+With the CPU model off, every screen already ran at its minimum (the
+table above): what was left were stalls between screens, where the game
+draws nothing and waits.  Found by sampling, at every retrace, what each
+thread was blocked on and where the polls' time went (us.v10, the 32-bit
+build, `--deterministic`, no save):
+
+| wait | what it is | retraces | now |
+|---|---|---|---|
+| the boot | `osContInit`'s half second for the controllers after power-on (libultra; `port/src/ultra.c` waited it on a timer) | 30, once | gone |
+| Start on the title, before the name entry | the pak thread (hd_front_end `E7B0.c`, `func_801F58E8`) waits for the scheduler's next retrace message after every command, done or not; the front end sends it one command at a time (15 reads of the save's slots, a probe, a check) and waits for each reply | 1 a command: 29 there | the wait after a command that is done is left out; a retry still waits (the "insert a pak" loops) |
+| the name entered, the save written | `osEepromLongWrite`'s 12 ms after each 8-byte block, the EEPROM's write cycle (32 blocks a save) | 23 a save | gone |
+| every load (the front end, the title, the map, each level) | the decompressors' loops (gzip's inflate, the LZSS): without the CPU model the polls on loop back edges still moved virtual time on (2 us for each 64), so a load took about two retraces in `--deterministic` and the page | about 2 a load | no time while `func_8025C230` or `func_8028B4C4` runs (`host_loading`, `port/src/loads.c`) |
+
+Kept, as the game's own (a player sees them as its pacing):
+
+- the 15 retraces before the N64 logo (`func_80244930`, mode 0x10: a
+  spin on the scheduler's count after starting the logo);
+- the logos' 250 frames each, the "leaders of" screens' 740;
+- a mode switch's one or two frames with the picture blacked out
+  (`osViBlack`), which show as 3 or 4 retraces between two polls;
+- the level's load screen (mode 0x800, 17 frames, 36 retraces).
+
+And the cartridge: a PI DMA completes at mupen64plus's rate (a count tick
+per 8 bytes, 1 MB in 2.8 ms), well inside a frame everywhere, so it was
+left as it is.
+
+The title now comes up at retrace 518 (548 before, 638 with the model);
+`PORT_AUTOSTART=1` from no save reaches Simian Acres' first frame at
+retrace 1,205 instead of 1,324 (2 seconds sooner: 30 at the boot, 27 at
+the name entry's reads, 22 at its save, the rest the loads).  In the TAS
+(free timing) the time outside the levels drops from 75,280 retraces to
+73,799 (25 s): there the pak thread's commands go at the movie's frames
+(`port_replay_save_started`) and the boot's half second is the same, so
+most of it is the loads.  The replay passes as before: every read
+matched, 57 platinum, the reference's save and gameplay digest.
+
+`--load-waits n64` (or `PORT_LOAD_WAITS=n64`) keeps all four, and
+`--cpu-model n64` implies it: with it the pacing log is the one before,
+byte for byte.  The quick tier's references were re-recorded (us.v10):
+their scripted input (`PORT_AUTOSTART`) is keyed to retraces, so it
+lands on other frames once the boot is 30 retraces shorter.  With the
+in-level taps' phase moved by the same retraces (119), auto1's and
+auto3's digests are the old runs' frame for frame; attract's and auto2's
+are the same gameplay without that (`digest_cmp.py` against
+`--load-waits n64` runs).  `PORT_AUTOSTART` taps nothing in the first
+30 retraces now: a button held at the game's first read asks to erase
+the save (mode 0x40000000000000), and that read now comes at once.
 
 ### Running the game at 60: a turbo, not 60 fps
 
