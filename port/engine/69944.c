@@ -14,6 +14,8 @@ extern f32 D_80305C80, D_80305C88, D_80305C90;              /* sin's */
 extern f32 D_80305C9C;          /* 65536 */
 extern f32 D_80305CA0;          /* 2 pi / 4096 */
 
+#define ANGLE_MASK 0xFFF        /* a 12-bit angle: 0x1000 a full turn */
+
 /* cos(x), x in radians */
 REGS(f12 -> f0)
 f32 func_802AE1BC(f32 x) {
@@ -23,11 +25,9 @@ f32 func_802AE1BC(f32 x) {
     ENGINE_BLK(802AE1BC);
     twopi = D_80305C70;
     x = __builtin_fabsf(x);
-    if (twopi < x) {
-        do {
-            ENGINE_BLK(802AE1D8);
-            x = x - twopi;
-        } while (twopi < x);
+    while (twopi < x) {
+        ENGINE_BLK(802AE1D8);
+        x = x - twopi;
     }
     ENGINE_BLK(802AE1E8);
     pi = D_80305C74;
@@ -72,11 +72,9 @@ f32 func_802AE290(f32 x) {
         neg = 1;
     }
     ENGINE_BLK(802AE2B8);
-    if (twopi < x) {
-        do {
-            ENGINE_BLK(802AE2C4);
-            x = x - twopi;
-        } while (twopi < x);
+    while (twopi < x) {
+        ENGINE_BLK(802AE2C4);
+        x = x - twopi;
     }
     ENGINE_BLK(802AE2D4);
     pi = D_80305C74;
@@ -110,24 +108,20 @@ f32 func_802AE290(f32 x) {
 REGS(v1 -> fp)
 s32 func_802AE104(s32 angle) {
     f32 c;
-    s32 r;
 
     ENGINE_BLK(802AE104);
-    c = func_802AE1BC((f32)(angle & 0xFFF) * D_80305CA0);
+    c = func_802AE1BC((f32)(angle & ANGLE_MASK) * D_80305CA0);
     ENGINE_BLK(802AE134);
-    r = engine_cvt_w_s(c * D_80305C9C);
-    return r;
+    return engine_cvt_w_s(c * D_80305C9C);
 }
 
 /* sin of a 12-bit angle, 16.16 */
 REGS(v1 -> fp)
 s32 func_802AE160(s32 angle) {
     f32 s;
-    s32 r;
 
     ENGINE_BLK(802AE160);
-    s = func_802AE290((f32)(angle & 0xFFF) * D_80305CA0);
+    s = func_802AE290((f32)(angle & ANGLE_MASK) * D_80305CA0);
     ENGINE_BLK(802AE190);
-    r = engine_cvt_w_s(s * D_80305C9C);
-    return r;
+    return engine_cvt_w_s(s * D_80305C9C);
 }
