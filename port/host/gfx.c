@@ -1298,7 +1298,7 @@ typedef struct {
     float s, t, r, gg, b, a;    /* divided by w */
 } SV;
 
-static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) {
+NOINLINE static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) {
     if (tpend_n)
         gfx_tmem_sync();
     float minx = min_f(v0->x, min_f(v1->x, v2->x)), maxx = max_f(v0->x, max_f(v1->x, v2->x));
@@ -1903,6 +1903,48 @@ static void irect(uint32_t key, float *r) {
         r[i] = q[i] + (r[i] - q[i]) * interp_t;
 }
 
+/* a fill rectangle drawn in software, into the color image in RDRAM (or
+   the software renderer's wide frame) */
+NOINLINE static void fill_sw(int ulx, int uly, int lrx, int lry, int cyc) {
+    uint8_t *p = port_ptr(gs.cimg_addr);
+    if (cyc == 3 && gs.cimg_siz == 2 && !cur_wfb && lrx > ulx) {
+        /* 16-bit: the fill's two pixels, over and over; a row of them
+           made once, as the memory holds them, and copied */
+        static uint8_t row[2 * 4096 + 4];
+        int n = lrx - ulx + (ulx & 1);
+        if (n > 4096)
+            n = 4096;
+        for (int i = 0; i < n; i += 2) {
+            port_wbe16(row + 2 * i, gs.fill >> 16);
+            port_wbe16(row + 2 * i + 2, gs.fill & 0xFFFF);
+        }
+        for (int y = uly; y < lry; y++)
+            memcpy(p + 2 * (y * gs.cimg_w + ulx), row + 2 * (ulx & 1), 2 * (size_t)(lrx - ulx));
+        return;
+    }
+    for (int y = uly; y < lry; y++)
+        for (int x = ulx; x < lrx; x++) {
+            if (cyc == 3) {
+                if (gs.cimg_siz == 1)
+                    p[y * gs.cimg_w + x] = gs.fill >> (24 - 8 * (x & 3));
+                else if (gs.cimg_siz == 3)
+                    port_wbe32(p + 4 * (y * gs.cimg_w + x), gs.fill);
+                else if (cur_wfb)
+                    cur_wfb->px[y * cur_wfb->w + x + gfx_wide_off] = (x & 1) ? gs.fill & 0xFFFF : gs.fill >> 16;
+                else
+                    port_wbe16(p + 2 * (y * gs.cimg_w + x), (x & 1) ? gs.fill & 0xFFFF : gs.fill >> 16);
+            } else {
+                Inputs in;
+                memset(&in, 0, sizeof in);
+                in.lod = 255;
+                float c[4];
+                combine(&in, c);
+                if (blend(x, y, c, in.shade))
+                    write_pixel(x, y, c);
+            }
+        }
+}
+
 NOINLINE static void fill_rect(uint32_t w0, uint32_t w1) {
     int lrx = ((w0 >> 12) & 0xFFF) >> 2, lry = (w0 & 0xFFF) >> 2;
     int ulx = ((w1 >> 12) & 0xFFF) >> 2, uly = (w1 & 0xFFF) >> 2;
@@ -1955,28 +1997,7 @@ NOINLINE static void fill_rect(uint32_t w0, uint32_t w1) {
         ulx = wx0;
         lrx = wx1;
     }
-    uint8_t *p = port_ptr(gs.cimg_addr);
-    for (int y = uly; y < lry; y++)
-        for (int x = ulx; x < lrx; x++) {
-            if (cyc == 3) {
-                if (gs.cimg_siz == 1)
-                    p[y * gs.cimg_w + x] = gs.fill >> (24 - 8 * (x & 3));
-                else if (gs.cimg_siz == 3)
-                    port_wbe32(p + 4 * (y * gs.cimg_w + x), gs.fill);
-                else if (cur_wfb)
-                    cur_wfb->px[y * cur_wfb->w + x + gfx_wide_off] = (x & 1) ? gs.fill & 0xFFFF : gs.fill >> 16;
-                else
-                    port_wbe16(p + 2 * (y * gs.cimg_w + x), (x & 1) ? gs.fill & 0xFFFF : gs.fill >> 16);
-            } else {
-                Inputs in;
-                memset(&in, 0, sizeof in);
-                in.lod = 255;
-                float c[4];
-                combine(&in, c);
-                if (blend(x, y, c, in.shade))
-                    write_pixel(x, y, c);
-            }
-        }
+    fill_sw(ulx, uly, lrx, lry, cyc);
 }
 
 /* black into the wide frame's side columns x0..x1 (x0 < 0 or x1 > 320) */
