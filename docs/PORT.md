@@ -4441,7 +4441,7 @@ angles 12-bit, a speed is a distance a frame:
 ## Other versions
 
 `PORT_VERSION` is `us.v11` (the default), `us.v10` or `jp` (Blastdozer).
-`blastcorps/` and the translated engine hold one version at a time, so
+`blastcorps/` and the translator's output hold one version at a time, so
 switching means `make clean` in both directories, stages 1 and 2 for the
 other version, and `make -C tools/recomp VERSION=<v>`; CMake refuses a
 stage 2 of another version.  What differs between versions in the port:
@@ -4648,7 +4648,7 @@ the mode, the random number generator's state and the player's position.
 The movie is us.v10, so this needs a us.v10 port: extract and build stage
 2 for us.v10, `make -C tools/recomp VERSION=us.v10`, then configure with
 `-DPORT_VERSION=us.v10` (its own build directory; `blastcorps/` and the
-translated engine hold one version at a time, and CMake refuses a mismatch).
+translator's output hold one version at a time, and CMake refuses a mismatch).
 Then
 
 ```
