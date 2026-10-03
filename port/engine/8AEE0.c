@@ -109,7 +109,7 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803FC500;
     u8 *buf;
     s16 *r;
-    s32 *s3, avg;
+    s32 avg;
 
     ENGINE_BLK(802CF6A0);
     engine_save(ENGINE_T0_T5, 0);
@@ -140,10 +140,8 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    s3 = func_802A992C(vs->unk52, D_803FC5AC, x, z, vs->unk4, &D_803FC5AC, (s16 *)&vs->unk4C, 0xF, vs, engine_ctx(30),
-                       &avg);
-    ENGINE_LEAVE(19, T(s3));
-    ENGINE_LEAVE(21, avg);
+    func_802A992C(vs->unk52, D_803FC5AC, x, z, vs->unk4, &D_803FC5AC, (s16 *)&vs->unk4C, 0xF, vs, engine_ctx(30),
+                  &avg);
     ENGINE_BLK(802CF7DC);
     func_8029F85C(P, D_803FC5B4, D_803FC5B8, D_803FC5BC);
     ENGINE_BLK(802CF818);
@@ -187,13 +185,6 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803FC5BC, D_803FC5B8, *(s32 *)(model + *(s32 *)(model + 0x18) + 4));
     ENGINE_BLK(802CF9E8);
     engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(17, T(vs->unk4));
-    ENGINE_LEAVE(18, T(&D_803FC5AC));
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(22, T(D_803FC5B8));
-    ENGINE_LEAVE(23, T(D_803FC5BC));
 }
 
 /* hd.c's: the player gets in */
@@ -206,7 +197,6 @@ void func_802CFA0C(void) {
     D_80364450 = 0x3E8;
     func_802C4310(0xCE);
     ENGINE_BLK(802CFA48);
-    ENGINE_LEAVE(28, T(vs));
 }
 
 /* hd.c's: whether it can be left: not while a wheel is off the ground */
@@ -234,13 +224,11 @@ void func_802CFAB4(void) {
     VS *vs = &D_803FC500;
 
     ENGINE_BLK(802CFAB4);
-    engine_save(0x10000000, 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803FC5B8, (u32 *)D_803FC5BC, 0x100);
     ENGINE_BLK(802CFAE4);
     func_802C444C();
     ENGINE_BLK(802CFAEC);
-    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -248,7 +236,6 @@ void func_802CFB00(void) {
     VS *vs = &D_803FC500;
 
     ENGINE_BLK(802CFB00);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803FC5AC, D_803FC5A8, D_803FC5B0, vs->unk4, &D_803FC5AC, (s16 *)&vs->unk4C, 0xF, vs,
                   engine_ctx(30));
     ENGINE_BLK(802CFB8C);
@@ -256,7 +243,6 @@ void func_802CFB00(void) {
     ENGINE_BLK(802CFB94);
     func_802A133C(D_803FC5A8, D_803FC5AC, D_803FC5B0, 0xF, vs);
     ENGINE_BLK(802CFBC0);
-    engine_restore();
 }
 
 /* its light */
@@ -545,12 +531,8 @@ void func_802D05D8(VS *vs) {
     }
     ENGINE_BLK(802D062C);
     D_803ED390[1] = vs->unk4C;
-    ENGINE_LEAVE(20, D_803FC5A8);
-    ENGINE_LEAVE(21, D_803FC5AC);
-    ENGINE_LEAVE(22, D_803FC5B0);
-    ENGINE_LEAVE(23, 0x32C8);
     func_802AA764(D_803FC5A8, D_803FC5AC, D_803FC5B0, 0x32C8, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802D0668);
     if (D_8035805C != 0) {
         ENGINE_BLK(802D067C);
@@ -561,11 +543,9 @@ void func_802D05D8(VS *vs) {
     }
     ENGINE_BLK(802D0698);
     model = D_803FC5B4;
-    ENGINE_LEAVE(11, T(model));
     func_8029C454(D_803FC5A8, D_803FC5AC, D_803FC5B0, 0xF, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
                   buf);
     ENGINE_BLK(802D06E0);
-    ENGINE_LEAVE(11, T(model));
     func_802ABBEC(0xF, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802D0700);
 }
@@ -712,11 +692,6 @@ void func_802D07E0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     ENGINE_BLK(802D0B64);
     D_803F7844 = NULL;
     engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(18, T(&D_803FC97C));
-    ENGINE_LEAVE(22, T(D_803FC988));
-    ENGINE_LEAVE(23, T(D_803FC98C));
 }
 
 /* hd.c's: whether it can be left: on the ground and walking */
@@ -725,7 +700,6 @@ u8 func_802D0B90(void) {
     u8 r = 0;
 
     ENGINE_BLK(802D0B90);
-    engine_save(ENGINE_GPR(28), 0);
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802D0BB4);
         if (vs->unk96[1] != 1) {
@@ -740,7 +714,6 @@ u8 func_802D0B90(void) {
         }
     }
     ENGINE_BLK(802D0BE4);
-    engine_restore();
     return r;
 }
 
@@ -749,7 +722,6 @@ void func_802D0BF8(void) {
     VS *vs = &D_803FC8D0;
 
     ENGINE_BLK(802D0BF8);
-    engine_save(ENGINE_GPR(28), 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803FC988, (u32 *)D_803FC98C, 0x1400);
     ENGINE_BLK(802D0C2C);
@@ -759,7 +731,6 @@ void func_802D0BF8(void) {
     ENGINE_BLK(802D0C44);
     func_802608C8(D_803FC990);
     ENGINE_BLK(802D0C50);
-    engine_restore();
 }
 
 /* put back on the ground where it is (Thunderfist's func_802B13D8; nothing
@@ -768,7 +739,6 @@ void func_802D0E44(void) {
     VS *vs = &D_803FC8D0;
 
     ENGINE_BLK(802D0E44);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803FC97C, D_803FC978, D_803FC980, vs->unk4, &D_803FC97C, (s16 *)&vs->unk4C, 0x10, vs,
                   engine_ctx(30));
     ENGINE_BLK(802D0ED0);
@@ -776,7 +746,6 @@ void func_802D0E44(void) {
     ENGINE_BLK(802D0ED8);
     func_802A133C(D_803FC978, D_803FC97C, D_803FC980, 0x10, vs);
     ENGINE_BLK(802D0F04);
-    engine_restore();
 }
 
 /* its light */
@@ -948,12 +917,8 @@ void func_802D22F4(VS *vs) {
     D_803ED390[1] = h;
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
-    ENGINE_LEAVE(20, D_803FC978);
-    ENGINE_LEAVE(21, D_803FC97C);
-    ENGINE_LEAVE(22, D_803FC980);
-    ENGINE_LEAVE(23, 0x2134);
     func_802AA764(D_803FC978, D_803FC97C, D_803FC980, 0x2134, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802D239C);
     if (D_8035805C != 0) {
         ENGINE_BLK(802D23B0);
@@ -964,11 +929,9 @@ void func_802D22F4(VS *vs) {
     }
     ENGINE_BLK(802D23CC);
     model = D_803FC984;
-    ENGINE_LEAVE(11, T(model));
     func_8029C454(D_803FC978, D_803FC97C, D_803FC980, 0x10, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
                   buf);
     ENGINE_BLK(802D2414);
-    ENGINE_LEAVE(11, T(model));
     func_802ABBEC(0x10, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802D2434);
 }
@@ -1080,7 +1043,6 @@ void func_802D0C68(void) {
     ENGINE_BLK(802D0E1C);
     func_802A0480(3, 0, P, 0.0f);
     ENGINE_BLK(802D0E34);
-    ENGINE_LEAVE(28, T(vs));
 }
 
 /* the body's animation (part 0x1F) for the walk to a stop: the legs back

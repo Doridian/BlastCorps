@@ -135,11 +135,6 @@ void func_802CC920(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     func_802AA838(D_803F930C, D_803F9308, *(s32 *)(D_803F9304 + *(s32 *)(D_803F9304 + 0x18) + 4));
     ENGINE_BLK(802CCC68);
     engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(18, T(&D_803F92FC));
-    ENGINE_LEAVE(22, T(D_803F9308));
-    ENGINE_LEAVE(23, T(D_803F930C));
 }
 
 /* hd.c's: the player gets in */
@@ -160,7 +155,6 @@ u8 func_802CCCD8(void) {
     u8 r = 0;
 
     ENGINE_BLK(802CCCD8);
-    engine_save(0x10000000, 0);
     if (vs->unk96[0] != 1) {
         ENGINE_BLK(802CCCFC);
         if (vs->unk96[1] != 1) {
@@ -172,7 +166,6 @@ u8 func_802CCCD8(void) {
         }
     }
     ENGINE_BLK(802CCD20);
-    engine_restore();
     return r;
 }
 
@@ -181,13 +174,11 @@ void func_802CCD34(void) {
     VS *vs = &D_803F9250;
 
     ENGINE_BLK(802CCD34);
-    engine_save(0x10000000, 0);
     vs->unk76 = 0;
     func_802A7764((u32 *)D_803F9308, (u32 *)D_803F930C, 0x100);
     ENGINE_BLK(802CCD64);
     func_802C444C();
     ENGINE_BLK(802CCD6C);
-    engine_restore();
 }
 
 /* hd.c's: put back on the ground where it is */
@@ -195,14 +186,12 @@ void func_802CCD80(void) {
     VS *vs = &D_803F9250;
 
     ENGINE_BLK(802CCD80);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     func_802A9A60(vs->unk52, D_803F92FC, D_803F92F8, D_803F9300, vs->unk4, &D_803F92FC, (s16 *)&vs->unk4C, 0xE, vs, engine_ctx(30));
     ENGINE_BLK(802CCE0C);
     func_802CD800(vs);
     ENGINE_BLK(802CCE14);
     func_802A133C(D_803F92F8, D_803F92FC, D_803F9300, 0xE, vs);
     ENGINE_BLK(802CCE40);
-    engine_restore();
 }
 
 /* its light */
@@ -484,7 +473,7 @@ void func_802CD800(VS *vs) {
     ENGINE_BLK(802CD854);
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F92F8, D_803F92FC, D_803F9300, 0x55F0, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802CD890);
     if (D_8035805C != 0) {
         ENGINE_BLK(802CD8A4);

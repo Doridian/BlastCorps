@@ -10,8 +10,12 @@
  *
  * Its shadow (func_802AF340) passes func_802582C4 three stack arguments it
  * never stores: two are the halves of the return address its own frame
- * saved, the third whatever was below that frame.  So the frames on that
- * path are the original's (engine_frame(), docs/PORT.md).
+ * saved (RA_SHADOW), the third whatever was below that frame: the word
+ * SHADOW_SLOT below the N64 $sp the game's C runs the engine at, which the
+ * last native frame that reached so deep left there (62740's
+ * func_802ABBEC under the chopper, 62740_carry's func_802AB714, or
+ * func_802AEC3C here; docs/PORT.md).  The native code here keeps no other
+ * frame.
  */
 #include "shared.h"
 #include "game/game.h"
@@ -77,7 +81,8 @@ s32 func_802AEC3C(s32 d, VS *vs);
 #define MODEL ((u8 *)D_803ED818)
 
 /* where the shadow's frame saved its return address, in func_802AEEC8:
-   each version's own */
+   each version's own (the low half of the shadow's pitch; the high half
+   is its sign extension) */
 #if defined(VERSION_US_V10)
 #define RA_SHADOW 0x802AEEBC
 #elif defined(VERSION_JP)
@@ -88,21 +93,10 @@ s32 func_802AEC3C(s32 d, VS *vs);
 #define RA_SHADOW 0x802AEF50
 #endif
 
-/* the frame of 0x58 and 0x30 the original saves $ra, $s0..$s7, $gp, $fp
-   and $f20..$f31 in */
-static void frame_s_regs(void) {
-    int k;
-
-    engine_frame(-0x58);
-    engine_frame_sd(0, 31);
-    for (k = 0; k < 8; k++)
-        engine_frame_sd(8 + 8 * k, 16 + k);
-    engine_frame_sd(0x48, 28);
-    engine_frame_sd(0x50, 30);
-    engine_frame(-0x30);
-    for (k = 0; k < 6; k++)
-        engine_frame_sdc1(8 * k, 20 + 2 * k);
-}
+/* the word below the game C's N64 $sp the shadow's third stack argument
+   is (its frames in the original: func_802AEEC8's 0x10, driver_frame's
+   0x58 + 0x30 + 0x10, its own 0x10 + 0x18, read at 0x14) */
+#define SHADOW_SLOT ((u32)-0xBC)
 
 #define SAVED_AEC3C (ENGINE_GPR(2) | ENGINE_GPR(3) | ENGINE_GPR(4) | ENGINE_GPR(6) | 0xFFu << 8 | ENGINE_GPR(24) | \
                      ENGINE_GPR(25) | ENGINE_GPR(28))
@@ -126,11 +120,10 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803ED760;
     u8 *buf;
     s16 *r;
-    s32 *s3, avg;
+    s32 avg;
 
     ENGINE_BLK(802AE370);
     engine_save(ENGINE_T0_T5, 0);
-    engine_frame(-0x38);
     D_803ED818 = (VehicleModel *)model;
     buf = D_80358070;
     D_803ED82C = buf;
@@ -163,10 +156,8 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     D_803ED827 = 0;
     D_803ED824 = 0;
     vs->unkA1 = 0;
-    s3 = func_802A992C(vs->unk52, D_803ED80C, x, z, vs->unk4, &D_803ED80C, (s16 *)&vs->unk4C, 0, vs, engine_ctx(30),
-                       &avg);
-    ENGINE_LEAVE(19, T(s3));
-    ENGINE_LEAVE(21, avg);
+    func_802A992C(vs->unk52, D_803ED80C, x, z, vs->unk4, &D_803ED80C, (s16 *)&vs->unk4C, 0, vs, engine_ctx(30),
+                  &avg);
     ENGINE_BLK(802AE4CC);
     func_8029F85C(DRV, MODEL, D_803ED82C, D_803ED830);
     ENGINE_BLK(802AE508);
@@ -240,15 +231,7 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     ENGINE_BLK(802AE81C);
     D_8036444C = 0xD48;
     D_80364450 = 0;
-    engine_frame(0x38);
     engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(vs));
-    ENGINE_LEAVE(17, T(vs->unk4));
-    ENGINE_LEAVE(18, T(&D_803ED80C));
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(22, T(D_803ED82C));
-    ENGINE_LEAVE(23, T(D_803ED830));
 }
 
 /* hd.c's: part 0x1F (the run) stopped */
@@ -275,8 +258,6 @@ u8 func_802AE888(s32 dist) {
 
     ENGINE_BLK(802AE888);
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
-    engine_frame(-ENGINE_C_FRAME);
-    frame_s_regs();
 #ifndef VERSION_US_V10
     D_803F7812 = 1;
 #endif
@@ -314,20 +295,13 @@ found:
     D_803ED828 = side;
     D_803ED827 = 1;
     D_803ED81C = D_803643E4;
-    ENGINE_LEAVE(28, T(vs));
     /* (what func_802AEC3C's frame saves) */
-    ENGINE_LEAVE(4, dist);
-    ENGINE_LEAVE(8, D_802E8BDC);
-    ENGINE_LEAVE(9, D_80364456);
-    ENGINE_LEAVE(10, side);
-    ENGINE_LEAVE(11, mul);
     /* the spots out to `dist`, every 100, then `dist` itself */
     for (d = 0;; d += 0x64) {
         BLK_V10(802AE994, 802AE988);
         if (dist < d)
             break;
         BLK_V10(802AE9A0, 802AE994);
-        ENGINE_LEAVE(6, d);
         r = func_802AEC3C(d, vs);
         BLK_V10(802AE9A8, 802AE99C);
         if (r == 0)
@@ -335,7 +309,6 @@ found:
         BLK_V10(802AE9B0, 802AE9A4);
     }
     BLK_V10(802AE9B8, 802AE9AC);
-    ENGINE_LEAVE(6, dist);
     r = func_802AEC3C(dist, vs);
     BLK_V10(802AE9C0, 802AE9B4);
     if (r == 0)
@@ -418,7 +391,6 @@ fail:
 done:
     BLK_V10(802AEB3C, 802AEB30);
     D_803ED827 = 0;
-    engine_frame(0x30 + 0x58 + ENGINE_C_FRAME);
     engine_restore();
     return r;
 }
@@ -471,22 +443,13 @@ done:
    original saves and loads back $v0, $v1, $a0, $a2, $t0..$t9 and $gp) */
 REGS(a2, gp -> a3)
 s32 func_802AEC3C(s32 d, VS *vs) {
-    s32 side = D_803ED828, r, k;
+    s32 side = D_803ED828, r;
 
     ENGINE_BLK(802AEC3C);
     engine_save(SAVED_AEC3C, 0);
-    engine_frame(-0x80);
-    engine_frame_sd(0, 31);
-    engine_frame_sd(8, 2);
-    engine_frame_sd(0x10, 3);
-    engine_frame_sd(0x18, 4);
-    engine_frame_sd(0x20, 6);
-    for (k = 0; k < 8; k++)
-        engine_frame_sd(0x28 + 8 * k, 8 + k);
-    engine_frame_sd(0x68, 24);
-    engine_frame_sd(0x70, 25);
-    engine_frame_sd(0x78, 28);
-    engine_frame(-0x40);
+    /* (the original's frame saves $t6 at the shadow's slot: the game's C
+       calls func_802AE888 at the depth it calls func_802AEEC8) */
+    engine_frame_sw(SHADOW_SLOT, engine_ctx(14));
     if (side == 0) {
         ENGINE_BLK(802AECF4);
         D_803ED808 = D_803643E0;
@@ -537,7 +500,6 @@ s32 func_802AEC3C(s32 d, VS *vs) {
         r = 1;
     }
     ENGINE_BLK(802AEE38);
-    engine_frame(0x40 + 0x80);
     engine_restore();
     return r;
 }
@@ -550,12 +512,9 @@ void func_802AEE84(void) {
     ENGINE_BLK(802AEEB8);
 }
 
-/* hd.c's: each frame, from where the glue would have started the original
-   (its frame and the shadow's are the original's) */
+/* hd.c's: each frame */
 void func_802AEEC8(void) {
-    engine_frame(-ENGINE_C_FRAME);
     driver_frame();
-    engine_frame(ENGINE_C_FRAME);
 }
 
 /* each frame: its walk, or getting out (func_802AF340) */
@@ -567,9 +526,6 @@ static void driver_frame(void) {
 
     ENGINE_BLK(802AEEC8);
     engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
-    frame_s_regs();
-    engine_frame(-0x10);
-    ENGINE_LEAVE(28, T(vs));
     func_802AEE84();
     ENGINE_BLK(802AEF24);
     if (vs->unk9A == 0) {
@@ -721,7 +677,6 @@ done:
     D_80364440 = vs->unk4C;
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0, vs);
     ENGINE_BLK(802AF2EC);
-    engine_frame(0x10 + 0x30 + 0x58);
     engine_restore();
 }
 
@@ -734,10 +689,6 @@ void func_802AF340(VS *vs) {
     ENGINE_BLK(802AF340);
     vs->unk76 = 0x50;
     side = D_803ED828;
-    engine_frame(-0x10);
-    engine_frame_sw(0, 0xFFFFFFFF);
-    engine_frame_sw(4, RA_SHADOW);
-    engine_frame_sd(8, 28);
     x = D_803ED808;
     z = D_803ED810;
     if (side == 0) {
@@ -799,16 +750,13 @@ out:
     D_803ED826 = 0;
     vs->unk76 = 0;
 shadow:
-    /* (two of its stack arguments the halves of the return address above,
-       the third whatever is below them) */
+    /* (its last three stack arguments: whatever is at SHADOW_SLOT, and the
+       halves of the return address its frame saved) */
     ENGINE_BLK(802AF464);
     y2 = (u32)(D_803ED3A8[1] + D_803ED3A8[2]) >> 1;
-    engine_frame(-0x18);
-    engine_frame_sw(0x10, D_803ED80C);
-    func_802582C4(0, D_803ED808, y2, D_803ED810, D_803ED80C, engine_frame_lw(0x14), engine_frame_lw(0x18),
-                  engine_frame_lw(0x1C));
+    func_802582C4(0, D_803ED808, y2, D_803ED810, D_803ED80C, engine_frame_lw(SHADOW_SLOT), 0xFFFFFFFF,
+                  RA_SHADOW);
     ENGINE_BLK(802AF4A4);
-    engine_frame(0x18 + 0x10);
 }
 
 /* the walk: standing, its parts at rest (and now and then a look round,
@@ -820,9 +768,6 @@ void func_802AF4BC(VS *vs) {
     s32 s5, v, f13, a1;
 
     ENGINE_BLK(802AF4BC);
-    engine_frame(-8);
-    engine_frame_sd(0, 31);
-    engine_frame(-0x10);
     s5 = vs->unk76;
     if (s5 != 0)
         goto moving;
@@ -1016,7 +961,6 @@ walking:
     vs->unkA1 = 1;
 done:
     ENGINE_BLK(802AFA50);
-    engine_frame(0x10 + 8);
 }
 
 /* the driver's matrix and its vertices */
@@ -1026,8 +970,6 @@ void func_802AFA64(VS *vs) {
     s32 *m, off;
 
     ENGINE_BLK(802AFA64);
-    engine_frame(-8);
-    engine_frame_sd(0, 31);
     off = *(s32 *)(model + *(s32 *)(model + 0x18) + 4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802AFA94);
@@ -1040,13 +982,8 @@ void func_802AFA64(VS *vs) {
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
-    ENGINE_LEAVE(10, vs->unk4C);
-    ENGINE_LEAVE(20, D_803ED808);
-    ENGINE_LEAVE(21, D_803ED80C);
-    ENGINE_LEAVE(22, D_803ED810);
-    ENGINE_LEAVE(23, 0x4E20);
     func_802AA764(D_803ED808, D_803ED80C, D_803ED810, 0x4E20, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
+    ENGINE_LEAVE(18, T(m));           /* ($s2: 62740's func_802ABBEC reads it) */
     ENGINE_BLK(802AFAFC);
     if (D_8035805C != 0) {
         ENGINE_BLK(802AFB10);
@@ -1057,11 +994,9 @@ void func_802AFA64(VS *vs) {
     }
     ENGINE_BLK(802AFB2C);
     model = MODEL;
-    ENGINE_LEAVE(11, T(model));
     func_8029C454(D_803ED808, D_803ED80C, D_803ED810, 0, model + *(s32 *)(model + 4), model + *(s32 *)(model + 8),
                   buf);
     ENGINE_BLK(802AFB74);
-    engine_frame(8);
 }
 
 /* the turn rate: 0x8C */
@@ -1078,9 +1013,6 @@ void func_802AFBA0(void) {
     D_803EBBF4 = D_803EBBF0 * 4.0f;
     D_803ED3F6 = 0x28;
     D_803ED3F7 = 3;
-    ENGINE_LEAVE(3, 3);
-    ENGINE_LEAVE_F(0, D_803EBBF4);
-    ENGINE_LEAVE_F(2, 4.0f);
 }
 
 /* its state and position saved to dst (0xB2 bytes) */

@@ -324,6 +324,18 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10 |
   | O5 | References, docs, the macOS/wasm builds again | — | 1–2 |
 
+  **O2, half A done** (2026-10-02; 56040, 5CB60, 80280, 69BB0, 8AEE0, 1B100, 853D0, 88160, 772A0,
+  60F60, 679E0, 69944, 5BF40, 7F8B0, 8A080, 60D50, 86ED0; about 4 agent-hours, the other half in
+  parallel).  `ENGINE_BLK` stays until O1 settles the CPU model, so the quick tier and the TAS stayed
+  exact and needed no new references.  A taint build (`PORT_ENGINE_TAINT`, PORT.md "The
+  scaffolding stripped") showed which leftovers some later code reads; the rest went: 701
+  `ENGINE_LEAVE`s are 102, the 27 `ENGINE_RA`s and 112 of 114 frame calls are gone (the driver's
+  shadow reads one dead stack word at a fixed slot now), 18 of 46 save/restore pairs, 27 of 111
+  register reads.  What is left feeds real state from registers both halves leave (effects'
+  velocities, a wheel's material, some collision bytes, a building sphere's point): those become
+  variables or defined values together with the other half's producers, the latter only under the
+  digest, since they are garbage in the original.
+
   About 30–60 agent-hours (25–80), 10–20 elapsed over 4 agents.  O0–O2 and O4 alone, the speed
   without the readability, are about 13–30.  The risk is O3: one TAS run is 20–30 minutes, so a
   module's changes have to be checked in batches, and a desync then has to be bisected.  The digest
