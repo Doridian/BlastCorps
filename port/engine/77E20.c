@@ -223,17 +223,6 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out);
 REGS(t3, t9 -> a2)
 s32 func_802C1A28(s32 group, Building *b);
 
-/* the display list commands this module writes */
-#define DL_SEGMENT(seg) (0xBC000006 | (seg) * 4 << 8)  /* G_MOVEWORD: segment seg's address */
-#define DL_CALL 0x06000000              /* G_DL, pushing */
-#define DL_END 0xB8000000               /* G_ENDDL */
-#define DL_MTX_PUSH 0x01040040          /* G_MTX: modelview, multiplied, pushed */
-#define DL_MTX_POP 0xBD000000           /* G_POPMTX */
-#define DL_PIPESYNC 0xE7000000
-#define DL_ENVCOLOR 0xFB000000
-#define DL_SETTIMG 0xFD                 /* (opcodes) */
-#define DL_SETPRIMCOLOR 0xFA
-
 /* ---- the level's end, the targets ------------------------------------ */
 
 /* Whether the level's goal is reached once its goal building is hit: in
@@ -2989,7 +2978,7 @@ void func_802C0574(void) {
         }
         ENGINE_BLK(802C063C);
         big = 1;
-        if (FX_B(fx, FX_KIND) != 0x15) {
+        if (FX_B(fx, FX_KIND) != FX_KIND_SPARK) {
             ENGINE_BLK(802C0674);
             if (D_803F7810 == 0) {
                 ENGINE_BLK(802C0684);

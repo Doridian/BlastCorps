@@ -14,8 +14,6 @@ extern u8 D_803F932C;                           /* the object under the last gro
 extern u8 D_803F932D, D_803F932E;               /* a hit on a crate, on the player's own kind */
 extern s32 D_803F9320, D_803F9324;              /* a pushed object's position */
 extern s16 D_803F9328;                          /* and its speed */
-extern u8 D_802E8BE4;
-extern s32 D_802E8BE8;
 extern u8 D_802C382C[];
 extern u8 D_80364456;                           /* the player's vehicle type */
 extern u32 D_803649E8;
@@ -70,37 +68,29 @@ void func_802CDAE8(s16 a, s16 b) {
    it hits doing `damage` (to the first); returns whether any. */
 s32 func_802CDB70(s16 r, s16 damage) {
     s32 x = D_803A73F0, y = D_803A73F4, z = D_803A73F8;
-    s32 hit = 0;
-    Building *b, *end;
+    s32 hit = 0, t;
+    Building *b;
 
     ENGINE_BLK(802CDB70);
     D_803F932A = damage;
-    b = D_803F4030;
-    end = D_803F7654;
-    for (;;) {
-        ENGINE_BLK(802CDBD8);
-        if (b == end)
-            break;
+    for (b = D_803F4030; ENGINE_BLK(802CDBD8), b != D_803F7654; b++) {
         ENGINE_BLK(802CDBE0);
-        if (func_8029CFA4(x, y, z, r, b->x, b->y, b->z, b->unkC)) {
-            ENGINE_BLK(802CDBF4);
+        t = func_8029CFA4(x, y, z, r, b->x, b->y, b->z, B_RADIUS(b));
+        ENGINE_BLK(802CDBF4);
+        if (t) {
             ENGINE_BLK(802CDBFC);
-            if (b->unk30 == 0x38) {
+            if (B_ID(b) == MODEL_GOAL) {
                 ENGINE_BLK(802CDC0C);
-                if (func_802BD8C8()) {
-                    ENGINE_BLK(802CDC14);
-                    goto next;
-                }
+                t = func_802BD8C8();
                 ENGINE_BLK(802CDC14);
+                if (t)
+                    goto next;
             }
             ENGINE_BLK(802CDC1C);
             hit = func_802CDC7C(b, x, y, z, r, hit);
-        } else {
-            ENGINE_BLK(802CDBF4);
         }
     next:
         ENGINE_BLK(802CDC24);
-        b++;
     }
     ENGINE_BLK(802CDC2C);
     LIMITS_OFF(802CDC40);
@@ -150,37 +140,38 @@ s32 func_802CDC7C(Building *b, s32 x, s32 y, s32 z, s32 r, s32 hit) {
     return hit;
 }
 
-/* piece p of building b takes `damage` (by the model's strength, byte 4):
-   its group's damage goes up to at most 100, and at 100 the group goes */
+/* piece p of building b takes `damage` (over the model's strength): its
+   group's damage goes up to at most 100, and at 100 the group goes */
 REGS(t9, s0, fp)
 void func_802CDD74(Building *b, Piece *p, s32 damage) {
     s32 g, d;
-    u8 *dmg;
-    Piece *q, *end;
+    Piece *q;
 
     ENGINE_BLK(802CDD74);
-    D_802E8BE4 = 10;
-    D_802E8BE8 = 200;
-    if (b->unk30 == 0x38)
+    D_802E8BE4 = SHAKE_HIT_FRAMES;
+    D_802E8BE8 = SHAKE_PLAYER_HIT;
+    if (B_ID(b) == MODEL_GOAL)
         goto out;
     ENGINE_BLK(802CDE24);
     g = p->group;
-    if (B_MODEL(b)[4] == 0) {
-        { ENGINE_BLK(802CDE40); engine_break(0x802CDE40, 7); }
+    if (M_STRENGTH(B_MODEL(b)) == 0) {
+        ENGINE_BLK(802CDE40);
+        engine_break(0x802CDE40, 7);
     }
     ENGINE_BLK(802CDE44);
-    dmg = &B_DAMAGE(b)[g - 1];
-    d = *dmg + (s32)engine_divu(damage, B_MODEL(b)[4]);
-    if (!(d < 100)) {
+    d = B_DAMAGE(b)[g - 1] + (s32)engine_divu(damage, M_STRENGTH(B_MODEL(b)));
+    if (d >= 100) {
         ENGINE_BLK(802CDE68);
         d = 100;
     }
     ENGINE_BLK(802CDE6C);
-    *dmg = d;
+    B_DAMAGE(b)[g - 1] = d;
     func_802BF898(g, d, b);
     ENGINE_BLK(802CDE74);
     if (d != 100)
         goto out;
+    /* the group destroyed (as 77E20's func_802BEBB0 does it, without the
+       shake) */
     ENGINE_BLK(802CDE80);
     func_802BF1F0(g, b);
     ENGINE_BLK(802CDE88);
@@ -192,12 +183,7 @@ void func_802CDD74(Building *b, Piece *p, s32 damage) {
     ENGINE_BLK(802CDEA0);
     func_802BF384(b);
     ENGINE_BLK(802CDEA8);
-    q = b->unk4;
-    end = b->unk8;
-    for (;;) {
-        ENGINE_BLK(802CDEB0);
-        if (q == end)
-            break;
+    for (q = b->unk4; ENGINE_BLK(802CDEB0), q != (Piece *)b->unk8; q++) {
         ENGINE_BLK(802CDEB8);
         if (q->group == g) {
             ENGINE_BLK(802CDEC4);
@@ -212,7 +198,6 @@ void func_802CDD74(Building *b, Piece *p, s32 damage) {
             }
         }
         ENGINE_BLK(802CDEF8);
-        q++;
     }
     ENGINE_BLK(802CDF00);
     func_802BF668(b);
@@ -226,44 +211,32 @@ out:
    their kinds' parts (func_802CE0E4): returns how many kinds were hit. */
 u8 func_802CDF94(s16 r) {
     s32 x = D_803A73F0, y = D_803A73F4, z = D_803A73F8;
-    s32 n = 0, kind;
+    s32 n = 0, kind, t;
     Solid *s;
 
     ENGINE_BLK(802CDF94);
     D_803F932D = 0;
     D_803F932E = 0;
-    s = D_803A7300;
-    for (;;) {
-        ENGINE_BLK(802CDFFC);
-        if (s->end == -1)
-            break;
+    for (s = D_803A7300; ENGINE_BLK(802CDFFC), s->end != -1; s++) {
         ENGINE_BLK(802CE008);
         kind = s->kind;
         if (kind == 0) {
+            /* (kind 0 not while D_803649E8) */
             ENGINE_BLK(802CE014);
-            if (D_803649E8 != 0) {
-                s++;
+            if (D_803649E8 != 0)
                 continue;
-            }
         }
         ENGINE_BLK(802CE024);
-        s++;
-        if (func_8029CFA4(x, y, z, r, s[-1].x, s[-1].y, s[-1].z, s[-1].r)) {
-            ENGINE_BLK(802CE03C);
+        t = func_8029CFA4(x, y, z, r, s->x, s->y, s->z, s->r);
+        ENGINE_BLK(802CE03C);
+        if (t) {
             ENGINE_BLK(802CE044);
             n += func_802CE0E4(x, y, z, r, kind);
             ENGINE_BLK(802CE04C);
-        } else {
-            ENGINE_BLK(802CE03C);
         }
     }
     ENGINE_BLK(802CE054);
-    if (D_803A7410 != 0) {
-        goto narrowed;
-    }
-    ENGINE_BLK(802CE068);
-    if (D_803A7412 != 0xFFF) {
-    narrowed:
+    if (D_803A7410 != 0 || (ENGINE_BLK(802CE068), D_803A7412 != 0xFFF)) {
         ENGINE_BLK(802CE080);
         D_803A7425 = 1;
         D_803A7424 = 1;
@@ -282,40 +255,35 @@ u8 func_802CDF94(s16 r) {
    (func_802CE204); returns whether any did */
 REGS(v0, v1, a0, a1, t4 -> s4)
 s32 func_802CE0E4(s32 x, s32 y, s32 z, s32 r, s32 kind) {
-    KindPart *k = D_803A6B30;
-    s32 any = 0;
+    KindPart *k;
+    s32 any = 0, t;
 
     ENGINE_BLK(802CE0E4);
     /* the kind's first part */
-    for (;;) {
+    for (k = D_803A6B30;; k++) {
         ENGINE_BLK(802CE128);
         if (k->end == -1)
             goto out;
         ENGINE_BLK(802CE134);
         if (k->kind == kind)
             break;
-        k++;
     }
-    for (;;) {
-        ENGINE_BLK(802CE140);
-        if (k->end == -1)
-            break;
+    /* and the ones after it of the kind */
+    for (; ENGINE_BLK(802CE140), k->end != -1; k++) {
         ENGINE_BLK(802CE14C);
         if (k->kind != kind)
             break;
         ENGINE_BLK(802CE158);
-        k++;
         if (kind == 6) {
             ENGINE_BLK(802CE170);
-            if (k[-1].r == 0x3BD)
+            if (k->r == 0x3BD)
                 continue;
         }
         ENGINE_BLK(802CE17C);
-        if (!func_8029CFA4(x, y, z, r, k[-1].x, k[-1].y, k[-1].z, k[-1].r)) {
-            ENGINE_BLK(802CE184);
-            continue;
-        }
+        t = func_8029CFA4(x, y, z, r, k->x, k->y, k->z, k->r);
         ENGINE_BLK(802CE184);
+        if (!t)
+            continue;
         ENGINE_BLK(802CE18C);
         if (D_80364456 == kind) {
             ENGINE_BLK(802CE19C);
@@ -328,7 +296,7 @@ s32 func_802CE0E4(s32 x, s32 y, s32 z, s32 r, s32 kind) {
             D_803F932D = 1;
         }
         ENGINE_BLK(802CE1BC);
-        func_802CE204(x, z, k[-1].x, k[-1].z);
+        func_802CE204(x, z, k->x, k->z);
         ENGINE_BLK(802CE1C4);
     }
 out:
@@ -336,58 +304,25 @@ out:
     return any;
 }
 
-/* the heading from (x, z) to (tx, tz), 16.16 asin quadrant by quadrant,
-   and the camera kept within a quarter turn of it */
+/* the heading from (x, z) to (tx, tz) (buildings.h's heading_to), and the
+   camera kept within a quarter turn of it */
 REGS(v0, a0, a2, t0)
 void func_802CE204(s32 x, s32 z, s32 tx, s32 tz) {
-    s32 dx = tx - x, dz = tz - z, h = 0, v;
-    f32 d, q;
+    static const HeadingBlks hk = {
+        {ENGINE_BLK_802CE284}, {ENGINE_BLK_802CE2B4}, {ENGINE_BLK_802CE2BC}, {ENGINE_BLK_802CE2EC},
+        {ENGINE_BLK_802CE304}, {ENGINE_BLK_802CE334}, {ENGINE_BLK_802CE340}, {ENGINE_BLK_802CE370},
+        {ENGINE_BLK_802CE278}, {ENGINE_BLK_802CE2F8},
+    };
+    s32 h = 0;
 
     ENGINE_BLK(802CE204);
-    if (dx == 0) {
+    if (tx - x == 0) {
         ENGINE_BLK(802CE244);
-        if (dz == 0)
+        if (tz - z == 0)
             goto out;
     }
     ENGINE_BLK(802CE24C);
-    d = (f32)dx * (f32)dx;
-    q = (f32)dz * (f32)dz;
-    d = __builtin_sqrtf(d + q);
-    if (!(tx < x)) {
-        ENGINE_BLK(802CE278);
-        if (!(tz < z)) {
-            ENGINE_BLK(802CE284);
-            q = (f32)(tx - x) / d;
-            v = engine_cvt_w_s(65536.0f * q);
-            h = func_802AD7FC(v);
-            ENGINE_BLK(802CE2B4);
-            h = (u32)h >> 4;
-        } else {
-            ENGINE_BLK(802CE2BC);
-            q = (f32)(z - tz) / d;
-            v = engine_cvt_w_s(65536.0f * q);
-            h = func_802AD7FC(v);
-            ENGINE_BLK(802CE2EC);
-            h = ((u32)h >> 4) + 0x400;
-        }
-    } else {
-        ENGINE_BLK(802CE2F8);
-        if (tz < z) {
-            ENGINE_BLK(802CE304);
-            q = (f32)(x - tx) / d;
-            v = engine_cvt_w_s(65536.0f * q);
-            h = func_802AD7FC(v);
-            ENGINE_BLK(802CE334);
-            h = ((u32)h >> 4) + 0x800;
-        } else {
-            ENGINE_BLK(802CE340);
-            q = (f32)(tz - z) / d;
-            v = engine_cvt_w_s(65536.0f * q);
-            h = func_802AD7FC(v);
-            ENGINE_BLK(802CE370);
-            h = ((u32)h >> 4) + 0xC00;
-        }
-    }
+    h = heading_to(x, z, tx, tz, &hk);
 out:
     ENGINE_BLK(802CE378);
     func_8029B7CC(h + 0x400, h - 0x400);

@@ -55,6 +55,13 @@ void func_802CEE14(s32 x, s32 y, s32 z);
 REGS(t1)
 void func_802CF3E0(CommPoint *c);
 
+#define COMM_RADIUS 0x280          /* CommPoint.r */
+#define COMM_NEAR 0x4C              /* the player this near lights one (whole units) */
+#define COMM_SPARKS 24              /* func_802CF3E0's, one a frame */
+#define COMM_SPARK_SPEED 50000
+#define COMM_SPARK_FASTER 0x36B0    /* each one's speed over the last's */
+#define COMM_SPARK_RISE 0xA0000     /* and its height (16.16: 10 units) */
+
 /* one set of the dish's parts, set up in the two buffers b1, b2 */
 static void dish_parts(Part *parts, u8 *b1, u8 *b2, s32 still) {
     func_8029F85C(parts, D_803FBBD8, b1, b2);
@@ -121,28 +128,23 @@ void func_802CEAA0(u8 *level) {
         ENGINE_BLK(802CEACC);
         D_803FBBD8 = func_802A396C(0x96);
         ENGINE_BLK(802CEAD4);
-        c = D_803FBBB0;
-        for (;;) {
-            ENGINE_BLK(802CEAE4);
-            if (p == end)
-                break;
+        for (c = D_803FBBB0; ENGINE_BLK(802CEAE4), p != end; c++, p++) {
             ENGINE_BLK(802CEAEC);
             c->x = p->x << 5;
             c->y = p->y << 5;
             c->z = p->z << 5;
             func_802CEE14(p->x, p->y, p->z);
             ENGINE_BLK(802CEB14);
-            c->r = 0x280;
+            c->r = COMM_RADIUS;
             c->lit = 0;
             c->spin = p->spin;
-            c++;
-            p++;
             D_803FC1F0++;
         }
     }
     ENGINE_BLK(802CEB48);
     if (D_803FC1F0 == 0) {
-        goto out;
+        ENGINE_BLK(802CEE00);
+        return;
     }
     ENGINE_BLK(802CEB58);
     heap = D_80358070;
@@ -170,7 +172,6 @@ void func_802CEAA0(u8 *level) {
     func_802A0290(2, -1, D_803FBBE0);
     ENGINE_BLK(802CED1C);
     dish_parts(D_803FBEE0, D_803FC1E8, D_803FC1EC, 1);
-out:
     ENGINE_BLK(802CEE00);
 }
 
@@ -204,19 +205,16 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
     u8 *model, *buf;
 
     ENGINE_BLK(802CEEFC);
-    if (D_803FC1F0 == 0)
-        goto out;
+    if (D_803FC1F0 == 0) {
+        ENGINE_BLK(802CF16C);
+        return (Gfx *)gfx;
+    }
     ENGINE_BLK(802CEF38);
     model = D_803FBBD8;
-    gfx[0] = 0xBC001806;                /* segment 6: the model's section 0x14 */
+    gfx[0] = DL_SEGMENT(6);             /* the model's section 0x14 */
     gfx[1] = K0(model + *(s32 *)(model + 0x14));
     gfx += 2;
-    n = D_803FC1F0;
-    c = D_803FBBB0;
-    for (;;) {
-        ENGINE_BLK(802CEF84);
-        if (n == 0)
-            break;
+    for (n = D_803FC1F0, c = D_803FBBB0; ENGINE_BLK(802CEF84), n != 0; n--, c++, i++) {
         ENGINE_BLK(802CEF8C);
         if (c->lit != 0) {
             ENGINE_BLK(802CEF98);
@@ -238,9 +236,9 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
             }
         }
         ENGINE_BLK(802CEFD4);
-        gfx[0] = 0xBC001C06;            /* segment 7: the parts */
+        gfx[0] = DL_SEGMENT(7);         /* the parts */
         gfx[1] = K0(buf);
-        gfx[2] = 0x06000000;            /* the display list below */
+        gfx[2] = DL_CALL;               /* the display list below */
         gfx[3] = K0(dl);
         dl[0] = 0x04700080;             /* its box: 8 vertices */
         dl[1] = (u32)&D_803FBAB0[i * 0x40];
@@ -253,21 +251,18 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
         func_802AC8CC((u32 *)mtx);
         ENGINE_BLK(802CF080);
         model = D_803FBBD8;
-        dl[0] = 0x01040040;             /* the matrix, pushed */
+        dl[0] = DL_MTX_PUSH;            /* the matrix */
         dl[1] = K0(mtx);
-        dl[2] = 0x06000000;             /* the model's two lists */
+        dl[2] = DL_CALL;                /* the model's two lists */
         dl[3] = K0(model + *(s32 *)(model + 0x24));
-        dl[4] = 0x06000000;
+        dl[4] = DL_CALL;
         dl[5] = K0(model + *(s32 *)(model + 0x2C));
-        dl[6] = 0xBD000000;             /* popped */
+        dl[6] = DL_MTX_POP;
         dl[7] = 0;
-        dl[8] = 0xB8000000;             /* end */
+        dl[8] = DL_END;
         dl[9] = 0;
         dl += 10;
         mtx += 0x10;
-        n--;
-        c++;
-        i++;
     }
     ENGINE_BLK(802CF118);
     if (frame != 0) {
@@ -280,7 +275,6 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
         func_8029E558(D_803FBBE0, D_803FC1E0, D_803FC1E4);
     }
     ENGINE_BLK(802CF160);
-out:
     ENGINE_BLK(802CF16C);
     return (Gfx *)gfx;
 }
@@ -292,12 +286,7 @@ void func_802CF1A4(void) {
     CommPoint *c;
 
     ENGINE_BLK(802CF1A4);
-    n = D_803FC1F0;
-    c = D_803FBBB0;
-    for (;;) {
-        ENGINE_BLK(802CF1E4);
-        if (n == 0)
-            break;
+    for (n = D_803FC1F0, c = D_803FBBB0; ENGINE_BLK(802CF1E4), n != 0; c++, n--) {
         ENGINE_BLK(802CF1EC);
         if (c->lit != 0)
             goto next;
@@ -307,7 +296,7 @@ void func_802CF1A4(void) {
         dz = (c->z >> 5) - pz;
         d = (s32)((u32)dx * (u32)dx + (u32)dy * (u32)dy + (u32)dz * (u32)dz);
         d = engine_cvt_w_s(__builtin_sqrtf((f32)d));
-        if (!(d < 0x4C))
+        if (d >= COMM_NEAR)
             goto next;
         ENGINE_BLK(802CF270);
         c->lit = 1;
@@ -322,16 +311,15 @@ void func_802CF1A4(void) {
         func_802CF3E0(c);
     next:
         ENGINE_BLK(802CF3C0);
-        c++;
-        n--;
     }
     ENGINE_BLK(802CF3CC);
 }
 
-/* communication point c lit: 24 sparks rising from it, and a sound */
+/* communication point c lit: COMM_SPARKS sparks rising from it, one a
+   frame (FX_DELAY), each COMM_SPARK_STEP higher and faster, and a sound */
 REGS(t1)
 void func_802CF3E0(CommPoint *c) {
-    s32 x, y, z, n, k, speed;
+    s32 x, y, z, k, speed;
     u8 *d = D_803F3FF8;
 
     ENGINE_BLK(802CF3E0);
@@ -342,35 +330,28 @@ void func_802CF3E0(CommPoint *c) {
     x = c->x << 11;
     y = c->y << 11;
     z = c->z << 11;
-    n = 24;
-    k = 0;
-    speed = 50000;
-    for (;;) {
-        ENGINE_BLK(802CF494);
-        if (n == 0)
-            break;
+    speed = COMM_SPARK_SPEED;
+    for (k = 0; ENGINE_BLK(802CF494), k < COMM_SPARKS; k++) {
         ENGINE_BLK(802CF49C);
-        FX_W(d, 0x4) = y;
-        y += 0xA0000;
-        FX_W(d, 0x28) = 0xFC180000;
-        FX_W(d, 0xC) = speed;
-        FX_H(d, 0x2C) = k;
-        n--;
-        FX_W(d, 0x0) = x;
-        FX_W(d, 0x8) = z;
-        speed += 0x36B0;
-        FX_W(d, 0x10) = 0;
-        FX_W(d, 0x14) = 0;
-        FX_W(d, 0x18) = 0;
-        FX_W(d, 0x1C) = 0;
-        FX_W(d, 0x20) = 0;
-        FX_W(d, 0x24) = 0;
-        k++;
-        FX_B(d, 0x2E) = 0;
-        FX_B(d, 0x30) = 0;
-        FX_B(d, 0x31) = 0x15;
-        FX_B(d, 0x34) = 0;
-        FX_B(d, 0x35) = 0;
+        FX_W(d, FX_X) = x;
+        FX_W(d, FX_Y) = y;
+        FX_W(d, FX_Z) = z;
+        FX_W(d, FX_UNK28) = FX_UNK28_INIT;
+        FX_W(d, FX_SPEED) = speed;
+        FX_H(d, FX_DELAY) = k;
+        y += COMM_SPARK_RISE;
+        speed += COMM_SPARK_FASTER;
+        FX_W(d, FX_VEL) = 0;
+        FX_W(d, FX_VEL + 4) = 0;
+        FX_W(d, FX_VEL + 8) = 0;
+        FX_W(d, FX_UNK14) = 0;
+        FX_W(d, FX_UNK14 + 4) = 0;
+        FX_W(d, FX_UNK14 + 8) = 0;
+        FX_B(d, FX_RADIUS) = 0;
+        FX_B(d, FX_AMOUNT) = 0;
+        FX_B(d, FX_KIND) = FX_KIND_SPARK;
+        FX_B(d, FX_DONE) = 0;
+        FX_B(d, FX_UNK35) = 0;
         func_802C04F0(d);
         ENGINE_BLK(802CF50C);
     }
@@ -381,14 +362,11 @@ void func_802CF3E0(CommPoint *c) {
 
 /* 409D0.c's: each lit one's hook (func_80285AB0) */
 void func_802CF5B0(void) {
-    s32 n = D_803FC1F0;
-    CommPoint *c = D_803FBBB0;
+    s32 n;
+    CommPoint *c;
 
     ENGINE_BLK(802CF5B0);
-    for (;;) {
-        ENGINE_BLK(802CF5CC);
-        if (n == 0)
-            break;
+    for (n = D_803FC1F0, c = D_803FBBB0; ENGINE_BLK(802CF5CC), n != 0; c++, n--) {
         ENGINE_BLK(802CF5D4);
         if (c->lit != 0) {
             ENGINE_BLK(802CF5E0);
@@ -396,27 +374,20 @@ void func_802CF5B0(void) {
             ENGINE_BLK(802CF5F8);
         }
         ENGINE_BLK(802CF608);
-        c++;
-        n--;
     }
     ENGINE_BLK(802CF614);
 }
 
 /* 00000.c's: each one lit or not as func_80285B10 says */
 void func_802CF628(void) {
-    s32 n = D_803FC1F0;
-    CommPoint *c = D_803FBBB0;
+    s32 n;
+    CommPoint *c;
 
     ENGINE_BLK(802CF628);
-    for (;;) {
-        ENGINE_BLK(802CF644);
-        if (n == 0)
-            break;
+    for (n = D_803FC1F0, c = D_803FBBB0; ENGINE_BLK(802CF644), n != 0; c++, n--) {
         ENGINE_BLK(802CF64C);
         c->lit = func_80285B10(n);
         ENGINE_BLK(802CF664);
-        c++;
-        n--;
     }
     ENGINE_BLK(802CF684);
 }

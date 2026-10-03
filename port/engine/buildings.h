@@ -186,6 +186,7 @@ enum {
     FX_SIZE = 0x38
 };
 #define NFX 30                  /* D_803F3968's records */
+#define FX_KIND_SPARK 0x15      /* a communication point's sparks: always started big */
 /* the hit a record marked 0xFF needs (D_803F77FE), and a debris roll */
 #define FX_STRONG_HIT 20
 /* the frames each debris piece but the first waits (func_802BF978) */
@@ -334,6 +335,17 @@ static inline u32 engine_divu(u32 n, u32 d) { return d != 0 ? n / d : 0xFFFFFFFF
 static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }
 
 #define K0(p) ((u32)(p) - 0x80000000)
+
+/* the display list commands 77E20 and 8A2E0 write */
+#define DL_SEGMENT(seg) (0xBC000006 | (seg) * 4 << 8)  /* G_MOVEWORD: segment seg's address */
+#define DL_CALL 0x06000000              /* G_DL, pushing */
+#define DL_END 0xB8000000               /* G_ENDDL */
+#define DL_MTX_PUSH 0x01040040          /* G_MTX: modelview, multiplied, pushed */
+#define DL_MTX_POP 0xBD000000           /* G_POPMTX */
+#define DL_PIPESYNC 0xE7000000
+#define DL_ENVCOLOR 0xFB000000
+#define DL_SETTIMG 0xFD                 /* (opcodes) */
+#define DL_SETPRIMCOLOR 0xFA
 
 /* ---- the CPU model's charges (engine.h's ENGINE_BLK) ----------------------- */
 
