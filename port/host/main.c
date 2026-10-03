@@ -655,10 +655,13 @@ static void usage(const char *argv0) {
             "                       retraces by the host clock (not with --deterministic)\n"
             "  --wav PATH           write the sound to a WAV file too\n"
             "  --no-audio           no sound (--headless and --deterministic imply it)\n"
+            "  --cpu-model off|n64  off (the default): the game's work takes no time, and it\n"
+            "                       never lags; n64: as long as on the N64, whose lag frames\n"
+            "                       come back (PORT_CPU_MODEL=n64 too)\n"
             "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
             "at the Nth controller read (and on a crash); PORT_PACE=FILE logs the pacing\n"
             "per controller read; PORT_COUNT_PER_OP=N: CPU count ticks charged per\n"
-            "instruction (default 2, as mupen64plus; 0: the CPU takes no time); PORT_PERF=N\n"
+            "instruction with the CPU model (2, as mupen64plus; 0: off); PORT_PERF=N\n"
             "logs where the host's time goes every N retraces; PORT_PACED=1 virtual time\n"
             "between retraces; PORT_ADAPT=1 lower resolution and no in-between pictures\n"
             "when the host can't keep up (both the browser's default)\n", argv0);
@@ -667,6 +670,7 @@ static void usage(const char *argv0) {
 
 int main(int argc, char **argv) {
     const char *rom_path = ROM_DEFAULT;
+    const char *cpu_model = NULL;
     int aspect_set = 0;
     main_argv = argv;
     for (int i = 1; i < argc; i++) {
@@ -684,6 +688,8 @@ int main(int argc, char **argv) {
             host_audio_enabled = 0;
         else if (!strcmp(argv[i], "--deterministic"))
             deterministic = 1;
+        else if (!strcmp(argv[i], "--cpu-model") && i + 1 < argc)
+            cpu_model = argv[++i];
         else if (!strcmp(argv[i], "--replay") && i + 1 < argc) {
             host_replay_load(argv[++i]);
             deterministic = 1;
@@ -771,6 +777,16 @@ int main(int argc, char **argv) {
     const char *cs = getenv("PORT_C_SCALE");
     if (cs)
         host_c_scale = atof(cs);
+    /* the CPU model (docs/PORT.md, "Lag frames"): off by default, so that
+       the game never drops a frame for want of CPU time; n64 charges the
+       game's work as the N64 would take it (mupen64plus's CountPerOp 2),
+       which brings back the N64's lag frames */
+    if (!cpu_model)
+        cpu_model = getenv("PORT_CPU_MODEL");
+    if (cpu_model && !strcmp(cpu_model, "n64"))
+        host_ns_per_instr = 2 * 64.0 / 3;
+    else if (cpu_model && *cpu_model && strcmp(cpu_model, "off"))
+        usage(argv[0]);
     const char *cpo = getenv("PORT_COUNT_PER_OP");
     if (cpo)
         host_ns_per_instr = atof(cpo) * 64.0 / 3;     /* not real time, or no one listening */

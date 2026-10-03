@@ -342,6 +342,9 @@ void host_digest_poll(unsigned poll) {
                 fprintf(out, " %s=~", prev[j].key);
         }
     fputc('\n', out);
+#ifdef __EMSCRIPTEN__
+    fflush(out);    /* node doesn't run atexit's finish(): the last lines were lost */
+#endif
     memcpy(prev, cur, sizeof *cur * ncur);
     nprev = ncur;
 }
