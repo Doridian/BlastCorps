@@ -402,6 +402,8 @@ typedef struct {
     int n, cap;
     int32_t hash[IHASH];                    /* index + 1 */
     struct { uint32_t addr, cnt; } occ[IHASH];
+    uint32_t *used;                         /* the occ slots taken (hash's: one a load, found from l) */
+    int nused, capused;
 } IFrame;
 static IFrame *ifr[2];
 static int icur;
@@ -419,10 +421,18 @@ static inline uint32_t ihash(uint32_t a, uint32_t b) {
     return (h ^ (h >> 15)) & (IHASH - 1);
 }
 
+/* (the slots it took: a frame takes a few thousand of the tables' 64K) */
 static void iframe_reset(IFrame *f) {
-    f->n = 0;
-    memset(f->hash, 0, sizeof f->hash);
-    memset(f->occ, 0, sizeof f->occ);
+    for (int i = 0; i < f->n; i++) {
+        const ILoad *l = &f->l[i];
+        uint32_t h = ihash(l->addr, l->occ);
+        while (f->hash[h] != i + 1)
+            h = (h + 1) & (IHASH - 1);
+        f->hash[h] = 0;
+    }
+    for (int i = 0; i < f->nused; i++)
+        f->occ[f->used[i]].addr = f->occ[f->used[i]].cnt = 0;
+    f->n = f->nused = 0;
 }
 
 static ILoad *ilookup(IFrame *f, uint32_t addr, uint32_t occ) {
@@ -468,6 +478,13 @@ static void irecord_at(uint32_t addr, const float (*pt)[4], int n) {
     if (f->n >= IHASH / 2) {                /* full: not interpolated */
         tk_push(-1);
         return;
+    }
+    if (!occ) {
+        if (f->nused == f->capused) {
+            f->capused = f->capused ? f->capused * 2 : 4096;
+            f->used = realloc(f->used, (size_t)f->capused * sizeof *f->used);
+        }
+        f->used[f->nused++] = h;
     }
     f->occ[h].addr = addr;
     f->occ[h].cnt = occ + 1;
@@ -672,23 +689,33 @@ static inline void tmem_put(uint32_t a, int odd, const uint8_t *px, int siz) {
     }
 }
 
+static unsigned long long st_loads[4];     /* LoadBlock, LoadTile, LoadTLUT, in-between passes' */
+static unsigned long long st_tmem_syncs;
+
 static int bytes_per_texel_x2(int siz) { return siz == 0 ? 1 : siz == 1 ? 2 : siz == 2 ? 4 : 8; }
 
-/* n bytes (not 32-bit texels) into TMEM at a, a word at a time where they
-   are whole words: tmem_put's layout, without its cost per byte (the
-   loads run for every texture, twice with --interpolate) */
+/* n bytes (not 32-bit texels) into TMEM at a, a run of whole words at once
+   where they are whole words: tmem_put's layout, without its cost per byte
+   (the loads run for every texture, twice with --interpolate) */
 static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
     uint32_t i = 0;
-    if (!(a & 7))
-        for (; i + 8 <= n && a + i + 8 <= 4096; i += 8) {
-            uint8_t *d = gfx_tmem + a + i;
-            if (odd) {
-                memcpy(d, px + i + 4, 4);
-                memcpy(d + 4, px + i, 4);
-            } else {
-                memcpy(d, px + i, 8);
+    if (!(a & 7) && a < 4096) {
+        uint32_t whole = n & ~7u;
+        if (whole > 4096 - a)
+            whole = 4096 - a;
+        uint8_t *d = gfx_tmem + a;
+        if (!odd) {
+            memcpy(d, px, whole);
+        } else {
+            for (; i < whole; i += 8) {
+                uint64_t v;
+                memcpy(&v, px + i, 8);
+                v = v >> 32 | v << 32;          /* the two 32-bit halves exchanged */
+                memcpy(d + i, &v, 8);
             }
         }
+        i = whole;
+    }
     for (; i < n; i++)
         tmem_put(a + i, odd, px + i, 0);
 }
@@ -702,68 +729,211 @@ static void tmem_src_set(uint32_t dst, uint32_t src, uint32_t bytes) {
         gfx_tmem_src[((dst + i) >> 3) & 511] = src ? src + i : 0;
 }
 
-NOINLINE static void load_block(uint32_t w0, uint32_t w1) {
-    Tile *t = &gs.tile[(w1 >> 24) & 7];
-    int uls = (w0 >> 12) & 0xFFF, ult = w0 & 0xFFF, lrs = (w1 >> 12) & 0xFFF, dxt = w1 & 0xFFF;
-    int bpt2 = bytes_per_texel_x2(gs.timg_siz);
-    uint32_t bytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
-    uint32_t src = gs.timg_addr + ((uint32_t)ult * gs.timg_w + uls) * bpt2 / 2;
-    uint32_t dst = t->tmem * 8;
-    const uint8_t *p = port_ptr(src);
-    if (bytes > 4096)
-        bytes = 4096;
-    PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
-    if (hdtext_on)
-        tmem_src_set(dst, src, bytes);
-    /* the RDP counts rows by adding dxt for every 8-byte word */
-    if (gs.timg_siz == 3) {
-        for (uint32_t i = 0; i < bytes; i += 4)
-            tmem_put(dst + i / 2, ((i / 8) * (uint32_t)dxt >> 11) & 1, p + i, 3);
+/* A TMEM load: its state (the tile's size, the generations) changes when
+   the command runs, and its bytes are copied by tload_copy: at once, or in
+   the OpenGL renderer's in-between passes only when something reads TMEM.
+   They are what the first pass loaded at the same point (RDRAM hasn't
+   changed since), so the textures the first pass looked up are the same
+   at the same gs.tmem_gen, and gfx_gl.c finds them by it without reading
+   TMEM (gfx_tmem_sync when it can't). */
+typedef struct {
+    uint8_t op;                 /* 0xF3 LoadBlock, 0xF4 LoadTile, 0xF0 LoadTLUT */
+    uint32_t w0, w1;
+    uint32_t timg_addr;
+    int timg_siz, timg_w;
+    int tmem, line;             /* the tile's, when the load ran */
+    uint64_t words[8];          /* the TMEM words it writes (or may: a bit each) */
+} TLoad;
+
+static TLoad *tpend;            /* the in-between pass's loads not copied yet, in order */
+static int tpend_n, tpend_cap;
+static int tmem_lazy;
+
+static void tload_copy(const TLoad *l) {
+    uint32_t w0 = l->w0, w1 = l->w1;
+    int bpt2 = bytes_per_texel_x2(l->timg_siz);
+    if (l->op == 0xF3) {
+        int uls = (w0 >> 12) & 0xFFF, ult = w0 & 0xFFF, lrs = (w1 >> 12) & 0xFFF;
+        uint32_t dxt = w1 & 0xFFF;
+        uint32_t bytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
+        uint32_t src = l->timg_addr + ((uint32_t)ult * l->timg_w + uls) * bpt2 / 2;
+        uint32_t dst = l->tmem * 8;
+        const uint8_t *p = port_ptr(src);
+        if (bytes > 4096)
+            bytes = 4096;
+        PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
+        if (hdtext_on)
+            tmem_src_set(dst, src, bytes);
+        /* the RDP counts rows by adding dxt for every 8-byte word */
+        if (l->timg_siz == 3) {
+            for (uint32_t i = 0; i < bytes; i += 4)
+                tmem_put(dst + i / 2, ((i / 8) * dxt >> 11) & 1, p + i, 3);
+            return;
+        }
+        /* (the row, and so the swap, changes only between words: the words
+           of a row at a time) */
+        uint32_t words = (bytes + 7) / 8;
+        for (uint32_t w = 0; w < words;) {
+            uint32_t row = w * dxt >> 11, end = words;
+            if (dxt) {
+                end = (((row + 1) << 11) + dxt - 1) / dxt;
+                if (end > words)
+                    end = words;
+            }
+            uint32_t n = end * 8 < bytes ? (end - w) * 8 : bytes - w * 8;
+            tmem_put_bytes(dst + w * 8, row & 1, p + w * 8, n);
+            w = end;
+        }
+    } else if (l->op == 0xF4) {
+        int uls = ((w0 >> 12) & 0xFFF) >> 2, ult = (w0 & 0xFFF) >> 2;
+        int lrs = ((w1 >> 12) & 0xFFF) >> 2, lrt = (w1 & 0xFFF) >> 2;
+        uint32_t rowbytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
+        if (hdtext_on)
+            tmem_src_set(l->tmem * 8, 0, (uint32_t)(lrt - ult + 1) * l->line * 8);
+        for (int y = ult; y <= lrt; y++) {
+            const uint8_t *p = port_ptr(l->timg_addr + ((uint32_t)y * l->timg_w + uls) * bpt2 / 2);
+            int odd = (y - ult) & 1;
+            uint32_t dst = l->tmem * 8 + (uint32_t)(y - ult) * l->line * 8;
+            PORT_ACCESS_BYTES(p, rowbytes < 4096 ? rowbytes : 4096);
+            if (l->timg_siz == 3) {
+                for (uint32_t i = 0; i < rowbytes && i / 2 < 2048; i += 4)
+                    tmem_put(dst + i / 2, odd, p + i, 3);
+            } else {
+                tmem_put_bytes(dst, odd, p, rowbytes < 4096 ? rowbytes : 4096);
+            }
+        }
     } else {
-        /* (the row, and so the swap, changes only between words) */
-        for (uint32_t i = 0; i < bytes; i += 8)
-            tmem_put_bytes(dst + i, ((i / 8) * (uint32_t)dxt >> 11) & 1, p + i, bytes - i < 8 ? bytes - i : 8);
+        int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
+        const uint8_t *p = port_ptr(l->timg_addr + (uint32_t)uls * 2);
+        uint32_t dst = l->tmem * 8;
+        PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
+        if (hdtext_on)
+            tmem_src_set(dst, 0, 2 * (uint32_t)(lrs - uls + 1));
+        for (int i = 0; i <= lrs - uls && dst + 2 * i + 1 < 4096; i++) {
+            gfx_tmem[dst + 2 * i] = p[2 * i];
+            gfx_tmem[dst + 2 * i + 1] = p[2 * i + 1];
+        }
     }
+}
+
+/* words a..a+n-1 of TMEM (mod 512) into a mask of them */
+static void words_add(uint64_t *m, uint32_t a, uint32_t n) {
+    if (n >= 512) {
+        memset(m, 0xFF, 8 * sizeof *m);
+        return;
+    }
+    while (n) {
+        a &= 511;
+        uint32_t b = a & 63, k = 64 - b < n ? 64 - b : n;
+        m[a >> 6] |= (k == 64 ? ~0ull : ((1ull << k) - 1)) << b;
+        a += k;
+        n -= k;
+    }
+}
+
+/* the bytes start..start+len-1 of TMEM as the loads so far left them, for
+   what reads them: the pending loads that write them, and those that write
+   what those do before them (so that what's left to copy never overlaps
+   what was copied after it) */
+void gfx_tmem_sync_range(uint32_t start, uint32_t len) {
+    if (!tpend_n)
+        return;
+    uint64_t need[8] = { 0 };
+    words_add(need, start / 8, (start % 8 + len + 7) / 8);
+    int any = 0;
+    static uint8_t *take;
+    static int take_cap;
+    if (take_cap < tpend_n) {
+        take_cap = tpend_cap;
+        take = realloc(take, (size_t)take_cap);
+    }
+    for (int i = tpend_n - 1; i >= 0; i--) {
+        uint64_t o = 0;
+        for (int j = 0; j < 8; j++)
+            o |= need[j] & tpend[i].words[j];
+        take[i] = o != 0;
+        if (o) {
+            for (int j = 0; j < 8; j++)
+                need[j] |= tpend[i].words[j];
+            any = 1;
+        }
+    }
+    if (!any)
+        return;
+    int n = 0;
+    for (int i = 0; i < tpend_n; i++) {
+        if (take[i]) {
+            tload_copy(&tpend[i]);
+            st_tmem_syncs++;
+        } else {
+            tpend[n++] = tpend[i];
+        }
+    }
+    tpend_n = n;
+}
+
+/* all of TMEM */
+void gfx_tmem_sync(void) {
+    st_tmem_syncs += tpend_n;
+    for (int i = 0; i < tpend_n; i++)
+        tload_copy(&tpend[i]);
+    tpend_n = 0;
+}
+
+static void tload(uint8_t op, uint32_t w0, uint32_t w1) {
+    const Tile *t = &gs.tile[(w1 >> 24) & 7];
+    TLoad l = { op, w0, w1, gs.timg_addr, gs.timg_siz, gs.timg_w, t->tmem, t->line, { 0 } };
+    st_loads[op == 0xF3 ? 0 : op == 0xF4 ? 1 : 2]++;
+    st_loads[3] += ipass;
+    if (!tmem_lazy) {
+        tload_copy(&l);
+        return;
+    }
+    /* what it writes, as tload_copy does (a 32-bit texture's: all of it) */
+    int bpt2 = bytes_per_texel_x2(l.timg_siz);
+    if (l.timg_siz == 3) {
+        words_add(l.words, 0, 512);
+    } else if (op == 0xF3) {
+        uint32_t bytes = (uint32_t)((((w1 >> 12) & 0xFFF) - ((w0 >> 12) & 0xFFF) + 1) * bpt2 / 2);
+        words_add(l.words, l.tmem, ((bytes > 4096 ? 4096 : bytes) + 7) / 8);
+    } else if (op == 0xF4) {
+        int uls = ((w0 >> 12) & 0xFFF) >> 2, ult = (w0 & 0xFFF) >> 2;
+        int lrs = ((w1 >> 12) & 0xFFF) >> 2, lrt = (w1 & 0xFFF) >> 2;
+        uint32_t rowbytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
+        if (rowbytes > 4096)
+            rowbytes = 4096;
+        uint32_t rows = lrt >= ult ? (uint32_t)(lrt - ult + 1) : 0;
+        if (rows)
+            words_add(l.words, l.tmem, (rows - 1) * l.line + (rowbytes + 7) / 8 > rows * l.line
+                                            ? (rows - 1) * l.line + (rowbytes + 7) / 8 : rows * l.line);
+    } else {
+        int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
+        words_add(l.words, l.tmem, (2 * (uint32_t)(lrs - uls + 1) + 7) / 8);
+    }
+    if (tpend_n == tpend_cap) {
+        tpend_cap = tpend_cap ? tpend_cap * 2 : 1024;
+        tpend = realloc(tpend, (size_t)tpend_cap * sizeof *tpend);
+    }
+    tpend[tpend_n++] = l;
+}
+
+NOINLINE static void load_block(uint32_t w0, uint32_t w1) {
+    tload(0xF3, w0, w1);
     gs.tmem_gen++;
 }
 
 NOINLINE static void load_tile(uint32_t w0, uint32_t w1) {
     Tile *t = &gs.tile[(w1 >> 24) & 7];
+    tload(0xF4, w0, w1);
     int uls = ((w0 >> 12) & 0xFFF) >> 2, ult = (w0 & 0xFFF) >> 2;
     int lrs = ((w1 >> 12) & 0xFFF) >> 2, lrt = (w1 & 0xFFF) >> 2;
-    int bpt2 = bytes_per_texel_x2(gs.timg_siz);
     t->uls = uls << 2; t->ult = ult << 2; t->lrs = lrs << 2; t->lrt = lrt << 2;
-    uint32_t rowbytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
-    if (hdtext_on)
-        tmem_src_set(t->tmem * 8, 0, (uint32_t)(lrt - ult + 1) * t->line * 8);
-    for (int y = ult; y <= lrt; y++) {
-        const uint8_t *p = port_ptr(gs.timg_addr + ((uint32_t)y * gs.timg_w + uls) * bpt2 / 2);
-        int odd = (y - ult) & 1;
-        uint32_t dst = t->tmem * 8 + (uint32_t)(y - ult) * t->line * 8;
-        PORT_ACCESS_BYTES(p, rowbytes < 4096 ? rowbytes : 4096);
-        if (gs.timg_siz == 3) {
-            for (uint32_t i = 0; i < rowbytes && i / 2 < 2048; i += 4)
-                tmem_put(dst + i / 2, odd, p + i, 3);
-        } else {
-            tmem_put_bytes(dst, odd, p, rowbytes < 4096 ? rowbytes : 4096);
-        }
-    }
     gs.tmem_gen++;
     gs.tile_gen++;
 }
 
 NOINLINE static void load_tlut(uint32_t w0, uint32_t w1) {
-    Tile *t = &gs.tile[(w1 >> 24) & 7];
-    int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
-    const uint8_t *p = port_ptr(gs.timg_addr + (uint32_t)uls * 2);
-    uint32_t dst = t->tmem * 8;
-    PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
-    if (hdtext_on)
-        tmem_src_set(dst, 0, 2 * (uint32_t)(lrs - uls + 1));
-    for (int i = 0; i <= lrs - uls && dst + 2 * i + 1 < 4096; i++) {
-        gfx_tmem[dst + 2 * i] = p[2 * i];
-        gfx_tmem[dst + 2 * i + 1] = p[2 * i + 1];
-    }
+    tload(0xF0, w0, w1);
     gs.tmem_gen++;
 }
 
@@ -1129,6 +1299,8 @@ typedef struct {
 } SV;
 
 static void raster(const SV *v0, const SV *v1, const SV *v2, const float *flat) {
+    if (tpend_n)
+        gfx_tmem_sync();
     float minx = min_f(v0->x, min_f(v1->x, v2->x)), maxx = max_f(v0->x, max_f(v1->x, v2->x));
     float miny = min_f(v0->y, min_f(v1->y, v2->y)), maxy = max_f(v0->y, max_f(v1->y, v2->y));
     int x0 = (int)floorf(minx), x1 = (int)ceilf(maxx), y0 = (int)floorf(miny), y1 = (int)ceilf(maxy);
@@ -1881,6 +2053,8 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
     }
     if (ipass && !cur_wfb)
         return;
+    if (tpend_n)
+        gfx_tmem_sync();
     int filt = gfx_filter_mode();
     int ta = tile, tb = tile + 1;
     float lodfrac = 255;
@@ -2167,9 +2341,11 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         s1 = gs;
         memcpy(tmem1, gfx_tmem, sizeof tmem1);
         host_perf_push(PERF_GFX2);
+        tmem_lazy = gfx_gl_enabled;
         for (int k = 0; k < frame_k; k++) {
             gs = s0;
             memcpy(gfx_tmem, tmem0, sizeof tmem0);
+            tpend_n = 0;
             cc_noise = noise0;
             ipass = 1;
             ik = k;
@@ -2189,6 +2365,8 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
             gfx_st_interp[5]++;
         }
         host_perf_pop();
+        tmem_lazy = 0;
+        tpend_n = 0;
         ipass = 0;
         gs = s1;
         memcpy(gfx_tmem, tmem1, sizeof tmem1);
@@ -2323,6 +2501,8 @@ void host_gfx_dump_stats(void) {
             host_log(" %02X:%d", i, host_gfx_stats[i]);
     host_log("\ntris %llu rastered %llu pixels tested %llu inside %llu covered %.0f over %d tasks\n",
              st_tris, st_raster, st_tested, st_drawn, st_cover, gfx_tasks);
+    host_log("gfx: TMEM loads: %llu blocks, %llu tiles, %llu palettes (%llu of them in in-between passes; copied "
+             "%llu of those for a read)\n", st_loads[0], st_loads[1], st_loads[2], st_loads[3], st_tmem_syncs);
     host_log("gfx: %s renderer, %.3f ms of host time per task\n", gfx_gl_enabled ? "OpenGL" : "software",
              gfx_tasks ? gfx_host_ms / gfx_tasks : 0.0);
 }

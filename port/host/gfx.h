@@ -58,6 +58,10 @@ extern GfxState gs;
 extern uint8_t gfx_tmem[4096];
 /* --hd-text: each TMEM word's RDRAM source, by the LoadBlock that wrote it (0: none) */
 extern uint32_t gfx_tmem_src[512];
+/* TMEM brought up to date: the OpenGL renderer's in-between passes copy
+   the loads only when something reads it (gfx.c, tload) */
+void gfx_tmem_sync(void);
+void gfx_tmem_sync_range(uint32_t start, uint32_t len);   /* bytes start.. (mod 4096) */
 
 /* a vertex after clipping: screen position (pixels, z 0..1), clip w, and
    the attributes (texels, 0..255), not divided by w */
