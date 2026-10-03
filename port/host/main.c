@@ -229,6 +229,7 @@ static uint64_t rdp_ns;
 static double rdp_scale = 0;
 
 void host_charge(uint64_t ns) { rdp_ns += (uint64_t)(ns * rdp_scale); }
+int host_rdp_scaled(void) { return rdp_scale != 0; }
 
 uint64_t host_take_rdp_ns(void) {
     uint64_t ns = rdp_ns;
@@ -429,9 +430,12 @@ static void paced_breathe(void) {
 /* PORT_PACED: the retrace (or with --display-hz, the display's tick: lock
    0) at virtual v is next: wait for real time (and the display) to get
    there */
+static double wait_from_ms;
 static void paced_wait(uint64_t v, uint64_t period, int lock) {
     const double pms = period / 1e6;
     double deadline = v / 1e6 + real_off_ms, t = real_ms();
+    if (lock)
+        wait_from_ms = t;
     if (lock && t > deadline + 4 * pms) {           /* fell behind: don't catch up */
         real_off_ms = t - v / 1e6;
         host_paced_resyncs++;
@@ -519,6 +523,78 @@ static void lag_account(double late_ms) {
         host_log("pacing: at most %d in-between images a frame again\n", host_interp_limit);
     }
     n = late = 0;
+}
+
+/* PORT_QUEUE (PORT_PACED, the OpenGL renderer; docs/PORT.md, "The fifth
+   round"): a retrace whose work runs over its display frame misses it, and
+   the frame before is shown twice and this one for a frame less, though the
+   next retrace's work is short.  With the queue, each retrace's picture is
+   held and presented a retrace later, at its own display frame (slot):
+   while the next retrace's work runs if that runs over (present_due, from
+   the loop), so a retrace's work may take up to two frames as long as the
+   one after is short.  The game's timing is as it was; the pictures come a
+   retrace (16.7 ms) later.  0: off; 2: always; 1 (the default when paced):
+   on when 3 retraces of 2 s came over 2 ms late, off again after 20 s in
+   which no retrace's work took over 80% of a frame. */
+static int queue_mode = -1;
+static int queue_on;
+int host_queue_on;                      /* (for PORT_PERF) */
+static double held_due_ms;              /* the held picture's slot (real ms) */
+static double work_from_ms;             /* when this retrace's work began */
+static double queue_last_late;          /* how late the last present from the queue came (ms) */
+unsigned long long host_queue_presents, host_queue_late;    /* presents from the queue, those after their slot */
+
+static void queue_init(int between) {
+    const char *e = getenv("PORT_QUEUE");
+    queue_mode = e ? atoi(e) : 1;
+    if (!host_paced || deterministic || between || host_renderer != 1)
+        queue_mode = 0;
+    queue_on = host_queue_on = queue_mode == 2;
+}
+
+/* the queue's present, if its slot has come (early: how long before it a
+   present still lands in its frame) */
+static void present_due(double early) {
+    if (!host_video_held() || real_ms() < held_due_ms - early)
+        return;
+    host_perf_push(PERF_PRESENT);
+    host_queue_presents++;
+    queue_last_late = real_ms() - held_due_ms;
+    host_queue_late += queue_last_late > 2.0;
+    host_video_present_held();
+    host_perf_pop();
+#ifdef PORT_WASM_WEB
+    host_perf_push(PERF_IDLE);              /* (the browser shows it when it has its turn) */
+    yield_now();
+    last_yield_ms = emscripten_get_now();
+    host_perf_pop();
+#endif
+}
+
+/* at a retrace, before its present: late_ms after its slot; work_ms its work */
+static void queue_account(double late_ms, double work_ms, double pms) {
+    static int n, late;
+    static double calm_since;
+    if (queue_mode != 1)
+        return;
+    double now = real_ms();
+    if (!queue_on) {
+        late += late_ms > 2.0;
+        if (late >= 3) {
+            queue_on = host_queue_on = 1;
+            calm_since = now;
+            host_log("pacing: %d retraces late in 2 s: each picture presented a retrace later\n", late);
+        }
+    } else {
+        if (work_ms > 0.8 * pms)
+            calm_since = now;
+        else if (now - calm_since > 20000) {
+            queue_on = host_queue_on = 0;
+            host_log("pacing: the pictures presented at their retraces again\n");
+        }
+    }
+    if (++n >= 120)
+        n = late = 0;
 }
 
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
@@ -872,7 +948,15 @@ int main(int argc, char **argv) {
     int between = gfx_interp && gfx_interp_hz > 60 && !deterministic;
     uint64_t disp_period = between ? 1000000000ull / (uint64_t)gfx_interp_hz : 0;
     uint64_t last_vi = now_ns(), next_disp = between ? last_vi + disp_period : ~0ull;
+    const double vi_pms = vi_period / 1e6;
+    queue_init(between);
     for (;;) {
+        if (queue_on)
+#ifdef PORT_WASM_WEB
+            present_due(vi_pms / 4);
+#else
+            present_due(0);
+#endif
         deliver_pending();
         if (host_replay_poll_si())
             continue;
@@ -884,14 +968,29 @@ int main(int argc, char **argv) {
             double late_ms = host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6;
             if (host_perf_on)
                 host_perf_vi(late_ms, gfx_st_images, port_be32(D_80358064));
-            lag_account(late_ms);
+            /* (with the queue, what is late is a present after its slot:
+               the last retrace's, whose slot is now at the latest) */
+            if (queue_on)
+                present_due(1e9);
+            lag_account(queue_on ? queue_last_late : late_ms);
+            if (queue_mode > 0) {
+                double end = wait_from_ms > work_from_ms ? wait_from_ms : real_ms();
+                queue_account(late_ms, end - work_from_ms, vi_pms);
+                if (!queue_on)
+                    present_due(1e9);                       /* (left the queue: what it held, now) */
+            }
             vi_force = 0;
             spins_held = 0;
             next_vi += vi_period;
             if (now > next_vi + 4 * vi_period)      /* fell behind: don't catch up */
                 next_vi = now + vi_period;
             host_perf_push(PERF_PRESENT);
-            host_video_frame();
+            if (queue_on) {
+                host_video_frame_hold();
+                held_due_ms = next_vi / 1e6 + real_off_ms;  /* (next_vi: the next retrace's time now) */
+            } else {
+                host_video_frame();
+            }
             host_perf_pop();
             hdtext_idle();
             last_vi = now;
@@ -908,6 +1007,7 @@ int main(int argc, char **argv) {
 #endif
             if (host_quit_requested())
                 break;
+            work_from_ms = real_ms();
             port_irq_vi();
             continue;
         }

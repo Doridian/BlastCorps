@@ -231,7 +231,33 @@ static void count_image(int twin) {
 
 static void type_event(const SDL_Event *e);     /* (the name entry's typing, below) */
 
-void host_video_frame(void) {
+/* The present queue (main.c, PORT_QUEUE): a retrace's picture held, to be
+   presented at its display slot.  What it shows (the framebuffer, its
+   in-between image) is decided at the retrace; the framebuffer stays as it
+   is until the game swaps it out at a later retrace, which waits for this
+   present. */
+static struct {
+    int on, twin, shot;
+    uint32_t fb;
+    int width;
+    char path[512];
+} held;
+
+int host_video_held(void) { return held.on; }
+
+void host_video_present_held(void) {
+    if (!held.on)
+        return;
+    held.on = 0;
+    count_image(held.twin);
+    gfx_gl_present(held.fb, held.width, held.shot ? held.path : NULL, held.twin);
+    if (held.shot)
+        host_log("saved %s\n", held.path);
+}
+
+/* hold: the OpenGL renderer's picture goes to the queue (main.c), not to
+   the screen */
+static void video_frame(int hold) {
     SDL_Event e;
     while (sdl_up && SDL_PollEvent(&e)) {
         if (e.type == SDL_QUIT)
@@ -255,6 +281,17 @@ void host_video_frame(void) {
         snprintf(path, sizeof path, "%s%05d.bmp", host_screenshot_prefix, frame);
     /* --interpolate: the frame's in-between image for this retrace, or -1 */
     int twin = gfx_interp_image(vi_fb);
+    if (hold && host_renderer == 1) {
+        host_video_present_held();                  /* (the last one, if it is still there) */
+        held.on = 1;
+        held.fb = vi_fb;
+        held.width = vi_width;
+        held.twin = twin;
+        held.shot = shot;
+        if (shot)
+            memcpy(held.path, path, sizeof path);
+        goto done;
+    }
     count_image(twin);
     if (host_renderer == 1) {
         gfx_gl_present(vi_fb, vi_width, shot ? path : NULL, twin);
@@ -277,6 +314,9 @@ done:
     if (host_max_frames && frame >= host_max_frames)
         quit = 1;
 }
+
+void host_video_frame(void) { video_frame(0); }
+void host_video_frame_hold(void) { video_frame(1); }
 
 void host_video_between(double phase) {
     int twin = gfx_interp_image_at(vi_fb, phase);

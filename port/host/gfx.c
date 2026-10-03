@@ -268,6 +268,7 @@ const uint16_t *gfx_sw_wide_frame(uint32_t addr, int *w) {
 int host_gfx_stats[256];
 static unsigned long long st_tris, st_raster, st_tested, st_drawn;
 static double st_cover;         /* pixels covered, as the geometry says: the RDP's work */
+static int charge_tris;         /* the triangles' cover is wanted (the RDP's time counts, or -v) */
 
 /* fminf and fmaxf as musl has them (NaN loses, -0 is below +0), inline:
    emscripten's are calls, a dozen a triangle */
@@ -788,6 +789,21 @@ static void vtx_tail(uint32_t w1, uint32_t a, int v0, int m) {
             hud_vsrc[v0 + i] = a + 16 * i;
         hud_load(v0, m);
     }
+    /* what tri divides by w for, once a vertex rather than once each
+       triangle that uses it (the same quotients) */
+    for (int i = v0; i < v0 + m; i++) {
+        const Vtx4 *v = &gs.v[i];
+#if GFX_SIMD
+        f4 q = (f4){ v->x, v->y, 1.0f, 1.0f } / (f4){ v->w, v->w, v->w, 1.0f };
+        gs.vd[i][0] = q[0];
+        gs.vd[i][1] = q[1];
+        gs.vd[i][2] = q[2];
+#else
+        gs.vd[i][0] = v->x / v->w;
+        gs.vd[i][1] = v->y / v->w;
+        gs.vd[i][2] = 1.0f / v->w;
+#endif
+    }
 }
 
 #if GFX_SIMD
@@ -1018,15 +1034,15 @@ static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
         if (whole > 4096 - a)
             whole = 4096 - a;
         uint8_t *d = gfx_tmem + a;
-        if (!odd) {
-            memcpy(d, px, whole);
-        } else {
-            for (; i < whole; i += 8) {
-                uint64_t v;
-                memcpy(&v, px + i, 8);
-                v = v >> 32 | v << 32;          /* the two 32-bit halves exchanged */
-                memcpy(d + i, &v, 8);
-            }
+        /* a word at a time, its halves exchanged on odd rows (a rotation
+           by 0 or 32); not memcpy for the even ones: the rows are short,
+           and in WebAssembly memcpy is a call, and memory.copy a slow one */
+        unsigned rot = odd ? 32 : 0;
+        for (; i < whole; i += 8) {
+            uint64_t v;
+            memcpy(&v, px + i, 8);
+            v = __builtin_rotateleft64(v, rot);
+            memcpy(d + i, &v, 8);
         }
         i = whole;
     }
@@ -1725,8 +1741,8 @@ NOINLINE static void raster(const SV *v0, const SV *v1, const SV *v2, const floa
     }
 }
 
-static void to_screen(const Vtx4 *v, GfxVtx *o) {
-    float iw = 1.0f / v->w;
+/* iw: 1 / v->w */
+static inline void to_screen_iw(const Vtx4 *v, float iw, GfxVtx *o) {
     o->x = gs.vp_trans[0] + v->x * iw * gs.vp_scale[0];
     o->y = gs.vp_trans[1] - v->y * iw * gs.vp_scale[1];
     o->z = (v->z * iw) * 0.5f + 0.5f;
@@ -1734,6 +1750,8 @@ static void to_screen(const Vtx4 *v, GfxVtx *o) {
     o->s = v->s; o->t = v->t;
     o->r = v->r; o->g = v->g; o->b = v->b; o->a = v->a;
 }
+
+static void to_screen(const Vtx4 *v, GfxVtx *o) { to_screen_iw(v, 1.0f / v->w, o); }
 
 static void to_sv(const GfxVtx *v, SV *o) {
     float iw = 1.0f / v->w;
@@ -2132,8 +2150,9 @@ __attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i
     if (!(a->w > 0 && b->w > 0 && c->w > 0))
         cull_late = (gs.geom & 0x3000) != 0;
     else if (gs.geom & 0x3000) {
-        float ax = a->x / a->w, ay = a->y / a->w, bx = b->x / b->w, by = b->y / b->w;
-        float cx = c->x / c->w, cy = c->y / c->w;
+        const float *da = gs.vd[i0 & 15], *db = gs.vd[i1 & 15], *dc = gs.vd[i2 & 15];
+        float ax = da[0], ay = da[1], bx = db[0], by = db[1];
+        float cx = dc[0], cy = dc[1];
         float cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
         if ((gs.geom & 0x2000) && cross < 0)
             return;
@@ -2148,9 +2167,9 @@ __attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i
         a->z + a->w >= 0 && b->z + b->w >= 0 && c->z + c->w >= 0) {
         /* inside both planes: what clip_poly would give back */
         n = 3;
-        to_screen(a, &s[0]);
-        to_screen(b, &s[1]);
-        to_screen(c, &s[2]);
+        to_screen_iw(a, gs.vd[i0 & 15][2], &s[0]);
+        to_screen_iw(b, gs.vd[i1 & 15][2], &s[1]);
+        to_screen_iw(c, gs.vd[i2 & 15][2], &s[2]);
     } else {
         Vtx4 p0[3] = { *a, *b, *c }, p1[9], p2[9];
         n = clip_poly(p0, 3, p1, 0);
@@ -2176,7 +2195,9 @@ __attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i
         for (int i = 0; i < n; i++)
             to_screen(&p2[i], &s[i]);
     }
-    if (!ipass)                         /* (an in-between pass's isn't charged) */
+    /* (an in-between pass's isn't charged; nor anything when the RDP's
+       time is taken as nothing, PORT_RDP_SCALE's default, but for -v) */
+    if (!ipass && charge_tris)
         charge_poly(s, n);
     int gl = gl_target();
     if (hud_task && (gl || cur_wfb)) {
@@ -2750,6 +2771,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
     (void)ucode;
     gfx_tasks++;
     rsp_only = !rdp;
+    charge_tris = host_rdp_scaled() || host_verbose;
     memset(gs.seg, 0, sizeof gs.seg);
     gs.sync = 0;
     gs.mv_top = 0;

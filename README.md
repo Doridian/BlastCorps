@@ -127,7 +127,9 @@ the 4:3 picture with bars above and below.
 It keeps to the display's frames, draws at most about 1.3 million pixels
 (`?args=--scale%203` picks for itself), and when the GPU can't keep up
 it draws smaller, when the CPU can't it drops `--interpolate`'s
-in-between pictures (`?env=PORT_ADAPT=0` turns both off);
+in-between pictures (`?env=PORT_ADAPT=0` turns both off), and when a
+frame's work runs over it shows each picture a frame later rather than
+late (`?env=PORT_QUEUE=0` turns that off, `2` keeps it on);
 `?env=PORT_PERF=600` logs where the time goes to the browser's console
 (docs/PORT.md, "Performance").
 Without `-DPORT_WASM_TARGET=web` it builds `blastcorps.js` for node:

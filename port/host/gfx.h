@@ -28,6 +28,7 @@ typedef struct {
     float mvp[4][4];
     int mvp_dirty;
     struct { float x, y, z, w, s, t, r, g, b, a; } v[16];   /* clip space, texels, 0..255 */
+    float vd[16][3];            /* each vertex's x / w, y / w, 1 / w (gfx.c, vtx_tail) */
     uint32_t geom;
     uint32_t om_h, om_l;
     uint32_t cc0, cc1;

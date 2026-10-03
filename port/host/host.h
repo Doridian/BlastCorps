@@ -19,6 +19,7 @@ void host_threads_dump(void);
 recomp_context *port_ctx(void);
 
 void host_charge(uint64_t ns);
+int host_rdp_scaled(void);             /* PORT_RDP_SCALE isn't 0: host_charge counts */
 uint64_t host_busy_wake(void);       /* threads.c: when a busy thread may go on */
 extern double host_ns_per_instr, host_c_scale;          /* the N64's clock: real or virtual time */
 
@@ -52,6 +53,11 @@ extern int host_headless;
 extern const char *host_save_path;
 void host_video_init(void);
 void host_video_frame(void);
+void host_video_frame_hold(void);       /* the present queue (main.c): the picture held for its slot */
+int host_video_held(void);
+extern int host_queue_on;                       /* main.c: PORT_QUEUE, presenting a retrace late */
+extern unsigned long long host_queue_presents, host_queue_late;
+void host_video_present_held(void);
 void host_video_between(double phase);   /* --display-hz: a present `phase` retraces after the last */
 void host_video_shutdown(void);
 int host_frame_held(void);          /* the game's mode holds each frame for two retraces */

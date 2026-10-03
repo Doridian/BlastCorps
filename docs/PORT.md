@@ -3745,14 +3745,125 @@ WebGL's binding, uniform and draw calls are about 0.05 ms at 1x by the
 profile: at most 0.1-0.2 ms at 4x, 3-6% of the page's work, for
 4-6 agent-hours and the shaders' texture addressing redone.  Not done.
 
+### The fifth round (a late retrace's picture held; the first pass cheaper)
+
+Smoothness first, then the first pass's hot spots.  Measured as before
+(the page by `web_perf.mjs`, Chromium on the GPU, Simian Acres; here
+with `PORT_ADAPT` on, the page's default, since what the display shows
+is the point), and, new, by what each picture did on the display:
+`web_perf.mjs` now tells how many display frames each new picture stayed
+(0: drawn but never seen; 1 is what a 60-picture stream wants, 2 a
+30-picture one), and how many retraces took over 16.7 ms of work or
+were delivered 4 ms late or more.  Natively by the main thread's
+instructions and cycles (`perf_event_open` from an `LD_PRELOAD`, the
+deterministic run of 4,200 retraces).
+
+**A measuring error first**: `web_perf.mjs`'s display count gave one
+repeated picture and one never seen in every 5-second window, from how
+it cut the windows (the last frame's picture was pushed after the
+window was read).  The 0.2 repeats and 0.2 lost pictures a second in
+the earlier rounds' tables were that; at 1x the display had 60 new
+pictures a second, every one shown one frame.
+
+**How often a retrace runs over** (the page, before):
+
+| CPU (CDP throttling) | work median / p99 / max per retrace, ms | over 16.7 ms | pictures held 0/1/2/3/4+ frames | new on the display |
+| --- | --- | --- | --- | --- |
+| 1x | 0.9 / 1.7 / | 0 of 3,600 | 0 / 3,884 / 2 / 0 / 2 | 59.8/s |
+| 4x | 3.7 / 6.1 / | 2 | 2 / 3,881 / 4 / 0 / 2 | 59.8/s |
+| 8x | 7.7 / 21.7 / | 16 | 16 / 2,952 / 464 / 3 / 4 | 52.7/s (`PORT_ADAPT` drops in-between pictures now and then) |
+| 12x | 8.1 / 29.8 / | 242 of 3,000 | 21 / 275 / 1,672 / 70 / 13 | 31.2/s (most in-between pictures dropped) |
+| 16x | 12.9 / 38.4 / | 1,106 of 2,400 | 0 / 136 / 1,059 / 436 / 81 | 26.3/s (the game slows) |
+
+So on this machine (a Ryzen 9950X3D) nothing runs over up to 4x, and
+natively nothing ever does (work per retrace p99 under 5 ms, no
+retrace 4 ms late).  From 8x on, the retrace with the game's frame (the
+game's work and both passes) takes over a frame while the next one is
+short: the frame before is shown three frames instead of two, this one
+one (the 3s and 1s above).
+
+- **`PORT_QUEUE`** (main.c, video.c; `PORT_PACED`, the OpenGL renderer):
+  a retrace's picture is held (`host_video_frame_hold`: which
+  framebuffer and in-between image, decided at the retrace) and
+  presented one retrace later, at its own display frame: by the loop
+  between events once the frame has come (`present_due`, then the
+  page gets its turn so that the browser shows it), even in the middle
+  of the next retrace's work.  A retrace's work may then take up to two
+  frames as long as the next is short, and no picture is shown late.
+  The game's timing is as it was (its retraces at the same times); what
+  is seen comes a retrace (16.7 ms) later.  The framebuffer a picture
+  is held from stays as it is until the game swaps it out, at a later
+  retrace, which waits for the present.  `PORT_QUEUE=1`, the page's
+  default, holds the pictures only when 3 retraces of 2 s came over
+  2 ms late, and stops after 20 s in which no retrace's work took over
+  80% of a frame, so that a machine that keeps up never gets the
+  latency; `2` always holds them, `0` never.  While it holds them,
+  `PORT_ADAPT` counts a retrace as late when its picture was presented
+  after its frame.  `PORT_PERF`'s lines say whether the queue is on, and
+  how many of its presents came after their frame.  Not with
+  `--deterministic` (the tests) or `--display-hz` above 60.
+
+The same build with `PORT_QUEUE=0` and with the default, alternately:
+
+| CPU | `PORT_QUEUE` | pictures held 0/1/2/3/4+ | new on the display |
+| --- | --- | --- | --- |
+| 12x | 0 | 26 / 308 / 1,743 / 28 / 4 | 32.0/s |
+| 12x | 1 | 21 / 2,934 / 471 / 1 / 4 | 52.5/s |
+| 16x | 0 | 0 / 543 / 856 / 539 / 5 | 29.9/s |
+| 16x | 1 | 16 / 115 / 1,845 / 24 / 4 | 30.6/s |
+| 1x, 4x | 2 (always) | 0 / 3,889 / 0 / 0 / 2; 1 / 3,887 / 1 / 0 / 2 | 59.9/s, 59.8/s |
+
+At 12x the pictures held three frames go from 28 to 1 and the
+in-between pictures come back (52.5 new pictures a second against 32:
+`PORT_ADAPT` no longer sees late retraces); at 16x, where the game can
+just keep its 30 frames, the frames go from half held one or three
+display frames (a stutter at every frame) to even twos.  Of the queue's
+presents 6-11% still come after their frame at 12-16x: the loop can't
+present in the middle of a graphics task, and the work of the two
+retraces together runs over.
+
+**The first pass** (gfx.c), all byte for byte:
+
+- **Each vertex's divisions once**: the culling divided x and y by w
+  for the three vertices of every triangle, and the screen transform 1
+  by w for each again; now `vtx_tail` keeps each vertex's x / w, y / w
+  and 1 / w as it is loaded (or blended, in an in-between pass) in
+  `gs.vd`, the same quotients, and `tri` reads them (a vertex is used by
+  about two triangles).
+- **No cover for the RDP's time when nothing uses it**: `charge_poly`
+  (the polygon's area and its bounding box, `min_f`/`max_f`, every
+  triangle) only adds to what `host_charge` multiplies by
+  `PORT_RDP_SCALE`, 0 by default: it runs when that isn't 0 (or for
+  `-v`'s count).
+- **TMEM loads a word at a time** for the even rows too (a rotation by
+  0 or 32 where the odd rows exchange their halves), not a `memcpy` a
+  row.
+
+Results: natively (mlp64, 4,200 retraces) the main thread's
+instructions 25.88 → 25.03 billion (-3.3%), its cycles 7.12 → 6.68
+billion (-6%); in the page at 4x on the GPU (`PORT_ADAPT=0`, profile)
+the renderer 1.97-2.03 → 1.78-1.85 ms a retrace, `tri` 0.42-0.44 →
+0.25, `gfx` 1.25-1.28 → 1.06-1.13.
+
+Tried and not kept: the textures found by comparing TMEM's bytes with a
+kept copy of each texture's (a sample of 16 words as the key) instead
+of hashing them all: exact, and 3.4% fewer instructions natively, but
+in the page `tile_texture` took longer than it and `hash_words` had
+(0.23 ms a retrace at 4x against 0.20): the kept copies, 16 MB of them,
+come from memory, where the hash reads TMEM only.  The lookups hash
+2.2 GB over the 4,200 retraces (a million lookups, 2.2 KB each; the
+memo by TMEM's generation finds 4%); a load leaves TMEM as it was only
+2.7% of the time, so a cache of what loads wrote wouldn't spare them.
+
 ### What's left
 
-- **The first pass's own cost** is now most of the renderer: `tri`
-  (the culling, clipping and screen transform of every triangle, then
-  `gfx_gl_tri`'s copy: a quarter of the renderer in the page), the TMEM
-  loads (`tload_copy`) and texture lookups (`tile_texture`,
-  `hash_words`), `run`, `vtx_tail` (the in-between pass's records).
-  The vertex transform is done (the fourth round) and was small.
+- **The first pass's own cost** is still most of the renderer: `tri`
+  (a seventh of the renderer in the page after the fifth round), the
+  TMEM loads (`tload_copy`) and texture lookups (`tile_texture`,
+  `hash_words`: 2.2 KB hashed a lookup), `vtx_tail` (the in-between
+  pass's records), `run`.  A digest of each load's bytes computed as it
+  is copied, used by the lookups whose bytes one load wrote, would
+  spare most of the hashing (about 3-5 agent-hours).
 - **Firefox ran the front end three to five times slower** than
   Chromium here (`load_block`, `tri`, `do_vtx` in its profile), but that
   Firefox (Playwright's) has no optimizing WebAssembly compiler: with
@@ -3763,10 +3874,10 @@ profile: at most 0.1-0.2 ms at 4x, 3-6% of the page's work, for
 - **Draw calls**: one per texture change, about 300 a pass; an atlas
   would make them about 90, for 3-6% of the page's work at 4x (the
   fourth round).
-- **A retrace whose work runs over** is shown late even when the next is
-  short (at 6x the render retrace takes 17-19 ms, the other 7): a queue
-  of pictures presented a retrace later would absorb it, for a retrace
-  of latency.
+- **A retrace whose work runs over**: `PORT_QUEUE` holds its picture
+  for a retrace (the fifth round); a present in the middle of a long
+  graphics task (the loop can only present between events) would take
+  the rest of the late ones.
 - **SwiftShader** trades resolution for in-between pictures; which of
   the two to give up first could be the player's choice.
 - Presents between retraces (`--display-hz`) in the page come from the
