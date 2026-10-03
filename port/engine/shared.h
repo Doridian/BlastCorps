@@ -2,9 +2,9 @@
  * The engine's shared functions as the native code calls them: REGS() and
  * the prototype of every native function the vehicle modules and the
  * others call (engine.h).  A declaration here and its definition must
- * agree; one for a still-translated function belongs here too, so that two
- * modules don't give it different REGS() (gen_glue.py refuses that).
- * Generated at first from the definitions; kept by hand.
+ * agree (gen_glue.py, for the check build, refuses two REGS() for one
+ * function).  Generated at first from the definitions; kept by hand, by
+ * the object that defines them.
  */
 #ifndef ENGINE_SHARED_H
 #define ENGINE_SHARED_H
@@ -59,22 +59,16 @@ void func_802A0648(void *key, s32 v);
 REGS(v0)
 void func_802A0674(void *key);
 
-/* 56040, still translated */
+/* 56040: an object's parts from its model, and their animations each frame */
 REGS(t0, t1, v1, a0)
 void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2);
 REGS(t0, v0, v1)
 void func_8029E558(Part *parts, u8 *buf, u8 *other);
 
-/* 5CB60 (engine-B's), still translated: the Vehicle record for a type,
+/* 5CB60: the Vehicle record for a type,
    from its model file (s2) and buffers */
 REGS(a0, a1, v0, v1, s2)
 void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model);
-
-/* 60F60 (engine-B's), still translated: start an effect (a debris or smoke
-   particle) */
-REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
-s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
-                  s32 s3, s32 s4, s32 s5, s32 a3);
 
 /* 56040: a vehicle's collisions each frame.  func_8029A800 sets up the
    frame's state: its point, the kinds whose hit turns the camera (`kinds`,
@@ -116,11 +110,11 @@ void func_8029A914(VS *vs);
 REGS(v0, v1, a0)
 void func_8029F9D4(s32 i, s32 v, Part *parts);
 
-/* 5CB60 (engine-B's), still translated */
+/* 5CB60 */
 REGS(v0, v1, a0, a1, gp)
 void func_802A133C(s32 x, s32 y, s32 z, s32 type, VS *vs);
 
-/* 62740, still translated */
+/* 62740 */
 REGS(t0, t1, t2, s4)
 void func_802ABBEC(s32 id, u8 *verts, u8 *end, u8 *buf);
 REGS(t3, t4, s4, s1, s2)
@@ -135,7 +129,7 @@ REGS(t0, t1, t7, s1, s2, t8, t9, fp, v1, a1, a2, a3, t3, gp)
 void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s32 fp, s16 *v1, s32 *a1, s32 *a2,
                    s32 *a3, s16 *t3, VS *vs);
 
-/* 60F60 (engine-B's), still translated */
+/* 60F60 */
 REGS(-> t0)
 s32 func_802A5ED0(void);
 
@@ -143,15 +137,13 @@ s32 func_802A5ED0(void);
 REGS(gp)
 void func_802CB690(VS *vs);
 
-/* 77E20 (engine-B's), still translated */
+/* 77E20 */
 REGS(t8, gp)
 void func_802BE77C(s32 type, VS *vs);
 REGS(v0 -> v1)
 s32 func_802BCD80(s32 id);
-REGS()
-void func_802BCC10(void);
 
-/* 7F8B0 (engine-B's), still translated: the vehicles' engine sounds */
+/* 7F8B0: the vehicles' engine sounds */
 REGS(a1)
 void func_802C4310(s32 a1);
 REGS()
@@ -296,7 +288,7 @@ REGS(v1 -> fp)
 s32 func_802AD7FC(u32 x);
 s32 func_802AD7D4(s32 x);
 
-/* 60F60 and 5BF40 (engine-B's): start an effect (a debris or smoke
+/* 60F60 and 5BF40: start an effect (a debris or smoke
    particle; it leaves at, a3, t2-t6 and s1 itself), and load a texture */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
 s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
@@ -304,7 +296,7 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 REGS(t6, s1, fp)
 void func_802A1074(u32 id, u32 dst, u32 param);
 
-/* 77E20 and 89250 (engine-D's): a building kind into this frame's list,
+/* 77E20 and 89250: a building kind into this frame's list,
    two list resets, and the angle test (it leaves f0 and f2) */
 REGS(fp)
 void func_802BCCD4(s32 kind);
