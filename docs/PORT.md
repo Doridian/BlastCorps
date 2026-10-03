@@ -2517,6 +2517,11 @@ Measured on us.v10, the 32-bit build, the whole TAS:
 | retraces in the levels (mode 4) | 182,526 for 86,798 frames: 9,096 over 2 a frame | | 173,476: 2 a frame but for 46 |
 | one replay | 21 minutes | 19.4 | 19.4 |
 
+The free-timing replay through `test.py tas` passes the same way on the
+32-bit build (22 minutes) and on `wasm` under node (30 minutes); the
+quick tier passes unchanged on all eight us.v10 variants, and on us.v11's
+and jp's 32-bit and `mn32` builds.
+
 The levels' time by the level clock, the movie's (the N64's, by the
 gated replay) against no lag (`port/tools/tas_times.py REF.digest
 OTHER.digest`, from the two runs' digests; a level's stretches of mode 4
