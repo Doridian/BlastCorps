@@ -4102,27 +4102,50 @@ charges are the same on every path the TAS takes.
 | `SHAKE_HIT_FRAMES`, `SHAKE_DOWN_FRAMES` | 10, 15 | the screen's shake (00000.c: its size falls by a sixth a frame) |
 | `AnimTex.lo` (kind 0) | per model | an animated texture's frames per step; kind 1 every `lo` sixteenths of `D_803649D8` |
 | the frame counters | — | `D_80358068` (consecutive hits: `func_802C0284`, `func_802BEFF4`), `D_803F77F8`, `D_803F77F4` |
-| `TRAIN_*` | 0x2328, 6, 160.0, 0x28, 6, 1 | turn rate, brake, slope divisor, shunting speed, frames between the ends, between sparks |
-| `VAN_*`, `HOTROD_*` | 0x4E20/0x1F40, 0x19/0x10, 800/500, 0.16, 5, 0x32, 1, 3.6, 11.0 | turn rate, brake, slope divisor, turn toward the camera, frames without gears after a bounce, a bounce's least speed, frames between sparks, steering divisors |
-| `SUIT_*` | 0x59D8, 0xC, 120.0, 0.25, 0x6E, 5, 30 | the Cyclone Suit: as above, its steering walking and rolling, an idle animation one frame in 30 |
-| `BIKE_*` | 0x3E80, 0x10, 640, 0.36, 5, 1, 2.2, 6.0 | the Ballista: as above |
-| `BIKE_LEAN_RATE`, `BIKE_MISSILE_WAIT` | 0.05, 5 | its lean a frame; frames between missiles |
+| vehicle modules' (as the vehicles agent's, below) | | `*_TURN_RATE`, `*_BRAKE`, `*_SLOPE_DIV`, `*_STEER_DIV(_AIR)`, `*_WALL_TURN`, `*_HIT_FRAMES`, `*_HIT_MIN_SPEED`, `*_GRAVITY`, `*_BOUNCE_MIN/_DIV` for `TRAIN_`, `VAN_`, `STARSKI_` (the other hotrod), `SUIT_`, `BIKE_`, `BARGE_`, `JBOMB_` |
+| `TRAIN_SHUNT_SPEED`, `_SHUNT_FRAMES` | 0x28, 6 | sent back from an end of the line, or stopped if it left the other end fewer frames ago |
+| `SUIT_ROLL_SPEED`, `_UNCURL_SPEED`, `_IDLE_CHANCE` | 0x118, 0x3C, 30 | the Cyclone Suit rolling, getting up, an idle animation one frame in 31 |
+| `BIKE_LEAN_RATE`, `BIKE_MISSILE_WAIT`, `BIKE_WHEEL_SPIN_DIV` | 0.05, 5, 6 | the Ballista's lean a frame; frames between missiles; its wheels' spin |
 | `BIKE_WHEELIE_*` | G 16, V 0x3C, HOLD 0x17, BOOST 0x33, BOUNCE 0x3C | its wheelie: height `v t - 16 t^2`, held up to 0x17 frames |
-| `BARGE_*` | 0x2328, 6, 160, 0x50, 10.6 | the barges: turn rate, brake, slope divisor, a bump's least speed, steering divisor |
-| `JBOMB_*` | drag 8, air 9, grace 3, lift 0x1E, climb 0xA, slam 0x14, land 0x1E, air steering 0x14 +2 a frame to 100 | the J-Bomb |
-| `JBOMB_SLAM_PUSH`, `_BOUNCE_LIFT`, `_BOUNCE_SPEED`, `_SLAM_SHAKE(_FRAMES)` | -0x4B0, 0x14A, 0x14, 0x320 (0x14) | its slam's push down, a bounce's push up and speed, the slam's shake |
+| `JBOMB_AIR_DRAG`, `_AIR_FRAMES`, `_MODE_GRACE`, `_JET_LIFT`, `_JET_TOP_PUSH`, `_CLIMB_FRAMES` | 8, 9, 3, 0x1E, 0x1E, 0xA | the J-Bomb in the air: speed lost a frame, its timers, the jets' push |
+| `JBOMB_SLAM_FRAMES`, `_SLAM_PUSH`, `_PRESS_FRAMES`, `_LAND_FRAMES` | 0x14, -0x4B0, 4, 0x1E | the slam (three presses each within 4 frames), standing still 30 frames lands it |
+| `JBOMB_AIR_STEER(_UP, _MAX)`, `_TILT_RATE/_BACK`, `_PITCH_RATE/_BACK`, `_FLAMES_MAX` | 0x14 (+2 to 100), 0.02/0.01, 0.03/0.005, 0x32 | its steering and its jets' tilts and flames, a frame |
+| `JBOMB_BOUNCE_SPEED`, `_BOUNCE_LIFT`, `_SLAM_SHAKE(_FRAMES)` | 0x14, 0x14A, 0x320 (0x14) | a bounce in flight, the slam's shake |
 
-(The vehicles' turn rates, brakes and slope divisors are arguments to
-62740's helpers, the vehicles agent's: what a frame of each does is there.
-The sparks' `func_802A6274` speeds and the animations' frame counts
+(The sparks' `func_802A6274` speeds and the animations' frame counts
 (`func_802A039C`) are the effects' and 56040's.)
 
-What is left (about 3-5 agent-hours): the vehicle modules' frame
-functions' remaining branch
-ladders (the hit, the camera turn, the J-Bomb's first half), alike in 72B80
-and 6C5E0 and best done with the vehicles agent's names for the
-VehicleState fields; `unkXX` fields named as their meaning is found; and
-the leftovers above once 5CB60's collision bytes are defined values.
+**The vehicle modules, second pass** (after the vehicles agent's
+vehicle.h): 80280's J-Bomb, 8AEE0 (the other hotrod, `STARSKI_`, and the
+Cyclone Suit), 853D0 (Ballista), 88160 (A-Team van), 772A0 (train) and
+83910 (barges) are written as the vehicles agent wrote theirs: the
+`VS_*` accessors, `SET_WHEELS`/`SET_GEARS`, `FRAME_BUF`/`MODEL_AT`, the
+frame's tail an `if` between the bounce (a function in each module) and
+`turn_along_wall`, `PLAYER_FROM`; the van is 86F60's police car with its
+own numbers, the hotrod 72B80's, the suit 6C5E0's Thunderfist with a third
+leg (`SUIT_*` states, a switch); the J-Bomb's modes are named (`JB_WALK`,
+`JB_FLY`, `JB_FALL`, `JB_DROP`, `JB_SLAM`, `JB_LANDED`) and
+`func_802C61F0` is its timers, jets, mode changes and a switch over the
+modes; the level's status packs and unpacks its bits with two helpers.
+They charge as the vehicles part does, one `ENGINE_COST` a function at
+its average, measured the same way (a counting build over the TAS and
+the quick tier); the engine's total over the TAS with the model off is
+34,832,520,465 instructions against 34,832,528,727 before (8,262 less, two
+millionths of a percent), with the same digest and save.  77E20 keeps
+its exact blocks (the n64 model's quick-tier hashes are unchanged by its
+second pass: the delayed hits, the group sets and the effects' firing as
+functions, the loops that went to a trailing block as `continue`s).
+Leftovers dropped in this pass, the tests showing nothing reads them:
+the frame functions' `$s0`-`$s7` saves (only `$fp`, as the vehicles
+agent's), their setups' `$t0`-`$t5` saves, the matrices' `$s2`, the
+wheels' material from `$fp` (0), the lean limits' `$s3`, the J-Bomb's
+`$t2` (dead since func_8029A800 takes its settings as arguments, core
+agent).
+
+What is left (about 1-2 agent-hours): `unkXX` fields named as their
+meaning is found; the 77E20 functions that still jump to a shared exit
+(the damage rules, the push, the camera's push); the leftovers above
+once 5CB60's collision bytes are defined values.
 
 ### The parts, collisions and loaders
 
