@@ -50,8 +50,6 @@ f32 func_802AE1BC(f32 x) {
     r = r + x4 * D_80305C84;
     r = r - x6 * D_80305C8C;
     r = r + x8 * D_80305C94;
-    ENGINE_LEAVE_F(2, D_80305C7C);     /* (the coefficients it had in $f2, $f8) */
-    ENGINE_LEAVE_F(8, D_80305C94);
     if (neg) {
         ENGINE_BLK(802AE284);
         r = -r;
@@ -99,7 +97,6 @@ f32 func_802AE290(f32 x) {
     r = 1.0f - x2 * D_80305C80;
     r = r + x4 * D_80305C88;
     r = r - x6 * D_80305C90;
-    ENGINE_LEAVE_F(2, D_80305C80);
     r = r * x;
     if (neg) {
         ENGINE_BLK(802AE35C);
@@ -119,7 +116,6 @@ s32 func_802AE104(s32 angle) {
     c = func_802AE1BC((f32)(angle & 0xFFF) * D_80305CA0);
     ENGINE_BLK(802AE134);
     r = engine_cvt_w_s(c * D_80305C9C);
-    ENGINE_LEAVE_FW(0, r);              /* (cvt.w.s left it in $f0 too) */
     return r;
 }
 
@@ -133,6 +129,5 @@ s32 func_802AE160(s32 angle) {
     s = func_802AE290((f32)(angle & 0xFFF) * D_80305CA0);
     ENGINE_BLK(802AE190);
     r = engine_cvt_w_s(s * D_80305C9C);
-    ENGINE_LEAVE_FW(0, r);
     return r;
 }

@@ -1,7 +1,7 @@
 /*
  * hd_code 60F60 (us.v11 0x802A5720-0x802A6F00): texture decoding and the
- * queue of decodes waiting for their DMAs, as native C (engine.h).  (The
- * rest of 60F60, the effects' animated sprites, is still translated.)
+ * queue of decodes waiting for their DMAs, as native C (engine.h), and the
+ * effects' animated sprites.
  *
  * A texture's ROM bytes are a stream of big-endian s16 words, decoded in
  * place: the stream is first copied to D_803C3250, then written back over
@@ -441,9 +441,6 @@ void func_8029A7E4(char *, ...);
 REGS(t6, s1)
 void func_802A11C4(u32 id, u32 dst);
 
-#define R_AT 1
-#define R_A3 7
-#define HI16(p) (((u32)(p) + 0x8000) & 0xFFFF0000)
 
 /* func_802A5E60 (the carrier's and the comm point's): each sprite back
    at its last frame */
@@ -567,7 +564,9 @@ void func_802A5FA8(void) {
    anim's w * h free texture cells, its frames' texture DMA'd (802A11C4)
    unless its number is -1.  Mode 1 with a target ($t5) starts it at the
    point $t3/$t4 name (679E0's func_802ABC88), still.  Returns 1, or 0 when
-   there is no room. */
+   there is no room.  What it leaves in $t2, $t4, $t6 and $s1 the vehicle
+   modules read afterwards (62740's func_802A8768, the next effect's
+   velocity): ENGINE_LEAVE, until those readers take values instead. */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
 s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1,
                   s32 s2, s32 s3, s32 s4, s32 s5, s32 a3) {
@@ -579,7 +578,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 
     ENGINE_BLK(802A6274);
     D_803EB792 = a3;
-    ENGINE_LEAVE(R_AT, HI16(&D_803EB792));
     for (;;) {
         ENGINE_BLK(802A62B4);
         if (n == 0) {
@@ -609,7 +607,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
             goto fail;
         }
         ENGINE_BLK(802A6314);
-        ENGINE_LEAVE(R_A3, *cell);
         n--;
         if (*cell == 0) {
             ENGINE_BLK(802A6324);
@@ -638,7 +635,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
     s->frame = 0;
     s->unk35 = s5;
     s->unk3B = D_803EB792;
-    ENGINE_LEAVE(R_AT, 1);
     if (t2 != 1) {
         ENGINE_BLK(802A63B4);
         s->pos[0] = t3;
@@ -672,9 +668,7 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
             s->unk2C = 0xFC180000;
             s->unk36 = 0;
             ENGINE_LEAVE(10, 0xFC180000);
-            ENGINE_LEAVE(11, t3);
             ENGINE_LEAVE(12, t4);
-            ENGINE_LEAVE(13, t5);
         } else {
             ENGINE_BLK(802A6450);
             s->unk30 = t3;
@@ -684,7 +678,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
     ENGINE_BLK(802A6458);
     t6 = *(s16 *)anim;
     ENGINE_LEAVE(14, t6);
-    ENGINE_LEAVE(R_AT, -1);
     if (t6 != -1) {
         ENGINE_BLK(802A6468);
         ENGINE_LEAVE(17, (u32)dest);
@@ -892,7 +885,8 @@ u32 func_802A6EB8(u32 s_) {
 }
 
 /* func_802A6DE8: slot `s`'s sprite drawn into its display list
-   (12D80.c's func_802575F4).  Leaves $s0 the slot. */
+   (12D80.c's func_802575F4).  Leaves $s0 the slot (the vehicle modules'
+   next effect and func_8029C454 read it). */
 REGS(t4, t1, s1, t8, v1, s5, gp)
 void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) {
     Gfx *PTR32 *dl;
@@ -979,8 +973,6 @@ void func_802A68D4(u32 s_, u32 m_) {
     cy = (u32)D_803643FC >> 11;
     cz = (u32)D_80364400 >> 11;
     dist = func_802ABCDC(cx, cy, cz, x, y, z);
-    ENGINE_LEAVE_FW(0, (u32)dist);
-    ENGINE_LEAVE_FW(1, (u32)((u64)dist >> 32));
     ENGINE_BLK(802A6AB4);
     if (dist == 0) {
         ENGINE_BLK(802A6ABC);
@@ -1036,7 +1028,7 @@ void func_802A64A4(void) {
     EffectSlot *s;
     u8 *fp;
     s32 n;
-    u32 t6 = ENGINE_REG(14);
+    u32 t6;
 
     ENGINE_BLK(802A64A4);
     if (D_8035805C != 0) {

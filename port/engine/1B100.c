@@ -7,14 +7,16 @@
  * func_80202380), turn them (func_802025D0) and step them a frame
  * (func_802021FC).
  *
- * The front end's C goes on to translated code, which may read what these
- * leave in the registers, so they leave it as the originals do.
+ * What is left of the original's registers: their $v0 (the last part
+ * helper's first argument) and the $s0-$fp they load back.  The next
+ * level's loader still reads them (5CB60's collision triangles take a
+ * byte from $v0, the vehicles' $s registers come through the loads),
+ * which keeps the TAS exact for now.
  */
 #include "shared.h"
 #include "game/game.h"
 
-/* the registers by number */
-enum { rAT = 1, rV0, rV1, rA0, rA1, rA2, rA3, rT0, rT1, rT2, rT3, rT4, rT5, rT6, rT7 };
+enum { rV0 = 2 };
 #define G(r) ENGINE_GPR(r)
 #define S0_FP (G(16) | G(17) | G(18) | G(19) | G(20) | G(21) | G(22) | G(23) | G(28) | G(30))
 
@@ -22,13 +24,12 @@ enum { rAT = 1, rV0, rV1, rA0, rA1, rA2, rA3, rT0, rT1, rT2, rT3, rT4, rT5, rT6,
 typedef struct { u16 id, n; } Blk;
 #define BLKT(t, i) ENGINE_BLK_((t)[i].id, (t)[i].n)
 
-/* 5CB60 (engine-B's), still translated: model n loaded; a vehicle's record
-   from its model */
+/* 5CB60: model n loaded; a vehicle's record from its model */
 REGS(t3 -> s2)
 u8 *func_802A396C(s32 n);
 REGS(a0, a1, v0, v1, s2)
 void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model);
-/* 56040 (engine-A's), still translated */
+/* 56040 */
 REGS(t0, t1, v1, a0)
 void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2);
 REGS(t0, v0, v1)
@@ -46,14 +47,6 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
 
     engine_save(S0_FP, 0);
     ENGINE_BLK(80202100);
-    ENGINE_LEAVE(rA2, (u32)bufs);       /* (the arguments, as the game's C passed them) */
-    ENGINE_LEAVE(rA3, (u32)dls);
-    ENGINE_LEAVE(rT1, (u32)dls);
-    ENGINE_LEAVE(rT2, (u32)dls + 4);
-    ENGINE_LEAVE(rT4, (u32)bufs);
-    ENGINE_LEAVE(rT5, (u32)bufs + 4);
-    ENGINE_LEAVE(rT6, (u32)rec);
-    ENGINE_LEAVE(rT7, type);
     model = func_802A396C(type);
     ENGINE_BLK(80202158);
     rec[0] = (u32)model;
@@ -68,9 +61,6 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
     o2 = *(s32 *)(model + 0x2C);
     dls[2] = (u32)(model + o2);
     dls[3] = (u32)(heap + o2 - o1);
-    ENGINE_LEAVE(rT0, (u32)(model + o2));
-    ENGINE_LEAVE(rT1, (u32)dls + 8);
-    ENGINE_LEAVE(rT2, (u32)dls + 12);
     func_802A1388(type, 0, (u8 *)bufs[0], (u8 *)bufs[1], (u8 *)rec[0]);
     ENGINE_BLK(802021C8);
     engine_restore();
@@ -80,9 +70,6 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
 void func_802021FC(Part *parts, u8 *buf, u8 *other) {
     engine_save(S0_FP, 0);
     ENGINE_BLK(802021FC);
-    ENGINE_LEAVE(rA0, (u32)parts);      /* (the arguments, as the game's C passed them) */
-    ENGINE_LEAVE(rA1, (u32)buf);
-    ENGINE_LEAVE(rA2, (u32)other);
     func_8029E558(parts, buf, other);
     ENGINE_BLK(8020223C);
     engine_restore();
@@ -92,8 +79,6 @@ void func_802021FC(Part *parts, u8 *buf, u8 *other) {
 void func_80202270(u8 *model, u32 *bufs, Part *parts) {
     engine_save(S0_FP, 0);
     ENGINE_BLK(80202270);
-    ENGINE_LEAVE(rA1, (u32)bufs + 4);
-    ENGINE_LEAVE(rA2, (u32)parts);
     func_8029F85C(parts, model, (u8 *)bufs[0], (u8 *)bufs[1]);
     ENGINE_BLK(802022B8);
     engine_restore();
@@ -102,10 +87,6 @@ void func_80202270(u8 *model, u32 *bufs, Part *parts) {
 /* part i's settings */
 void func_802022EC(Part *parts, s32 i, s32 a, s32 b, f32 f, s32 c, s32 d) {
     ENGINE_BLK(802022EC);
-    ENGINE_LEAVE(rA0, (u32)parts);      /* (the arguments, as the game's C passed them) */
-    ENGINE_LEAVE(rA1, i);
-    ENGINE_LEAVE(rA2, a);
-    ENGINE_LEAVE(rA3, b);
     func_802A039C(i, c, parts);
     ENGINE_BLK(80202328);
     func_802A03D4(i, d, parts);
@@ -117,8 +98,6 @@ void func_802022EC(Part *parts, s32 i, s32 a, s32 b, f32 f, s32 c, s32 d) {
     func_802A0290(i, -1, parts);
     ENGINE_BLK(8020234C);
     ENGINE_LEAVE(rV0, i);               /* (what it passed last) */
-    ENGINE_LEAVE(rV1, -1);
-    ENGINE_LEAVE_F(0, f);
 }
 
 /* one part's four settings (func_802A05D0... by its key) */
@@ -147,8 +126,6 @@ void func_80202380(s32 type) {
     u8 *last = NULL;
 
     ENGINE_BLK(80202380);
-    ENGINE_LEAVE(rA0, type);            /* (the argument, as the game's C passed it) */
-    ENGINE_LEAVE(rAT, 5);
     if (type == 5) {
         part4(D_802C2208, 0, 0);
         part4(D_802C226C, 0, 1);
@@ -156,7 +133,6 @@ void func_80202380(s32 type) {
         ENGINE_BLK(8020244C);
     } else {
         ENGINE_BLK(802023B8);
-        ENGINE_LEAVE(rAT, 4);
         if (type == 4) {
             part4(D_802C2190, 0, 2);
             part4(D_802C21A4, 0, 3);
@@ -170,7 +146,6 @@ void func_80202380(s32 type) {
     ENGINE_BLK(8020259C);
     if (last != NULL) {
         ENGINE_LEAVE(rV0, (u32)last);   /* (what it passed last) */
-        ENGINE_LEAVE(rV1, -1);
     }
 }
 
@@ -181,13 +156,9 @@ void func_802025D0(u8 type, u32 a) {
     u32 s;
 
     ENGINE_BLK(802025D0);
-    ENGINE_LEAVE(rA0, type);            /* (the arguments, as the game's C passed them) */
-    ENGINE_LEAVE(rA1, a);
-    ENGINE_LEAVE(rAT, 5);
     if (type == 5) {
         ENGINE_BLK(8020261C);
         s = a;
-        ENGINE_LEAVE(rAT, (s32)s < 0x800);
         if (!((s32)s < 0x800)) {
             ENGINE_BLK(8020262C);
             s -= 0x800;
@@ -200,20 +171,14 @@ void func_802025D0(u8 type, u32 a) {
         func_802A05A4(D_802C226C, s, 0.0f);
         ENGINE_BLK(80202678);
         ENGINE_LEAVE(rV0, (u32)D_802C226C);
-        ENGINE_LEAVE(rV1, s);
-        ENGINE_LEAVE_F(0, 0.0f);
-        ENGINE_LEAVE_F(2, 0.0f);
     } else {
         ENGINE_BLK(80202608);
-        ENGINE_LEAVE(rAT, 4);
         if (type == 4) {
             ENGINE_BLK(80202680);
             s = a;
             if ((s32)s < 0x355) {
-                ENGINE_LEAVE(rAT, (s32)s < 0x8AB);
                 s = 0;
             } else {
-                ENGINE_LEAVE(rAT, (s32)s < 0x8AB);
                 ENGINE_BLK(80202690);
                 if (!((s32)s < 0x8AB)) {
                     s = 0;
@@ -234,10 +199,6 @@ void func_802025D0(u8 type, u32 a) {
             ENGINE_BLK(802026E8);
             func_802A05D0(D_802C21A4, 0x32);
             ENGINE_LEAVE(rV0, (u32)D_802C21A4);
-            ENGINE_LEAVE(rV1, 0x32);
-            ENGINE_LEAVE(rA0, 0x32);
-            ENGINE_LEAVE_F(0, 0.0f);
-            ENGINE_LEAVE_F(2, 0.0f);
         } else {
             ENGINE_BLK(80202614);
         }

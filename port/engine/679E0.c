@@ -308,15 +308,9 @@ void func_802ACCCC(s32 *b, s32 *a) {
         a[i] = D_803ED420[i];
     }
     ENGINE_BLK(802ACDA0);
-    /* (the loops' registers, as it leaves them for the translated code) */
-    ENGINE_LEAVE(1, 4);
-    ENGINE_LEAVE(4, (u32)b);
+    /* (what the vehicle modules read later: $s2 6E200's effects, $a1 the
+       driver's shadow through 62740's frames; the other half's readers) */
     ENGINE_LEAVE(5, (u32)(D_803ED420 + 16));
-    ENGINE_LEAVE(6, 4);
-    ENGINE_LEAVE(7, 0);
-    ENGINE_LEAVE(8, D_803ED420[15]);
-    ENGINE_LEAVE(9, (u32)(D_803ED420 + 16));
-    ENGINE_LEAVE(11, b[15]);
     ENGINE_LEAVE(18, (u32)a);
 }
 

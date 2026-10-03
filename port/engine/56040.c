@@ -61,7 +61,6 @@ void func_802A0320(s32 i, Part *parts) {
     ENGINE_BLK(802A0320);
     parts[i].unk13 = 0;
     parts[i].unk4 = 0.0f;
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 REGS(v0, v1, a0, f0)
@@ -152,7 +151,6 @@ void func_802A0570(void *key) {
     ENGINE_BLK(802A0584);
     p->unk13 = 0;
     p->unk4 = 0.0f;
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 REGS(v0, v1, f0)
@@ -235,7 +233,6 @@ void func_8029D534(s32 kind, u8 *part) {
         part[0x55] = 0;
     }
     ENGINE_BLK(8029D554);
-    ENGINE_LEAVE(1, 7);
 }
 
 /* D_803B9890's record with ids (a, b): its flag cleared; returns it ($s0) */
@@ -257,7 +254,6 @@ u8 *func_8029D1D4(s32 a, s32 b) {
     }
     ENGINE_BLK(8029D1FC);
     p[0x51] = 0;
-    ENGINE_LEAVE(17, b);
     return p;
 }
 
@@ -373,12 +369,11 @@ extern u8 *PTR32 D_803BD300;            /* the end of D_803B9890's records */
 extern u8 D_803A7440[];                 /* 12 records of 0x1010 bytes */
 extern u8 D_8035805C;
 
-/* D_803A6B30's record of kind 6 and id 0x3BD: its point in s0, s1, s2;
-   returns whether there is one ($s4) */
+/* whether D_803A6B30 has a record of kind 6 and id 0x3BD ($s4) */
 REGS( -> s4)
 s32 func_8029C6E4(void) {
     u8 *p = D_803A6B30;
-    s32 t7, s3 = 0, read3 = 0, r = 0;
+    s32 t7, s3, r = 0;
 
     ENGINE_BLK(8029C6E4);
     for (;;) {
@@ -394,7 +389,6 @@ s32 func_8029C6E4(void) {
         }
         ENGINE_BLK(8029C71C);
         s3 = *(s32 *)(p + 0xC);
-        read3 = 1;
         if (s3 != 0x3BD) {
             p += 0x14;
             continue;
@@ -407,13 +401,6 @@ s32 func_8029C6E4(void) {
         break;
     }
     ENGINE_BLK(8029C738);
-    if (read3)
-        ENGINE_LEAVE(19, s3);
-    ENGINE_LEAVE(11, 0x3BD);
-    ENGINE_LEAVE(12, 6);
-    ENGINE_LEAVE(13, -1);
-    ENGINE_LEAVE(14, (u32)p);
-    ENGINE_LEAVE(15, t7);
     return r;
 }
 
@@ -476,7 +463,6 @@ s32 func_8029DB7C(u8 *pairs, s32 n, u8 *parts) {
         pairs += 2;
     }
     ENGINE_BLK(8029DBD4);
-    ENGINE_LEAVE(13, n);
     return r;
 }
 
@@ -506,7 +492,6 @@ void func_8029DD54(s32 id) {
         p += 0xC;
     }
     ENGINE_BLK(8029DDB0);
-    ENGINE_LEAVE(1, 1);
 }
 
 /* D_803A7440's used record (byte 6) with this kind (half 4) and id
@@ -545,8 +530,6 @@ u32 func_8029E4E4(s32 kind, s32 id) {
         p += 0x1010;
     }
     ENGINE_BLK(8029E548);
-    if (read)
-        ENGINE_LEAVE(6, a2);
     return r;
 }
 
@@ -568,19 +551,8 @@ s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r) {
         in = 1;
     }
     ENGINE_BLK(8029BF5C);
-    /* (what it leaves: everything) */
-    ENGINE_LEAVE(1, r < d);
     ENGINE_LEAVE(2, px);
-    ENGINE_LEAVE(3, py);
-    ENGINE_LEAVE(4, pz);
-    ENGINE_LEAVE(5, dx);
-    ENGINE_LEAVE(6, dy);
-    ENGINE_LEAVE(7, dz);
-    ENGINE_LEAVE64(8, d);
-    ENGINE_LEAVE64(9, dy2);
     ENGINE_LEAVE64(10, dz2);
-    ENGINE_LEAVE_FW(0, (u32)d);
-    ENGINE_LEAVE_FW(1, (u32)((u64)d >> 32));
     return in;
 }
 
@@ -612,47 +584,58 @@ void func_8029DCD4(s32 a, s32 b) {
         ENGINE_BLK(8029DD38);
         D_803B8568 = p;
     }
-    /* ($at: the delay slot's lui) */
-    ENGINE_LEAVE(1, ((u32)&D_803B8568 + 0x8000) & 0xFFFF0000);
 done:
     ENGINE_BLK(8029DD3C);
 }
 
 /* The part's three points (0x28, 12 bytes each) seen along its axis
-   (byte 0x4E: 0 drops z, 1 y, else x), as v0-a3; and two of the point
-   (x, y, z) in t0, t1 likewise.  All in registers for the callers. */
-REGS(s0, v1, a0, a1)
-void func_8029C0DC(u8 *part, s32 x, s32 y, s32 z) {
-    s32 *w = (s32 *)(part + 0x28);
+   (byte 0x4E: 0 drops z, 1 y, else x), and the point (x, y, z) likewise:
+   func_8029BF64's arguments */
+typedef struct {
+    s32 v[8];   /* x0, z0, x1, z1, x2, z2, px, pz */
+} Flat;
+
+static void c0dc(u8 *part, s32 x, s32 y, s32 z, Flat *f) {
+    s32 *w = (s32 *)(part + 0x28), p[3];
     s32 axis = (s8)part[0x4E], i, j;
 
     ENGINE_BLK(8029C0DC);
-    ENGINE_LEAVE(1, 1);
     if (axis == 0) {
         ENGINE_BLK(8029C138);
-        ENGINE_LEAVE(8, x);
-        ENGINE_LEAVE(9, y);
         i = 0, j = 1;
     } else if (axis == 1) {
         ENGINE_BLK(8029C0E8);
         ENGINE_BLK(8029C114);
-        ENGINE_LEAVE(8, x);
-        ENGINE_LEAVE(9, z);
         i = 0, j = 2;
     } else {
         ENGINE_BLK(8029C0E8);
         ENGINE_BLK(8029C0F0);
-        ENGINE_LEAVE(8, y);
-        ENGINE_LEAVE(9, z);
         i = 1, j = 2;
     }
     ENGINE_BLK(8029C158);
-    ENGINE_LEAVE(2, w[i]);
-    ENGINE_LEAVE(3, w[j]);
-    ENGINE_LEAVE(4, w[3 + i]);
-    ENGINE_LEAVE(5, w[3 + j]);
-    ENGINE_LEAVE(6, w[6 + i]);
-    ENGINE_LEAVE(7, w[6 + j]);
+    p[0] = x, p[1] = y, p[2] = z;
+    f->v[0] = w[i], f->v[1] = w[j];
+    f->v[2] = w[3 + i], f->v[3] = w[3 + j];
+    f->v[4] = w[6 + i], f->v[5] = w[6 + j];
+    f->v[6] = p[i], f->v[7] = p[j];
+}
+
+static s32 bf64(const Flat *f) {
+    return func_8029BF64(f->v[0], f->v[1], f->v[2], f->v[3], f->v[4], f->v[5], f->v[6], f->v[7]);
+}
+
+/* the same with the results in $v0-$t1, where 77E20's and 89250's callers
+   take them for func_8029BF64 (buildings.h's C0DC_LEFT: the other half's
+   to replace with c0dc()'s struct), and after them the vehicle modules'
+   collision ($t8, $fp, $t4: what 69BB0's and 62740's readers find) */
+REGS(s0, v1, a0, a1)
+void func_8029C0DC(u8 *part, s32 x, s32 y, s32 z) {
+    Flat f;
+    s32 k;
+
+    c0dc(part, x, y, z, &f);
+    for (k = 0; k < 8; k++)
+        ENGINE_LEAVE(2 + k, f.v[k]);
 }
 
 /* D_803B7FC8's records (src, dst, flag): those whose flag is
@@ -705,8 +688,6 @@ s32 func_8029CFA4(s32 x1, s32 y1, s32 z1, s32 r1, s32 x2, s32 y2, s32 z2, s32 r2
         r = 1;
     }
     ENGINE_BLK(8029D024);
-    ENGINE_LEAVE_F(0, d);
-    ENGINE_LEAVE_F(2, rr);
     return r;
 }
 
@@ -753,7 +734,6 @@ void func_8029F110(u8 *spline, s32 mode) {
         m[8] = a - 2.0f;
     }
     ENGINE_BLK(8029F1A8);
-    ENGINE_LEAVE_F(20, 1.0f);
 }
 
 extern f32 D_803B37B8, D_803B37BC;      /* t^2 and t^3 */
@@ -797,8 +777,6 @@ void func_8029F060(f32 t, s32 i, s32 n) {
         D_803B7FC3 = v - m;
     }
     ENGINE_BLK(8029F0FC);
-    ENGINE_LEAVE(1, ((u32)&D_803B7FC3 + 0x8000) & 0xFFFF0000);
-    ENGINE_LEAVE_F(8, t3);
 }
 
 extern f32 D_8030D870;                  /* a full turn, in 16ths */
@@ -838,9 +816,6 @@ s32 func_8029F6B0(s32 a, s32 b, f32 t) {
     }
     ENGINE_BLK(8029F744);
     r = engine_cvt_w_s(d * 16.0f);
-    ENGINE_LEAVE(1, 0x41800000);
-    ENGINE_LEAVE_F(2, fa);
-    ENGINE_LEAVE_F(8, 0.0f);
     return r;
 }
 
@@ -852,7 +827,7 @@ extern u8 D_803BC1D0[];                 /* 0xDC-byte records: an id at 0xC4, a c
 REGS(t2)
 void func_8029D120(s32 id) {
     u8 *p = D_803B9890, *end = D_803BD300, *q, *qend, *b;
-    s32 k, n, c, t4 = 0, t5 = 0, t6 = 0, t7 = 0, set4 = 0, set5 = 0, set6 = 0, set7 = 0;
+    s32 k, n, c, t7;
 
     ENGINE_BLK(8029D120);
     for (;; p += 0x60) {
@@ -867,32 +842,29 @@ void func_8029D120(s32 id) {
         if (k != 0)
             goto next;
         ENGINE_BLK(8029D15C);
-        t7 = p[0x50], set7 = 1;
+        t7 = p[0x50];
         qend = D_803BD304;
         for (q = D_803BC1D0;; q += 0xDC) {
             ENGINE_BLK(8029D174);
             if (q == qend)
                 goto next;
             ENGINE_BLK(8029D17C);
-            t4 = q[0xC4], set4 = 1;
-            if (t4 != id)
+            if (q[0xC4] != id)
                 goto nextq;
             ENGINE_BLK(8029D188);
             b = q + 0xC8;
-            t4 = (u32)b;
-            t5 = n = q[0xC7], set5 = 1;
+            n = q[0xC7];
             for (;;) {
                 ENGINE_BLK(8029D190);
                 if (n == 0)
                     break;
                 ENGINE_BLK(8029D198);
-                t6 = c = *b, set6 = 1;
-                t5 = --n;
+                c = *b;
+                --n;
                 if (c == t7)
                     goto flag;
                 ENGINE_BLK(8029D1A8);
                 b++;
-                t4 = (u32)b;
             }
         nextq:
             ENGINE_BLK(8029D1B0);
@@ -904,17 +876,6 @@ void func_8029D120(s32 id) {
         ENGINE_BLK(8029D1BC);
     }
     ENGINE_BLK(8029D1C4);
-    if (set4)
-        ENGINE_LEAVE(12, t4);
-    if (set5)
-        ENGINE_LEAVE(13, t5);
-    if (set6)
-        ENGINE_LEAVE(14, t6);
-    if (set7)
-        ENGINE_LEAVE(15, t7);
-    ENGINE_LEAVE(16, (u32)p);
-    ENGINE_LEAVE(17, (u32)end);
-    ENGINE_LEAVE(18, 1);
 }
 
 /* the spline at t: D_803B3778's columns weighted by the four points
@@ -958,7 +919,6 @@ f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
         ENGINE_BLK(8029E918);
     }
     ENGINE_BLK(8029E924);
-    ENGINE_LEAVE(1, 1);
     return r;
 }
 
@@ -979,7 +939,6 @@ void func_8029C284(s32 x, s32 z) {
     ENGINE_BLK(8029C30C);
     D_803A7418[0] = cx + (s32)((u32)cz * (u32)(s32)D_803BE72C);
     D_803A7418[1] = -1;
-    ENGINE_LEAVE(15, -1);
 }
 
 extern u8 *PTR32 D_803B35F0;
@@ -1021,7 +980,6 @@ void func_8029DEA0(void) {
         p[0x14] = 0;
     }
     ENGINE_BLK(8029DF54);
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 extern s32 D_803B3730[16];              /* a part's matrix (16.16) */
@@ -1037,7 +995,6 @@ s32 func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     ENGINE_BLK(8029F3D0);
     fx = (f32)(x1 - x0) * t;
     x = engine_cvt_w_s(fx);
-    ENGINE_LEAVE_FW(2, x);
     y = engine_cvt_w_s((f32)(y1 - y0) * t) + y0;
     z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
     x += x0;
@@ -1088,9 +1045,7 @@ s32 func_8029F4B8(s32 a, s32 b, f32 t) {
     m[4] = 0, m[5] = s, m[6] = c, m[7] = 0;
     m[8] = 0, m[9] = -c, m[10] = s, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_LEAVE(3, (u32)r >> 4);
     res = 0x10000;
-    ENGINE_LEAVE(30, s);
 done:
     ENGINE_BLK(8029F544);
     return res;
@@ -1118,9 +1073,7 @@ s32 func_8029F560(s32 a, s32 b, f32 t) {
     m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
     m[8] = c, m[9] = 0, m[10] = s, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_LEAVE(3, (u32)r >> 4);
     res = 0x10000;
-    ENGINE_LEAVE(30, s);
 done:
     ENGINE_BLK(8029F5EC);
     return res;
@@ -1148,9 +1101,7 @@ s32 func_8029F608(s32 a, s32 b, f32 t) {
     m[4] = -c, m[5] = s, m[6] = 0, m[7] = 0;
     m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
     m[12] = 0, m[13] = 0, m[14] = 0, m[15] = 0x10000;
-    ENGINE_LEAVE(3, (u32)r >> 4);
     res = 0x10000;
-    ENGINE_LEAVE(30, s);
 done:
     ENGINE_BLK(8029F694);
     return res;
@@ -1177,9 +1128,6 @@ s32 func_8029E938(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
     ENGINE_BLK(8029E998);
     if (a == 0) {
         ENGINE_BLK(8029E9AC);
-        ENGINE_LEAVE_F(0, k0);
-        ENGINE_LEAVE_F(2, k1);
-        ENGINE_LEAVE_FW(8, 0);
         ENGINE_BLK(8029EA18);
         return 0;
     }
@@ -1206,9 +1154,6 @@ s32 func_8029EA48(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
     ENGINE_BLK(8029EAA8);
     if (a == 0) {
         ENGINE_BLK(8029EABC);
-        ENGINE_LEAVE_F(0, k0);
-        ENGINE_LEAVE_F(2, k1);
-        ENGINE_LEAVE_FW(8, 0);
         ENGINE_BLK(8029EB28);
         return 0;
     }
@@ -1235,9 +1180,6 @@ s32 func_8029EB58(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
     ENGINE_BLK(8029EBB8);
     if (a == 0) {
         ENGINE_BLK(8029EBCC);
-        ENGINE_LEAVE_F(0, k0);
-        ENGINE_LEAVE_F(2, k1);
-        ENGINE_LEAVE_FW(8, 0);
         ENGINE_BLK(8029EC38);
         return 0;
     }
@@ -1265,8 +1207,6 @@ s32 func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     ENGINE_BLK(8029F760);
     x = engine_cvt_w_s((f32)(x1 - x0) * t);
     y = engine_cvt_w_s((f32)(y1 - y0) * t);
-    ENGINE_LEAVE_FW(0, x);
-    ENGINE_LEAVE_FW(2, y);
     z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
     x += x0;
     y += y0;
@@ -1292,9 +1232,6 @@ s32 func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     res = 0x10000;
 done:
     ENGINE_BLK(8029F848);
-    ENGINE_LEAVE(7, x);
-    ENGINE_LEAVE(8, y);
-    ENGINE_LEAVE(9, z);
     return res;
 }
 
@@ -1368,26 +1305,16 @@ s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, struct Piece *piece, s32 *px, s3
     f0 = (f32)s2 / *(f32 *)(pl + 0x20);
     s2 = engine_cvt_l_s(f0);
     /* ($f0:$f1, unless it goes on) */
-    ENGINE_LEAVE_FW(0, (u32)s2);
-    ENGINE_LEAVE_FW(1, (u32)((u64)s2 >> 32));
     if (s2 < 0) {
         ENGINE_BLK(8029C1D4);
         s2 = -s2;
     }
     ENGINE_BLK(8029C1D8);
-    ENGINE_LEAVE64(18, s2);
     if (lim < s2) {
         ENGINE_BLK(8029C26C);
-        ENGINE_LEAVE(1, 1);
-        ENGINE_LEAVE64(3, b);
-        ENGINE_LEAVE64(4, c);
         ENGINE_LEAVE64(19, d);
-        ENGINE_LEAVE_F(2, *(f32 *)(pl + 0x20));
         ENGINE_BLK(8029C270);
-        /* ($v1, $a0 as they were loaded, $a1 as it came) */
-        *px = (s32)b;
-        *py = (s32)c;
-        *pz = engine_ctx(5);
+        *px = *py = *pz = 0;            /* (none: its callers don't look) */
         return 0;
     }
     ENGINE_BLK(8029C1E4);
@@ -1405,20 +1332,6 @@ s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, struct Piece *piece, s32 *px, s3
     D_803A73FC = (s32)rx;
     D_803A7400 = (s32)ry;
     D_803A7404 = (s32)rz;
-    /* (what it leaves: the foot as 64 bits, the conversions) */
-    ENGINE_LEAVE(1, ((u32)&D_803A7404 + 0x8000) & 0xFFFF0000);
-    ENGINE_LEAVE64(3, rx);
-    ENGINE_LEAVE64(4, ry);
-    ENGINE_LEAVE64(5, rz);
-    ENGINE_LEAVE64(19, s3);
-    ENGINE_LEAVE_F(0, f0);
-    ENGINE_LEAVE_FW(1, (u32)((u64)s3 >> 32));
-    ENGINE_LEAVE_FW(2, (u32)l2);
-    ENGINE_LEAVE_FW(3, (u32)((u64)l2 >> 32));
-    ENGINE_LEAVE_FW(4, (u32)l4);
-    ENGINE_LEAVE_FW(5, (u32)((u64)l4 >> 32));
-    ENGINE_LEAVE_FW(6, (u32)l6);
-    ENGINE_LEAVE_FW(7, (u32)((u64)l6 >> 32));
     ENGINE_BLK(8029C270);
     *px = (s32)rx;
     *py = (s32)ry;
@@ -1432,7 +1345,7 @@ s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, struct Piece *piece, s32 *px, s3
    it misses, 0 if it is in) */
 REGS(s4, t5, t0, t1, a1 -> t4)
 s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
-    s32 *t = tris, lo, hi, r = 1, read = 0, found = 0;
+    s32 *t = tris, lo, hi, r = 1;
 
     ENGINE_BLK(8029DA90);
     for (;;) {
@@ -1441,7 +1354,6 @@ s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
             break;
         ENGINE_BLK(8029DAC4);
         n--;
-        read = 1;
         t += 6;
         if (!func_802AA5E0(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1])) {
             ENGINE_BLK(8029DAE8);
@@ -1480,25 +1392,9 @@ s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
         ENGINE_BLK(8029DB50);
         r = 0;
     hit:
-        found = 1;
         break;
     }
     ENGINE_BLK(8029DB54);
-    /* (what it leaves: the last triangle's words, or the range) */
-    if (found) {
-        ENGINE_LEAVE(1, hi < y);
-        ENGINE_LEAVE(17, lo);
-        ENGINE_LEAVE(19, hi);
-    } else if (read) {
-        ENGINE_LEAVE(17, t[-6]);
-        ENGINE_LEAVE(19, t[-5]);
-    }
-    if (read) {
-        ENGINE_LEAVE(22, t[-3]);
-        ENGINE_LEAVE(23, t[-2]);
-        ENGINE_LEAVE(25, t[-1]);
-    }
-    ENGINE_LEAVE(13, n);
     return r;
 }
 
@@ -1625,9 +1521,6 @@ s32 func_8029EC68(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
     ENGINE_BLK(8029ED00);
     z = spline_angle(p0, p1, p2, p3, 0x10, t, &k0, &k1);
     ENGINE_BLK(8029ED3C);
-    ENGINE_LEAVE_F(0, k0);
-    ENGINE_LEAVE_F(2, k1);
-    ENGINE_LEAVE_FW(8, z);
     if (x == 0) {
         ENGINE_BLK(8029ED4C);
         if (y == 0) {
@@ -1662,9 +1555,6 @@ s32 func_8029EDEC(u8 *p0, u8 *p1, u8 *p2, u8 *p3, f32 t) {
     ENGINE_BLK(8029EE84);
     z = spline_angle(p0, p1, p2, p3, 4, t, &k0, &k1);
     ENGINE_BLK(8029EEC0);
-    ENGINE_LEAVE_F(0, k0);
-    ENGINE_LEAVE_F(2, k1);
-    ENGINE_LEAVE_FW(8, z);
     if (x == 0x100) {
         ENGINE_BLK(8029EED4);
         if (y == 0x100) {
@@ -1729,12 +1619,6 @@ void func_8029EF80(s16 *k, s32 *acc, f32 t, s32 fp) {
     if (r != 0) {
         ENGINE_BLK(8029F040);
         func_802ACCCC(D_803B3730, acc);
-        ENGINE_LEAVE(4, (u32)D_803B3730);
-    } else {
-        /* (what the last call was given) */
-        ENGINE_LEAVE(4, 0);
-        ENGINE_LEAVE(5, k[7]);
-        ENGINE_LEAVE(6, k[8]);
     }
     ENGINE_BLK(8029F04C);
     ENGINE_LEAVE(30, fp);
@@ -1743,9 +1627,8 @@ void func_8029EF80(s16 *k, s32 *acc, f32 t, s32 fp) {
 /* the same along a spline: the four keys (D_803B7FC0-D_803B7FC3 of the
    0x14-byte records 8 on from s1) at t, in the order scale, z, y, x,
    translation */
-/* (a3 likewise, which func_802ACCCC leaves) */
-REGS(s1, s2, f30, a3)
-void func_8029E730(u8 *keys, s32 *acc, f32 t, s32 a3) {
+REGS(s1, s2, f30)
+void func_8029E730(u8 *keys, s32 *acc, f32 t) {
     u8 *k = keys + 8, *p0 = k + D_803B7FC0 * 0x14, *p1 = k + D_803B7FC1 * 0x14, *p2 = k + D_803B7FC2 * 0x14,
        *p3 = k + D_803B7FC3 * 0x14;
 
@@ -1790,7 +1673,6 @@ void func_8029E730(u8 *keys, s32 *acc, f32 t, s32 a3) {
         ENGINE_BLK(8029E834);
     }
     ENGINE_BLK(8029E848);
-    ENGINE_LEAVE(7, a3);
 }
 
 /* An animation's step (its state at a: 4 the fraction, 0xC the loops so
@@ -1801,9 +1683,8 @@ void func_8029E730(u8 *keys, s32 *acc, f32 t, s32 a3) {
    round), and when the loops reach their limit it stops (0x10 clear). */
 REGS(t0, t2, t6, f6, f30 -> t2, f30)
 s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
-    s32 speed = a[0x14], back = (s8)a[0x11], mode = a[0x12], w, c, lim, at = 1, s2set = 0;
-    f32 fspeed = (f32)speed, f, f2w;
-    u32 f2;
+    s32 speed = a[0x14], back = (s8)a[0x11], mode = a[0x12], w, c, lim;
+    f32 fspeed = (f32)speed, f;
 
     ENGINE_BLK(8029F1BC);
     rate = rate * fspeed;
@@ -1811,7 +1692,6 @@ s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
         ENGINE_BLK(8029F1E8);
         t = t + rate;
         w = engine_trunc_w_s(t);
-        f2 = w;
         t = t - (f32)w;
         k += w;
         if (k < n - 1)
@@ -1836,7 +1716,6 @@ s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
                     back = 1;
                 }
                 ENGINE_BLK(8029F260);
-                s2set = 1;
                 a[0x10] = 0;
                 goto done;
             }
@@ -1850,7 +1729,6 @@ s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
             }
             ENGINE_BLK(8029F2A4);
             t = 1.0f;
-            at = 0x3F800000;            /* (its lui) */
             back = 1;
             k = n - 2;
             goto done;
@@ -1866,22 +1744,18 @@ s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
     }
     ENGINE_BLK(8029F2B8);
     t = t - rate;
-    f2 = 0;                             /* (0.0f) */
     if (t <= 0.0f) {
         ENGINE_BLK(8029F2D0);
         f = (f32)engine_trunc_w_s(t);
         f = f - 1.0f;
         t = t - f;
         w = engine_cvt_w_s(f);
-        f2 = w;
         k += w;
-        at = 0x3F800000;
     }
     ENGINE_BLK(8029F2F8);
     if (k >= 0)
         goto done;
     ENGINE_BLK(8029F300);
-    at = 1;
     c = *(s16 *)(a + 0xC) + back;
     lim = *(s16 *)(a + 0xE);
     if (n == 0) {
@@ -1901,7 +1775,6 @@ s32 func_8029F1BC(u8 *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
                 back = 0;
             }
             ENGINE_BLK(8029F358);
-            s2set = 1;
             a[0x10] = 0;
             goto done;
         }
@@ -1936,16 +1809,8 @@ done:
     a[0x13] = k;
     *(f32 *)(a + 4) = t;
     /* (what it leaves) */
-    ENGINE_LEAVE(1, at);
-    ENGINE_LEAVE(10, k);
     ENGINE_LEAVE(12, speed);
-    ENGINE_LEAVE(13, mode);
     ENGINE_LEAVE(15, back);
-    if (s2set)
-        ENGINE_LEAVE(18, 0);
-    ENGINE_LEAVE_FW(2, f2);
-    ENGINE_LEAVE_F(8, fspeed);
-    ENGINE_LEAVE_F(30, t);
     *t_out = t;
     return k;
 }
@@ -1959,8 +1824,8 @@ extern s32 D_803B3770;                  /* the parts' records' base */
    to the RSP's form, and recorded (func_8029DCD4) or, when the animation
    has stopped, dropped (func_8029DD54).  Leaves its registers in the
    original's order, around its callees' (ENGINE_LEAVE). */
-REGS(t0, v0, a3)
-void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
+REGS(t0, v0)
+void func_8029E5AC(u8 *a, u8 *base) {
     u8 *d = *(u8 *PTR32 *)a, *rec, *dst, *src;
     s32 k = (s8)a[0x13], n, mode, running, parts, step, rem, i;
     u32 *s, *w;
@@ -1970,7 +1835,6 @@ void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
     n = d[0];
     rate = (f32)(d[k + 2] - d[k + 1]) * t + (f32)d[k + 1];
     rate = rate / 300.0f;
-    ENGINE_LEAVE(1, 0x43960000);
     ENGINE_LEAVE(14, n);
     k = func_8029F1BC(a, k, n, rate, t, &t);
     ENGINE_BLK(8029E604);
@@ -1989,14 +1853,8 @@ void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
     rec = d + n + 2;
     parts = d[n + 1];
     rem = (u32)rec & 3;
-    ENGINE_LEAVE(11, (u32)(d + n));
-    ENGINE_LEAVE(21, 0x14);
-    ENGINE_LEAVE(22, step);
-    ENGINE_LEAVE(18, rem);
     if (rem != 0) {
         ENGINE_BLK(8029E64C);
-        ENGINE_LEAVE(19, 4);
-        ENGINE_LEAVE(18, 4 - rem);
         rec += 4 - rem;
     }
     for (;;) {
@@ -2006,7 +1864,6 @@ void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
         ENGINE_BLK(8029E660);
         dst = base + ((s32 *)rec)[0];
         src = base + ((s32 *)rec)[1];
-        ENGINE_LEAVE(13, D_803B3770 + ((s32 *)rec)[0]);
         ENGINE_LEAVE(19, (u32)(rec + 8 + k * 0x14));
         ENGINE_LEAVE(20, k * 0x14);
         s = (u32 *)src;
@@ -2018,32 +1875,24 @@ void func_8029E5AC(u8 *a, u8 *base, s32 a3) {
             w += 2, s += 2;
         }
         ENGINE_BLK(8029E6AC);
-        ENGINE_LEAVE(4, 0);
-        ENGINE_LEAVE64(5, (u64)s[-2] << 32 | s[-1]);
-        ENGINE_LEAVE(18, (u32)dst);
-        ENGINE_LEAVE(23, (u32)(src + 0x40));
         if (mode == 0) {
             ENGINE_BLK(8029E6C4);
             func_8029EF80((s16 *)(rec + 8 + k * 0x14), (s32 *)dst, t, mode);
             ENGINE_BLK(8029E6CC);
         } else {
             ENGINE_BLK(8029E6B4);
-            ENGINE_LEAVE(1, 1);
             if (mode != 1) {
                 ENGINE_BLK(8029E6C0);
                 engine_syscall(0x8029E6C0);
             }
             ENGINE_BLK(8029E6D4);
-            func_8029E730(rec, (s32 *)dst, t, a3);
+            func_8029E730(rec, (s32 *)dst, t);
         }
         ENGINE_BLK(8029E6DC);
-        ENGINE_LEAVE(4, (u32)(src + 0x40));
         func_802ACCCC((s32 *)(src + 0x40), (s32 *)dst);
-        a3 = 0;                         /* (as func_802ACCCC leaves it) */
         ENGINE_BLK(8029E6E4);
         func_802AC8CC((u32 *)dst);
         ENGINE_BLK(8029E6EC);
-        ENGINE_LEAVE(1, 1);
         if (running != 1) {
             ENGINE_BLK(8029E6F8);
             func_8029DCD4((u32)dst, D_803B3770 + ((s32 *)rec)[0]);
@@ -2118,7 +1967,6 @@ done:
         ENGINE_LEAVE(17, s1);
         ENGINE_LEAVE(18, s2);
     }
-    ENGINE_LEAVE(9, (u32)p);
 }
 
 /* Whether (px, pz) is inside the triangle (x0, z0), (x1, z1), (x2, z2):
@@ -2127,8 +1975,8 @@ done:
    ($t7) */
 REGS(v0, v1, a0, a1, a2, a3, t0, t1 -> t7)
 s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz) {
-    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, f2 = 0.0f, f4, f14, f22 = 2.0f, f24 = 0.0f, f26 = 0.0f, f28;
-    s32 e = 4, in = 1, at = 3, ex, ez, f24set = 0;
+    f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, f2, f4, f14, f22, f24, f26, f28;
+    s32 e = 4, in = 1, ex, ez;
 
     ENGINE_BLK(8029BF64);
     cx = (f32)(x0 + x1) / 2.0f;
@@ -2137,11 +1985,9 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
     cz = ((f32)z2 + cz) / 2.0f;
     for (;;) {
         ENGINE_BLK(8029BFE4);
-        at = 3;
         if (--e == 0)
             break;
         ENGINE_BLK(8029BFF0);
-        at = 2;                         /* (the delay slot's, either way) */
         if (e == 3) {
             ENGINE_BLK(8029C038);
             f2 = (f32)x0, f4 = (f32)z0;
@@ -2169,7 +2015,6 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
         ENGINE_BLK(8029C080);
         f22 = (cx - f2) * f26;
         f24 = (cz - f4) * f28;
-        f24set = 1;
         f22 = f22 - f24;
         if (!(f14 > 0.0f)) {
             ENGINE_BLK(8029C09C);
@@ -2186,15 +2031,7 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
         break;
     }
     ENGINE_BLK(8029C0C0);
-    ENGINE_LEAVE(1, at);
     ENGINE_LEAVE(10, e);
-    ENGINE_LEAVE_F(0, 0.0f);
-    ENGINE_LEAVE_F(2, f2);
-    ENGINE_LEAVE_F(20, cz);
-    ENGINE_LEAVE_F(22, f22);
-    if (f24set)
-        ENGINE_LEAVE_F(24, f24);
-    ENGINE_LEAVE_F(26, f26);
     return in;
 }
 
@@ -2272,16 +2109,7 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
         size -= 0x40;
     }
     ENGINE_BLK(8029F9C4);
-    ENGINE_LEAVE(8, (u32)p);
-    ENGINE_LEAVE(10, (u32)base);
-    ENGINE_LEAVE(11, (u32)end);
-    ENGINE_LEAVE(12, (u32)end);
-    ENGINE_LEAVE(13, 0);
-    ENGINE_LEAVE(14, w);
     ENGINE_LEAVE(15, 0);
-    ENGINE_LEAVE(16, 1);
-    ENGINE_LEAVE(17, 0);
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 /* The plane through the part's three points (0x28 on, each / 8): its
@@ -2310,18 +2138,16 @@ s64 func_8029D90C(u8 *part, s64 *b_out, s64 *c_out, s64 *d_out) {
 REGS(t3, t4, t5, t6, s0 -> t7)
 s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
     s32 *w = (s32 *)((u8 *)piece + 0x28), *a, *b;
-    s32 e = 4, hit = 0, at = 3, ex, ey, ez, px, py, pz, fsat = 0;
-    u64 dd = 0, dot2 = 0, cc = 0, disc = 0, q = 0;
-    f32 f0 = 0.0f, f2 = 0.0f, f4, f6;
+    s32 e = 4, hit = 0, ex, ey, ez, px, py, pz;
+    u64 dd, dot2, cc = 0, disc = 0, q = 0;
+    f32 f0, f2, f4, f6;
 
     ENGINE_BLK(8029BD0C);
     for (;;) {
         ENGINE_BLK(8029BD14);
-        at = 3;
         if (--e == 0)
             break;
         ENGINE_BLK(8029BD20);
-        at = 2;
         if (e == 3) {
             ENGINE_BLK(8029BD68);
             a = w, b = w + 3;
@@ -2345,12 +2171,6 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
              (u64)(s64)r * (u64)(s64)r;
         q = (dd * cc) << 2;
         disc = dot2 * dot2 - q;
-        ENGINE_LEAVE(2, ex);
-        ENGINE_LEAVE(3, ey);
-        ENGINE_LEAVE(4, ez);
-        ENGINE_LEAVE(5, px);
-        ENGINE_LEAVE(6, py);
-        ENGINE_LEAVE(7, pz);
         if ((s64)disc < 0)
             continue;
         ENGINE_BLK(8029BE60);
@@ -2359,8 +2179,6 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
         f4 = (f32)(s64)dot2;
         dd <<= 1;
         f0 = (f32)(s64)dd;
-        at = 0x3F800000;
-        fsat = 1;
         f6 = (f4 + f2) / f0;
         if (!(f6 < 0.0f)) {
             ENGINE_BLK(8029BEA4);
@@ -2382,26 +2200,15 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, struct Piece *piece) {
         break;
     }
     ENGINE_BLK(8029BEDC);
-    /* (what it leaves: the last edge's working) */
-    ENGINE_LEAVE(1, at);
-    ENGINE_LEAVE64(8, dd);
-    ENGINE_LEAVE64(9, dot2);
+    /* (what it leaves: the last edge's working, which the vehicle modules'
+       readers find later) */
     ENGINE_LEAVE64(10, cc);
-    ENGINE_LEAVE(18, e);
     ENGINE_LEAVE64(19, disc);
     ENGINE_LEAVE64(20, q);
-    if (fsat) {
-        ENGINE_LEAVE_F(0, f0);
-        ENGINE_LEAVE_F(2, f2);
-        ENGINE_LEAVE_F(8, 0.0f);
-    }
     return hit;
 }
 
 extern u8 D_803A742C, D_803A742F;
-
-/* the high half of an address's lui */
-#define HI(sym) (((u32) & (sym) + 0x8000) & 0xFFFF0000)
 
 /* The camera's two headings (D_803A7410, D_803A7412) widened to take in
    a and b (12-bit, wrapped): set to them when unset (0 and 0xFFF).  When
@@ -2410,7 +2217,7 @@ extern u8 D_803A742C, D_803A742F;
    count D_803A742D steps on (1 to 8, else up one) and D_803A742E is set. */
 REGS(a0, a1)
 void func_8029B7CC(s32 a, s32 b) {
-    s32 before, h0, h1, d, at;
+    s32 before, h0, h1, d;
 
     ENGINE_BLK(8029B7CC);
     if (a < 0) {
@@ -2443,8 +2250,6 @@ void func_8029B7CC(s32 a, s32 b) {
             ENGINE_BLK(8029B840);
             D_803A7410 = a;
             D_803A7412 = b;
-            ENGINE_LEAVE(1, HI(D_803A7412));
-            ENGINE_LEAVE(5, b);
             goto done;
         }
     }
@@ -2467,27 +2272,23 @@ void func_8029B7CC(s32 a, s32 b) {
     ENGINE_BLK(8029B87C);
     D_803A7410 = (u32)h0 >> 20;
     D_803A7412 = (u32)h1 >> 20;
-    ENGINE_LEAVE(5, b);
-    ENGINE_LEAVE(7, d);
     {
         s32 after = func_8029B930();
 
         ENGINE_BLK(8029B8A0);
-        at = before < after;
+        if (!(before < after))
+            goto done;
     }
-    if (!at)
-        goto leave;
     ENGINE_BLK(8029B8AC);
     if (D_80358064 == 0)
-        goto leave;
+        goto done;
     ENGINE_BLK(8029B8BC);
     D_803A742F = 1;
-    at = HI(D_803A742F);
     if (D_803A742C == 0)
-        goto leave;
+        goto done;
     ENGINE_BLK(8029B8D8);
     if (D_803A742E != 0)
-        goto leave;
+        goto done;
     ENGINE_BLK(8029B8E8);
     if (D_803A742D == 1) {
         ENGINE_BLK(8029B8FC);
@@ -2499,9 +2300,6 @@ void func_8029B7CC(s32 a, s32 b) {
     ENGINE_BLK(8029B908);
     D_803A742D = d;
     D_803A742E = 1;
-    at = HI(D_803A742E);
-leave:
-    ENGINE_LEAVE(1, at);
 done:
     ENGINE_BLK(8029B91C);
 }
@@ -2509,23 +2307,6 @@ done:
 REGS(v1 -> fp)
 s32 func_802AD7FC(u32 x);
 
-/* a double's or a 64-bit integer's two FPR words */
-#define LEAVE_FPAIR(fpr, v)                                                 \
-    do {                                                                    \
-        u64 b_ = (v);                                                       \
-        ENGINE_LEAVE_FW((fpr), (u32)b_);                                    \
-        ENGINE_LEAVE_FW((fpr) + 1, (u32)(b_ >> 32));                        \
-    } while (0)
-
-static u64 f64_bits(f64 d) {
-    union {
-        f64 d;
-        u64 u;
-    } u;
-
-    u.d = d;
-    return u.u;
-}
 
 /* The part's heading in the ground plane (0x4C, 12-bit) from its
    triangle's normal (corners / 8 at 0x28): the arctangent
@@ -2632,12 +2413,6 @@ void func_8029D56C(u8 *part) {
 done:
     ENGINE_BLK(8029D884);
     *(s16 *)(part + 0x4C) = h;
-    /* (what it leaves: the FPU's last values) */
-    LEAVE_FPAIR(0, f64_bits(f0));
-    LEAVE_FPAIR(2, (u64)l2);
-    LEAVE_FPAIR(4, (u64)l4);
-    LEAVE_FPAIR(6, (u64)l6);
-    LEAVE_FPAIR(8, f64_bits(100.0));
 }
 
 /* a doubleword into game memory, the high word first */
@@ -2745,23 +2520,11 @@ void func_8029D24C(u16 *data, s32 id, u8 *base) {
             az = -nz;
         }
         ENGINE_BLK(8029D498);
-        /* (what it leaves for this triangle, before its two calls) */
-        ENGINE_LEAVE(7, z1);
-        ENGINE_LEAVE(15, x3);
-        ENGINE_LEAVE(19, dx2);
-        ENGINE_LEAVE(22, dx3);
-        ENGINE_LEAVE(23, dy3);
-        ENGINE_LEAVE(24, dz3);
-        ENGINE_LEAVE64(25, ax);
-        ENGINE_LEAVE64(30, d);
-        ENGINE_LEAVE_F(0, f0);
-        ENGINE_LEAVE_F(2, f2);
         if (!(az < ax)) {
             ENGINE_BLK(8029D4A4);
             if (!(az < ay)) {
                 ENGINE_BLK(8029D4AC);
                 p[0x4E] = 0;
-                ENGINE_LEAVE(1, 0);
                 goto axis;
             }
         }
@@ -2771,13 +2534,11 @@ void func_8029D24C(u16 *data, s32 id, u8 *base) {
             if (!(ay < az)) {
                 ENGINE_BLK(8029D4C8);
                 p[0x4E] = 1;
-                ENGINE_LEAVE(1, 0);
                 goto axis;
             }
         }
         ENGINE_BLK(8029D4D4);
         p[0x4E] = 2;
-        ENGINE_LEAVE(1, ay < az);
     axis:
         ENGINE_BLK(8029D4DC);
         func_8029D56C(p);
@@ -2788,8 +2549,6 @@ void func_8029D24C(u16 *data, s32 id, u8 *base) {
         count--;
     }
     ENGINE_BLK(8029D50C);
-    ENGINE_LEAVE(12, idx);
-    ENGINE_LEAVE(13, 0);
 }
 
 /* An object's parts set up (func_8029D24C, flagged by func_8029D120),
@@ -2807,13 +2566,11 @@ static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
     func_8029D120(id);
     ENGINE_BLK(8029D058);
     end = D_803BD304;
-    ENGINE_LEAVE(21, (u32)end);
     for (q = D_803BC1D0;;) {
         ENGINE_BLK(8029D06C);
         if (q == end)
             break;
         ENGINE_BLK(8029D074);
-        ENGINE_LEAVE(12, q[0xC4]);
         if (q[0xC4] != id) {
             q += 0xDC;
             continue;
@@ -2821,7 +2578,6 @@ static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
         ENGINE_BLK(8029D080);
         kind = q[0xC5];
         n = q[0xC6];
-        ENGINE_LEAVE(20, (u32)q);
         if (kind == 0) {
             ENGINE_BLK(8029D090);
             miss = func_8029DA90((s32 *)q, n, x, z, y);
@@ -2830,7 +2586,6 @@ static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
             ENGINE_BLK(8029D0A0);
             miss = func_8029DB7C(q, n, parts);
         }
-        ENGINE_LEAVE(12, miss);
         ENGINE_BLK(8029D0A8);
         if (miss != 0) {
             q += 0xDC;
@@ -2846,9 +2601,7 @@ static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
                 break;
             ENGINE_BLK(8029D0C4);
             n--;
-            ENGINE_LEAVE(14, *b);
-            part = func_8029D1D4(t7, *b);
-            ENGINE_LEAVE(16, (u32)part);
+            func_8029D1D4(t7, *b);
             b++;
             ENGINE_BLK(8029D0D4);
         }
@@ -2862,20 +2615,15 @@ static void d040(u16 *data, s32 id, u8 *base, s32 x, s32 z, s32 y, u8 *parts) {
                 break;
             ENGINE_BLK(8029D0F0);
             n--;
-            ENGINE_LEAVE(14, *b);
             part = func_8029D1D4(t7, *b);
             ENGINE_LEAVE(16, (u32)part);
             b++;
             ENGINE_BLK(8029D100);
         }
-        ENGINE_LEAVE(12, (u32)b);
-        ENGINE_LEAVE(13, 0);
-        ENGINE_LEAVE(15, t7);
         ENGINE_BLK(8029D108);
         q += 0xDC;
     }
     ENGINE_BLK(8029D110);
-    ENGINE_LEAVE(20, (u32)q);
 }
 
 void func_8028FAC0(s32 x, s32 y, s32 z, s32 id);
@@ -2908,7 +2656,6 @@ void func_8029C5EC(void) {
         func_802920DC(r[0], r[1], r[2], 0x3BD);
     }
     ENGINE_BLK(8029C680);
-    ENGINE_LEAVE(20, found);
 }
 
 /* The animation a's nine values (the halves of its four current keys,
@@ -2945,11 +2692,6 @@ void func_8029FFA0(u8 *a, u8 *keys, s16 *out) {
         i--;
     }
     ENGINE_BLK(802A00D4);
-    ENGINE_LEAVE(9, (u32)(out + 1));
-    ENGINE_LEAVE_F(0, k0);
-    ENGINE_LEAVE_F(2, k1);
-    ENGINE_LEAVE_FW(8, v);
-    ENGINE_LEAVE_F(30, t);
 }
 
 /* The key k (nine s16s: scale or position, three angles, position) the
@@ -2964,7 +2706,6 @@ void func_802A0118(s16 *k, s16 *out, f32 t) {
     out[0] = k[0] + w0;
     out[1] = k[1] + engine_cvt_w_s((f32)(k[11] - k[1]) * t);
     out[2] = k[2] + engine_cvt_w_s((f32)(k[12] - k[2]) * t);
-    ENGINE_LEAVE_FW(0, w0);
     out[3] = func_8029F6B0(k[3], k[13], t);
     ENGINE_BLK(802A01C4);
     out[4] = func_8029F6B0(k[4], k[14], t);
@@ -2975,8 +2716,6 @@ void func_802A0118(s16 *k, s16 *out, f32 t) {
     out[6] = k[6] + w;
     out[7] = k[7] + engine_cvt_w_s((f32)(k[17] - k[7]) * t);
     out[8] = k[8] + engine_cvt_w_s((f32)(k[18] - k[8]) * t);
-    ENGINE_LEAVE_FW(2, w);
-    ENGINE_LEAVE(9, (u32)(out + 10));
 }
 
 extern u8 D_803A7428, D_80370C3C;
@@ -3052,7 +2791,6 @@ static u8 *anim_frame(u8 *p, u8 *rec, u8 *out, s32 *t5) {
         u8 *k = rec + (s8)p[0x13] * 0x14 + 8;
 
         *t5 = (u32)k;
-        ENGINE_LEAVE_F(30, *(f32 *)(p + 4));
         func_802A0118((s16 *)k, (s16 *)out, *(f32 *)(p + 4));
     } else {
         *t5 = (u32)rec;
@@ -3111,7 +2849,6 @@ void func_8029F9D4(s32 a, s32 b, Part *parts_) {
         ((u32 *)out)[1] = t5 = ((s32 *)ra)[1];
         out += 8;
         n++;
-        ENGINE_LEAVE(1, 1);
         if (pa[0x15] != 0) {
             ENGINE_BLK(8029FB28);
             if (pa[0x15] != 1) {
@@ -3126,7 +2863,6 @@ void func_8029F9D4(s32 a, s32 b, Part *parts_) {
             out = anim_frame(pa, ra, out, &t5);
         }
         ENGINE_BLK(8029FB68);
-        ENGINE_LEAVE(1, 1);
         if (pb[0x15] != 0) {
             ENGINE_BLK(8029FB74);
             if (pb[0x15] != 1) {
@@ -3168,8 +2904,6 @@ void func_8029F9D4(s32 a, s32 b, Part *parts_) {
         j -= 8;
     }
     ENGINE_BLK(8029FC24);
-    ENGINE_LEAVE(13, t5);
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 extern u8 D_803B4FC0[];                 /* the held frames' animation */
@@ -3203,7 +2937,6 @@ static u8 *held_frames(u8 *p, u8 *out, s32 *n, s32 *t5, s32 first) {
         ((u32 *)out)[1] = *t5 = ((s32 *)r)[1];
         out += 8;
         (*n)++;
-        ENGINE_LEAVE(1, 1);
         if (p[0x15] != 0) {
             if (first)
                 ENGINE_BLK(8029FD6C);
@@ -3288,8 +3021,6 @@ void func_8029FC74(s32 a, s32 b, u8 *parts) {
         j -= 8;
     }
     ENGINE_BLK(8029FEDC);
-    ENGINE_LEAVE(13, t5);
-    ENGINE_LEAVE_F(0, 0.0f);
 }
 
 extern u8 D_803BE738;
@@ -3327,7 +3058,6 @@ void func_8029B614(u8 *p, s32 kind) {
     side = (s64)((u64)a * (u64)(s64)(D_803A73F0 >> 2) + (u64)b * (u64)(s64)(D_803A73F4 >> 2) +
                  (u64)c * (u64)(s64)(D_803A73F8 >> 2) + (u64)d);
     h = *(u16 *)(p + 0x4C);
-    ENGINE_LEAVE(1, 1);
     if (d > 0) {
         ENGINE_BLK(8029B6E8);
         if (side > 0)
@@ -3359,7 +3089,6 @@ turn:
     ENGINE_BLK(8029B72C);
     func_8029B7CC(lo, hi);
     ENGINE_BLK(8029B734);
-    ENGINE_LEAVE(1, HI(D_803BE738));
     if (p[0x59] != 0) {
         ENGINE_BLK(8029B740);
         D_803BE738 = p[0x59];
@@ -3381,7 +3110,6 @@ effect:
         w = -w;
     }
     ENGINE_BLK(8029B780);
-    ENGINE_LEAVE(1, v < w);
     if (v < w)
         goto done;
     ENGINE_BLK(8029B78C);
@@ -3569,13 +3297,8 @@ void func_8029C914(s32 kind, s32 x, s32 y, s32 z, s32 r) {
         func_802BCCD4(n);
         ENGINE_BLK(8029C9A8);
     }
-    ENGINE_LEAVE(30, n);
 done:
     ENGINE_BLK(8029C9B0);
-    ENGINE_LEAVE(15, (u32)p);
-    ENGINE_LEAVE(16, s0);
-    if (s1set)
-        ENGINE_LEAVE(17, s1);
 }
 
 extern u8 D_803FBBB0[], D_803FB8B8[];   /* two lists of 0x14-byte spheres */
@@ -3677,12 +3400,10 @@ s32 func_8029CB04(s32 id, u32 v, VS *vs) {
     ENGINE_BLK(8029CB04);
     if (id == 0xFF) {
         ENGINE_BLK(8029CF40);
-        ENGINE_LEAVE(1, 0xFF);
         return v;
     }
     ENGINE_BLK(8029CB18);
     d = vs->unkA0;
-    ENGINE_LEAVE(1, 1);
     if (d != 1) {
         ENGINE_BLK(8029CB28);
         if (d == 0) {
@@ -3701,12 +3422,10 @@ s32 func_8029CF04(s32 id, u32 v, VS *vs) {
 
     ENGINE_BLK(8029CF04);
     if (id == 0xFF) {
-        ENGINE_LEAVE(1, 0xFF);
         goto done;
     }
     ENGINE_BLK(8029CF18);
     d = vs->unkA0;
-    ENGINE_LEAVE(1, 1);
     if (d != 1) {
         ENGINE_BLK(8029CF28);
         if (d == 0) {
@@ -3728,10 +3447,8 @@ static s32 quad_angle(s32 n, f32 dist) {
     f32 q = (f32)n / dist;
     s32 w;
 
-    ENGINE_LEAVE_F(2, q);
     q = 65536.0f * q;
     w = engine_cvt_w_s(q);
-    ENGINE_LEAVE_FW(0, w);
     return (u32)func_802AD7FC(w) >> 4;
 }
 
@@ -3818,7 +3535,7 @@ turn:
 REGS(t8, t4, gp)
 void func_8029CD54(s32 a, s32 b, VS *vs) {
     u8 *ra = D_803A6B30, *rb0, *rb;
-    s32 n = 0, t1 = 0, t2 = 0, r, hit, set1 = 0, set2 = 0;
+    s32 n = 0, r, hit;
     s32 *wa, *wb;
 
     ENGINE_BLK(8029CD54);
@@ -3864,7 +3581,6 @@ void func_8029CD54(s32 a, s32 b, VS *vs) {
             ENGINE_BLK(8029CE1C);
             wb = (s32 *)rb;
             r = func_8029CF04(b, wb[3], vs);
-            t1 = r, set1 = 1;
             ENGINE_BLK(8029CE30);
             rb += 0x14;
             if (a == 6) {
@@ -3880,23 +3596,20 @@ void func_8029CD54(s32 a, s32 b, VS *vs) {
             }
             ENGINE_BLK(8029CE5C);
             hit = func_8029CFA4(wa[0], wa[1], wa[2], wa[3], wb[0], wb[1], wb[2], r);
-            t2 = hit, set2 = 1;
             ENGINE_BLK(8029CE64);
             if (hit == 0)
                 continue;
             ENGINE_BLK(8029CE6C);
             if (b == 7) {
                 ENGINE_BLK(8029CE78);
-                t2 = D_803A7430;
                 if (D_803A7430 < 0xC9) {
                     ENGINE_BLK(8029CE8C);
-                    t2 = ++D_803A7430;
+                    ++D_803A7430;
                 }
             }
             ENGINE_BLK(8029CE98);
             if (a != 0) {
                 ENGINE_BLK(8029CEA0);
-                t2 = wb[0];
                 if (func_802AB41C(b, a) != 0) {
                     ENGINE_BLK(8029CEA8);
                     continue;
@@ -3911,14 +3624,8 @@ void func_8029CD54(s32 a, s32 b, VS *vs) {
             ENGINE_BLK(8029CEC4);
         }
     }
-    ENGINE_LEAVE(30, n);
 done:
     ENGINE_BLK(8029CECC);
-    if (set1)
-        ENGINE_LEAVE(9, t1);
-    if (set2)
-        ENGINE_LEAVE(10, t2);
-    ENGINE_LEAVE(13, -1);
 }
 
 extern s32 D_803649E8;
@@ -4004,14 +3711,12 @@ void func_8029C52C(s32 kind, VS *vs) {
     ENGINE_BLK(8029C574);
     if ((u16)D_803A7410 == 0) {
         ENGINE_BLK(8029C588);
-        ENGINE_LEAVE(1, 0xFFF);
         if ((u16)D_803A7412 == 0xFFF)
             goto done;
     }
     ENGINE_BLK(8029C5A0);
     D_803A7425 = 1;
     D_803A7424 = 1;
-    ENGINE_LEAVE(1, HI(D_803A7424));
 done:
     ENGINE_BLK(8029C5B4);
 }
@@ -4019,7 +3724,7 @@ done:
 /* An object's 32 parts' animations one frame on (func_8029E5AC for each
    running one, 0x10), with base the parts' matrices and D_803B3770 the
    records' base.  The original reloads s6 and s7, which func_8029E5AC
-   leaves (engine_save); each part gets the $a3 the last one left. */
+   leaves (engine_save). */
 REGS(t0, v0, v1)
 void func_8029E558(Part *parts, u8 *base, u8 *other) {
     u8 *p = (u8 *)parts;
@@ -4034,7 +3739,7 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
         ENGINE_LEAVE(10, f);
         if (f != 0) {
             ENGINE_BLK(8029E584);
-            func_8029E5AC(p, base, engine_ctx(7));
+            func_8029E5AC(p, base);
         }
         ENGINE_BLK(8029E58C);
         p += 0x18;
@@ -4042,8 +3747,6 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
             break;
     }
     ENGINE_BLK(8029E598);
-    ENGINE_LEAVE(8, (u32)p);
-    ENGINE_LEAVE(9, 0);
     engine_restore();
 }
 
@@ -4079,8 +3782,6 @@ u32 func_8029E47C(s32 id, s32 kind, s32 fp) {
     r[6] = 1;
     r[7] = 0;
     dst = (u32)(r + 0x10);
-    if (read)
-        ENGINE_LEAVE(6, a2);
     func_802A1074(kind, dst, fp);
     ENGINE_BLK(8029E4D0);
     return dst - 0x80000000;
@@ -4098,7 +3799,7 @@ u32 func_8029E47C(s32 id, s32 kind, s32 fp) {
 REGS(t0, fp)
 void func_8029E21C(u8 *a, s32 fp) {
     u8 *T = *(u8 *PTR32 *)a, *r, *m, *e, *dl, *end;
-    s32 k, n, c, second, i, idx, a3 = 0, a3set = 0, s6set = 0;
+    s32 k, n, c, second, idx;
     u16 *h1, *h2;
     u32 s1 = 0, s5 = 0, *w;
     f32 t = *(f32 *)(a + 4), rate;
@@ -4128,7 +3829,6 @@ void func_8029E21C(u8 *a, s32 fp) {
         rate = (f32)(sp[1] - sp[0]) * t + (f32)sp[0];
         rate = rate / 300.0f;
     }
-    ENGINE_LEAVE(1, 0x43960000);
     k = func_8029F1BC(a, k, T[1], rate, t, &t);
     ENGINE_BLK(8029E2BC);
     c = T[2];
@@ -4178,7 +3878,6 @@ void func_8029E21C(u8 *a, s32 fp) {
             dl = *(u8 *PTR32 *)(m + 0x30);
         }
         ENGINE_BLK(8029E378);
-        ENGINE_LEAVE(4, (u32)dl);
         end = D_803B35F0;
         for (e = D_803B3500;; e += 0xC) {
             ENGINE_BLK(8029E38C);
@@ -4195,7 +3894,6 @@ void func_8029E21C(u8 *a, s32 fp) {
             if (second == 0)
                 goto next2;
             ENGINE_BLK(8029E3BC);
-            s6set = 1;
             w = (u32 *)(dl + ((s32 *)e)[4]);
             e += 0xC;
             *w++ = s1;
@@ -4221,15 +3919,12 @@ void func_8029E21C(u8 *a, s32 fp) {
             break;
         ENGINE_BLK(8029E430);
         n--;
-        a3 = r[6], a3set = 1;
-        if (a3 == 0)
+        if (r[6] == 0)
             goto next3;
         ENGINE_BLK(8029E440);
-        a3 = r[7];
-        if (a3 < 2)
+        if (r[7] < 2)
             goto next3;
         ENGINE_BLK(8029E450);
-        a3 = *(s32 *)r;
         if (*(u32 *)r != (u32)T)
             goto next3;
         ENGINE_BLK(8029E45C);
@@ -4239,15 +3934,7 @@ void func_8029E21C(u8 *a, s32 fp) {
     }
     ENGINE_BLK(8029E468);
     ENGINE_LEAVE(2, 0);
-    ENGINE_LEAVE(3, (u32)h1);
-    ENGINE_LEAVE(5, (u32)r);
-    ENGINE_LEAVE(6, 0);
-    if (a3set)
-        ENGINE_LEAVE(7, a3);
-    if (s6set)
-        ENGINE_LEAVE(22, 0xFF000000);
     ENGINE_LEAVE(20, (u32)h2);
-    ENGINE_LEAVE(21, s5);
 }
 
 /* The texture animations (D_803B35F8's running records) one frame on */
@@ -4289,6 +3976,7 @@ extern u8 D_803A742A;
 #define PIECE_TEST(p, B_C160, B_PLANE, B_C0DC, B_BF64, B_IN, B_BD0C, B_EDGE, B_BEE4, B_CORNER, HIT, MISS)        \
     do {                                                                                                         \
         s32 px_, py_, pz_;                                                                                       \
+        Flat f_;                                                                                                 \
         ENGINE_BLK(B_C160);                                                                                      \
         if (!func_8029C160(x, y, z, r, (struct Piece *)(p), &px_, &py_, &pz_)) {                                 \
             ENGINE_BLK(B_PLANE);                                                                                 \
@@ -4296,10 +3984,9 @@ extern u8 D_803A742A;
         }                                                                                                        \
         ENGINE_BLK(B_PLANE);                                                                                     \
         ENGINE_BLK(B_C0DC);                                                                                      \
-        func_8029C0DC((p), px_, py_, pz_);                                                                       \
+        c0dc((p), px_, py_, pz_, &f_);                                                                           \
         ENGINE_BLK(B_BF64);                                                                                      \
-        if (func_8029BF64(engine_ctx(2), engine_ctx(3), engine_ctx(4), engine_ctx(5), engine_ctx(6),             \
-                          engine_ctx(7), engine_ctx(8), engine_ctx(9))) {                                        \
+        if (bf64(&f_)) {                                                                                         \
             ENGINE_BLK(B_IN);                                                                                    \
             goto HIT;                                                                                            \
         }                                                                                                        \
@@ -4322,17 +4009,12 @@ extern u8 D_803A742A;
 /* the registers func_8029AA10, func_8029AB88 and func_8029B02C save and
    load back (and t8 for the last two): what their callees leave there
    (func_8029BF64's t8, say) doesn't get out */
-/* (and the inputs, in their registers: a native caller doesn't put them
-   there, and the original leaves them) */
-#define ENGINE_INPUTS9(a1, a2, a3, x, y, z, r, type, kind)                                                     \
+/* (and the inputs the vehicle modules' readers find in their registers
+   afterwards: $t4 (62740's func_802A8768), $t8 and $fp (69BB0's, 75490's,
+   5CB60's)) */
+#define ENGINE_INPUTS(y, type, kind)                                                                           \
     do {                                                                                                       \
-        ENGINE_LEAVE(5, a1);                                                                                   \
-        ENGINE_LEAVE(6, a2);                                                                                   \
-        ENGINE_LEAVE(7, a3);                                                                                   \
-        ENGINE_LEAVE(11, x);                                                                                   \
         ENGINE_LEAVE(12, y);                                                                                   \
-        ENGINE_LEAVE(13, z);                                                                                   \
-        ENGINE_LEAVE(14, r);                                                                                   \
         ENGINE_LEAVE(24, type);                                                                                \
         ENGINE_LEAVE(30, kind);                                                                                \
     } while (0)
@@ -4346,14 +4028,15 @@ extern u8 D_803A742A;
    the one a vehicle 0xC8 stands on); the walls' (func_8029BB28 on a hit);
    the parts not of its own kind (func_8029B5B8 after a hit); and the
    pieces in its grid cells (func_8029C284; the first table not for
-   vehicle 9).  A hit is func_8029B614. */
+   vehicle 9).  A hit is func_8029B614.  (a1-a3 are nothing to it: what
+   its callers had in those registers.) */
 REGS(a1, a2, a3, t3, t4, t5, t6, t8, fp)
 void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type, s32 kind) {
     s32 *e = D_803059F0, v;
     u8 *o, *oend, *p, *pend;
     s16 *cell;
 
-    ENGINE_INPUTS9(a1, a2, a3, x, y, z, r, type, kind);
+    ENGINE_INPUTS(y, type, kind);
     engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029B02C);
     /* the objects */
@@ -4561,10 +4244,7 @@ s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
     u8 *o, *oend, *p, *pend;
     s16 *cell;
 
-    ENGINE_LEAVE(11, x);
     ENGINE_LEAVE(12, y);
-    ENGINE_LEAVE(13, z);
-    ENGINE_LEAVE(14, r);
     ENGINE_LEAVE(24, type);
     engine_save(B02C_SAVED | ENGINE_GPR(24), 0);
     ENGINE_BLK(8029AB88);
@@ -4750,7 +4430,6 @@ static void aa10(s32 type) {
     u8 *r = D_803A7300;
     s32 hit = 0, n = 0, x, y, z, rad;
 
-    ENGINE_LEAVE(24, type);
     engine_save(B02C_SAVED, 0);
     ENGINE_BLK(8029AA10);
     D_803A742B = 0;
@@ -4761,20 +4440,15 @@ static void aa10(s32 type) {
         r += 0x14;
     }
     ENGINE_BLK(8029AA64);
-    ENGINE_LEAVE(5, 0);
     if ((s8)r[0x11] == 0)
         goto tail;
     ENGINE_BLK(8029AA74);
     x = ((s32 *)r)[0] >> 2, y = ((s32 *)r)[1] >> 2, z = ((s32 *)r)[2] >> 2, rad = ((s32 *)r)[3] >> 2;
-    ENGINE_LEAVE(12, y);
-    ENGINE_LEAVE(13, z);
     hit = func_8029AB88(x, y, z, rad, type);
-    ENGINE_LEAVE(5, hit);
     ENGINE_BLK(8029AA98);
     if (hit == 0)
         goto tail;
     ENGINE_BLK(8029AAA0);
-    ENGINE_LEAVE(30, 0);
     for (r = D_803A6B30;;) {
         ENGINE_BLK(8029AAAC);
         if ((s8)r[0x13] == -1)
@@ -4793,10 +4467,7 @@ static void aa10(s32 type) {
         x = ((s32 *)r)[0] >> 2, y = ((s32 *)r)[1] >> 2, z = ((s32 *)r)[2] >> 2, rad = ((s32 *)r)[3] >> 2;
         r += 0x14;
         n++;
-        ENGINE_LEAVE(12, y);
-        ENGINE_LEAVE(13, z);
-        ENGINE_LEAVE(30, n);
-        func_8029B02C(engine_ctx(5), engine_ctx(6), engine_ctx(7), x, y, z, rad, type, n);
+        func_8029B02C(0, 0, 0, x, y, z, rad, type, n);
         ENGINE_BLK(8029AAFC);
     }
 tail:
@@ -4804,14 +4475,12 @@ tail:
     if (D_803A7410 == 0) {
         ENGINE_BLK(8029AB18);
         if ((u16)D_803A7412 == 0xFFF) {
-            ENGINE_LEAVE(1, 0xFFF);
             goto out;
         }
     }
     ENGINE_BLK(8029AB30);
     D_803A7425 = 1;
     D_803A740C = D_80358068;
-    ENGINE_LEAVE(1, HI(D_803A740C));
 out:
     ENGINE_BLK(8029AB4C);
     engine_restore();
@@ -4819,51 +4488,40 @@ out:
 
 /* ---- the entry points as the vehicle modules declare them (shared.h) ----- */
 
-/* Each puts its inputs in their registers first, as the original has them
-   (a native caller doesn't), and takes what shared.h leaves out from the
-   context, where the vehicle modules leave it. */
+/* What shared.h leaves out they take from the context, where the vehicle
+   modules (both halves) leave it: func_8029C454 $s0-$s2 (func_802AA890's
+   point when it has no matrices) and func_8029A800 $t0 and $t2 (into
+   D_803A7428 and D_803A7422).  Parameters, once the vehicle modules pass
+   them (most are the other half's).  They leave some of their inputs, as
+   the original has them, for the readers after them. */
 
 REGS(v0, v1, a0, t0, t1, t2, s4)
 void func_8029C454(s32 x, s32 y, s32 z, s32 type, u8 *a, u8 *b, u8 *buf) {
-    ENGINE_LEAVE(2, x);
-    ENGINE_LEAVE(3, y);
-    ENGINE_LEAVE(4, z);
     ENGINE_LEAVE(8, type);
-    ENGINE_LEAVE(9, (u32)a);
     ENGINE_LEAVE(10, (u32)b);
-    ENGINE_LEAVE(20, (u32)buf);
     c454(type, a, b, x, y, z, buf, engine_ctx(16), engine_ctx(17), engine_ctx(18));
 }
 
 REGS(t0, t1, t2, t6, a1, a2, s4)
 void func_8029D040(s32 x, s32 z, s32 type, u8 *t6, s32 heading, Part *parts, u8 *buf) {
     ENGINE_LEAVE(8, x);
-    ENGINE_LEAVE(9, z);
     ENGINE_LEAVE(10, type);
-    ENGINE_LEAVE(14, (u32)t6);
-    ENGINE_LEAVE(5, heading);
-    ENGINE_LEAVE(6, (u32)parts);
-    ENGINE_LEAVE(20, (u32)buf);
     d040((u16 *)t6, type, buf, x, z, heading, (u8 *)parts);
 }
 
+/* the vehicle type func_8029A800 was last given: func_8029AA10's, which
+   the original has in $t8 */
+static s32 a800_type;
+
 REGS(v0, v1, a0, a1, a2, a3, t1, t3, t8, gp)
 void func_8029A800(s32 x, s32 y, s32 z, u8 *a1, s32 a2, s32 a3, s32 speed, s32 t3, s32 type, VS *vs) {
-    ENGINE_LEAVE(2, x);
-    ENGINE_LEAVE(3, y);
-    ENGINE_LEAVE(4, z);
-    ENGINE_LEAVE(5, (u32)a1);
-    ENGINE_LEAVE(6, a2);
-    ENGINE_LEAVE(7, a3);
-    ENGINE_LEAVE(9, speed);
-    ENGINE_LEAVE(11, t3);
     ENGINE_LEAVE(24, type);
-    ENGINE_LEAVE(28, (u32)vs);
-    ENGINE_LEAVE(2, a800(x, y, z, (u32)a1, a2, a3, engine_ctx(8), speed, engine_ctx(10), t3, type, vs));
+    a800_type = type;
+    a800(x, y, z, (u32)a1, a2, a3, engine_ctx(8), speed, engine_ctx(10), t3, type, vs);
 }
 
 REGS()
 void func_8029AA10(void) {
-    aa10(engine_ctx(24));
+    aa10(a800_type);
 }
 
