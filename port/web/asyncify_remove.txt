@@ -59,3 +59,39 @@ twin_storage
 upload_rdram
 vtx_tail
 write_pixel
+# Nor does anything below switch fibers, which Asyncify can't tell for
+# itself through their indirect calls (a FILE's write, a comparator, SDL's
+# allocator and log hooks): the audio microcode, which the game's thread
+# runs at osSpTaskStartGo (aspmain.c; it only logs), and the printing,
+# fatal and allocation leaves under it and under much of the engine and
+# the game (host_fatal behind every check).  Freed from them, about 400
+# functions are left alone (port/tools/asyncify_names.py lists the ones the
+# link still instruments, with a build).
+host_audio_task
+host_log
+host_fatal
+port_arena_bad_local
+n64_sprintf
+__vfprintf_internal
+vfprintf
+vsnprintf
+snprintf
+printf_core
+pop_arg
+fmt_fp
+out
+pad
+__fwritex
+__towrite
+fwrite
+fflush
+do_putc
+bsearch
+SDL_SetError
+SDL_Error
+SDL_LogMessageV
+SDL_vsnprintf
+SDL_malloc
+SDL_calloc
+SDL_realloc
+SDL_free
