@@ -974,7 +974,7 @@ int main(int argc, char **argv) {
                 present_due(1e9);
             lag_account(queue_on ? queue_last_late : late_ms);
             if (queue_mode > 0) {
-                double end = wait_from_ms > work_from_ms ? wait_from_ms : real_ms();
+                double end = wait_from_ms >= 0 ? wait_from_ms : real_ms();     /* (it waited, or ran over) */
                 queue_account(late_ms, end - work_from_ms, vi_pms);
                 if (!queue_on)
                     present_due(1e9);                       /* (left the queue: what it held, now) */
@@ -1008,6 +1008,7 @@ int main(int argc, char **argv) {
             if (host_quit_requested())
                 break;
             work_from_ms = real_ms();
+            wait_from_ms = -1;
             port_irq_vi();
             continue;
         }
