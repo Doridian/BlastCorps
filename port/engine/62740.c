@@ -40,19 +40,6 @@ typedef struct {
 #define WHEEL_LAND_SLACK 0x1E   /* func_802A93B0: a wheel within this of the ground lands */
 #define CAMERA_MARGIN 0x78      /* func_802A71DC: the camera's range narrowed by this at each end */
 
-/* a 12-bit angle back into 0..0xFFF after a step, Rare's way (by 0xFFF) */
-static s32 wrap_fff(s32 a) {
-    if (a < 0)
-        a += ANGLE_WRAP;
-    else if (a >= ANGLE_TURN)
-        a -= ANGLE_WRAP;
-    return a;
-}
-
-static s32 iabs(s32 v) {
-    return v < 0 ? -v : v;
-}
-
 /* the gear table's speeds doubled on D_80367C10's levels */
 REGS(gp)
 void func_802A6F00(VS *vs) {

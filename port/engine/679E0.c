@@ -26,7 +26,7 @@ s32 func_802AE160(s32 angle);
 /* 62740: the distance between two points */
 REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
 s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2);
-/* 62740: whether (x, z) is inside a quadrilateral */
+/* 62740: whether (x, z) is inside a triangle */
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3);
 /* (60F60's func_802A6274, an effect, is in shared.h) */
@@ -57,26 +57,20 @@ void func_802AC1A0(s32 radius) {
 
     ENGINE_COST(802AC1A0, 111);
     radius <<= 5;
-    p = D_803F4030;
-    end = D_803F7654;
-    for (;;) {
-        if (p == end)
-            break;
-        if (p[0xEA] == 0) {
-            x = *(s32 *)(p + 0x10);
-            y = *(s32 *)(p + 0x14);
-            z = *(s32 *)(p + 0x18);
-            if (func_802ABCDC(x, y, z, D_803EF6DC, D_803EF6E0, D_803EF6E4) < radius) {
-                func_802C18D4(10, x << 11, y << 11, z << 11, 100000);
-            } else {
-            }
-        }
-        p += 0xFC;
+    for (p = D_803F4030, end = D_803F7654; p != end; p += 0xFC) {
+        if (p[0xEA] != 0)
+            continue;
+        x = *(s32 *)(p + 0x10);
+        y = *(s32 *)(p + 0x14);
+        z = *(s32 *)(p + 0x18);
+        if (func_802ABCDC(x, y, z, D_803EF6DC, D_803EF6E0, D_803EF6E4) < radius)
+            func_802C18D4(10, x << 11, y << 11, z << 11, 100000);
     }
 }
 
-/* The level that wraps round (D_802E8BDC 0x17): x and z kept inside the
-   map; when they wrap, an effect at the new position. */
+/* The level that wraps round (D_802E8BDC 0x17, in 32s 0x12C..0xA8C by
+   0x1F4..0x9C4): x and z wrapped to its other side, with an effect at the
+   new position. */
 REGS(v0, v1, a0)
 void func_802AC3B8(s32 *x, s32 *y, s32 *z) {
     s32 t;
@@ -107,13 +101,10 @@ void func_802AC3B8(s32 *x, s32 *y, s32 *z) {
     }
 }
 
-/* whether (x, z) is inside the quadrilateral of the other four points */
+/* whether (x, z) is inside the triangle of the other three points */
 s32 func_802AC4C4(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
-    s32 r;
-
     ENGINE_COST(802AC4C4, 32);
-    r = func_802AA460(x, z, x1, z1, x2, z2, x3, z3);
-    return r;
+    return func_802AA460(x, z, x1, z1, x2, z2, x3, z3);
 }
 
 /* effects at a point (whole units): one of D_802C2A5C's */
@@ -145,11 +136,8 @@ void func_802AC7DC(u8 *dst, u8 *src, u32 *words) {
     s32 n;
 
     ENGINE_COST(802AC7DC, 16);
-    for (n = 0xA6;; n--) {
-        if (n == 0)
-            break;
+    for (n = 0; n < 0xA6; n++)
         *dst++ = *src++;
-    }
     ((UnalignedWord *)dst)[0].v = words[0];
     ((UnalignedWord *)dst)[1].v = words[1];
     ((UnalignedWord *)dst)[2].v = words[2];
@@ -161,11 +149,8 @@ void func_802AC85C(u8 *src, u8 *dst, u32 *words) {
     s32 n;
 
     ENGINE_COST(802AC85C, 1350);
-    for (n = 0xA6;; n--) {
-        if (n == 0)
-            break;
+    for (n = 0; n < 0xA6; n++)
         *dst++ = *src++;
-    }
     words[0] = ((UnalignedWord *)src)[0].v;
     words[1] = ((UnalignedWord *)src)[1].v;
     words[2] = ((UnalignedWord *)src)[2].v;
@@ -263,9 +248,8 @@ void func_802ACCCC(s32 *b, s32 *a) {
                           (s64)a[4 * i + 3] * b[12 + j]) >> 16);
         }
     }
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < 16; i++)
         a[i] = D_803ED420[i];
-    }
     /* (what the vehicle modules read later: $s2 6E200's effects, $a1 the
        driver's shadow through 62740's frames; the other half's readers) */
     ENGINE_LEAVE(5, (u32)(D_803ED420 + 16));
@@ -296,18 +280,14 @@ s32 func_802ACF64(u32 x) {
 
     ENGINE_COST(802ACF64, 26);
     i = x >> 8;
-    if ((s32)i >= 0x3FF) {
+    if ((s32)i >= 0x3FF)
         i = 0x3FF;
-    }
     a = D_802ACFD0[i];
     b = D_802ACFD0[i + 1];
     return a + (s32)((u32)((b - a) * (s32)(x & 0xFF)) >> 8);
 }
 
 s32 func_802ACF3C(s32 x) {
-    s32 r;
-
     ENGINE_COST(802ACF3C, 10);
-    r = func_802ACF64(x);
-    return r;
+    return func_802ACF64(x);
 }

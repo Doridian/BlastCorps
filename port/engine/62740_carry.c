@@ -14,6 +14,7 @@
  * func_802AB670 puts that word where the shadow looks for it.
  */
 #include "shared.h"
+#include "game/vehicle.h"
 
 extern u8 D_803ED3B8[];
 
@@ -22,68 +23,50 @@ void func_802AB50C(s32 carrier);
 REGS(a3)
 void func_802AB714(s32 carrier);
 
+/* the carried vehicle's two callbacks, by its type (the vehicles that can
+   stand on another: Skyfall, Ramdozer, Backlash, the American Dream, the
+   police car, the A-Team van, Starski's hotrod, the J-Bomb, the Ballista) */
+typedef void CarryFn(s32 carrier);
+
+static void carry_fns(s32 type, CarryFn **keep, CarryFn **move) {
+    switch (type) {
+    case VEHICLE_BUGGY: *keep = func_802B30F4, *move = func_802B3180; break;
+    case VEHICLE_TRUCK: *keep = func_802B6100, *move = func_802B618C; break;
+    case VEHICLE_BULLDOZER: *keep = func_802B4818, *move = func_802B48A4; break;
+    case VEHICLE_HOTROD: *keep = func_802B78F4, *move = func_802B7980; break;
+    case VEHICLE_POLICE: *keep = func_802CBD5C, *move = func_802CBDE8; break;
+    case VEHICLE_ATEAM: *keep = func_802CCED4, *move = func_802CCF60; break;
+    case VEHICLE_STARSKI: *keep = func_802CFC54, *move = func_802CFCE0; break;
+    case VEHICLE_JETPACK: *keep = func_802C59B4, *move = func_802C5A14; break;
+    case VEHICLE_BIKE: *keep = func_802CA34C, *move = func_802CA3D8; break;
+    default: *keep = *move = NULL; break;
+    }
+}
+
 /* hd.c's: the vehicles on `carrier` keep where they stand on it */
 void func_802AB478(u8 carrier) {
     ENGINE_COST(802AB478, 37);
     func_802AB50C(carrier);
 }
 
+/* each link (carried, carrier) with this carrier: the carried vehicle's
+   first callback, then the same for what stands on it */
 REGS(s2)
 void func_802AB50C(s32 carrier) {
-    u8 *t0 = D_803ED3B8;
-    s32 t1;
+    u8 *p;
+    s32 type;
+    CarryFn *keep, *move;
 
     ENGINE_COST(802AB50C, 55);
-    for (;; t0 += 4) {
-        if (*(s32 *)t0 == -1)
-            break;
-        if (t0[1] != carrier)
+    for (p = D_803ED3B8; *(s32 *)p != -1; p += 4) {
+        if (p[1] != carrier)
             continue;
-        t1 = t0[0];
-        if (t1 == 0)
-            goto next;
-        if (t1 == 3) {
-            func_802B30F4(t0[1]);
-            goto up;
+        type = p[0];
+        carry_fns(type, &keep, &move);
+        if (keep != NULL) {
+            keep(p[1]);
+            func_802AB50C(type);
         }
-        if (t1 == 5) {
-            func_802B6100(t0[1]);
-            goto up;
-        }
-        if (t1 == 4) {
-            func_802B4818(t0[1]);
-            goto up;
-        }
-        if (t1 == 8) {
-            func_802B78F4(t0[1]);
-            goto up;
-        }
-        if (t1 == 0xD) {
-            func_802CBD5C(t0[1]);
-            goto up;
-        }
-        if (t1 == 0xE) {
-            func_802CCED4(t0[1]);
-            goto up;
-        }
-        if (t1 == 0xF) {
-            func_802CFC54(t0[1]);
-            goto up;
-        }
-        if (t1 == 9) {
-            func_802C59B4(t0[1]);
-            goto up;
-        }
-        if (t1 == 0xA) {
-            func_802CA34C(t0[1]);
-            goto up;
-        }
-        goto next;
-    up:
-        /* and what stands on it */
-        func_802AB50C(t1);
-    next:
-        ;
     }
 }
 
@@ -92,9 +75,9 @@ void func_802AB50C(s32 carrier) {
 void func_802AB670(u8 carrier) {
     ENGINE_COST(802AB670, 41);
     func_802AB714(carrier);
-    /* the shadow's word: the $ra the original's func_802AB714 saved at the
-       bottom of its frame (0x28 under this one's 0x88, under the 16 the
-       glue would have left the C), its return here */
+    /* the driver's shadow's word: the $ra the original's func_802AB714
+       saved at the bottom of its frame (0x28 under this one's 0x88, under
+       the 16 the glue would have left the C), its return here */
     engine_save(ENGINE_GPR(31), 0);
     ENGINE_RA(802AB6C4);
     engine_frame(-(ENGINE_C_FRAME + ENGINE_FRAME_S + 0x28));
@@ -103,64 +86,23 @@ void func_802AB670(u8 carrier) {
     engine_restore();
 }
 
+/* each link with this carrier (not 0): the carried vehicle's second
+   callback, then the same for what stands on it */
 REGS(a3)
 void func_802AB714(s32 carrier) {
-    u8 *t0 = D_803ED3B8;
-    s32 t1;
+    u8 *p;
+    s32 type;
+    CarryFn *keep, *move;
 
     ENGINE_COST(802AB714, 49);
-    for (;; t0 += 4) {
-        if (*(s32 *)t0 == -1)
-            break;
-        t1 = t0[1];
-        if (t1 != carrier)
+    for (p = D_803ED3B8; *(s32 *)p != -1; p += 4) {
+        if (p[1] != carrier || carrier == 0)
             continue;
-        if (t1 == 0)
-            continue;
-        t1 = t0[0];
-        if (t1 == 0)
-            goto next;
-        if (t1 == 3) {
-            func_802B3180(carrier);
-            goto up;
+        type = p[0];
+        carry_fns(type, &keep, &move);
+        if (move != NULL) {
+            move(carrier);
+            func_802AB714(type);
         }
-        if (t1 == 5) {
-            func_802B618C(carrier);
-            goto up;
-        }
-        if (t1 == 4) {
-            func_802B48A4(carrier);
-            goto up;
-        }
-        if (t1 == 8) {
-            func_802B7980(carrier);
-            goto up;
-        }
-        if (t1 == 0xD) {
-            func_802CBDE8(carrier);
-            goto up;
-        }
-        if (t1 == 0xE) {
-            func_802CCF60(carrier);
-            goto up;
-        }
-        if (t1 == 0xF) {
-            func_802CFCE0(carrier);
-            goto up;
-        }
-        if (t1 == 9) {
-            func_802C5A14(carrier);
-            goto up;
-        }
-        if (t1 == 0xA) {
-            func_802CA3D8(carrier);
-            goto up;
-        }
-        goto next;
-    up:
-        /* and what stands on it */
-        func_802AB714(t1);
-    next:
-        ;
     }
 }
