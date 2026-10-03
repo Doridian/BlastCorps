@@ -3606,9 +3606,9 @@ a native-endian build (n64, mn32) does.
   `ENGINE_ADDR_`), and the caller loads its own back (`engine_save()`
   with `ENGINE_GPR(31)`).  The TAS needs it: at read 108453 the shadow's
   pitch is the `$ra` that `func_802AB714`'s frame saved, the carrying's,
-  and `__port_icount_c` drifted from there without it.  (The taint
-  build later showed which of those frames place a store the shadow
-  reads; the others went: "The scaffolding stripped" below.)
+  and `__port_icount_c` drifted from there without it.  (O2 later
+  removed all of these frames: the three stores that reach the shadow
+  write its one word directly, "The scaffolding stripped" below.)
 - A native called from another native gets its inputs as C arguments,
   and nothing puts them in the context.  When its original keeps or
   saves an input register, it leaves the input there itself at entry
@@ -3650,66 +3650,94 @@ textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
   code, as in the decompiled C (us.v10's `func_802A2D68` doesn't clear
   `D_803F7812`); `ENGINE_BLK` sizes are each version's.
 
-**The scaffolding stripped** (DISTRIBUTION.md's phase O2; half A so far:
-56040, 5CB60, 80280, 69BB0, 8AEE0, 1B100, 853D0, 88160, 772A0, 60F60,
-679E0, 69944, 5BF40, 7F8B0, 8A080, 60D50, 86ED0).  With nothing translated
-left, the thread's context and the dead N64 stack are only the native
-code's own: what `ENGINE_LEAVE`, `engine_restore()` and the frame stores
-put there matters only where some native code reads it back
-(`engine_ctx`, `ENGINE_REG`, `engine_frame_lw`).  So:
-- **Finding the readers.**  `-DPORT_ENGINE_TAINT=ON` (the plain 32-bit
-  build) tags each value put in the context or a frame slot with the call
-  site that put it there, through the restores and frame stores that copy
-  it, and logs every read with the chain of sites it saw
-  (`ENGINE_TAINT=DIR`; `ENGINE_LWLOG=FILE` logs the words
-  `engine_frame_lw` reads).  `port/tools/taint.py BUILD/blastcorps DIR`
-  lists the readers and their chains, `--live` the sites some reader
-  depends on.  Over the quick tier and the TAS that was about 300 sites of
-  the engine's 2,000, 160 of them in half A.  A site in no chain was
-  removed: removing it can change no value any read sees (a read sees the
-  last write, and the dead sites are never last).  Reads that only fed a
-  leave nobody reads were dead too, and went with it.
-- **What became ordinary C** (half A): 56040's `func_8029C0DC` gives
-  `func_8029BF64`'s eight arguments as a struct to its own callers
-  (`c0dc()`), `func_8029AA10` takes the vehicle type `func_8029A800` was
-  given from a variable, `func_8029C160` no longer makes up a point for a
-  miss its callers ignore, the `$a3` 56040's animation passed from part to
-  part and its three dead stack-argument registers are gone, and 5BF40's
-  `func_802A08E4` is `(dl, end)`.  Every `ENGINE_RA`, every `engine_frame*`
-  but two and 18 of 46 save/restore pairs are gone; 701 `ENGINE_LEAVE`s
-  are 102.
+**The scaffolding stripped** (DISTRIBUTION.md's phase O2, both halves of
+`port/engine`, 2026-10-02).  With nothing translated left, the thread's
+context and the dead N64 stack are only the native code's own: what
+`ENGINE_LEAVE`, `engine_restore()` and the frame stores put there matters
+only where some native code reads it back (`engine_ctx`, `ENGINE_REG`,
+`engine_frame_lw`).  A write no read takes was removed: a read sees the
+last write, and those are never last.  `ENGINE_BLK` stays (the
+`--cpu-model n64` timing uses it).
+- **Finding the readers.**  Two debug builds of the plain 32-bit port
+  answer it, made side by side for the two halves:
+  - `-DPORT_ENGINE_TAINT=ON` tags each value put in the context or a frame
+    slot with the call site that put it there, through the restores and
+    frame stores that copy it, and logs every read with the chain of sites
+    it saw (`ENGINE_TAINT=DIR`; `ENGINE_LWLOG=FILE` logs the words
+    `engine_frame_lw` reads).  `port/tools/taint.py BUILD/blastcorps DIR`
+    lists the readers and their chains, `--live` the sites some reader
+    depends on.
+  - `-DCMAKE_C_FLAGS=-DPORT_PROV` records the same per read as one record:
+    the `ENGINE_LEAVE` that wrote the value, the `engine_restore` that put
+    it back (only one that changed it), and for a stack word its store and
+    the frames around it.  `PROV_OUT=PREFIX` writes `PREFIX.<pid>` at exit
+    (not a `PORT_` variable, so `test.py` passes it on), and
+    `port/tools/engine_prov.py EXE LOG... [--feeds FILE...]` lists every
+    read with its writers, or the writes in some files that a read
+    elsewhere takes.  `port_prov_probe(id)` counts whatever a native
+    function wants counted.
+  Over the quick tier and the TAS, about 300 of the engine's 2,000 sites
+  were live.  The quick tier and the TAS, run unchanged, check what went.
+- **What became ordinary C.**
+  - Half A: 56040's `func_8029C0DC` gives `func_8029BF64`'s eight
+    arguments as a struct to its own callers (`c0dc()`), `func_8029AA10`
+    takes the vehicle type `func_8029A800` was given from a variable,
+    `func_8029C160` no longer makes up a point for a miss its callers
+    ignore, the `$a3` 56040's animation passed from part to part and its
+    three dead stack-argument registers are gone, and 5BF40's
+    `func_802A08E4` is `(dl, end)`.
+  - Half B: `func_802A8768` takes `$s0`, `$s4` and `$s7` from `vs` (every
+    caller has them from there: `unk96`, `&unk4C`, `unk4`), and
+    `func_802A8CCC` returns whether it put the vehicle back (its `$t0`,
+    `$t1`), its pass-through inputs gone; the wheels' material in half B's
+    setups (`$fp`, which reaches a wheel's byte only when wheel 0 stands
+    on a moving object or nothing: 0 in every run) is 0, and
+    `func_802A6274`'s position and speed, unused in its mode 1, are 0 in
+    half B's calls; `func_802AA890`'s `$s0`-`$s2` matter only for a point
+    with no matrices, which no model has (`port_prov_probe` over the quick
+    tier and the TAS), so `func_802ABBEC` and half B's `func_802AABE4`
+    calls pass 0; the crane finds the hook's point as 56040 does
+    (`record_3bd`), the chopper's `func_802A1388` gets 1 for the loader's
+    heap top (only tested against 0), and its shadow's height outside the
+    level is the model's address `func_802B9B4C` left in `$t3`.
 - **The driver's shadow** reads one dead stack word: the third of its
   stack arguments is at `SHADOW_SLOT`, 0xBC below the N64 `$sp` the game's
   C runs the engine at, wherever the last native frame that reached that
-  deep left it.  The taint's frame stacks show which: 62740's
-  `func_802ABBEC` under the chopper's frames (762 of the TAS's reads),
-  62740_carry's `func_802AB714` (38), and 69BB0's own `func_802AEC3C`
-  (2).  Half A's frames are none of those stores' and the read's, so
-  69BB0, 80280 and 5CB60 keep no frame: the shadow reads
-  `engine_frame_lw(SHADOW_SLOT)`, its other two arguments are the
-  constants its frame stored (`0xFFFFFFFF`, `RA_SHADOW`), and
-  `func_802AEC3C` stores the one word of its frame that the shadow can see
-  (`engine_frame_sw(SHADOW_SLOT, ...)`).  The other half's frames on
-  those paths (72B80's chopper, 62740's) stay until its stores become a
-  variable.
+  deep left it.  The frame stacks show which: 62740's `func_802ABBEC`
+  under the chopper's frames (762 of the TAS's reads: the `$a1` 679E0's
+  `func_802ACCCC` left), 62740_carry's `func_802AB714` (38: its saved
+  `$ra`) and 69BB0's own `func_802AEC3C` (2).  No frame is left on any of
+  those paths: the shadow reads `engine_frame_lw(SHADOW_SLOT)`, its other
+  two arguments are the constants its frame stored (`0xFFFFFFFF`,
+  `RA_SHADOW`), and the three writers store just that word where their
+  frames did: `func_802AEC3C` (`engine_frame_sw(SHADOW_SLOT, ...)`), the
+  chopper's `func_802B9B4C` and the carrying's `func_802AB670`, each last.
+  That stays while the shadow's tilt is read from there.
 - **What is still left, and why**: values that real game state is made
-  from, that come from leftovers anywhere in a frame (both halves), where
-  a variable would have to be set by every one of the other half's
-  producers too.  The vehicle modules' effects take their velocity and
-  spin from `$t6`-`$s4` (`func_802A6274(..., engine_ctx(14)...)`), a
-  wheel off the level's triangles its material from `$fp`
-  (`func_802A992C`'s `mat`), 56040's `func_8029C454` a matrixless point
-  of a building's spheres from `$s0`-`$s2` (`func_802AA890`), and
-  `func_8029A800` two collision settings from `$t0`/`$t2`; the level
-  loader's collision triangles take bytes 0x4F, 0x50, 0x58 from `$t9`,
-  `$v0` and `$s1` (`func_802A41B0`; a hole's in 8A080 too).  Those values
-  travel through the vehicle modules' and the loader's
-  `engine_save()`/`engine_restore()` of `$s0`-`$fp`, and even through the
-  front end's (1B100's `$v0` is the next level's triangles' byte 0x50), so
-  those pairs stay with the leaves that feed them.  They are garbage in
-  the original (registers nobody set for that purpose), so replacing them
-  with defined values is the gameplay-digest's call, not the exact TAS's
-  (a few effects' velocities, a byte of some triangles).
+  from, that come from leftovers anywhere in a frame, kept with the leaves
+  and the one- or two-register `engine_save()`/`engine_restore()` pairs
+  that carry them:
+  - `func_8029A800`'s two collision settings from `$t0`/`$t2` (the
+    vehicles set them before the call; those that don't get
+    `func_802ABBEC`'s);
+  - the level loader's collision triangles' bytes 0x4F, 0x50, 0x58 from
+    `$t9`, `$v0` and `$s1` (`func_802A41B0`; a hole's in 8A080 too), from
+    62740's `func_802A860C`, `func_802A9DC0`, `func_802AA2E4` and
+    `func_802A8768`, 77E20's drawing (which still mirrors `$t6`-`$t8`,
+    `R()`) and `func_802BD99C`, and even the front end (1B100's `$v0`);
+    60F60's `$t6`;
+  - the wheels' `self` (`$t8`) and material (`$fp`) where the driver and
+    half A's vehicles' setups pass them on, which half B's vehicle frame
+    functions keep by putting back `$s4` and `$fp`;
+  - the vehicle modules' effects' velocity and spin from `$t6`-`$s4`
+    (`func_802A6274(..., engine_ctx(14)...)` in half A's calls), a
+    matrixless point's `$s0`-`$s2` in 56040's `func_8029C454`;
+  - 77E20 and 89250 read `func_8029C0DC`'s corners from the context
+    (`C0DC_LEFT`).
+  They are garbage in the original (registers nobody set for that
+  purpose), so replacing them with defined values is the gameplay
+  digest's call, not the exact TAS's: a few effects' velocities, a byte of
+  some triangles, a wheel's material off the level, the driver's `self`.
 - The check build (`PORT_ENGINE_CHECK`) still compares as before and
   finds no difference in the quick tier's runs: the leftovers the
   removed sites made were no checked caller's output.

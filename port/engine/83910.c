@@ -84,7 +84,7 @@ void func_802C8150(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8748[1], x, z, vs->unk4, &D_803F8748[1], (s16 *)&vs->unk4C, 0xB, vs, engine_ctx(30), &avg);
+    func_802A992C(vs->unk52, D_803F8748[1], x, z, vs->unk4, &D_803F8748[1], (s16 *)&vs->unk4C, 0xB, vs, 0, &avg);
     ENGINE_BLK(802C826C);
     func_8029F85C(parts, D_803F876C[0], D_803F8778[0], D_803F8778[1]);
     ENGINE_BLK(802C82A8);
@@ -135,7 +135,6 @@ void func_802C8C90(u8 type) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802C8C90);
-    engine_save(ENGINE_GPR(4), 0);
     func_802A75DC((u8 *)parts, &D_803F8748[0], &D_803F8748[1], &D_803F8748[2], (u8 *)vs);
     ENGINE_BLK(802C8CC8);
     func_802C4724(0x71);
@@ -154,7 +153,6 @@ void func_802C8C90(u8 type) {
     ENGINE_BLK(802C8D08);
     func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C8D24);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C8D30);
     func_802A843C(&vs->unk76, 1, 0xB, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
@@ -162,9 +160,6 @@ void func_802C8C90(u8 type) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[0], &D_803F8748[2], rate, &z);
     ENGINE_BLK(802C8D5C);
     D_803ED40B = 0;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8748[0], &D_803F8748[2], &D_803F8748[1], 0xB, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6, vs->unk28 + 3,
                   vs->unk5E, vs);
     ENGINE_BLK(802C8D90);
@@ -227,7 +222,6 @@ done:
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0xB, vs);
 out:
     ENGINE_BLK(802C8F94);
-    engine_restore();
 }
 
 /* its matrix, its vertices, its collision and its shadow */
@@ -250,7 +244,6 @@ void func_802C9624(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8748[0], D_803F8748[1], D_803F8748[2], 0x88B8, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802C96BC);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C96D0);
@@ -265,7 +258,7 @@ void func_802C9624(VS *vs) {
     ENGINE_BLK(802C9734);
     func_802ABBEC(0xB, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C9754);
-    func_802AABE4(0xB, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
+    func_802AABE4(0xB, (u16 *)(model + *(s32 *)(model + 8)), buf, 0, 0);
     ENGINE_BLK(802C9770);
     func_8029D040(D_803F8748[0], D_803F8748[2], 0xB, model + *(s32 *)(model + 0xC), vs->unk4C, D_803F7C50 + 32 * 0, buf);
     ENGINE_BLK(802C97B0);
@@ -315,7 +308,7 @@ void func_802C8470(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8748[4], x, z, vs->unk4, &D_803F8748[4], (s16 *)&vs->unk4C, 0x11, vs, engine_ctx(30), &avg);
+    func_802A992C(vs->unk52, D_803F8748[4], x, z, vs->unk4, &D_803F8748[4], (s16 *)&vs->unk4C, 0x11, vs, 0, &avg);
     ENGINE_BLK(802C858C);
     func_8029F85C(parts, D_803F876C[1], D_803F8778[2], D_803F8778[3]);
     ENGINE_BLK(802C85C8);
@@ -366,7 +359,6 @@ void func_802C8FA8(u8 type) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802C8FA8);
-    engine_save(ENGINE_GPR(4), 0);
     func_802A75DC((u8 *)parts, &D_803F8748[3], &D_803F8748[4], &D_803F8748[5], (u8 *)vs);
     ENGINE_BLK(802C8FE0);
     func_802C4724(0x71);
@@ -385,7 +377,6 @@ void func_802C8FA8(u8 type) {
     ENGINE_BLK(802C9020);
     func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C903C);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C9048);
     func_802A843C(&vs->unk76, 1, 0x11, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
@@ -393,9 +384,6 @@ void func_802C8FA8(u8 type) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[3], &D_803F8748[5], rate, &z);
     ENGINE_BLK(802C9074);
     D_803ED40B = 0;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8748[3], &D_803F8748[5], &D_803F8748[4], 0x11, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6, vs->unk28 + 3,
                   vs->unk5E, vs);
     ENGINE_BLK(802C90A8);
@@ -458,7 +446,6 @@ done:
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0x11, vs);
 out:
     ENGINE_BLK(802C92AC);
-    engine_restore();
 }
 
 /* its matrix, its vertices, its collision and its shadow */
@@ -481,7 +468,6 @@ void func_802C97C0(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8748[3], D_803F8748[4], D_803F8748[5], 0x88B8, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802C9858);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C986C);
@@ -496,7 +482,7 @@ void func_802C97C0(VS *vs) {
     ENGINE_BLK(802C98D0);
     func_802ABBEC(0x11, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C98F0);
-    func_802AABE4(0x11, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
+    func_802AABE4(0x11, (u16 *)(model + *(s32 *)(model + 8)), buf, 0, 0);
     ENGINE_BLK(802C990C);
     func_8029D040(D_803F8748[3], D_803F8748[5], 0x11, model + *(s32 *)(model + 0xC), vs->unk4C, D_803F7C50 + 32 * 1, buf);
     ENGINE_BLK(802C994C);
@@ -546,7 +532,7 @@ void func_802C8790(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     vs->unk4C = heading;
     vs->unk4E = heading;
     vs->unk74 = heading;
-    func_802A992C(vs->unk52, D_803F8748[7], x, z, vs->unk4, &D_803F8748[7], (s16 *)&vs->unk4C, 0x12, vs, engine_ctx(30), &avg);
+    func_802A992C(vs->unk52, D_803F8748[7], x, z, vs->unk4, &D_803F8748[7], (s16 *)&vs->unk4C, 0x12, vs, 0, &avg);
     ENGINE_BLK(802C88AC);
     func_8029F85C(parts, D_803F876C[2], D_803F8778[4], D_803F8778[5]);
     ENGINE_BLK(802C88E8);
@@ -597,7 +583,6 @@ void func_802C92C0(u8 type) {
     u8 *a2, *a3;
 
     ENGINE_BLK(802C92C0);
-    engine_save(ENGINE_GPR(4), 0);
     func_802A75DC((u8 *)parts, &D_803F8748[6], &D_803F8748[7], &D_803F8748[8], (u8 *)vs);
     ENGINE_BLK(802C92F8);
     func_802C4724(0x71);
@@ -616,7 +601,6 @@ void func_802C92C0(u8 type) {
     ENGINE_BLK(802C9338);
     func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C9354);
-    ENGINE_LEAVE(16, T(vs->unk96));     /* ($s0, which func_8029C454 reads too) */
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C9360);
     func_802A843C(&vs->unk76, 1, 0x12, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
@@ -624,9 +608,6 @@ void func_802C92C0(u8 type) {
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[6], &D_803F8748[8], rate, &z);
     ENGINE_BLK(802C938C);
     D_803ED40B = 0;
-    /* ($s4 and $s7, which func_802A8768 reads too) */
-    ENGINE_LEAVE(20, T(&vs->unk4C));
-    ENGINE_LEAVE(23, T(vs->unk4));
     func_802A8768(x, z, &D_803F8748[6], &D_803F8748[8], &D_803F8748[7], 0x12, 0xA0, 0xA0, vs->unk52, vs->unk28, vs->unk28 + 6, vs->unk28 + 3,
                   vs->unk5E, vs);
     ENGINE_BLK(802C93C0);
@@ -689,7 +670,6 @@ done:
     func_802A133C(D_803643E0, D_803643E4, D_803643E8, 0x12, vs);
 out:
     ENGINE_BLK(802C95C4);
-    engine_restore();
 }
 
 /* its matrix, its vertices, its collision and its shadow */
@@ -712,7 +692,6 @@ void func_802C995C(VS *vs) {
     D_803ED390[2] = 0;
     D_803ED390[1] = vs->unk4C;
     func_802AA764(D_803F8748[6], D_803F8748[7], D_803F8748[8], 0x88B8, m);
-    ENGINE_LEAVE(18, T(m));           /* (its $s2, as the glue would) */
     ENGINE_BLK(802C99F4);
     if (D_8035805C != 0) {
         ENGINE_BLK(802C9A08);
@@ -727,7 +706,7 @@ void func_802C995C(VS *vs) {
     ENGINE_BLK(802C9A6C);
     func_802ABBEC(0x12, model + *(s32 *)(model + 0), model + *(s32 *)(model + 4), buf);
     ENGINE_BLK(802C9A8C);
-    func_802AABE4(0x12, (u16 *)(model + *(s32 *)(model + 8)), buf, engine_ctx(17), engine_ctx(18));
+    func_802AABE4(0x12, (u16 *)(model + *(s32 *)(model + 8)), buf, 0, 0);
     ENGINE_BLK(802C9AA8);
     func_8029D040(D_803F8748[6], D_803F8748[8], 0x12, model + *(s32 *)(model + 0xC), vs->unk4C, D_803F7C50 + 32 * 2, buf);
     ENGINE_BLK(802C9AE8);
@@ -738,35 +717,23 @@ void func_802C995C(VS *vs) {
 /* set up a barge: from the level loader, with its type in $t3 */
 REGS(t3, s2, t7, s3, s0, s1)
 void func_802C80D0(s32 type, u8 *model, s32 x, s32 y, s32 z, s32 heading) {
-    s32 k;
-
     ENGINE_BLK(802C80D0);
-    engine_save(ENGINE_T0_T5, 0);
     if (type == 0xB) {
         ENGINE_BLK(802C80F8);
         func_802C8150(model, x, y, z, heading);
         ENGINE_BLK(802C8100);
-        k = 0;
     } else {
         ENGINE_BLK(802C8108);
         if (type == 0x11) {
             ENGINE_BLK(802C8114);
             func_802C8470(model, x, y, z, heading);
             ENGINE_BLK(802C811C);
-            k = 1;
         } else {
             ENGINE_BLK(802C8124);
             func_802C8790(model, x, y, z, heading);
-            k = 2;
         }
     }
     ENGINE_BLK(802C812C);
-    engine_restore();
-    /* what the original leaves for its (translated) caller */
-    ENGINE_LEAVE(28, T(&D_803F8550[k]));
-    ENGINE_LEAVE(18, T(&D_803F8748[3 * k + 1]));
-    ENGINE_LEAVE(22, T(D_803F8778[2 * k]));
-    ENGINE_LEAVE(23, T(D_803F8778[2 * k + 1]));
 }
 
 /* hd.c's: the player gets in */
@@ -787,7 +754,6 @@ u8 func_802C8AF0(void) {
 /* hd.c's: the player gets out of the barge of this type */
 void func_802C8B0C(u8 type) {
     ENGINE_BLK(802C8B0C);
-    engine_save(ENGINE_GPR(28), 0);
     if (type == 0x11) {
         ENGINE_BLK(802C8B54);
         func_802A7764((u32 *)D_803F8778[2], (u32 *)D_803F8778[3], 0x800);
@@ -806,13 +772,11 @@ void func_802C8B0C(u8 type) {
     ENGINE_BLK(802C8B9C);
     func_802C444C();
     ENGINE_BLK(802C8BA4);
-    engine_restore();
 }
 
 /* each frame: the barge of this type */
 void func_802C8BB8(u8 type) {
     ENGINE_BLK(802C8BB8);
-    engine_save(ENGINE_S0_S7_GP_FP, ENGINE_F20_F31);
     if (type == 0xB) {
         ENGINE_BLK(802C8C0C);
         func_802C8C90(type);
@@ -829,7 +793,6 @@ void func_802C8BB8(u8 type) {
         }
     }
     ENGINE_BLK(802C8C40);
-    engine_restore();
 }
 
 /* bumped: the speed at least 0x50 either way, then turned round and halved */
