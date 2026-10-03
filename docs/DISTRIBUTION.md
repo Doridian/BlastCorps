@@ -269,7 +269,8 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   - The main loop (`hd_code/00000.c`) calls the mode's frame function once a pass; the level's is
     `func_802475D8`, which runs every subsystem once and then bumps `D_80358060/64/68`.
   - The 30 Hz comes from the scheduler's swap (`hd_code/2C560.c`): a frame is held until a retrace has
-    gone by since the last swap, so at least 2 VIs a frame, more when the CPU model says it was slow.
+    gone by since the last swap, so at least 2 VIs a frame (more on the N64 when the CPU was slow; the
+    port's CPU model is off by default since O1, so there it's 2).
     Audio runs on every second retrace and doesn't depend on the frame rate.
   - Nothing scales by elapsed time except `func_8026BCE0` (message scrolling, music cues).  The clock,
     medal times, countdowns, blinks, fades and timeouts count retraces, about 72 reads in 12 C files,
@@ -281,7 +282,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   - The camera eases multiplicatively (0.95 a frame, `camera.h`).  Collision is discrete: move, test,
     restore and reflect, so it depends on the step size.
   - The LCG (`func_8026A828`) runs a varying number of times a frame, and `D_803649D8 = osGetTime()`
-    is a per-frame "random" from the CPU model's clock (shake, debris).
+    is a per-frame "random" from the clock (shake, debris; the virtual clock in `--deterministic` and the page, spread enough without the CPU model).
   - About 42 K lines in `port/engine`, about 320 float literals and 380 constant `+=`/`-=` sites.
 - **Designs:**
   - **(a) A fixed higher tick:** `-DPORT_TICK=N`, N steps per original frame.  Per-frame constants
@@ -307,7 +308,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
     2 ticks, and report the time to the first divergence from `polls.csv` and whether the level still
     finishes with its medal.  That is a drift measure, not a pass/fail: the integration isn't linear
     and collisions are chaotic, so the TAS can't stay in sync.
-- **First: an optimization pass under that bar** (not started).  The engine in `port/engine` still
+- **First: an optimization pass under that bar** (O0 and O1 done, the rest not started).  The engine in `port/engine` still
   carries what made it checkable against the asm: 9,844 `ENGINE_BLK` charges for the CPU model,
   about 1,200 `ENGINE_LEAVE*` sites leaving registers as the asm did, about 300
   `engine_frame*`/`engine_save`/`engine_restore` sites keeping dead stack frames that other code's
@@ -317,8 +318,8 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
 
   | Phase | Work | Check | Agent-hours |
   |---|---|---|---|
-  | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4 |
-  | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5 |
+  | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4; **done** (2026-10-02, about 3): `PORT_DIGEST`, `digest_cmp.py`, `test.py --gameplay` (docs/PORT.md, "The gameplay digest") |
+  | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5; **done** (2026-10-02, about 3): the model is off by default (`--cpu-model n64` brings the N64's lag back), no level frame lags; the TAS with the port's own frame timing (`PORT_REPLAY_TIMING=free`, `test.py tas`'s default) matches every read, 57 platinum, the reference's gameplay digest and save; the levels' clock runs 5% less in all (up to 12% in the busiest), the whole run 9.6% shorter (docs/PORT.md, "Lag frames") |
   | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10 |
   | O3 | Make the engine readable: struct fields for offsets, named per-frame constants, loops and calls in place of the asm's shape, by module over 4 agents | the TAS per module | 15–30 |
   | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10 |
@@ -345,7 +346,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   | Phase | Work | Check | Agent-hours |
   |---|---|---|---|
   | 0 | Audit what each frame writes; with named state it's a review of the per-frame constants O3 named | tooling | 1–2 (2–4) |
-  | 1 | `PORT_TICK`, the scheduler's VI rate, `port_counter`; the CPU model is already coarse or gone | the TAS for N=1 | 2–3 (3–5) |
+  | 1 | `PORT_TICK`, the scheduler's VI rate, `port_counter`; the CPU model is already off (O1) | the TAS for N=1 | 2–3 (3–5) |
   | 2 | Engine: the per-frame constants, timers and damping in readable C | the TAS for N=1, N=2 judgement | 8–15 (15–30) |
   | 3 | Game C: camera, HUD, pickups, timers, fades, about 100–150 sites | the TAS for N=1, N=2 judgement | 5–10 (6–12) |
   | 4 | The doubled-input drift harness, on O0's digest | a metric | 1–3 (3–5) |
@@ -364,9 +365,8 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
 - **Risks:** rounding at 1/N in integer state; multiplicative damping; collision response that
   depends on the step; frame-counted rules (damage, stuns, consecutive-frame contacts); the
   clock-derived `D_803649D8`; what medal times mean at N>1.  The pass carries its own: a desync it
-  causes may show only late in the TAS, and dropping the CPU model changes lag frames, so the clock and
-  the save's times may change while the routes still sync.  The owner decides whether that's
-  acceptable (O1).
+  causes may show only late in the TAS.  (Dropping the CPU model, O1, changed the clock and not the
+  routes, as expected: the levels' times are shorter by the N64's lag, which the owner accepted.)
 
 ## Replacing the SDK parts
 
@@ -467,8 +467,8 @@ player (MIDI state, voice mapping, tempo, markers, loops).
 - The references would be recorded again.
 
 **Timing.** libaudio is N64-side C, so ICount charges the replacement's own instructions. That leaves
-the quick tier alone (`PORT_COUNT_PER_OP=0`) and moves only the TAS's "retraces given anyway", which
-the suite doesn't check.
+the quick tier alone (the CPU model off) and moves only the TAS's "retraces given anyway" with
+`--cpu-model n64`, which the suite doesn't check.
 
 **Third-party code checked** (2026-09-30):
 - Nothing libaudio-compatible and open exists.

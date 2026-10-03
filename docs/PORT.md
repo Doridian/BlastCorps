@@ -202,7 +202,7 @@ opaque call it also stops clang from hoisting the load out of the loop, as
 IDO never would.
 
 Every 64th poll also moves `--deterministic`'s clock on by 2 µs (with
-`PORT_COUNT_PER_OP=0`, the quick tier's, it is the only thing that does
+the CPU model off, the default and the quick tier's, it is the only thing that does
 while the game computes), so the number of loop iterations the N64 side
 runs is part of the game's timing: one poll more per audio frame changes
 the attract mode's sound.  Code that never waits on another thread is
@@ -393,13 +393,14 @@ skip) when nothing could run: no ROM, no TAS log (`build/tas/run/polls.csv`,
 `port/tools/tas.sh`), no venv with numpy and unicorn.  The outputs stay in
 `BUILD/test/` for a closer look.
 
-**quick.**  Deterministic runs (`PORT_COUNT_PER_OP=0 --deterministic`,
+**quick.**  Deterministic runs (`--deterministic`, the CPU model off,
 `--headless`, the software renderer, no save to start from): the attract
 mode for 4,000 frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
 2,000 and 3,000, each with `--save`, `--wav` and a screenshot every 250
 frames; for us.v11 and jp, which the TAS doesn't cover, also the attract
 mode for 12,000 frames (`attract.long`: the story and several of its demo
-levels, about 70 seconds).  The same scenarios also run from a resource pack
+levels, about 70 seconds).  Every run also writes the gameplay digest
+("The gameplay digest", below), which is compared too.  The same scenarios also run from a resource pack
 made from the ROM ("Resource packs": `attract.pack`, `auto3.pack`,
 `auto3.pack.nocode`, every hash as from the ROM) and from edited copies of
 it (`auto3.pack.edit`, `auto3.pack.hires`, `auto3.gl.pack.hires`).  Their hashes (16 digits of sha1) are compared with
@@ -508,6 +509,104 @@ mode forced, 57 platinum and the same save (the native-endian builds'
 late drift is gone: "The native-endian build"); `wasm`'s replay log is
 `mn32`'s line for line.  Eight replays at once take 30 to 40 minutes on
 a 32-thread machine (`wasm`'s is the slowest; the Linux ones 18 to 25).
+
+### The gameplay digest
+
+The hashes above check that nothing changed at all: RDRAM, the save, the
+sound and the pictures follow the CPU model's timing (lag frames, the
+retrace count, `osGetTime`), so a change that keeps the game and changes
+its timing (dropping the CPU model, stripping the engine's scaffolding:
+DISTRIBUTION.md's optimization pass) changes them all.  The gate for such a
+change is what a player could notice, which is what the gameplay digest
+holds.
+
+`PORT_DIGEST=FILE` (`port/host/digest.c`) writes, at every controller poll
+(`host_controller_poll`, once per game frame), a line with the poll, the
+mode (`D_80364A90`), the level (`D_802E8BDC`) and the game's frame in the
+mode (`D_80358064`), then the fields that changed since the line before (a
+line marked `*`, at the first poll of each mode or level, has them all;
+`key=~` is a field gone).  It only reads game memory, at the poll, from the
+host side, so it charges nothing to the CPU model and changes no other
+output (the quick tier's hashes are the same with it).  The fields, read
+from the variables the headers in `blastcorps/include/game` and
+`port/engine` describe:
+
+| field | what | from |
+|---|---|---|
+| `p` | the player's position (`<< 5`) | `D_803643E0..E8` (game.h) |
+| `pv` | the player's vehicle type | `D_80364456` (vehicle.h) |
+| `vT` | every vehicle module the level's vehicles use (type `T`, hex): position, headings, speed; `vFF` the missile carrier, `vB.0..2` the barges | the `Vehicle` list `D_80364460` to `D_803649D0` for which types; each module's `VehicleState` (`unk4C`, `unk4E`, `unk76`) and position (vehicle.h's table, `port/engine/62740.c`, `75490.c`) |
+| `bN` | building N: destroyed, position, each damage group's 0..100 | `Building.unkEA`, `x..z`, the bytes from `0xEC` (`unkE9` groups), `D_803F4030` to `D_803F7654` (objects.h, `port/engine/77E20.c`, `buildings.h`) |
+| `st` | the level's stats: damage `$`, buildings down, `cr`, RDUs, medal | `D_8036EA70` (`LevelStats`: `ip`, `bd`, `cr`, `rt`, `coin`; level.h) |
+| `of` | the totals: buildings, `cr`, RDUs | `D_8036EB92`, `D_8036EB93`, `D_8036EB90` |
+| `won`, `lost` | the carrier got through (or the goal), the level lost | `D_803643DA`, `D_803643D9` (`port/engine/75490.c`) |
+| `dmg` | the damage so far | `D_803649F0` |
+| `ammo` | the Ballista's missiles, the Sideswipe's hydraulics | `D_803F8B72`, `D_803EDC00` |
+| `rdu`, `box` | the RDUs and ammo boxes collected, a bit each | `Rdu.collected` of `D_8036BED8[D_8036EB90]`; `AmmoBox.collected` of `D_8039AF00[D_8039B068]` (objects.h) |
+| `tnt`, `blk` | the TNT crates (active, position, fuse) and the blocks (position, in its hole) | `D_8039B070[D_8039B610]`, `D_8039C550[D_8039C710]` |
+| `med`, `units`, `gs` | the current player's medals (60, hex), units and game state | `PlayerInfo` `D_80364AF0[D_80364AE8]` (player.h) |
+| `clk` | the scheduler's retraces (the clock) | `D_803156C4` |
+| `t`, `tc` | "TIME IN LEVEL"'s retraces, the level's time (the clock) | `D_803156C0` (`Sched.unk280`), `D_8036EA70.tc` |
+| `rng`, `fc` | the random state, a frame count (internal) | `D_8036B968`, `D_80358060` |
+
+Everything but `clk` and `rng` is written only in the modes that run the
+level's frame (`func_802475D8`: the levels, the attract demos and the
+intros; not the menus, the map, the logos or the results).
+
+`port/tools/digest_cmp.py A B` compares two digests by what the game did,
+not when: the modes and levels in order (difflib, so a mode one run visits
+and the other doesn't is reported), and within a mode by the game's frame
+(a new stretch each time the count starts again).  Runs whose timing
+differs line up frame by frame.  In a level, the first frame where a
+gameplay field differs is the failure, reported with the level, the frame,
+both runs' polls and the field's two values; at the end of every mode its
+outcome (`st`, `won`, `lost`, `of`, `med`, `units`, `gs`) is compared too
+(not where a run ends inside it, as `--frames` cuts it off).  The clock's
+fields are never a failure: each level's retraces over the frames both
+runs have, its "TIME IN LEVEL" and `tc` are listed side by side, with the
+total; the internal ones are a note where they differ first.  Exit status
+1 on a gameplay difference.  `--hash` prints a digest's gameplay hash (the
+gameplay fields only, a level's frames that change none of them adding
+nothing, so a level that waits longer at its end hashes the same), and
+`--levels` lists the levels a digest played, with their frames and times.
+
+`test.py` writes a digest in every quick scenario and in the TAS replay,
+and compares its gameplay hash with `test_refs.json`'s `digest` (by
+version; the TAS's is `tas`); a scenario run against a base one (`auto3.wide`
+against `auto3`, ...) must have the base's.  The digests themselves are the
+game's state, the ROM's data at work, so like the TAS's logs they stay out
+of the repository: `quick --update` and `tas --update` record the hash in
+`test_refs.json` and copy the digest to `build/digest-refs/<version>/`, and
+where a hash differs and that copy is there, `digest_cmp.py` says where.
+`--gameplay` (quick, tas, variants) makes the digest the gate: a hash that
+differs from the references is reported (NOTE) instead of failed, and so is
+the TAS's save, which holds the levels' times.  (A build's own scenarios
+are still compared with each other by every hash: they share its timing.)
+
+What it showed (us.v10, the 32-bit build, main as of 2026-10-02):
+
+- Two TAS replays give the same digest, byte for byte (125,582 polls,
+  14 MB, 468 modes of which 232 run the level's frame, 106,922 level
+  frames; `digest_cmp.py` takes a second over two of them, and the replay
+  took its usual 21 minutes); so do two runs of a quick scenario.  The
+  TAS's gameplay hash is `7ec6ef73a5265afa`.
+- The other variants give the same gameplay hashes as the 32-bit build in
+  every quick scenario (`lp64`, `mn32` checked: native-endian memory,
+  LP64 pointers, the movable layout).
+- A one-frame change, the Ramdozer's x moved by one unit (`<< 5`) at poll
+  1,400 of `auto3`, is found at the next poll: Simian Acres, frame 363,
+  field `p` (and everything after it, not reported).
+- The attract mode with the CPU model on (`PORT_COUNT_PER_OP=2`, lag
+  frames) against the reference (off): the same gameplay in the 1,477
+  level frames both have, while Argent Towers' demo took 1,385 retraces for
+  533 frames where the reference took 1,064 (and `rng` differs from the
+  first frame: it is seeded from the clock).  The demos read their input
+  by frame, so they are what lag can't change.
+- `PORT_AUTOSTART=2` and `=3` press their buttons by the retrace count, so
+  a change of timing changes their input and their gameplay: their digests
+  will differ after such a change by design, and have to be recorded
+  again; the attract mode and the TAS (input by frame) are the scenarios
+  that check it.
 
 ## Native-endian memory
 
@@ -855,7 +954,13 @@ the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
   `extern` array of 16 bytes or more 16-byte alignment, as it does a
   definition, and the optimiser then clears the low bits of addresses
   made from it; BEPass puts both at the type's own alignment (the TAS's
-  `&D_802F49F4[i]`, at ...944, lost its 4 and divided by zero);
+  `&D_802F49F4[i]`, at ...944, lost its 4 and divided by zero); and
+  clang 23's InferAlignment raises a definition's alignment again after
+  the SLP vectoriser has read it in wide pieces (23C20.c's `float[4][4]`
+  `D_8036B8C8` went to 32, which the 32-bit link couldn't place at
+  ...818), so KeepAlign, at the optimiser's end, puts every global back
+  to what BEPass gave it and caps the accesses in the functions that use
+  one it moved at 8 bytes' alignment;
 - **port-lp64** (`bepass/LP64.cpp`, before BEPass): what port-ilp32 does
   that isn't layout.  Pointer arithmetic by a variable or large offset
   wraps at 32 bits, an integer made a pointer is zero-extended, accesses
@@ -1990,12 +2095,15 @@ How the game paces itself, and what the port does about each part:
   (`COST_*` in `port.h`, and the copies in `port/src/libc.c`).  At each
   call into libultra the running thread is charged for what it did since
   (`host_cpu_sync`, `port/host/threads.c`), at mupen64plus's CountPerOp = 2
-  (42.7 ns an instruction; `PORT_COUNT_PER_OP` changes it, 0 turns the model
-  off) and 1.6 MIPS instructions per IR instruction for the C
-  (`PORT_C_SCALE`; IDO's `-O1` code is bigger than clang's `-O2`).  A
-  thread that is ahead of the clock goes "busy": it holds the CPU against
-  lower priorities, higher ones preempt it (and push its end back), and
-  `--deterministic` jumps its virtual clock through it.
+  (42.7 ns an instruction; `PORT_COUNT_PER_OP` changes it) and 1.6 MIPS
+  instructions per IR instruction for the C (`PORT_C_SCALE`; IDO's `-O1`
+  code is bigger than clang's `-O2`).  A thread that is ahead of the clock
+  goes "busy": it holds the CPU against lower priorities, higher ones
+  preempt it (and push its end back), and `--deterministic` jumps its
+  virtual clock through it.  That is the CPU model, and since 2026-10-02
+  it is **off by default** (`--cpu-model n64` or `PORT_CPU_MODEL=n64` turn
+  it on): the game's work takes no time, so no frame is held for it and
+  the game never lags ("Lag frames").  What follows measures the model.
 - **The RDP** is instant, as in mupen64plus.  The renderer's estimate of
   its time (`host_charge`) delays OS_EVENT_DP by that much times
   `PORT_RDP_SCALE` (default 0).  It used to advance `--deterministic`'s
@@ -2011,7 +2119,7 @@ the port's `PORT_PACE=FILE` does: at each controller read, the scheduler's
 retrace count, the mode and the samples played) and
 `port/tools/pace_cmp.py`, both from no save, `--deterministic`:
 
-| mode (D_80364A90)            | port: retraces a frame | mupen64plus |
+| mode (D_80364A90)            | port (the CPU model on): retraces a frame | mupen64plus |
 | ---                          | ---                    | ---         |
 | N64 logo (0x10), 250 frames  | 1.01                   | 1.00        |
 | Rare logo (0x20), 250 frames | 1.30                   | 1.27        |
@@ -2323,8 +2431,9 @@ to run at 60, because its logic doesn't scale with time.
   In every other mode, the levels and the world map among them, a frame
   is held until a retrace has gone by since the last one showed.  So each
   frame is on screen for two retraces at least: 30 frames a second at
-  most, and fewer when the CPU takes longer (the world map averages 3.45
-  retraces a frame, see "Timing").
+  most, and fewer when the CPU takes longer: on the N64, and on the port
+  with its CPU model on (the world map then averages 3.45 retraces a
+  frame, see "Timing"), which it no longer is by default ("Lag frames").
 - **The game's frame.**  One pass of the mode's frame function (the
   level's is `func_802475D8`, 00000.c) runs one step of the game and builds
   one display list.  The step is the same size however long the frame
@@ -2349,6 +2458,163 @@ to run at 60, because its logic doesn't scale with time.
 - **The TAS** gives one pad per game frame.  The retraces a frame takes
   change where the game is by the next pad (`--replay` gives each frame
   the log's retraces: "The TAS").
+
+### Lag frames
+
+On the N64 a level frame takes two retraces when the CPU is done in time
+and three or more when it isn't: a lag frame.  The game slows down (its
+step per frame is fixed) while the level clock, which counts retraces,
+runs on.  The port used to reproduce that with its CPU model ("Timing"):
+the game's work was charged at the N64's speed and frames were held for
+it.  Since 2026-10-02 the model is **off by default**, natively and in the
+page: the game's work takes no time, every level frame takes the minimum
+two retraces (30 a second), and the front end goes as fast as its own
+waits let it.  The bar is the owner's: the port may differ wherever a
+player, even a perfect one, couldn't tell, and beyond that smoother play is
+preferred over the N64's in-game times to the tenth.
+
+- **The option.**  `--cpu-model n64` (or `PORT_CPU_MODEL=n64`, which the
+  page takes as `?env=PORT_CPU_MODEL=n64`) turns the model back on, for
+  the N64's lag and timing; `PORT_COUNT_PER_OP=N` still sets its rate (2,
+  mupen64plus's, is what `n64` means; 0 is off).  `--cpu-model off` is the
+  default.
+- **Nothing else depends on it.**  The quick tier always ran without it
+  (its references are unchanged), and the TAS replays the same with it on
+  or off.  `D_803649D8 = osGetTime()`, the per-frame "random" number of the
+  screen shake, the dust and the debris, is from the virtual clock in
+  `--deterministic` and the page: without the model it is still spread
+  (`PORT_AUTOSTART=1`'s Simian Acres, 1,018 frames: all 40 values of
+  `% 40`, the four of `>> 8 & 3` within 250-265 each, dust on 27 frames;
+  with the model 887 frames, dust on 27), so it was left as it is.
+
+**The TAS without lag.**  `--replay` gives every frame the movie's
+retraces (its lag) unless `PORT_REPLAY_TIMING=free`: then each frame takes
+what the port gives it, two retraces in a level, and the level timer runs
+at the port's pace (`test.py tas` plays it so by default, `--timing movie`
+the old way, `both` both).  The game's reads of the counts in the middle
+of a frame and the audio thread's answers stay the movie's.  They decide
+when a message window closes (`func_8026BCE0`, `(count - start) / 60.0f >
+unkC`), and the game holds the player while one is up, so a window that
+closes a frame early or late moves all the movie's input after it.  Which
+frame that is depends on where in the N64's frame the retraces fell, so
+even with the movie's lag the port's own counts put Simian Acres' first
+window out by a frame (the player elsewhere from frame 1,101,
+`PORT_REPLAY_FREE=counts`); no timing but the movie's emulator's gives
+them.  (A player who isn't replaying a movie can't tell: the window stays
+up as long, in seconds.)
+
+Measured on us.v10, the 32-bit build, the whole TAS:
+
+| | the movie's timing (`--cpu-model n64`) | the movie's timing (no model) | free timing (no model) |
+|---|---|---|---|
+| the log's reads matched | 125,297 of 125,297, none skipped | the same | the same |
+| modes forced | 0 | 0 | 0 |
+| retraces given anyway | 58 | 0 | 0 |
+| medals | 57 platinum, 3 done | the same | the same |
+| save | `0db40f5e7068d3e3` (the reference) | the same | the same (its times are what the game read: the movie's) |
+| gameplay digest | `7ec6ef73a5265afa` (the reference) | | the same: 106,922 level frames, every field |
+| retraces in all | 275,459 (76:30.9) | | 249,023 (69:10.4): -26,436, -7:20.5, -9.6% |
+| retraces in the levels (mode 4) | 182,526 for 86,798 frames: 9,096 over 2 a frame | | 173,476: 2 a frame but for 46 |
+| one replay | 21 minutes | 19.4 | 19.4 |
+
+The free-timing replay through `test.py tas` passes the same way on the
+32-bit build (22 minutes) and on `wasm` under node (30 minutes); the
+quick tier passes unchanged on all eight us.v10 variants, and on us.v11's
+and jp's 32-bit and `mn32` builds.
+
+The levels' time by the level clock, the movie's (the N64's, by the
+gated replay) against no lag (`port/tools/tas_times.py REF.digest
+OTHER.digest`, from the two runs' digests; a level's stretches of mode 4
+added up).  Levels with no lag in the movie don't change; the busiest
+lose up to 12%.  The medal times and the save's best times are this
+clock, so without lag they come out shorter: a medal is easier to make,
+never harder, and a time is not the N64's for the same play (in the
+replay the game reads the movie's counts, so its save is the movie's):
+
+| level | stretches | frames | lag retraces (the movie's) | the movie's | no lag | difference |
+|---|---|---|---|---|---|---|
+| Simian Acres | 2 | 1525 | 385 | 0:57.1 | 0:50.8 | -6.3 s (-11%) |
+| Sideswipe | 1 | 261 | 1 | 0:08.6 | 0:08.6 | +0.0 s (-0%) |
+| J-Bomb | 1 | 369 | 26 | 0:12.7 | 0:12.2 | -0.5 s (-3%) |
+| Backlash | 1 | 168 | 1 | 0:05.5 | 0:05.5 | +0.0 s (+0%) |
+| Argent Towers | 3 | 3486 | 514 | 2:04.6 | 1:56.1 | -8.5 s (-7%) |
+| Orion Plaza | 1 | 386 | 36 | 0:13.4 | 0:12.8 | -0.6 s (-4%) |
+| Blackridge Works | 2 | 1295 | 104 | 0:44.8 | 0:43.1 | -1.7 s (-4%) |
+| Carrick Point | 2 | 2805 | 246 | 1:37.5 | 1:33.4 | -4.1 s (-4%) |
+| Kipling Plant | 1 | 212 | 7 | 0:07.1 | 0:07.0 | -0.1 s (-1%) |
+| Sleek Streets | 1 | 974 | 1 | 0:32.4 | 0:32.4 | +0.0 s (+0%) |
+| Havoc District | 2 | 4268 | 657 | 2:33.1 | 2:22.2 | -10.9 s (-7%) |
+| Twilight Foundry | 1 | 693 | 0 | 0:23.0 | 0:23.0 | +0.0 s (+0%) |
+| Skyfall | 1 | 88 | 1 | 0:02.9 | 0:02.9 | +0.0 s (+0%) |
+| Shuttle Gully | 2 | 1957 | 290 | 1:10.0 | 1:05.1 | -4.9 s (-7%) |
+| Cobalt Quarry | 1 | 838 | 1 | 0:27.9 | 0:27.9 | +0.0 s (+0%) |
+| Tempest City | 3 | 1339 | 251 | 0:48.7 | 0:44.5 | -4.2 s (-8%) |
+| Beeton Tracks | 2 | 3276 | 123 | 1:51.1 | 1:49.1 | -2.0 s (-2%) |
+| Silver Junction | 1 | 700 | 1 | 0:23.3 | 0:23.3 | +0.0 s (+0%) |
+| Echo Marches | 2 | 4629 | 973 | 2:50.4 | 2:34.2 | -16.2 s (-10%) |
+| Mica Park | 1 | 307 | 20 | 0:10.5 | 0:10.2 | -0.3 s (-3%) |
+| Salvage Wharf | 1 | 528 | 1 | 0:17.5 | 0:17.5 | +0.0 s (+0%) |
+| Thunderfist | 1 | 241 | 12 | 0:08.2 | 0:08.0 | -0.2 s (-2%) |
+| Cromlech Court | 2 | 1098 | 115 | 0:38.4 | 0:36.5 | -1.9 s (-5%) |
+| Ironstone Mine | 3 | 4414 | 377 | 2:33.3 | 2:27.0 | -6.3 s (-4%) |
+| Ebony Coast | 3 | 3845 | 1039 | 2:25.3 | 2:08.1 | -17.2 s (-12%) |
+| Morgan Hall | 1 | 456 | 46 | 0:15.9 | 0:15.1 | -0.8 s (-5%) |
+| Outland Farm | 2 | 3118 | 141 | 1:46.2 | 1:43.9 | -2.3 s (-2%) |
+| Geode Square | 1 | 393 | 0 | 0:13.0 | 0:13.0 | +0.0 s (+0%) |
+| Lizard Island | 1 | 1716 | 0 | 0:57.1 | 0:57.1 | +0.0 s (+0%) |
+| Saline Watch | 1 | 732 | 151 | 0:26.8 | 0:24.3 | -2.5 s (-9%) |
+| Dagger Pass | 1 | 934 | 0 | 0:31.1 | 0:31.1 | +0.0 s (+0%) |
+| Magma Peak | 2 | 1136 | 1 | 0:37.8 | 0:37.8 | +0.0 s (-0%) |
+| Baboon Catacomb | 1 | 1080 | 1 | 0:35.9 | 0:35.9 | +0.0 s (+0%) |
+| Crystal Rift | 2 | 4405 | 871 | 2:41.2 | 2:26.7 | -14.5 s (-9%) |
+| Falchion Field | 1 | 513 | 22 | 0:17.4 | 0:17.0 | -0.4 s (-2%) |
+| Dark Heartland | 1 | 319 | 4 | 0:10.6 | 0:10.6 | +0.0 s (-1%) |
+| Corvine Bluff | 2 | 466 | 2 | 0:15.5 | 0:15.5 | +0.0 s (+0%) |
+| Bison Ridge | 1 | 734 | 1 | 0:24.4 | 0:24.4 | +0.0 s (+0%) |
+| Cooter Creek | 2 | 812 | 2 | 0:27.0 | 0:27.0 | +0.0 s (+0%) |
+| Skerries | 1 | 1048 | 0 | 0:34.9 | 0:34.9 | +0.0 s (+0%) |
+| Obsidian Mile | 1 | 1543 | 197 | 0:54.6 | 0:51.4 | -3.2 s (-6%) |
+| Marine Quarter | 1 | 612 | 1 | 0:20.3 | 0:20.3 | +0.0 s (+0%) |
+| Diamond Sands | 1 | 2462 | 228 | 1:25.8 | 1:22.0 | -3.8 s (-4%) |
+| Oyster Harbor | 3 | 6042 | 571 | 3:30.8 | 3:21.3 | -9.5 s (-5%) |
+| Gibbons Gate | 1 | 1894 | 1 | 1:03.1 | 1:03.1 | +0.0 s (+0%) |
+| Jade Plateau | 1 | 483 | 0 | 0:16.0 | 0:16.0 | +0.0 s (+0%) |
+| Moraine Chase | 1 | 1402 | 1 | 0:46.7 | 0:46.7 | +0.0 s (+0%) |
+| Angel City | 2 | 2521 | 309 | 1:29.1 | 1:23.9 | -5.2 s (-6%) |
+| Ember Hamlet | 1 | 1026 | 175 | 0:37.0 | 0:34.1 | -2.9 s (-8%) |
+| Glanders Ranch | 1 | 1551 | 0 | 0:51.6 | 0:51.6 | +0.0 s (+0%) |
+| Glory Crossing | 3 | 2362 | 653 | 1:29.5 | 1:18.6 | -10.9 s (-12%) |
+| Shuttle clear | 1 | 2879 | 492 | 1:44.1 | 1:35.9 | -8.2 s (-8%) |
+| Moon | 1 | 1157 | 21 | 0:38.8 | 0:38.5 | -0.3 s (-1%) |
+| Mercury | 1 | 960 | 1 | 0:31.9 | 0:31.9 | +0.0 s (+0%) |
+| Venus | 1 | 830 | 20 | 0:27.9 | 0:27.6 | -0.3 s (-1%) |
+| Mars | 1 | 490 | 1 | 0:16.3 | 0:16.3 | +0.0 s (+0%) |
+| Neptune | 1 | 1020 | 1 | 0:33.9 | 0:33.9 | +0.0 s (+0%) |
+| all | 83 | 86798 | 9096 | 50:42.1 | 48:11.2 | -150.9 s (-5%) |
+
+What else a player sees, measured `--deterministic` from no save (us.v10,
+the 32-bit build; `PORT_PACE`, retraces a frame by mode):
+
+| | CPU model on | off (the default) |
+|---|---|---|
+| the N64 and Rare logos | 1.00 | 1.00 |
+| the title comes up at retrace | 638 | 548 (1.5 s sooner) |
+| the title, waiting (mode 2, 1,163 frames) | 4.09 | 3.63 |
+| the attract story (mode 2, 441 and 587 frames) | 5.81, 2.32 | 4.60, 2.00 |
+| "leaders of" screens | 1.00 | 1.00 |
+| a level's load and start (`PORT_AUTOSTART=1`, Simian Acres' first 28 frames) | 7.86 (220 retraces) | 4.10 (119: 1.7 s sooner) |
+| driving (Simian Acres) | 2.00 | 2.00 |
+| the CMO intro, the map, the results | 1.96-2.04 | 2.00-2.04 |
+
+So the loads and the front end's busier screens are quicker (what is
+still above one or two retraces there is no CPU time: the game waits on
+something else, the cartridge's DMA among it; not looked into further),
+and in the TAS the
+time outside the levels drops by 4:50 (92,933 retraces to 75,547).  Sound
+doesn't change: the audio thread runs every second retrace either way.
+A frame still takes more than two retraces where the host can't keep up
+in real time (natively without `--deterministic`, and in the page), which
+is the host's own lag, not the N64's.
 
 ### Running the game at 60: a turbo, not 60 fps
 
@@ -3100,15 +3366,16 @@ a native-endian build (n64, mn32) does.
   call C that can't run twice: func_801F57B0 (the Pak thread's start,
   which every run reaches), func_801F6F18 (the Pak's files) and
   func_802860F0 (a level's start) were reviewed against the asm twice.
-- The quick tier runs with `PORT_COUNT_PER_OP=0`, so it can't see cost
-  errors.  The check build sees them, and so does the TAS.
+- The quick tier runs with the CPU model off, so it can't see cost
+  errors.  The check build sees them, and so does the TAS with
+  `--cpu-model n64` (its "retraces given anyway").
 - For functions that call C that can't run twice (the Pak thread's
   messages, the music's start), the TAS is the check.  Comparing `__port_icount` at every controller
   read between a build with the replacement and one without also finds
   where the cost first differs.
   `PORT_ICOUNT_LOG=FILE` writes that log: "read, `__port_icount`,
   `__port_icount_c`" per controller read.  Two `--deterministic` runs
-  (default `PORT_COUNT_PER_OP`) of builds that should cost the same give
+  (with `--cpu-model n64`) of builds that should cost the same give
   the same file.
 - `-DPORT_BLKLOG=ON` and `PORT_BLKLOG=FILE:FROM:TO:IDS` log every
   translated block run, and every `ENGINE_BLK`, between controller reads
@@ -3548,6 +3815,13 @@ frames and gives each the movie's input for that frame:
   their start, so this checks every level even where the menus between
   them don't match.  The state is the N64's bytes; the native-endian build
   writes each datum at its own width.
+- **Timing.**  The retraces above are the movie's, its lag frames
+  included.  `PORT_REPLAY_TIMING=free` gives each frame the port's own
+  instead (two in a level: no lag), which is how the game plays by
+  default; the game's mid-frame reads of the counts and the audio answers
+  stay the movie's ("Lag frames" has why and what it measured).
+  `test.py tas` replays with `free` by default, `--timing movie` the
+  movie's way, `both` both.
 - **The seed.**  The random number generator (`D_8036B968`) is seeded from
   `osGetCount`, which is the port's clock: after a seeding (23C20.c,
   20460.c call `port_replay_seeded` under `TARGET_PC`) the next read sets
@@ -3586,7 +3860,11 @@ the 32-bit build reading garbage in a `u8` result (`func_80264BA4`,
 given anyway, one save command let go early).  The 64-bit build plays
 it as exactly (all 125,297 reads matched, the player always where the
 movie has it, 57 platinum), with no mode forced at all; its timing
-differs (376 retraces given anyway).
+differs (376 retraces given anyway).  Since the CPU model is off by
+default no retrace is given anyway, and with the port's own frame timing
+(`PORT_REPLAY_TIMING=free`, no lag frames) the replay is as exact: every
+read matched, none skipped, no mode forced, 57 platinum, the same save
+and the same gameplay digest ("Lag frames").
 
 - **The mode switches.**  `m64p_tas` logs every mode the game's loop
   switches to (`switches.csv`, an exec breakpoint where it prints "game mode
