@@ -427,6 +427,21 @@ s32 func_802C7DFC(VS *vs);
 
 #define JB D_803F7850
 
+/* the J-Bomb's numbers (62740's helpers'; a rate is a frame's) */
+#define JBOMB_SLOPE_DIV 120.0f  /* func_802A843C: the slope's push divided by */
+#define JBOMB_CAMERA_TURN 0.25f /* func_802A71DC: the share of the way to the camera's heading it turns a frame, turned (D_803A7425) */
+#define JBOMB_AIR_DRAG 8        /* in the air, the speed's fall a frame (func_802C617C) */
+#define JBOMB_AIR_FRAMES 9      /* D_803F7C41: set on the ground, counts down in the air */
+#define JBOMB_MODE_GRACE 3      /* frames after modes 3, 4 (D_803F7C20, D_803F7C24) that still count as them */
+#define JBOMB_JET_LIFT 0x1E     /* the jets' first push off the ground (jump()) */
+#define JBOMB_CLIMB_FRAMES 0xA  /* D_803F7C3D: frames the jets keep on after a climb */
+#define JBOMB_SLAM_FRAMES 0x14  /* D_803F7C40: the slam's count */
+#define JBOMB_LAND_FRAMES 0x1E  /* standing still this long: landed (mode 5, D_803F7C4B) */
+#define JBOMB_AIR_STEER 0x14    /* the steering's rate in the air, while the stick is near the middle */
+#define JBOMB_AIR_STEER_UP 2    /* and its rise a frame while it is pushed (D_803F7C3C) */
+#define JBOMB_AIR_STEER_MAX 100
+#define JBOMB_STEER_DIV 1.5f    /* on the ground: the speed over this */
+
 /* part i's state: func_802A04BC's first result (and its sixth, the
    frame) */
 static s32 part_state(s32 i, Part *parts, s32 *f13) {
@@ -523,9 +538,9 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     D_803F7C2C = 0.5f;
     vs->unkA1 = 0;
     vs->unkA2 = 0;
-    D_803F7C3C = 0x14;
+    D_803F7C3C = JBOMB_AIR_STEER;
     D_803F7C43 = 0;
-    D_803F7C4B = 0x1E;
+    D_803F7C4B = JBOMB_LAND_FRAMES;
     D_803F7C20 = 999999;
     D_803F7C24 = 999999;
     D_803F7C40 = 0;
@@ -811,7 +826,7 @@ static void jbomb_frame(void) {
     ENGINE_BLK(802C5C64);
     if (vs->unkA1 == 0) {
         ENGINE_BLK(802C5CB8);
-        func_802A843C(&vs->unk76, 1, 9, (s8 *)vs->unk96, vs->unk4, 120.0f, vs);
+        func_802A843C(&vs->unk76, 1, 9, (s8 *)vs->unk96, vs->unk4, JBOMB_SLOPE_DIV, vs);
         goto turn;
     }
     /* in the air: the speed toward 0 */
@@ -888,7 +903,7 @@ turn:
     if (v == 4)
         goto sel2;
     ENGINE_BLK(802C5E0C);
-    if (D_803F7C24 < 3)
+    if (D_803F7C24 < JBOMB_MODE_GRACE)
         goto sel2;
     ENGINE_BLK(802C5E20);
     sel = 0;
@@ -948,7 +963,7 @@ bounce:
     if (v == 4)
         goto still;
     ENGINE_BLK(802C5EF8);
-    if (D_803F7C20 < 3)
+    if (D_803F7C20 < JBOMB_MODE_GRACE)
         goto fall;
     ENGINE_BLK(802C5F0C);
     if (vs->unk96[0] == 1)
@@ -983,7 +998,7 @@ camera:
     ENGINE_BLK(802C6038);
     {
         s32 a1;
-        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, 0.25f, vs, &a1);
+        u16 a0 = func_802A71DC(vs->unk4E, vs->unk4C, JBOMB_CAMERA_TURN, vs, &a1);
 
         ENGINE_BLK(802C604C);
         D_803F7C30 = a0;
@@ -1035,7 +1050,7 @@ void func_802C5AFC(void) {
     jbomb_frame();
 }
 
-/* in the air: its speed toward 0 by 8 a frame, unless the stick or
+/* in the air: its speed toward 0 by JBOMB_AIR_DRAG a frame, unless the stick or
    D_80370C35 holds it */
 REGS(gp)
 void func_802C617C(VS *vs) {
@@ -1051,14 +1066,14 @@ void func_802C617C(VS *vs) {
     s = vs->unk76;
     if (s < 0) {
         ENGINE_BLK(802C61C8);
-        s += 8;
+        s += JBOMB_AIR_DRAG;
         if (!(s <= 0)) {
             ENGINE_BLK(802C61D4);
             s = 0;
         }
     } else {
         ENGINE_BLK(802C61B4);
-        s -= 8;
+        s -= JBOMB_AIR_DRAG;
         if (s < 0) {
             ENGINE_BLK(802C61C0);
             s = 0;
@@ -1089,7 +1104,7 @@ void func_802C61F0(VS *vs) {
     if (v == 3)
         goto air;
     ENGINE_BLK(802C6220);
-    D_803F7C41 = 9;
+    D_803F7C41 = JBOMB_AIR_FRAMES;
     goto timers;
 air:
     ENGINE_BLK(802C6230);
@@ -1165,7 +1180,7 @@ mode4:
         D_803F7C3E = 1;
     } else {
         ENGINE_BLK(802C635C);
-        jump(vs, 0x1E);
+        jump(vs, JBOMB_JET_LIFT);
         vs->unk96[0] = 1, vs->unk96[1] = 1, vs->unk96[2] = 1;
         D_803F7C3E = 1;
     }
@@ -1366,7 +1381,7 @@ mode4b:
         }
     }
     ENGINE_BLK(802C691C);
-    D_803F7C3D = 0xA;
+    D_803F7C3D = JBOMB_CLIMB_FRAMES;
     goto end;
 
 mode0:
@@ -1437,7 +1452,7 @@ mode23:
     if (s5 == 3)
         goto mode1;
     ENGINE_BLK(802C6A80);
-    D_803F7C3D = 0xA;
+    D_803F7C3D = JBOMB_CLIMB_FRAMES;
     if (D_80370C1C == 0) {
         ENGINE_BLK(802C6A9C);
         if (D_80370C1A == 0) {
@@ -1519,7 +1534,7 @@ slam:
     D_803F7C44 = 0;
     D_803F7C47 = 0;
     D_803F7C46 = 0;
-    D_803F7C40 = 0x14;
+    D_803F7C40 = JBOMB_SLAM_FRAMES;
     D_803F7C4A = 1;
     vs->unkA1 = 4;
     v = D_803F7BFC;
@@ -1555,7 +1570,8 @@ end:
     D_803F7C42 = D_80370C1D;
 }
 
-/* standing still on the ground for 30 frames: landed (mode 5, part 7) */
+/* standing still on the ground for JBOMB_LAND_FRAMES frames: landed (mode 5,
+   part 7) */
 REGS(gp)
 void func_802C6DAC(VS *vs) {
     s32 v;
@@ -1575,7 +1591,7 @@ void func_802C6DAC(VS *vs) {
     }
 moving:
     ENGINE_BLK(802C6DCC);
-    D_803F7C4B = 0x1E;
+    D_803F7C4B = JBOMB_LAND_FRAMES;
 check:
     ENGINE_BLK(802C6DF8);
     if (vs->unkA1 != 0)
@@ -1719,7 +1735,7 @@ void func_802C70E8(VS *vs) {
     if (d < 0xC8) {
         ENGINE_BLK(802C7198);
         vs->unkA1 = 1;
-        jump(vs, 0x1E);
+        jump(vs, JBOMB_JET_LIFT);
         vs->unk96[0] = 1, vs->unk96[1] = 1, vs->unk96[2] = 1;
         D_803F7C3E = 1;
         goto done;
@@ -2244,16 +2260,16 @@ air:
         ENGINE_BLK(802C7E50);
         if (!(v < -0x32)) {
             ENGINE_BLK(802C7E84);
-            s3 = 0x14;
-            D_803F7C3C = 0x14;
+            s3 = JBOMB_AIR_STEER;
+            D_803F7C3C = JBOMB_AIR_STEER;
             goto done;
         }
     }
     ENGINE_BLK(802C7E58);
-    v = D_803F7C3C + 2;
-    if (!(v < 0x65)) {
+    v = D_803F7C3C + JBOMB_AIR_STEER_UP;
+    if (v > JBOMB_AIR_STEER_MAX) {
         ENGINE_BLK(802C7E70);
-        v = 0x64;
+        v = JBOMB_AIR_STEER_MAX;
     }
     ENGINE_BLK(802C7E74);
     D_803F7C3C = v;
@@ -2261,7 +2277,7 @@ air:
     goto done;
 ground:
     ENGINE_BLK(802C7E94);
-    s3 = engine_cvt_w_s((f32)vs->unk76 / 1.5f);
+    s3 = engine_cvt_w_s((f32)vs->unk76 / JBOMB_STEER_DIV);
 done:
     ENGINE_BLK(802C7EBC);
     return s3;

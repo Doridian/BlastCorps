@@ -17,6 +17,13 @@
 #include "game/camera.h"
 #include "game/audio.h"
 
+/* the barges' numbers (62740's helpers'; a rate is a frame's) */
+#define BARGE_BRAKE 6           /* func_802A785C: the speed's fall a frame, braking */
+#define BARGE_TURN_RATE 0x2328  /* func_802A7FD8: the heading's turning rate */
+#define BARGE_SLOPE_DIV 160.0f
+#define BARGE_BOUNCE_MIN 0x50   /* a bump's speed at least (then halved, turned round) */
+#define BARGE_STEER_DIV 10.6f   /* the steering's rate: the speed over this (func_802A7E70) */  /* func_802A843C: the slope's push divided by */
+
 /* the barges' .bss (asm/data/hd_code/83910.bss.s) */
 extern s32 D_803F8748[9];                       /* x, y, z of each */
 extern u8 *PTR32 D_803F876C[3];                 /* their model files */
@@ -149,13 +156,13 @@ void func_802C8C90(u8 type) {
     ENGINE_BLK(802C8CE8);
     func_802C4584((u32)s >> 5);
     ENGINE_BLK(802C8CF0);
-    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
+    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, BARGE_BRAKE, vs, &t3);
     ENGINE_BLK(802C8D08);
-    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
+    func_802A7FD8(BARGE_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C8D24);
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C8D30);
-    func_802A843C(&vs->unk76, 1, 0xB, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0xB, (s8 *)vs->unk96, vs->unk4, BARGE_SLOPE_DIV, vs);
     ENGINE_BLK(802C8D44);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[0], &D_803F8748[2], rate, &z);
     ENGINE_BLK(802C8D5C);
@@ -373,13 +380,13 @@ void func_802C8FA8(u8 type) {
     ENGINE_BLK(802C9000);
     func_802C4584((u32)s >> 5);
     ENGINE_BLK(802C9008);
-    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
+    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, BARGE_BRAKE, vs, &t3);
     ENGINE_BLK(802C9020);
-    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
+    func_802A7FD8(BARGE_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C903C);
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C9048);
-    func_802A843C(&vs->unk76, 1, 0x11, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0x11, (s8 *)vs->unk96, vs->unk4, BARGE_SLOPE_DIV, vs);
     ENGINE_BLK(802C905C);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[3], &D_803F8748[5], rate, &z);
     ENGINE_BLK(802C9074);
@@ -597,13 +604,13 @@ void func_802C92C0(u8 type) {
     ENGINE_BLK(802C9318);
     func_802C4584((u32)s >> 5);
     ENGINE_BLK(802C9320);
-    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, 6, vs, &t3);
+    func_802A785C(t3, &vs->unk76, 3, vs->unk96, vs->unk78, BARGE_BRAKE, vs, &t3);
     ENGINE_BLK(802C9338);
-    func_802A7FD8(0x2328, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
+    func_802A7FD8(BARGE_TURN_RATE, &vs->unk76, (u16 *)&vs->unk74, &vs->unk4C, &vs->unk4E, (s8 *)&vs->unk96[3], 0, vs);
     ENGINE_BLK(802C9354);
     rate = func_802A83B8(t3, &vs->unk76, vs->unk96, vs->unk4, &vs->unk0, &t3);
     ENGINE_BLK(802C9360);
-    func_802A843C(&vs->unk76, 1, 0x12, (s8 *)vs->unk96, vs->unk4, 160.0f, vs);
+    func_802A843C(&vs->unk76, 1, 0x12, (s8 *)vs->unk96, vs->unk4, BARGE_SLOPE_DIV, vs);
     ENGINE_BLK(802C9374);
     x = func_802A860C(vs->unk4E, &vs->unk76, &D_803F8748[6], &D_803F8748[8], rate, &z);
     ENGINE_BLK(802C938C);
@@ -795,7 +802,8 @@ void func_802C8BB8(u8 type) {
     ENGINE_BLK(802C8C40);
 }
 
-/* bumped: the speed at least 0x50 either way, then turned round and halved */
+/* bumped: the speed at least BARGE_BOUNCE_MIN either way, then turned
+   round and halved */
 REGS(gp)
 void func_802C95D8(VS *vs) {
     s32 v = vs->unk76;
@@ -803,26 +811,26 @@ void func_802C95D8(VS *vs) {
     ENGINE_BLK(802C95D8);
     if (v < 0) {
         ENGINE_BLK(802C95FC);
-        if (!(v < -0x4F)) {
+        if (v > -BARGE_BOUNCE_MIN) {
             ENGINE_BLK(802C9608);
-            v = -0x50;
+            v = -BARGE_BOUNCE_MIN;
         }
     } else {
         ENGINE_BLK(802C95EC);
-        if (v < 0x50) {
+        if (v < BARGE_BOUNCE_MIN) {
             ENGINE_BLK(802C95F4);
-            v = 0x50;
+            v = BARGE_BOUNCE_MIN;
         }
     }
     ENGINE_BLK(802C960C);
     vs->unk76 = -v >> 1;
 }
 
-/* the turn rate: the speed / 10.6 */
+/* the turn rate: the speed / BARGE_STEER_DIV */
 REGS(gp -> s3)
 s32 func_802C9AF8(VS *vs) {
     ENGINE_BLK(802C9AF8);
-    return engine_cvt_w_s((f32)vs->unk76 / 10.6f);
+    return engine_cvt_w_s((f32)vs->unk76 / BARGE_STEER_DIV);
 }
 
 /* the camera's distance and speed for a barge */
