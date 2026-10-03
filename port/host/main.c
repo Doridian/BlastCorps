@@ -525,6 +525,7 @@ void host_controller_poll(void) {
             fprintf(pace, "poll,retraces,frames,mode,audio_samples\n");
     }
     polls++;
+    host_digest_poll(polls);    /* PORT_DIGEST=FILE: the gameplay digest (digest.c) */
     {
         /* PORT_ICOUNT_LOG=FILE: the instructions charged so far at every
            read, the translated code's (and native engine code's) and the

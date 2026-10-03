@@ -307,7 +307,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
     2 ticks, and report the time to the first divergence from `polls.csv` and whether the level still
     finishes with its medal.  That is a drift measure, not a pass/fail: the integration isn't linear
     and collisions are chaotic, so the TAS can't stay in sync.
-- **First: an optimization pass under that bar** (not started).  The engine in `port/engine` still
+- **First: an optimization pass under that bar** (O0 done, the rest not started).  The engine in `port/engine` still
   carries what made it checkable against the asm: 9,844 `ENGINE_BLK` charges for the CPU model,
   about 1,200 `ENGINE_LEAVE*` sites leaving registers as the asm did, about 300
   `engine_frame*`/`engine_save`/`engine_restore` sites keeping dead stack frames that other code's
@@ -317,7 +317,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
 
   | Phase | Work | Check | Agent-hours |
   |---|---|---|---|
-  | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4 |
+  | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4; **done** (2026-10-02, about 3): `PORT_DIGEST`, `digest_cmp.py`, `test.py --gameplay` (docs/PORT.md, "The gameplay digest") |
   | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5 |
   | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10 |
   | O3 | Make the engine readable: struct fields for offsets, named per-frame constants, loops and calls in place of the asm's shape, by module over 4 agents | the TAS per module | 15–30 |

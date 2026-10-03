@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """The port's test suite (docs/PORT.md, "Testing the port").
 
-    port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--update]
-    port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack]
+    port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--update] [--gameplay]
+    port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack] [--update] [--gameplay]
     port/tools/test.py recomp [--trials N]
     port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack]] [--only NAME,...]
-                                [--emsdk DIR]
+                                [--emsdk DIR] [--gameplay]
 
 quick: deterministic headless runs (PORT_COUNT_PER_OP=0 --deterministic,
 the software renderer), a few thousand frames each; the save, the --wav and
@@ -23,12 +23,26 @@ the same hashes as from the ROM; and from a copy with a texture painted over:
 the same save and sound, the screenshots changed only toward its colour.
 --update writes the build's hashes as the references for its version.
 
+Every run also writes the gameplay digest (PORT_DIGEST, port/host/digest.c):
+what a player sees or what decides a level, at every poll.  Its gameplay
+hash (port/tools/digest_cmp.py --hash: the clock and the random state left
+out) is compared with test_refs.json's "digest", and a scenario run against
+a base one must play the same; where it differs and the reference digest is
+in build/digest-refs/<version>/ (--update copies it there; it isn't
+committed), digest_cmp.py says at which level, frame and field.  --gameplay
+makes the digest the gate: the hashes that differ from the references are
+reported, not failed (for a change meant to keep the game and change its
+timing: docs/PORT.md, "The gameplay digest").
+
 tas: the TAS replay (docs/PORT.md, "The TAS"), several builds at once:
 57 platinum (tas_check.py), and the replay's report: every one of the log's
 reads matched, none skipped, no mode forced, unless the references list
 the variant's current report as a known drift (then that report, exactly,
 passes as a known failure and anything else fails).  --pack: from the
-resource pack made from the ROM instead.
+resource pack made from the ROM instead.  The replay's gameplay digest must
+be the reference's (test_refs.json's "digest", "tas"; --update records it);
+with --gameplay a save that differs (it holds the levels' times) is only
+reported.
 
 recomp: the translated engine's differential test (make -C tools/recomp
 test, for blastcorps/'s version).
@@ -59,6 +73,14 @@ import time
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 REFS = os.path.join(ROOT, "port", "tools", "test_refs.json")
 SKIP = 77
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import digest_cmp  # noqa: E402  (the gameplay digest: port/tools/digest_cmp.py)
+
+# the reference digests themselves (the game's state, which is the ROM's
+# data at work: kept out of the repository, like the TAS's logs); the
+# repository has their gameplay hashes (test_refs.json's "digest")
+DIGEST_REFS = os.path.join(ROOT, "build", "digest-refs")
+DIGEST = "digest.txt"
 
 # name: (cmake options) -- the standard variant set, in build/test-<name>
 VARIANTS = {
@@ -174,6 +196,9 @@ def sha(path):
     return h.hexdigest()[:16]
 
 
+_refs_lock = threading.Lock()
+
+
 def load_refs():
     with open(REFS) as f:
         return json.load(f)
@@ -249,7 +274,7 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
         if k.startswith("PORT_"):
             del e[k]
     e.update(PORT_COUNT_PER_OP="0", PORT_AUTOSTART=autostart, SDL_VIDEODRIVER="offscreen",
-             SDL_AUDIODRIVER="dummy")
+             SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST)
     if shots:
         e["PORT_SHOT_EVERY"] = str(SHOT_EVERY)
     e.update(env)
@@ -277,7 +302,51 @@ def hashes(outdir):
             h["save"] = sha(p)
         elif f == "audio.wav":
             h["wav"] = sha(p)
+        elif f == DIGEST:
+            h["digest"] = digest_cmp.gameplay_hash(digest_cmp.parse(p))
     return h
+
+
+# ---- the gameplay digest -------------------------------------------------------
+
+def digest_ref_path(version, name):
+    return os.path.join(DIGEST_REFS, version, f"{name}.digest")
+
+
+def digest_check(label, got_path, got, version, name, refs, update=False):
+    """a run's gameplay digest against the reference's hash (test_refs.json
+    "digest"); where it differs and the reference digest is here
+    (build/digest-refs), digest_cmp.py says where.  --update records both.
+    Returns the failures (None: no reference)"""
+    vref = refs.setdefault("digest", {}).setdefault(version, {})
+    if got is None:
+        say("FAIL", label, f"no gameplay digest ({DIGEST})")
+        return 1
+    if update:
+        vref[name] = got
+        os.makedirs(os.path.dirname(digest_ref_path(version, name)), exist_ok=True)
+        shutil.copyfile(got_path, digest_ref_path(version, name))
+        say("NOTE", label, f"gameplay digest {got} recorded, as {os.path.relpath(digest_ref_path(version, name), ROOT)}")
+        return 0
+    if name not in vref:
+        say("SKIP", label, f"no reference gameplay digest for {version} (--update records one)")
+        return None
+    if got == vref[name]:
+        say("PASS", label, f"the gameplay as the reference ({got})")
+        return 0
+    ref = digest_ref_path(version, name)
+    where = ""
+    if os.path.exists(ref):
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", "digest_cmp.py"), ref, got_path,
+                            "--quiet"], capture_output=True, text=True)
+        lines = [l for l in r.stdout.splitlines() if l.startswith("DIFFERS")]
+        where = ": " + (lines[0][9:] if lines else (r.stdout.strip().splitlines() or ["?"])[-1])
+        if r.returncode == 0:       # (the reference digest isn't the one hashed)
+            where = f": but digest_cmp.py finds none against {os.path.relpath(ref, ROOT)} (an old copy?)"
+    else:
+        where = f" (no {os.path.relpath(ref, ROOT)} here to say where)"
+    say("FAIL", label, f"the gameplay differs from the reference: {got}, not {vref[name]}{where}")
+    return 1
 
 
 def val(h, k):
@@ -487,8 +556,10 @@ def quick_run(build, jobs, scenarios):
     return res, times
 
 
-def quick(build, refs, jobs, against=None, update=False, known=None):
-    """one build's quick tier; returns the number of failures (None: skipped)"""
+def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=False):
+    """one build's quick tier; returns the number of failures (None: skipped).
+    gameplay: the gameplay digest decides, the references' hashes are only
+    reported (for a change meant to keep the game and change its timing)"""
     emit(f"== quick: {build.name} ({build.version}, {build.variant}"
          f"{', no OpenGL' if not build.gl else ''})")
     if not os.path.exists(build.rom()):
@@ -526,6 +597,12 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
                 say("FAIL", label, f"no {base} run to compare with")
                 fails += 1
                 continue
+            if h.get("digest") != res[base].get("digest"):
+                say("FAIL", label, f"the gameplay should be {base}'s: digest {h.get('digest')}, not "
+                    f"{res[base].get('digest')} (port/tools/digest_cmp.py {base}/{DIGEST} {name}/{DIGEST} in "
+                    f"{os.path.relpath(os.path.join(build.path, 'test', 'quick'), ROOT)} says where)")
+                fails += 1
+                continue
             if what == "edit":
                 d, changed = edit_check(os.path.join(build.path, "test", "quick", name),
                                         os.path.join(build.path, "test", "quick", base), h, res[base])
@@ -545,8 +622,10 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
                 say("PASS", label, f"{kind} as {base}'s")
             continue
         n = len(h["shots"])
+        fails += digest_check(f"{label} gameplay", os.path.join(build.path, "test", "quick", name, DIGEST),
+                              h.get("digest"), build.version, name, refs, update) or 0
         if update:
-            vref[name] = h
+            vref[name] = {k: v for k, v in h.items() if k != "digest"}
             say("NOTE", label, "reference updated")
         elif name not in vref:
             say("SKIP", label, f"no reference for {build.version} (--update writes one)")
@@ -560,6 +639,9 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
             if real and known is not None:
                 add_known(refs, build, name, h, real, known)
                 say("NOTE", label, f"recorded as known: {describe(real, h, vref[name])}")
+            elif real and gameplay:
+                say("NOTE", label, "differs from the reference (--gameplay: the digest decides): "
+                    + describe(real, h, vref[name]))
             elif real:
                 say("FAIL", label, "differs from the reference: " + describe(real, h, vref[name]))
                 fails += 1
@@ -585,6 +667,9 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
                 # the OpenGL screenshots are the host's GL's, but the same on
                 # one machine
                 d = compare(res[name], other["results"][name], "all", lay)
+                od = other["results"][name].get("digest")
+                if od and res[name].get("digest") != od:
+                    d.append(f"the gameplay digest {res[name].get('digest')} != {od}")
                 label = f"{build.name} {name} against {against.name}"
                 if d:
                     say("FAIL", label, "; ".join(d))
@@ -597,7 +682,8 @@ def quick(build, refs, jobs, against=None, update=False, known=None):
     if update:
         refs.setdefault("quick", {})[build.version] = vref
     if update or known is not None:
-        save_refs(refs)
+        with _refs_lock:        # (variants: several builds' quick tiers at once)
+            save_refs(refs)
     emit(f"   {build.name}: {fails} failed, {time.time() - t0:.0f}s")
     return fails
 
@@ -676,7 +762,7 @@ def tas_one(build, polls, again=False, pack=None):
     os.makedirs(out)
     exe = build.copy_exe(out)
     e = {k: v for k, v in os.environ.items() if not k.startswith("PORT_")}
-    e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy")
+    e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST)
     t = time.time()
     with open(os.path.join(out, "log.txt"), "w") as log:
         rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep",
@@ -688,7 +774,7 @@ def tas_one(build, polls, again=False, pack=None):
     return out, rc, t
 
 
-def tas(builds, refs, polls, jobs, again=False, pack=False):
+def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gameplay=False):
     polls = os.path.abspath(polls)
     if not again and not os.path.exists(polls):
         say("SKIP", "tas", f"no {polls} (port/tools/tas.sh makes it)")
@@ -719,11 +805,11 @@ def tas(builds, refs, polls, jobs, again=False, pack=False):
             b = futs[fut]
             out, rc, t = fut.result()
             ran += 1
-            fails += tas_check(b, refs, out, rc, t)
+            fails += tas_check(b, refs, out, rc, t, update, gameplay)
     return fails if ran else None
 
 
-def tas_check(b, refs, out, rc, t):
+def tas_check(b, refs, out, rc, t, update=False, gameplay=False):
     label = f"{b.name} tas{' (pack)' if out.endswith('-pack') else ''} ({t / 60:.1f} min)"
     log = open(os.path.join(out, "log.txt"), errors="replace").read()
     m = None
@@ -752,22 +838,33 @@ def tas_check(b, refs, out, rc, t):
     tref = refs.get("tas", {}).get(b.version, {})
     exact = matched == total and skipped == 0 and forced == 0
     known = next((k for k in tref.get("known", []) if b.variant in k["variants"]), None)
+    dpath = os.path.join(out, DIGEST)
+    dfail = digest_check(f"{b.name} tas{' (pack)' if out.endswith('-pack') else ''} gameplay", dpath,
+                         digest_cmp.gameplay_hash(digest_cmp.parse(dpath)) if os.path.exists(dpath) else None,
+                         b.version, "tas", refs, update) or 0
+    if update:
+        with _refs_lock:
+            save_refs(refs)
     if problems:
         say("FAIL", label, "; ".join(problems) + f" [{summary}]")
-        return 1
+        return 1 + dfail
     if exact:
+        if tref.get("save") and got["save"] != tref["save"] and gameplay:
+            say("PASS", label, f"57 platinum, {summary}; the save is {got['save']}, not {tref['save']} "
+                f"(--gameplay: the digest decides; the save has the times)")
+            return dfail
         if tref.get("save") and got["save"] != tref["save"]:
             say("FAIL", label, f"the replay matched, but the save is {got['save']}, not {tref['save']}")
-            return 1
+            return 1 + dfail
         note = " (the known drift is gone: take it out of test_refs.json)" if known else ""
         say("PASS", label, f"57 platinum, the save as the reference, {summary}{note}")
-        return 0
+        return dfail
     if known and all(known.get(k) == got[k] for k in got):
         say("XFAIL", label, f"57 platinum, as known ({known['note']}): {summary}")
-        return 0
+        return dfail
     say("FAIL", label, f"57 platinum, but the replay drifts: {summary}, save {got['save']}"
         + (f" (known: {', '.join(f'{k} {known[k]}' for k in got)})" if known else ""))
-    return 1
+    return 1 + dfail
 
 
 # ---- recomp ------------------------------------------------------------------
@@ -871,7 +968,7 @@ def variants(args, refs):
     with cf.ThreadPoolExecutor(len(builds) or 1) as ex:
         def one(b):      # each build's lines together
             _tl.buf = []
-            r = quick(b, refs, per)
+            r = quick(b, refs, per, gameplay=args.gameplay)
             return b, r, "".join(l + "\n" for l in _tl.buf)
         results = list(ex.map(one, builds))
     skipped = 0
@@ -890,7 +987,7 @@ def variants(args, refs):
     table(builds, refs)
     print(f"== variants: build {tb - t0:.0f}s, quick {time.time() - tb:.0f}s", flush=True)
     if args.tas:
-        r = tas(builds, refs, args.polls, args.jobs or len(builds), pack=args.tas_pack)
+        r = tas(builds, refs, args.polls, args.jobs or len(builds), pack=args.tas_pack, gameplay=args.gameplay)
         fails += r or 0
     return None if skipped == len(builds) and not fails else fails
 
@@ -981,6 +1078,8 @@ def main():
     q.add_argument("builds", nargs="+")
     q.add_argument("--against", help="another build dir whose quick results must be identical")
     q.add_argument("--update", action="store_true", help="write the results as the references")
+    q.add_argument("--gameplay", action="store_true",
+                   help="the gameplay digest decides; the references' hashes are only reported")
     q.add_argument("--known", metavar="NOTE",
                    help="record the build's differences from the references as a known failure")
     q.add_argument("-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
@@ -991,6 +1090,10 @@ def main():
     t.add_argument("--again", action="store_true", help="check the last replays' results again, without running")
     t.add_argument("--pack", action="store_true",
                    help="play from the resource pack made from the ROM (port/make_pack.py), not the ROM")
+    t.add_argument("--update", action="store_true",
+                   help="record the replay's gameplay digest as the reference (build/digest-refs, test_refs.json)")
+    t.add_argument("--gameplay", action="store_true",
+                   help="the gameplay digest decides: a save that differs (the times) is only reported")
     r = sub.add_parser("recomp")
     r.add_argument("--trials", type=int, default=48)
     d = sub.add_parser("table", help="every hash of the builds' last quick runs, against the first's")
@@ -1004,16 +1107,19 @@ def main():
     v.add_argument("--emsdk", help="emsdk's directory, for the wasm variant (default: $EMSDK, or emcmake)")
     v.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
+    v.add_argument("--gameplay", action="store_true",
+                   help="the gameplay digest decides; the references' hashes are only reported")
     args = ap.parse_args()
     refs = load_refs()
     t0 = time.time()
     if args.cmd == "quick":
         against = Build(args.against) if args.against else None
-        rs = [quick(Build(b), refs, args.jobs, against, args.update, args.known) for b in args.builds]
+        rs = [quick(Build(b), refs, args.jobs, against, args.update, args.known, args.gameplay) for b in args.builds]
         fails = None if all(x is None for x in rs) else sum(x or 0 for x in rs)
     elif args.cmd == "tas":
         builds = [Build(b) for b in args.builds]
-        fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again, args.pack)
+        fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again, args.pack, args.update,
+                    args.gameplay)
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return

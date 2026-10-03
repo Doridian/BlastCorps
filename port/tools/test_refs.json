@@ -1,5 +1,14 @@
 {
- "comment": "port/tools/test.py's references (docs/PORT.md, \"Testing the port\"): quick: the hashes (sha1, 16 digits) of each scenario's save, --wav and screenshots, by version; layout: screenshots that depend on the executable's layout (not compared across builds); known: failures the suite knows of, by variant (they pass as XFAIL while the hashes are exactly these); tas: the known drifts of the TAS replay's report, by variant.",
+ "comment": "port/tools/test.py's references (docs/PORT.md, \"Testing the port\"): quick: the hashes (sha1, 16 digits) of each scenario's save, --wav and screenshots, by version; layout: screenshots that depend on the executable's layout (not compared across builds); known: failures the suite knows of, by variant (they pass as XFAIL while the hashes are exactly these); tas: the known drifts of the TAS replay's report, by variant; digest: the gameplay hash (port/tools/digest_cmp.py --hash) of each scenario's gameplay digest and of the TAS replay's, by version (the digests themselves, the game's state, stay out of the repository: build/digest-refs/, test.py quick/tas --update).",
+ "digest": {
+  "us.v10": {
+   "attract": "6e3b4b0699937fa3",
+   "auto1": "6ac6b265e52e04cd",
+   "auto2": "568c35fc0dd0140a",
+   "auto3": "01e96a8f3ca434bd",
+   "tas": "7ec6ef73a5265afa"
+  }
+ },
  "known": {},
  "layout": {
   "jp": {

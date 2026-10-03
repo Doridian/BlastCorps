@@ -399,7 +399,8 @@ mode for 4,000 frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
 2,000 and 3,000, each with `--save`, `--wav` and a screenshot every 250
 frames; for us.v11 and jp, which the TAS doesn't cover, also the attract
 mode for 12,000 frames (`attract.long`: the story and several of its demo
-levels, about 70 seconds).  The same scenarios also run from a resource pack
+levels, about 70 seconds).  Every run also writes the gameplay digest
+("The gameplay digest", below), which is compared too.  The same scenarios also run from a resource pack
 made from the ROM ("Resource packs": `attract.pack`, `auto3.pack`,
 `auto3.pack.nocode`, every hash as from the ROM) and from edited copies of
 it (`auto3.pack.edit`, `auto3.pack.hires`, `auto3.gl.pack.hires`).  Their hashes (16 digits of sha1) are compared with
@@ -508,6 +509,104 @@ mode forced, 57 platinum and the same save (the native-endian builds'
 late drift is gone: "The native-endian build"); `wasm`'s replay log is
 `mn32`'s line for line.  Eight replays at once take 30 to 40 minutes on
 a 32-thread machine (`wasm`'s is the slowest; the Linux ones 18 to 25).
+
+### The gameplay digest
+
+The hashes above check that nothing changed at all: RDRAM, the save, the
+sound and the pictures follow the CPU model's timing (lag frames, the
+retrace count, `osGetTime`), so a change that keeps the game and changes
+its timing (dropping the CPU model, stripping the engine's scaffolding:
+DISTRIBUTION.md's optimization pass) changes them all.  The gate for such a
+change is what a player could notice, which is what the gameplay digest
+holds.
+
+`PORT_DIGEST=FILE` (`port/host/digest.c`) writes, at every controller poll
+(`host_controller_poll`, once per game frame), a line with the poll, the
+mode (`D_80364A90`), the level (`D_802E8BDC`) and the game's frame in the
+mode (`D_80358064`), then the fields that changed since the line before (a
+line marked `*`, at the first poll of each mode or level, has them all;
+`key=~` is a field gone).  It only reads game memory, at the poll, from the
+host side, so it charges nothing to the CPU model and changes no other
+output (the quick tier's hashes are the same with it).  The fields, read
+from the variables the headers in `blastcorps/include/game` and
+`port/engine` describe:
+
+| field | what | from |
+|---|---|---|
+| `p` | the player's position (`<< 5`) | `D_803643E0..E8` (game.h) |
+| `pv` | the player's vehicle type | `D_80364456` (vehicle.h) |
+| `vT` | every vehicle module the level's vehicles use (type `T`, hex): position, headings, speed; `vFF` the missile carrier, `vB.0..2` the barges | the `Vehicle` list `D_80364460` to `D_803649D0` for which types; each module's `VehicleState` (`unk4C`, `unk4E`, `unk76`) and position (vehicle.h's table, `port/engine/62740.c`, `75490.c`) |
+| `bN` | building N: destroyed, position, each damage group's 0..100 | `Building.unkEA`, `x..z`, the bytes from `0xEC` (`unkE9` groups), `D_803F4030` to `D_803F7654` (objects.h, `port/engine/77E20.c`, `buildings.h`) |
+| `st` | the level's stats: damage `$`, buildings down, `cr`, RDUs, medal | `D_8036EA70` (`LevelStats`: `ip`, `bd`, `cr`, `rt`, `coin`; level.h) |
+| `of` | the totals: buildings, `cr`, RDUs | `D_8036EB92`, `D_8036EB93`, `D_8036EB90` |
+| `won`, `lost` | the carrier got through (or the goal), the level lost | `D_803643DA`, `D_803643D9` (`port/engine/75490.c`) |
+| `dmg` | the damage so far | `D_803649F0` |
+| `ammo` | the Ballista's missiles, the Sideswipe's hydraulics | `D_803F8B72`, `D_803EDC00` |
+| `rdu`, `box` | the RDUs and ammo boxes collected, a bit each | `Rdu.collected` of `D_8036BED8[D_8036EB90]`; `AmmoBox.collected` of `D_8039AF00[D_8039B068]` (objects.h) |
+| `tnt`, `blk` | the TNT crates (active, position, fuse) and the blocks (position, in its hole) | `D_8039B070[D_8039B610]`, `D_8039C550[D_8039C710]` |
+| `med`, `units`, `gs` | the current player's medals (60, hex), units and game state | `PlayerInfo` `D_80364AF0[D_80364AE8]` (player.h) |
+| `clk` | the scheduler's retraces (the clock) | `D_803156C4` |
+| `t`, `tc` | "TIME IN LEVEL"'s retraces, the level's time (the clock) | `D_803156C0` (`Sched.unk280`), `D_8036EA70.tc` |
+| `rng`, `fc` | the random state, a frame count (internal) | `D_8036B968`, `D_80358060` |
+
+Everything but `clk` and `rng` is written only in the modes that run the
+level's frame (`func_802475D8`: the levels, the attract demos and the
+intros; not the menus, the map, the logos or the results).
+
+`port/tools/digest_cmp.py A B` compares two digests by what the game did,
+not when: the modes and levels in order (difflib, so a mode one run visits
+and the other doesn't is reported), and within a mode by the game's frame
+(a new stretch each time the count starts again).  Runs whose timing
+differs line up frame by frame.  In a level, the first frame where a
+gameplay field differs is the failure, reported with the level, the frame,
+both runs' polls and the field's two values; at the end of every mode its
+outcome (`st`, `won`, `lost`, `of`, `med`, `units`, `gs`) is compared too
+(not where a run ends inside it, as `--frames` cuts it off).  The clock's
+fields are never a failure: each level's retraces over the frames both
+runs have, its "TIME IN LEVEL" and `tc` are listed side by side, with the
+total; the internal ones are a note where they differ first.  Exit status
+1 on a gameplay difference.  `--hash` prints a digest's gameplay hash (the
+gameplay fields only, a level's frames that change none of them adding
+nothing, so a level that waits longer at its end hashes the same), and
+`--levels` lists the levels a digest played, with their frames and times.
+
+`test.py` writes a digest in every quick scenario and in the TAS replay,
+and compares its gameplay hash with `test_refs.json`'s `digest` (by
+version; the TAS's is `tas`); a scenario run against a base one (`auto3.wide`
+against `auto3`, ...) must have the base's.  The digests themselves are the
+game's state, the ROM's data at work, so like the TAS's logs they stay out
+of the repository: `quick --update` and `tas --update` record the hash in
+`test_refs.json` and copy the digest to `build/digest-refs/<version>/`, and
+where a hash differs and that copy is there, `digest_cmp.py` says where.
+`--gameplay` (quick, tas, variants) makes the digest the gate: a hash that
+differs from the references is reported (NOTE) instead of failed, and so is
+the TAS's save, which holds the levels' times.  (A build's own scenarios
+are still compared with each other by every hash: they share its timing.)
+
+What it showed (us.v10, the 32-bit build, main as of 2026-10-02):
+
+- Two TAS replays give the same digest, byte for byte (125,582 polls,
+  14 MB, 468 modes of which 232 run the level's frame, 106,922 level
+  frames; `digest_cmp.py` takes a second over two of them, and the replay
+  took its usual 21 minutes); so do two runs of a quick scenario.  The
+  TAS's gameplay hash is `7ec6ef73a5265afa`.
+- The other variants give the same gameplay hashes as the 32-bit build in
+  every quick scenario (`lp64`, `mn32` checked: native-endian memory,
+  LP64 pointers, the movable layout).
+- A one-frame change, the Ramdozer's x moved by one unit (`<< 5`) at poll
+  1,400 of `auto3`, is found at the next poll: Simian Acres, frame 363,
+  field `p` (and everything after it, not reported).
+- The attract mode with the CPU model on (`PORT_COUNT_PER_OP=2`, lag
+  frames) against the reference (off): the same gameplay in the 1,477
+  level frames both have, while Argent Towers' demo took 1,385 retraces for
+  533 frames where the reference took 1,064 (and `rng` differs from the
+  first frame: it is seeded from the clock).  The demos read their input
+  by frame, so they are what lag can't change.
+- `PORT_AUTOSTART=2` and `=3` press their buttons by the retrace count, so
+  a change of timing changes their input and their gameplay: their digests
+  will differ after such a change by design, and have to be recorded
+  again; the attract mode and the TAS (input by frame) are the scenarios
+  that check it.
 
 ## Native-endian memory
 
@@ -855,7 +954,13 @@ the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
   `extern` array of 16 bytes or more 16-byte alignment, as it does a
   definition, and the optimiser then clears the low bits of addresses
   made from it; BEPass puts both at the type's own alignment (the TAS's
-  `&D_802F49F4[i]`, at ...944, lost its 4 and divided by zero);
+  `&D_802F49F4[i]`, at ...944, lost its 4 and divided by zero); and
+  clang 23's InferAlignment raises a definition's alignment again after
+  the SLP vectoriser has read it in wide pieces (23C20.c's `float[4][4]`
+  `D_8036B8C8` went to 32, which the 32-bit link couldn't place at
+  ...818), so KeepAlign, at the optimiser's end, puts every global back
+  to what BEPass gave it and caps the accesses in the functions that use
+  one it moved at 8 bytes' alignment;
 - **port-lp64** (`bepass/LP64.cpp`, before BEPass): what port-ilp32 does
   that isn't layout.  Pointer arithmetic by a variable or large offset
   wraps at 32 bits, an integer made a pointer is zero-extended, accesses

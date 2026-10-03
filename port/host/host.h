@@ -56,6 +56,9 @@ void host_video_between(double phase);   /* --display-hz: a present `phase` retr
 void host_video_shutdown(void);
 int host_frame_held(void);          /* the game's mode holds each frame for two retraces */
 
+/* digest.c: PORT_DIGEST=FILE, the gameplay digest at every controller poll */
+void host_digest_poll(unsigned poll);
+
 /* replay.c: --replay */
 int host_replay_active(void);
 void host_replay_load(const char *path);
