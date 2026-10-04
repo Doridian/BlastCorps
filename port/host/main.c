@@ -944,6 +944,9 @@ int main(int argc, char **argv) {
     const uint64_t vi_period = 1000000000ull / 60;
     uint64_t next_vi = now_ns() + vi_period;
     int vi_force = 0;
+    int timers_woke = 0;        /* (real time) a timer fired, and the threads haven't all waited since */
+    uint64_t vi_wait_from = 0;  /* (real time) when the due retrace began waiting for them */
+    const int realtime = !deterministic && !host_paced;
     /* --display-hz above 60: presents between the retraces, by the host clock */
     int between = gfx_interp && gfx_interp_hz > 60 && !deterministic;
     uint64_t disp_period = between ? 1000000000ull / (uint64_t)gfx_interp_hz : 0;
@@ -964,7 +967,36 @@ int main(int argc, char **argv) {
         /* --replay: a retrace waits while the count is where the log's next
            read has it (replay.c) */
         int vi_held = host_replay_active() && !host_replay_vi_ok() && !vi_force;
-        if (now >= next_vi && !vi_held) {
+        /* In real time, after the host stalled (a font built, shaders
+           compiled: the GPU's work runs inside the scheduler's turn, where
+           the N64's RSP ran beside it), the scheduler took a second even
+           retrace before the audio thread had taken the frame message
+           the first one's timer (6 ms on) sent: the second set the timer
+           again, the audio thread had two frames for one task, and waited
+           for good on a task nobody started (no sound from then on).  On
+           the N64 the threads a timer wakes run at once, and the next
+           retrace is 16 ms away.  So here a timer that is due goes before
+           the retrace, the threads timers woke run before it (a quarter
+           of a period at most: a thread may spin), and retraces catching
+           up are half a period apart.  (In virtual time the loop never
+           gets past a timer.) */
+        uint64_t vi_at = next_vi;
+        if (realtime && !vi_force && vi_at < last_vi + vi_period / 2)
+            vi_at = last_vi + vi_period / 2;
+        if (now >= vi_at && !vi_held) {
+            if (!vi_wait_from)
+                vi_wait_from = now;
+            if (realtime && now < vi_wait_from + vi_period / 4) {
+                if (port_irq_timers(0) <= host_ticks()) {
+                    port_irq_timers(host_ticks());
+                    timers_woke = 1;
+                    continue;
+                }
+                if (timers_woke && (npending || host_run_one()))
+                    continue;
+            }
+            timers_woke = 0;
+            vi_wait_from = 0;
             double late_ms = host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6;
             if (host_perf_on)
                 host_perf_vi(late_ms, gfx_st_images, port_be32(D_80358064));
@@ -1023,6 +1055,8 @@ int main(int argc, char **argv) {
                 host_video_between(phase);
             continue;
         }
+        if (realtime && port_irq_timers(0) <= host_ticks())
+            timers_woke = 1;
         uint64_t deadline = port_irq_timers(host_ticks());
         /* a held retrace is given anyway when the game can't go on without
            one: nothing to run and nothing due (below), or a thread spinning
@@ -1036,7 +1070,7 @@ int main(int argc, char **argv) {
             vi_force = 1;
             continue;
         }
-        uint64_t wake = vi_held ? ~0ull : next_vi;
+        uint64_t wake = vi_held ? ~0ull : vi_at;
         if (next_disp < wake)
             wake = next_disp;
         /* (rounded up: at deadline * 64 / 3 the counter may not be there yet) */
@@ -1052,6 +1086,7 @@ int main(int argc, char **argv) {
             continue;
         if (host_run_one())
             continue;
+        timers_woke = 0;
         now = now_ns();
         if (vi_held && wake == ~0ull) {
             host_replay_vi_forced();
