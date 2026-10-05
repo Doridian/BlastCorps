@@ -243,6 +243,97 @@ void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s3
     }
 }
 
+#ifdef TARGET_PC
+/* The port's own: each entry's vertices have a place of their own,
+   unk1900[0x70 + 4 * entry] (track A's pair, then track B's), loaded on
+   their own into slots 0-3 or 4-7 and joined to the entry before.  The
+   original packs each run's vertices, track A's then track B's, so where a
+   point sits moves whenever the tail moves on or a run grows; --interpolate
+   pairs vertex loads by where they sit (docs/PORT.md, "Frame rate"), and its
+   in-between images blended the marks with other marks, track B with track
+   A.  And its strips lose track B's first quad: past the last of track A's
+   it skips two quads (k += 4, not 2), unless that falls at the end of a load
+   of 16, where the next load starts back at track B's first pair; as the
+   loads shift, that quad comes and goes.  No cull box: the RSP's time
+   isn't the port's. */
+void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
+    Gfx *gfx;
+    Gfx *sub;
+    Gfx *subEnd;
+    Vtx *v;
+    UnkStruct_8036D3D0 *e;
+    u8 idx;
+    s32 two;
+    s32 first;
+    s32 n;
+    s32 p;
+    s32 c;
+
+    gfx = *arg0;
+    func_8027D5AC();
+    gDPPipeSync(gfx++);
+    gDPSetCycleType(gfx++, G_CYC_1CYCLE);
+    gDPSetRenderMode(gfx++, G_RM_AA_XLU_SURF, G_RM_AA_XLU_SURF2);
+    gSPClearGeometryMode(gfx++, 0xFFFFFFFF);
+    gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH);
+    gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
+    gDPSetCombineLERP(gfx++, 0, 0, 0, PRIMITIVE, 0, 0, 0, SHADE, 0, 0, 0, PRIMITIVE, 0, 0, 0, SHADE);
+    gDPSetPrimColor(gfx++, 0, 0, 0, 0, 0, 0);
+    sub = &arg1->unk3C20[2];
+    subEnd = &arg1->unk3C20[0x192 - 1]; /* (the end's) */
+    /* the runs as the original finds them: from the tail, each to the next
+       entry that ends one (unk1A, itself not drawn) or to the head */
+    idx = D_8036DC90;
+    while (idx != D_8036DC91) {
+        two = D_8036D3D0[idx].unk1B == 0;
+        n = two ? 4 : 2;
+        first = TRUE;
+        c = 4;
+        while (idx != D_8036DC91 && D_8036D3D0[idx].unk1A == 0) {
+            if (sub + 5 > subEnd) {
+                break;
+            }
+            e = &D_8036D3D0[idx];
+            v = &arg1->unk1900[0x70 + 4 * idx];
+            v[0].v.ob[0] = e->unk0, v[0].v.ob[1] = e->unk2, v[0].v.ob[2] = e->unk4;
+            v[1].v.ob[0] = e->unk6, v[1].v.ob[1] = e->unk8, v[1].v.ob[2] = e->unkA;
+            v[0].v.cn[3] = v[1].v.cn[3] = e->unk18;
+            if (two) {
+                v[2].v.ob[0] = e->unkC, v[2].v.ob[1] = e->unkE, v[2].v.ob[2] = e->unk10;
+                v[3].v.ob[0] = e->unk12, v[3].v.ob[1] = e->unk14, v[3].v.ob[2] = e->unk16;
+                v[2].v.cn[3] = v[3].v.cn[3] = e->unk19;
+            }
+            p = c;
+            c = 4 - p;
+            gSPVertex(sub++, &D_02000000.unk1900[0x70 + 4 * idx], n, c);
+            if (!first) {
+                gSP1Triangle(sub++, p, p + 1, c, 0);
+                gSP1Triangle(sub++, p + 1, c, c + 1, 0);
+                if (two) {
+                    gSP1Triangle(sub++, p + 2, p + 3, c + 2, 0);
+                    gSP1Triangle(sub++, p + 3, c + 2, c + 3, 0);
+                }
+            }
+            first = FALSE;
+            if (++idx == 80) {
+                idx = 0;
+            }
+        }
+        if (idx == D_8036DC91 || sub + 5 > subEnd) {
+            break;
+        }
+        if (++idx == 80) {
+            idx = 0;
+        }
+    }
+    if (sub != &arg1->unk3C20[2]) {
+        gSPDisplayList(gfx++, &D_02000000.unk3C20[2]);
+        gSPEndDisplayList(sub++);
+    }
+    gDPPipeSync(gfx++);
+    *arg0 = gfx;
+}
+#else
 void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
     Gfx *gfx;
     u8 idx;
@@ -452,6 +543,7 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
     gDPPipeSync(gfx++);
     *arg0 = gfx;
 }
+#endif
 
 void func_8027D350(s16 x0, s16 y0, s16 z0, s16 x1, s16 y1, s16 z1, Vtx *vtx, s32 i) {
     vtx[i].v.ob[0] = x0;

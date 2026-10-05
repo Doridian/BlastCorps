@@ -4961,6 +4961,28 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   returns that.  Two string copies whose unsequenced `a[i] = b[i++]` IDO
   evaluates with the old index.
 - `hd_code/168B0.c`: the same unsequenced copy.
+- `hd_code/37530.c`: the vehicles' tyre marks (`func_8027C4C8`) are
+  drawn the port's way.  The marks are a ring of 80 entries (a pair of
+  points across each of two tracks); the original packs each run's
+  vertices into the frame's buffer, track A's then track B's, so the
+  vertex in a given place changes whenever the ring's tail moves on or a
+  run grows, and `--interpolate`, which pairs vertex loads by their place
+  ("`--interpolate`"), blended marks with other marks, track B with
+  track A: over 12,000 retraces of the attract mode (OpenGL), 9,804
+  vertices in 215 frames, the marks sliding or stretching for an image.
+  Its strips also skip two quads past track A's last (`k += 4`, where
+  the gap is one) unless that falls at the end of a load of 16, whose
+  next load starts back at track B's first pair: track B's first quad
+  came and went as the loads shifted.  The port puts each entry's four
+  vertices at its own place (`unk1900[0x70 + 4 * entry]`), loads them
+  into slots 0-3 or 4-7 by turns and joins them to the entry before, and
+  leaves out the cull box: 4 vertices in one frame are paired with other
+  points over the same run (an entry that a strip's break and a commit in
+  one frame make the head and then draw, while the full ring hands it
+  the tail's place), and every quad is drawn.  The game's loops poll
+  (`__port_poll`, "Memory model"), so a different number of iterations
+  moves `--deterministic`'s clock: the sound and the screenshots changed
+  (the references were updated), the gameplay digests didn't.
 - `hd_front_end/196F0.c`: `func_80200714`'s texel reads and writes go
   through `IMG_RD`/`IMG_WR`, byte-swapping only in the native-endian build
   (`TARGET_PC && PORT_NATIVE_ENDIAN`; plain accesses otherwise, so IDO's
