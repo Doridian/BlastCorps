@@ -1616,8 +1616,11 @@ static void write_pixel(int x, int y, const float *c) {
 /* The blender: returns 0 to drop the pixel.  Alpha compare and coverage
    from alpha first; then the blend equation (P * A + M * B) / (A + B) for
    each cycle.  Without FORCE_BL the last cycle only blends partly covered
-   pixels on the hardware (anti-aliasing), which isn't emulated: the pixel
-   is the input.  gfx_gl.c compiles the same rules (gfx_cvg_drops). */
+   pixels on the hardware (anti-aliasing), which isn't emulated: a fully
+   covered pixel is that cycle's P unblended, as the RDP passes it (the
+   input in the usual modes; memory in the depth-only quads a blown-up
+   building sinks behind, 0x5A5A....: drawn with the combined color, they
+   were black squares over the ground).  gfx_gl.c compiles the same rules (gfx_cvg_drops). */
 static int blend(int x, int y, float *c, const float *shade) {
     uint32_t l = gs.om_l;
     if ((l & 3) == 1 && c[3] < gs.blend[3])         /* alpha compare: threshold */
@@ -1625,8 +1628,7 @@ static int blend(int x, int y, float *c, const float *shade) {
     if (gfx_cvg_drops(l, c[3]))                     /* coverage from alpha */
         return 0;
     int cyc = gfx_cycles();
-    if (!(l & 0x4000))                              /* no FORCE_BL: the last cycle passes */
-        cyc--;
+    int pass = !(l & 0x4000);                       /* no FORCE_BL: the last cycle passes its P */
     float in[4] = { c[0], c[1], c[2], c[3] };
     for (int k = 0; k < cyc; k++) {
         int sh = k == 0 ? 0 : 2;
@@ -1638,6 +1640,10 @@ static int blend(int x, int y, float *c, const float *shade) {
         for (int ch = 0; ch < 3; ch++) {
             pc[ch] = P == 0 ? in[ch] : P == 1 ? mem[ch] : P == 2 ? bl[ch] : fg[ch];
             mc[ch] = M == 0 ? in[ch] : M == 1 ? mem[ch] : M == 2 ? bl[ch] : fg[ch];
+        }
+        if (pass && k == cyc - 1) {
+            memcpy(in, pc, sizeof pc);
+            break;
         }
         a = A == 0 ? in[3] : A == 1 ? gs.fog[3] : A == 2 ? shade[3] : 0;
         b = B == 0 ? 255 - a : B == 1 ? mem[3] : B == 2 ? 255 : 0;

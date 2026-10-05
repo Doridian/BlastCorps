@@ -2574,6 +2574,22 @@ highlighted EXIT were drawn on black rectangles, in both renderers (the
 GL program key keeps `AA_EN` where it matters).  It also drops the
 starfield's faintest texels, which were drawn black over brighter stars.
 
+Without `FORCE_BL` the RDP blends only the partly covered pixels of an
+edge (anti-aliasing); a fully covered pixel gets the last cycle's P
+input unblended (angrylion's `blender1a`).  In the usual modes P is the
+combined color, which is what the port used to pass in every case.  A
+building that sinks as it blows up (Carrick Point's oil tanks, and the
+like in other levels) sinks behind quads that only
+write depth: `0x5A5A....`, P and M memory, from one vertex buffer
+(`0x803F0800`), some shaded black with alpha 0, some textured.  Drawn
+with the combined color they were black squares over the ground, a
+large part of the screen, for as long as the building sank, in both
+renderers (the TAS's first at retrace 21,976 of the us.v10 replay).
+Now such a pixel keeps memory's color (`blend()`; the GL program blends
+`ZERO, ONE`) and only its depth is written.  Over the whole TAS these
+are the only draws where P isn't the input; the quick tier's pictures
+don't change.
+
 Above 1x the OpenGL renderer keeps a texture rectangle's s and t within
 the range its 1x pixels sample (`v_box`): the pixels on the edges would
 otherwise filter the first or last texel with the one beyond it, which the

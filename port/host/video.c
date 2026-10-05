@@ -381,9 +381,13 @@ static uint16_t scripted_buttons(int *sy) {
         if (port_be32(D_80364A90) == 0 && port_be32(D_80364A90 + 4) == 4)
             in_level = 1;
         /* PORT_LEVEL=N: level N (D_802E8BDC, docs/blast_corps_levels.txt's
-           IDs) instead of the world map's choice, until the level runs */
+           IDs) instead of the world map's choice, on the map (mode 0x4000)
+           and while the level loads (0x800), until it runs; before the map
+           the logos and the attract mode have levels of their own, and
+           another one there crashes their set-up (Carrick Point's, 15) */
         const char *lv = getenv("PORT_LEVEL");
-        if (!in_level && lv)
+        if (!in_level && lv && port_be32(D_80364A90) == 0 &&
+            (port_be32(D_80364A90 + 4) & 0x4800))
             port_wg32(D_802E8BDC, (uint32_t)atoi(lv));
         if (in_level) {
             *sy = 80;

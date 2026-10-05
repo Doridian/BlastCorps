@@ -986,7 +986,8 @@ static Prog *get_prog(const ProgKey *key) {
         int bcyc = ncyc - ((l & 0x4000) ? 0 : 1);
         cat("    vec3 inp = comb.rgb;\n");
         cat("    o_col = vec4(inp, 1.0);\n");
-        for (int k = 0; k < bcyc; k++) {
+        int k;
+        for (k = 0; k < bcyc; k++) {
             int sh = k == 0 ? 0 : 2;
             int P = (l >> (30 - sh)) & 3, A = (l >> (26 - sh)) & 3, M = (l >> (22 - sh)) & 3, B = (l >> (18 - sh)) & 3;
             cat("    { float a = %s;\n", bl_alpha(A));
@@ -1013,6 +1014,13 @@ static Prog *get_prog(const ProgKey *key) {
             cat("      inp = sum > 0.0 ? (%s * a + %s * b) / sum : %s;\n", bl_color(P, "inp"), bl_color(M, "inp"),
                 bl_color(P, "inp"));
             cat("      o_col = vec4(inp, 1.0); }\n");
+        }
+        if (k == bcyc && bcyc < ncyc) {             /* no FORCE_BL: the last cycle's P, unblended */
+            int P = (l >> (k == 0 ? 30 : 28)) & 3;
+            if (P == 1)
+                p->blend = 2;                       /* memory: the color image as it is */
+            else if (P != 0)
+                cat("    o_col = vec4(%s, 1.0);\n", bl_color(P, "inp"));
         }
         if (key->quant && !p->blend)
             cat("    { vec3 q = floor(o_col.rgb * 255.0 / 8.0); o_col.rgb = (q * 8.0 + floor(q / 4.0)) / 255.0; }\n");
