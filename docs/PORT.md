@@ -270,6 +270,32 @@ all reached, plain and turned, deterministic and not, and with
 found: all reached; with all 58 open, every level reached, the smallest
 zone 150 pixels (at the rim).
 
+### Skipping the logos and the introductions
+
+The original lets none of the boot's screens be cut short: the N64 and
+Rare logos play their 250 frames each, the title takes Start only 130
+frames in (`D_80366A18`, 17E10.c), and the crew's introductions between
+the attract mode's demos (mode `1<<48`, a TV and a caption) take nothing.
+The port (`port_intro_skip`, under `TARGET_PC`):
+
+- **the logos** (8380.c, `func_801EF4AC`): A, B or Start jumps to the
+  logo's fade-out (frame 221, the camera where it ends), so a press
+  goes on to the next logo, or from the Rare logo to the title, in 30
+  frames;
+- **the title**: Start or A from its first frame (00000.c's mode 2),
+  to the menu or the name entry as before;
+- **the introductions** (17990.c): Start or A goes to the menu, the way
+  the demos already do (the same sound and music stop, and a fade).  A
+  click there is A (`ui.c` counts the mode as a plain screen; its window
+  has nothing to pick).
+
+None of it applies with `--replay` or `PORT_AUTOSTART`, whose input is the
+original game's, so the TAS and the quick tier are unchanged.  Checked
+headless in us.v11 with `PORT_POINTER` clicks: during the N64 logo (it
+ended at its 131st frame, the Rare logo at its 100th), on the title 59
+frames in (the name entry), and on Amber's introduction (the name entry,
+without a save); before the change each of those clicks did nothing.
+
 ## Memory model
 
 The decompiled C, the translated asm, the game's data and whatever the ROM

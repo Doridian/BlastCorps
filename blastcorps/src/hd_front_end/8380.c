@@ -96,6 +96,14 @@ void func_801EF4AC(void) {
     sp12C = &D_803156F8[D_8035805C ^ 1];
     gfx = sp12C->dl;
     func_8028A470();
+#ifdef TARGET_PC
+    /* A, B or Start goes to the logo's fade-out (with the camera where it
+       ends up); the pad's first frames are masked (45BB0.c) */
+    if (D_80358060 >= 2 && D_80358060 < 221 && (D_80370C28 & ~D_80370C2A & 0xD000) && port_intro_skip()) {
+        D_80358060 = 221;
+        D_802159E0 = 400.0f;
+    }
+#endif
     func_80284E54(D_803156F8[D_8035805C].dl, D_80358078, 1, 1, 0x4D2, 0);
     D_8035805C ^= 1;
     gSPSegment(gfx++, 0, 0);

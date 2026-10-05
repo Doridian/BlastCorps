@@ -357,6 +357,15 @@ int host_frame_held(void) {
     return !(mode & 0xC9FD0FE79BFF80B0ull);
 }
 
+int port_intro_skip(void) {
+    static int on = -1;
+    if (on < 0) {
+        const char *s = getenv("PORT_AUTOSTART");
+        on = !s || !*s || *s == '0';
+    }
+    return on && !host_replay_active();
+}
+
 static uint16_t scripted_buttons(int *sy) {
     /* PORT_AUTOSTART=1: tap Start/A now and then, to get past the title;
        =2: the same by the game's own retrace count (the scheduler's,

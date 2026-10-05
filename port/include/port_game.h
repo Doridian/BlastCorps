@@ -48,5 +48,9 @@ void port_replay_mode_switch(void);
    heads for 1, the longitude, and 2, the latitude, in thousandths of a
    degree, by 3, ten-thousandths of the way a frame) */
 int port_globe_view(int what);
+/* 1 when a press may cut the logos and the attract mode's screens short
+   (8380.c, 00000.c, 17990.c): not with --replay or PORT_AUTOSTART, whose
+   input is the original's (port/host/video.c) */
+int port_intro_skip(void);
 
 #endif

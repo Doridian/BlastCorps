@@ -56,6 +56,9 @@ Gfx *func_801EAA7C(Gfx *, FrameBuf *, s32 *);
 void func_802A57AC(void);
 s32 func_802753F8(void);
 s32 func_802753C0(void);
+#ifdef TARGET_PC
+void func_80260B40(u8, u16);
+#endif
 void func_80261570(f32);
 void func_802995F0(s32);
 
@@ -320,6 +323,17 @@ void func_801FE990(void) {
         }
     }
     func_8028A470();
+#ifdef TARGET_PC
+    /* Start or A leaves the "leaders of" screens for the menu, as it does
+       the attract mode's demos (00000.c's mode 2) */
+    if (D_80364A90 == 0x0001000000000000 && (D_80370C28 & ~D_80370C2A & 0x9000) && func_802753C0() == 0 &&
+        D_80364A98 == 0 && port_intro_skip()) {
+        func_80260650(D_80367738, 0x1E, NULL);
+        func_80260B40(0, 0);
+        func_80260B40(5, 0);
+        func_80275390(0x0020000000000000);
+    }
+#endif
     if (D_80364A90 == 0x0000800000000000) {
         func_802862DC();
     }

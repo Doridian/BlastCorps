@@ -2001,7 +2001,12 @@ void func_802475D8(void) {
                 }
                 break;
             case 2:
+#ifdef TARGET_PC
+                /* the title takes Start at once, not 130 frames in (17E10.c) */
+                if (D_80366A18 != 0 || port_intro_skip()) {
+#else
                 if (D_80366A18 != 0) {
+#endif
                     func_80260650(D_80367738, 0x1E, NULL);
                     func_80260B40(0, 0);
                     func_80260B40(5, 0);

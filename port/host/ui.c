@@ -88,11 +88,13 @@ static int name_up(void) {
 }
 
 static int ui_context(void) {
+    uint64_t m = mode();
     if (name_up())
         return UI_NAME;
+    if (m == 0x0001000000000000)
+        return UI_OTHER;                        /* the crew's introductions: a window with nothing to pick */
     if (menu_window() >= 0)
         return UI_MENU;
-    uint64_t m = mode();
     if (m == 0x4000)
         return UI_MAP;
     if (m == 4 || m == 0x100)
