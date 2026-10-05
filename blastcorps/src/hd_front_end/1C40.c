@@ -712,9 +712,6 @@ s32 func_801E96F8(void) {
     return D_802154D2 == D_802154DC + 8;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801E9718.s")
-#else
 Gfx *func_801E9718(Gfx *arg0, FrameBuf *arg1, s32 arg2) {
     Gfx *gfx;
 
@@ -744,7 +741,11 @@ Gfx *func_801E9718(Gfx *arg0, FrameBuf *arg1, s32 arg2) {
                 if (D_8021593C >= 0x100) {
                     D_8021593C = 0xFF;
                 }
+#ifdef VERSION_EU
+            } else if ((D_80364A90 & 0x0008000002020000) != 0) {
+#else
             } else if ((D_80364A90 & 0x0008000202020000) != 0) {
+#endif
                 if ((D_8021593C -= 16) <= 0) {
                     D_8021593C = 0;
                 }
@@ -794,7 +795,6 @@ Gfx *func_801E9718(Gfx *arg0, FrameBuf *arg1, s32 arg2) {
         }
     }
 }
-#endif
 
 void func_801EA108(u8 arg0, u8 arg1, u8 arg2) {
     PlayerInfo *sp2C;
