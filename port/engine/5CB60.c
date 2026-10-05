@@ -650,6 +650,9 @@ void func_802A3E9C(u32 h_) {
         X3((u8 *)&w->info) = n;             /* WALL_COUNT */
         for (k = 0; ENGINE_BLK(802A3F28), k < n; k++) {
             ENGINE_BLK(802A3F30);
+            /* (the TAS has walls of more than 0x3C triangles: tris[0x3C]
+               is info, which the store overwrites, as the original does;
+               -fsanitize=array-bounds reports it) */
             w->tris[k] = t;
             /* 0x52 the section's end, 0x56 the next slot's address, 0x57
                the triangles left (what the original has in those
