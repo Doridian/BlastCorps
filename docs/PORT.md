@@ -235,7 +235,8 @@ controller read, WHAT is `d` down, `m` move (pointing, with no button
 down), `u` up, `b` the right button, `w`/`W` the wheel, at X, Y on the
 320x240 screen.  `-v` logs what is up at each change; `-v -v` also the
 world map's levels on the screen and where the pointer takes a window's
-selection; in a level `-v` logs the player's vehicle and what W/S are
+selection (`-v` alone logs each click on the map: where it landed, the
+level it took and the nearest open one); in a level `-v` logs the player's vehicle and what W/S are
 (A/B or the stick) when either changes.  Checked that way in us.v11, headless: from the title to the
 world map by clicks (the intro, the name typed by clicks on the wheel
 and confirmed by one in the middle), and with a save: a level picked by

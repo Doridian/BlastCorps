@@ -55,7 +55,7 @@ extern char D_80364A90[], D_802E8BD0[], D_8036BB18[], D_8036BB1C[], D_8036BB30[]
     D_802F8BDC[], D_8020C070[], D_802F5804[], D_802F49F4[], D_80364456[], D_80364AF0[], D_80364AE8[],
     D_8036C778[], D_80358060[], D_8035805C[], D_8035807C[], D_803156F8[], D_80217B6C[], D_80217B70[],
     D_8020D810[], D_8021A905[], D_8021A907[], D_8021A90C[], D_8021A910[], D_8021A914[], D_8021A91C[],
-    D_8021A920[], D_8021A924[], D_8021AB2C[], D_802154B4[], D_80208350[], D_80208314[], D_802082FC[],
+    D_8021A920[], D_8021A924[], D_802E8F94[], D_8021AB2C[], D_802154B4[], D_80208350[], D_80208314[], D_802082FC[],
     D_802154BC[];
 
 static uint8_t g8(const char *p) { return *(const uint8_t *)p; }
@@ -539,15 +539,55 @@ static void latlong(float lat, float lon, float *x, float *y, float *z) {
     *z = sinf(-lon * r) * cosf(lat * r) * 250;
 }
 
+/* the slot's PlayerInfo (D_80364AF0[D_80364AE8]): medal[] at 0x18, unk54[]
+   (the routes found) at 0x54, gameState at 0x91 */
+static const char *player(void) { return V(D_80364AF0) + (g8(V(D_80364AE8)) & 3) * 0x100; }
+
+static int level_done(int i) {
+    int m = g8(player() + 0x18 + i);
+    return m >= 1 && m <= 5;
+}
+
+/* func_801FE760: a level the routes don't open yet (a later game state's,
+   or one of five behind a particular other level) */
+static int level_held(int i) {
+    const char *li = V(D_802E8F94) + i * 0x44;  /* LevelInfo: unk0, gameState */
+    int held = g8(li + 1) > g8(player() + 0x91) && ((g8(li) & 0x81) || (i >= 0x2B && i < 0x2F));
+    static const signed char behind[][2] = { { 10, 55 }, { 15, 28 }, { 58, 53 }, { 5, 7 }, { 16, 19 } };
+    for (unsigned k = 0; k < sizeof behind / sizeof behind[0]; k++)
+        if (i == behind[k][0] && !level_done(behind[k][1]))
+            held = 1;
+    return i == 0 ? 0 : held;
+}
+
 /* the levels on Earth (func_80264BA4: 40 and 43-46 are elsewhere) that
    are open: the selected one, and those with a medal, done, or opened by
    the levels around (PlayerInfo.medal 1-5, 8), but for the CMO's intro
-   and the end (47, 49), which aren't places on the map */
+   and the end (47, 49), which aren't places on the map.  And one a done
+   level's route has just found (the map draws the route to it and the
+   stick goes there): its medal is 8 only from func_801FE018(8), which
+   runs as a level is gone into, or at the map after the boot. */
 static int map_level_open(int i) {
     if (i == 40 || (i >= 43 && i <= 47) || i == 49)
         return 0;
-    int slot = g8(V(D_80364AE8)) & 3, medal = g8(V(D_80364AF0) + slot * 0x100 + 0x18 + i);
-    return i == g8(V(D_8021A905)) || (medal >= 1 && medal <= 5) || medal == 8;
+    int medal = g8(player() + 0x18 + i);
+    if (i == g8(V(D_8021A905)) || (medal >= 1 && medal <= 5) || medal == 8)
+        return 1;
+    if (medal != 0)
+        return 0;
+    /* func_801FE018's test, for i */
+    for (int j = 0; j < 60; j++) {
+        if (!level_done(j))
+            continue;
+        const signed char *l = (const signed char *)V(D_8020D810) + j * 0x30;
+        for (int k = 0; k < 8 && l[0x1C + k] != -1; k++)
+            if (l[0x1C + k] == i && !level_held(i))
+                return 1;
+        for (int k = 0; k < 4 && l[0x18 + k] != -1; k++)
+            if (l[0x18 + k] == i && (g8(player() + 0x54 + j) & (1 << k)))
+                return 1;
+    }
+    return 0;
 }
 
 /* the open level drawn at (x, y), on the globe's near side, or -1 */
@@ -663,6 +703,22 @@ static int map_poll(int *sx, int *sy, int last_stick) {
             pulse(B_B);
         } else if (evq[i].kind == EV_TAP) {
             int hit = earth ? map_hit(evq[i].x, evq[i].y) : sel;
+            if (host_verbose && earth) {
+                /* -v: where it landed, and the open level nearest it */
+                float cx = gf(V(D_8021A90C)), cy = gf(V(D_8021A910)), cz = gf(V(D_8021A914)), best_d = 1e9f;
+                int near = -1;
+                for (int j = 0; j < 60; j++) {
+                    char *l = V(D_8020D810) + j * 0x30;
+                    float px = gf(l + 0x24), py = gf(l + 0x28), pz = gf(l + 0x2C), lx, ly;
+                    if (map_level_open(j) && (px * cx + py * cy + pz * cz) > 0 && globe_project(px, py, pz, &lx, &ly) &&
+                        (lx - evq[i].x) * (lx - evq[i].x) + (ly - evq[i].y) * (ly - evq[i].y) < best_d) {
+                        best_d = (lx - evq[i].x) * (lx - evq[i].x) + (ly - evq[i].y) * (ly - evq[i].y);
+                        near = j;
+                    }
+                }
+                host_log("ui: map: click at %.0f, %.0f: level %d (the nearest open one %d, %.0f px off)\n", evq[i].x,
+                         evq[i].y, hit, near, near < 0 ? 0 : sqrtf(best_d));
+            }
             if (hit < 0)
                 continue;
             map.target = hit;
