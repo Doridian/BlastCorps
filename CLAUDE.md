@@ -65,6 +65,8 @@ which is what the TAS replays on (docs/PORT.md, "The TAS").
 `-DPORT_VERSION=jp` builds Blastdozer the same way (`VERSION=jp`
 throughout); jp's remaining `GLOBAL_ASM` functions are C in
 `port/engine/jp_*.c` like the handwritten code (docs/PORT.md, "Other versions").
+`-DPORT_VERSION=eu` builds the PAL version (its C is complete; `port.h`'s
+`PORT_RETRACE_HZ`/`PORT_VI_CLOCK` are PAL's there).
 
 `-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
 64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with
@@ -293,9 +295,13 @@ One source tree builds all four versions; the Makefile passes one of
   hides (jp and eu pad `.text` to 16 before a function), those are object
   splits in us.v11 too (`hd_front_end/8380`, `hd_code/2B3F0`, `4B450`).
 - eu's text is in three languages (`YoshiEntry` has `text2`/`text3` there),
-  its libultra is newer in places (vi.c's PAL `__osViInit`, abi.h's pole
-  filter) and its timings are PAL's. The objects whose `.data`/`.rodata`
-  hold its text are `--asm-object` in eu for now.
+  picked by the language `D_80366F70_eu` (0 English, 1 German, 2 French):
+  `ENTRY_TEXT`/`TEXT_EU` (`yoshi.h`), `LEVEL_NAME` (`level.h`). Its
+  libultra is newer in places (vi.c's PAL `__osViInit`, built `-mips1`;
+  abi.h's pole filter), and its timings are PAL's (`FRAMES_PER_SECOND`,
+  `common.h`, and files' own macros where eu rounds a count its own way).
+  A data block only eu has is `gen_code_yaml.py --add` (1A240's crew
+  names); `--asm-object` makes a whole object asm in a version (none is).
 
 ## Data and symbols at link time
 
@@ -309,7 +315,7 @@ its data with a `.data`/`.rodata` subsegment; its remaining `GLOBAL_ASM`
 functions then carry their own rodata into the `.s`, and asm-processor places
 it. `tools/inline_rodata.py` turns a file's `extern` string/float uses into
 literals when switching it to own its `.rodata`. Every C file owns its
-`.data` and `.rodata`, in every version (except eu's asm objects, below);
+`.data` and `.rodata`, in every version;
 what is still asm `data`/`rodata` belongs to handwritten objects or to
 data-only objects (named by offset: text tables, display lists, libultra's
 VI modes). `tools/data_c.py <module> <object> [--version v]` writes a C

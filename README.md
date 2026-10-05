@@ -34,7 +34,7 @@ git submodule update
 
 The port runs the decompiled C natively, and Rare's handwritten engine code
 as C rewritten from it (`port/engine`); it needs your own copy of the ROM
-(`us.v11` by default; `us.v10` and `jp`, Blastdozer, too).  It is built from the decompilation, so
+(`us.v11` by default; `us.v10`, `jp`, Blastdozer, and `eu`, the PAL version, too).  It is built from the decompilation, so
 the steps are: set up the tools, build the decompilation once, then the port.
 [docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
 built and tested on; the 64-bit build also cross-compiles for AArch64 Linux
@@ -56,7 +56,7 @@ The recommended build below is an ordinary 64-bit program.  Only the
 ## Build it
 
 The quick way, from the repo's root, with your ROM wherever it is (`.z64`,
-`.v64` or `.n64`; us.v11, us.v10 or jp):
+`.v64` or `.n64`; us.v11, us.v10, jp or eu):
 
 ```
 port/build.py path/to/rom.z64                  # the port for this machine: build/port-<version>
@@ -136,13 +136,13 @@ Without `-DPORT_WASM_TARGET=web` it builds `blastcorps.js` for node:
 `node build/wasm/blastcorps.js --headless --frames 600 --screenshot shot
 baserom.us.v11.z64` (docs/PORT.md, "WebAssembly").
 
-For `us.v10` or `jp`, put `baserom.us.v10.z64` or `baserom.jp.z64` in the
-root and run the same with `VERSION=us.v10` or `VERSION=jp`, `make -C
-tools/recomp` included (after `make clean` and `make -C blastcorps clean`),
-and configure a separate build directory with `-DPORT_VERSION=us.v10` or
-`-DPORT_VERSION=jp`.  jp still has some of its compiled code as asm where it
-differs from the US versions; the port has that as C too, like the
-handwritten engine (docs/PORT.md, "Other versions").
+For `us.v10`, `jp` or `eu`, put `baserom.<version>.z64` in the root and run
+the same with `VERSION=<version>`, `make -C tools/recomp` included (after
+`make clean` and `make -C blastcorps clean`), and configure a separate build
+directory with `-DPORT_VERSION=<version>`.  jp still has some of its
+compiled code as asm where it differs from the US versions; the port has
+that as C too, like the handwritten engine.  eu is PAL: it runs at 50
+retraces a second, as on a PAL console (docs/PORT.md, "Other versions").
 
 ## Run it
 
@@ -155,7 +155,7 @@ and, with `--interpolate`, how many of them were the game's own frames, e.g.
 "60 fps (game 30)".  In the browser, the page's title shows the same.
 
 The ROM argument may be left out: it defaults to `baserom.us.v11.z64` (the
-us.v10 and jp builds' to `baserom.us.v10.z64` and `baserom.jp.z64`) in the
+other versions' builds' to `baserom.<version>.z64`) in the
 current directory.  The port reads everything else from the ROM, so the
 binary can be run from anywhere.  It must be the exact ROM the port was
 built for (its sha1, above, is checked at startup): the movable builds,

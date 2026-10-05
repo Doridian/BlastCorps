@@ -5,7 +5,7 @@
     port/build.py --wasm ROM       the browser page (WebAssembly)
     port/build.py --wasm --serve ROM   ... and serve it on localhost
 
-It names the ROM by its sha1 (us.v10, us.v11 or jp; .z64, .v64 and .n64 byte
+It names the ROM by its sha1 (us.v10, us.v11, jp or eu; .z64, .v64 and .n64 byte
 orders are all fine), copies it to baserom.<version>.z64, sets up the venv and
 the submodules if they aren't there yet, builds the decompilation and the
 translated engine for that version (README, "The PC port"), and then the port
@@ -50,7 +50,7 @@ VERSIONS = {
     "b147fdbeb661c89107c440b00dc4810508f58636": "jp",
     "460212600f8b9f0da95219c4c7330f2e626d9a7e": "eu",
 }
-PORTED = ("us.v10", "us.v11", "jp")
+PORTED = ("us.v10", "us.v11", "jp", "eu")
 VARIANTS = {
     "64": ["-DPORT_64BIT=ON"],
     "32": [],
@@ -215,7 +215,7 @@ def main():
     if not v:
         die(f"{args.rom} isn't a ROM this project knows (README lists the four sha1s)")
     if v not in PORTED:
-        die(f"{args.rom} is {v}, which the port doesn't support yet (us.v10, us.v11 and jp)")
+        die(f"{args.rom} is {v}, which the port doesn't support yet (us.v10, us.v11, jp and eu)")
     dst = ROOT / f"baserom.{v}.z64"
     if not dst.exists() or dst.read_bytes() != z64:
         dst.write_bytes(z64)

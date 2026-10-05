@@ -417,6 +417,15 @@ scheme and the tools). What mattered getting them to match:
   block is clearer. Check each variable the map names: the code that
   matches is the evidence (vdiff reports where it disagrees with the map,
   and the `--pair` that fixes it).
+- vdiff's "only in eu" (a function the C doesn't have) was, every time,
+  a function the map hadn't paired: one `vermap:--pair <us.v11>:<eu>` on
+  the version's `port` line names it (eu's `func_801EF204_eu` is
+  1C40's `func_801EA6E8`).  And a count of "429 of 636 words" differing can
+  be one changed word that shifts the rest.
+- eu's language is `D_80366F70_eu`, declared `extern u8` (an array adds an
+  `addiu`).  Its texts go through `ENTRY_TEXT`/`TEXT_EU` (`yoshi.h`) and
+  `LEVEL_NAME` (`level.h`); where every row of a table differs (26570's
+  entries, 53220's hints), eu's whole table is its own `#ifdef` block.
 - A version can show object boundaries us.v11 hides: jp and eu pad `.text`
   to 16 before `func_801EF380`, `func_8026FBB0` and `func_8028FC10` (us.v11
   needs no padding there), so those start objects (8380.c, 2B3F0.c,

@@ -15,14 +15,14 @@ libultra and the RCP.
 | module         | IDO-compiled code | handwritten asm | us.v11 (2026-09-28) | us.v10 | jp     | eu     |
 | ---            | ---:              | ---:            | ---:                | ---:   | ---:   | ---:   |
 | `init`         | ~10 KB            | ~4 KB           | 100%                | 100%   | 100%   | 100%   |
-| `hd_code`      | ~420 KB           | ~220 KB         | 99.9% (2 left)      | 99.9%  | 94.0%  | 73.2%  |
-| `hd_front_end` | ~130 KB           | ~2 KB           | 100%                | 100%   | 92.5%  | 29.8%  |
+| `hd_code`      | ~420 KB           | ~220 KB         | 99.9% (2 left)      | 99.9%  | 94.0%  | 99.9%  |
+| `hd_front_end` | ~130 KB           | ~2 KB           | 100%                | 100%   | 92.5%  | 100%   |
 
 Run `tools/progress.py --version <v>` (after building that version) for
 current numbers. Its percentages are of the IDO-compiled code only. What
-isn't C in jp and eu is the functions they have differently (jp's Japanese
-text, eu's three languages and PAL timings), as `GLOBAL_ASM` for that
-version, and eu's objects with multilingual data, all asm there.
+isn't C in jp is the functions it has differently (its Japanese text), as
+`GLOBAL_ASM` for jp; eu's differences (three languages, PAL timings) are
+all C, so eu is as complete as us.v11 (the 2 left are libultra's `gu`).
 
 What's known that affects the port:
 
@@ -119,8 +119,8 @@ change size (a "shiftable" build), which is how we test it.
       us.v11's configs (`gen_code_yaml.py --like`, CLAUDE.md "Versions").
       Each C file owns its data there too; jp's and eu's differences are
       `#if`'d in the definitions (jp's entry tables lack some entries, eu's
-      credits have three more lines, its audio heap is smaller, ...), and
-      eu's objects with text in three languages are asm there.
+      credits have three more lines, its audio heap is smaller, its text is
+      in three languages, ...).
 - [x] `hd_code` `.bss` (`0x8030F660`-`0x803FF600`, 77 objects) and
       `hd_front_end`'s (`0x80210E90`-`0x8021AC30`, 16), laid out by
       `gen_code_yaml.py --bss` like `.data`. The boot code clears from the end
@@ -228,13 +228,12 @@ Matching C for every non-handwritten function, in this order:
 
 5. **The other versions**, from the same C. Done for everything that
    matches: us.v10 is us.v11's C with a handful of `#if`s (00000's and
-   10850's v1.1 fixes); jp's 19 functions with Japanese text handling and
-   eu's ~40 changed functions are that version's `GLOBAL_ASM`, and eu's
-   hd_code 1C460, 1D990, 26570, 30C70, 45BB0, 53220 and hd_front_end 00000,
-   1C40, 6790, 7800, E7B0, 196F0, 1A240, 11530 are all asm there: their
-   `.data`/`.rodata` hold eu's text in three languages (German strings, and
-   tables of three text pointers where the US versions have one), which
-   needs writing as eu's own data before their C can build eu.
+   10850's v1.1 fixes); jp's 19 functions with Japanese text handling are
+   its `GLOBAL_ASM`.  eu is all C: its three languages (German strings, and
+   three text pointers where the US versions have one, chosen by
+   `D_80366F70_eu`), its PAL timings and video modes, its saved language
+   and language menu, and its newer libultra (`__osViInit`, the scheduler's
+   `osClockRate`) are `#if`s and macros in the shared C.
 
 Rules for the C, so it ports cleanly later:
 

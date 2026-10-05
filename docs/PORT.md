@@ -604,7 +604,7 @@ screenshots, except where the references say otherwise:
 `test.py quick BUILD --update` writes a build's hashes as its version's
 references; take them from a build that is right (a 64-bit big-endian one
 now), after a change meant to change what the game draws or plays.  There
-are references for us.v10, us.v11 and jp; eu (no port yet) has none.
+are references for all four versions.
 
 **tas.**  The replay of "The TAS", each build in its own copy of the
 executable: `tas_check.py`'s 57 platinum, and the replay's report: all of
@@ -1035,8 +1035,7 @@ timing differs a little (more retraces given anyway, no mode switch the
 movie's rather than the port's); with `PORT_COUNT_PER_OP=0` they are the
 same run.
 
-What's left: jp and eu build no port yet (their functions still in asm);
-levels and vehicles the runs don't reach are typed from the code but
+What's left: levels and vehicles the runs don't reach are typed from the code but
 untested; and the profiler still leaves out the C's byte reads of wider
 data (its byte copies, often into locals it can't see).
 
@@ -1782,8 +1781,7 @@ instruction counts and poll points), about 2-4 agent-hours.
   the same.
 - Where the quick tier ran with these scenarios: us.v11 all eight variants
   (`variants --version us.v11`, the wasm one included), jp m64, us.v10 32
-  and m64: every one passed.  `make_pack.py` makes eu's pack too (no eu
-  port to play it).
+  and m64: every one passed.  eu (all eight variants) passes them too.
 - The page in headless Chromium (Playwright, SwiftShader): with no ROM in
   IndexedDB, the edited pack chosen in the picker plays into Simian Acres
   with the magenta grass, and after a reload the pack is still there and
@@ -4816,7 +4814,8 @@ angles 12-bit, a speed is a distance a frame:
 
 ## Other versions
 
-`PORT_VERSION` is `us.v11` (the default), `us.v10` or `jp` (Blastdozer).
+`PORT_VERSION` is `us.v11` (the default), `us.v10`, `jp` (Blastdozer) or
+`eu` (the PAL version, "eu" below).
 `blastcorps/` and the translator's output hold one version at a time, so
 switching means `make clean` in both directories, stages 1 and 2 for the
 other version, and `make -C tools/recomp VERSION=<v>`; CMake refuses a
