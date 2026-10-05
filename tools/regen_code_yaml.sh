@@ -174,7 +174,6 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 80215980:8021AE78 --pair 80215998:8021AE90 --pair 802084C0:8020C928 --pair 802159B0:8021AEA8" \
     "vermap:--pair 801EEDB4:801F3AA4 --pair 802084D0:8020C930 --pair 802084E0:8020C960" \
     "vermap:--pair 0048F970:0048FAB0 --pair 802159D0:8021AEC0:14 --pair 802159E4:8021AED8:4 --pair 801EF4AC:801F4214 --pair 801FE990:801F8D10 --pair 8021AB70:8021D460:10" \
-    "hd_code:--asm-object 26570" \
     "hd_front_end:--asm-object 1C40" \
     "hd_front_end:--asm-object 1A240" \
     "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90"
