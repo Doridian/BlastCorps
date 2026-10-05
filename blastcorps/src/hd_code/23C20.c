@@ -476,9 +476,22 @@ void func_80275270(u64, f32);
 void func_802C1DD0(s32);
 void func_80260DFC(void);
 
+/*
+ * An entry's text in eu's language (D_80366F70_eu: 0 English, 1 German, 2
+ * French): eu sets the one of text/text2/text3 that is shown, French to NULL,
+ * and has no u16 texts for these (unk10 is NULL).
+ */
 #ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/23C20/func_80269258.s")
+extern u8 D_80366F70_eu;
+#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
+#define TEXT_EU(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
+#define U16TEXT(p) NULL
 #else
+#define ENTRY_TEXT(e) (e)->text
+#define TEXT_EU(en, de) (en)
+#define U16TEXT(p) (p)
+#endif
+
 void func_80269258(void) {
     s32 i;
     s32 j;
@@ -630,39 +643,39 @@ void func_80269258(void) {
                 D_803FCD70 = D_802F4224[idx[2]].unk14;
                 break;
             case 5:
-                D_802F5804[YOSHI_ENTRY(42)].text = "LANDING ABORTED!";
-                D_802F5804[YOSHI_ENTRY(42)].unk10 = D_80303AF4;
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("LANDING ABORTED!", "LANDUNG ABGEBROCHEN!");
+                D_802F5804[YOSHI_ENTRY(42)].unk10 = U16TEXT(D_80303AF4);
                 D_802F8BDC[23].unk12 = 0xDA;
                 if (D_80364A90 & 0x104) {
                     func_8026AF6C(0x8017);
                 }
                 break;
             case 6:
-                D_802F5804[YOSHI_ENTRY(42)].text = "DITCHING IN SEA!";
-                D_802F5804[YOSHI_ENTRY(42)].unk10 = D_80303B00;
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("DITCHING IN SEA!", "STURZ IN DIE SEE!");
+                D_802F5804[YOSHI_ENTRY(42)].unk10 = U16TEXT(D_80303B00);
                 D_802F8BDC[23].unk12 = 0x77;
                 if (D_80364A90 & 0x104) {
                     func_8026AF6C(0x8017);
                 }
                 break;
             case 4:
-                D_802F5804[YOSHI_ENTRY(42)].text = "ON FINAL APPROACH!";
-                D_802F5804[YOSHI_ENTRY(42)].unk10 = D_80303B10;
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("ON FINAL APPROACH!", "IM LANDEANFLUG!");
+                D_802F5804[YOSHI_ENTRY(42)].unk10 = U16TEXT(D_80303B10);
                 D_802F8BDC[23].unk12 = 0xD7;
                 if (D_80364A90 & 0x104) {
                     func_8026AF6C(0x8017);
                 }
                 break;
             case 7:
-                D_802F5804[YOSHI_ENTRY(42)].text = "SUCCESSFUL LANDING!";
-                D_802F5804[YOSHI_ENTRY(42)].unk10 = D_80303B24;
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("SUCCESSFUL LANDING!", "ERFOLGREICHE LANDUNG!");
+                D_802F5804[YOSHI_ENTRY(42)].unk10 = U16TEXT(D_80303B24);
                 D_802F8BDC[23].unk12 = 0x82;
                 if (D_80364A90 & 0x104) {
                     func_8026AF6C(0x8017);
                 }
                 break;
             case 8:
-                D_802F5804[YOSHI_ENTRY(42)].text = "3000 FT!";
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("3000 FT!", "3000 FUSS!");
                 D_802F5804[YOSHI_ENTRY(42)].unk10 = NULL;
                 D_802F8BDC[23].unk12 = 0xD5;
                 if (D_80364A90 & 0x104) {
@@ -670,7 +683,7 @@ void func_80269258(void) {
                 }
                 break;
             case 9:
-                D_802F5804[YOSHI_ENTRY(42)].text = "2000 FT!";
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("2000 FT!", "2000 FUSS!");
                 D_802F5804[YOSHI_ENTRY(42)].unk10 = NULL;
                 D_802F8BDC[23].unk12 = 0xD3;
                 if (D_80364A90 & 0x104) {
@@ -678,7 +691,7 @@ void func_80269258(void) {
                 }
                 break;
             case 10:
-                D_802F5804[YOSHI_ENTRY(42)].text = "1000 FT!";
+                ENTRY_TEXT(&D_802F5804[YOSHI_ENTRY(42)]) = TEXT_EU("1000 FT!", "1000 FUSS!");
                 D_802F5804[YOSHI_ENTRY(42)].unk10 = NULL;
                 D_802F8BDC[23].unk12 = 0xD1;
                 if (D_80364A90 & 0x104) {
@@ -689,7 +702,6 @@ void func_80269258(void) {
         }
     }
 }
-#endif
 
 f32 func_8026A184(f32 arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 arg5, f32 arg6) {
     s32 spC;
