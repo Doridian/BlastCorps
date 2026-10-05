@@ -169,7 +169,6 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 8030F670:80311A90:11B0 --pair 8030E390:803107C0" \
     "hd_code:--asm-object 1C460" \
     "hd_code:--asm-object 1D990" \
-    "hd_code:--asm-object 26570" \
     "hd_code:--asm-object 45BB0" \
     "hd_code:--asm-object 53220" \
     "hd_front_end:--asm-object 00000" \

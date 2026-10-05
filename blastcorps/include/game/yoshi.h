@@ -111,7 +111,13 @@ typedef struct UnkStruct_8020C488 {
 } UnkStruct_8020C488;
 SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
 
-extern YoshiWindow D_802F8BDC[0x6C];
+/* eu has one more window, at the end. */
+#ifdef VERSION_EU
+#define YOSHI_WINDOWS 0x6D
+#else
+#define YOSHI_WINDOWS 0x6C
+#endif
+extern YoshiWindow D_802F8BDC[YOSHI_WINDOWS];
 extern ColorPair D_802F47B0[0x17];
 extern UnkStruct_8020C488 D_8020C488[];
 extern YoshiIcon D_802F49F4[0x4B];
@@ -164,7 +170,11 @@ SIZE_CHECK(UnkStruct_8026F644, 4);
 
 typedef struct UnkStruct_802F9934 {
     /* 0x00 */ u8 unk0;
+#ifdef VERSION_EU
+    /* 0x04 */ char *PTR32 text[3]; /* eu: English, German, NULL */
+#else
     /* 0x01 */ char unk1[0xF];
+#endif
     /* 0x10 */ u16 *unk10;       /* u16 text */
 } UnkStruct_802F9934;
 SIZE_CHECK_C(UnkStruct_802F9934, 0x14);

@@ -21,6 +21,23 @@ extern u16 D_802E8C9C[];
 extern u16 D_803C30A8[];
 extern s32 D_803F7684;
 extern u8 D_802F499A[];
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+/* An entry's text in the language. */
+#define ENTRY_TEXT(e) ((&(e)->text)[D_80366F70_eu])
+#else
+#define ENTRY_TEXT(e) ((e)->text)
+#endif
+
+/* eu's timings are PAL's (50 Hz); FRAMES_F is a float that is written out for each. */
+#ifdef VERSION_EU
+#define REFRESH_RATE 50
+#define FRAMES_F(ntsc, pal) (pal)
+#else
+#define REFRESH_RATE 60
+#define FRAMES_F(ntsc, pal) (ntsc)
+#endif
+#define FRAMES(n) ((n) * REFRESH_RATE / 60)
 
 void func_8026AF6C(u16 arg0);
 void func_8029A7E4(char *, ...);
@@ -670,6 +687,1569 @@ YoshiIcon D_802F49F4[0x4b] = {
     { 0, 0, 1, 0, { 7, 18, 7, 17 }, 1, { 1 }, 1, 8, 0, 1.0f, 2, 1, 0, 0 },
     { 0, 0, 1, 0, { 13, 68, 13, 67 }, 1, { 1 }, 1, 8, 0, 1.0f, 2, 1, 0, 0 },
 };
+#ifdef VERSION_EU
+/* eu: each entry's English and German text (text3, the French, is NULL or the English) and no u16 text. */
+YoshiEntry D_802F5804[YOSHI_ENTRIES] = {
+    { 32, 56, 48, 24, 24, { 0 }, "SELECT OPTION", "OPTIONEN", NULL, NULL, 0, 0, 30, 7, 0, 0 },
+    { 97, 80, 82, 20, 20, { 0 }, "MORE", "WEITER", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 97, 80, 102, 20, 20, { 0 }, "VIEW STATS", "STATISTIK", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 97, 80, 122, 20, 20, { 0 }, "RESTART", "NEUBEGINN", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 97, 80, 142, 20, 20, { 0 }, "QUIT LEVEL", "LEVEL VERLASSEN", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 32, 56, 48, 24, 24, { 0 }, "SELECT OPTION", "OPTIONEN", NULL, NULL, 0, 0, 30, 7, 0, 0 },
+    { 113, 80, 82, 20, 20, { 0 }, "CONTINUE", "WEITER", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 97, 80, 102, 20, 20, { 0 }, "CONTROL MODE", "KONTROLLE", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 97, 80, 122, 20, 20, { 0 }, "MISSION BRIEFING", "MISSION", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 97, 80, 142, 20, 20, { 0 }, "MUSIC VOLUME", "MUSIK", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    {
+        36, 32, 6, 20, 20, { 0 }, "COLLISION IMMINENT!", "KOLLISION DROHT!", NULL, NULL, 0, 0, 30,
+        17, 4, 0,
+    },
+    { 36, 52, 6, 20, 20, { 0 }, "WARNING!", "WARNUNG!", NULL, NULL, 0, 0, 30, 17, 4, 0 },
+    {
+        32, 32, 40, 20, 20, { 0 }, "REACTOR MELTDOWN!", "KERNSCHMELZE!", NULL, NULL, 0, 0, 30, 12,
+        6, 0,
+    },
+    {
+        36, 44, 64, 20, 20, { 0 }, "ABORTING MISSION", "MISSION ABBRECHEN", NULL, NULL, 0, 0, 30,
+        18, 4, 0,
+    },
+    {
+        32, 44, 40, 20, 20, { 0 }, "CONGRATULATIONS!", "GRATULATION!!!", NULL, NULL, 0, 0, 30, 16,
+        6, 0,
+    },
+    {
+        36, 40, 64, 20, 20, { 0 }, "MISSION COMPLETE", "MISSION ERFUELLT", NULL, NULL, 0, 0, 30, 14,
+        2, 0,
+    },
+    {
+        160, 64, 42, 28, 30, { 0 }, D_8036B980, D_8036B980, D_8036B980, D_802F4880, 0, 0, 30, 12,
+        12, 0,
+    },
+    {
+        240, 112, 210, 24, 24, { 0 }, "PRESS START", "DRUECKE START", "PRESS START", NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    { 0x400, 76, 96, 15, 15, { 0 }, D_8036B9A8, D_8036B9A8, D_8036B9A8, NULL, 6, 0, 0, 22, 2, 0 },
+    { 0x400, 216, 96, 15, 15, { 0 }, D_8036B9C8, D_8036B9C8, D_8036B9C8, NULL, 7, 0, 0, 22, 2, 0 },
+    { 0x400, 76, 128, 15, 15, { 0 }, D_8036B9E8, D_8036B9E8, D_8036B9E8, NULL, 8, 0, 0, 22, 2, 0 },
+    { 0x400, 216, 128, 15, 15, { 0 }, D_8036BA08, D_8036BA08, D_8036BA08, NULL, 9, 0, 0, 22, 2, 0 },
+    {
+        0x400, 152, 170, 15, 15, { 0 }, D_8036BA28, D_8036BA28, D_8036BA28, NULL, 10, 0, 0, 22, 2,
+        0,
+    },
+    { 0x401, 60, 208, 19, 19, { 0 }, NULL, NULL, NULL, NULL, 2, 0, 30, 7, 4, 0 },
+    { 0x401, 248, 208, 19, 19, { 0 }, NULL, NULL, NULL, NULL, 5, 0, 30, 7, 4, 0 },
+    {
+        160, 64, 42, 28, 30, { 0 }, D_8036B980, D_8036B980, D_8036B980, D_802F4880, 0, 0, 30, 12,
+        12, 0,
+    },
+    { 224, 112, 210, 24, 24, { 0 }, "", "", "", NULL, 0, 0, 30, 7, 7, 0 },
+    { 0x400, 40, 108, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 6, 0, 0, 22, 2, 0 },
+    { 0x400, 240, 108, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 6, 0, 0, 22, 2, 0 },
+    { 0x400, 40, 108, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 6, 0, 0, 22, 2, 0 },
+    { 0x400, 240, 108, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 6, 0, 0, 22, 2, 0 },
+    { 0x1A0, 130, 118, 22, 22, { 0 }, "******MISSION", " ", NULL, NULL, 0, 0, 0, 4, 2, 0 },
+    {
+        0x1A0, 130, 140, 22, 22, { 0 }, "FAILED!*****", "**GESCHEITERT!**", NULL, NULL, 0, 0, 0, 4,
+        2, 0,
+    },
+    { 0x401, 60, 208, 19, 19, { 0 }, NULL, NULL, NULL, NULL, 2, 0, 30, 7, 4, 0 },
+    { 0x401, 248, 208, 19, 19, { 0 }, NULL, NULL, NULL, NULL, 5, 0, 30, 7, 4, 0 },
+    { 36, 40, 6, 20, 20, { 0 }, NULL, NULL, NULL, NULL, 30, 0, 16, 6, 0, 0 },
+    { 32, 0, 17, 20, 20, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 16, 6, 0 },
+    { 36, 24, 39, 20, 20, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 14, 4, 0 },
+    {
+        32, 0, 22, 24, 24, { 0 }, "SET MUSIC VOLUME", "MUSIKLAUTSTAERKE", NULL, NULL, 0, 0, 0, 7, 7,
+        0,
+    },
+    { 209, 52, 54, 22, 22, { 0 }, "QUIET", "LEISE", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 209, 188, 54, 22, 22, { 0 }, "LOUD", "LAUT", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    {
+        32, 53, 20, 26, 26, { 0 }, "**MISSION FAILED!**", "**GESCHEITERT!**", NULL, NULL, 0, 0, 0,
+        4, 4, 0,
+    },
+    { 36, 40, 6, 20, 20, { 0 }, NULL, NULL, NULL, NULL, 30, 0, 16, 6, 0, 0 },
+    {
+        0x10A4, 0, -146, 22, 22, { 0 }, "CONGRATULATIONS!", "GRATULATION!!!", NULL, NULL, 0, 0, 30,
+        18, 6, 0,
+    },
+    {
+        0x10A0, 0, 0, 16, 16, { 0 }, "MIRACULOUSLY, THE SHUTTLE", "WUNDERBAR, DAS SHUTTLE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 18, 16, 16, { 0 }, "COMPLETES ITS RETURN", "KEHRT OHNE EINEN", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 36, 16, 16, { 0 }, "TO EARTH WITHOUT A", "ZWISCHENFALL ZUR", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 54, 16, 16, { 0 }, "SINGLE CASUALTY.", "ERDE ZURUECK.", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    { 0x10A0, 0, 72, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 90, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 108, 16, 16, { 0 }, "BLAST CORPS HAS COME", "DAS BLAST CORPS TEAM", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 126, 16, 16, { 0 }, "THROUGH WITH FLYING", "WIRD VON DEN MENSCHEN", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 144, 16, 16, { 0 }, "COLOURS YET AGAIN.", "GEFEIERT.", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    { 0x10A0, 0, 162, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 180, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 198, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 216, 16, 16, { 0 }, "THEIR POPULARITY GIVEN", "DIE POPULARITAET DES", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 234, 16, 16, { 0 }, "A FURTHER BOOST, THE", "TEAMS SORGT FUER", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 252, 16, 16, { 0 }, "TEAM FIND NEW OFFERS", "NEUE AUFTRAEGE. DOCH", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 270, 16, 16, { 0 }, "OF WORK POURING IN -", "DIE MITGLIEDER DES", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 288, 16, 16, { 0 }, "BUT DECIDE THAT MAYBE,", "BLAST CORPS ENTSCHEIDEN", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 306, 16, 16, { 0 }, "FOR NOW, IT'S TIME", "SICH FUER EINEN", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 324, 16, 16, { 0 }, "FOR A HOLIDAY.", "AUSGIEBIGEN URLAUB.", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -186, 16, 16, { 0 }, "BATTERED AND CRIPPLED AFTER", "VON DER LANGEN REISE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -168, 16, 16, { 0 }, "ITS LONG VOYAGE, THE LATEST", "GEBEUTELT, WIRD DAS", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -150, 16, 16, { 0 }, "SPACE SHUTTLE IS THROWN OFF", "SPACE SHUTTLE BEIM", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -132, 16, 16, { 0 }, "COURSE DURING RE-ENTRY AND", "WIEDEREINTRITT IN DIE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -114, 16, 16, { 0 }, "FORCED INTO DESPERATE", "ERDATMOSPHAERE AUS DER", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -96, 16, 16, { 0 }, "MEASURES.", "BAHN GESCHLEUDERT.", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    { 0x10A0, 0, -78, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, -60, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, -42, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, -24, 16, 16, { 0 }, "A MAJOR CITY IS SEIZED BY", "DIE BEWOHNER DER STADT", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -6, 16, 16, { 0 }, "PANIC WHEN THE RESIDENTS", "GERATEN IN PANIK, ALS", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 12, 16, 16, { 0 }, "FIND OUT THAT THEIR HOMES", "SIE ERFAHREN, DASS IHRE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 30, 16, 16, { 0 }, "ARE ABOUT TO BECOME AN", "STADT ZUR NOTLANDEBAHN", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 48, 16, 16, { 0 }, "EMERGENCY LANDING STRIP...", "UMFUNKTIONIERT WIRD...", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 66, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 84, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 102, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 120, 16, 16, { 0 }, "TIME IS OF THE ESSENCE AS", "EINE NEUE HERAUSFORDERUNG",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 138, 16, 16, { 0 }, "BLAST CORPS RISES ONCE", "FUER DAS BLAST CORPS", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 156, 16, 16, { 0 }, "MORE TO THE CHALLENGE.", "TEAM.", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    { 0x10A0, 0, 174, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 192, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 210, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 228, 16, 16, { 0 }, "EVEN AS THE SHUTTLE", "SOBALD DAS SHUTTLE AM", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 246, 16, 16, { 0 }, "BLAZES DOWN THROUGH", "HIMMEL ERSCHEINT,", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 264, 16, 16, { 0 }, "THE SKIES, A RUNWAY", "MUSS EINE LANDEBAHN", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 282, 16, 16, { 0 }, "MUST BE CLEARED.", "GERAEUMT SEIN.", NULL, NULL, 0, 0, 30,
+        6, 6, 0,
+    },
+    { 176, 0, 36, 20, 20, { 0 }, "SITUATION:", "SITUATION:", NULL, NULL, 0, 0, 30, 4, 4, 0 },
+    {
+        0x1A0, 32, 58, 16, 16, { 0 }, "********CARRIER LOCKED ON COURSE********",
+        "********TRANSPORTER AUSSER KONTROLLE!***", NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    { 0x2A0, 0, 84, 20, 20, { 0 }, "SOLUTION:", "AUFGABE:", NULL, NULL, 0, 0, 30, 4, 4, 0 },
+    {
+        0x1A0, 23, 106, 16, 16, { 0 }, "********CLEAR PATH TO GROUND ZERO************",
+        "********WEG FREILEGEN!************", NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    { 176, 0, 36, 20, 20, { 0 }, "AGENTS:", "TEAM:", NULL, NULL, 0, 0, 30, 4, 4, 0 },
+    {
+        0x1A0, 69, 58, 16, 16, { 0 }, "********BLAST CORPS********", "********BLAST CORPS********",
+        NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    { 0x2A0, 0, 84, 20, 20, { 0 }, "CHANCES:", "CHANCEN:", NULL, NULL, 0, 0, 30, 4, 4, 0 },
+    {
+        0x1A0, 94, 106, 16, 16, { 0 }, "********SLIM*!******************",
+        "********SCHLECHT!*****************", NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x1B0, 0, 48, 20, 20, { 0 }, "******MISSION 1:**", "******MISSION 1:**", NULL, NULL, 0, 0,
+        30, 4, 4, 0,
+    },
+    {
+        0x220, 0, 74, 15, 15, { 0 }, "CLEAR PATH FOR CARRIER", "RAEUME DEN WEG FUER DEN", NULL,
+        NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x220, 0, 91, 15, 15, { 0 }, "ON EACH MAIN LEVEL.", "TRANSPORTER FREI.", NULL, NULL, 0, 0,
+        30, 7, 4, 0,
+    },
+    {
+        0x1B0, 0, 40, 20, 20, { 0 }, "******MISSION 2:**", "******MISSION 2:**", NULL, NULL, 0, 0,
+        30, 4, 4, 0,
+    },
+    {
+        0x220, 0, 66, 15, 15, { 0 }, "ACTIVATE ALL RDUS AND", "AKTIVIERE ALLE RDU'S UND", NULL,
+        NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x220, 0, 83, 15, 15, { 0 }, "DESTROY ALL BUILDINGS", "ZERSTOERE DIE GEBAEUDE, UM", NULL,
+        NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x220, 0, 100, 15, 15, { 0 }, "TO EARN SECOND GOLD.", "DAS ZWEITE GOLD ZU ERHALTEN.", NULL,
+        NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x1B0, 0, 40, 20, 20, { 0 }, "******MISSION 3:**", "******MISSION 3:**", NULL, NULL, 0, 0,
+        30, 4, 4, 0,
+    },
+    {
+        0x220, 0, 66, 14, 15, { 0 }, "AFTER COMPLETING MAIN LEVELS,", "SUCHE NACH DEN 6 WISSEN-",
+        NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x220, 0, 83, 14, 15, { 0 }, "FIND ALL 6 SCIENTISTS TO", "SCHAFTLERN, UM EINE SICHERE",
+        NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x220, 0, 100, 14, 15, { 0 }, "ENSURE A CONTROLLED DETONATION.",
+        "EXPLOSION ZU ERMOEGLICHEN!", NULL, NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x1B0, 0, 48, 20, 20, { 0 }, "******MISSION 4:**", "******MISSION 4:**", NULL, NULL, 0, 0,
+        30, 4, 4, 0,
+    },
+    {
+        0x220, 0, 74, 15, 15, { 0 }, "ACHIEVE GOLD ON ALL LEVELS", "ERRINGE IN ALLEN LEVELN", NULL,
+        NULL, 0, 0, 30, 7, 4, 0,
+    },
+    {
+        0x220, 0, 91, 15, 15, { 0 }, "TO COMMENCE TIME ATTACK.", "DIE GOLDMEDAILLE.", NULL, NULL, 0,
+        0, 30, 7, 4, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "BLAST CORPS: LEADERS IN", "DAS BLAST CORPS TEAM (BCT)", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "THE FIELD OF HEAVY DUTY", "IST FUEHREND IN DER BRANCHE", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "DEMOLITION THROUGH A", "DER ABRISSEXPERTEN. ES", NULL, NULL, 0,
+        0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "COMBINATION OF SKILL,", "VERFUEGT UEBER MOTIVIERTE", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "EXPERIENCE AND CUTTING-", "MITARBEITER UND DIE", NULL, NULL, 0,
+        0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "EDGE TECHNOLOGY.", "NEUESTE TECHNOLOGIE.", NULL, NULL, 0, 0, 30,
+        7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "SINCE ITS BIRTH THE COMPANY", "DAS TEAM HAT SEINE SPEZIAL-",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "HAS APPLIED ITS UNIQUE TALENTS",
+        "FAEHIGKEITEN DAZU EINGESETZT,", NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "TO THE PROBLEM OF URBAN DECAY,", "VOM ZERFALL BEDROHTE STAEDTE",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "RENOVATING AND REVITALISING", "ZU SAEUBERN UND DAMIT EINEN",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "CITIES FROM ONE END OF THE", "NEUAUFBAU DER VEROTTETEN", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "COUNTRY TO THE OTHER.", "METROPOLEN ERMOEGLICHT.", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "A FAR CRY FROM THE SENSELESS", "DIE MILITAERBASIS RAFTERS",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "WARFARE AMIDST WHICH THE", "ENTWICKELTE SCHRECKLICHE", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "SEEDS OF THE PROJECT WERE", "KAMPFMASCHINEN, DIE VOM", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "SOWN, IN THE HEAVY VEHICLE", "BCT JETZT SINNVOLL FUER", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "DEVELOPMENT BAY AT THE", "FRIEDLICHE ZWECKE", NULL, NULL, 0, 0,
+        30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "MILITARY BASE CALLED RAFTERS.", "GENUTZT WERDEN.", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "WHILE DEMONSTRATING A GREAT", "DIE GRUENDUNGSMITGLIEDER", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "NATURAL FLAIR, THE FOUNDING", "DES BLAST CORPS TEAMS,", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "MEMBERS OF THE TEAM - AMBER,", "AMBER, CLARK, WESLEY UND", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "CLARK, WESLEY AND SPIKE - WERE", "SPIKE, NUTZEN DIE", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "NEVER HAPPY WITH THE ULTIMATE", "VEHIKEL ZUR SANIERUNG", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "PURPOSE OF THEIR MACHINES...", "DER ALTEN STAEDTE.", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "SO WHEN WESLEY WAS CRUELLY", "VOR ETWA FUENF JAHREN", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "REJECTED FOLLOWING THE FIELD", "GRUENDETEN SIE ZUM", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "ACCIDENT THAT LEFT HIM", "LEIDWESEN DER ARMEE", NULL, NULL, 0,
+        0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "DISABLED, HIS FRIENDS FINALLY", "DAS ERFOLGREICHE", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "REBELLED AND LED THE", "BLAST CORPS TEAM.", NULL, NULL, 0, 0,
+        30, 7, 6, 0,
+    },
+    { 160, 0, 96, 15, 15, { 0 }, "INFAMOUS RAFTERS WALKOUT.", " ", NULL, NULL, 0, 0, 30, 7, 6, 0 },
+    {
+        176, 0, 16, 15, 15, { 0 }, "BLAST CORPS CAME INTO BEING", "IN DER GEGENWART SORGT", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "SOON AFTER. THAT WAS FIVE", "DAS TEAM DAFUER, DASS", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "YEARS AGO. BUT NOW, IN", "DER MENSCHHEIT EIN", NULL, NULL, 0, 0,
+        30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "THE PRESENT DAY, WORLD PEACE", "LEBEN IN STINKENDEN,", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "IS SHATTERED AS MANKIND FACES", "MARODEN STAEDTEN", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "CRISIS ON A WORLDWIDE SCALE.", "ERSPART BLEIBT.", NULL, NULL, 0,
+        0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "A PAIR OF DEFECTIVE NUCLEAR", "EIN VOLLAUTOMATISCHER", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "MISSILES, EN ROUTE TO A SAFE", "TRANSPORTER BEFOERDERT", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "DETONATION SITE, HAVE BEGUN", "NUKLEARE SPRENGKOEPFE UND", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "TO LEAK. BADLY DAMAGED, THE", "IST AUSSER KONTROLLE GERATEN.",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "CARRIER AUTOMATICALLY LOCKS", "DER AUTOPILOT STEUERT", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "ONTO THE MOST DIRECT ROUTE.", "STUR DIE DIREKTE ROUTE.", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "BAD MEMORIES RESURFACE FOR", "DAS BCT IST DIE EINZIGE", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "THE BLAST CORPS TEAM WHEN,", "ORGANISATION, WELCHE DIE", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "SUMMONED TO THEIR NATION'S", "NUKLEARE KATASTROPHE NOCH", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "DEFENCE, THEY FIND OUT WHERE", "ABWENDEN KANN. DIE", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "THE WARHEADS ORIGINATED: A", "SPRENGKOEPFE STAMMEN WOHL", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "CERTAIN NEARBY MILITARY BASE.", "AUS DER ARMEEBASIS.", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "THE FLOOD OF RADIATION PREVENTS", "DEM LECKGESCHLAGENEN LKW",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "ANYONE GETTING CLOSE TO THE", "ENTWEICHT RADIOAKTIVE", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "RUNAWAY CARRIER, AND PEOPLE IN", "STRAHLUNG. DESHALB KANN MAN",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "THE KNOW FEAR THAT EVEN THE", "DEN TRANSPORTER NICHT", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "SLIGHTEST JOLT COULD TRIGGER", "BESTEIGEN, UM IHN VON", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "A CATASTROPHIC EXPLOSION.", "SEINEM KURS ABZUBRINGEN.", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 16, 15, 15, { 0 }, "STANDING AS THE WORLD'S FINAL", "DAS BCT MUSS DEN WEG DES",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 32, 15, 15, { 0 }, "HOPE, BLAST CORPS MUST CLEAR", "TRANSPORTERS FREIMACHEN,", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 48, 15, 15, { 0 }, "THE WAY TO GROUND ZERO, GATHER", "ALLES AUS DEM WEG RAEUMEN,",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 64, 15, 15, { 0 }, "A TEAM OF SIX ELITE SCIENTISTS", "SECHS ELITE-WISSENSCHAFTLER",
+        NULL, NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 80, 15, 15, { 0 }, "AND ULTIMATELY COUNTER THE", "FINDEN UND DAMIT DEN", NULL, NULL,
+        0, 0, 30, 7, 6, 0,
+    },
+    {
+        160, 0, 96, 15, 15, { 0 }, "THREAT OF NUCLEAR WINTER.", "ATOMAREN SUPERGAU ABWENDEN.", NULL,
+        NULL, 0, 0, 30, 7, 6, 0,
+    },
+    {
+        176, 0, 88, 16, 16, { 0 }, "EVEN AS THE CARRIER", "DA DER TRANSPORTER", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        160, 0, 106, 16, 16, { 0 }, "TRUNDLES TOWARDS GROUND", "UNKONTROLLIERT SEINEM", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        160, 0, 124, 16, 16, { 0 }, "ZERO, YOU ARE DOING", "ZIEL ENTGEGENFAEHRT, MUSST", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        160, 0, 142, 16, 16, { 0 }, "EVERYTHING IN YOUR POWER", "DU DEIN BESTES GEBEN, UM", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        160, 0, 160, 16, 16, { 0 }, "TO GET THE ASSEMBLED", "DIE WISSENSCHAFTLER ZU", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        160, 0, 178, 16, 16, { 0 }, "SCIENTISTS THERE FIRST...", "UNTERSTUETZEN...", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -188, 16, 16, { 0 }, "MERCIFULLY, THE SCIENTISTS", "DEN WISSENSCHAFTLERN IST",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -170, 16, 16, { 0 }, "ARE ABLE TO SET UP A", "ES GELUNGEN, DEN LKW", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -152, 16, 16, { 0 }, "PROPERLY CONTROLLED", "MIT DER NUKLEAREN LADUNG", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -134, 16, 16, { 0 }, "DETONATION - AND FINALLY,", "DURCH EINE EXAKT GEPLANTE",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -116, 16, 16, { 0 }, "AS THE SMOKE FADES, THE WORLD",
+        "UND KONTROLLIERTE EXPLOSION", NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -98, 16, 16, { 0 }, "CAN LET OUT A SIGH OF RELIEF.", "UNSCHAEDLICH ZU MACHEN.",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    { 0x10A0, 0, -80, 16, 16, { 0 }, "", "", NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, -62, 16, 16, { 0 }, "", "", NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, -44, 16, 16, { 0 }, "", "", NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, -26, 16, 16, { 0 }, "THE DEVASTATION LEFT IN", "DIE VERWUESTUNG, DIE DAS", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, -8, 16, 16, { 0 }, "YOUR WAKE IS NOTHING COMPARED", "BLAST CORPS TEAM WAEHREND",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 10, 16, 16, { 0 }, "TO WHAT WOULD HAVE HAPPENED", "DES EINSATZES ANGERICHTET",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 28, 16, 16, { 0 }, "HAD BLAST CORPS FAILED", "HAT, IST BEI WEITEM NICHT", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 46, 16, 16, { 0 }, "AT THE LAST.", "SO GROSS WIE DIE DROHENDE", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 64, 16, 16, { 0 }, "", "NUKLEARKATASTROPHE.", NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 82, 16, 16, { 0 }, "REBUILDING BEGINS IMMEDIATELY.", "", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    {
+        0x10A0, 0, 100, 16, 16, { 0 }, "", "DIE MENSCHHEIT KANN WIEDER", NULL, NULL, 0, 0, 30, 6, 6,
+        0,
+    },
+    {
+        0x10A0, 0, 118, 16, 16, { 0 }, "", "AUFATMEN. DIE GEFAHR WURDE", NULL, NULL, 0, 0, 30, 6, 6,
+        0,
+    },
+    {
+        0x10A0, 0, 136, 16, 16, { 0 }, "", "IM LETZTEN MOMENT GEBANNT.", NULL, NULL, 0, 0, 30, 6, 6,
+        0,
+    },
+    {
+        0x10A0, 0, 154, 16, 16, { 0 }, "WITH CATASTROPHE AVERTED, THE", "", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    {
+        0x10A0, 0, 172, 16, 16, { 0 }, "TEAM MEMBERS BECOME NATIONAL", "", NULL, NULL, 0, 0, 30, 6,
+        6, 0,
+    },
+    {
+        0x10A0, 0, 190, 16, 16, { 0 }, "HEROES, THEIR SUCCESS AND", "DAS BCT-TEAM WIRD VON", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 208, 16, 16, { 0 }, "SATISFACTION ASSURED FOR", "ALLEN GEFEIERT.", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 226, 16, 16, { 0 }, "THE FORESEEABLE FUTURE.", "", NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x120, 44, 6, 20, 20, { 0 }, "**RDUS COLLECTED!**********", "**RDU'S AKTIVIERT!*******",
+        NULL, NULL, 0, 0, 30, 18, 4, 0,
+    },
+    {
+        0x120, 44, 6, 20, 20, { 0 }, "**SURVIVORS FREE!**********", "**UEBERLEBENDE BEFREIT!***",
+        NULL, NULL, 0, 0, 30, 18, 4, 0,
+    },
+    {
+        0x120, 44, 6, 20, 20, { 0 }, "**BUILDINGS DESTROYED!**********",
+        "**GEBAEUDE ZERSTOERT!**********", NULL, NULL, 0, 0, 30, 18, 4, 0,
+    },
+    {
+        0x120, 44, 6, 20, 20, { 0 }, "**LEVEL COMPLETE!**********", "**LEVEL BEENDET!**********",
+        NULL, NULL, 0, 0, 30, 18, 4, 0,
+    },
+    {
+        0x120, 44, 6, 20, 20, { 0 }, "**PATH CLEARED!**********", "**WEG FREIGELEGT!********", NULL,
+        NULL, 0, 0, 30, 18, 4, 0,
+    },
+    {
+        0x1A0, 24, 20, 24, 24, { 0 }, "********EMERGENCY!****************",
+        "********ALARM!****************", NULL, NULL, 0, 0, 30, 4, 4, 0,
+    },
+    {
+        160, 0, 48, 20, 20, { 0 }, "YOU MUST COMPLETELY", "RAEUME DIE GEGENSTAENDE", NULL, NULL, 0,
+        0, 30, 7, 4, 0,
+    },
+    {
+        160, 0, 70, 20, 20, { 0 }, "REMOVE ALL OBSTACLES", "AUS DER GEFAHRENZONE!", NULL, NULL, 0,
+        0, 30, 7, 4, 0,
+    },
+    { 160, 0, 92, 20, 20, { 0 }, "FROM THE DANGER ZONE!", " ", NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    {
+        164, 32, 6, 20, 20, { 0 }, "DANGER ZONE!", "EINE KOLLISION DROHT!", NULL, NULL, 0, 0, 30,
+        17, 4, 0,
+    },
+    { 0x480, -32, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 16, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, -128, 16, 16, { 0 }, "THIS IS AN RDU,", "DIES IST EIN RDU. SOBALD", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -110, 16, 16, { 0 }, "TRIGGERED REMOTELY", "DU DARUEBER FAEHRST,", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -92, 16, 16, { 0 }, "AS YOU DRIVE BY.", "IST ES AKTIVIERT.", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x1020, 0, -74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x1020, 0, -56, 16, 16, { 0 }, "THEY CAN BE USED FOR", "RDU'S WEISEN DIR DEN WEG", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -38, 16, 16, { 0 }, "GUIDANCE AS WELL AS", "UND DIENEN AUCH ZUR", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -20, 16, 16, { 0 }, "RADIATION DISPERSAL.", "STRAHLENMINDERUNG.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x480, -32, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 56, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, -128, 16, 16, { 0 }, "COMMUNICATION POINTS", "KOMMUNIKATIONSPUNKTE", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -110, 16, 16, { 0 }, "ALLOW YOU TO MAKE", "ERLAUBEN DIR, KONTAKT", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -92, 16, 16, { 0 }, "CONTACT WITH HQ.", "ZUR BASIS AUFZUNEHMEN.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x1020, 0, -74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x1020, 0, -56, 16, 16, { 0 }, "WHEN ACTIVATED, THEY", "WURDEN SIE AKTIVIERT,", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -38, 16, 16, { 0 }, "BREAK OPEN VALUABLE", "OEFFNEN SIE WEGE ZU", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -20, 16, 16, { 0 }, "NEW TRAINING LEVELS.", "NEUEN TRAININGSLEVELN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x1020, 0, -2, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x1020, 0, 16, 16, 16, { 0 }, "YOU CAN", "DU FINDEST DIE NEUEN", NULL, NULL, 0, 0, 30, 7, 7,
+        0,
+    },
+    {
+        0x1021, 0, 34, 16, 16, { 0 }, "ACCESS THESE FROM", "WEGE ZU DEN LEVELN", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 52, 16, 16, { 0 }, "THE WORLD SCREEN.", "AUF DER WELTKARTE.", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x480, -16, 8, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 62, 0, 0, 22, 2, 0 },
+    { 0x11A0, 0, -52, 24, 24, { 0 }, "BACKLASH", "MONSTERTRUCK", NULL, NULL, 0, 0, 30, 4, 7, 0 },
+    {
+        0x10A0, 0, 20, 16, 16, { 0 }, "DESTROY BUILDINGS", "ZERSTOERE MIT DER", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 38, 16, 16, { 0 }, "WITH BACKLASH USING", "STAEHLERNEN KIPPLADE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 56, 16, 16, { 0 }, "ITS ARMOURED REAR.", "DES TRUCKS GEBAEUDE.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    { 0x10A0, 0, 92, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 110, 16, 16, { 0 }, "USE R TO SKID", "DRUECKE DIE R-TASTE,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 128, 16, 16, { 0 }, "THE TRUCK WHEN", "UM DEN TRUCK INS", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x10A0, 0, 146, 16, 16, { 0 }, "GOING INTO A TURN.", "SCHLIDDERN ZU BRINGEN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 164, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 182, 16, 16, { 0 }, "AIM FOR AT LEAST", "VERSUCHE MINDESTENS", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 200, 16, 16, { 0 }, "A SILVER MEDAL", "DIE SILBERMEDAILLE", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x10A0, 0, 218, 16, 16, { 0 }, "BEFORE PROGRESSING:", "ZU ERREICHEN.", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    { 0x10A0, 0, 236, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 254, 16, 16, { 0 }, "THIS TECHNIQUE", "DIESE TECHNIK MUSS", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x10A0, 0, 272, 16, 16, { 0 }, "MUST BE MASTERED", "IN SPAETEREN LEVELN", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 290, 16, 16, { 0 }, "FOR LATER LEVELS.", "GUT BEHERRSCHT WERDEN.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 308, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 326, 16, 16, { 0 }, "USE BUMPS TO GET", "NUTZE DAS STAHLHECK,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 344, 16, 16, { 0 }, "BACKLASH AIRBORNE AND", "UM DIE ZERSTOERUNGS-", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 362, 16, 16, { 0 }, "CAUSE MAXIMUM DAMAGE.", "KRAFT ZU OPTIMIEREN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -16, 8, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 58, 0, 0, 22, 2, 0 },
+    { 0x11A0, 0, -52, 24, 24, { 0 }, "SIDESWIPE", "XR7-PROTOCRASH", NULL, NULL, 0, 0, 30, 4, 7, 0 },
+    {
+        0x10A0, 0, 20, 16, 16, { 0 }, "HITS HARDEST AT THE", "DIE SEITENTEILE TREFFEN", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 38, 16, 16, { 0 }, "MAXIMUM EXTENSION", "AM HAERTESTEN, WENN SIE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 56, 16, 16, { 0 }, "OF ITS SIDE PANELS.", "GANZ AUSGEFAHREN SIND.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    { 0x10A0, 0, 92, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 110, 16, 16, { 0 }, "FIND BLUE AMMO BOXES", "SUCHE BLAUE KISTEN,", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 128, 16, 16, { 0 }, "TO KEEP SIDESWIPE'S", "UM DIE ANGRIFFSKRAFT", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 146, 16, 16, { 0 }, "ATTACK POWER AT FULL.", "DES XR7 ZU SICHERN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 164, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 182, 16, 16, { 0 }, "CHARGES REMAINING", "DER MUNITIONSVORRAT", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 200, 16, 16, { 0 }, "ARE DISPLAYED IN THE", "WIRD AUF DEM BILDSCHIRM", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 218, 16, 16, { 0 }, "LOWER LEFT CORNER.", "LINKS UNTEN ANGEZEIGT.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -16, 8, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 59, 0, 0, 22, 2, 0 },
+    { 0x11A0, 0, -52, 24, 24, { 0 }, "THUNDERFIST", "DONNERFAUST", NULL, NULL, 0, 0, 30, 4, 7, 0 },
+    {
+        0x10A0, 0, 20, 16, 16, { 0 }, "DEMOLISH BUILDINGS", "ZERSTOERE GEBAEUDE", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 38, 16, 16, { 0 }, "BY DIVING AND", "MIT EINEM", NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 56, 16, 16, { 0 }, "ROLLING INTO THEM.", "POWER-SALTO.", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    { 0x10A0, 0, 74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 92, 16, 16, { 0 }, "A WELL-TIMED SERIES", "PERFEKTES TIMING", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 110, 16, 16, { 0 }, "OF ATTACKS CAN CAUSE", "KANN GROSSEN", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x10A0, 0, 128, 16, 16, { 0 }, "INCREDIBLE DAMAGE.", "SCHADEN ANRICHTEN.", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x480, -16, 8, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 60, 0, 0, 22, 2, 0 },
+    { 0x11A0, 0, -52, 24, 24, { 0 }, "SKYFALL", "TURBOBUGGY", NULL, NULL, 0, 0, 30, 4, 7, 0 },
+    {
+        0x10A0, 0, 20, 16, 16, { 0 }, "MAKE USE OF SKYFALL'S", "SPRINGE AUF OBJEKTE,", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 38, 16, 16, { 0 }, "ARMOURED UNDERSIDE", "UM DIE STAHLUNTERSEITE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 56, 16, 16, { 0 }, "TO CRUSH FROM ABOVE.", "DES BUGGYS EINZUSETZEN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x10A0, 0, 74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 92, 16, 16, { 0 }, "TURBO INTO A DITCH", "DRUECKE DIE L- ODER", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 110, 16, 16, { 0 }, "WITH L/R TO LAUNCH", "R-TASTE, UM DEN TURBO", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 128, 16, 16, { 0 }, "YOURSELF SKYWARDS...", "ZU AKTIVIEREN.", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x480, -16, 8, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 66, 0, 0, 22, 2, 0 },
+    { 0x11A0, 0, -52, 24, 24, { 0 }, "J-BOMB", "J-BOMB", NULL, NULL, 0, 0, 30, 4, 7, 0 },
+    {
+        0x10A0, 0, 20, 16, 16, { 0 }, "USE A TO THRUST", "DRUECKE DEN A-KNOPF,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x10A0, 0, 38, 16, 16, { 0 }, "J-BOMB INTO THE", "UM DIE JETS ZU", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x10A0, 0, 56, 16, 16, { 0 }, "AIR OVER A TARGET...", "AKTIVIEREN.", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    { 0x10A0, 0, 74, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    {
+        0x10A0, 0, 92, 16, 16, { 0 }, "THEN HIT B TO", "DRUECKE DEN B-KNOPF,", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x10A0, 0, 110, 16, 16, { 0 }, "DIVE EARTHWARDS", "UM NACH UNTEN ZU", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    { 0x10A0, 0, 128, 16, 16, { 0 }, "FROM A HEIGHT.", "STAMPFEN.", NULL, NULL, 0, 0, 30, 7, 7, 0 },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, -128, 16, 16, { 0 }, "SURVIVORS ESCAPE WHEN", "UEBERLEBENDE ENTKOMMEN,", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -110, 16, 16, { 0 }, "THE WALLS AROUND", "WENN SIE AUS DEN", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -92, 16, 16, { 0 }, "THEM ARE DESTROYED.", "GEBAEUDEN BEFREIT", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -56, 16, 16, { 0 }, "CUE THE BLAST CORPS", "WURDEN. DER BLAST CORPS", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -38, 16, 16, { 0 }, "CHOPPER, SWOOPING IN", "HELIKOPTER NIMMT SIE", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -20, 16, 16, { 0 }, "TO PICK THEM UP.", "AUF. EINE GOLDMEDAILLE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 16, 16, 16, { 0 }, "ONE GOLD COMMENDATION", "GIBT ES FUER DAS", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 34, 16, 16, { 0 }, "IS GIVEN PER LEVEL", "RAEUMEN DES WEGES. DIE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 52, 16, 16, { 0 }, "FOR PATH CLEARANCE:", "ZWEITE FUER DIE RETTUNG", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 88, 16, 16, { 0 }, "THE SECOND REQUIRES", "ALLER UEBERLEBENDEN,", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 106, 16, 16, { 0 }, "ALL SURVIVORS, RDUS", "DAS FINDEN DER RDU'S UND", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 124, 16, 16, { 0 }, "AND TOTAL DESTRUCTION.", "DIE TOTALE ZERSTOERUNG.", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 13, 0, 0, 22, 2, 0 },
+    { 0x1061, 0, -128, 20, 20, { 0 }, "WARNING!", "WARNUNG!", NULL, NULL, 0, 0, 30, 4, 4, 0 },
+    {
+        0x1020, 0, -74, 16, 16, { 0 }, "SOMETHING IN THE", "ETWAS BEFINDET SICH", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, -56, 16, 16, { 0 }, "CARRIER'S PATH", "NOCH AUF DEM WEG DES", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -38, 16, 16, { 0 }, "HAS BEEN MISSED!", "TRANSPORTERS! ACHTE", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -2, 16, 16, { 0 }, "KEEP AN EYE", "AUF DEN PFEIL LINKS", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1021, 0, 16, 16, 16, { 0 }, "ON THE LOWER", "UNTEN. ER WECHSELT", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 34, 16, 16, { 0 }, "LEFT ARROW...", "VON GRUEN ZU ROT,", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 70, 16, 16, { 0 }, "IT CHANGES FROM GREEN", "JE NAEHER DER LKW", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 88, 16, 16, { 0 }, "TO RED AS YOU CLOSE", "KOMMT. ACHTE AUF", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 106, 16, 16, { 0 }, "IN ON THE CARRIER.", "DEN RADARSCHIRM. ROT", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 142, 16, 16, { 0 }, "USE IT WITH THE RADAR", "ZEIGT DIR, WO SICH", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 160, 16, 16, { 0 }, "TO QUICKLY TRACK", "DER TRANSPORTER", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 178, 16, 16, { 0 }, "DOWN THE PROBLEM:", "BEFINDET. BLAU ZEIGT", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 214, 16, 16, { 0 }, "RED INDICATES THE", "DAS NAECHSTE GEBAEUDE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 232, 16, 16, { 0 }, "CARRIER, BLUE THE NEXT", "AN, DAS SICH IM WEG", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 250, 16, 16, { 0 }, "BUILDING IN ITS PATH.", "DES LKW'S BEFINDET.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, -74, 16, 16, { 0 }, "CONGRATULATIONS!", "GRATULATION!", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1021, 0, -56, 16, 16, { 0 }, "THIS IS ONE OF", "DIES IST EINES DER", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, -38, 16, 16, { 0 }, "THE BONUS VEHICLES.", "BONUS-FAHRZEUGE.", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, -2, 16, 16, { 0 }, "THEY ARE", "SIE SIND BESONDERS", NULL, NULL, 30, 0, 7, 7, 0,
+        0,
+    },
+    {
+        0x1021, 0, 16, 16, 16, { 0 }, "MOST USEFUL IN", "IN DEN TRAININGS-", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 34, 16, 16, { 0 }, "TRAINING STAGES:", "LEVELN HILFREICH.", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 70, 16, 16, { 0 }, "ACCESS THESE", "SUCHE NACH KONTAKT-", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1021, 0, 88, 16, 16, { 0 }, "VIA THE LEVEL'S", "PUNKTEN, UM TRAININGS-", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 106, 16, 16, { 0 }, "COMMUNICATION POINTS.", "LEVEL ZU ENTDECKEN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1024, 0, 0, 16, 16, { 0 }, "PATH CLEARED!", "WEG FREIGELEGT!", NULL, NULL, 0, 0, 30, 18,
+        18, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "YOUR PRIMARY MISSION", "DEINE ERSTE AUFGABE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "HERE IS COMPLETE.", "IST BEENDET. DU", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "THE BLAST CORPS", "KANNST DEN LEVEL", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "SEMI ALLOWS YOU", "VERLASSEN. WECHSLE", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "TO EXIT THE LEVEL.", "DIE FAHRZEUGE, INDEM", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 144, 16, 16, { 0 }, "MOVE BETWEEN", "DU DEN Z-TRIGGER", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1021, 0, 162, 16, 16, { 0 }, "VEHICLES WITH", "DRUECKST. HAST DU", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 180, 16, 16, { 0 }, "THE Z BUTTON.", "NOCH ZEITRESERVEN,", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 216, 16, 16, { 0 }, "SPARE TIME CAN BE", "KANNST DU RDU'S", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1021, 0, 234, 16, 16, { 0 }, "USED TO FIND RDUS AND", "SUCHEN ODER WEITERE", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 252, 16, 16, { 0 }, "DESTROY BUILDINGS...", "GEBAEUDE EINSTAMPFEN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 288, 16, 16, { 0 }, "RETURN IF NECESSARY", "DU KANNST DIE", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1021, 0, 306, 16, 16, { 0 }, "AFTER CHECKING", "LEVEL JEDERZEIT", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 324, 16, 16, { 0 }, "YOUR PERFORMANCE.", "BETRETEN.", NULL, NULL, 0, 0, 30, 7, 7,
+        0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "USE Z TO GET OUT", "DRUECKE DEN Z-TRIGGER,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "OF ONE VEHICLE", "UM ZWISCHEN DEN", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "AND COMMANDEER ANOTHER.", "VEHIKELN ZU WECHSELN.", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "THE DESTRUCTION OF", "DIE ZERSTOERUNG DIESES", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "THIS BUILDING", "GEBAEUDES IST ABSOLUT", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "IS ESSENTIAL!", "WICHTIG! DIE PFEILE", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "FLASHING ARROWS", "ZEIGEN AN, DASS DAS", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "MEAN IT STANDS IN", "OBJEKT IM WEG DES", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "THE CARRIER'S PATH.", "TRANSPORTERS STEHT.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 144, 16, 16, { 0 }, "AS DANGER CLOSES IN,", "DIE PFEILE AENDERN", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 162, 16, 16, { 0 }, "THE ARROWS CHANGE", "BEI GEFAHR IHRE FARBE", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 180, 16, 16, { 0 }, "FROM GREEN TO RED.", "VON GRUEN ZU ROT!", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "THIS IS A PERIPHERY", "DIES IST EIN NEBEN-", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "STRUCTURE: CRUSHING", "GEBAUEDE. ES IST", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "IT IS NOT VITAL.", "NICHT VON GROSSER", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "THEN AGAIN, IT'S FUN", "BEDEUTUNG, KANN", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "- AND MIGHT REVEAL", "JEDOCH AUCH EINE", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "A SURPRISE OR TWO...", "UEBERRASCHUNG BERGEN.", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "LEVELLING EVERYTHING", "DAS EINEBNEN DER GEGEND", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "HELPS YOU GAIN", "KANN ZU BEFOERDERUNGEN", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "A COMMENDATION.", "VERHELFEN. DOCH DEINE", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "HOWEVER, IT'S A", "HAUPTAUFGABE IST ES,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "SECONDARY OBJECTIVE", "DEN WEG FUER DEN LKW", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "TO CLEARING THE WAY.", "FREIZUMACHEN. DU", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 144, 16, 16, { 0 }, "CONCENTRATE ON THE", "HAST GENUG ZEIT,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 162, 16, 16, { 0 }, "ARROWED BUILDINGS AS", "UM DEN LEVEL SPAETER", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 180, 16, 16, { 0 }, "THE CARRIER PASSES.", "NOCH EINMAL ZU", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 216, 16, 16, { 0 }, "PLENTY OF TIME TO", "BESUCHEN UND DICH", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 234, 16, 16, { 0 }, "COME BACK LATER", "UM DEN REST ZU", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 252, 16, 16, { 0 }, "AND FINISH THE JOB.", "KUEMMERN.", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "USE Z TO GET OUT", "DRUECKE DEN Z-TRIGGER,", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "OF ONE VEHICLE", "UM ZWISCHEN DEN", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "AND COMMANDEER ANOTHER.", "FAHRZEUGEN ZU WECHSELN.", NULL,
+        NULL, 0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "BUT CLEAR A PATH FOR", "PRUEFE ABER VORHER,", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "THE CARRIER BEFORE", "OB DU DEN WEG", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "GOING OFF TO EXPLORE!", "FREIGEMACHT HAST!", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "THE CRANE CAN MOVE", "DER KRAN KANN VEHIKEL", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "OBJECTS TO PREVIOUSLY", "BEFOERDERN. LADE DAS", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "INACCESSIBLE PLACES.", "GEFAEHRT AUF UND", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "LOAD IT UP THEN", "STEIGE IN DIE", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "HEAD FOR THE", "STEUERZENTRALE DES", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "CONTROLS IN THE CAB.", "KRANS.", NULL, NULL, 0, 0, 30, 7, 7,
+        0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "COLLECT AMMO BOXES", "SAMMLE MUNITIONS-", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "AND YOU CAN BLAST", "KISTEN UND SCHIESSE", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "YOUR WAY THROUGH.", "DIR DEINEN WEG FREI.", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "YOU COULD STOP", "DU KANNST DEN ZUG", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "THE TRAIN AT", "AN DIESER STATION", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "THIS STATION.", "STOPPEN. WARTE AUF", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "WAIT FOR THE SMILEY", "DAS SMILEY-GESICHT,", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "BEFORE ATTEMPTING TO", "UM ZU LADEN ODER", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 108, 16, 16, { 0 }, "LOAD OR UNLOAD.", "ENTLADEN.", NULL, NULL, 0, 0, 30, 7, 7,
+        0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "TNT CRATES CAN BE", "TNT-KISTEN KOENNEN", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "PUSHED AROUND USING", "MIT DER SCHAUFEL DES", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "RAMDOZER'S SHOVEL.", "BULLDOZERS GESCHOBEN", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 72, 16, 16, { 0 }, "BUT THEY WON'T BE", "WERDEN. ACHTUNG! SIE", NULL, NULL, 0, 0,
+        30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 90, 16, 16, { 0 }, "STABLE FOR LONG...", "ZUENDEN AUTOMATISCH!", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "SELECT START THEN", "DRUECKE START UND", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "VIEW STATS TO CHECK", "WAEHLE STATISTIKEN, UM", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "STATUS OF LEVEL.", "DEINEN STATUS ZU SEHEN.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "THE TRAIN CAN HELP", "DER ZUG KANN DEN", NULL, NULL, 0, 0, 30,
+        7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "TRANSPORT RAMDOZER", "BULLDOZER ZUR STATION", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "TO THE STATION.", "TRANSPORTIEREN.", NULL, NULL, 0, 0, 30, 7,
+        7, 0,
+    },
+    { 0x480, -36, 38, 15, 15, { 0 }, NULL, NULL, NULL, NULL, 74, 0, 0, 22, 2, 0 },
+    {
+        0x1020, 0, 0, 16, 16, { 0 }, "PRESSING START WILL", "DRUECKE START UND DU", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    {
+        0x1021, 0, 18, 16, 16, { 0 }, "ALLOW YOU TO VIEW THE", "KANNST DIR DEN WEG DES", NULL, NULL,
+        0, 0, 30, 7, 7, 0,
+    },
+    {
+        0x1020, 0, 36, 16, 16, { 0 }, "MISSILE CARRIER'S PATH.", "LKW'S BETRACHTEN.", NULL, NULL, 0,
+        0, 30, 7, 7, 0,
+    },
+    { 160, -36, 34, 22, 22, { 0 }, NULL, NULL, NULL, NULL, 61, 0, 0, 7, 2, 0 },
+    { 32, 0, 60, 19, 19, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 7, 4, 0 },
+    { 209, 48, 84, 29, 29, { 0 }, "NO", "NEIN", NULL, NULL, 0, 0, 30, 8, 4, 0 },
+    { 209, 180, 84, 29, 29, { 0 }, "YES", "JA", NULL, NULL, 0, 0, 30, 8, 4, 0 },
+    {
+        0x10A4, 0, -146, 22, 22, { 0 }, "CONGRATULATIONS!", "GRATULATION!!!", NULL, NULL, 0, 0, 30,
+        18, 6, 0,
+    },
+    {
+        0x10A0, 0, 0, 16, 16, { 0 }, "HAVING DEMONSTRATED", "NACH DIESER DEMONSTRATION", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 18, 16, 16, { 0 }, "VERSATILITY AND RELIABILITY", "IHRES KOENNENS UND IHRER",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 36, 16, 16, { 0 }, "WELL BEYOND THE CALL OF", "ZUVERLAESSIGKEIT HABEN", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 54, 16, 16, { 0 }, "DUTY, THE BLAST CORPS", "SICH DIE MITGLIEDER", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 72, 16, 16, { 0 }, "TEAM CAN FINALLY TAKE", "DES BLAST CORPS TEAMS", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 90, 16, 16, { 0 }, "THAT WELL-DESERVED HOLIDAY.", "DEN URLAUB WOHLVERDIENT.",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 108, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 126, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 144, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 162, 16, 16, { 0 }, "WHEN THEY GET BACK THEY'LL", "NACH IHRER RUECKKEHR", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 180, 16, 16, { 0 }, "FIND THE OFFERS AND DEALS", "IST DER BRIEFKASTEN", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 198, 16, 16, { 0 }, "STILL FLOODING IN,", "VOLLER INTERESSANTER", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 216, 16, 16, { 0 }, "KEEPING THEM IN THEIR", "AUFTRAEGE, DIE IHNEN", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 234, 16, 16, { 0 }, "CHOSEN LINE OF WORK", "ARBEIT FUER ETLICHE", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 252, 16, 16, { 0 }, "FOR MANY YEARS TO COME...", "JAHRE BESCHEREN...", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 270, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 288, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 306, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 324, 16, 16, { 0 }, "MAYBE AT SOME POINT EVEN", "VIELLEICHT NEHMEN SIE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 342, 16, 16, { 0 }, "LEADING THEM BACK INTO", "AUCH WIEDER AUFTRAEGE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 360, 16, 16, { 0 }, "THE FIELD OF MILITARY", "DER ARMEE ENTGEGEN,", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 378, 16, 16, { 0 }, "OPERATIONS - BUT THIS", "DOCH WERDEN SIE SICH NUR", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 396, 16, 16, { 0 }, "TIME FOR A CONSIDERABLY", "FUER MISSIONEN DES", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 414, 16, 16, { 0 }, "NOBLER CAUSE.", "FRIEDENS EINSETZEN.", NULL, NULL, 0, 0, 30,
+        6, 6, 0,
+    },
+    { 0x10A0, 0, 432, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 450, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 468, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 486, 16, 16, { 0 }, "ALL THAT, THOUGH, CAN WAIT.", "ABER ES GIBT NOCH", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 504, 16, 16, { 0 }, "WITH THEIR COUNTRY", "KEINE NOTWENDIGKEIT,", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 522, 16, 16, { 0 }, "BREATHING A SIGH OF", "SOLCHE ARMEE-EINSAETZE", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 540, 16, 16, { 0 }, "RELIEF AND THEIR GOOD", "ANZUTRETEN. DAS TEAM", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 558, 16, 16, { 0 }, "NAME ASSURED FOR LIFE,", "KANN SICH DAHER", NULL, NULL, 0,
+        0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 576, 16, 16, { 0 }, "THE TEAM CAN REST EASY", "NOCH EIN WENIG", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 594, 16, 16, { 0 }, "FOR A WHILE.", "ENTSPANNEN.", NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 612, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 630, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 648, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 666, 16, 16, { 0 }, "UNLESS, OF COURSE, THE", "ANDERERSEITS LOCKEN AUCH", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 684, 16, 16, { 0 }, "LURE OF THE GOLD STANDARD", "DIE GOLDMEDAILLEN. DAS", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 702, 16, 16, { 0 }, "PROVES TOO MUCH...", "EDLE METALL GLAENZT...", NULL, NULL,
+        0, 0, 30, 6, 6, 0,
+    },
+    { 0x10A0, 0, 720, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 738, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 756, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    { 0x10A0, 0, 774, 16, 16, { 0 }, NULL, NULL, NULL, NULL, 0, 0, 30, 6, 6, 0 },
+    {
+        0x10A0, 0, 792, 16, 16, { 0 }, "PERHAPS THERE ARE", "VIELLEICHT ERWARTET", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 810, 16, 16, { 0 }, "FURTHER CHALLENGES AWAITING", "BESONDERS ERFOLGREICHE",
+        NULL, NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 828, 16, 16, { 0 }, "THOSE WHO CAN ACHIEVE", "ABENTEURER JA NOCH EINE", NULL,
+        NULL, 0, 0, 30, 6, 6, 0,
+    },
+    {
+        0x10A0, 0, 846, 16, 16, { 0 }, "A PERFECT RECORD?", "UEBERRASCHUNG...", NULL, NULL, 0, 0,
+        30, 6, 6, 0,
+    },
+};
+#else
 YoshiEntry D_802F5804[YOSHI_ENTRIES] = {
     { 32, 56, 48, 24, 24, { 0 }, "SELECT OPTION", D_80301B98, 0, 0, 30, 7, 0, 0 },
     { 97, 80, 82, 20, 20, { 0 }, "MORE", D_80301BD4, 0, 0, 30, 7, 4, 0 },
@@ -1278,7 +2858,8 @@ YoshiEntry D_802F5804[YOSHI_ENTRIES] = {
     { 0x10A0, 0, 846, 16, 16, { 0 }, "A PERFECT RECORD ...", D_80301790, 0, 0, 30, 6, 6, 0 },
 #endif
 };
-YoshiWindow D_802F8BDC[0x6c] = {
+#endif
+YoshiWindow D_802F8BDC[YOSHI_WINDOWS] = {
     { 0x100, 208, 32, 16, -0xEFFFFC7, 0, 0, 5, 27, 28, 29, 0, 0, 0 },
     { 0x100, 208, 32, 16, -0x4EFFFFC7, 0, 5, 5, 0, 28, 29, 0, 0, 0 },
     { 0x100, 32, 32, 36, 0x8000008, 0, 10, 1, 0, 0, 0, 0, 0, 0 },
@@ -1338,28 +2919,31 @@ YoshiWindow D_802F8BDC[0x6c] = {
     { 0x140, 128, 0, 56, 0x5000008, 7, 166, 6, 0, 0, 229, 0, 0, 0 },
     { 144, 32, 88, 164, -0x6BFFF758, 0, FE_ENTRY(175), 1, 0, 0, 229, 0, 0, 0 },
     { 0x140, 0x110, 0, -16, 0x4000008, 7, 172, 6, 0, 0, 229, 0, 0, 0 },
-    { 0x140, 0x110, 0, -16, 0x104008, 5, 178, 17, 0, 0, 229, 0, 0, 0 },
+    { 0x140, 0x110, 0, -16, 0x104008, 5, 178, YOSHI_COUNT(178, 17), 0, 0, 229, 0, 0, 0 },
 #ifdef VERSION_JP
     { 0x190, 0x12C, -40, -24, -0x6FFDE580, 0, FE_ENTRY(182), 14, 0, 0, 229, 0, 0, 0 },
 #else
     { 0x190, 0x12C, -40, -30, -0x6FFDE580, 0, FE_ENTRY(182), 14, 0, 0, 229, 0, 0, 0 },
 #endif
-    { 0x100, 32, 32, 36, 0x8000088, 3, 195, 1, 0, 0, 0, 0, 0, 0 },
-    { 0x100, 32, 32, 36, 0x8000088, 3, 196, 1, 0, 0, 0, 0, 0, 0 },
-    { 0x100, 32, 32, 36, 0x8000088, 3, 197, 1, 0, 0, 0, 0, 0, 0 },
-    { 0x100, 32, 32, 36, 0x8000088, 3, 198, 1, 0, 0, 0, 0, 0, 0 },
-    { 0x100, 32, 32, 36, 0x8000088, 3, 199, 1, 130, 0, 0, 0, 0, 0 },
-    { 0x100, 64, 32, 80, 136, 4, 200, 1, 0, 0, 229, 0, 0, 0 },
-    { 0x140, 160, 0, 40, 0x4000088, 3, 201, 3, 0, 0, 229, 0, 0, 0 },
-    { 192, 32, 64, 36, 0x4000008, 0, 204, 1, 235, 0, 0, 0, 0, 0 },
-    { 0x120, 80, 40, 156, 0x905088, 3, 225, 22, 0, 0, 229, 0, 0, 0 },
-    { 0x120, 80, 40, 156, 0x905088, 3, 247, 14, 0, 0, 229, 0, 0, 0 },
-    { 0x120, 80, 40, 156, 0x905088, 3, 0x105, 9, 0, 0, 229, 0, 0, 0 },
-    { 0x120, 80, 40, 156, 0x905088, 3, 0x10E, 9, 0, 0, 229, 0, 0, 0 },
-    { 0x120, 80, 40, 156, 0x905088, 3, 0x117, 9, 0, 0, 229, 0, 0, 0 },
-    { 0x100, 140, 56, 50, 0x1255029, 0, 205, 8, 0, 0, 229, 0, 0, 0 },
-    { 0x100, 140, 56, 50, 0x1255029, 0, 213, 12, 0, 94, 229, 0, 0, 0 },
-    { 0x100, 140, 56, 50, 0x1255029, 0, 0x120, YOSHI_COUNT(0x120, 13), 0, 0, 229, 0, 0, 0 },
+    { 0x100, 32, 32, 36, 0x8000088, 3, YOSHI_ENTRY(195), 1, 0, 0, 0, 0, 0, 0 },
+    { 0x100, 32, 32, 36, 0x8000088, 3, YOSHI_ENTRY(196), 1, 0, 0, 0, 0, 0, 0 },
+    { 0x100, 32, 32, 36, 0x8000088, 3, YOSHI_ENTRY(197), 1, 0, 0, 0, 0, 0, 0 },
+    { 0x100, 32, 32, 36, 0x8000088, 3, YOSHI_ENTRY(198), 1, 0, 0, 0, 0, 0, 0 },
+    { 0x100, 32, 32, 36, 0x8000088, 3, YOSHI_ENTRY(199), 1, 130, 0, 0, 0, 0, 0 },
+    { 0x100, 64, 32, 80, 136, 4, YOSHI_ENTRY(200), 1, 0, 0, 229, 0, 0, 0 },
+    { 0x140, 160, 0, 40, 0x4000088, 3, YOSHI_ENTRY(201), 3, 0, 0, 229, 0, 0, 0 },
+    { 192, 32, 64, 36, 0x4000008, 0, YOSHI_ENTRY(204), 1, 235, 0, 0, 0, 0, 0 },
+    { 0x120, 80, 40, 156, 0x905088, 3, YOSHI_ENTRY(225), 22, 0, 0, 229, 0, 0, 0 },
+    { 0x120, 80, 40, 156, 0x905088, 3, YOSHI_ENTRY(247), 14, 0, 0, 229, 0, 0, 0 },
+    { 0x120, 80, 40, 156, 0x905088, 3, YOSHI_ENTRY(0x105), 9, 0, 0, 229, 0, 0, 0 },
+    { 0x120, 80, 40, 156, 0x905088, 3, YOSHI_ENTRY(0x10E), 9, 0, 0, 229, 0, 0, 0 },
+    { 0x120, 80, 40, 156, 0x905088, 3, YOSHI_ENTRY(0x117), 9, 0, 0, 229, 0, 0, 0 },
+    { 0x100, 140, 56, 50, 0x1255029, 0, YOSHI_ENTRY(205), 8, 0, 0, 229, 0, 0, 0 },
+    { 0x100, 140, 56, 50, 0x1255029, 0, YOSHI_ENTRY(213), 12, 0, 94, 229, 0, 0, 0 },
+    {
+        0x100, 140, 56, 50, 0x1255029, 0, YOSHI_ENTRY(0x120), YOSHI_COUNT(0x120, 13), 0, 0, 229, 0,
+        0, 0,
+    },
     { 0x100, 140, 56, 50, 0x2055029, 0, YOSHI_ENTRY(0x12D), 17, 0, 0, 229, 0, 0, 0 },
     { 0x100, 140, 56, 50, 0x1255029, 0, YOSHI_ENTRY(0x13E), 10, 0, 0, 229, 0, 0, 0 },
     { 0x100, 140, 56, 50, 0x2055029, 0, YOSHI_ENTRY(0x148), 16, 0, 0, 229, 0, 0, 0 },
@@ -1399,6 +2983,9 @@ YoshiWindow D_802F8BDC[0x6c] = {
     { 0x140, 128, 0, 56, -0x5AFFFFD8, 0, 154, 6, 0, 0, 229, 0, 0, 0 },
     { 0x140, 128, 0, 56, -0x5AFFFFD8, 0, 160, 6, 0, 0, 229, 0, 0, 0 },
     { 0x140, 128, 0, 56, -0x5AFFFFD8, 0, 166, 6, 0, 0, 229, 0, 0, 0 },
+#ifdef VERSION_EU
+    { 0x100, 128, 32, 80, -0x4FFFF3C8, 0, YOSHI_ENTRY(208), 4, 0, 0, 29, 0, 0, 0 },
+#endif
 };
 extern Vtx D_802F97B0[0x10];
 #ifdef ASSET_INIT
@@ -1413,6 +3000,7 @@ extern Gfx D_802F98B0[0x10];
 Gfx D_802F98B0[0x10] = { 0 };
 #endif
 s32 D_802F9930 = 1;
+#ifndef VERSION_EU
 UnkStruct_802F9934 D_802F9934[7] = {
     { 189, "RAFTS", D_8030358C },
     { 104, "GAS PLANTS", D_80303594 },
@@ -1422,6 +3010,7 @@ UnkStruct_802F9934 D_802F9934[7] = {
     { 192, "BEACONS", D_803035BC },
     { 230, "CRATES", D_803035C8 },
 };
+#endif
 
 u8 func_8026AD30(s16 arg0) {
     UnkStruct_802F48D0 *sp2C;
@@ -1468,24 +3057,24 @@ void func_8026AF6C(u16 arg0) {
     sp1C = arg0 & 0xFF;
     if (D_8036BB14) {
         if (D_8036BB14) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!yoshiDemandV", "yoshi.c", 0x520);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!yoshiDemandV", "yoshi.c", LINE_EU(0x520, 0x52F));
         }
         func_8029A7E4("NEW: %x OLD:%x\n", arg0, D_8036BB14);
     }
     if ((arg0 & 0x4000) && (arg0 != 0x4000)) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "yd==YOSHI_DEMAND_OFF", "yoshi.c", 0x525);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "yd==YOSHI_DEMAND_OFF", "yoshi.c", LINE_EU(0x525, 0x534));
     }
     if ((sp1C == 0x1E) || (sp1C == 0x23) || (sp1C == 5) || (sp1C == 0xE)) {
         D_8036BB1A = -1;
     }
     if ((sp1E == 0x1E) || (sp1E == 0x23) || (sp1E == 5) || (sp1E == 0xE)) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "yoshi.c", 0x52C);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "yoshi.c", LINE_EU(0x52C, 0x53B));
         func_8029A7E4("OH MY GOD!\n");
         return;
     }
     if (D_8036BB14) {
         if (D_8036BB14) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!yoshiDemandV", "yoshi.c", 0x533);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!yoshiDemandV", "yoshi.c", LINE_EU(0x533, 0x542));
         }
         func_8029A7E4("GOING FOR NEW: %x OLD:%x\n", arg0, D_8036BB14);
     }
@@ -1522,7 +3111,7 @@ void func_8026B118(arg0)
     sp44 = NULL;
     D_8036BB0E = 1;
     if (arg0 == 0) {
-        for (sp38 = 0; sp38 < 108; sp38++) {
+        for (sp38 = 0; sp38 < YOSHI_WINDOWS; sp38++) {
             sp44 = &D_802F8BDC[sp38];
             if (sp44->unk8 & 0x100) {
                 sp44->unk8 |= 0x80;
@@ -1690,11 +3279,11 @@ void func_8026BBD0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
 
     gfx = arg0;
     if (D_8036BB1C == 1 && D_8036BB18 != -1) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!(yoshiState==YOSHI_OFF && currentYoshiWindow!=NO_YOSHI_WINDOW)", "yoshi.c", 0x61F);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!(yoshiState==YOSHI_OFF && currentYoshiWindow!=NO_YOSHI_WINDOW)", "yoshi.c", LINE_EU(0x61F, 0x62E));
     }
     gfx = func_8026BCE0(gfx, arg1, arg2);
     if (D_8036BB1C == 1 && D_8036BB18 != -1) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!(yoshiState==YOSHI_OFF && currentYoshiWindow!=NO_YOSHI_WINDOW)", "yoshi.c", 0x623);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!(yoshiState==YOSHI_OFF && currentYoshiWindow!=NO_YOSHI_WINDOW)", "yoshi.c", LINE_EU(0x623, 0x632));
     }
 #ifdef TARGET_PC
     ret = gfx;
@@ -1804,7 +3393,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
         }
     }
     if (D_8036BB18 == -1 && (D_8036BB14 & 0x4000)) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "yoshi.c", 0x65B);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "yoshi.c", LINE_EU(0x65B, 0x66A));
         D_8036BB14 = 0;
         return arg0;
     }
@@ -1814,6 +3403,13 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
         sp120 = 0;
         func_8029A7E4("yoshiDemand=%x\n", D_8036BB14);
         if (D_8036BB14 & 0x8000) {
+#ifdef VERSION_EU
+            /* the German text of window 12's two entries is wider */
+            if (sp126 == 12 && D_80366F70_eu == 1) {
+                D_8020C070[11].x = 40;
+                D_8020C070[12].x = 156;
+            }
+#endif
             D_8036BB1A = -1;
             if (D_8036BB18 != -1) {
                 sp120 = D_802F8BDC[D_8036BB18].unk8 & 0x8000000;
@@ -1876,9 +3472,9 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                 D_8036BB1C = 4;
                 D_8036BB34 = 1.0f;
                 if (sp14C->unk8 & 0x18) {
-                    D_8036BB08 = 40.0f;
+                    D_8036BB08 = FRAMES_F(40.0f, 33.6f);
                 } else {
-                    D_8036BB08 = 13.333333f;
+                    D_8036BB08 = FRAMES_F(13.333333f, 11.2f);
                 }
                 func_8026EF70(sp14C);
                 sp13A = sp14C->unk12;
@@ -1895,9 +3491,9 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                     sp148 = &D_8036BB10[sp138];
                     if (sp148->flags & 0x20) {
                         if (sp14C->unk8 & 0x80000) {
-                            sp148->x = func_8025B498(sp14C->unk0 / 2, sp148->unk6, sp148->text, sp148->unk10);
+                            sp148->x = func_8025B498(sp14C->unk0 / 2, sp148->unk6, ENTRY_TEXT(sp148), sp148->unk10);
                         } else {
-                            sp148->x = func_8025B498(sp14C->unk0 / 2, sp148->unk6, sp148->text, sp148->unk10);
+                            sp148->x = func_8025B498(sp14C->unk0 / 2, sp148->unk6, ENTRY_TEXT(sp148), sp148->unk10);
                         }
                     }
                 }
@@ -1939,7 +3535,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
             if (sp14C->unk8 & 0x100000) {
                 sp11F = D_8036BB2C < sp14C->unk2 / 8 - D_8036BB10[sp14C->first + sp14C->count - 1].y;
             } else {
-                sp11F = sp14C->unkC != 0 && (D_803156C4 - D_8036BAFC) / 60.0f > sp14C->unkC &&
+                sp11F = sp14C->unkC != 0 && (D_803156C4 - D_8036BAFC) / (f32)REFRESH_RATE > sp14C->unkC &&
                         (!(sp14C->unk8 & 0x400000) || !(D_8036BB1E != 0));
             }
             if (sp11F != 0) {
@@ -2101,7 +3697,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
             }
             if (sp14C->unk8 & 0x4000) {
                 if (sp14C->unk8 & 0x100000) {
-                    if (sp14C->unkC == 0 || !((D_803156C4 - D_8036BAFC) / 60.0f < sp14C->unkC)) {
+                    if (sp14C->unkC == 0 || !((D_803156C4 - D_8036BAFC) / (f32)REFRESH_RATE < sp14C->unkC)) {
                         if (sp14C->unk8 & 0x800000) {
                             D_8036BB2C -= 0.5;
                         } else {
@@ -2204,7 +3800,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                             sp8F = 0;
                         }
                         sp8D = D_8036BA48[sp148->unk14];
-                        sp8C = D_8036BA48[sp148->unk14] = D_803156C4 * 60 / 60 / sp94->unk26 % sp94->unk1A;
+                        sp8C = D_8036BA48[sp148->unk14] = D_803156C4 * 60 / REFRESH_RATE / sp94->unk26 % sp94->unk1A;
                         if (sp8C != sp8D && (sp8F != 0 || D_8036BA98[sp148->unk14] != 0)) {
                             D_8036BA98[sp148->unk14] = (D_8036BA98[sp148->unk14] + 1) % sp94->unk1A;
                         }
@@ -2258,7 +3854,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                             (D_8036BB20 * D_802F47B0[sp148->unk19].a0) *
                                 func_8026F644((UnkStruct_8026F644 *) sp14C, &sp148->flags,
                                               sp148->y - sp134 + D_8036BB30 + sp148->unk8) / 65025 / 2);
-                    } else if (!(sp148->flags & 4) || D_803156C4 % 23 * 60 / 60 < 16) {
+                    } else if (!(sp148->flags & 4) || FRAMES(D_803156C4 % 23) < FRAMES(16)) {
                         func_80259DC8(
                             arg1, sp144, sp140, sp148->flags & 8, 0, sp148->x - sp136 - 3,
                             ((sp148->flags & 0x1000) ? D_8036BB30 : 0) + (sp148->y - sp134) + 3, sp148->unk6,
@@ -2280,8 +3876,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
             sp144 = func_8026F004(sp14C, sp138, 0);
             if (!(sp148->flags & 0x800)) {
                 if (sp138 == sp14C->unk18) {
-                    if ((!(sp148->flags & 4) || D_803156C4 % 23 * 60 / 60 < 16) &&
-                        (!(sp148->flags & 0x40) || D_803156C4 % 15 * 60 / 60 < 11)) {
+                    if ((!(sp148->flags & 4) || FRAMES(D_803156C4 % 23) < FRAMES(16)) &&
+                        (!(sp148->flags & 0x40) || FRAMES(D_803156C4 % 15) < FRAMES(11))) {
                         func_80259DC8(arg1, sp144, sp140, sp148->flags & 8, 0, sp148->x - sp136,
                                       ((sp148->flags & 0x1000) ? D_8036BB30 : 0) + (sp148->y - sp134), sp148->unk6,
                                       sp148->unk8, 1, D_802F47B0[sp148->unk19].r0, D_802F47B0[sp148->unk19].g0,
@@ -2296,7 +3892,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                                           func_8026F644((UnkStruct_8026F644 *) sp14C, &sp148->flags,
                                                         sp148->y - sp134 + D_8036BB30 + sp148->unk8) / 65025);
                     }
-                } else if (!(sp148->flags & 4) || D_803156C4 % 23 * 60 / 60 < 16) {
+                } else if (!(sp148->flags & 4) || FRAMES(D_803156C4 % 23) < FRAMES(16)) {
                     func_80259DC8(arg1, sp144, sp140, sp148->flags & 8, 0, sp148->x - sp136,
                                   ((sp148->flags & 0x1000) ? D_8036BB30 : 0) + (sp148->y - sp134), sp148->unk6,
                                   sp148->unk8, 1, D_802F47B0[sp148->unk18].r0, D_802F47B0[sp148->unk18].g0,
@@ -2347,7 +3943,7 @@ void *func_8026F004(YoshiWindow *arg0, u16 arg1, u8 arg2) {
     } else {
         sp3B = 0;
     }
-    sp34 = (u8 *)sp3C->text;
+    sp34 = (u8 *)ENTRY_TEXT(sp3C);
     sp30 = sp3C->unk10;
     D_8036BB48[0] = D_802E8C98[sp3B];
     switch (D_8036BB1E) {
@@ -2370,7 +3966,11 @@ void *func_8026F004(YoshiWindow *arg0, u16 arg1, u8 arg2) {
                 return sp34;
             }
             if (arg1 <= D_8036BB04) {
+#ifdef VERSION_EU
+                if (D_803156C4 - D_8036BB00 >= 4) { /* PAL's 50 Hz */
+#else
                 if (D_803156C4 - D_8036BB00 >= 5) {
+#endif
                     D_8036BB00 = D_803156C4;
                     D_8036BB06++;
                     if (arg2) {
@@ -2429,7 +4029,11 @@ void *func_8026F004(YoshiWindow *arg0, u16 arg1, u8 arg2) {
                     D_8036BB06 = 0;
                 } else {
                     D_8036BB48[D_8036BB06] = D_802E8C98[sp3B];
+#ifdef VERSION_EU
+                    if (!(sp3C->flags & 0x4000) && D_803156C4 % 8 >= 5) {
+#else
                     if (!(sp3C->flags & 0x4000) && D_803156C4 % 10 >= 6) {
+#endif
                         D_8036BB48[D_8036BB06] = D_802E8C9C[sp3B];
                         D_8036BB48[D_8036BB06 + 1] = D_802E8C98[sp3B];
                     }
@@ -2490,7 +4094,7 @@ s32 func_8026F92C(u64 arg0) {
     s64 i;
 
     if (arg0 == 0) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "in", "yoshi.c", 0x8DE);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "in", "yoshi.c", LINE_EU(0x8DE, 0x8F5));
     }
     if (arg0 == 0) {
         return -1;
@@ -2500,6 +4104,19 @@ s32 func_8026F92C(u64 arg0) {
     return i;
 }
 
+#ifdef VERSION_EU
+/* eu defines it here: its text is in this function's .rodata. */
+UnkStruct_802F9934 D_802F9934[7] = {
+    { 189, { "RAFTS", "PLATTFORMEN", NULL }, NULL },
+    { 104, { "GAS PLANTS", "GASTANKS", NULL }, NULL },
+    { 0, { "CONTAINERS", "CONTAINER", NULL }, NULL },
+    { 186, { "SPHERES", "KUGELN", NULL }, NULL },
+    { 188, { "SPHERES", "KUGELN", NULL }, NULL },
+    { 192, { "BEACONS", "LEUCHTFEUER", NULL }, NULL },
+    { 230, { "CRATES", "KISTEN", NULL }, NULL },
+};
+
+#endif
 u8 func_8026FA38(char **arg0, u16 **arg1) {
     s32 i;
     s32 sp18;
@@ -2516,7 +4133,11 @@ u8 func_8026FA38(char **arg0, u16 **arg1) {
         i = 1;
     }
     if (arg0 != NULL) {
+#ifdef VERSION_EU
+        *arg0 = D_802F9934[i - 1].text[D_80366F70_eu];
+#else
         *arg0 = D_802F9934[i - 1].unk1;
+#endif
     }
     if (arg1 != NULL) {
         *arg1 = D_802F9934[i - 1].unk10;
