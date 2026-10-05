@@ -476,22 +476,6 @@ void func_80275270(u64, f32);
 void func_802C1DD0(s32);
 void func_80260DFC(void);
 
-/*
- * An entry's text in eu's language (D_80366F70_eu: 0 English, 1 German, 2
- * French): eu sets the one of text/text2/text3 that is shown, French to NULL,
- * and has no u16 texts for these (unk10 is NULL).
- */
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu;
-#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
-#define TEXT_EU(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
-#define U16TEXT(p) NULL
-#else
-#define ENTRY_TEXT(e) (e)->text
-#define TEXT_EU(en, de) (en)
-#define U16TEXT(p) (p)
-#endif
-
 void func_80269258(void) {
     s32 i;
     s32 j;

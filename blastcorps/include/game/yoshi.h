@@ -111,7 +111,11 @@ typedef struct UnkStruct_8020C488 {
 } UnkStruct_8020C488;
 SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
 
+#ifdef VERSION_EU
+extern YoshiWindow D_802F8BDC[0x6D]; /* eu has one more */
+#else
 extern YoshiWindow D_802F8BDC[0x6C];
+#endif
 extern ColorPair D_802F47B0[0x17];
 extern UnkStruct_8020C488 D_8020C488[];
 extern YoshiIcon D_802F49F4[0x4B];
@@ -174,5 +178,22 @@ typedef struct UnkStruct_802F48D0 {
     /* 0x02 */ s16 unk2[16];
 } UnkStruct_802F48D0;
 SIZE_CHECK(UnkStruct_802F48D0, 0x22);
+
+/*
+ * eu's language (D_80366F70_eu, hd_code 00000.c's: 0 English, 1 German,
+ * 2 French).  ENTRY_TEXT(e) is the one of e's text/text2/text3 that is
+ * shown; TEXT_EU(en, de) the text for the language, NULL for French;
+ * U16TEXT(p) a u16 text (YoshiEntry.unk10), which eu doesn't have.
+ */
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu;
+#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
+#define TEXT_EU(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
+#define U16TEXT(p) NULL
+#else
+#define ENTRY_TEXT(e) (e)->text
+#define TEXT_EU(en, de) (en)
+#define U16TEXT(p) (p)
+#endif
 
 #endif

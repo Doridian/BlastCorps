@@ -72,6 +72,14 @@ void osScAddClient(Sched *sc, SchedClient *c, OSMesgQueue *msgQ, s32 arg3, s32 a
 void osScRemoveClient(Sched *sc, SchedClient *c);
 OSMesgQueue *osScGetCmdQ(Sched *sc);
 
+/* A frame's count ticks / 100 (the scheduler's RSP and RDP times, in percent
+ * of a frame): eu works it out from osClockRate, for its 20000us frames. */
+#ifdef VERSION_EU
+#define FRAME_TICKS_100 ((u64)20000 * osClockRate / 1000000 / 100)
+#else
+#define FRAME_TICKS_100 7825
+#endif
+
 /* The scheduler's messages (osSetEventMesg/osViSetEvent in osCreateScheduler). */
 #define SCHED_MSG_RETRACE 0x29A
 #define SCHED_MSG_SP 0x29B

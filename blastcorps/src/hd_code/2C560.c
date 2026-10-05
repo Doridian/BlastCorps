@@ -45,14 +45,6 @@ u8 D_802FA270 = 1;
 
 void func_8029A7E4(char *, ...);
 
-/* A frame's count ticks / 100 (the RSP and RDP times, in percent of a frame):
- * eu works it out from osClockRate, for its 20000us frames. */
-#ifdef VERSION_EU
-#define FRAME_TICKS_100 ((u64)20000 * osClockRate / 1000000 / 100)
-#else
-#define FRAME_TICKS_100 7825
-#endif
-
 void osCreateViManager(s32);
 void __scMain(void *);
 void __scAppendList(Sched *, SchedTask *);

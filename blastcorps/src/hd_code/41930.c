@@ -6,8 +6,12 @@
 
 typedef struct {
     /* 0x00 */ s32 unk0;
+#ifdef VERSION_EU
+    /* 0x04 */ s32 unk0_2;  /* eu: the German and French names */
+    /* 0x08 */ s32 unk0_3;
+#endif
     /* 0x04 */ u8 unk4[0x2C];
-} UnkStruct_8020D7E4; /* size = 0x30 */
+} UnkStruct_8020D7E4; /* size = 0x30 (eu 0x38) */
 
 extern UnkStruct_8020D7E4 D_8020D7E4[];
 
@@ -29,8 +33,6 @@ u8 D_802FDA70[0x10] = { 0, 0, 40, 40, 37, 40, 27, 39, 0, 37, 37, 26, 26 };
 
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/41930/func_802860F0.s")
-#elif defined(VERSION_EU)
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/41930/func_80287CD0_eu.s")
 #else
 void func_802860F0(void) {
     u8 sp37;
@@ -55,8 +57,12 @@ void func_802860F0(void) {
                         }
                     }
                 }
+#ifdef VERSION_EU
+                sprintf(D_8036EBA0, TEXT_EU("IN %s.", "IN %s."), (&D_8020D7E4[sp30].unk0)[D_80366F70_eu]);
+#else
                 sprintf(D_8036EBA0, "IN %s.", D_8020D7E4[sp30].unk0);
-                D_8020C070[FE_ENTRY(82)].text = D_8036EBA0;
+#endif
+                ENTRY_TEXT(&D_8020C070[FE_ENTRY(82)]) = D_8036EBA0;
                 break;
             case 6:
                 func_801ECC8C();
