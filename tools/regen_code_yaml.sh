@@ -177,6 +177,5 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "hd_front_end:--asm-object 6790" \
     "hd_front_end:--asm-object 7800" \
     "hd_front_end:--asm-object E7B0" \
-    "hd_front_end:--asm-object 1A240" \
     "hd_front_end:--asm-object 11530" \
     "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90"

@@ -30,7 +30,7 @@ segments:
     - [0x10FB0, c, hd_front_end/10850]
     - [0x11D10, c, hd_front_end/17990]
     - [0x13B80, c, hd_front_end/196F0]
-    - [0x146D0, asm, hd_front_end/1A240]
+    - [0x146D0, c, hd_front_end/1A240]
     - [0x15320, c, hd_front_end/1AE80]
     - [0x155A0, asm, hd_front_end/11530]
     - [0x1BA50, asm, hd_front_end/1B100] # handwritten
@@ -61,7 +61,7 @@ segments:
     - [0x25970, data, hd_front_end/E7B0]
     - [0x25B10, data, hd_front_end/25070]
     - [0x279E0, .data, hd_front_end/10850]
-    - [0x279F0, data, hd_front_end/1A240]
+    - [0x279F0, .data, hd_front_end/1A240]
     - [0x27A40, data, hd_front_end/11530]
     - [0x287F0, .rodata, hd_front_end/C450]
     - [0x28810, .rodata, hd_front_end/9570]
@@ -75,7 +75,7 @@ segments:
     - [0x2B7B0, .rodata, hd_front_end/10850]
     - [0x2B810, .rodata, hd_front_end/17990]
     - [0x2B900, .rodata, hd_front_end/196F0]
-    - [0x2B950, rodata, hd_front_end/1A240] # only eu has this block
+    - [0x2B950, .rodata, hd_front_end/1A240] # only eu has this block
     - [0x2B9B0, .rodata, hd_front_end/1AE80]
     - [0x2B9D0, rodata, hd_front_end/11530]
     # RSP microcode data (DMEM image) for the microcode at the end of .text
@@ -98,7 +98,7 @@ bss:
   - [0x8021CBF0, .bss, hd_front_end/10850]
   - [0x8021D460, .bss, hd_front_end/17990]
   - [0x8021D470, .bss, hd_front_end/196F0]
-  - [0x8021D480, bss, hd_front_end/1A240]
+  - [0x8021D480, .bss, hd_front_end/1A240]
   - [0x8021D4A0, bss, hd_front_end/11530]
   - [0x8021D7D0, .bss, hd_front_end/1DC10]
   - [0x8021D810, .bss, hd_front_end/1F5C0]
