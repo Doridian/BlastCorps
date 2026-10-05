@@ -16,6 +16,10 @@ typedef struct {
 typedef struct {
     /* 0x00 */ char *PTR32 unk0[4][3];   /* eu: per language */
 } UnkStruct_80208358_eu; /* size = 0x30 */
+
+typedef struct {
+    /* 0x00 */ char *PTR32 unk0[2];
+} UnkStruct_80208378_eu; /* size = 0x8 */
 #endif
 
 typedef struct {
@@ -178,7 +182,11 @@ extern UnkStruct_80208358_eu D_80208358;
 extern UnkStruct_80208358 D_80208358;
 #endif
 extern UnkStruct_80208358 D_80208368;
+#ifdef VERSION_EU
+extern UnkStruct_80208378_eu D_80208378;
+#else
 extern char *PTR32 D_80208378[];     /* (PTR32: jp's func_801E8EB8 reads it too) */
+#endif
 extern Vtx D_80208380[];
 extern Gfx D_80208400[];
 extern Lights2 D_80208448;
@@ -454,7 +462,7 @@ u8 D_80208314[0x3c] = {
 u32 D_80208350[2] = { 26, 21 };
 #ifdef VERSION_EU
 /* eu: the second is the language's "GUEST: ", set by func_801E8EB8 */
-char *PTR32 D_80208378[2] = { "", "" };
+UnkStruct_80208378_eu D_80208378 = { { "", "" } };
 /* eu: each one's text in English, German and French (the English again) */
 UnkStruct_80208358_eu D_80208358 = { {
     { CREW_TEXT_AMBER,
@@ -535,10 +543,25 @@ const char D_8020E8EC[] = CREW_TEXT_SPIKE;
 const char D_8020E9AC[] = CREW_TEXT_WESLEY;
 #endif
 
-#if defined(VERSION_JP) || defined(VERSION_EU)
+#ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801E8EB8.s")
 #else
 void func_801E8EB8(u8 arg0, u8 arg1) {
+#ifdef VERSION_EU
+    s32 sp4C;
+    PlayerInfo *sp48;
+    UnkStruct_80208378_eu sp78;
+    u8 sp47;
+    UnkStruct_80208358_eu sp34;
+    UnkStruct_80208358 sp24;
+
+    sp48 = &D_80364AF0[arg0];
+    sp78 = D_80208378;
+    sp47 = 0;
+    sp34 = D_80208358;
+    sp24 = D_80208368;
+    sp78.unk0[1] = LANG_TEXT("GUEST: ", "GAST: ");
+#else
     s32 sp4C;
     PlayerInfo *sp48;
     u8 sp47;
@@ -549,6 +572,7 @@ void func_801E8EB8(u8 arg0, u8 arg1) {
     sp47 = 0;
     sp34 = D_80208358;
     sp24 = D_80208368;
+#endif
     if (!(D_80364A90 & 0x10E18000) && arg0 != D_80364AEA) {
         sp47 = 1;
     }
@@ -561,12 +585,21 @@ void func_801E8EB8(u8 arg0, u8 arg1) {
     }
     if (D_80364A98 == 0x0001000000000000) {
         D_802158A0 = NULL;
+#ifdef VERSION_EU
+        sprintf((char *)D_802155A0, "%s", sp34.unk0[arg0][D_80366F70_eu]);
+#else
         sprintf((char *)D_802155A0, "%s", sp34.unk0[arg0]);
+#endif
     } else {
         D_802158A0 = NULL;
         if (arg0 < 4) {
             if (D_80365060[arg0] == 1) {
+#ifdef VERSION_EU
+                sprintf((char *)D_802155A0, " ..... %s%s (%s) ... ", sp78.unk0[sp47], sp48,
+                        D_802081C0[sp48->unkC][D_80366F70_eu]);
+#else
                 sprintf((char *)D_802155A0, " ..... %s%s (%s) ... ", D_80208378[sp47], sp48, D_802081C0[sp48->unkC][0]);
+#endif
                 if (D_80364AF0[arg0].gameState >= 12) {
                     sp4C = 4;
                 } else {
@@ -585,7 +618,13 @@ void func_801E8EB8(u8 arg0, u8 arg1) {
                 D_802154EC = func_8025B300(D_802155A0);
                 sprintf((char *)D_802155A0, "%s  %d", D_802155A0, sp48->unkC);
                 if ((D_80364A98 & 0x0200040000000000) || (D_80364A90 & 0x0100000000000000)) {
+#ifdef VERSION_EU
+                    sprintf((char *)D_802155A0, "%s ..... %s", D_802155A0,
+                            LANG_TEXT("USE Z/R TO CHANGE PLAYER, THEN A TO SELECT!",
+                                      "DRUECKE Z/R, UM SPIELER ZU WECHSELN, DANN A!"));
+#else
                     sprintf((char *)D_802155A0, "%s ..... %s", D_802155A0, "USE Z/R TO CHANGE PLAYER, THEN A TO SELECT!");
+#endif
                 }
             } else {
                 sprintf((char *)D_802155A0, " ... NEW GAME");
@@ -614,7 +653,7 @@ void func_801E8EB8(u8 arg0, u8 arg1) {
         }
     }
     if (D_802154D2 >= 0x100) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sslen<TOTAL_SCROLL_LENGTH", "player.c", 400);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sslen<TOTAL_SCROLL_LENGTH", "player.c", LINE_EU(400, 415));
     }
     D_802154DC = -1;
     if (arg1 || arg0 == 4) {
@@ -1382,9 +1421,6 @@ void func_801ECE9C(void) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801ECF5C.s")
-#else
 void func_801ECF5C(void) {
     PlayerInfo *sp6C;
     u8 sp4C[0x20];
@@ -1403,7 +1439,7 @@ void func_801ECF5C(void) {
     sp3C = sp6C->units;
     func_801ED480((u8 *)D_80364EF0[D_80364AE8], sp4C);
     if (D_8039C53C[D_80364AE8] == 0) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "saveIt[playerNumber]", "player.c", 0x568);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "saveIt[playerNumber]", "player.c", LINE_EU(0x568, 0x577));
     }
     for (sp30 = 0; sp30 < 0x3C; sp30++) {
         if LEVEL_DONE_IN(D_80364AF0[D_80364AE8], sp30) {
@@ -1441,10 +1477,9 @@ void func_801ECF5C(void) {
     }
     for (sp38 = 0; sp38 < 3; sp38++) {
         sprintf(D_80215480[sp38], "*******%-2d**", sp40.unk0[2 - sp38]);
-        D_8020C070[sp38 + FE_ENTRY(185)].text = D_80215480[sp38];
+        ENTRY_TEXT(D_8020C070[sp38 + FE_ENTRY(185)]) = D_80215480[sp38];
     }
 }
-#endif
 
 void func_801ED480(u8 *arg0, u8 *arg1) {
     u32 sp4;
