@@ -62,13 +62,17 @@ OFFSET_BASE = {
 }
 
 
+# the version the headers are read for (main sets it): eu's layouts differ
+VERSION_DEFINE = ["-DVERSION_US_V11"]
+
+
 def clang_cmd():
     rd = subprocess.run(["clang", "-print-resource-dir"], capture_output=True, text=True).stdout.strip()
     inc = [os.path.join(ROOT, "port", "include"), BLAST, os.path.join(BLAST, "include"),
            os.path.join(BLAST, "include", "2.0I"), os.path.join(BLAST, "include", "2.0I", "PR")]
     return (["clang", "-m32", "-malign-double", "-std=gnu89", "-fsyntax-only", "-nostdinc", "-isystem",
              os.path.join(rd, "include")] + ["-I" + i for i in inc] +
-            ["-D_LANGUAGE_C", "-D_FINALROM", "-DTARGET_PC", "-DVERSION_US_V11", "-D_MIPS_SZLONG=32",
+            ["-D_LANGUAGE_C", "-D_FINALROM", "-DTARGET_PC"] + VERSION_DEFINE + ["-D_MIPS_SZLONG=32",
              "-D_MIPS_SZINT=32", "-Wno-everything"])
 
 
@@ -985,6 +989,7 @@ def main():
     ap.add_argument("--out", default=os.path.join(GAME_INC, "inventory.json"))
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
+    VERSION_DEFINE[:] = ["-DVERSION_" + args.version.upper().replace(".", "_")]
     tmp = os.path.join(BLAST, "build", "fieldscan")
     os.makedirs(tmp, exist_ok=True)
     T = Types(tmp)

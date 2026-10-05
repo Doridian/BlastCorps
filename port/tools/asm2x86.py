@@ -236,8 +236,11 @@ def island_800dc(flat):
 
 ISLANDS = {"7D9D0.bin.s": island_7d9d0, "800DC.bin.s": island_800dc}
 
-INVENTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "blastcorps", "include",
-                         "game", "inventory.json")
+# the version's own inventory where its layouts differ (eu: inventory.eu.json)
+_GAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "blastcorps", "include", "game")
+INVENTORY = os.path.join(_GAME, f"inventory.{os.environ.get('PORT_VERSION', 'us.v11')}.json")
+if not os.path.exists(INVENTORY):
+    INVENTORY = os.path.join(_GAME, "inventory.json")
 _inv = None
 
 

@@ -160,7 +160,7 @@ EDIT_TEXTURE = "60F"
 EDIT_COLOUR = (255, 0, 255)
 EDIT_MIN_CHANGED = 3        # screenshots that must show it
 # scenarios only some versions run (the others run all of SCENARIOS)
-SCENARIO_VERSIONS = {"attract.long": ("us.v11", "jp")}
+SCENARIO_VERSIONS = {"attract.long": ("us.v11", "jp", "eu")}
 
 
 def scenarios_for(version):

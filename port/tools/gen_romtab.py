@@ -91,7 +91,9 @@ def main():
         for s, e, n in segs:
             f.write(f'    {{0x{s:06X}, 0x{e:06X}, "{n}", {klass.get(n, "ROM_BYTES")}}},\n')
         f.write("};\n")
-        inv = json.load(open(os.path.join(ROOT, "blastcorps", "include", "game", "inventory.json")))
+        game = os.path.join(ROOT, "blastcorps", "include", "game")
+        path = os.path.join(game, f"inventory.{os.environ.get('PORT_VERSION', 'us.v11')}.json")
+        inv = json.load(open(path if os.path.exists(path) else os.path.join(game, "inventory.json")))
         for name in LAYOUTS:
             f.write(f'static const char layout_{name}[] = "{layout(inv["types"], name)}";\n')
 

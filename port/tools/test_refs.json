@@ -1,6 +1,13 @@
 {
  "comment": "port/tools/test.py's references (docs/PORT.md, \"Testing the port\"): quick: the hashes (sha1, 16 digits) of each scenario's save, --wav and screenshots, by version; layout: screenshots that depend on the executable's layout (not compared across builds); known: failures the suite knows of, by variant (they pass as XFAIL while the hashes are exactly these); tas: the known drifts of the TAS replay's report, by variant, and its save with the movie's timing (save) and the port's own (save_free: no lag frames, docs/PORT.md \"Lag frames\"); digest: the gameplay hash (port/tools/digest_cmp.py --hash) of each scenario's gameplay digest and of the TAS replay's, by version (the digests themselves, the game's state, stay out of the repository: build/digest-refs/, test.py quick/tas --update).",
  "digest": {
+  "eu": {
+   "attract": "00b92df528c4497d",
+   "attract.long": "9806b7c1f7e10693",
+   "auto1": "7b769e87b302a3f1",
+   "auto2": "8c8fa980a3e4ecbc",
+   "auto3": "d99e583b47256860"
+  },
   "jp": {
    "attract": "7f0da0d6b7fc4fc1",
    "attract.long": "aad68506c1819cfe",
@@ -26,6 +33,132 @@
  "known": {},
  "layout": {},
  "quick": {
+  "eu": {
+   "attract": {
+    "shots": {
+     "1000": "63d348f8d488791b",
+     "1250": "65df1baabfe081f8",
+     "1500": "ea29423f02699849",
+     "1750": "d5bdfaeec321e61a",
+     "2000": "ea896d9f1567b6f7",
+     "2250": "c3b61b3929599a37",
+     "250": "85a2c5da60dbbb53",
+     "2500": "be98d244836a3e03",
+     "2750": "cf342ddfba2c6724",
+     "3000": "413b5e48bdfacabc",
+     "3250": "8d9191c922640be5",
+     "3500": "751ae17da06402e3",
+     "3750": "ee9fa8895d563a73",
+     "4000": "2c63ed7611820f70",
+     "500": "c4c6f3146b0d8fbf",
+     "750": "b5b43f15b7f24694"
+    },
+    "wav": "be440bd2db73fa12"
+   },
+   "attract.long": {
+    "shots": {
+     "1000": "63d348f8d488791b",
+     "10000": "c61fcf1ca0d6af45",
+     "10250": "f52f95faf8613329",
+     "10500": "ab3634f0c1c624b5",
+     "10750": "c858b392786cdd93",
+     "11000": "b1c83390641489e9",
+     "11250": "e160940c1454308c",
+     "11500": "88534ffd3c39dd9f",
+     "11750": "4d34f7787ea9fa9d",
+     "12000": "32a41971426a290d",
+     "1250": "65df1baabfe081f8",
+     "1500": "ea29423f02699849",
+     "1750": "d5bdfaeec321e61a",
+     "2000": "ea896d9f1567b6f7",
+     "2250": "c3b61b3929599a37",
+     "250": "85a2c5da60dbbb53",
+     "2500": "be98d244836a3e03",
+     "2750": "cf342ddfba2c6724",
+     "3000": "413b5e48bdfacabc",
+     "3250": "8d9191c922640be5",
+     "3500": "751ae17da06402e3",
+     "3750": "ee9fa8895d563a73",
+     "4000": "2c63ed7611820f70",
+     "4250": "06b6fc969b9e83f3",
+     "4500": "f0518f7b2cd26967",
+     "4750": "8c227af0d521b955",
+     "500": "c4c6f3146b0d8fbf",
+     "5000": "6b8209f9148618d4",
+     "5250": "3ee2c90290d9a607",
+     "5500": "5a4406b78f885acd",
+     "5750": "3b4d5178a809d7ad",
+     "6000": "990701c27f8dc1cd",
+     "6250": "d2ea90b8e14c6b96",
+     "6500": "9c5cb416f6e969aa",
+     "6750": "66806fd3fd212af9",
+     "7000": "3fdaa1f71c17230f",
+     "7250": "9baac30c5176ac27",
+     "750": "b5b43f15b7f24694",
+     "7500": "0c381a78d544c5d7",
+     "7750": "ec880f7bb54845c9",
+     "8000": "fa36f36ba62382f9",
+     "8250": "10efa15a3700776e",
+     "8500": "e36e71a644ff8ee7",
+     "8750": "6c7e2df1802e0ef4",
+     "9000": "111b7d5adfb0b227",
+     "9250": "550fa1186378c7f9",
+     "9500": "b172225f7f3f2fca",
+     "9750": "991058699734afec"
+    },
+    "wav": "f6dddd9420c91e49"
+   },
+   "auto1": {
+    "save": "85b4e3cc47e82e08",
+    "shots": {
+     "1000": "80690980aab17afc",
+     "1250": "fa66f421458bebb2",
+     "1500": "1ed7c9fc1bb803a3",
+     "1750": "bcfc235a5229b2e7",
+     "2000": "26f571d6673ea029",
+     "2250": "764f58fab659a073",
+     "250": "85a2c5da60dbbb53",
+     "2500": "a679cc8fec9c515c",
+     "2750": "feac652e07e1b1da",
+     "3000": "bbacb0085432154a",
+     "500": "c4c6f3146b0d8fbf",
+     "750": "cebc2387c3b22921"
+    },
+    "wav": "09df57b572918ed0"
+   },
+   "auto2": {
+    "save": "85b4e3cc47e82e08",
+    "shots": {
+     "1000": "80690980aab17afc",
+     "1250": "fa66f421458bebb2",
+     "1500": "fddf84e3f078645d",
+     "1750": "fddf84e3f078645d",
+     "2000": "fddf84e3f078645d",
+     "250": "85a2c5da60dbbb53",
+     "500": "c4c6f3146b0d8fbf",
+     "750": "cebc2387c3b22921"
+    },
+    "wav": "ec298660b40b7122"
+   },
+   "auto3": {
+    "save": "85b4e3cc47e82e08",
+    "shots": {
+     "1000": "80690980aab17afc",
+     "1250": "9fd8c764e5abad5c",
+     "1500": "8f34024b9acb7a8b",
+     "1750": "4bf577dbeecb975e",
+     "2000": "d7913e911f93366b",
+     "2250": "f11e101a4bab4d3a",
+     "250": "85a2c5da60dbbb53",
+     "2500": "d20283729d4e6595",
+     "2750": "d73de1f864518b6f",
+     "3000": "e3db75f3f39ec0cc",
+     "500": "c4c6f3146b0d8fbf",
+     "750": "cebc2387c3b22921"
+    },
+    "wav": "ebd11bdb8f3f4e27"
+   }
+  },
   "jp": {
    "attract": {
     "shots": {

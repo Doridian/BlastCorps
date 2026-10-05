@@ -742,8 +742,8 @@ void host_layout_to_be_n(uint32_t addr, uint32_t stride, uint32_t count, uint32_
 
 /*
  * EepromSave (game/player.h): the PlayerInfo (u16 units at 0x0A, u32 at
- * 0x10, 0x14 and 0xF0, bytes else), the best times (u16), eight bytes, the
- * semaphore (u64).  n bytes at offset off of it, in place, between host
+ * 0x10, 0x14 and 0xF0, bytes else), the best times (u16), eight bytes (in
+ * eu the language, a u64: E7B0.c's func_801F7120_eu), the semaphore (u64).  n bytes at offset off of it, in place, between host
  * order and the N64's (either way: it is its own inverse).  `off` below
  * 0x100 is inside a PlayerInfo, from 0x100 u16s.  The identity in the
  * big-endian build.
@@ -762,6 +762,10 @@ void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused) {
             w = 2;
         } else if (o >= 0x1F8) {
             w = 4;
+#ifdef VERSION_EU
+        } else {
+            w = 4;
+#endif
         }
         if (k + w > n)
             break;

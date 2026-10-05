@@ -45,7 +45,10 @@ void __wrap_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 meth
  * same file in either build; and the checksums the game keeps in it
  * (func_801F75A4: __osContDataCrc of every 32 bytes of the PlayerInfo, and
  * of a player's best times for a pak) are of those bytes.  In native-endian
- * memory the CRC is taken of the same 32 bytes in the N64's order.
+ * memory the CRC is taken of the same 32 bytes in the N64's order, copied
+ * without the game's bcopy: the big-endian build makes no copy, so this
+ * one may not cost the game's CPU anything (eu seeds its random numbers
+ * from the count soon after checking its save).
  */
 extern u8 D_80364AF0[];         /* PlayerInfo[4] (game/player.h) */
 extern u8 D_80364EF0[];         /* u16 [4][16]: the best times */
@@ -56,7 +59,7 @@ u8 __wrap___osContDataCrc(u8 *data) {
     u8 be[32];
     u32 a = (u32)data;
 
-    bcopy(data, be, 32);
+    __builtin_memcpy(be, data, 32);
     if (a - (u32)D_80364AF0 < 4 * 0x100)
         host_save_order(be, (a - (u32)D_80364AF0) & 0xFF, 32, 0);
     else if (a - (u32)D_80364EF0 < 4 * 0x20)

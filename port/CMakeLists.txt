@@ -173,6 +173,12 @@ foreach(sec data bss)
     set(PORT_FE_${SEC} 0x${CMAKE_MATCH_1})
 endforeach()
 configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
+# the type inventory: the version's own where its layouts differ (eu's)
+if(EXISTS ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
+    set(PORT_INVENTORY ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
+else()
+    set(PORT_INVENTORY ${BLAST}/include/game/inventory.json)
+endif()
 message(STATUS "${PORT_VERSION}: heap from ${PORT_HEAP_START}, front end .data ${PORT_FE_DATA}, .bss ${PORT_FE_BSS}")
 
 # ---- BEPass (a host LLVM plugin, 64-bit) ------------------------------------
@@ -600,7 +606,7 @@ foreach(s ${DATA_S})
     endif()
     add_custom_command(OUTPUT ${GEN}/data/${out}
         COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} ${GEN}/data/${out} ${s} ${label}
-        DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${BLAST}/include/game/inventory.json)
+        DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${PORT_INVENTORY})
     list(APPEND DATA_X86 ${GEN}/data/${out})
 endforeach()
 # the data of the IDO functions the version still has as asm (its GLOBAL_ASM,
@@ -1030,7 +1036,7 @@ target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} Thread
 add_custom_command(OUTPUT ${GEN}/romtab.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_romtab.py ${GEN}/romtab.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_romtab.py ${ROOT}/build/blastcorps.${PORT_VERSION}.map
-            ${BLAST}/include/game/inventory.json)
+            ${PORT_INVENTORY})
 add_custom_target(romtab DEPENDS ${GEN}/romtab.h)
 add_dependencies(host romtab)
 target_include_directories(host PRIVATE ${GEN})
