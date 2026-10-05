@@ -179,12 +179,24 @@ static inline int port_in_rdram(const void *p) {
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
 static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
+#ifdef PORT_LP64
+/* a pointer the game's C declares without PTR32, 8 bytes here: the N64
+   address it holds (one the game made from an address, as most of its
+   buffers' are, or the host's own pointer into its memory) */
+static inline uint32_t port_game_ptr(const void *p) {
+    uint64_t v;
+    __builtin_memcpy(&v, p, sizeof v);
+    return v >> 32 ? port_n64((const void *)(uintptr_t)v) : (uint32_t)v;
+}
+#endif
 static inline void port_wvar16(void *p, uint16_t v) {
     if (port_in_rdram(p) || port_n64(p) - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
         port_wg16(p, v);
     else
         port_wbe16(p, v);
 }
+#else
+#define port_var32 port_be32    /* (all of it big-endian) */
 #endif
 
 /* ---- host services (port/host) ----------------------------------------- */

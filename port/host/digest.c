@@ -79,12 +79,10 @@ static uint16_t g16(const void *p) {
 }
 static uint8_t g8(const void *p) { return *(const uint8_t *)p; }
 /* a pointer the game's C declares without PTR32 (8 bytes in the LP64
-   build): the N64 address it holds */
+   build): the N64 address it holds (port_game_ptr) */
 static uint32_t gptr(const void *p) {
 #ifdef PORT_LP64
-    void *v;
-    memcpy(&v, p, sizeof v);
-    return v ? port_n64(v) : 0;
+    return port_game_ptr(p);
 #else
     return g32(p);
 #endif
