@@ -42,6 +42,9 @@ extern s16 D_8036BB1A;
 extern s16 D_8036BB1C;
 extern Vtx D_802FA8B0[][4];
 extern s16 D_8039CAA0;
+#ifdef VERSION_EU
+extern u8 D_80365060[];
+#endif
 
 
 /* .bss, 0x80366A00-0x80366BD0 (tools/bss_c.py) */
@@ -310,9 +313,6 @@ void func_8025D184(void) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/17E10/func_8025D2B4.s")
-#else
 Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
     Gfx *gfx;
     s32 x;
@@ -321,12 +321,21 @@ Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
     s16 yoff;
 
     gfx = arg0;
+#ifdef VERSION_EU
+    if (D_80364A90 & 0x08040E2310418002) {
+#else
     if (D_80364A90 & 0x08040E2110418002) {
+#endif
         D_80366A14 += 10;
         if (D_80366A14 >= 0x100) {
             D_80366A14 = 0xFF;
         }
+#ifdef VERSION_EU
+    } else if ((D_80364A90 & 0x0188004003160000) &&
+               (D_80364A90 != 0x02000000 || D_80365060[D_80364AE8] == 1)) {
+#else
     } else if (D_80364A90 & 0x0188004203160000) {
+#endif
         D_80366A14 -= 10;
         if (D_80366A14 <= 0) {
             D_80366A14 = 0;
@@ -434,7 +443,6 @@ Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
     *arg2 += gfx - arg0;
     return gfx;
 }
-#endif
 
 void func_8025E1E0(Gfx **gfxp) {
     Gfx *gfx;
