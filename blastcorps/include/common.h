@@ -58,14 +58,17 @@
  * is #if'd on them where it is.
  *
  * LINE_EU(us, eu): an assert's line number, which eu's source has elsewhere.
+ * FRAMES_PER_SECOND: the game's frames, 50 a second in eu (PAL).
  */
 #if !defined(VERSION_US_V10) && !defined(VERSION_JP) && !defined(VERSION_EU) && !defined(VERSION_US_V11)
 #define VERSION_US_V11
 #endif
 #ifdef VERSION_EU
 #define LINE_EU(us, eu) (eu)
+#define FRAMES_PER_SECOND 50
 #else
 #define LINE_EU(us, eu) (us)
+#define FRAMES_PER_SECOND 60
 #endif
 
 #endif

@@ -172,6 +172,12 @@ MIPS3_C_FILES := init/2D60.c hd_code/90390.c hd_code/95C40.c
 $(foreach f,$(MIPS3_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): MIPSISET := -mips3 -32
 $(foreach f,$(MIPS3_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): POSTCC := $(PYTHON) $(TOOLS_DIR)/elf_mips2.py
 
+# eu's libultra vi.c (__osViInit) is built -mips1: its loads get a nop.
+ifeq ($(VERSION),eu)
+MIPS1_C_FILES := hd_code/95110.c
+endif
+$(foreach f,$(MIPS1_C_FILES),$(BUILD_DIR)/$(SRC_DIR)/$(f).o): MIPSISET := -mips1 -o32
+
 
 ### Targets
 

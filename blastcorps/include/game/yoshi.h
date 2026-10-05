@@ -185,4 +185,21 @@ typedef struct UnkStruct_802F48D0 {
 } UnkStruct_802F48D0;
 SIZE_CHECK(UnkStruct_802F48D0, 0x22);
 
+/*
+ * eu's language (D_80366F70_eu, hd_code 00000.c's: 0 English, 1 German,
+ * 2 French).  ENTRY_TEXT(e) is the one of e's text/text2/text3 that is
+ * shown; TEXT_EU(en, de) the text for the language, NULL for French;
+ * U16TEXT(p) a u16 text (YoshiEntry.unk10), which eu doesn't have.
+ */
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu;
+#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
+#define TEXT_EU(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
+#define U16TEXT(p) NULL
+#else
+#define ENTRY_TEXT(e) (e)->text
+#define TEXT_EU(en, de) (en)
+#define U16TEXT(p) (p)
+#endif
+
 #endif

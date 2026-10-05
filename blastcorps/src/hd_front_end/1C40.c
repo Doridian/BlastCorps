@@ -57,16 +57,6 @@ s32 func_802753C0(void);
 Gfx *func_80275DA4(Gfx *, u8);
 s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
 
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
-/* eu: an entry's text in that language (text, text2 or text3) */
-#define ENTRY_TEXT(e) ((&(e).text)[D_80366F70_eu])
-/* eu: a text in English or German (none in French) */
-#define LANG_TEXT(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
-#else
-#define ENTRY_TEXT(e) ((e).text)
-#endif
-
 /* .bss, 0x80215440-0x80215960 (tools/bss_c.py) */
 #if defined(VERSION_JP) || defined(VERSION_EU)
 s32 D_80215940;
@@ -560,7 +550,7 @@ void func_801E8EB8(u8 arg0, u8 arg1) {
     sp47 = 0;
     sp34 = D_80208358;
     sp24 = D_80208368;
-    sp78.unk0[1] = LANG_TEXT("GUEST: ", "GAST: ");
+    sp78.unk0[1] = TEXT_EU("GUEST: ", "GAST: ");
 #else
     s32 sp4C;
     PlayerInfo *sp48;
@@ -620,7 +610,7 @@ void func_801E8EB8(u8 arg0, u8 arg1) {
                 if ((D_80364A98 & 0x0200040000000000) || (D_80364A90 & 0x0100000000000000)) {
 #ifdef VERSION_EU
                     sprintf((char *)D_802155A0, "%s ..... %s", D_802155A0,
-                            LANG_TEXT("USE Z/R TO CHANGE PLAYER, THEN A TO SELECT!",
+                            TEXT_EU("USE Z/R TO CHANGE PLAYER, THEN A TO SELECT!",
                                       "DRUECKE Z/R, UM SPIELER ZU WECHSELN, DANN A!"));
 #else
                     sprintf((char *)D_802155A0, "%s ..... %s", D_802155A0, "USE Z/R TO CHANGE PLAYER, THEN A TO SELECT!");
@@ -859,7 +849,7 @@ void func_801EA4B8(void) {
     func_801EA278();
     D_802154B0 = 0;
     for (sp1C = 0; sp1C < 4; sp1C++) {
-        ENTRY_TEXT(D_8020C070[sp1C + 2]) = D_80215520[sp1C];
+        ENTRY_TEXT(&D_8020C070[sp1C + 2]) = D_80215520[sp1C];
         D_8020C070[sp1C + 2].flags |= 0x81;
         D_8020C070[sp1C + 2].flags &= ~0x20;
         D_8020C070[sp1C + 2].unk18 = 7;
@@ -875,7 +865,7 @@ void func_801EA4B8(void) {
     }
     if (D_802154B0 != 4) {
 #ifdef VERSION_EU
-        ENTRY_TEXT(D_8020C070[FE_ENTRY(6)]) = LANG_TEXT("ERASE GAME", "SPIEL LOESCHEN");
+        ENTRY_TEXT(&D_8020C070[FE_ENTRY(6)]) = TEXT_EU("ERASE GAME", "SPIEL LOESCHEN");
         D_8020C070[FE_ENTRY(6)].unk10 = NULL;
 #else
         D_8020C070[FE_ENTRY(6)].text = "ERASE GAME";
@@ -883,7 +873,7 @@ void func_801EA4B8(void) {
 #endif
     } else {
 #ifdef VERSION_EU
-        ENTRY_TEXT(D_8020C070[FE_ENTRY(6)]) = LANG_TEXT("IGNORE PAK", "IGNORIERE PAK");
+        ENTRY_TEXT(&D_8020C070[FE_ENTRY(6)]) = TEXT_EU("IGNORE PAK", "IGNORIERE PAK");
         D_8020C070[FE_ENTRY(6)].unk10 = NULL;
 #else
         D_8020C070[FE_ENTRY(6)].text = "IGNORE PAK";
@@ -903,7 +893,7 @@ void func_801EA6E8(void) {
         switch (D_80365060[sp24]) {
             case 1:
 #ifdef VERSION_EU
-                sprintf(D_80215520[sp24], LANG_TEXT("ERASE %d : %s", "LOESCHE %d : %s"), sp24 + 1, &D_80364AF0[sp24]);
+                sprintf(D_80215520[sp24], TEXT_EU("ERASE %d : %s", "LOESCHE %d : %s"), sp24 + 1, &D_80364AF0[sp24]);
 #else
                 sprintf(D_80215520[sp24], "ERASE %d : %s", sp24 + 1, &D_80364AF0[sp24]);
 #endif
@@ -922,7 +912,7 @@ void func_801EA6E8(void) {
         }
     }
 #ifdef VERSION_EU
-    ENTRY_TEXT(D_8020C070[FE_ENTRY(6)]) = LANG_TEXT("GO BACK", "WEITER");
+    ENTRY_TEXT(&D_8020C070[FE_ENTRY(6)]) = TEXT_EU("GO BACK", "WEITER");
     D_8020C070[FE_ENTRY(6)].unk10 = NULL;
 #else
     D_8020C070[FE_ENTRY(6)].text = "GO BACK";
@@ -949,9 +939,9 @@ void func_801EA93C(char *arg0, s32 arg1, u8 arg2, u8 arg3, char *arg4) {
     D_802154C8 = (arg3 * 3) / 5;
     D_80215928 = arg4;
     *arg4 = 0;
-    ENTRY_TEXT(D_8020C070[FE_ENTRY(7)]) = D_80215928;
+    ENTRY_TEXT(&D_8020C070[FE_ENTRY(7)]) = D_80215928;
     D_8020C070[FE_ENTRY(7)].x = D_802154C4 = 160 - D_802154C8 / 2;
-    ENTRY_TEXT(D_8020C070[FE_ENTRY(8)]) = arg0;
+    ENTRY_TEXT(&D_8020C070[FE_ENTRY(8)]) = arg0;
     D_8020C070[FE_ENTRY(8)].unk10 = (u16 *)arg1;
     D_80215924 = arg2;
     D_802154D0 = 1;
@@ -1477,7 +1467,7 @@ void func_801ECF5C(void) {
     }
     for (sp38 = 0; sp38 < 3; sp38++) {
         sprintf(D_80215480[sp38], "*******%-2d**", sp40.unk0[2 - sp38]);
-        ENTRY_TEXT(D_8020C070[sp38 + FE_ENTRY(185)]) = D_80215480[sp38];
+        ENTRY_TEXT(&D_8020C070[sp38 + FE_ENTRY(185)]) = D_80215480[sp38];
     }
 }
 

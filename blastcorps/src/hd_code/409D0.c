@@ -289,21 +289,15 @@ void func_80285EF4(s32 arg0) {
     D_802E8BD8 = 1;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/409D0/func_80286038.s")
-#else
-s32 func_80286038(u16 arg0) {
-    return arg0 * 6;
-}
-#endif
+#define FRAMES_PER_TENTH (FRAMES_PER_SECOND / 10)
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/409D0/func_8028604C.s")
-#else
-u16 func_8028604C(u32 arg0) {
-    return (arg0 / 6 >= 60000) ? 59999 : arg0 / 6;
+s32 func_80286038(u16 arg0) {
+    return arg0 * FRAMES_PER_TENTH;
 }
-#endif
+
+u16 func_8028604C(u32 arg0) {
+    return (arg0 / FRAMES_PER_TENTH >= 60000) ? 59999 : arg0 / FRAMES_PER_TENTH;
+}
 
 u8 func_80286090(s32 arg0) {
     return (D_80364AF0[D_80364AE8].medal[arg0] > 0 && D_80364AF0[D_80364AE8].medal[arg0] < 6) ? 1 : 0;

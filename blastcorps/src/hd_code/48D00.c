@@ -78,9 +78,6 @@ TntCrateInfo D_802FDB98[2] = {
     { -15, 15, 0, 30, -15, 15, 1798, 1799, 1002, 1003, 832, 928 },
 };
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/48D00/func_8028D4C0.s")
-#else
 void func_8028D4C0(LevelTntCrate *arg0, LevelTntCrate *arg1) {
     D_8039B610 = 0;
     D_8039B614 = 0;
@@ -95,7 +92,7 @@ void func_8028D4C0(LevelTntCrate *arg0, LevelTntCrate *arg1) {
                                                     D_8039B070[D_8039B610].y);
         D_8039B070[D_8039B610].unk23 = D_803F932C;
         D_8039B070[D_8039B610].type = arg0->type;
-        D_8039B070[D_8039B610].timer = arg0->timer * 60;
+        D_8039B070[D_8039B610].timer = arg0->timer * FRAMES_PER_SECOND;
         D_8039B070[D_8039B610].timerStart = D_8039B070[D_8039B610].timer;
         D_8039B070[D_8039B610].tex[0] = (u8 *)func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unkC, 0);
         D_8039B070[D_8039B610].tex[1] = (u8 *)func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unkE, 0);
@@ -121,7 +118,6 @@ void func_8028D4C0(LevelTntCrate *arg0, LevelTntCrate *arg1) {
         arg0++;
     }
 }
-#endif
 
 
 void func_8028DA5C(Vtx *arg0, u8 arg1) {

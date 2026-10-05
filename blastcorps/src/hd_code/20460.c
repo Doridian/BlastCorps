@@ -272,9 +272,8 @@ void func_80264C20(s32 arg0) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/20460/func_80264CB4.s")
-#else
+extern u8 D_8036EB93;
+
 void func_80264CB4(s16 arg0, s16 arg1, s16 arg2, s16 arg3, u8 arg4, s32 arg5) {
     s32 unused;
     s32 count;
@@ -285,6 +284,11 @@ void func_80264CB4(s16 arg0, s16 arg1, s16 arg2, s16 arg3, u8 arg4, s32 arg5) {
     i = 0;
     count = 0;
     D_8036EA70.cr += arg5;
+#ifdef VERSION_EU
+    if (D_8036EA70.cr > D_8036EB93) {
+        D_8036EA70.cr = D_8036EB93;
+    }
+#endif
     if (arg5 != 0 && D_802E8BD0 == 0) {
         func_8026AD30(0x48);
     }
@@ -328,7 +332,6 @@ void func_80264CB4(s16 arg0, s16 arg1, s16 arg2, s16 arg3, u8 arg4, s32 arg5) {
         count++;
     }
 }
-#endif
 
 void func_8026510C(void) {
     func_80265428();

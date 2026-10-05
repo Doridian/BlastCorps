@@ -89,13 +89,8 @@ s16 D_80367D50;
 u8 D_80367D52;
 u8 D_80367D53;
 
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
-/* A text in that language (French has none here). */
-#define LANG_TEXT(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
-#else
+#ifndef VERSION_EU
 extern u16 D_8030480C[];
-#define LANG_TEXT(en, de) (en)
 #endif
 
 /* Frames a second, and a count that eu (PAL) has its own of */
@@ -548,7 +543,7 @@ void func_80262320(u8 arg0) {
 #ifdef VERSION_EU
         sp32 = 0;
         D_80367BD8 = 6;
-        D_80367C08 = LANG_TEXT("BUILDINGS", "GEBAEUDE");
+        D_80367C08 = TEXT_EU("BUILDINGS", "GEBAEUDE");
 #else
         D_80367BD8 = 6;
         D_80367C08 = D_802E9F90;
@@ -628,35 +623,35 @@ void func_80262840(void) {
                 D_80367CB8[0] = 0xFFF;
                 switch ((u32)D_80364AA8) {
                     case 0x2:
-                        sprintf(D_80367C18, LANG_TEXT("FINISH %d LAPS IN", "FAHRE %d RUNDEN"), D_80367C04->goal);
+                        sprintf(D_80367C18, TEXT_EU("FINISH %d LAPS IN", "FAHRE %d RUNDEN"), D_80367C04->goal);
                         break;
                     case 0x4:
                     case 0x20:
                         if (D_802E8BDC == 0x34) {
-                            sprintf(D_80367C18, LANG_TEXT("DESTROY TARGETS IN", "ZERSTOERE ZIELE"));
+                            sprintf(D_80367C18, TEXT_EU("DESTROY TARGETS IN", "ZERSTOERE ZIELE"));
                         } else {
-                            sprintf(D_80367C18, LANG_TEXT("DESTROY %s IN", "ZERSTOERE %s "), D_80367C08);
+                            sprintf(D_80367C18, TEXT_EU("DESTROY %s IN", "ZERSTOERE %s "), D_80367C08);
                         }
                         break;
                     case 0x80:
                         if (D_802E8BDC == 0x32) {
-                            sprintf(D_80367C18, LANG_TEXT("CLEAR SHUTTLE PATH", "RAEUME DEN SHUTTLE-WEG"));
+                            sprintf(D_80367C18, TEXT_EU("CLEAR SHUTTLE PATH", "RAEUME DEN SHUTTLE-WEG"));
                         } else {
-                            sprintf(D_80367C18, LANG_TEXT("CLEAR CARRIER PATH", "RAEUME DEN WEG"));
+                            sprintf(D_80367C18, TEXT_EU("CLEAR CARRIER PATH", "RAEUME DEN WEG"));
                         }
                         break;
                     case 0x8:
-                        sprintf(D_80367C18, LANG_TEXT("CAUSE $%d DAMAGE", "$%d SCHADEN IN"), D_80367C04->goal);
+                        sprintf(D_80367C18, TEXT_EU("CAUSE $%d DAMAGE", "$%d SCHADEN IN"), D_80367C04->goal);
                         break;
                     case 0x10:
                     case 0x40:
-                        sprintf(D_80367C18, LANG_TEXT("FIND %d RDUS IN", "FINDE %d RDUS"), D_80367C04->goal);
+                        sprintf(D_80367C18, TEXT_EU("FIND %d RDUS IN", "FINDE %d RDUS"), D_80367C04->goal);
                         break;
                 }
                 sp32 = D_80367C04->medalTimes[3] / 600;
                 sp30 = (D_80367C04->medalTimes[3] / 10) % 60;
 #ifdef VERSION_EU
-                sprintf(D_80367C40, LANG_TEXT("%d MINUTE%c %d SECONDS", "%d MINUTE%c %d SEKUNDEN"), sp32,
+                sprintf(D_80367C40, TEXT_EU("%d MINUTE%c %d SECONDS", "%d MINUTE%c %d SEKUNDEN"), sp32,
                         D_802E9FA0[D_80366F70_eu * 2 + (sp32 != 1)], sp30);
                 (&D_802F5804[YOSHI_ENTRY(36)].text)[D_80366F70_eu] = D_80367C18;
                 (&D_802F5804[YOSHI_ENTRY(37)].text)[D_80366F70_eu] = D_80367C40;
@@ -856,7 +851,7 @@ void func_80263358(void) {
     if (sp1C < 0) {
         sp1C = 0;
     }
-    sprintf(D_80367B60, LANG_TEXT("$%d LEFT", "$%d UEBRIG"), sp1C);
+    sprintf(D_80367B60, TEXT_EU("$%d LEFT", "$%d UEBRIG"), sp1C);
 }
 #endif
 
@@ -904,9 +899,9 @@ void func_802633E0(void) {
                         func_8026AF6C(0x8008);
                     }
                     if (sp33 == 1) {
-                        sprintf(D_80367D10, LANG_TEXT("1 LAP LEFT!", "1 RUNDE UEBRIG!"));
+                        sprintf(D_80367D10, TEXT_EU("1 LAP LEFT!", "1 RUNDE UEBRIG!"));
                     } else {
-                        sprintf(D_80367D10, LANG_TEXT("%d LAPS LEFT!", "%d RUNDEN UEBRIG!"), sp33);
+                        sprintf(D_80367D10, TEXT_EU("%d LAPS LEFT!", "%d RUNDEN UEBRIG!"), sp33);
                     }
 #ifdef VERSION_EU
                     (&D_802F5804[YOSHI_ENTRY(35)].text)[D_80366F70_eu] = D_80367D10;

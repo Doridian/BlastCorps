@@ -168,6 +168,13 @@ typedef struct UnkStruct_8020D810 {
     /* 0x28 */ f32 unk28;
     /* 0x2C */ f32 unk2C;
 } UnkStruct_8020D810;
+/* A level's name in the language shown (eu has one per language). */
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu;
+#define LEVEL_NAME(e) (&(e).name)[D_80366F70_eu]
+#else
+#define LEVEL_NAME(e) (e).name
+#endif
 #ifdef VERSION_EU
 SIZE_CHECK(UnkStruct_8020D810, 0x38); /* eu: the offsets from unk8 on are 8 more */
 #else

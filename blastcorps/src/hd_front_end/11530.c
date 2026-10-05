@@ -8,13 +8,6 @@
 
 #define SQ(x) ((x) * (x))
 
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
-#define LEVEL_NAME(e) (&(e).name)[D_80366F70_eu]
-#else
-#define LEVEL_NAME(e) (e).name
-#endif
-
 void func_801ECB18(void);
 Gfx *func_801F1568(void);
 Gfx *func_801F2000(void);

@@ -38,13 +38,6 @@ extern u16 D_8035807C;
 extern char D_8036B980[];
 extern char D_8036B9A8[];
 
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language */
-#define LEVEL_NAME(e) (&(e).name)[D_80366F70_eu]
-#else
-#define LEVEL_NAME(e) (e).name
-#endif
-
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/7800/func_801EE800.s")
 #else

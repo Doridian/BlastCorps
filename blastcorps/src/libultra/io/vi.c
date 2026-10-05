@@ -20,7 +20,11 @@ void __osViInit(void) {
         osViClock = VI_NTSC_CLOCK;
     } else {
         __osViNext->modep = &viModeMpal;
+#ifdef VERSION_EU
+        osViClock = VI_PAL_CLOCK; /* eu's libultra: the PAL clock */
+#else
         osViClock = VI_MPAL_CLOCK;
+#endif
     }
     __osViNext->state = VI_STATE_BLACK;
     __osViNext->control = __osViNext->modep->comRegs.ctrl;

@@ -16,6 +16,23 @@ extern u64 D_802E6820[];
 extern u64 D_802E68F0[];
 extern u64 D_8030EB90[];
 
+/*
+ * The audio frame (Nintendo's demo audio.c's names, MAX_RSP_CMDS from the
+ * assert): NUM_FIELDS retraces long, at FRAMES_PER_SECOND.  eu's PAL frame is
+ * one field, and its command list and DMA buffers are smaller.
+ */
+#ifdef VERSION_EU
+#define NUM_FIELDS 1
+#define EXTRA_SAMPLES 38
+#define MAX_RSP_CMDS 1950
+#define DMA_BUFFER_LENGTH 0x138
+#else
+#define NUM_FIELDS 2
+#define EXTRA_SAMPLES 53
+#define MAX_RSP_CMDS 2750
+#define DMA_BUFFER_LENGTH 0x200
+#endif
+
 /* .bss, 0x80368050-0x8036B8B0 (tools/bss_c.py) */
 u8 D_80368050[8];
 OSTime D_80368058;
@@ -53,9 +70,6 @@ FxParams D_802F3AFC = {
 s32 D_802F3C04 = 1;
 
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/22EE0/func_802676A0.s")
-#else
 void func_802676A0(SynConfig *c, OSPri pri) {
     s32 i;
     f32 fsize;
@@ -63,11 +77,15 @@ void func_802676A0(SynConfig *c, OSPri pri) {
     FxParams params;
 
     c->dmaproc = func_80268254;
+#ifdef VERSION_EU
+    osViClock = 0x02F5B2D0; /* PAL's */
+#else
     if (D_80000300 != 1) {
         osViClock = 0x02E6025C;
     }
+#endif
     c->outputRate = osAiSetFrequency(22050);
-    fsize = (f32)c->outputRate * 2.0f / 60.0f;
+    fsize = (f32)c->outputRate * NUM_FIELDS / FRAMES_PER_SECOND;
     D_8036A8BC = (s32)fsize;
     if (D_8036A8BC < fsize) {
         D_8036A8BC++;
@@ -76,7 +94,7 @@ void func_802676A0(SynConfig *c, OSPri pri) {
         D_8036A8BC = (D_8036A8BC & ~0xF) + 0x10;
     }
     D_8036A8B8 = D_8036A8BC - 16;
-    D_8036A8C0 = D_8036A8BC + 53;
+    D_8036A8C0 = D_8036A8BC + EXTRA_SAMPLES;
     if (c->fxType == AL_FX_CUSTOM) {
         unused = 0;
         params = D_802F3AFC;
@@ -87,13 +105,13 @@ void func_802676A0(SynConfig *c, OSPri pri) {
     }
     D_8036A318[0].node.prev = NULL;
     D_8036A318[0].node.next = NULL;
-    for (i = 0; i < 71; i++) {
+    for (i = 0; i < NUM_DMA_MESSAGES - 1; i++) {
         alLink(&D_8036A318[i + 1].node, &D_8036A318[i].node);
-        D_8036A318[i].ptr = alHeapAlloc(c->heap, 1, 0x200);
+        D_8036A318[i].ptr = alHeapAlloc(c->heap, 1, DMA_BUFFER_LENGTH);
     }
-    D_8036A318[i].ptr = alHeapAlloc(c->heap, 1, 0x200);
+    D_8036A318[i].ptr = alHeapAlloc(c->heap, 1, DMA_BUFFER_LENGTH);
     for (i = 0; i < 2; i++) {
-        D_80368070.ACMDList[i] = alHeapAlloc(c->heap, 1, 0x55F0);
+        D_80368070.ACMDList[i] = alHeapAlloc(c->heap, 1, MAX_RSP_CMDS * sizeof(Acmd));
     }
     for (i = 0; i < 3; i++) {
         D_80368070.audioInfo[i] = alHeapAlloc(c->heap, 1, sizeof(AudioInfo));
@@ -104,7 +122,6 @@ void func_802676A0(SynConfig *c, OSPri pri) {
     osCreateMesgQueue(&D_8036AE68, D_8036AE80, NUM_DMA_MESSAGES);
     osCreateThread(&D_80368070.thread, 4, func_80267A9C, NULL, &D_80368308[0x2000 / sizeof(u64)], pri);
 }
-#endif
 
 void func_80267A74(void) {
     osStartThread(&D_80368070.thread);
@@ -122,9 +139,6 @@ void func_80261284(void);
 void func_802613C8(void);
 void func_80261528(void);
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/22EE0/func_80267A9C.s")
-#else
 void func_80267A9C(void *arg) {
     s32 done;
     s32 msg;
@@ -134,7 +148,7 @@ void func_80267A9C(void *arg) {
     done = 0;
     lastInfo = NULL;
     first = 1;
-    osScAddClient(&D_80315440, &D_803682F8, &D_80368070.audioFrameMsgQ, 2, 2);
+    osScAddClient(&D_80315440, &D_803682F8, &D_80368070.audioFrameMsgQ, NUM_FIELDS, 2);
     osSendMesg(&D_80368070.audioFrameMsgQ, (OSMesg)5, OS_MESG_NOBLOCK);
     while (!done) {
         osRecvMesg(&D_80368070.audioFrameMsgQ, (OSMesg *)&msg, OS_MESG_BLOCK);
@@ -180,11 +194,7 @@ void func_80267A9C(void *arg) {
     }
     alClose(&D_80368070.g);
 }
-#endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/22EE0/func_80267CDC.s")
-#else
 void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo) {
     s16 *audioPtr;
     Acmd *cmdp;
@@ -198,13 +208,13 @@ void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo) {
         osAiSetNextBuffer(lastInfo->data, lastInfo->frameSamples << 2);
     }
     samplesLeft = osAiGetLength() >> 2;
-    info->frameSamples = (D_8036A8BC - samplesLeft + 53) & ~0xF;
+    info->frameSamples = (D_8036A8BC - samplesLeft + EXTRA_SAMPLES) & ~0xF;
     if (info->frameSamples < D_8036A8B8) {
         info->frameSamples = D_8036A8B8;
     }
     cmdp = alAudioFrame(D_80368070.ACMDList[D_802F3AF8], &D_8036A8C4, audioPtr, info->frameSamples);
-    if (D_8036A8C4 > 2750) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "cmdLen <= MAX_RSP_CMDS", "audio.c", 0x150);
+    if (D_8036A8C4 > MAX_RSP_CMDS) {
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "cmdLen <= MAX_RSP_CMDS", "audio.c", LINE_EU(0x150, 0x151));
     }
     t = &info->task;
     t->next = NULL;
@@ -226,11 +236,10 @@ void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo) {
     osWritebackDCache(t, sizeof(SchedTask));
     osWritebackDCache(t->list.t.data_ptr, t->list.t.data_size);
     if (osSendMesg(osScGetCmdQ(&D_80315440), t, OS_MESG_NOBLOCK) == -1) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "osSendMesg(osScGetCmdQ(&sc), (OSMesg) t, OS_MESG_NOBLOCK)!=-1", "audio.c", 0x169);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "osSendMesg(osScGetCmdQ(&sc), (OSMesg) t, OS_MESG_NOBLOCK)!=-1", "audio.c", LINE_EU(0x169, 0x16A));
     }
     D_802F3AF8 ^= 1;
 }
-#endif
 
 void func_80267F88(AudioInfo *info) {
     u32 samplesLeft;
@@ -242,9 +251,6 @@ void func_80267F88(AudioInfo *info) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/22EE0/func_80267FE0.s")
-#else
 s32 func_80267FE0(s32 addr, s32 len, void *state) {
     void *foundBuffer;
     s32 delta;
@@ -262,7 +268,7 @@ s32 func_80267FE0(s32 addr, s32 len, void *state) {
     delta = addr & 1;
     while (dmaPtr != NULL) {
         cur = dmaPtr;
-        buffEnd = dmaPtr->startAddr + 0x200;
+        buffEnd = dmaPtr->startAddr + DMA_BUFFER_LENGTH;
         if (dmaPtr->startAddr > addr) {
             break;
         } else if (addrEnd <= buffEnd) {
@@ -303,10 +309,9 @@ s32 func_80267FE0(s32 addr, s32 len, void *state) {
     addr -= delta;
     dmaPtr->startAddr = addr;
     dmaPtr->lastFrame = D_802F3AF0;
-    osPiStartDma((OSIoMesg *)&D_8036A8C8[D_802F3AF4++], OS_MESG_PRI_NORMAL, OS_READ, addr, foundBuffer, 0x200, &D_8036AE68);
+    osPiStartDma((OSIoMesg *)&D_8036A8C8[D_802F3AF4++], OS_MESG_PRI_NORMAL, OS_READ, addr, foundBuffer, DMA_BUFFER_LENGTH, &D_8036AE68);
     return osVirtualToPhysical(foundBuffer) + delta;
 }
-#endif
 
 ALDMAproc func_80268254(AMDMAState **state) {
     s32 unused;

@@ -14,14 +14,6 @@ typedef struct {
 #endif
 } UnkStruct_802FF188; /* size = 0x8, eu 0x10 */
 
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
-/* An entry's text in that language (eu has text, text2, text3). */
-#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
-#else
-#define ENTRY_TEXT(e) (e)->text
-#endif
-
 extern u8 D_80364B80[][0x100];
 extern u8 D_8039CAB6;
 

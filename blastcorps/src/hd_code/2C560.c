@@ -6,6 +6,9 @@
 #include "game/player.h"
 
 extern OSViMode D_80306E70[];
+#ifdef VERSION_EU
+extern OSViMode D_802FDB40_eu[2]; /* 30C70.c's: PAL's */
+#endif
 /*
  * This file's .bss.  The functions using these only match with them
  * defined here (a u64's halves share one lui).
@@ -41,6 +44,7 @@ u8 D_802FA270 = 1;
 
 
 void func_8029A7E4(char *, ...);
+
 void osCreateViManager(s32);
 void __scMain(void *);
 void __scAppendList(Sched *, SchedTask *);
@@ -49,9 +53,6 @@ void __scYield(Sched *);
 s32 __scTaskComplete(Sched *, SchedTask *);
 s32 func_80271F48(OSMesgQueue *, OSMesg, s32);
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/2C560/osCreateScheduler.s")
-#else
 void osCreateScheduler(Sched *sc, void *stack, OSPri priority, u8 mode, u8 numFields) {
     sc->audioListTail = (SchedTask *) &sc->audioListHead;
     sc->gfxListTail = (SchedTask *) &sc->gfxListHead;
@@ -60,7 +61,11 @@ void osCreateScheduler(Sched *sc, void *stack, OSPri priority, u8 mode, u8 numFi
     osCreateMesgQueue(&sc->interruptQ, sc->intBuf, 16);
     osCreateMesgQueue(&sc->cmdQ, sc->cmdMsgBuf, 16);
     osCreateViManager(0xFE);
+#ifdef VERSION_EU
+    osViSetMode(D_802FDB40_eu);
+#else
     osViSetMode(&D_80306E70[mode]);
+#endif
     osViBlack(TRUE);
     osSetEventMesg(OS_EVENT_SP, &sc->interruptQ, (OSMesg) 0x29B);
     osSetEventMesg(OS_EVENT_DP, &sc->interruptQ, (OSMesg) 0x29C);
@@ -70,7 +75,6 @@ void osCreateScheduler(Sched *sc, void *stack, OSPri priority, u8 mode, u8 numFi
     osCreateThread(&sc->thread, 5, __scMain, sc, stack, priority);
     osStartThread(&sc->thread);
 }
-#endif
 
 void osScAddClient(Sched *sc, SchedClient *c, OSMesgQueue *msgQ, s32 arg3, s32 arg4) {
     OSIntMask mask;
@@ -120,9 +124,6 @@ void __scHandleRetrace(Sched *);
 void __scHandleRSP(Sched *);
 void __scHandleRDP(Sched *);
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/2C560/__scMain.s")
-#else
 void __scMain(void *arg) {
     OSMesg msg;
     Sched *sc;
@@ -137,6 +138,10 @@ void __scMain(void *arg) {
             }
             D_8036BF10 = 1;
             osViBlack(TRUE);
+#ifdef VERSION_EU
+            bcopy(&D_80306E70[16], D_802FDB40_eu, sizeof(OSViMode));
+            osViSetYScale(1.0f);
+#endif
             func_8029A7E4("GO %x\n", osDpGetStatus());
             osDpSetStatus(DPC_CLR_FREEZE);
             func_8029A7E4("current=%x start=%x end=%x dpstat=%x spstat=%x\n", IO_READ(DPC_CURRENT_REG),
@@ -172,6 +177,10 @@ void __scMain(void *arg) {
                 }
                 D_8036BF10 = 1;
                 osViBlack(TRUE);
+#ifdef VERSION_EU
+                bcopy(&D_80306E70[16], D_802FDB40_eu, sizeof(OSViMode));
+                osViSetYScale(1.0f);
+#endif
                 func_8029A7E4("%x\n", osDpGetStatus());
                 osDpSetStatus(DPC_CLR_FREEZE);
                 func_8029A7E4("current=%x start=%x end=%x dpstat=%x spstat=%x\n", IO_READ(DPC_CURRENT_REG),
@@ -193,7 +202,6 @@ void __scMain(void *arg) {
         }
     }
 }
-#endif
 
 void func_802712B4(Sched *sc, SchedTask *t) {
     __scAppendList(sc, t);
@@ -211,9 +219,6 @@ void func_802712FC(Sched *sc) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/2C560/__scHandleRetrace.s")
-#else
 void __scHandleRetrace(Sched *sc) {
     SchedTask *t;
     SchedClient *client;
@@ -241,7 +246,7 @@ void __scHandleRetrace(Sched *sc) {
     count = sc->cmdQ.validCount;
     for (i = 0; i < count; i++) {
         if (osRecvMesg(&sc->cmdQ, (OSMesg *) &t, OS_MESG_NOBLOCK) == -1) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "osRecvMesg(&sc->cmdQ, (OSMesg *)&rspTask, OS_MESG_NOBLOCK) != -1", "sched.c", 0x1BD);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "osRecvMesg(&sc->cmdQ, (OSMesg *)&rspTask, OS_MESG_NOBLOCK) != -1", "sched.c", LINE_EU(0x1BD, 0x1C6));
         }
         if (sc->frameCount % t->client->unk8 == 0) {
             __scAppendList(sc, t);
@@ -249,7 +254,11 @@ void __scHandleRetrace(Sched *sc) {
             osSendMesg(&sc->cmdQ, t, OS_MESG_NOBLOCK);
         }
     }
+#ifdef VERSION_EU
+    if (sc->audioListHead != NULL) { /* eu's audio frame is one field */
+#else
     if (sc->audioListHead != NULL && !(sc->frameCount & 1)) {
+#endif
         osSetTimer(&D_8036BF78, 280000, 0, sc->audioListHead->client->msgQ, (OSMesg) 5);
     }
     for (client = sc->clientList; client != NULL; client = client->next) {
@@ -258,17 +267,15 @@ void __scHandleRetrace(Sched *sc) {
         }
     }
 }
-#endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/2C560/__scHandleRSP.s")
-#else
 void __scHandleRSP(Sched *sc) {
     SchedTask *t;
+#ifndef VERSION_EU
     OSTime time;
+#endif
 
     if (sc->curRSPTask == NULL) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->curRSPTask", "sched.c", 0x1F2);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->curRSPTask", "sched.c", LINE_EU(0x1F2, 0x1FB));
     }
     t = sc->curRSPTask;
     sc->curRSPTask = NULL;
@@ -286,7 +293,7 @@ void __scHandleRSP(Sched *sc) {
             __scTaskComplete(sc, t);
         }
         if (sc->audioListHead == NULL) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->audioListHead", "sched.c", 0x21A);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->audioListHead", "sched.c", LINE_EU(0x21A, 0x223));
         }
         if (sc->audioListHead == NULL) {
             func_8029A7E4("Yield took %llu, max %llu\n", D_8036BF00, D_8036BEF8);
@@ -295,8 +302,12 @@ void __scHandleRSP(Sched *sc) {
         return;
     }
     if (t->flags & 0x40) {
+#ifdef VERSION_EU
+        D_8036BF24 = (osGetTime() - sc->unk290) / FRAME_TICKS_100;
+#else
         time = osGetTime();
-        D_8036BF24 = (time - sc->unk290) / 7825;
+        D_8036BF24 = (time - sc->unk290) / FRAME_TICKS_100;
+#endif
         D_802FA270 = 1;
     } else if (t->list.t.type == M_AUDTASK) {
         D_8036BF50 = osGetTime();
@@ -305,7 +316,7 @@ void __scHandleRSP(Sched *sc) {
     t->state = 2;
     t->flags |= 4;
     if (sc->curRSPTask != NULL) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->curRSPTask==0", "sched.c", 0x230);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->curRSPTask==0", "sched.c", LINE_EU(0x230, 0x239));
     }
     if (__scTaskComplete(sc, t)) {
         if (sc->gfxListHead != NULL && sc->gfxListHead->flags != 0x47) {
@@ -313,18 +324,16 @@ void __scHandleRSP(Sched *sc) {
         }
     }
 }
-#endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/2C560/__scHandleRDP.s")
-#else
 void __scHandleRDP(Sched *sc) {
     SchedTask *t;
     s32 pad;
+#ifndef VERSION_EU
     OSTime time;
+#endif
 
     if (sc->curRDPTask == NULL) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->curRDPTask", "sched.c", 0x24A);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "sc->curRDPTask", "sched.c", LINE_EU(0x24A, 0x253));
     }
     t = sc->curRDPTask;
     sc->curRDPTask = NULL;
@@ -338,14 +347,17 @@ void __scHandleRDP(Sched *sc) {
     } else {
         D_8036BF1C = t;
     }
+#ifdef VERSION_EU
+    D_8036BF20 = (osGetTime() - sc->unk288) / FRAME_TICKS_100;
+#else
     time = osGetTime();
-    D_8036BF20 = (time - sc->unk288) / 7825;
+    D_8036BF20 = (time - sc->unk288) / FRAME_TICKS_100;
+#endif
     if (D_80358060 == 3) {
         osViBlack(FALSE);
     }
     __scTaskComplete(sc, t);
 }
-#endif
 
 s32 __scTaskComplete(Sched *sc, SchedTask *t) {
     s32 sp24;
@@ -405,20 +417,19 @@ void __scAppendList(Sched *sc, SchedTask *t) {
     t->state = 2;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/2C560/func_80271CE4.s")
-#else
 void func_80271CE4(Sched *sc, s32 arg1) {
     SchedTask *t;
+#ifndef VERSION_EU
     OSTime time;
+#endif
 
     if (sc->curRSPTask != NULL) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!sc->curRSPTask", "sched.c", 0x2B8);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!sc->curRSPTask", "sched.c", LINE_EU(0x2B8, 0x2C1));
     }
     if (arg1 == 0) {
         t = sc->audioListHead;
         if (t == NULL) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "t", "sched.c", 0x2BD);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "t", "sched.c", LINE_EU(0x2BD, 0x2C6));
         }
         if (t == NULL) {
             return;
@@ -432,8 +443,12 @@ void func_80271CE4(Sched *sc, s32 arg1) {
         t = sc->gfxListHead;
         if (D_802FA270 != 0) {
             sc->unk290 = osGetTime();
+#ifdef VERSION_EU
+            D_8036BF2C = (osGetTime() - D_8036BF38) / FRAME_TICKS_100;
+#else
             time = osGetTime();
-            D_8036BF2C = (time - D_8036BF38) / 7825;
+            D_8036BF2C = (time - D_8036BF38) / FRAME_TICKS_100;
+#endif
             D_802FA270 = 0;
         }
     }
@@ -445,7 +460,6 @@ void func_80271CE4(Sched *sc, s32 arg1) {
         sc->curRDPTask = t;
     }
 }
-#endif
 
 void __scYield(Sched *sc) {
     if (sc->curRSPTask->list.t.type == M_AUDTASK) {

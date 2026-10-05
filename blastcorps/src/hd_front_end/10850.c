@@ -121,14 +121,6 @@ char D_8020D800[4][4] = { "1ST", "2ND", "3RD", "4TH" };
 /* The players listed in the best-times window (D_8021A7E8): us.v10 counts
  * them with the window's own count, which may include a last entry that
  * isn't a player; us.v11 keeps the number of players in D_8021A828. */
-/* An entry's text in the language being shown: eu's entries have three. */
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
-#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
-#else
-#define ENTRY_TEXT(e) (e)->text
-#endif
-
 #ifdef VERSION_US_V10
 #define LIST_COUNT D_802F8BDC[22].count
 typedef s32 ListIndex;

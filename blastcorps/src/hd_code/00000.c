@@ -198,7 +198,7 @@ u8 D_80366EFC_eu[4];
 s32 D_80364A78;
 s32 D_80364A80;
 u8 D_80364A84;
-u8 D_80366F09_eu[1];
+u8 D_80364A7C; /* eu has it here */
 u8 D_80364A85;
 u8 D_80364A86;
 u8 D_80364A87;
@@ -219,7 +219,7 @@ u32 D_80364AC8;
 u32 D_80364ACC;
 u64 D_80364AD0;
 u8 D_80366F60_eu[0x10];
-u8 D_80366F70_eu[1];
+u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
 u8 D_80364AE8;
 u8 D_80364AE9;
 u8 D_80364AEA;
@@ -737,9 +737,6 @@ void func_802CF5B0(void);
     LEVEL_DONE_IN(D_80364AF0[p], l)
 #define UNK_802F8BDC_REC() (D_802F8BDC[D_802F4868[func_8026F92C((u32)D_80364AA8)]])
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_80244930.s")
-#else
 /*
  * Statements that share a line here do so on purpose: IDO won't schedule a
  * store past the start of the next source line, so the original put these on
@@ -829,7 +826,11 @@ void func_80244930(void *arg0) {
                         }
                         if (sp5C != 0) {
                             func_801EA108(D_80364AE8, 1, 1);
+#ifdef VERSION_EU
+                            D_80364AA0 = 0x200000000; /* eu's own mode first (case 0x200000000) */
+#else
                             D_80364AA0 = 0x40000;
+#endif
                         } else {
                             D_80365060[D_80364AE8] = 1;
                             D_80364AA0 = 0x4000;
@@ -1242,7 +1243,7 @@ void func_80244930(void *arg0) {
                 case 0x40000:
                     osSendMesg(&D_80219EF8, (OSMesg)((D_80364AE8 << 16) | 0x14 | 0x01000000), OS_MESG_BLOCK);
                     osRecvMesg(&D_80219F50, NULL, OS_MESG_BLOCK);
-                    func_801EA93C("ENTER NAME!", D_803047A0, 7, 0x1E, &D_80364AF0[D_80364AE8]);
+                    func_801EA93C(TEXT_EU("ENTER NAME!", "NAME EINGEBEN!"), U16TEXT(D_803047A0), 7, 0x1E, &D_80364AF0[D_80364AE8]);
                     func_8026AF6C(0x800B);
                     func_8025D184();
                     D_80364A70 = func_80261A44(D_80364A98);
@@ -1250,7 +1251,11 @@ void func_80244930(void *arg0) {
                 case 0x4000000000000000:
                     func_80255DC8();
                     func_80200714(1);
+#ifdef VERSION_EU
+                    ENTRY_TEXT(&D_8020C070[FE_ENTRY(9)]) = TEXT_EU("QUIT GAME!", "SPIEL VERLASSEN!"); D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x16;
+#else
                     D_8020C070[FE_ENTRY(9)].text = "QUIT GAME!"; D_8020C070[FE_ENTRY(9)].unk10 = D_803047CC; D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x16;
+#endif
                     func_8026AF6C(0x800C);
                     break;
                 case 0x1000000000:
@@ -1278,14 +1283,22 @@ void func_80244930(void *arg0) {
                     if (D_8039C4B4 != 0) {
                         func_8025D184();
                         func_80200714(1);
+#ifdef VERSION_EU
+                        ENTRY_TEXT(&D_8020C070[FE_ENTRY(9)]) = TEXT_EU("ERASE SAVED GAME!", "SPIEL LOESCHEN!"); D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x14;
+#else
                         D_8020C070[FE_ENTRY(9)].text = "ERASE SAVED GAME!"; D_8020C070[FE_ENTRY(9)].unk10 = D_803047B4; D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x14;
+#endif
                         func_8026AF6C(0x800C);
                     } else {
                         D_80364AA0 = 0x10;
                     }
                     break;
                 case 0x100000000000000:
+#ifdef VERSION_EU
+                    ENTRY_TEXT(&D_8020C070[FE_ENTRY(9)]) = TEXT_EU("BECOME GUEST PLAYER:", "GASTSPIELER FUNKTION:"); D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x14;
+#else
                     D_8020C070[FE_ENTRY(9)].text = "BECOME GUEST PLAYER:"; D_8020C070[FE_ENTRY(9)].unk10 = D_803047DC; D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x14;
+#endif
                     func_8026AF6C(0x800C);
                     break;
                 case 0x400000:
@@ -1296,6 +1309,13 @@ void func_80244930(void *arg0) {
                     D_802E8BD8 = 1;
                     func_80260E80();
                     break;
+#ifdef VERSION_EU
+                case 0x200000000:
+                    D_80364A70 = func_80261A44(D_80364A98);
+                    func_8026AF6C(0x806C);
+                    D_802F8BDC[0x6C].unk18 = D_80366F70_eu + 0xD8;
+                    break;
+#endif
             }
             D_80364A88 = D_80364A90;
             D_80364A90 = D_80364A98;
@@ -1309,9 +1329,9 @@ void func_80244930(void *arg0) {
             D_80364AD0 = osGetTime();
             func_8025B2B8();
             if (D_80364A90 & 0x4000) {
-                D_80364ACC = (osGetTime() - D_8036BF38) / 7825;
+                D_80364ACC = (osGetTime() - D_8036BF38) / FRAME_TICKS_100;
                 func_801F8980();
-                D_80364AC8 = (osGetTime() - D_80364AD0) / 7825;
+                D_80364AC8 = (osGetTime() - D_80364AD0) / FRAME_TICKS_100;
                 if (D_8036E68C[2] != 0) {
                     func_80285110(0x4D2);
                 }
@@ -1320,9 +1340,9 @@ void func_80244930(void *arg0) {
                 }
                 func_80285110(0x4D2);
             } else if (D_80364A90 & 0xC9FD8FE7DBFF8080) {
-                D_80364ACC = (osGetTime() - D_8036BF38) / 7825;
+                D_80364ACC = (osGetTime() - D_8036BF38) / FRAME_TICKS_100;
                 func_801FE990();
-                D_80364AC8 = (osGetTime() - D_80364AD0) / 7825;
+                D_80364AC8 = (osGetTime() - D_80364AD0) / FRAME_TICKS_100;
                 func_80285110(0x4D2);
             } else if (D_80364A90 & 0x20000000) {
                 func_801E7598();
@@ -1331,9 +1351,9 @@ void func_80244930(void *arg0) {
                 func_801EF4AC();
                 func_80285110(0x4D2);
             } else {
-                D_80364ACC = (osGetTime() - D_8036BF38) / 7825;
+                D_80364ACC = (osGetTime() - D_8036BF38) / FRAME_TICKS_100;
                 func_802475D8();
-                D_80364AC8 = (osGetTime() - D_80364AD0) / 7825;
+                D_80364AC8 = (osGetTime() - D_80364AD0) / FRAME_TICKS_100;
                 if (D_8036E68C[1] != 0) {
                     func_80285110(0x61F);
                 }
@@ -1353,7 +1373,7 @@ void func_80244930(void *arg0) {
             func_8025BBE8(0, 0, 0);
         }
         if (func_802753C0() != 0) {
-            func_8029A7E4("\n\a --- ASSERTION FAULT - %s - %s, line %d\n\n", "!areWeFading()", "hd.c", 627);
+            func_8029A7E4("\n\a --- ASSERTION FAULT - %s - %s, line %d\n\n", "!areWeFading()", "hd.c", LINE_EU(627, 629));
         }
         switch (D_80364A98) {
             case 0x400000000000:
@@ -1371,7 +1391,6 @@ void func_80244930(void *arg0) {
         }
     }
 }
-#endif
 extern u8 D_802F4870[];
 extern s32 D_802FA268;
 /* .bss, defined here so the osGetTime() store shares one lui (see D_80364A90). */
@@ -1463,9 +1482,6 @@ void func_802CF1A4(void);
 void func_802D291C(void);
 s32 func_802D4E10(s32);
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_802475D8.s")
-#else
 void func_802475D8(void) {
     s32 sp6C;
     s32 sp68;
@@ -1947,7 +1963,7 @@ void func_802475D8(void) {
         }
     }
     if (D_80364A90 == 8 && func_802753C0() == 0 &&
-        (func_802D4E10(D_80367734) == 0 || SC_FRAMECOUNT - D_80367740 > 300)) {
+        (func_802D4E10(D_80367734) == 0 || SC_FRAMECOUNT - D_80367740 > 5 * FRAMES_PER_SECOND)) {
         func_80275390(0x08000000);
     }
     if (D_802E8BDC == 0x31 && D_8036BB1C == 1) {
@@ -2057,10 +2073,10 @@ void func_802475D8(void) {
         osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
     }
     if (D_80315180.validCount != 0) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&textureDmaMessageQ)", "hd.c", 1509);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&textureDmaMessageQ)", "hd.c", LINE_EU(1509, 1517));
     }
     if (D_80358080 - D_80358084 >= 0x90) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "nextdma-no_palette_dmas<NUM_TEXTURE_DMAS", "hd.c", 1510);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "nextdma-no_palette_dmas<NUM_TEXTURE_DMAS", "hd.c", LINE_EU(1510, 1518));
     }
     for (sp68 = 0; sp68 < D_80358080 - D_80358084; sp68++) {
         func_802A57AC();
@@ -2072,17 +2088,20 @@ void func_802475D8(void) {
     if (D_803643D7 == 0 && D_803643D6 == 0) {
         if (D_803643DA != 0) {
             if (D_803643D9 != 0) {
-                func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!cmo_hit_request", "hd.c", 1529);
+                func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!cmo_hit_request", "hd.c", LINE_EU(1529, 1537));
             }
             D_803643D7 = 1;
+#ifdef VERSION_EU
+        } else if (D_803643D9 != 0 && (D_802E8BDC != 49 || D_803EF6E4 >= 0x31BD1)) {
+#else
         } else if (D_803643D9 != 0) {
+#endif
             D_803643D6 = 1;
         }
         D_803643DA = 0;
         D_803643D9 = 0;
     }
 }
-#endif
 
 void func_8024A348(void) {
     if (D_80364A40 != 0) {
@@ -2872,7 +2891,111 @@ void func_8024BDA4(u16 *arg0) {
 }
 
 #ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_8024C404.s")
+extern s32 D_802FA250;
+extern s32 D_8036BF14;
+extern s32 D_8036BF18;
+extern u32 D_8036BF20;
+extern u32 D_8036BF24;
+extern u32 D_8036BF2C;
+extern OSTime D_8036BF40;
+extern OSTime D_8036BF50;
+extern OSTime D_80368058;
+extern OSTime D_80368068;
+
+/* A frame's count ticks (eu's 20000us), as FRAME_TICKS_100 works it out. */
+#define FRAME_TICKS ((u64)20000 * osClockRate / 1000000)
+
+/*
+ * eu's frame rate and timing bars (when D_802FA250 is set): the frame
+ * rate as text, then bars from x 110, half a pixel per percent of a frame:
+ * the RSP's audio and graphics tasks, the RDP, the game's own time and the
+ * audio thread, each from the RDP's start (D_80315440.unk288).
+ */
+Gfx *func_8024C404(Gfx *arg0, FrameGame *arg1, s32 *arg2) {
+    Gfx *gfx;
+    u16 color;
+    char buf[30];
+    s64 t1;
+    s64 t2;
+    OSIntMask mask;
+
+    gfx = arg0;
+    mask = osSetIntMask(OS_IM_NONE);
+    D_802EAA54_eu += 50U / (D_8036BF14 - D_8036BF18);
+    D_802EAA58_eu++;
+    if (D_802FA250 != 0) {
+        sprintf(buf, "%d", 50U / (D_8036BF14 - D_8036BF18));
+        func_80259CCC(arg1, buf, NULL, 0, 0, 24, 200, 20, 20, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+        gDPPipeSync(gfx++);
+        gDPSetCycleType(gfx++, G_CYC_FILL);
+        gDPSetRenderMode(gfx++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
+        gDPPipeSync(gfx++);
+        color = 0xFFC1;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 60, 200, 62, 225);
+        gDPFillRectangle(gfx++, 160, 200, 162, 225);
+        gDPFillRectangle(gfx++, 210, 200, 212, 225);
+        gDPFillRectangle(gfx++, 260, 200, 262, 225);
+        gDPPipeSync(gfx++);
+        color = 0xFFFF;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 200, 112, 225);
+        t1 = D_8036BF40 - D_80315440.unk288;
+        if (t1 < 0) {
+            t1 += FRAME_TICKS * 2;
+        }
+        t2 = D_8036BF50 - D_80315440.unk288;
+        if (t2 < 0) {
+            t2 += FRAME_TICKS * 2;
+        }
+        gDPPipeSync(gfx++);
+        color = 0xF83F;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, t1 / FRAME_TICKS_100 / 2 + 110, 201, t2 / FRAME_TICKS_100 / 2 + 110, 204);
+        gDPPipeSync(gfx++);
+        color = 0x6001;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 206, D_8036BF24 / 2 + 110, 209);
+        gDPPipeSync(gfx++);
+        color = 0xF801;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110 - (100 - D_8036BF2C) / 2, 206, D_8036BF24 / 2 - (100 - D_8036BF2C) / 2 + 110,
+                         209);
+        gDPPipeSync(gfx++);
+        color = 0x7C1;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 211, D_8036BF20 / 2 + 110, 214);
+        gDPPipeSync(gfx++);
+        color = 0x19;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 216, D_80364AC8 / 2 + 110, 219);
+        gDPPipeSync(gfx++);
+        color = 0x3F;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110 - (100 - D_80364ACC) / 2, 216, D_80364AC8 / 2 - (100 - D_80364ACC) / 2 + 110,
+                         219);
+        t1 = D_80368058 - D_80315440.unk288;
+        if (t1 < 0) {
+            t1 += FRAME_TICKS * 2;
+        }
+        t2 = D_80368068 - D_80315440.unk288;
+        if (t2 < 0) {
+            t2 += FRAME_TICKS * 2;
+        }
+        gDPPipeSync(gfx++);
+        color = 0x7FF;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, t1 / FRAME_TICKS_100 / 2 + 110, 221, t2 / FRAME_TICKS_100 / 2 + 110, 224);
+        gDPPipeSync(gfx++);
+        color = 0x7C1;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, D_8036BF20 / 2 + 110, 200, D_8036BF20 / 2 + 110, 225);
+        func_80259C24(&gfx, arg1);
+    }
+    osSetIntMask(mask);
+    *arg2 += gfx - arg0;
+    return gfx;
+}
 #else
 Gfx *func_8024C404(Gfx *arg0, FrameGame *arg1, s32 *arg2) {
     *arg2 = 0;
@@ -2880,9 +3003,6 @@ Gfx *func_8024C404(Gfx *arg0, FrameGame *arg1, s32 *arg2) {
 }
 #endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_8024C414.s")
-#else
 Gfx *func_8024C414(FrameGame *arg0, s32 *arg1) {
     Gfx *gfx = arg0->unk48B0;
     char sp194[16];
@@ -3090,25 +3210,29 @@ Gfx *func_8024C414(FrameGame *arg0, s32 *arg1) {
         func_80275478(arg0, &gfx, (D_80364A90 & 0x100) != 0 || D_8036BB18 == 0x4D || D_8036BB18 == 0x49);
     }
     if (D_80364A98 == 0 && func_802753C0() == 0) {
-        if (!(D_80364A90 & 0x200000100400230CLL) && (D_80315440.frameCount % 50) * 60 / 60 >= 21 && D_8036BB1C == 1 &&
+        if (!(D_80364A90 & 0x200000100400230CLL) && (D_80315440.frameCount % 50) * FRAMES_PER_SECOND / 60 >= 21 * FRAMES_PER_SECOND / 60 && D_8036BB1C == 1 &&
             (!(D_80364A90 & 2) || (D_802E8BEC != 0 && (D_80366A12 == 3 || D_802E8BEC == 1))) &&
             (D_80364A90 != 0x100000000000LL || D_803A6B04 != 0) &&
             (!(D_80364A90 & 0x1801) || D_80364AF0[D_80364AE8].gameState != 0) && D_802E8BDC != 0x2F) {
+            #ifdef VERSION_EU
+            func_80259CCC(arg0, TEXT_EU("PRESS START", "DRUECKE START"), NULL, 0, 160, 92, 196, 26, 26, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+#else
             func_80259CCC(arg0, "PRESS START", NULL, 1, 0, 92, 196, 26, 26, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+#endif
         }
-        if ((D_80315440.frameCount % 40) * 60 / 60 >= 16) {
+        if ((D_80315440.frameCount % 40) * FRAMES_PER_SECOND / 60 >= 16 * FRAMES_PER_SECOND / 60) {
             if (D_802E8BD0 != 0) {
                 if (D_80364A90 == 0x2000000000000000LL && D_8036BB1C == 2) {
-                    func_80259CCC(arg0, "USE Z/R TO TURN PAGES", D_8030491C, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("USE Z/R TO TURN PAGES", "DRUECKE Z OD. R ZUM BLAETTERN"), U16TEXT(D_8030491C), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 } else if (D_80364A90 == 0x100 && D_8036BB18 == 0 && D_8036BB1C == 2 && D_803643DB != 0 &&
                            !(D_80370C28 & 0x2010)) {
-                    func_80259CCC(arg0, "USE Z/R TO MOVE MAP", D_80304938, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("USE Z/R TO MOVE MAP", "DRUECKE Z OD. R ZUM SCROLLEN"), U16TEXT(D_80304938), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 }
             } else if (D_80364A90 == 0x100) {
                 if (D_80364AC1 != 0) {
-                    func_80259CCC(arg0, "SHUTTLE VIEW", D_80304904, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("SHUTTLE VIEW", "SHUTTLE-SICHT"), U16TEXT(D_80304904), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 } else {
-                    func_80259CCC(arg0, "MISSILE VIEW", D_80304910, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("MISSILE VIEW", "MISSILE-SICHT"), U16TEXT(D_80304910), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 }
             }
         }
@@ -3161,7 +3285,6 @@ Gfx *func_8024C414(FrameGame *arg0, s32 *arg1) {
     *arg1 = ((u8 *)gfx - (u8 *)arg0 - 0x48B0) >> 3;
     return gfx;
 }
-#endif
 
 void func_8024E4F4(arg0, arg1, arg2)
     Gfx **arg0;
@@ -4635,9 +4758,6 @@ void func_802558C8(Gfx *arg0, s32 *arg1) {
     *arg1 += gfx - arg0;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_802559F8.s")
-#else
 void func_802559F8(Gfx *arg0, s32 *arg1) {
     Gfx *gfx = arg0;
 
@@ -4645,14 +4765,16 @@ void func_802559F8(Gfx *arg0, s32 *arg1) {
     gSPEndDisplayList(gfx++);
     *arg1 = ((u8 *)gfx - (u8 *)D_803156F8[D_8035805C].unk48B0) >> 3;
     if (*arg1 >= 0xB5E) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "*length<TOPLEVEL_DL_SIZE", "hd.c", 3665);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "*length<TOPLEVEL_DL_SIZE", "hd.c", LINE_EU(3665, 3681));
     }
 }
-#endif
 
 #ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_80255AD0.s")
-#else
+extern OSMesgQueue D_80219EF8;
+extern OSMesgQueue D_80219F50;
+void func_8028B3E0(void);
+#endif
+
 void func_80255AD0(void) {
     s32 sp44;
     f32 sp40;
@@ -4678,6 +4800,13 @@ void func_80255AD0(void) {
     func_80284DB0();
     osWritebackDCacheAll();
     func_8028FC10();
+#ifdef VERSION_EU
+    /* the front end reads the saved language */
+    func_8028B3E0();
+    osSendMesg(&D_80219EF8, (OSMesg)0x01000016, OS_MESG_BLOCK);
+    osRecvMesg(&D_80219F50, NULL, OS_MESG_BLOCK);
+    func_8029A7E4("Saved language is %d\n", D_80366F70_eu);
+#endif
     if (!(sp2F & 1)) {
         D_80364A98 = 0x0800000000000000LL;
     } else if (D_802FDBD0 != 0) {
@@ -4692,7 +4821,6 @@ void func_80255AD0(void) {
         D_80310D80[sp44] = 0x1122334455667788LL;
     } while (--sp44 >= 0);
 }
-#endif
 
 void func_80255D34(void) {
     u8 sp1F = 0;
@@ -5083,9 +5211,6 @@ void func_8025615C(s32 arg0, u8 *arg1, s32 *arg2) {
     func_8028B4C4(sp24, arg1, arg2, 12, 10, 1);
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_80256A34.s")
-#else
 void func_80256A34(s32 arg0) {
     s32 sp4C;
     s32 sp48;
@@ -5121,10 +5246,10 @@ void func_80256A34(s32 arg0) {
     D_80364456 = 0;
     if (D_80370C50 != 0) {
         if (D_8039C4B0 != 0) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!pakBusy", "hd.c", 4162);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!pakBusy", "hd.c", LINE_EU(4162, 4185));
         }
         if (D_80219F58 != 0) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&pakToGameMessageQ)", "hd.c", 4163);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&pakToGameMessageQ)", "hd.c", LINE_EU(4163, 4186));
         }
         osScRemoveClient(&D_80315440, &D_80218EE0);
         osDestroyThread(&D_80218D30);
@@ -5244,7 +5369,6 @@ void func_80256A34(s32 arg0) {
     func_802A56C4();
     func_802A5FA8();
 }
-#endif
 
 
 void func_80257234(void) {

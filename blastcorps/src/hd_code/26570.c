@@ -21,14 +21,6 @@ extern u16 D_802E8C9C[];
 extern u16 D_803C30A8[];
 extern s32 D_803F7684;
 extern u8 D_802F499A[];
-#ifdef VERSION_EU
-extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
-/* An entry's text in the language. */
-#define ENTRY_TEXT(e) ((&(e)->text)[D_80366F70_eu])
-#else
-#define ENTRY_TEXT(e) ((e)->text)
-#endif
-
 /* eu's timings are PAL's (50 Hz); FRAMES_F is a float that is written out for each. */
 #ifdef VERSION_EU
 #define REFRESH_RATE 50

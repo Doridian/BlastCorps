@@ -42,6 +42,9 @@ extern s16 D_8036BB1A;
 extern s16 D_8036BB1C;
 extern Vtx D_802FA8B0[][4];
 extern s16 D_8039CAA0;
+#ifdef VERSION_EU
+extern u8 D_80365060[];
+#endif
 
 
 /* .bss, 0x80366A00-0x80366BD0 (tools/bss_c.py) */
@@ -310,9 +313,6 @@ void func_8025D184(void) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/17E10/func_8025D2B4.s")
-#else
 Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
     Gfx *gfx;
     s32 x;
@@ -321,12 +321,21 @@ Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
     s16 yoff;
 
     gfx = arg0;
+#ifdef VERSION_EU
+    if (D_80364A90 & 0x08040E2310418002) {
+#else
     if (D_80364A90 & 0x08040E2110418002) {
+#endif
         D_80366A14 += 10;
         if (D_80366A14 >= 0x100) {
             D_80366A14 = 0xFF;
         }
+#ifdef VERSION_EU
+    } else if ((D_80364A90 & 0x0188004003160000) &&
+               (D_80364A90 != 0x02000000 || D_80365060[D_80364AE8] == 1)) {
+#else
     } else if (D_80364A90 & 0x0188004203160000) {
+#endif
         D_80366A14 -= 10;
         if (D_80366A14 <= 0) {
             D_80366A14 = 0;
@@ -434,7 +443,6 @@ Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
     *arg2 += gfx - arg0;
     return gfx;
 }
-#endif
 
 void func_8025E1E0(Gfx **gfxp) {
     Gfx *gfx;
@@ -449,9 +457,6 @@ void func_8025E1E0(Gfx **gfxp) {
     *gfxp = gfx;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/17E10/func_8025E2CC.s")
-#else
 void func_8025E2CC(Gfx **gfxp, s32 arg1, s32 arg2) {
     Gfx *gfx;
 
@@ -505,7 +510,7 @@ void func_8025E2CC(Gfx **gfxp, s32 arg1, s32 arg2) {
                 func_80277EDC(2, 1, 2, func_8026205C(3));
             }
         } else if (func_802D4E10(D_80367734) == 0 ||
-                   (D_80366BC4 != 0 && D_803156C4 - D_80367740 > 480) ||
+                   (D_80366BC4 != 0 && D_803156C4 - D_80367740 > 8 * FRAMES_PER_SECOND) ||
                    (D_80366BC4 == 0 && D_803156C4 - D_80366BB8 > D_802E8CD0[(D_80364AA8 & 0x81) ? 1 : 0])) {
             func_80275270(0x08000000, 0.75f);
             D_80366BB8 = 0;
@@ -514,11 +519,18 @@ void func_8025E2CC(Gfx **gfxp, s32 arg1, s32 arg2) {
     }
     *gfxp = gfx;
 }
+
+/* The fade in after the level's end: its frames, the alpha step and the wait after it. */
+#ifdef VERSION_EU
+#define FADE_FRAMES 75
+#define FADE_STEP 3.4
+#define FADE_HOLD 39
+#else
+#define FADE_FRAMES 90
+#define FADE_STEP 2.8333333333333335
+#define FADE_HOLD 46
 #endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/17E10/func_8025E67C.s")
-#else
 void func_8025E67C(Gfx **gfxp, s32 arg1, u8 arg2) {
     Gfx *gfx;
     u32 now;
@@ -556,7 +568,7 @@ void func_8025E67C(Gfx **gfxp, s32 arg1, u8 arg2) {
             D_80366BB8 = now;
             D_80366BC5 = 0;
         }
-        if ((i = now - D_80366BB8) >= 180) {
+        if ((i = now - D_80366BB8) >= 3 * FRAMES_PER_SECOND) {
             switch (D_802E8BDC) {
                 case 49:
                     if (D_80366BC5 == 0) {
@@ -590,14 +602,14 @@ void func_8025E67C(Gfx **gfxp, s32 arg1, u8 arg2) {
                     gSP1Triangle(gfx++, 0, 2, 3, 0);
                     gDPPipeSync(gfx++);
                     if (func_802753C0() == 0) {
-                        if (now - D_80366BB8 - 180 < 90) {
-                            alpha = (now - D_80366BB8 - 180) * 2.8333333333333335;
+                        if (now - D_80366BB8 - 3 * FRAMES_PER_SECOND < FADE_FRAMES) {
+                            alpha = (now - D_80366BB8 - 3 * FRAMES_PER_SECOND) * FADE_STEP;
                             for (i = 0; i < 4; i++) {
                                 for (j = 0; j < 4; j++) {
                                     D_802FA8B0[arg2][i].v.cn[j] = alpha;
                                 }
                             }
-                        } else if (now - D_80366BB8 - 270 >= 46) {
+                        } else if (now - D_80366BB8 - (3 * FRAMES_PER_SECOND + FADE_FRAMES) >= FADE_HOLD) {
                             if (D_80364A90 == 0x100000000000) {
                                 D_80364A98 = 0x200000000000;
                             } else if LEVEL_DONE_IN(D_80364AF0[D_80364AE8], D_802E8BDC) {
@@ -619,4 +631,3 @@ void func_8025E67C(Gfx **gfxp, s32 arg1, u8 arg2) {
     }
     *gfxp = gfx;
 }
-#endif

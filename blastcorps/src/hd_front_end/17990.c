@@ -86,13 +86,6 @@ extern u64 D_80364A88;
 extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
 #endif
 
-/* An entry's text in the language being shown: eu's entries have three. */
-#ifdef VERSION_EU
-#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
-#else
-#define ENTRY_TEXT(e) (e)->text
-#endif
-
 /* .bss, 0x8021AB70-0x8021AB80 (tools/bss_c.py) */
 u8 D_8021AB70;
 char D_8021AB72[2];
