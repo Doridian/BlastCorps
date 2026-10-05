@@ -167,8 +167,16 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 8036507C:80312FF8:4 --pair 80365080:803131B0:4 --pair 80365084:803151B8:4" \
     "vermap:--pair 80365088:803171C0:4 --pair 8036508C:803171E0:4 --pair 803153F8:80317870:40" \
     "vermap:--pair 8030F670:80311A90:11B0 --pair 8030E390:803107C0" \
-    "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90" \
-    "hd_code:--asm-object 1C460 --asm-object 1D990 --asm-object 26570" \
-    "hd_code:--asm-object 45BB0 --asm-object 53220" \
-    "hd_front_end:--asm-object 00000 --asm-object 1C40 --asm-object 6790 --asm-object 7800" \
-    "hd_front_end:--asm-object E7B0 --asm-object 1A240 --asm-object 11530"
+    "hd_code:--asm-object 1C460" \
+    "hd_code:--asm-object 1D990" \
+    "hd_code:--asm-object 26570" \
+    "hd_code:--asm-object 45BB0" \
+    "hd_code:--asm-object 53220" \
+    "hd_front_end:--asm-object 00000" \
+    "hd_front_end:--asm-object 1C40" \
+    "hd_front_end:--asm-object 6790" \
+    "hd_front_end:--asm-object 7800" \
+    "hd_front_end:--asm-object E7B0" \
+    "hd_front_end:--asm-object 1A240" \
+    "hd_front_end:--asm-object 11530" \
+    "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90"
