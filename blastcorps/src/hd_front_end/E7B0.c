@@ -56,7 +56,12 @@ extern u8 D_8021A8F0;
 extern u8 D_8039B6B0[];
 extern u8 D_8039C4B8[];
 extern s32 D_802FA264;
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: which of text, text2, text3 */
+s32 func_801F7120_eu(u8);
+#else
 extern u16 D_80301080[];
+#endif
 void func_801F7410(u8 *);
 void func_801F8354(u8);
 s32 func_801F7F74();
@@ -128,13 +133,24 @@ u8 D_8020C000[0x14] = { 141, 118, 92, 99, 138, 59, 129, 59 };
 u8 D_8020C000[0x14] = { 66, 76, 65, 83, 84, 67, 79, 82, 80, 83, 32, 71, 65, 77, 69 };
 #endif
 u8 D_8020C014[8] = { 0 };
+#ifdef VERSION_EU
+/* What func_801F7120_eu saves for each language. */
+typedef struct UnkStruct_8020CAB0_eu {
+    u64 lang[2];
+} UnkStruct_8020CAB0_eu;
+UnkStruct_8020CAB0_eu D_8020CAB0_eu = { { 0x1982198219821982, 0x1945194519451945 } };
+#endif
 #ifdef VERSION_JP
 /* 0x0FFE-terminated u16 text */
 u16 D_8020BFEC_jp[4] = { 0x3C, 0x1003, 0xFFE };
 u16 D_8020BFF4_jp[4] = { 3, 0x1004, 4, 0xFFE };
 u16 D_8020BFFC_jp[2] = { 0x1002, 0xFFE };
 #else
+#ifdef VERSION_EU
+u8 D_8020C01C[0x50] = {
+#else
 u8 D_8020C01C[0x54] = {
+#endif
     0, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 32, 48, 49, 50, 51, 52, 53, 54, 55,
     56, 57, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86,
     87, 88, 89, 90, 33, 97, 98, 39, 100, 101, 44, 45, 46, 47, 58, 107, 63, 109, 45, 45, 45,
@@ -158,7 +174,7 @@ void func_801F57B0(void) {
     func_8029A7E4("current playerInfo size is %d bytes\n", 0x100);
     osScAddClient(&D_80315440, &D_80218EE0, &D_80219F30, 1, 3);
     if (sp24 >= 0xE00) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "filesize<PFS_FILE_SIZE", "pfsHandler.c", 0x68);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "filesize<PFS_FILE_SIZE", "pfsHandler.c", LINE_EU(0x68, 0x6A));
     }
     osStartThread(&D_80218D30);
 }
@@ -267,7 +283,17 @@ void func_801F58E8(void) {
                 case 21:
                     sp38 = func_801F6AF4(sp32, 0x87569AB6CD076AEC);
                     break;
+#ifdef VERSION_EU
+                case 23:
+                    sp38 = func_801F7120_eu(1);
+                    break;
                 case 22:
+                    sp38 = func_801F7120_eu(0);
+                    break;
+                case 24:
+#else
+                case 22:
+#endif
                     sp38 = 0;
                     break;
                 default:
@@ -335,7 +361,7 @@ void func_801F58E8(void) {
                     break;
                 case 2:
                     if (sp34 == 8 && !(D_80364A90 & 0x10E18000)) {
-                        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", 342);
+                        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", LINE_EU(342, 352));
                         sp2D = 1;
                     }
                     break;
@@ -391,7 +417,7 @@ s32 func_801F5FE4(void) {
 
     sp1C = NULL;
     if (D_80370C00 != 0) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", 0x190);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", LINE_EU(0x190, 0x19A));
         osRecvMesg(&D_80370BF8, &sp1C, OS_MESG_NOBLOCK);
     }
     if (func_8028FCD4(&D_80370BF8, &sp23) != 0) {
@@ -402,7 +428,7 @@ s32 func_801F5FE4(void) {
         sp24 = 0;
     }
     if (sp1C != NULL) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", 0x19E);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", LINE_EU(0x19E, 0x1A8));
         osSendMesg(&D_80370BF8, sp1C, OS_MESG_NOBLOCK);
     }
     return sp24;
@@ -558,7 +584,7 @@ s32 func_801F67E4(u8 arg0, u8 arg1, u8 arg2) {
     sp30 = &D_80364F70[sp37 & ~3];
     if (D_802E8BF8 != 0) {
         if (arg0 != D_80364AEA) {
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "pn==playerNumberAtStart", "pfsHandler.c", 0x25C);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "pn==playerNumberAtStart", "pfsHandler.c", LINE_EU(0x25C, 0x26F));
         }
         if (arg2 == 1) {
             D_80364F70[sp37] = D_80364EF0[arg0][D_802E8C44[D_80364AF0[arg0].unk92[arg1]]];
@@ -596,6 +622,34 @@ s32 func_801F6AF4(u8 arg0, u64 arg2) {
     }
     return sp24;
 }
+
+#ifdef VERSION_EU
+/* The language, saved in the EEPROM's block 0x3E (arg0 1) or read from it. */
+s32 func_801F7120_eu(u8 arg0) {
+    u64 sp38; /* unused */
+    UnkStruct_8020CAB0_eu sp28;
+    u64 sp20;
+
+    if (arg0 == 1) {
+        sp28 = D_8020CAB0_eu;
+        osEepromWrite(&D_80370BF8, 0x3E, (u8 *)&sp28.lang[D_80366F70_eu]);
+    } else {
+        osEepromRead(&D_80370BF8, 0x3E, (u8 *)&sp20);
+        switch (sp20) {
+            case 0x1945194519451945:
+                D_80366F70_eu = 1;
+                break;
+            case 0x1982198219821982:
+                D_80366F70_eu = 0;
+                break;
+            default:
+                D_80366F70_eu = 0;
+                break;
+        }
+    }
+    return 0;
+}
+#endif
 
 s32 func_801F6BD0(u8 arg0, u64 *arg1) {
     s32 sp44;
@@ -696,13 +750,21 @@ s32 func_801F6F18(void) {
             if (sp34 < 9) {
                 sprintf(D_80218740[sp44], "%s ", D_80218740[sp44]);
             }
+#ifdef VERSION_EU
+            (&D_8020C488[D_80218D28].text)[D_80366F70_eu] = D_80218740[sp44];
+#else
             D_8020C488[D_80218D28].text = D_80218740[sp44];
+#endif
             D_80218D28++;
         }
     }
     if (D_80218D28 == 0) {
         sprintf(D_80218740[0], "%s", "PAK EMPTY!");
+#ifdef VERSION_EU
+        (&D_8020C070[FE_ENTRY(37)].text)[D_80366F70_eu] = D_80218740[0];
+#else
         D_8020C070[FE_ENTRY(37)].text = D_80218740[0];
+#endif
         sp2C = 1;
     } else {
         sp2C = 0;
@@ -711,12 +773,31 @@ s32 func_801F6F18(void) {
     D_802F8BDC[18].count = D_80218D28 + sp2C + 4;
     osSendMesg(&D_80219EF8, (OSMesg)0x0100000E, OS_MESG_BLOCK);
     osRecvMesg(&D_80219F50, NULL, OS_MESG_BLOCK);
+#ifdef VERSION_EU
+    sprintf(D_80219F90,
+            D_80366F70_eu == 0   ? "%d PAGES FREE"
+            : D_80366F70_eu == 1 ? "%d SEITEN FREI"
+                                 : NULL,
+            D_80218EF0 / 32 / 8);
+    (&D_8020C070[FE_ENTRY(35)].text)[D_80366F70_eu] = D_80219F90;
+    sprintf(D_80219FB0,
+            D_80366F70_eu == 0   ? "%d NEEDED PER PLAYER"
+            : D_80366F70_eu == 1 ? "%d PRO SPIELER BENOETIGT"
+                                 : NULL,
+            0xE);
+    (&D_8020C070[FE_ENTRY(36)].text)[D_80366F70_eu] = D_80219FB0;
+    (&D_8020C070[FE_ENTRY(10)].text)[D_80366F70_eu] = D_80366F70_eu == 0   ? "DELETE THIS FILE?"
+                                                      : D_80366F70_eu == 1 ? "SPEICHER LOESCHEN?"
+                                                                           : NULL;
+    D_8020C070[FE_ENTRY(10)].unk10 = NULL;
+#else
     sprintf(D_80219F90, "%d PAGES FREE", D_80218EF0 / 32 / 8);
     D_8020C070[FE_ENTRY(35)].text = D_80219F90;
     sprintf(D_80219FB0, "%d NEEDED PER PLAYER", 0xE);
     D_8020C070[FE_ENTRY(36)].text = D_80219FB0;
     D_8020C070[FE_ENTRY(10)].text = "DELETE THIS FILE?";
     D_8020C070[FE_ENTRY(10)].unk10 = D_80301080;
+#endif
     return D_80218D28 != 0;
 }
 #endif

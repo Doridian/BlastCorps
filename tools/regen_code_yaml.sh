@@ -170,10 +170,10 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 80208044:8020C380" \
     "vermap:--pair 802E9F9C:802EBDA0:4 --pair 802E9FA0:802EBDA4:C" \
     "hd_code:--at 1D990:rodata:C4510" \
+    "vermap:--pair 8020C488:8020D050" \
     "hd_code:--asm-object 26570" \
     "hd_front_end:--asm-object 1C40" \
     "hd_front_end:--asm-object 6790" \
     "hd_front_end:--asm-object 7800" \
-    "hd_front_end:--asm-object E7B0" \
     "hd_front_end:--asm-object 1A240" \
     "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90"
