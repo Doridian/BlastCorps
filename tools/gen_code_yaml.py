@@ -47,13 +47,15 @@ config written to <module>.<version>.yaml and reading back what it found:
    (like_config).  Objects, their names and kinds (`c`, `.data`, ...)
    and the comments stay the reference's, so each version's objects are
    the same C files; the order follows this version's addresses (an
-   object can sit elsewhere in its link order).  --at places a start the
+   object can sit elsewhere in its link order).  --add gives an object a
+   data, rodata or bss block the reference has none of.  --at places a start the
    map can't, --split adds an object only this version has, --asm-block
    and --asm-object give this version asm where the C can't build it.
 
 Usage:
   gen_code_yaml.py <module> <version> --like us.v11 --data <off> --end <off>
-                   [--at <name>:<kind>:<off>] ... [--split <off>] ...
+                   [--at <name>:<kind>:<off>] ... [--add <name>:<kind>:<off>] ...
+                   [--split <off>] ...
   gen_code_yaml.py <module> <version> --vram 0x... --data <off> --end <off>
                    [--bin off:len:note] ... [--c] [--symbols <path>] [--split <off>] ...
                    [--rodata <off> [--tail off:len:note] ... [--data-split off[:obj]] ...
@@ -886,6 +888,12 @@ def like_config(args):
             items.append((new, pending + [f"{m.group(1)}0x{fmt}{asm_kind(m.group(3), m.group(5))}{m.group(6)}"],
                           m.group(4)))
             pending = []
+        for spec in args.add:
+            name, kind, off = spec.split(":")
+            if part == ("bss" if kind == "bss" else "data") and part != "bss":
+                obj = f"{args.module}/{name}"
+                items.append((int(off, 16), [f"    - [0x{int(off, 16):X}{asm_kind(f', .{kind}, {obj}]', obj)}"
+                                             f" # only {args.version} has this block"], "." + kind))
         if part == "text":
             for off in extra:
                 name = f"{off:X}_{tagv}"
@@ -919,6 +927,12 @@ def like_config(args):
     bss = [(k, line) for k, (p, line) in enumerate(body) if p == "bss"]
     if bss:
         items = []
+        for spec in args.add:
+            name, kind, off = spec.split(":")
+            if kind == "bss":
+                obj = f"{args.module}/{name}"
+                items.append((int(off, 16), f"  - [0x{int(off, 16):X}{asm_kind(f', .bss, {obj}]', obj)}"
+                                            f" # only {args.version} has this block"))
         for k, line in bss:
             m = SUB_RE.match(line)
             if m and m.group(4) and k in starts:
@@ -974,6 +988,9 @@ def main():
                     help="(--like) the whole object is asm in this version: its C doesn't build it")
     ap.add_argument("--at", action="append", default=[], metavar="NAME:KIND:OFF",
                     help="(--like) where an object's text/data/rodata/bss starts, if the map can't say")
+    ap.add_argument("--add", action="append", default=[], metavar="NAME:KIND:OFF",
+                    help="(--like) a data/rodata/bss block of this object only this version has "
+                    "(OFF a module offset, a vram for bss)")
     args = ap.parse_args()
     if args.like:
         like_config(args)
