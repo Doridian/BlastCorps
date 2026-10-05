@@ -233,10 +233,10 @@ void func_801F7850(void) {
     sp78->unk18 = 2;
 #ifndef VERSION_US_V10
     D_8021A828 = sp68 * 4;
+#endif
     func_801F8228();
     func_801FDE50();
 }
-#endif
 
 /* K&R: callers pass the index unconverted. */
 s32 func_801F7F74(arg0)
