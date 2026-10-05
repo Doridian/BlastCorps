@@ -69,7 +69,9 @@ to SDL unless the run is `--headless` or `--deterministic`.
 through the name entry into Simian Acres (`=2` taps by the game's own
 retrace count and then drives forward in the level, as
 `port/tools/m64p_pace.c` does in mupen64plus; `=3` also taps A in the
-level, which clears the hint panels, so the vehicle keeps moving);
+level, which clears the hint panels, so the vehicle keeps moving; with
+either, `PORT_LEVEL=N` goes into level N instead, by the IDs of
+`docs/blast_corps_levels.txt`: `=1` is Angel City, `=3` Blackridge Works);
 `PORT_DUMP=N,...` writes RDRAM at
 the Nth controller read, counted as `tools/recomp/test/snapshot.c` counts
 them in mupen64plus, so the two can be compared byte for byte.
@@ -768,7 +770,15 @@ for the handwritten objects' own data the widths their code reads it at
 strings; 0xFF-terminated text, `func_802BEEF0`), for the targets of byte
 pointer tables (`D_80306270`), and for tables kept big-endian because a
 walk runs off their end into byte data (`D_80306344`, `D_80306350`,
-`D_803063D4`, `ASM_DATA_BE`).  An array of unknown length (`D_8020C070[]`)
+`D_803063D4`, `ASM_DATA_BE`).  What only the RSP and the RDP read is
+typed by hand: the carrier's explosion's dome, `D_802FFF38` (`Vtx[179]`,
+`ASM_DATA_LAYOUTS`), which fieldscan took for words, so that in host
+order each vertex's x and y traded places and z read the flag: the dome
+was a flat sheet (issue #1); and its texture `D_802FF738` (bytes).  The
+display lists that use asm data directly or through a segment were
+found by logging every `G_VTX`'s and `G_SETTIMG`'s address over the
+attract mode and three levels, and by a scan of the asm data for
+display-list words: those two are all.  An array of unknown length (`D_8020C070[]`)
 runs to its file's end, over the labels splat made inside it.  The data
 islands in hd_code's `.text` are laid out by their readers
 (`7D9D0`, `800DC`, `8E910`'s per-level tables); the rest stays as its

@@ -423,6 +423,12 @@ ASM_DATA_LAYOUTS = {
                    "func_802A56C4: lh 0, 2, 4 of record i * j (hd_code 60D50)"),
     "D_80305E38": ([(k, "s16") for k in range(0, 12, 2)], 24,
                    "func_802C0E8C reads s16 0..0xA (hd_code 77E20)"),
+    # (fieldscan takes it for a list of words, a pointer walking it; only
+    # the RSP reads it, as halves, and native-endian words put its x and
+    # y, z and the flag, s and t in each other's places: a flat dome)
+    "D_802FFF38": ([(0, "s16"), (2, "s16"), (4, "s16"), (6, "u16"), (8, "s16"), (10, "s16"),
+                    (12, "u8"), (13, "u8"), (14, "u8"), (15, "u8")], 16,
+                   "Vtx[179], the carrier's explosion's dome: 39050.c's segment 6 for D_80300A68's G_VTXs"),
 }
 
 # data kept in the N64's byte order, whatever its fields: the code that
@@ -436,6 +442,8 @@ ASM_DATA_BE = {
     "D_80306344": "func_802BF978 (lhu 0, 2; lw 4, 8): records running into D_803063E0",
     "D_80306350": "func_802BF978, as D_80306344",
     "D_803063D4": "func_802BFDAC, as D_80306344",
+    # texels, which the renderer reads as bytes in either build
+    "D_802FF738": "the carrier's explosion's dome's texture: D_80300A68's G_SETTIMG",
 }
 
 

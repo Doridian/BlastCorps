@@ -346,8 +346,9 @@ enum {
 };
 
 /* the scheduler's retrace count and the mode, where the version has them */
-extern char D_803156C4[], D_80364A90[];
+extern char D_803156C4[], D_80364A90[], D_802E8BDC[];
 #ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_802E8BDC PORT_VAR(D_802E8BDC)
 #define D_803156C4 PORT_VAR(D_803156C4)
 #define D_80364A90 PORT_VAR(D_80364A90)
 #endif
@@ -367,7 +368,7 @@ static uint16_t scripted_buttons(int *sy) {
        D_803156C4), and once in the level (D_80364A90 == 4) drive forward
        instead, which is what port/tools/m64p_pace.c's "play" does; =3: as
        2, and in the level tap A too, which clears the hint panels and so
-       keeps the vehicle moving */
+       keeps the vehicle moving; PORT_LEVEL picks the level */
     const char *s = getenv("PORT_AUTOSTART");
     if (!s || !*s || *s == '0')
         return 0;
@@ -375,6 +376,11 @@ static uint16_t scripted_buttons(int *sy) {
         static int in_level;
         if (port_be32(D_80364A90) == 0 && port_be32(D_80364A90 + 4) == 4)
             in_level = 1;
+        /* PORT_LEVEL=N: level N (D_802E8BDC, docs/blast_corps_levels.txt's
+           IDs) instead of the world map's choice, until the level runs */
+        const char *lv = getenv("PORT_LEVEL");
+        if (!in_level && lv)
+            port_wg32(D_802E8BDC, (uint32_t)atoi(lv));
         if (in_level) {
             *sy = 80;
             if (*s == '3' && (int)port_be32(D_803156C4) % 120 < 4)

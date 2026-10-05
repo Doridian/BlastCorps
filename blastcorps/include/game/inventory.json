@@ -5634,6 +5634,74 @@
    ],
    "note": "func_802C0E8C reads s16 0..0xA (hd_code 77E20)"
   },
+  "asm_D_802FFF38": {
+   "size": 16,
+   "align": 4,
+   "header": "(tools/inventory.py ASM_DATA_LAYOUTS)",
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 2,
+     "name": "unk2",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "unk4",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 6,
+     "name": "unk6",
+     "type": "u16",
+     "count": 1
+    },
+    {
+     "off": 8,
+     "name": "unk8",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 10,
+     "name": "unkA",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 12,
+     "name": "unkC",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 13,
+     "name": "unkD",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 14,
+     "name": "unkE",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 15,
+     "name": "unkF",
+     "type": "u8",
+     "count": 1
+    }
+   ],
+   "note": "Vtx[179], the carrier's explosion's dome: 39050.c's segment 6 for D_80300A68's G_VTXs"
+  },
   "asm_D_8020C0AA": {
    "size": 22,
    "align": 4,
@@ -6275,38 +6343,6 @@
     }
    ],
    "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_802FFF38": {
-   "size": 16,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 4,
-     "name": "unk4",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 8,
-     "name": "unk8",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 12,
-     "name": "unkC",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)",
-   "note": "a list walked with a pointer: the first record's fields, repeated"
   },
   "asm_D_80300A68": {
    "size": 16,
@@ -17059,6 +17095,12 @@
    "storage": "asm/data/hd_code/77E20.data.s",
    "derived": "the port's access-width profiler"
   },
+  "D_802FFF38": {
+   "type": "asm_D_802FFF38",
+   "count": 179,
+   "storage": "asm/data/hd_code/BAF70.data.s",
+   "derived": "the port's access-width profiler"
+  },
   "D_8020F480": {
    "type": "bytes",
    "count": 12,
@@ -17815,6 +17857,12 @@
    "storage": "asm/data/hd_front_end/28480.rodata.s",
    "derived": "a C string"
   },
+  "D_802FF738": {
+   "type": "bytes",
+   "count": 2048,
+   "storage": "asm/data/hd_code/BAF70.data.s",
+   "derived": "the carrier's explosion's dome's texture: D_80300A68's G_SETTIMG"
+  },
   "D_80305C48": {
    "type": "bytes",
    "count": 8,
@@ -18191,12 +18239,6 @@
    "type": "asm_D_802F4780",
    "count": 6,
    "storage": "asm/data/hd_code/AFF00.data.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_802FFF38": {
-   "type": "asm_D_802FFF38",
-   "count": 179,
-   "storage": "asm/data/hd_code/BAF70.data.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
   "D_80300A68": {
