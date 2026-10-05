@@ -55,6 +55,14 @@ typedef struct {
     uint32_t tile_gen;          /* bumped by every tile change */
 } GfxState;
 
+/* the renderer's own memory (micons.c, the models drawn for the game's
+   pictures of them): N64 addresses GFX_HOST_BASE.. that no game memory
+   has (above the fibers' stacks), reached through a segment the injected
+   display lists set; gfx.c reads display lists, vertices, matrices and
+   texels through gfx_ptr, which knows it */
+#define GFX_HOST_BASE 0x9E000000u
+#define GFX_HOST_SPAN 0x00800000u
+extern uint8_t *gfx_host_mem;
 extern GfxState gs;
 /* bumped by every display-list command that may change what a draw's state
    is made from (all but vertices, triangles, matrices, calls and syncs) */

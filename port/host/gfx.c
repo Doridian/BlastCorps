@@ -33,6 +33,7 @@
 #include "fiber.h"
 #include "gfx.h"
 #include "hdtext.h"
+#include "micons.h"
 
 /* ---- state ------------------------------------------------------------------- */
 
@@ -318,6 +319,15 @@ static inline float max_f(float x, float y) {
    address used as a physical one) masks away as before.  The movable
    builds' stacks are in the arena, at physical 0x00C00000 and up, which
    fits in 24 bits. */
+uint8_t *gfx_host_mem;
+
+/* what the display lists read: RDRAM, or the renderer's own memory */
+static inline void *gfx_ptr(uint32_t a) {
+    if (a - GFX_HOST_BASE < GFX_HOST_SPAN && gfx_host_mem)
+        return gfx_host_mem + (a - GFX_HOST_BASE);
+    return port_ptr(a);
+}
+
 static uint32_t seg_to_k0(uint32_t a) {
     uint32_t seg = (a >> 24) & 0x0F;
     return 0x80000000u | ((gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
@@ -362,7 +372,7 @@ NOINLINE static void mtx_mul(float r[4][4], float a[4][4], float b[4][4]) {
 }
 
 static void load_mtx(float m[4][4], uint32_t addr) {
-    const uint8_t *p = port_ptr(addr);
+    const uint8_t *p = gfx_ptr(addr);
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++) {
             int k = i * 4 + j;
@@ -899,7 +909,7 @@ NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3],
 
 NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
-    const uint8_t *p = port_ptr(seg_to_k0(w1));
+    const uint8_t *p = gfx_ptr(seg_to_k0(w1));
     if (gs.mvp_dirty) {
         mtx_mul(gs.mvp, gs.mv[gs.mv_top], gs.proj);
         gs.mvp_dirty = 0;
@@ -1089,7 +1099,7 @@ static void tload_copy(const TLoad *l) {
         uint32_t bytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
         uint32_t src = l->timg_addr + ((uint32_t)ult * l->timg_w + uls) * bpt2 / 2;
         uint32_t dst = l->tmem * 8;
-        const uint8_t *p = port_ptr(src);
+        const uint8_t *p = gfx_ptr(src);
         if (bytes > 4096)
             bytes = 4096;
         PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
@@ -1122,7 +1132,7 @@ static void tload_copy(const TLoad *l) {
         if (hdtext_on)
             tmem_src_set(l->tmem * 8, 0, (uint32_t)(lrt - ult + 1) * l->line * 8);
         for (int y = ult; y <= lrt; y++) {
-            const uint8_t *p = port_ptr(l->timg_addr + ((uint32_t)y * l->timg_w + uls) * bpt2 / 2);
+            const uint8_t *p = gfx_ptr(l->timg_addr + ((uint32_t)y * l->timg_w + uls) * bpt2 / 2);
             int odd = (y - ult) & 1;
             uint32_t dst = l->tmem * 8 + (uint32_t)(y - ult) * l->line * 8;
             PORT_ACCESS_BYTES(p, rowbytes < 4096 ? rowbytes : 4096);
@@ -1135,7 +1145,7 @@ static void tload_copy(const TLoad *l) {
         }
     } else {
         int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
-        const uint8_t *p = port_ptr(l->timg_addr + (uint32_t)uls * 2);
+        const uint8_t *p = gfx_ptr(l->timg_addr + (uint32_t)uls * 2);
         uint32_t dst = l->tmem * 8;
         PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
         if (hdtext_on)
@@ -2126,8 +2136,83 @@ __attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i
 
 static void line_draw(int i0, int i1, int wd, int flag);
 
+/* --model-icons (micons.c): a draw from an icon's picture of a model isn't
+   made; the model is drawn in its place, by a display list of the
+   renderer's own, run from the state the game's left and leaving it as it
+   was (but TMEM: the game loads the textures it draws with again) */
+static void run(uint32_t dl, int depth);
+static uint32_t micon_addr = 0xFFFFFFFFu;
+static unsigned micon_serial;
+static int micon_h = -1;
+
+static int micon_at(void) {
+    if (gs.timg_addr != micon_addr || micons_serial != micon_serial) {
+        micon_addr = gs.timg_addr;
+        micon_h = micons_lookup(micon_addr);
+        micon_serial = micons_serial;
+    }
+    return micon_h;
+}
+
+static void micon_draw(int h, float x0, float y0, float x1, float y1) {
+    int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
+    int shadow = ((gs.cc0 >> 20) & 0xF) != 1;       /* not TEXEL0 * ...: the drop shadow's colour */
+    uint32_t dl = micons_part(h, x0, y0, x1, y1, shadow, gs.prim, gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
+                              gs.zimg_addr, sc);
+    if (!dl)
+        return;
+    static GfxState save;
+    save = gs;
+    uint32_t hp = hud_proj;
+    int wsd = wide_sides_drawn;
+    run(dl, 1);
+    uint32_t tg = gs.tmem_gen, tl = gs.tile_gen;
+    gs = save;
+    gs.tmem_gen = tg + 1;
+    gs.tile_gen = tl + 1;
+    gs.mvp_dirty = 1;
+    hud_proj = hp;
+    wide_sides_drawn = wsd;
+    gfx_state_serial++;
+    sw_target();
+}
+
+/* the two triangles of a quad of a picture (func_802742D8's) */
+static int micon_tri_h = -1, micon_tri_n;
+static float micon_tri_r[4];
+
+static void micon_tri(int h, int i0, int i1, int i2) {
+    if (h != micon_tri_h || micon_tri_n >= 2) {
+        micon_tri_h = h;
+        micon_tri_n = 0;
+        micon_tri_r[0] = micon_tri_r[1] = 1e9f;
+        micon_tri_r[2] = micon_tri_r[3] = -1e9f;
+    }
+    int ix[3] = { i0 & 15, i1 & 15, i2 & 15 };
+    for (int k = 0; k < 3; k++) {
+        const Vtx4 *v = &gs.v[ix[k]];
+        if (v->w <= 0)
+            return;
+        GfxVtx o;
+        to_screen(v, &o);
+        if (o.x < micon_tri_r[0]) micon_tri_r[0] = o.x;
+        if (o.y < micon_tri_r[1]) micon_tri_r[1] = o.y;
+        if (o.x > micon_tri_r[2]) micon_tri_r[2] = o.x;
+        if (o.y > micon_tri_r[3]) micon_tri_r[3] = o.y;
+    }
+    if (++micon_tri_n == 2)
+        micon_draw(h, micon_tri_r[0], micon_tri_r[1], micon_tri_r[2], micon_tri_r[3]);
+}
+
 /* (flag 0x80: a line, G_LINE3D's, i2 its width) */
 NOINLINE static void tri(int i0, int i1, int i2, int flag) {
+    if (micons_on && gs.tex_on && !(flag & 0x80)) {
+        int h = micon_at();
+        if (h >= 0) {
+            micon_tri(h, i0, i1, i2);
+            return;
+        }
+    }
     if (recording)
         rec_tri(i0, i1, i2, flag);
     if (flag & 0x80)
@@ -2453,6 +2538,15 @@ static void wide_band_clear(int x0, int y0, int x1, int y1, int gl) {
 }
 
 NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
+    if (micons_on) {
+        int h = micon_at();
+        if (h >= 0) {
+            float dx = hud_task ? hud_rect_dx() : 0;
+            micon_draw(h, ((w1 >> 12) & 0xFFF) / 4.0f + dx, (w1 & 0xFFF) / 4.0f, ((w0 >> 12) & 0xFFF) / 4.0f + dx,
+                       (w0 & 0xFFF) / 4.0f);
+            return;
+        }
+    }
     if (recording)
         rec_rect(R_TEXRECT, w0, w1, h2, hc, flip);
     float lrx = ((w0 >> 12) & 0xFFF) / 4.0f, lry = (w0 & 0xFFF) / 4.0f;
@@ -2652,7 +2746,7 @@ CALL_VIA(load_tile) CALL_VIA(fill_rect) CALL_VIA(tex_rect) CALL_VIA(tri)
 
 static void run(uint32_t dl, int depth) {
     for (int n = 0; n < 1000000; n++, dl += 8) {
-        const uint8_t *p = port_ptr(dl);
+        const uint8_t *p = gfx_ptr(dl);
         uint32_t w0 = port_g32(p), w1 = port_g32(p + 4);
         uint8_t op = w0 >> 24;
         if (!ipass)
@@ -2670,7 +2764,7 @@ static void run(uint32_t dl, int depth) {
         case 0x01: CALL(do_mtx)(w0, w1); break;                       /* G_MTX */
         case 0x03: {                                            /* G_MOVEMEM */
             int idx = (w0 >> 16) & 0xFF;
-            const uint8_t *m = port_ptr(seg_to_k0(w1));
+            const uint8_t *m = gfx_ptr(seg_to_k0(w1));
             if (idx == 0x80) {                                  /* viewport */
                 for (int i = 0; i < 3; i++) {
                     gs.vp_scale[i] = (int16_t)port_g16(m + 2 * i) / 4.0f;
@@ -2743,7 +2837,7 @@ static void run(uint32_t dl, int depth) {
             CALL(tri)(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10, w1 >> 24);
             break;
         case 0xE4: case 0xE5: {                                 /* texture rectangle */
-            const uint8_t *q = port_ptr(dl + 8);
+            const uint8_t *q = gfx_ptr(dl + 8);
             uint32_t h2 = port_g32(q + 4), hc = port_g32(q + 12);
             CALL(tex_rect)(w0, w1, h2, hc, op == 0xE5);
             dl += 16;

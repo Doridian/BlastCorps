@@ -64,7 +64,9 @@ bilinear one, or point sampling throughout), `--interpolate` (60 frames a
 second where the game draws 30, and `--display-hz N|auto` for faster
 displays, see "Frame rate"), `--aspect window` (the window's shape, the
 default with a window), `--aspect W:H`, `--widescreen` (16:9) and `--hud
-edges|centre` (see "Widescreen"),
+edges|centre` (see "Widescreen"), `--model-icons`/`--no-model-icons`
+(the icons that are pictures of the game's models drawn as the models;
+default with a window, see "Model icons"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
 `PORT_AUTOSTART=1` taps Start and A, which is enough to get from the title
@@ -3228,6 +3230,64 @@ and `PORT_AUTOSTART=3` with `--interpolate`) write the same save and
 sound with and without it, 32-bit and LP64, and the same RDRAM outside
 the framebuffers (with OpenGL, the same RDRAM).
 
+## Model icons
+
+Many of the game's icons are 64x64 pictures Rare rendered from its own
+models: the missile carrier and the levels' goals (crates, rafts, gas
+plants, containers, spheres) in the hint panels and the level's goal,
+the vehicles of a level on the world map and the best times, the
+communication point.  `--model-icons` (`PORT_MODEL_ICONS=1`; the default
+with a window, off headless and with `--deterministic` or `--replay`)
+draws the models instead, at the internal resolution
+(`port/host/micons.c`).
+
+- **Which pictures.**  An icon is one or two 64x32 (or 32x32) textures
+  that `func_80272C5C` (hd_code 2E490.c) loads and `func_80272ED8` draws,
+  as texture rectangles or as quads, its drop shadow (the picture in one
+  colour, moved down and left) first.  The port's C there tells the host
+  where each texture went and which one it is (`port_icon_texture`, a
+  call: nothing in game memory changes); micons.c's table names the
+  model for each picture, by its textures: a building of the model table
+  (the goals: `D_802F9934`'s numbers, but the containers, whose entry is
+  0, are `moconw1`) or a vehicle's model file (`D_8020E350`'s vehicles by
+  type, `cmo` the carrier).  The question mark, the turning building and
+  the coins stay pictures; the scientist's file isn't the man the
+  picture shows.
+- **Drawing.**  The renderer (gfx.c) skips any draw from such a texture
+  (`micon_at`, by `G_SETTIMG`'s address, the texels checked against what
+  was loaded there) and, once the picture's last row is in, runs a
+  display list micons.c makes in memory of the renderer's own (gfx.h's
+  `GFX_HOST_BASE`, which `gfx_ptr` reads; segment 15 points at it): a
+  viewport over the rectangle the picture covered, a modelview that fits
+  the model's box in it (turned and tilted as the picture is), the
+  z-buffer cleared there, and the model's display list.  It runs from
+  the state the game's list left and puts that state back, so the game's
+  next draw is as it was.  The quads' rectangle is the screen box of their
+  vertices; the HUD's rectangles (`--hud edges`) move with the HUD.
+- **The models.**  Read from the ROM (or the pack's image) when first
+  needed and kept: a building's head and the intact look's two pieces
+  (`func_802BD1F8` copies them out of the model the same way), its
+  vertices through segment 9; a vehicle's opaque and translucent passes,
+  its vertices through segment 6 and its parts' matrices (segment 7) all
+  identity, the parts at rest.  Their textures are decoded from the
+  texture table (a pack's edited texels if it has them).
+- **Shadow and fading.**  The picture's drop shadow, the model's outline
+  moved, would show as slivers around a 3D model, and the buildings
+  carry their own shadow on the ground (the pass-1 piece's fans in
+  `G_CC_SHADE`, left out): instead the model throws one shadow, the
+  convex hull of the vertices its triangles use, projected on the ground
+  as by a light from above and to the right (at most 15 points, one flat
+  polygon, so it is evenly as dark as the picture's), in the shadow's
+  colour and alpha, under it.  A picture fading in or dimmed (the
+  windows' unselected entries) fades the model: a copy of its list whose
+  combiners take alpha from the environment colour, with a blending
+  render mode.
+- **Checking.**  `PORT_MODEL_ICONS_AS=N` makes the hint panels' question
+  mark (and the goal's turning building) the Nth model of the table:
+  `PORT_AUTOSTART=2 --model-icons --frames 1400` then shows each one in
+  Simian Acres' first hint.  Nothing of it reaches the game; the
+  references are made without it.
+
 ## The optimization pass, for the player
 
 DISTRIBUTION.md's O0-O5 (2026-10-02/03), in short, for us.v10's TAS as the
@@ -4960,6 +5020,8 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   returns that.  Two string copies whose unsequenced `a[i] = b[i++]` IDO
   evaluates with the old index.
 - `hd_code/168B0.c`: the same unsequenced copy.
+- `hd_code/2E490.c`: `func_80272C5C` tells the host which textures an
+  icon's picture is (`port_icon_texture`, "Model icons").
 - `hd_code/37530.c`: the vehicles' tyre marks (`func_8027C4C8`) are
   drawn the port's way.  The marks are a ring of 80 entries (a pair of
   points across each of two tracks); the original packs each run's

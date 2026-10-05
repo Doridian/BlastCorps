@@ -1,8 +1,8 @@
 /*
  * The ROM as the port's data source (docs/DISTRIBUTION.md): the ROM's
- * sha1, and, in the PORT_ROM_DATA build, the arena's initial contents made
- * from the ROM's code modules at startup instead of carried in the
- * executable (port/tools/rom_data.py writes the operations; docs/PORT.md,
+ * sha1, its gzip members inflated, and, in the PORT_ROM_DATA build, the
+ * arena's initial contents made from the ROM's code modules at startup
+ * instead of carried in the executable (port/tools/rom_data.py writes the operations; docs/PORT.md,
  * "The data from the ROM").
  */
 #include <stdint.h>
@@ -73,8 +73,6 @@ void host_sha1_hex(const uint8_t *p, size_t n, char out[41]) {
     for (int i = 0; i < 5; i++)
         snprintf(out + 8 * i, 9, "%08x", h[i]);
 }
-
-#ifdef PORT_ROM_DATA
 
 /* ---- inflate (RFC 1951), for the ROM's gzip members (RFC 1952) --------------- */
 
@@ -273,6 +271,8 @@ static int dynamic(struct inf *s) {
     return codes(s, &lit, &dist);
 }
 
+static size_t gunzip_used;      /* the last member's length, in the input */
+
 /* a gzip member's contents into out (at most outn bytes); their length, or -1 */
 static long gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn) {
     if (n < 18 || in[0] != 0x1F || in[1] != 0x8B || in[2] != 8)
@@ -322,8 +322,19 @@ static long gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn) {
             return -1;
         }
     } while (!last);
+    gunzip_used = p + s.pos - (size_t)(s.bitcnt / 8) + 8;     /* (and the CRC and length) */
     return (long)s.outpos;
 }
+
+/* (micons.c too) */
+long host_gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn, size_t *used) {
+    long r = gunzip(in, n, out, outn);
+    if (used)
+        *used = gunzip_used;
+    return r;
+}
+
+#ifdef PORT_ROM_DATA
 
 /* ---- the arena's contents ---------------------------------------------------- */
 

@@ -12,6 +12,11 @@
 const uint8_t *host_rom(void);
 void host_sha1_hex(const uint8_t *p, size_t n, char out[41]);
 void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
+/* romdata.c: a gzip member's contents into out (at most outn bytes); their
+   length, or -1 (and in *used, the member's own length).  pack.c: a texture's blast stream of type t (1..6) decoded
+   (malloc'd, *outn bytes), or NULL */
+long host_gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn, size_t *used);
+uint8_t *host_blast_decode(int t, const uint8_t *s, size_t n, const uint8_t *lut, size_t lut_len, size_t *outn);
 
 /* threads.c */
 int host_run_one(void);             /* run the best runnable thread; 0 if none */

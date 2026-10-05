@@ -42,6 +42,9 @@ Vtx *D_8036C368[2][64][2];
 
 void func_80272C50(void) {
     D_8036C360 = 0;
+#ifdef TARGET_PC
+    port_icon_texture(0, -1, 0, 0, 0);
+#endif
 }
 
 u8 func_80272C5C(u16 *arg0, u16 *arg1, u8 arg2, u8 arg3, u8 arg4, f32 arg5) {
@@ -70,6 +73,9 @@ u8 func_80272C5C(u16 *arg0, u16 *arg1, u8 arg2, u8 arg3, u8 arg4, f32 arg5) {
         for (j = 0; j < arg3; j++) {
             D_8036BFE0[i][j] = (s32)D_80358070;
             func_802A0B00(arg0[arg3 * sp2C + j], sp3C);
+#ifdef TARGET_PC
+            port_icon_texture(D_8036BFE0[i][j], arg0[arg3 * sp2C + j], j, arg3, arg4);
+#endif
         }
         D_8036C1E0[i] = arg3;
         D_8036C220[i] = arg4;

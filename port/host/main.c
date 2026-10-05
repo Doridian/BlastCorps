@@ -32,6 +32,7 @@
 #include "host.h"
 #include "pack.h"
 #include "hdtext.h"
+#include "micons.h"
 
 /* the version this port is built from (CMake's PORT_VERSION) */
 #if defined(VERSION_US_V10)
@@ -212,6 +213,7 @@ uint32_t host_rom_word(uint32_t addr) {
    (threads.c): it jumps to the next event; runs as fast as the host can and
    the same every time */
 static int deterministic;
+static int model_icons = -1;            /* --model-icons, --no-model-icons (-1: neither) */
 int host_is_deterministic(void) { return deterministic; }
 static uint64_t virtual_ns;
 
@@ -751,6 +753,11 @@ static void usage(const char *argv0) {
             "                       at most N pixels (the page passes 1300000)\n"
             "  --hd-text [FONT]     gl: the game's text drawn from a font at the internal\n"
             "                       resolution (built in: Stardos Stencil; FONT: a .ttf/.otf)\n"
+            "  --model-icons, --no-model-icons\n"
+            "                       the icons that are pictures of the game's models (the\n"
+            "                       hint panels', the goals', the vehicles') drawn as the\n"
+            "                       models (default with a window; off headless, with\n"
+            "                       --deterministic and --replay; PORT_MODEL_ICONS=0|1)\n"
             "  --display-hz N|auto  --interpolate for a display this fast (default 60; auto:\n"
             "                       the display's): more in-between images, shown between\n"
             "                       retraces by the host clock (not with --deterministic)\n"
@@ -832,6 +839,8 @@ int main(int argc, char **argv) {
                           : !strcmp(argv[i], "centre") || !strcmp(argv[i], "center") ? 0 : (usage(argv[0]), 0);
         } else if (!strcmp(argv[i], "--max-pixels") && i + 1 < argc)
             gfx_gl_max_pixels = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--model-icons") || !strcmp(argv[i], "--no-model-icons"))
+            model_icons = argv[i][2] == 'm';
         else if (!strcmp(argv[i], "--hd-text")) {
             hdtext_on = 1;
             if (i + 1 < argc && argv[i + 1][0] != '-' && hdtext_font_arg(argv[i + 1]))
@@ -876,6 +885,11 @@ int main(int argc, char **argv) {
         if (strcmp(hd, "1"))
             hdtext_font_path = hd;
     }
+    /* --model-icons: by default where the picture isn't compared */
+    const char *mi = getenv("PORT_MODEL_ICONS");
+    if (mi && *mi)
+        model_icons = strcmp(mi, "0") != 0;
+    micons_on = model_icons >= 0 ? model_icons : !deterministic && !host_headless;
     const char *hw = getenv("PORT_HD_TEXT_WEIGHT");
     if (hw && atof(hw) > 0)
         hdtext_weight = (float)atof(hw);

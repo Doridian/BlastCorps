@@ -320,6 +320,16 @@ static int blast_decode(int t, const uint8_t *s, size_t n, const uint8_t *lut, s
     return 1;
 }
 
+uint8_t *host_blast_decode(int t, const uint8_t *s, size_t n, const uint8_t *lut, size_t lut_len, size_t *outn) {
+    buf out = {0};
+    if (t < 1 || t > 6 || !blast_decode(t, s, n, lut, lut_len, &out)) {
+        free(out.p);
+        return NULL;
+    }
+    *outn = out.n;
+    return out.p;
+}
+
 /* the literal code of each unit of raw (quantizing what the format can't
    hold; types 4 and 5 by the nearest colour in the LUT) */
 static unsigned *blast_literals(int t, const uint8_t *raw, size_t n, const uint8_t *lut, size_t lut_len,
@@ -446,6 +456,14 @@ static struct {
     uint32_t addr;
     uint16_t id;
 } hires_at[NHIRES];
+
+/* texture id's texels as the pack has them edited, or NULL (micons.c) */
+const uint8_t *host_tex_texels(uint32_t id, uint32_t *len) {
+    if (id >= NTEX || !tex_override[id].texels)
+        return NULL;
+    *len = tex_override[id].len;
+    return tex_override[id].texels;
+}
 
 void host_tex_decoded(uint32_t id, uint32_t dst, uint32_t size) {
     if (id >= NTEX || !tex_override[id].texels)

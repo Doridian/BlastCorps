@@ -52,5 +52,10 @@ int port_globe_view(int what);
    (8380.c, 00000.c, 17990.c): not with --replay or PORT_AUTOSTART, whose
    input is the original's (port/host/video.c) */
 int port_intro_skip(void);
+/* an icon's picture (2E490.c, func_80272C5C) is texture tex of the texture
+   table, row `row` of `rows`, loaded at addr, with the icon's flags; tex -1:
+   the icons are all gone (func_80272C50).  The renderer may draw the model
+   the picture shows in its place (port/host/micons.c) */
+void port_icon_texture(unsigned int addr, int tex, int row, int rows, int flags);
 
 #endif
