@@ -8,6 +8,13 @@
 
 #define SQ(x) ((x) * (x))
 
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+#define LEVEL_NAME(e) (&(e).name)[D_80366F70_eu]
+#else
+#define LEVEL_NAME(e) (e).name
+#endif
+
 void func_801ECB18(void);
 Gfx *func_801F1568(void);
 Gfx *func_801F2000(void);
@@ -289,6 +296,250 @@ extern u16 D_80303AC0[];
 extern u16 D_80303AD4[];
 extern u16 D_80303AE8[];
 /* .data, 0x8020D810-0x8020E3E0 (tools/data_c.py) */
+#ifdef VERSION_EU
+UnkStruct_8020D810 D_8020D810[0x3c] = {
+    {
+        { 100, 1 }, "SIMIAN ACRES", "EDUKATIVA", NULL, NULL, { 0 }, 0.0f, 0.0f,
+        { -1 }, { 28, 19, 3, 55, 50, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "ANGEL CITY", "METROPOLIKO", NULL, NULL, { 0 }, -20.0f, -120.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "OUTLAND FARM", "ALTERNATIVA", NULL, NULL, { 0 }, 20.0f, 60.0f,
+        { 37, 27, -1 }, { 5, 13, 9, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "BLACKRIDGE WORKS", "GROBSTADT", NULL, NULL, { 0 }, -20.0f, -20.0f,
+        { 20, 6, -1 }, { 29, 53, 15, 10, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "GLORY CROSSING", "KATENASCHLUCHT", NULL, NULL, { 0 }, 70.0f, 180.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SHUTTLE GULLY", "RAMMSTERDAMM", NULL, NULL, { 0 }, 50.0f, 20.0f,
+        { 41, -1 }, { 4, 33, 2, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SALVAGE WHARF", "HOFFNUNGSKAI", NULL, NULL, { 0 }, -30.0f, -10.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SKYFALL", "TURBOBUGGY", NULL, NULL, { 0 }, 40.0f, 20.0f,
+        { -1 }, { 5, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "TWILIGHT FOUNDRY", "GROSSGIESSEREI", NULL, NULL, { 0 }, 10.0f, 30.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "CRYSTAL RIFT", "KRISTALLRISS", NULL, NULL, { 0 }, 20.0f, 120.0f,
+        { 51, 31, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "ARGENT TOWERS", "SILBERSTADT", NULL, NULL, { 0 }, -20.0f, 20.0f,
+        { 21, 34, -1 }, { 13, 17, 16, 3, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SKERRIES", "IMMOTURBO", NULL, NULL, { 0 }, 70.0f, 0.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "DIAMOND SANDS", "DIAMANTSAND", NULL, NULL, { 0 }, -70.0f, 110.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "EBONY COAST", "ELFENBEINKUESTE", NULL, NULL, { 0 }, -20.0f, 60.0f,
+        { 32, -1 }, { 26, 17, 2, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "OYSTER HARBOUR", "AUSTERNHAFEN", NULL, NULL, { 0 }, -70.0f, -110.0f,
+        { 23, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "CARRICK POINT", "MULTIPLIA", NULL, NULL, { 0 }, 20.0f, -20.0f,
+        { 25, 30, -1 }, { 33, 18, 16, 3, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "HAVOC DISTRICT", "CHAOSDISTRIKT", NULL, NULL, { 0 }, 20.0f, 20.0f,
+        { 22, 8, -1 }, { 7, 2, 15, 10, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "IRONSTONE MINE", "EISENMINE", NULL, NULL, { 0 }, -50.0f, 20.0f,
+        { -1 }, { 10, 12, 13, 58, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "BEETON TRACKS", "INTERCITY", NULL, NULL, { 0 }, 20.0f, -60.0f,
+        { 48, -1 }, { 29, 15, 33, 57, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 0 }, "J-BOMB", "J-BOMB", NULL, NULL, { 0 }, 10.0f, 10.0f,
+        { -1 }, { 16, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "JADE PLATEAU", "JADEPLATEAU", NULL, NULL, { 0 }, -10.0f, -30.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MARINE QUARTER", "AQUALONIA", NULL, NULL, { 0 }, -30.0f, 10.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "COOTER CREEK", "BASALKA", NULL, NULL, { 0 }, 30.0f, 10.0f,
+        { 11, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "GIBBON'S GATE", "PACTRUCK", NULL, NULL, { 0 }, -50.0f, 180.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "BABOON CATACOMB", "KATAKOMBO", NULL, NULL, { 0 }, 30.0f, -150.0f,
+        { -1 }, { 37, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SLEEK STREETS", "SPIEGELSTRASSEN", NULL, NULL, { 0 }, 10.0f, -30.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "OBSIDIAN MILE", "OBSIDIANMEILE", NULL, NULL, { 0 }, -20.0f, 120.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "CORVINE BLUFF", "BLIFFBLUFF", NULL, NULL, { 0 }, 10.0f, 50.0f,
+        { 56, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 40, 1 }, "SIDESWIPE", "XR7-PROTOCRASH", NULL, NULL, { 0 }, 10.0f, -10.0f,
+        { -1 }, { 15, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "ECHO MARCHES", "ECHOLARIA", NULL, NULL, { 0 }, -20.0f, -60.0f,
+        { 42, 39, -1 }, { 1, 58, 18, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "KIPLING PLANT", "TEMPOFABRIK", NULL, NULL, { 0 }, 30.0f, -10.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "FALCHION FIELD", "FATALDEMOLAGE", NULL, NULL, { 0 }, 45.0f, 100.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MORGAN HALL", "KISTENKNALL", NULL, NULL, { 0 }, -10.0f, 50.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "TEMPEST CITY", "TEMPCITY", NULL, NULL, { 0 }, 50.0f, -20.0f,
+        { 35, -1 }, { 18, 5, 4, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "ORION PLAZA", "BILLIARDBOOM", NULL, NULL, { 0 }, -10.0f, 30.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "GLANDER'S RANCH", "GLANDERRANCH", NULL, NULL, { 0 }, 50.0f, -70.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "DAGGER PASS", "STAMPFSPEKTAKEL", NULL, NULL, { 0 }, -20.0f, 180.0f,
+        { 52, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "GEODE SQUARE", "KUGELTRUBEL", NULL, NULL, { 0 }, 50.0f, 180.0f,
+        { 59, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SHUTTLE ISLAND", "SHUTTLE-INSEL", NULL, NULL, { 0 }, 0.0f, -140.0f,
+        { -1 }, { 40, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MICA PARK", "MICAPARK", NULL, NULL, { 0 }, -40.0f, -80.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MOON", "MOND", NULL, NULL, { 0 }, 10.0f, -140.0f,
+        { -1 }, { 43, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "COBALT QUARRY", "COBALTRENNEN", NULL, NULL, { 0 }, 50.0f, 70.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MORAINE CHASE", "DUENENSPRINT", NULL, NULL, { 0 }, -10.0f, -80.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MERCURY", "MERKUR", NULL, NULL, { 0 }, 20.0f, -140.0f,
+        { -1 }, { 44, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "VENUS", "VENUS", NULL, NULL, { 0 }, 30.0f, -140.0f,
+        { -1 }, { 45, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MARS", "MARS", NULL, NULL, { 0 }, 40.0f, -140.0f,
+        { -1 }, { 46, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "NEPTUNE", "NEPTUN", NULL, NULL, { 0 }, 50.0f, -140.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 0 }, "CMO INTRO", "CMO INTRO", NULL, NULL, { 0 }, 70.0f, 0.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SILVER JUNCTION", "KISTENSPRINT", NULL, NULL, { 0 }, 10.0f, -80.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "END SEQUENCE", "ENDSEQUENZ", NULL, NULL, { 0 }, 0.0f, -10.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SHUTTLE CLEAR", "SHUTTLEFREI", NULL, NULL, { 0 }, 0.0f, -15.0f,
+        { -1 }, { 38, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "DARK HEARTLAND", "DUNKELHERZ", NULL, NULL, { 0 }, 0.0f, 90.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "MAGMA PEAK", "MAGMAPOOL", NULL, NULL, { 0 }, 0.0f, -150.0f,
+        { 24, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 10 }, "THUNDERFIST", "DONNERFAUST", NULL, NULL, { 0 }, -40.0f, -20.0f,
+        { -1 }, { 58, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "SALINE WATCH", "SALINENFEUER", NULL, NULL, { 0 }, 0.0f, 150.0f,
+        { 36, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "BACKLASH", "MONSTERTRUCK", NULL, NULL, { 0 }, -10.0f, 10.0f,
+        { -1 }, { 10, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "BISON RIDGE", "BISONFURCHE", NULL, NULL, { 0 }, 0.0f, 40.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "EMBER HAMLET", "EMBERHAM", NULL, NULL, { 0 }, 20.0f, -120.0f,
+        { -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "CROMLECH COURT", "SALTONIA", NULL, NULL, { 0 }, -50.0f, -20.0f,
+        { -1 }, { 14, 17, 29, -1 }, 0.0f, 0.0f, 0.0f,
+    },
+    {
+        { 100, 1 }, "LIZARD ISLAND", "ECHSENINSEL", NULL, NULL, { 0 }, 30.0f, 150.0f,
+        { 54, -1 }, { -1 }, 0.0f, 0.0f, 0.0f,
+    },
+};
+#else
 UnkStruct_8020D810 D_8020D810[0x3c] = {
     {
         { 100, 1 }, "SIMIAN ACRES", D_80303700, { 0 }, 0.0f, 0.0f, { -1 },
@@ -521,6 +772,7 @@ UnkStruct_8020D810 D_8020D810[0x3c] = {
         0.0f, 0.0f,
     },
 };
+#endif
 u16 D_8020E350[0x26] = {
     0, 0, 0x571, 0x570, 0x918, 0x917, 0x90C, 0x90B, 0x70A, 0x709, 0x772, 0x713, 0, 0, 0, 0, 0x912,
     0x911, 0x916, 0x915, 0x90A, 0x909, 0, 0, 0, 0, 0x90E, 0x90D, 0x908, 0x907, 0x91A, 0x919, 0x712,
@@ -605,7 +857,11 @@ void func_801F8980(void) {
             } else {
                 D_8021AB21 += 10;
             }
+#ifdef VERSION_EU
+            D_8021A918 -= 240.0f;
+#else
             D_8021A918 -= 200.0f;
+#endif
             if (D_8021A918 <= 925.0) {
                 D_8021A924 = 1;
                 D_8021A918 = 925.0f;
@@ -613,7 +869,11 @@ void func_801F8980(void) {
             }
             break;
         case 2:
+#ifdef VERSION_EU
+            D_8021A918 -= 60.0f;
+#else
             D_8021A918 -= 50.0f;
+#endif
             if (D_8021AB21 - 0x19 < 0) {
                 D_8021AB21 = 0;
             } else {
@@ -714,7 +974,7 @@ Gfx *func_801F9258(Gfx *arg0, u8 *arg1, s32 *arg2) {
 
         sp9C = 0x18;
         sp68 = D_8021AB2C / 9;
-        func_80259DC8(arg1, D_8020D810[D_8021A908].name, D_8020D810[D_8021A908].unk8, 0, 0xA0, 0,
+        func_80259DC8(arg1, LEVEL_NAME(D_8020D810[D_8021A908]), D_8020D810[D_8021A908].unk8, 0, 0xA0, 0,
                       (0x1C - sp68) / 2 + 0x12, sp9C, sp68, 1, 0xFF, 0xFF, 0xFF, D_8021AB2C, 0, 0, 0xFF,
                       D_8021AB2C);
         gfx = func_8024C404(gfx, arg1, &sp64);
@@ -735,8 +995,8 @@ Gfx *func_801F9258(Gfx *arg0, u8 *arg1, s32 *arg2) {
                 spB8 ^= 1;
             }
         }
-        sp5C = func_8025B498(0xA0, sp9C, D_8020D810[D_8021A908].name, D_8020D810[D_8021A908].unk8);
-        sp58 = (s32)(sp9C * D_802E8C84[0]) * func_8025B300(D_8020D810[D_8021A908].name);
+        sp5C = func_8025B498(0xA0, sp9C, LEVEL_NAME(D_8020D810[D_8021A908]), D_8020D810[D_8021A908].unk8);
+        sp58 = (s32)(sp9C * D_802E8C84[0]) * func_8025B300(LEVEL_NAME(D_8020D810[D_8021A908]));
         gfx = func_80274AA4(gfx);
         gSPEndDisplayList(gfx++);
     }
@@ -997,7 +1257,11 @@ Gfx *func_801FA74C(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, a
              ((D_80364A87 & 1) && arg2 == D_8021A905 &&
               !(((D_80364AF0[D_80364AE8].medal[arg3] > 0) && (D_80364AF0[D_80364AE8].medal[arg3] < 6)) ? 1 : 0)))) {
             if (D_8021A924 != 0) {
+#ifdef VERSION_EU
+                sp110 = MIN(1.0, MAX(D_8021AB28, (f32)(D_803156C4 - D_8021AB24) * 60.0 / 50.0 / 90.0));
+#else
                 sp110 = MIN(1.0, MAX(D_8021AB28, (f32)(D_803156C4 - D_8021AB24) * 60.0 / 60.0 / 90.0));
+#endif
                 if (sp110 == 1.0 && D_8021AB38 != 0) {
                     func_802608C8(D_8021AB38);
                 } else if (D_8021AB38 == 0 && sp110 != 1.0 && D_80217B6C == 3) {
@@ -1373,7 +1637,11 @@ void func_801FDCA4(Vtx *arg0, s32 arg1, s32 arg2) {
     s32 sp1C;
 
     sp24 = arg1 * 4;
+#ifdef VERSION_EU
+    D_802159F0[arg1] = func_8026A828(0x60, 0xF0);
+#else
     D_802159F0[arg1] = func_8026A828(0x50, 0xC8);
+#endif
     sp20 = func_8026A828(-0xFA0, 0xFA0);
     sp1C = func_8026A828(-0xFA0, 0xFA0);
     arg0[sp24 + 0].v.ob[0] = sp20 - 0x37;
