@@ -101,7 +101,7 @@ void host_video_init(void) {
     }
     if (gfx_interp_hz < 0) {                        /* --display-hz auto */
         SDL_DisplayMode m;
-        gfx_interp_hz = SDL_GetCurrentDisplayMode(0, &m) == 0 && m.refresh_rate > 60 ? m.refresh_rate : 60;
+        gfx_interp_hz = SDL_GetCurrentDisplayMode(0, &m) == 0 && m.refresh_rate > PORT_RETRACE_HZ ? m.refresh_rate : PORT_RETRACE_HZ;
         if (gfx_interp)
             host_log("--display-hz: %d\n", gfx_interp_hz);
     }

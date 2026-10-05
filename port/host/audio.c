@@ -21,12 +21,12 @@
 int host_audio_enabled = 1;
 const char *host_wav_path;
 
-static uint32_t dacrate = 2208;     /* osAiSetFrequency(22050) on NTSC */
+static uint32_t dacrate = (PORT_VI_CLOCK + 22050 / 2) / 22050;  /* osAiSetFrequency(22050) */
 static uint64_t samples_out;        /* all queued so far */
 
 /* ---- the AI's DMA queue ----------------------------------------------------- */
 
-#define VI_CLOCK_NTSC 48681812ull
+#define VI_CLOCK ((uint64_t)PORT_VI_CLOCK)    /* PAL's in eu */
 
 static struct {
     uint32_t len;                   /* bytes */
@@ -36,7 +36,7 @@ static int nfifo;
 
 static uint64_t ns_for(uint32_t bytes) {
     /* 4 bytes a sample pair, one pair every dacrate cycles of the VI clock */
-    return (uint64_t)(bytes / 4) * dacrate * 1000000000ull / VI_CLOCK_NTSC;
+    return (uint64_t)(bytes / 4) * dacrate * 1000000000ull / VI_CLOCK;
 }
 
 static void ai_advance(void) {
@@ -283,7 +283,7 @@ static void wav_header(void) {
 }
 
 static uint32_t rate_hz(void) {
-    return (uint32_t)((VI_CLOCK_NTSC + dacrate / 2) / dacrate);
+    return (uint32_t)((VI_CLOCK + dacrate / 2) / dacrate);
 }
 
 static void open_outputs(void) {
@@ -421,7 +421,7 @@ uint32_t host_ai_length(void) {
     if (nfifo == 0)
         return 0;
     uint64_t now = host_now_ns(), done = now - fifo[0].start_ns;
-    uint64_t played = done * VI_CLOCK_NTSC / (1000000000ull * dacrate) * 4;
+    uint64_t played = done * VI_CLOCK / (1000000000ull * dacrate) * 4;
     return played >= fifo[0].len ? 0 : (uint32_t)(fifo[0].len - played);
 }
 

@@ -755,7 +755,7 @@ void port_replay_mode_switch(void) {
     if (log_reads && mode_now() == 4 && want != 4) {
         uint32_t t = port_be32(D_803156C0) - level_start;
         host_log("replay: level %u ends at the log's read %d: %u frames, %u retraces, time %u.%u s\n",
-                 port_be32(D_802E8BDC), matched + 1, port_be32(D_80358064), t, t / 60, t / 6 % 10);
+                 port_be32(D_802E8BDC), matched + 1, port_be32(D_80358064), t, t / PORT_RETRACE_HZ, t * 10 / PORT_RETRACE_HZ % 10);
     }
     if (!checkpoints || !switches || matched < 0)
         return;

@@ -590,7 +590,7 @@ NOINLINE static void do_mtx(uint32_t w0, uint32_t w1) {
  * likely): D retraces, D * gfx_interp_hz / 60 images.
  */
 int gfx_interp;                 /* --interpolate */
-int gfx_interp_hz = 60;         /* --display-hz */
+int gfx_interp_hz = PORT_RETRACE_HZ;   /* --display-hz */
 static int itrack;              /* this task's vertex loads are recorded */
 static int iframe_partial;      /* a task of this frame had no in-between pass */
 static float interp_t = 0.5f;
@@ -2840,8 +2840,8 @@ static int twins_max(void) {
 static void choose_twins(void) {
     int d = hold_last[0] < hold_last[1] ? hold_last[0] : hold_last[1];
     d = d < 2 ? 2 : d > 4 ? 4 : d;
-    int hz = gfx_interp_hz > 60 ? gfx_interp_hz : 60;
-    int k = (int)lround((double)d * hz / 60) - 1;
+    int hz = gfx_interp_hz > PORT_RETRACE_HZ ? gfx_interp_hz : PORT_RETRACE_HZ;
+    int k = (int)lround((double)d * hz / PORT_RETRACE_HZ) - 1;
     frame_d = d;
     frame_k = k < 1 ? 1 : k > twins_max() ? twins_max() : k;
     if (frame_k > host_interp_limit)        /* the host can't keep up (main.c) */

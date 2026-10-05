@@ -23,6 +23,18 @@
 extern "C" {
 #endif
 
+/* ---- the TV standard --------------------------------------------------- */
+
+/* eu is PAL: 50 retraces a second, and the VI clock libultra's audio and
+   video rates are counted in.  The others are NTSC. */
+#ifdef VERSION_EU
+#define PORT_RETRACE_HZ 50
+#define PORT_VI_CLOCK 49656530u
+#else
+#define PORT_RETRACE_HZ 60
+#define PORT_VI_CLOCK 48681812u
+#endif
+
 /* ---- memory ------------------------------------------------------------ */
 
 /* RDRAM: the N64's 4 MB, mapped at its KSEG0 address.  The port's own

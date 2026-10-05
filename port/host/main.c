@@ -44,6 +44,11 @@
 #define ROM_CODE "NBCJ"
 #define ROM_REVISION 0
 #define ROM_TITLE "Blastdozer (Japan)"
+#elif defined(VERSION_EU)
+#define ROM_DEFAULT "baserom.eu.z64"
+#define ROM_CODE "NBCP"
+#define ROM_REVISION 0
+#define ROM_TITLE "Blast Corps (Europe)"
 #else
 #define ROM_DEFAULT "baserom.us.v11.z64"
 #define ROM_CODE "NBCE"
@@ -933,22 +938,22 @@ int main(int argc, char **argv) {
 #endif
     host_video_init();
     hdtext_init();
-    if (deterministic && gfx_interp_hz > 60) {
+    if (deterministic && gfx_interp_hz > PORT_RETRACE_HZ) {
         host_log("--display-hz: presents between retraces follow the host clock; not with --deterministic\n");
-        gfx_interp_hz = 60;
+        gfx_interp_hz = PORT_RETRACE_HZ;
     }
 
     port_boot();
 
     /* the loop: deliver what's due, run threads until all wait, sleep */
-    const uint64_t vi_period = 1000000000ull / 60;
+    const uint64_t vi_period = 1000000000ull / PORT_RETRACE_HZ;
     uint64_t next_vi = now_ns() + vi_period;
     int vi_force = 0;
     int timers_woke = 0;        /* (real time) a timer fired, and the threads haven't all waited since */
     uint64_t vi_wait_from = 0;  /* (real time) when the due retrace began waiting for them */
     const int realtime = !deterministic && !host_paced;
-    /* --display-hz above 60: presents between the retraces, by the host clock */
-    int between = gfx_interp && gfx_interp_hz > 60 && !deterministic;
+    /* --display-hz above the retraces' rate: presents between them, by the host clock */
+    int between = gfx_interp && gfx_interp_hz > PORT_RETRACE_HZ && !deterministic;
     uint64_t disp_period = between ? 1000000000ull / (uint64_t)gfx_interp_hz : 0;
     uint64_t last_vi = now_ns(), next_disp = between ? last_vi + disp_period : ~0ull;
     const double vi_pms = vi_period / 1e6;

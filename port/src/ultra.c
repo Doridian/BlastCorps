@@ -297,8 +297,15 @@ u64 port_irq_timers(u64 now) {
 
 /* ---- boot ---------------------------------------------------------------------- */
 
+/* hd_code 8F860.c's, which the port replaces; eu's timings read it */
+u64 osClockRate = OS_CLOCK_RATE;
+
 void osInitialize(void) {
+#ifdef VERSION_EU
+    BOOT_WORD(0x00) = OS_TV_PAL;        /* osTvType */
+#else
     BOOT_WORD(0x00) = OS_TV_NTSC;       /* osTvType */
+#endif
     BOOT_WORD(0x08) = 0xB0000000;       /* osRomBase */
     BOOT_WORD(0x0C) = 0;                /* osResetType: cold */
     BOOT_WORD(0x18) = 0x400000;         /* osMemSize */
@@ -494,7 +501,7 @@ s32 osPfsNumFiles(OSPfs *pfs, s32 *max, s32 *used) { *max = 0; *used = 0; return
 
 /* ---- VI -------------------------------------------------------------------------- */
 
-s32 osViClock = VI_NTSC_CLOCK;
+s32 osViClock = PORT_VI_CLOCK;
 
 static OSMesgQueue *vi_mq;
 static OSMesg vi_msg;

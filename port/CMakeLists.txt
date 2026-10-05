@@ -1,7 +1,7 @@
 # The PC port of Blast Corps.  See docs/PORT.md.
 #
 # Needs a built stage 2 and the translated engine of PORT_VERSION (default
-# us.v11; us.v10 and jp build too):
+# us.v11; us.v10, jp and eu build too):
 #   make VERSION=us.v11 -C blastcorps && make -C tools/recomp VERSION=us.v11
 # then
 #   cmake -S port -B build/port && cmake --build build/port -j
@@ -15,10 +15,10 @@
 # build").
 cmake_minimum_required(VERSION 3.20)
 project(blastcorps_pc C CXX ASM)
-set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11, us.v10 or jp")
-set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10 jp)
-if(NOT PORT_VERSION MATCHES "^(us\\.v1[01]|jp)$")
-    message(FATAL_ERROR "PORT_VERSION is us.v11, us.v10 or jp, not ${PORT_VERSION}")
+set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11, us.v10, jp or eu")
+set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10 jp eu)
+if(NOT PORT_VERSION MATCHES "^(us\\.v1[01]|jp|eu)$")
+    message(FATAL_ERROR "PORT_VERSION is us.v11, us.v10, jp or eu, not ${PORT_VERSION}")
 endif()
 string(TOUPPER "VERSION_${PORT_VERSION}" PORT_VERSION_DEFINE)
 string(REPLACE "." "_" PORT_VERSION_DEFINE ${PORT_VERSION_DEFINE})

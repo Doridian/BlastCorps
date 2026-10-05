@@ -175,7 +175,12 @@ static Acmd *read_out_tap(Reverb *r, Section *s, s32 dmem, s32 n, Acmd *cmd) {
 static Acmd *lowpass(LowPass *lp, s32 dmem, s32 n, Acmd *cmd) {
     aSetBuffer(cmd++, 0, dmem, dmem, n << 1);
     aLoadADPCM(cmd++, 32, phys(lp->coef));
+#ifdef VERSION_EU
+    /* eu's abi.h puts the gain in 8 bits (hd_code 9FE20.c) */
+    aPoleFilter(cmd++, lp->first, lp->gain & 0xFF, phys(lp->state));
+#else
     aPoleFilter(cmd++, lp->first, lp->gain, phys(lp->state));
+#endif
     lp->first = 0;
     return cmd;
 }

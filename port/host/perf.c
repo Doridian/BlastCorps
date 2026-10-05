@@ -149,7 +149,7 @@ void host_perf_vi(double late_ms, unsigned long long images, unsigned long long 
     last_frame = frames;
     work[nsamp] = (float)w;
     late[nsamp] = (float)late_ms;
-    if (w > 1000.0 / 60)
+    if (w > 1000.0 / PORT_RETRACE_HZ)
         win_over++;
     if (late[nsamp] >= 4)
         win_late++;
