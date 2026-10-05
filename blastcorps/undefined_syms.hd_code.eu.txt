@@ -109,7 +109,7 @@ D_003539A0 = 0x003539A0;
 D_003A1920 = 0x003A1920;
 D_003A48C0 = 0x003A48C0;
 D_0044F5C0 = 0x0044F5C0;
-/* D_802E9FA0: not in eu */
+D_802E9FA0 = 0x802EBDA4;
 D_006A32B0 = 0x006A3400;
 D_802F98B0 = 0x802FC698;
 /* The fixed memory map, which tools/link_syms.py must not move with the

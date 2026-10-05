@@ -115,6 +115,13 @@ SIZE_CHECK(LevelInfo, 0x44);
 #define MEDAL_TIME0(us, jp) (us)
 #endif
 
+/* A level's medalTimes: t0..t3, or eu's own (PAL) e0..e3. */
+#ifdef VERSION_EU
+#define MEDAL_TIMES(t0, t1, t2, t3, e0, e1, e2, e3) { e0, e1, e2, e3 }
+#else
+#define MEDAL_TIMES(t0, t1, t2, t3, e0, e1, e2, e3) { t0, t1, t2, t3 }
+#endif
+
 /* The levels that aren't played: stats.c's assert "!DUMMY_LEVELS(levelno)"
  * tests these three. */
 #define DUMMY_LEVELS(l) ((l) == LEVEL_END_SEQUENCE || (l) == LEVEL_CMO_INTRO || (l) == LEVEL_SHUTTLE_ISLAND)
