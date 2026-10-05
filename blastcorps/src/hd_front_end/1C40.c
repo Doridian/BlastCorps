@@ -53,6 +53,16 @@ s32 func_802753C0(void);
 Gfx *func_80275DA4(Gfx *, u8);
 s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
 
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+/* eu: an entry's text in that language (text, text2 or text3) */
+#define ENTRY_TEXT(e) ((&(e).text)[D_80366F70_eu])
+/* eu: a text in English or German (none in French) */
+#define LANG_TEXT(en, de) (D_80366F70_eu == 0 ? (en) : D_80366F70_eu == 1 ? (de) : NULL)
+#else
+#define ENTRY_TEXT(e) ((e).text)
+#endif
+
 /* .bss, 0x80215440-0x80215960 (tools/bss_c.py) */
 #if defined(VERSION_JP) || defined(VERSION_EU)
 s32 D_80215940;
@@ -804,16 +814,13 @@ void func_801EA278(void) {
     }
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801EA4B8.s")
-#else
 void func_801EA4B8(void) {
     s32 sp1C;
 
     func_801EA278();
     D_802154B0 = 0;
     for (sp1C = 0; sp1C < 4; sp1C++) {
-        D_8020C070[sp1C + 2].text = D_80215520[sp1C];
+        ENTRY_TEXT(D_8020C070[sp1C + 2]) = D_80215520[sp1C];
         D_8020C070[sp1C + 2].flags |= 0x81;
         D_8020C070[sp1C + 2].flags &= ~0x20;
         D_8020C070[sp1C + 2].unk18 = 7;
@@ -828,20 +835,26 @@ void func_801EA4B8(void) {
         }
     }
     if (D_802154B0 != 4) {
+#ifdef VERSION_EU
+        ENTRY_TEXT(D_8020C070[FE_ENTRY(6)]) = LANG_TEXT("ERASE GAME", "SPIEL LOESCHEN");
+        D_8020C070[FE_ENTRY(6)].unk10 = NULL;
+#else
         D_8020C070[FE_ENTRY(6)].text = "ERASE GAME";
         D_8020C070[FE_ENTRY(6)].unk10 = (u16 *)D_803046F8;
+#endif
     } else {
+#ifdef VERSION_EU
+        ENTRY_TEXT(D_8020C070[FE_ENTRY(6)]) = LANG_TEXT("IGNORE PAK", "IGNORIERE PAK");
+        D_8020C070[FE_ENTRY(6)].unk10 = NULL;
+#else
         D_8020C070[FE_ENTRY(6)].text = "IGNORE PAK";
         D_8020C070[FE_ENTRY(6)].unk10 = (u16 *)D_80304710;
+#endif
     }
     D_8020C070[FE_ENTRY(6)].unk19 = 2;
     D_802F8BDC[10].unk8 &= ~0x400;
 }
-#endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801EF204_eu.s")
-#else
 void func_801EA6E8(void) {
     s32 sp24;
 
@@ -850,7 +863,11 @@ void func_801EA6E8(void) {
         D_8020C070[sp24 + 2].x = 0x40;
         switch (D_80365060[sp24]) {
             case 1:
+#ifdef VERSION_EU
+                sprintf(D_80215520[sp24], LANG_TEXT("ERASE %d : %s", "LOESCHE %d : %s"), sp24 + 1, &D_80364AF0[sp24]);
+#else
                 sprintf(D_80215520[sp24], "ERASE %d : %s", sp24 + 1, &D_80364AF0[sp24]);
+#endif
                 D_8020C070[sp24 + 2].flags |= 0x81;
                 D_8020C070[sp24 + 2].flags &= ~0x20;
                 D_8020C070[sp24 + 2].unk18 = 7;
@@ -865,17 +882,18 @@ void func_801EA6E8(void) {
                 break;
         }
     }
+#ifdef VERSION_EU
+    ENTRY_TEXT(D_8020C070[FE_ENTRY(6)]) = LANG_TEXT("GO BACK", "WEITER");
+    D_8020C070[FE_ENTRY(6)].unk10 = NULL;
+#else
     D_8020C070[FE_ENTRY(6)].text = "GO BACK";
     D_8020C070[FE_ENTRY(6)].unk10 = (u16 *)D_80304730;
+#endif
     D_8020C070[FE_ENTRY(6)].unk19 = 2;
     D_802F8BDC[10].unk8 |= 0x400;
     D_802F8BDC[10].unk18 = 6;
 }
-#endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801EA93C.s")
-#else
 void func_801EA93C(char *arg0, s32 arg1, u8 arg2, u8 arg3, char *arg4) {
     D_802154B2 = 0x7FFF;
     D_802154B4 = 0x7FFF;
@@ -892,9 +910,9 @@ void func_801EA93C(char *arg0, s32 arg1, u8 arg2, u8 arg3, char *arg4) {
     D_802154C8 = (arg3 * 3) / 5;
     D_80215928 = arg4;
     *arg4 = 0;
-    D_8020C070[FE_ENTRY(7)].text = D_80215928;
+    ENTRY_TEXT(D_8020C070[FE_ENTRY(7)]) = D_80215928;
     D_8020C070[FE_ENTRY(7)].x = D_802154C4 = 160 - D_802154C8 / 2;
-    D_8020C070[FE_ENTRY(8)].text = arg0;
+    ENTRY_TEXT(D_8020C070[FE_ENTRY(8)]) = arg0;
     D_8020C070[FE_ENTRY(8)].unk10 = (u16 *)arg1;
     D_80215924 = arg2;
     D_802154D0 = 1;
@@ -902,7 +920,6 @@ void func_801EA93C(char *arg0, s32 arg1, u8 arg2, u8 arg3, char *arg4) {
     D_80215920 = 1;
     D_8021592C = 0;
 }
-#endif
 
 Gfx *func_801EAA7C(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
     Gfx *spFC;
