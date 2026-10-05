@@ -289,12 +289,7 @@ void func_80285EF4(s32 arg0) {
     D_802E8BD8 = 1;
 }
 
-/* Frames per tenth of a second: eu's are 50 a second. */
-#ifdef VERSION_EU
-#define FRAMES_PER_TENTH 5
-#else
-#define FRAMES_PER_TENTH 6
-#endif
+#define FRAMES_PER_TENTH (FRAMES_PER_SECOND / 10)
 
 s32 func_80286038(u16 arg0) {
     return arg0 * FRAMES_PER_TENTH;
