@@ -131,10 +131,17 @@ extern u64 D_80364A88;
 extern s8 D_80370C2C;
 extern s8 D_80370C2E;
 
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+
+/* .data */
+u16 *D_80208044 = NULL;
+#else
 extern u16 D_80304954[];
 /* .data, 0x80208040-0x802081C0 (tools/data_c.py) */
 char *D_80208040 = "SELECT VEHICLE!";
 u16 *D_80208044 = D_80304954;
+#endif
 s32 D_80208048 = -0x10000;
 u8 D_8020804C[0x14] = { 0, 1, 0, 0, 1, 0, 1 };
 UnkStruct_80208060 D_80208060[0x13] = {
@@ -157,7 +164,11 @@ UnkStruct_80208060 D_80208060[0x13] = {
     { 1, 0.5f },
 };
 u8 D_802080F8[0x14] = { 1, 1, 1, 1, 1, 1, 2, 1, 1, 6, 1, 1, 0, 1, 1, 1, 1, 1, 1 };
+#ifdef VERSION_EU
+u8 D_8020810C[0x14] = { 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 14, 4, 4, 4, 4, 4, 4, 4, 4 };
+#else
 u8 D_8020810C[0x14] = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 12, 3, 3, 3, 3, 3, 3, 3, 3 };
+#endif
 f32 D_80208120[0x13] = {
     220.0f, 400.0f, 800.0f, 320.0f, 400.0f, 460.0f, 400.0f, 400.0f, 320.0f, 550.0f, 320.0f, 320.0f,
     500.0f, 320.0f, 320.0f, 320.0f, 320.0f, 320.0f, 320.0f,
@@ -233,7 +244,7 @@ s32 func_801E7000(void) {
 #ifdef VERSION_US_V10
             func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "digger_loop.c", 0x87);
 #else
-            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "digger_loop.c", 0x8B);
+            func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "digger_loop.c", LINE_EU(0x8B, 0x8A));
 #endif
             break;
     }
@@ -346,8 +357,17 @@ void func_801E7598(void) {
     gfx = func_80200BE0(gfx, sp140, &D_80358078);
     gDPPipeSync(gfx++);
     gDPSetCycleType(gfx++, G_CYC_1CYCLE);
+#ifdef VERSION_EU
+    func_80259CCC(sp140,
+                  D_80366F70_eu == 0   ? "SELECT VEHICLE!"
+                  : D_80366F70_eu == 1 ? "WAEHLE FAHRZEUG!"
+                                          : NULL,
+                  D_80208044, 0, 0xA0, 0x50, 0x18, 0x15, 0x15, 1, 0, 0, 0, 0xA0);
+    if (D_803156C0 % 20 * 50 / 60 < 13) {
+#else
     func_80259CCC(sp140, D_80208040, D_80208044, 0, 0xA0, 0x50, 0x18, 0x15, 0x15, 1, 0, 0, 0, 0xA0);
     if (D_803156C0 % 20 * 60 / 60 < 16) {
+#endif
         D_802081B0 += D_802081B4 * 30;
         if (D_802081B0 >= 0x100) {
             D_802081B0 -= 60;
@@ -357,15 +377,28 @@ void func_801E7598(void) {
             D_802081B0 += 60;
             D_802081B4 = -D_802081B4;
         }
-        func_80259DC8(sp140, D_80208040, D_80208044, 0, 0xA0, 0x54, 0x15, 0x15, 0x15, 1, 0xFF, 0xFF - D_802081B0, 0,
+        func_80259DC8(sp140,
+#ifdef VERSION_EU
+                      D_80366F70_eu == 0   ? "SELECT VEHICLE!"
+                      : D_80366F70_eu == 1 ? "WAEHLE FAHRZEUG!"
+                                              : NULL,
+#else
+                      D_80208040,
+#endif
+                      D_80208044, 0, 0xA0, 0x54, 0x15, 0x15, 0x15, 1, 0xFF, 0xFF - D_802081B0, 0,
                       0xFF, 0xFF, D_802081B0, 0, 0xFF);
     }
     func_80259C24(&gfx, sp140);
     if (D_80358060 < 2) {
         guPerspective(&sp140->mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 4000.0f, 1.0f);
     }
+#ifdef VERSION_EU
+    D_802153D8 += (D_802153D4 - D_802153D8) * 0.1 * 60.0 / 50.0;
+    D_802153E0 += (D_802153DC - D_802153E0) * 0.1 * 60.0 / 50.0;
+#else
     D_802153D8 += (D_802153D4 - D_802153D8) * 0.1 * 60.0 / 60.0;
     D_802153E0 += (D_802153DC - D_802153E0) * 0.1 * 60.0 / 60.0;
+#endif
     guLookAtReflect(&sp140->mtx[5], &sp140->lookAt, D_802153D8, 1.0f, D_802153E0, D_802153D8, 0.0f, 0.0f, 0.0f,
                     1.0f, 0.0f);
     gSPPerspNormalize(gfx++, D_8035807C);

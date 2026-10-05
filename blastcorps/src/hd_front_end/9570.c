@@ -413,9 +413,6 @@ Gfx *func_801F1568(void) {
     return sp64;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/9570/func_801F1DA8.s")
-#else
 s32 func_801F1DA8(s32 arg0) {
     UnkStruct_8020D810 *sp2C;
     s32 sp28;
@@ -448,7 +445,6 @@ s32 func_801F1DA8(s32 arg0) {
     }
     return 0;
 }
-#endif
 
 Gfx *func_801F2000(void) {
     Vtx *sp84;
@@ -505,9 +501,6 @@ Gfx *func_801F2000(void) {
 
 
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/9570/func_801F2428.s")
-#else
 /*
  * The colour of each vertex batch is set as r, g, b, a in one comma group
  * (sp97..sp94): IDO stores a comma group in reverse, which is the order the
@@ -655,7 +648,6 @@ Gfx *func_801F2428(void) {
     osWritebackDCache(spE8, 0x1E0 * sizeof(Vtx));
     return spE0;
 }
-#endif
 
 Gfx *func_801F2E20(void) {
     Vtx *spCC;

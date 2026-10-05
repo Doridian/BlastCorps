@@ -147,7 +147,11 @@ extern UnkStruct_802E8F38 D_802E8F38[6];
 typedef struct UnkStruct_8020D810 {
     /* 0x00 */ u8 unk0[4];
     /* 0x04 */ char *PTR32 name;
-    /* 0x08 */ u16 *PTR32 unk8;
+#ifdef VERSION_EU
+    /* 0x08 */ char *PTR32 name2;    /* eu: the German name */
+    /* 0x0C */ char *PTR32 name3;    /* eu: NULL in the table */
+#endif
+    /* 0x08 */ u16 *PTR32 unk8;      /* eu: NULL in the table */
     /* 0x0C */ u8 unkC[4];
     /* 0x10 */ f32 unk10;
     /* 0x14 */ f32 unk14;
@@ -157,7 +161,11 @@ typedef struct UnkStruct_8020D810 {
     /* 0x28 */ f32 unk28;
     /* 0x2C */ f32 unk2C;
 } UnkStruct_8020D810;
+#ifdef VERSION_EU
+SIZE_CHECK(UnkStruct_8020D810, 0x38); /* eu: the offsets from unk8 on are 8 more */
+#else
 SIZE_CHECK(UnkStruct_8020D810, 0x30);
+#endif
 
 extern UnkStruct_8020D810 D_8020D810[LEVEL_COUNT];
 
