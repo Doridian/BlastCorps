@@ -153,9 +153,9 @@ port jp A47E0:CAF60:68B80/804,69430/884,7DDA0/1EE0,804AC/1A4,8ECE0/F50,A1000/37E
 # are where code that matches puts a symbol (tools/vdiff.py lists them);
 # most are hd.c's (00000) .bss, which eu defines in another order.  libm's
 # NaN (C9650) follows 983F0's .rodata directly, and eu has no u16 text
-# (BC8E0).  eu's text is in three languages: the objects whose .data and
-# .rodata hold it are asm there (--asm-object) until their data is written
-# for eu.
+# (BC8E0).  eu's text is in three languages, so 6790's .data starts after
+# two more words of 1C40's, and 1A240's crew names are a block of .rodata
+# only eu has (--add).
 port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E0 21990:2CAB0:209E0/FB0 \
     "hd_front_end:--at 17990:text:11D10 --at 6790:data:25920 --at 7800:data:25930 --at 7800:rodata:29B60" \
     "hd_front_end:--at 8380:rodata:29DE0 --at 17990:rodata:2B810 --at 8380:bss:8021AEC0 --add 1A240:rodata:2B950" \
@@ -174,6 +174,6 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 80215980:8021AE78 --pair 80215998:8021AE90 --pair 802084C0:8020C928 --pair 802159B0:8021AEA8" \
     "vermap:--pair 801EEDB4:801F3AA4 --pair 802084D0:8020C930 --pair 802084E0:8020C960" \
     "vermap:--pair 0048F970:0048FAB0 --pair 802159D0:8021AEC0:14 --pair 802159E4:8021AED8:4 --pair 801EF4AC:801F4214 --pair 801FE990:801F8D10 --pair 8021AB70:8021D460:10" \
-    "hd_front_end:--asm-object 1C40" \
-    "hd_front_end:--asm-object 1A240" \
+    "vermap:--pair 80215458:8021A93C:4 --pair 80215480:8021A998:30 --pair 80208378:8020C7B0:8" \
+    "vermap:--pair 80208358:8020C7B8:10 --pair 80208368:8020C7E8:10 --pair 801EA6E8:801EF204" \
     "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90"

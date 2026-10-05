@@ -30,8 +30,20 @@ extern char D_803048E4[];
 extern char D_803048F0[];
 /* .data, 0x8020E3E0-0x8020E440 (tools/data_c.py) */
 s16 D_8020E3E0[4] = { 83, 129, 97, 180 };
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: which of text, text2, text3 */
+/* eu: each name once per language (the .rodata only eu has), and NULL for unk10 */
+char *D_8020E9F8_eu[4][3] = {
+    { "AMBER", "AMBER", "AMBER" },
+    { "CLARK", "CLARK", "CLARK" },
+    { "SPIKE", "SPIKE", "SPIKE" },
+    { "WESLEY", "WESLEY", "WESLEY" },
+};
+char *D_8020EA28_eu[4] = { NULL, NULL, NULL, NULL };
+#else
 char D_8020E3E8[4][0x12] = { "AMBER", "CLARK", "SPIKE", "WESLEY" };
 char *D_8020E430[4] = { D_803048CC, D_803048D8, D_803048E4, D_803048F0 };
+#endif
 
 /*
  * Loads the ROM range D_0068B550..D_006A32B0, splits it into four 160x120
@@ -51,8 +63,13 @@ void func_80201240(s32 arg0) {
     D_8021ABA0 = arg0;
     D_8021ABA2 = 0;
     D_8021ABA1 = 0;
+#ifdef VERSION_EU
+    (&D_8020C070[FE_ENTRY(175)].text)[D_80366F70_eu] = D_8020E9F8_eu[arg0][D_80366F70_eu];
+    D_8020C070[FE_ENTRY(175)].unk10 = (u16 *)D_8020EA28_eu[arg0];
+#else
     D_8020C070[FE_ENTRY(175)].text = D_8020E3E8[arg0];
     D_8020C070[FE_ENTRY(175)].unk10 = (u16 *)D_8020E430[arg0];
+#endif
 }
 
 Gfx *func_80201364(s32 arg0, Gfx *arg1) {
