@@ -401,8 +401,10 @@ u8 func_80261A44(u64 arg0) {
             sp27 = 3;
             break;
         case 0x10000:
+#ifndef VERSION_EU
             sp27 = 0x21;
             break;
+#endif
         case 0x20000:
         case 0x40000:
         case 0x100000000:
