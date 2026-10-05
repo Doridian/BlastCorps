@@ -677,6 +677,154 @@ static void map_reset(void) {
     map.press = 0;
 }
 
+/* PORT_MAPCHECK=1 (tests): on the world map, each open level is clicked
+   in turn from wherever the camera has come to rest, and logged as
+   reached or not; at each stop, every open level on the screen is logged
+   with its click zone (the pixels map_hit gives it) and whether a click on
+   the marker itself takes it.  =all opens every level first (the save is
+   still written: don't keep it). */
+static void mapcheck(int earth, int idle, int sel) {
+    static int mode = -1, target = -1, from, waited, settle, done, fails;
+    static unsigned char tried[60], hops[60], pair[60][60];
+    static int steps;
+    static float last_lat, last_lon;
+    static int pending = -1;
+    if (mode < 0) {
+        const char *s = getenv("PORT_MAPCHECK");
+        mode = !s || !*s || *s == '0' ? 0 : !strcmp(s, "all") ? 2 : !strcmp(s, "turn") ? 3 : !strcmp(s, "fresh") ? 4 : 1;
+    }
+    if (!mode || done || !earth)
+        return;
+    int slot = g8(V(D_80364AE8)) & 3;
+    if (mode == 2)
+        for (int i = 0; i < 60; i++) {
+            uint8_t *m = (uint8_t *)V(D_80364AF0) + slot * 0x100 + 0x18 + i;
+            if (!(i == 40 || (i >= 43 && i <= 47) || i == 49) && (*m == 0 || *m > 5))
+                *m = 3;
+        }
+    if (mode == 4) {
+        /* =fresh: the levels marked open (8) as only just found, as they
+           are back from a level until another is gone into */
+        for (int i = 0; i < 60; i++) {
+            uint8_t *m = (uint8_t *)V(D_80364AF0) + slot * 0x100 + 0x18 + i;
+            if (*m == 8)
+                *m = 0;
+        }
+        mode = 1;
+    }
+    float lat = gf(V(D_8021A920)), lon = gf(V(D_8021A91C));
+    int still = fabsf(lat - last_lat) < 0.01f && fabsf(lon - last_lon) < 0.01f;
+    last_lat = lat;
+    last_lon = lon;
+    if (target >= 0) {
+        if (sel == target && still) {
+            host_log("mapcheck: %d reached\n", target);
+            target = -1;
+        } else if (++waited > 300) {
+            host_log("mapcheck: %d NOT reached from %d (selected %d)\n", target, from, sel);
+            fails++;
+            target = -1;
+        }
+        settle = 0;
+        return;
+    }
+    if (!idle || !still || ++settle < 10)
+        return;
+    tried[sel] = 1;
+    /* the stop: every open level on the screen and its zone */
+    float cx = gf(V(D_8021A90C)), cy = gf(V(D_8021A910)), cz = gf(V(D_8021A914));
+    float px[60], py[60];
+    int vis[60] = { 0 };
+    for (int i = 0; i < 60; i++) {
+        char *l = V(D_8020D810) + i * 0x30;
+        float x = gf(l + 0x24), y = gf(l + 0x28), z = gf(l + 0x2C);
+        float dot = (x * cx + y * cy + z * cz) / (250.0f * 925);
+        if (map_level_open(i) && globe_project(x, y, z, &px[i], &py[i]) && px[i] >= 0 && px[i] < 320 &&
+            py[i] >= 0 && py[i] < 240 && dot > 0)
+            vis[i] = 1 + (dot >= 0.3f);
+    }
+    for (int i = 0; i < 60; i++) {
+        if (!vis[i])
+            continue;
+        int area = 0;
+        for (int dy = -20; dy <= 20; dy++)
+            for (int dx = -20; dx <= 20; dx++)
+                area += map_hit(px[i] + dx, py[i] + dy) == i;
+        int self = map_hit(px[i], py[i]);
+        host_log("mapcheck: from %d: level %d at %.0f, %.0f: zone %d px%s%s\n", sel, i, px[i], py[i], area,
+                 self == i ? "" : self < 0 ? ", NOT HIT at its marker" : ", its marker hits another",
+                 vis[i] == 1 ? " (near the edge)" : "");
+    }
+    if (pending >= 0) {
+        /* turned to near it: the click */
+        int t = pending;
+        pending = -1;
+        if (!vis[t] || map_hit(px[t], py[t]) != t) {
+            host_log("mapcheck: from %d, turned: %d NOT clickable (%s)\n", sel, t,
+                     vis[t] ? "its marker hits something else" : "not on the screen");
+            fails++;
+            return;
+        }
+        host_log("mapcheck: from %d, turned: click %d at %.0f, %.0f\n", sel, t, px[t], py[t]);
+        ev_push(EV_TAP, px[t], py[t]);
+        target = t;
+        from = sel;
+        waited = 0;
+        return;
+    }
+    /* the next, on the screen and taken by a click on its marker: an
+       open level not yet tried, else one not yet tried from here, else one
+       to go on from (the least gone through) */
+    int next = -1, best = 0;
+    for (int i = 0; i < 60; i++) {
+        if (!vis[i] || i == sel || map_hit(px[i], py[i]) != i)
+            continue;
+        int score = !tried[i] ? 0 : !pair[sel][i] ? 1 : 2 + hops[i];
+        if (next < 0 || score < best) {
+            next = i;
+            best = score;
+        }
+    }
+    if (next < 0 || best >= 2 + 4 || ++steps > 400) {
+        int pairs = 0;
+        for (int i = 0; i < 60; i++) {
+            for (int j = 0; j < 60; j++)
+                pairs += pair[i][j];
+            if (!tried[i] && map_level_open(i)) {
+                host_log("mapcheck: %d NOT tried (not clickable from where the tour went)\n", i);
+                fails++;
+            }
+        }
+        host_log("mapcheck: done, %d clicks from one level to another, %d failed\n", pairs, fails);
+        done = 1;
+        return;
+    }
+    if (best >= 2)
+        hops[next]++;
+    pair[sel][next] = 1;
+    if (mode == 3) {
+        /* =turn: the globe turned first (as a drag leaves it) to a little
+           off the level, by an amount that changes from click to click */
+        char *l = V(D_8020D810) + next * 0x30;
+        float x = gf(l + 0x24), y = gf(l + 0x28), z = gf(l + 0x2C);
+        float r = 180 / (float)M_PI;
+        globe.on = 1;
+        globe.lat = asinf(y / 250) * r + (float)(steps % 5 - 2) * 4;
+        globe.lon = wrap180(-atan2f(z, x) * r + (float)(steps % 7 - 3) * 4);
+        globe.vlon = globe.vlat = 0;
+        globe.ease = 0.15f;
+        pending = next;
+        settle = 0;
+        host_log("mapcheck: from %d: turning to %.0f, %.0f for %d\n", sel, globe.lat, globe.lon, next);
+        return;
+    }
+    host_log("mapcheck: from %d: click %d at %.0f, %.0f\n", sel, next, px[next], py[next]);
+    ev_push(EV_TAP, px[next], py[next]);
+    target = next;
+    from = sel;
+    waited = 0;
+}
+
 /* this read's stick and buttons for the world map's pointer; 1 if it has
    the pad */
 static int map_poll(int *sx, int *sy, int last_stick) {
@@ -697,6 +845,7 @@ static int map_poll(int *sx, int *sy, int last_stick) {
     int idle = port_g16(V(D_8021A924)) == 1 && !port_g32(V(D_8036C778)) && !port_g32(V(D_8036C778) + 4) &&
                port_g32(V(D_80358060)) >= 6;
     int sel = g8(V(D_8021A905));
+    mapcheck(earth, idle, sel);
     for (unsigned i = 0; i < evq_n; i++) {
         if (evq[i].kind == EV_BACK) {
             map_reset();

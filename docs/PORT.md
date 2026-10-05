@@ -248,6 +248,28 @@ variant in us.v11 and us.v10, the TAS on every us.v10 variant.  Not
 tried yet: jp, the page (wasm), and by hand a real mouse, keyboard and
 touchscreen, driving with the keys among them.
 
+`PORT_MAPCHECK=1` checks the world map's clicks from a save: from wherever
+the camera comes to rest it clicks each open level on the screen, each
+from every level it can (up to 400 clicks), and logs `mapcheck:` lines:
+each reached or `NOT reached`, and at each stop every open level on the
+screen with its click zone (the pixels of a 41x41 box around its marker
+that take it; a whole 14-pixel circle is 616) and `NOT HIT` where a click
+on the marker doesn't take it (only right at the globe's rim, `near the
+edge`, where map_hit leaves it out).  `=turn` turns the globe (as a drag
+leaves it) to near each level before clicking; `=all` opens every level
+first (it writes the save: use a copy); `=fresh` takes the levels marked
+open (medal 8) back to found-but-not-marked (0), as they are on the map
+after the level that found them until another level is gone into (only
+`func_801FE018(8)` marks them, as a level is chosen or at the first map
+after the boot), which the clicks once missed: such a level is open to
+them by `func_801FE018`'s own test.  The check takes "open" from the same
+test the clicks use, so it shows what is open can be clicked, not that
+the test is right.  With a save of 8 levels open, in us.v11: 108 clicks,
+all reached, plain and turned, deterministic and not, and with
+`--interpolate --display-hz 144 --hd-text`; `=fresh`, 3 of them only
+found: all reached; with all 58 open, every level reached, the smallest
+zone 150 pixels (at the rim).
+
 ## Memory model
 
 The decompiled C, the translated asm, the game's data and whatever the ROM
