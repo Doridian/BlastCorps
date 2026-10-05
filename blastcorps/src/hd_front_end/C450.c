@@ -168,9 +168,6 @@ s32 func_801F36B0(s32 *arg0, s32 *arg1) {
     return sp4->unk38 - sp8->unk38;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/C450/func_801F374C.s")
-#else
 void func_801F374C(UnkStruct_8020BD30 *arg0) {
     f32 sp74;
     f32 sp70;
@@ -185,7 +182,12 @@ void func_801F374C(UnkStruct_8020BD30 *arg0) {
         sp60 = D_80217B70[arg0 - D_8020BD30];
         sp64 = 0.0f;
         if (arg0->unk8 != 0.0f) {
-            arg0->unk1C += D_8020BDEC * 360.0 / arg0->unk8 / 1800.0 * 60.0 / 60.0;
+            arg0->unk1C += D_8020BDEC * 360.0 / arg0->unk8 / 1800.0 * 60.0
+#ifdef VERSION_EU
+                           / 50.0;
+#else
+                           / 60.0;
+#endif
         }
         func_801FD484(&sp64, &arg0->unk1C, &sp70, &sp6C, &sp68, arg0->unkC);
         guTranslateF(sp20, -sp70, -sp6C, -sp68);
@@ -200,7 +202,6 @@ void func_801F374C(UnkStruct_8020BD30 *arg0) {
         arg0 = arg0->unk10;
     }
 }
-#endif
 
 Gfx *func_801F3964(Gfx *arg0, u8 *arg1, UnkStruct_8020BD30 *arg2, f32 arg3) {
     Gfx *gfx = arg0;
