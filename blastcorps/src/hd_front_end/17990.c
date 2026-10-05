@@ -81,6 +81,17 @@ extern s8 D_80364A71;
 extern s32 D_80364A64;
 extern OSMesgQueue D_80315180;
 extern u8 D_80365060[];
+#ifdef VERSION_EU
+extern u64 D_80364A88;
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+#endif
+
+/* An entry's text in the language being shown: eu's entries have three. */
+#ifdef VERSION_EU
+#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
+#else
+#define ENTRY_TEXT(e) (e)->text
+#endif
 
 /* .bss, 0x8021AB70-0x8021AB80 (tools/bss_c.py) */
 u8 D_8021AB70;
@@ -90,9 +101,17 @@ s16 D_8021AB76;
 u8 D_8021AB78[4];
 s32 D_8021AB7C;
 
+/* The game modes func_801E9718 draws the backdrop in, and the ones that wait
+   for the Yoshi menus to finish: eu's language menu (0x200000000) waits,
+   0x20000 has no backdrop. */
 #ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/17990/func_801F8D10_eu.s")
+#define BACKDROP_MODES 0x818D04001AF98080
+#define WAIT_MODES 0x81D9836783B28000
 #else
+#define BACKDROP_MODES 0x818D04001AFB8080
+#define WAIT_MODES 0x81D9836583B28000
+#endif
+
 void func_801FE990(void) {
     s32 spDC;
     Gfx *spD8;
@@ -105,7 +124,7 @@ void func_801FE990(void) {
         if (D_8036BB1C == 2) {
             osRecvMesg(&D_80219F50, &spD4, OS_MESG_BLOCK);
             if (!MQ_IS_EMPTY(&D_80219F50)) {
-                func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&pakToGameMessageQ)", "back_loop.c", 62);
+                func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&pakToGameMessageQ)", "back_loop.c", LINE_EU(62, 63));
             }
             D_8021AB70 = !spD4;
             if (D_80364A90 == 0x10000000) {
@@ -230,6 +249,22 @@ void func_801FE990(void) {
                     func_80275270(0x4000, 0.5f);
                 }
                 break;
+#ifdef VERSION_EU
+            case 0x200000000:
+                if (D_8036BB16 == 0xFFFF) {
+                    if (D_80364A88 == 0x2000000) {
+                        D_80364A98 = 0x200000;
+                    } else {
+                        func_80275270(0x0400000000000000, 0.5f);
+                    }
+                } else {
+                    func_8029A7E4("Selected language %d\n", D_80366F70_eu = D_8036BB16 - 0xD8);
+                    osSendMesg(&D_80219EF8, (OSMesg)0x1000017, OS_MESG_BLOCK);
+                    osRecvMesg(&D_80219F50, NULL, OS_MESG_BLOCK);
+                    D_80364A98 = 0x20000;
+                }
+                break;
+#endif
             default:
                 func_8029A7E4("backdrop illegal yoshi selection\n");
                 break;
@@ -280,7 +315,7 @@ void func_801FE990(void) {
             D_802F8BDC[56].unk8 |= 0x20;
         }
     }
-    if (D_80364A90 & 0x818D04001AFB8080) {
+    if (D_80364A90 & BACKDROP_MODES) {
         spD8 = func_801E9718(spD8, &D_803156F8[D_8035805C], 0xC2);
     }
     if (D_80364A90 & 0x898C0FE313F78002) {
@@ -369,7 +404,7 @@ void func_801FE990(void) {
     for (spDC = 0; spDC < D_80358080 - D_80358084; spDC++) {
         func_802A57AC();
     }
-    if ((D_80364A90 & 0x81D9836583B28000) && (D_8036BB1C == 1) && (func_802753F8() == 0) &&
+    if ((D_80364A90 & WAIT_MODES) && (D_8036BB1C == 1) && (func_802753F8() == 0) &&
         (func_802753C0() == 0) && (D_80364A98 == 0) && (D_8036BB1A == -1)) {
         switch (D_80364A90) {
             case 0x20000:
@@ -383,14 +418,14 @@ void func_801FE990(void) {
                 break;
             case 0x100000:
                 D_80364A98 = 0x80000;
-                D_8020C070[FE_ENTRY(9)].text = D_8020C070[D_80364AE8 + 2].text;
+                ENTRY_TEXT(&D_8020C070[FE_ENTRY(9)]) = ENTRY_TEXT(&D_8020C070[D_80364AE8 + 2]);
                 D_8020C070[FE_ENTRY(9)].unk10 = 0;
                 D_8020C070[FE_ENTRY(9)].unk6 = D_8020C070[FE_ENTRY(9)].unk8 = 0x14;
                 func_8026AF6C(0x800C);
                 break;
             case 0x0000004000000000:
                 D_80364A98 = 0x0000008000000000;
-                D_8020C070[FE_ENTRY(9)].text = D_8020C070[D_8021AB74].text;
+                ENTRY_TEXT(&D_8020C070[FE_ENTRY(9)]) = ENTRY_TEXT(&D_8020C070[D_8021AB74]);
                 D_8020C070[FE_ENTRY(9)].unk10 = D_8020C070[D_8021AB74].unk10;
 #ifdef VERSION_JP
                 D_8020C070[FE_ENTRY(9)].unk6 = 0xB;
@@ -408,7 +443,11 @@ void func_801FE990(void) {
                 if (D_80365060[D_80364AE8] == 1) {
                     func_80275390(0x4000);
                 } else {
+#ifdef VERSION_EU
+                    D_80364A98 = 0x200000000; /* the language menu */
+#else
                     D_80364A98 = 0x20000;
+#endif
                 }
                 break;
             case 0x8000000000000000:
@@ -474,4 +513,3 @@ void func_801FE990(void) {
         }
     }
 }
-#endif

@@ -121,6 +121,14 @@ char D_8020D800[4][4] = { "1ST", "2ND", "3RD", "4TH" };
 /* The players listed in the best-times window (D_8021A7E8): us.v10 counts
  * them with the window's own count, which may include a last entry that
  * isn't a player; us.v11 keeps the number of players in D_8021A828. */
+/* An entry's text in the language being shown: eu's entries have three. */
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
+#else
+#define ENTRY_TEXT(e) (e)->text
+#endif
+
 #ifdef VERSION_US_V10
 #define LIST_COUNT D_802F8BDC[22].count
 typedef s32 ListIndex;
@@ -132,9 +140,6 @@ typedef s32 ListIndex;
 typedef u32 ListIndex;
 #endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/10850/func_801F7850.s")
-#else
 void func_801F7850(void) {
     PlayerInfo *sp7C;
     YoshiWindow *sp78;
@@ -148,7 +153,7 @@ void func_801F7850(void) {
     sp7C = &D_80364AF0[D_80364AE8];
     sp78 = &D_802F8BDC[22];
     D_8036BB24 = (YoshiEntry *)D_80358070;
-    D_80358070 += 0x71C;
+    D_80358070 += 0x41 * sizeof(YoshiEntry);
     for (sp6C = 0; sp6C < 4; sp6C++) {
         if (D_80365060[sp6C] == 1 && D_8039C53C[sp6C] == 0 &&
             LEVEL_DONE_IN(D_80364AF0[sp6C], D_802E8BDC)) {
@@ -168,14 +173,14 @@ void func_801F7850(void) {
                     (D_802E8F94[D_802E8BDC].unk0 != 0x80 || sp7C->gameState >= 0xB)) {
                     func_80264A34(sp48, D_80364EF0[sp6C][D_802E8C44[sp70]], 0);
                     sprintf(D_80219FD0[sp68 * 4 + sp6C], "%-7.7s %s", sp7C, sp48);
-                    sp74->text = D_80219FD0[sp68 * 4 + sp6C];
+                    ENTRY_TEXT(sp74) = D_80219FD0[sp68 * 4 + sp6C];
                     sp74->unk10 = 0;
                     sp74->unk14 =
                         func_801EF2BC(D_80364EF0[sp6C][D_802E8C44[sp70]], D_802E8BDC, D_80364AF0[sp6C].gameState) % 5 +
                         0x12;
                     sp74->unk18 = sp6C;
                 } else {
-                    sp74->text = NULL;
+                    ENTRY_TEXT(sp74) = NULL;
                     sp74->unk10 = 0;
                     sp74->unk14 = 0;
                     sp74->unk18 = 4;
@@ -194,9 +199,9 @@ void func_801F7850(void) {
                 if (sp6C == 2) {
                     sp74->flags |= 1;
                 }
-                if (sp74->text != NULL) {
-                    bcopy(sp74->text, sp28, func_8025B300((u8 *)sp74->text) + 1);
-                    sprintf(sp74->text, "%s %s", D_8020D800[sp6C], sp28);
+                if (ENTRY_TEXT(sp74) != NULL) {
+                    bcopy(ENTRY_TEXT(sp74), sp28, func_8025B300((u8 *)ENTRY_TEXT(sp74)) + 1);
+                    sprintf(ENTRY_TEXT(sp74), "%s %s", D_8020D800[sp6C], sp28);
                 }
             }
             sp68++;
@@ -214,7 +219,7 @@ void func_801F7850(void) {
     }
     if (D_802E8F94[D_802E8BDC].unk0 == 0x80) {
         sp74 = &D_8036BB24[sp70];
-        sp74->text = NULL;
+        ENTRY_TEXT(sp74) = NULL;
         sp74->unk10 = 0;
         sp74->flags = 0x400;
         sp74->x = -0x20;
@@ -228,7 +233,6 @@ void func_801F7850(void) {
     sp78->unk18 = 2;
 #ifndef VERSION_US_V10
     D_8021A828 = sp68 * 4;
-#endif
     func_801F8228();
     func_801FDE50();
 }
@@ -244,19 +248,15 @@ s32 func_801F7F74(arg0)
     return (D_80364AF0[D_80364AEA].unk10 & (1 << arg0)) ? 1 : 0;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/10850/func_801F7FF4.s")
-#else
 s32 func_801F7FF4(YoshiEntry *arg0, YoshiEntry *arg1) {
-    if (arg0->text != 0 && arg1->text != 0) {
+    if (ENTRY_TEXT(arg0) != 0 && ENTRY_TEXT(arg1) != 0) {
         return arg0->unk16 - arg1->unk16;
     }
-    if (arg0->text != 0) {
+    if (ENTRY_TEXT(arg0) != 0) {
         return -1;
     }
     return 1;
 }
-#endif
 
 void func_801F803C(void) {
     s32 sp1C;
