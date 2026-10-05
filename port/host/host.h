@@ -61,6 +61,20 @@ void host_video_present_held(void);
 void host_video_between(double phase);   /* --display-hz: a present `phase` retraces after the last */
 void host_video_shutdown(void);
 int host_frame_held(void);          /* the game's mode holds each frame for two retraces */
+int host_window_to_n64(float wx, float wy, float *x, float *y);  /* a point of the window on the 320x240 screen */
+void host_type_char(int c);         /* the name entry: c typed ('\b' Backspace, 0x1B Escape) */
+
+/* N64 buttons */
+enum {
+    B_A = 0x8000, B_B = 0x4000, B_Z = 0x2000, B_START = 0x1000, B_DU = 0x0800, B_DD = 0x0400,
+    B_DL = 0x0200, B_DR = 0x0100, B_L = 0x0020, B_R = 0x0010, B_CU = 0x0008, B_CD = 0x0004,
+    B_CL = 0x0002, B_CR = 0x0001,
+};
+
+/* ui.c: the keyboard, the mouse and touch, by what is on the screen */
+union SDL_Event;
+void host_ui_event(const union SDL_Event *e);
+void host_ui_input(int live, const uint8_t *keys, uint16_t *buttons, int *x, int *y);
 
 /* digest.c: PORT_DIGEST=FILE, the gameplay digest at every controller poll */
 void host_digest_poll(unsigned poll);

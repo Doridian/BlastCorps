@@ -165,21 +165,42 @@ carrying it (docs/PORT.md, "The data from the ROM").
 The save (the 4 Kbit EEPROM) goes to `blastcorps.eep` in the current
 directory, or wherever `--save PATH` says.
 
-| Key                 | N64            |
-| ---                 | ---            |
-| arrows or WASD      | stick          |
-| X, C                | A, B           |
-| Z                   | Z              |
-| Enter               | Start          |
-| Q, E                | L, R           |
-| I, J, K, L          | C buttons      |
-| T, F, G, H          | D-pad          |
+The keys follow what's on the screen.  Driving:
+
+| Key                  | in a level                                              |
+| ---                  | ---                                                     |
+| W, S (or ↑, ↓)       | accelerate, brake and reverse (on foot: walk)           |
+| A, D (or ←, →)       | steer                                                   |
+| Space                | brake; held when stopped, get out                       |
+| Shift                | the vehicle's special (R: rams, boost, missiles, roll, jets, siren) |
+| Q, E                 | turn the camera                                         |
+| R, F, mouse wheel    | zoom the camera in and out                              |
+| Escape, Enter        | pause (Start)                                           |
+
+W and S are the A and B buttons, which is how the game drives in its
+default control mode.  Where it steers by the stick's direction instead
+(on foot, the Thunderfist, the Cyclone Suit, the J-Bomb, and any vehicle
+switched to "speed on 3D stick" in the pause menu), WASD is the stick.
+
+In the menus, on the world map and in the pause menu, the arrows or WASD
+move, Enter or Space selects (A), and Escape or Backspace goes back (B).
+The mouse works there too.  Pointing at a menu entry highlights it, a
+click takes it, and the right button goes back.  On the world map, a
+click on a level picks it and a click on the picked one goes in.
+Dragging turns the globe, and it keeps the view until you pick a level
+or use the keys.  A finger on a touchscreen does the same, in the
+browser too.
+
+The N64's own layout still works everywhere: X, C and Z are A, B and Z,
+and I, J, K, L the C buttons.  An SDL game controller works too.
 
 On the name entry the keyboard types the name: a letter (or 1-4, `/`,
-`.`, the wheel's other characters) turns the wheel to it and takes it,
-Backspace deletes the last one, Escape is B (back out), Enter confirms.
-The letter keys don't act as buttons there; the arrows and a controller
-still turn the wheel as on the N64.
+`.`, the wheel's other characters) turns the wheel to it and takes it, as
+fast as you type.  Backspace deletes the last one, Escape is B (back
+out), and Enter confirms.  With the mouse, a click on a letter of the
+wheel types it and a click on the name in the middle confirms.  The
+letter keys don't act as buttons there; the arrows and a controller still
+turn the wheel as on the N64.
 
 An SDL game controller works too.  Some options (`--help` lists them all):
 

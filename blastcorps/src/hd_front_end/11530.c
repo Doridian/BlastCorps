@@ -649,8 +649,21 @@ void func_801F8980(void) {
     D_8021A938 = D_8021A910 - sp44;
     D_8021AB60 = D_8020D810[D_8021A905].unk14;
     D_8021AB64 = D_8020D810[D_8021A905].unk10;
+#ifdef TARGET_PC
+    /* the port's mouse or touch has turned the globe: the camera goes to
+       where it was turned to instead of the selected level */
+    if (port_globe_view(0)) {
+        D_8021AB60 = port_globe_view(1) / 1000.0f;
+        D_8021AB64 = port_globe_view(2) / 1000.0f;
+        D_8021A934 = func_801FD6B8(D_8021AB60, D_8021A91C, 180.0f) * port_globe_view(3) / 1e+04f;
+        D_8021A938 = func_801FD6B8(D_8021AB64, D_8021A920, 180.0f) * port_globe_view(3) / 1e+04f;
+    } else {
+#endif
     D_8021A934 = func_801FD6B8(D_8021AB60, D_8021A91C, 180.0f) * ((sp3C >> 2 < 500) ? 500 : sp3C >> 2) / 1e+04f;
     D_8021A938 = func_801FD6B8(D_8021AB64, D_8021A920, 180.0f) * ((sp3C >> 2 < 500) ? 500 : sp3C >> 2) / 1e+04f;
+#ifdef TARGET_PC
+    }
+#endif
     D_8021A91C -= D_8021A934;
     D_8021A920 -= D_8021A938;
     D_8021AB68 = func_801F9258((Gfx *)(sp38 + 0x48B0), sp38, &D_80358078);

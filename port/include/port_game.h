@@ -43,5 +43,10 @@ int port_load_waits(void);
 /* the game switches mode (00000.c's loop, before the new mode's init) */
 void port_replay_mode_switch(void);
 #define D_803156C0 port_counter(1, __func__)
+/* the world map's camera (11530.c), when the mouse or a finger has turned
+   the globe (port/host/ui.c): what = 0, whether it has (then the camera
+   heads for 1, the longitude, and 2, the latitude, in thousandths of a
+   degree, by 3, ten-thousandths of the way a frame) */
+int port_globe_view(int what);
 
 #endif

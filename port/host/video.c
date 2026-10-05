@@ -265,6 +265,7 @@ static void video_frame(int hold) {
         if (e.type == SDL_CONTROLLERDEVICEADDED && !pad)
             pad = SDL_GameControllerOpen(e.cdevice.which);
         type_event(&e);
+        host_ui_event(&e);
     }
     frame++;
     if (host_verbose && frame % 300 == 0) {
@@ -338,12 +339,6 @@ void host_video_between(double phase) {
 
 int host_quit_requested(void) { return quit || host_replay_done(); }
 
-/* N64 buttons */
-enum {
-    B_A = 0x8000, B_B = 0x4000, B_Z = 0x2000, B_START = 0x1000, B_DU = 0x0800, B_DD = 0x0400,
-    B_DL = 0x0200, B_DR = 0x0100, B_L = 0x0020, B_R = 0x0010, B_CU = 0x0008, B_CD = 0x0004,
-    B_CL = 0x0002, B_CR = 0x0001,
-};
 
 /* the scheduler's retrace count and the mode, where the version has them */
 extern char D_803156C4[], D_80364A90[], D_802E8BDC[];
@@ -403,6 +398,43 @@ static uint16_t scripted_buttons(int *sy) {
     return 0;
 }
 
+/* where a point of the window is on the game's 320x240 screen (x below 0
+   or past 320 in a wide picture's sides): the mouse's (wx < 0), or a
+   finger's (wx, wy from 0 to 1 across the window).  The picture is as
+   large as fits, in the middle (gfx_gl_present; the software renderer's
+   SDL_RenderSetLogicalSize when it's wide), but for the software
+   renderer's 4:3 one, which fills the window. */
+int host_window_to_n64(float wx, float wy, float *x, float *y) {
+    int ww = 0, wh = 0;
+    if (!win)
+        return 0;
+    SDL_GetWindowSize(win, &ww, &wh);
+    if (ww <= 0 || wh <= 0)
+        return 0;
+    if (wx < 0) {
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+        wx = mx + 0.5f;
+        wy = my + 0.5f;
+    } else {
+        wx *= ww;
+        wy *= wh;
+    }
+    float cols = 320 + 2 * gfx_wide_off, pw = ww, ph = wh, ox = 0, oy = 0;
+    if (host_renderer == 1 || tex_w > 320) {
+        ph = ww * 240 / cols;
+        if (ph > wh) {
+            ph = wh;
+            pw = wh * cols / 240;
+        }
+        ox = (ww - pw) / 2;
+        oy = (wh - ph) / 2;
+    }
+    *x = (wx - ox) * cols / pw - gfx_wide_off;
+    *y = (wy - oy) * 240 / ph;
+    return 1;
+}
+
 /* ---- typing the name ------------------------------------------------------
    The name entry (hd_front_end/1C40.c: func_801EA93C sets it up,
    func_801EAA7C runs it) picks characters off a wheel of 33 (A to Z, 1 to
@@ -421,7 +453,8 @@ static uint16_t scripted_buttons(int *sy) {
 /* (us.v11's names: the menu's screen and its state are hd_code's, the
    wheel the front end's, loaded whenever that screen is up) */
 extern char D_8036BB18[], D_8036BB1C[], D_802154B2[], D_802154B4[], D_802154BC[], D_802154BE[],
-    D_80215924[], D_802082FC[], D_80208314[], D_80208350[];
+    D_80215924[], D_802082FC[], D_80208314[], D_80208350[], D_80215944[], D_80215948[], D_8021594C[],
+    D_80215950[], D_80215440[], D_80215444[], D_80215448[], D_8021544C[];
 #ifdef PORT_MOVABLE
 #define D_8036BB18 PORT_VAR(D_8036BB18)
 #define D_8036BB1C PORT_VAR(D_8036BB1C)
@@ -433,9 +466,17 @@ extern char D_8036BB18[], D_8036BB1C[], D_802154B2[], D_802154B4[], D_802154BC[]
 #define D_802082FC PORT_VAR(D_802082FC)
 #define D_80208314 PORT_VAR(D_80208314)
 #define D_80208350 PORT_VAR(D_80208350)
+#define D_80215944 PORT_VAR(D_80215944)
+#define D_80215948 PORT_VAR(D_80215948)
+#define D_8021594C PORT_VAR(D_8021594C)
+#define D_80215950 PORT_VAR(D_80215950)
+#define D_80215440 PORT_VAR(D_80215440)
+#define D_80215444 PORT_VAR(D_80215444)
+#define D_80215448 PORT_VAR(D_80215448)
+#define D_8021544C PORT_VAR(D_8021544C)
 #endif
 
-enum { WHEEL_N = 33, WHEEL_STEP = 1986, WHEEL_SPIN = 2 * WHEEL_STEP };
+enum { WHEEL_N = 33, WHEEL_STEP = 1986 };
 
 /* the name entry is up: the menu's screen (D_8036BB18) is 0xB and its
    state (D_8036BB1C) isn't 1, which is when 17990.c runs func_801EAA7C;
@@ -479,6 +520,12 @@ static void type_pop(void) {
     type_state = TY_IDLE;
 }
 
+/* a character typed some other way (ui.c: a click on the wheel) */
+void host_type_char(int c) {
+    if (name_screen())
+        type_push(c);
+}
+
 /* SDL's key and text events (host_video_frame) */
 static void type_event(const SDL_Event *e) {
     if ((e->type != SDL_TEXTINPUT && e->type != SDL_KEYDOWN) || !keys_type())
@@ -491,6 +538,26 @@ static void type_event(const SDL_Event *e) {
         type_push('\b');
     } else if (e->key.keysym.sym == SDLK_ESCAPE && !e->key.repeat) {
         type_push(0x1B);
+    }
+}
+
+/* the character in flight to the name (func_801EAA7C eases it a fifth of
+   the way a frame, about a second): hurried, so that typing keeps up.
+   Half the way more each read lands it in a quarter of a second; with
+   more typed behind it, it lands this frame. */
+static void type_fly(void) {
+    char *const pos[][2] = {
+        { D_80215944, D_8021594C }, { D_80215948, D_80215950 },     /* where it is, where it goes */
+        { D_80215440, D_80215448 }, { D_80215444, D_8021544C },     /* its size */
+    };
+    for (unsigned i = 0; i < sizeof pos / sizeof pos[0]; i++) {
+        uint32_t a = port_g32(pos[i][0]), t = port_g32(pos[i][1]);
+        float fa, ft;
+        memcpy(&fa, &a, 4);
+        memcpy(&ft, &t, 4);
+        fa = type_n > 1 ? ft : fa + (ft - fa) * 0.5f;
+        memcpy(&a, &fa, 4);
+        port_wg32(pos[i][0], a);
     }
 }
 
@@ -541,32 +608,29 @@ static int type_poll(uint16_t *b) {
         type_button = B_A;
         type_state = TY_SPIN;
         /* fall through */
-    case TY_SPIN: {
-        /* turn the wheel (its angle D_802154B4, and D_802154B2, the one
-           it eases to) by up to WHEEL_SPIN a read, the short way round;
-           there, A: func_801EAA7C works out the character in front
-           (D_802154B6) from the angle before it looks at the pad */
-        int16_t target = (int16_t)(0x7FFF - type_idx * WHEEL_STEP);
-        int16_t at = (int16_t)port_g16(D_802154B4);
-        int d = (int16_t)(target - at);
-        port_wg16(D_802154B2, (uint16_t)target);
-        if (d > WHEEL_SPIN || d < -WHEEL_SPIN) {
-            port_wg16(D_802154B4, (uint16_t)(at + (d > 0 ? WHEEL_SPIN : -WHEEL_SPIN)));
-            return 1;
-        }
-        port_wg16(D_802154B4, (uint16_t)target);
+    case TY_SPIN:
+        /* turn the wheel to it at once (its angle D_802154B4, and
+           D_802154B2, the one it eases to) and press A in the same read:
+           func_801EAA7C works out the character in front (D_802154B6) from
+           the angle before it looks at the pad */
+        port_wg16(D_802154B2, (uint16_t)(0x7FFF - type_idx * WHEEL_STEP));
+        port_wg16(D_802154B4, (uint16_t)(0x7FFF - type_idx * WHEEL_STEP));
         type_state = TY_PRESS;
         break;
-    }
     case TY_PRESS:                                  /* released: the press was one read */
         type_state = TY_WAIT;
+        if (busy)
+            type_fly();
         return 1;
     case TY_WAIT:
         if (busy || len != type_len0)
             type_seen = 1;
-        if (type_seen && !busy)
+        if (busy)
+            type_fly();
+        if (type_seen && !busy) {
             type_pop();
-        else if (!type_seen && ++type_reads > 10)   /* the game didn't take it: again */
+            return type_poll(b);                    /* the next one at once (A was up last read) */
+        } else if (!type_seen && ++type_reads > 10)   /* the game didn't take it: again */
             type_state = TY_IDLE;
         return 1;
     }
@@ -584,32 +648,6 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     } else if (n == 0 && !sdl_up) {
         b |= scripted_buttons(&sy);
     } else if (n == 0) {
-        int nk = 0;
-        const Uint8 *k = SDL_GetKeyboardState(&nk);
-        static Uint8 kt[SDL_NUM_SCANCODES];
-        if (keys_type() && nk <= SDL_NUM_SCANCODES) {   /* the letters and digits type there */
-            memcpy(kt, k, (size_t)nk);
-            memset(kt + SDL_SCANCODE_A, 0, SDL_SCANCODE_0 - SDL_SCANCODE_A + 1);
-            k = kt;
-        }
-        if (k[SDL_SCANCODE_X]) b |= B_A;
-        if (k[SDL_SCANCODE_C]) b |= B_B;
-        if (k[SDL_SCANCODE_Z]) b |= B_Z;
-        if (k[SDL_SCANCODE_RETURN]) b |= B_START;
-        if (k[SDL_SCANCODE_Q]) b |= B_L;
-        if (k[SDL_SCANCODE_E]) b |= B_R;
-        if (k[SDL_SCANCODE_I]) b |= B_CU;
-        if (k[SDL_SCANCODE_K]) b |= B_CD;
-        if (k[SDL_SCANCODE_J]) b |= B_CL;
-        if (k[SDL_SCANCODE_L]) b |= B_CR;
-        if (k[SDL_SCANCODE_T]) b |= B_DU;
-        if (k[SDL_SCANCODE_G]) b |= B_DD;
-        if (k[SDL_SCANCODE_F]) b |= B_DL;
-        if (k[SDL_SCANCODE_H]) b |= B_DR;
-        if (k[SDL_SCANCODE_UP] || k[SDL_SCANCODE_W]) sy += 80;
-        if (k[SDL_SCANCODE_DOWN] || k[SDL_SCANCODE_S]) sy -= 80;
-        if (k[SDL_SCANCODE_LEFT] || k[SDL_SCANCODE_A]) sx -= 80;
-        if (k[SDL_SCANCODE_RIGHT] || k[SDL_SCANCODE_D]) sx += 80;
         b |= scripted_buttons(&sy);
         if (pad) {
             struct { int btn; uint16_t bit; } map[] = {
@@ -636,6 +674,10 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
             if (cy < -16000) b |= B_CU;
         }
     }
+    /* the keyboard, the mouse and touch, by what is on the screen (ui.c);
+       PORT_POINTER's script in any run */
+    if (n == 0 && !host_replay_active())
+        host_ui_input(sdl_up, sdl_up ? SDL_GetKeyboardState(NULL) : NULL, &b, &sx, &sy);
     if (typing) {
         b = tb;
         sx = sy = 0;

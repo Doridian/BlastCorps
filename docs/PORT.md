@@ -44,10 +44,12 @@ cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
 cmake --build build/port64
 ```
 
-Keys: arrows or
-WASD for the stick, X = A, C = B, Z = Z, Enter = Start, Q/E = L/R, IJKL = C
-buttons, TFGH = D-pad; an SDL game controller works too.  On the name
-entry the keyboard types ("Typing the name", below).  `--help` lists
+Keys: they follow what is on the screen ("Keyboard, mouse and touch",
+below): WASD or the arrows drive in a level (W/S the pedals, A/D the
+steering), and move in the menus and on the world map, where the mouse
+and touch work too; X, C, Z and IJKL are A, B, Z and the C buttons
+everywhere; an SDL game controller works too.  On the name entry the
+keyboard types ("Typing the name", below).  `--help` lists
 the options: `--headless`, `--deterministic` (virtual time: as fast as the
 host can, identical every run), `--frames N`, `--screenshot PREFIX`,
 `--save PATH` (the 4 Kbit EEPROM, default `blastcorps.eep`; runs meant to
@@ -104,11 +106,17 @@ screen `D_8036BB18` is 0xB and its state `D_8036BB1C` isn't 1 (when
 `17990.c` calls `func_801EAA7C`); it takes the pad in state 2.  There
 SDL's text events (and Backspace and Escape) fill a queue, and each
 controller read takes the next character: the host turns the wheel to it
-(writes both angles, two characters a read the short way round, so the
-game ticks for each one it passes as it does for the stick), presses A for
-one read, then waits until the character is in the name (`D_802154BE`
-back to 0) before the next; if the game didn't take the press (the
-length didn't change and nothing flew within 10 reads) it tries again.
+(writes both angles at once) and presses A in the same read, then waits
+until the character is in the name (`D_802154BE` back to 0) before the
+next, which it presses in the read that sees it land; if the game didn't
+take the press (the length didn't change and nothing flew within 10
+reads) it tries again.  The character's flight into the name, which the
+game eases a fifth of the way a frame (`D_80215944`/`48` to
+`D_8021594C`/`50`, its size `D_80215440`/`44` to `D_80215448`/`4C`:
+about a second), the host hurries: half the way more each read while it
+is the last one typed (a quarter of a second), and all of it while more
+are queued, so that each character takes two reads (1/30 s) and the
+typing keeps up with a typist.
 Backspace presses B, but only while the name has a character, so it
 never leaves the screen; Escape presses B whatever the name holds.  A
 character the wheel hasn't (0, 5-9, space, anything else) or one past the
@@ -139,6 +147,105 @@ person at a real keyboard, an IME.  (A key pressed and released between
 two controller reads is missed, as before: the pad comes from SDL's
 keyboard state, and Playwright's `press` without `delay` is that fast; a
 typed character isn't, since it goes through the queue.)
+
+### Keyboard, mouse and touch
+
+`port/host/ui.c` makes the pad from the keyboard, the mouse and touch by
+what is on the screen, from the host alone like the typing (the game's C
+has one hook, below).  Every controller read it decides which of these is
+up:
+
+- **a level** (mode 4, or 0x100, the carrier's overview, and not paused,
+  `D_802E8BD0` 0): W/S press A/B, which is what the pad code
+  (`45BB0.c`, `func_8028A470`) drives with in the default control mode:
+  it drops the stick's Y there and makes it from A and B.  Where the game
+  reads the stick's direction instead, W/S are the stick's Y: the player's
+  vehicle (`D_80364456`) on foot (0), the Thunderfist (2), the J-Bomb (9)
+  and the Cyclone Suit (16) in their default 360-degree modes, and any
+  vehicle with its control-method bit set ("speed on 3D stick",
+  `PlayerInfo.unkF0` bit `type`).  A/D steer (the stick's X, ±80, which
+  past 50 also pulls the levers, as a pad does), Space is Z (the brake,
+  and, held when stopped, out of the vehicle: `00000.c`), Shift R (each
+  vehicle's special), Q/E C-left/right (the camera), R/F and the mouse
+  wheel C-up/down (the zoom), Escape and Enter Start.  The mouse pointer
+  is hidden there.
+- **one of the game's windows taking input** (yoshi.c, `26570.c`: the
+  window `D_8036BB18` in state 2, `D_8036BB1C`, with input, flag 0x20),
+  in the front end or paused: the arrows and WASD move, Enter and Space
+  are A, Escape and Backspace B.  The pointer finds the entry under it as
+  yoshi.c draws them: the window at `unk4`, `unk6`, an entry at its x, y
+  in it (plus the scroll `D_8036BB30` for those with flag 0x1000, when
+  not faded out), its text's cells `unk6` wide and 0.6 of that apart, an
+  icon about 64x32 from its `YoshiIcon` offset, a list's entries the
+  window's whole width.  The table is the one `func_8026FB50` picks by
+  the window's flags (the front end's sorted lists, flag 0x8000, are left
+  to the keys).  Pointing at an entry moves the selection there by the
+  window's own previous and next buttons (`D_8036BB3C`/`3E`, the D-pad
+  as yoshi.c set them up), one press every other read, so the sound and
+  the scrolling are the game's; a click does that and then presses A; a
+  click in a message box (no flag 0x10000000) pages on; the right button
+  is B.
+- **the world map** (mode 0x4000, `11530.c`): keys as in a window.  A
+  click (or tap) on a level picks it, a click on the picked one presses A
+  (in, or the level's menu).  The levels are hit where the game draws
+  them: their points on the globe (`D_8020D810`'s `unk24`-`2C`) through
+  the last frame's matrices for Earth, as `func_8027690C` (`30C70.c`)
+  does for the paths, on the globe's near side; the open ones only (the
+  selected one, medals 1-5, 8; not 47 and 49, which aren't places).  To
+  pick one, the host writes it as the stick's next level (`D_8021A907`,
+  which the game works out from the paths each frame) and pushes the
+  stick (x 40: past the game's 1500 for x²+y², and the camera at its usual
+  pace) after a neutral read, while the map takes the stick
+  (`D_8021A924` 1, the name in full, no window, no fade); the game then
+  moves there itself, the carrier and the sound with it.  A drag turns the
+  globe: the camera's latitude and longitude (`D_8021A920`/`1C`) follow
+  the pointer, so that the ground under it stays under it (the screen
+  pixels a degree moves the ground are measured with the same matrices
+  when the drag starts), and go on a little after it, slowing.  The
+  game's camera always eases back to the selected level, so this is the
+  one hook in the game's C: `port_globe_view` (`port_game.h`), which
+  `func_801F8980` asks each frame (under `TARGET_PC`) for a view to head
+  for instead, and how fast.  The turned view stays until a level is
+  picked or the keys or a controller are used.  Touch is the same with
+  a finger (SDL's finger events; the mouse events SDL makes from touch
+  are left out), so a phone's browser turns the globe and taps levels
+  (`shell.html` gives the canvas `touch-action: none`).
+- **the name entry**: the typing above; a click on a character of the
+  wheel types it (its place from the wheel's angle as `func_801EAA7C`
+  draws it), a click inside the wheel (where the name is) is Start, the
+  right button Escape.
+- **anything else** (the title, the intro, the briefings): the arrows and
+  WASD are the stick, Enter Start, Space A, Escape and Backspace B, Shift
+  R; a click is A.
+
+X, C, Z and IJKL are A, B, Z and the C buttons everywhere but the name
+entry.  A key that is a button keeps the button it went down as until it
+comes up (Enter as the world map's A doesn't turn into the level's Start
+when the level starts under it), and is held for a read at least, so a
+tap between two reads isn't lost; the arrows and WASD follow the screen.
+A click's press is one read, after a read without it.  The window's
+points become the game's 320x240 screen (`host_window_to_n64`,
+`video.c`) as the picture is placed: as large as fits, in the middle,
+`gfx_wide_off` columns more on each side when it is wide, or the whole
+window for the software renderer's 4:3 picture.
+
+`--replay` never takes any of it; `PORT_POINTER=READ:WHAT:X:Y,...` is
+the pointer for a test, in any run (headless too): at the READth
+controller read, WHAT is `d` down, `m` move (pointing, with no button
+down), `u` up, `b` the right button, `w`/`W` the wheel, at X, Y on the
+320x240 screen.  `-v` logs what is up at each change; `-v -v` also the
+world map's levels on the screen and where the pointer takes a window's
+selection; in a level `-v` logs the player's vehicle and what W/S are
+(A/B or the stick) when either changes.  Checked that way in us.v11, headless: from the title to the
+world map by clicks (the intro, the name typed by clicks on the wheel
+and confirmed by one in the middle), and with a save: a level picked by
+a click and gone into by another, its menu's EXIT pointed at and
+clicked, back on the map, and the globe dragged (the paths followed the
+pointer to the right); the same log, byte for byte, from all seven
+variants.  The port's tests are unchanged: the quick tier on every
+variant in us.v11 and us.v10, the TAS on every us.v10 variant.  Not
+tried yet: jp, the page (wasm), and by hand a real mouse, keyboard and
+touchscreen, driving with the keys among them.
 
 ## Memory model
 
