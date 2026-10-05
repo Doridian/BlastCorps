@@ -2916,9 +2916,6 @@ Gfx *func_8024C404(Gfx *arg0, FrameGame *arg1, s32 *arg2) {
 }
 #endif
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_8024C414.s")
-#else
 Gfx *func_8024C414(FrameGame *arg0, s32 *arg1) {
     Gfx *gfx = arg0->unk48B0;
     char sp194[16];
@@ -3126,25 +3123,29 @@ Gfx *func_8024C414(FrameGame *arg0, s32 *arg1) {
         func_80275478(arg0, &gfx, (D_80364A90 & 0x100) != 0 || D_8036BB18 == 0x4D || D_8036BB18 == 0x49);
     }
     if (D_80364A98 == 0 && func_802753C0() == 0) {
-        if (!(D_80364A90 & 0x200000100400230CLL) && (D_80315440.frameCount % 50) * 60 / 60 >= 21 && D_8036BB1C == 1 &&
+        if (!(D_80364A90 & 0x200000100400230CLL) && (D_80315440.frameCount % 50) * FRAMES_PER_SECOND / 60 >= 21 * FRAMES_PER_SECOND / 60 && D_8036BB1C == 1 &&
             (!(D_80364A90 & 2) || (D_802E8BEC != 0 && (D_80366A12 == 3 || D_802E8BEC == 1))) &&
             (D_80364A90 != 0x100000000000LL || D_803A6B04 != 0) &&
             (!(D_80364A90 & 0x1801) || D_80364AF0[D_80364AE8].gameState != 0) && D_802E8BDC != 0x2F) {
+            #ifdef VERSION_EU
+            func_80259CCC(arg0, TEXT_EU("PRESS START", "DRUECKE START"), NULL, 0, 160, 92, 196, 26, 26, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+#else
             func_80259CCC(arg0, "PRESS START", NULL, 1, 0, 92, 196, 26, 26, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+#endif
         }
-        if ((D_80315440.frameCount % 40) * 60 / 60 >= 16) {
+        if ((D_80315440.frameCount % 40) * FRAMES_PER_SECOND / 60 >= 16 * FRAMES_PER_SECOND / 60) {
             if (D_802E8BD0 != 0) {
                 if (D_80364A90 == 0x2000000000000000LL && D_8036BB1C == 2) {
-                    func_80259CCC(arg0, "USE Z/R TO TURN PAGES", D_8030491C, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("USE Z/R TO TURN PAGES", "DRUECKE Z OD. R ZUM BLAETTERN"), U16TEXT(D_8030491C), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 } else if (D_80364A90 == 0x100 && D_8036BB18 == 0 && D_8036BB1C == 2 && D_803643DB != 0 &&
                            !(D_80370C28 & 0x2010)) {
-                    func_80259CCC(arg0, "USE Z/R TO MOVE MAP", D_80304938, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("USE Z/R TO MOVE MAP", "DRUECKE Z OD. R ZUM SCROLLEN"), U16TEXT(D_80304938), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 }
             } else if (D_80364A90 == 0x100) {
                 if (D_80364AC1 != 0) {
-                    func_80259CCC(arg0, "SHUTTLE VIEW", D_80304904, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("SHUTTLE VIEW", "SHUTTLE-SICHT"), U16TEXT(D_80304904), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 } else {
-                    func_80259CCC(arg0, "MISSILE VIEW", D_80304910, 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+                    func_80259CCC(arg0, TEXT_EU("MISSILE VIEW", "MISSILE-SICHT"), U16TEXT(D_80304910), 0, 0, 24, 20, 15, 15, 1, 0xFF, 0xFF, 0xFF, 0xFF);
                 }
             }
         }
@@ -3197,7 +3198,6 @@ Gfx *func_8024C414(FrameGame *arg0, s32 *arg1) {
     *arg1 = ((u8 *)gfx - (u8 *)arg0 - 0x48B0) >> 3;
     return gfx;
 }
-#endif
 
 void func_8024E4F4(arg0, arg1, arg2)
     Gfx **arg0;
