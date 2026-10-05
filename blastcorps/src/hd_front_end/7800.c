@@ -25,7 +25,11 @@ void func_8029A7E4(char *, ...);
 
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
+#ifdef VERSION_EU
+extern char *D_802084D0[][3];
+#else
 extern char *D_802084D0[];
+#endif
 extern u16 *D_802084E0[];
 extern s32 D_802FA268;
 extern FrameBuf D_803156F8[];
@@ -33,6 +37,13 @@ extern s32 D_80358078;
 extern u16 D_8035807C;
 extern char D_8036B980[];
 extern char D_8036B9A8[];
+
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language */
+#define LEVEL_NAME(e) (&(e).name)[D_80366F70_eu]
+#else
+#define LEVEL_NAME(e) (e).name
+#endif
 
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/7800/func_801EE800.s")
@@ -82,7 +93,7 @@ u8 func_801EE800(u8 *arg0, u8 arg1, u8 arg2) {
     } else {
         sp33 = func_801EEDB4(D_802E8BDC, arg1, arg2);
     }
-    sprintf(D_8036B980, "%s", D_8020D810[D_802E8BDC].name);
+    sprintf(D_8036B980, "%s", LEVEL_NAME(D_8020D810[D_802E8BDC]));
     *arg0 = 0;
     if (arg1 && arg2) {
         if (DUMMY_LEVELS(D_802E8BDC)) {
@@ -116,13 +127,24 @@ u8 func_801EE800(u8 *arg0, u8 arg1, u8 arg2) {
 }
 #endif
 
+/* .data, 0x802084D0-0x802084F0 (tools/data_c.py) */
+#ifdef VERSION_EU
+/* eu: English, German and English again */
+char *D_802084D0[4][3] = {
+    { "YOUR NEW BEST!", "NEUE BESTLEISTUNG", "YOUR NEW BEST!" },
+    { "BEST TO DATE", "BESTLEISTUNG", "BEST TO DATE" },
+    { "YOUR BEST STAYS", "DEINE ERFOLGE", "YOUR BEST STAYS" },
+    { "GUEST BEST IS", "BESTER GAST IST", "GUEST BEST IS" },
+};
+u16 *D_802084E0[4] = { NULL }; /* eu has no u16 text */
+#else
 extern u16 D_80303B3C[];
 extern u16 D_80303B48[];
 extern u16 D_80303B58[];
 extern u16 D_80303B68[];
-/* .data, 0x802084D0-0x802084F0 (tools/data_c.py) */
 char *D_802084D0[4] = { "YOUR NEW BEST!", "BEST TO DATE", "YOUR BEST STAYS", "GUEST BEST IS" };
 u16 *D_802084E0[4] = { D_80303B3C, D_80303B48, D_80303B58, D_80303B68 };
+#endif
 
 u8 func_801EEDB4(u8 arg0, u8 arg1, u8 arg2) {
     s32 sp6C;
@@ -182,7 +204,11 @@ u8 func_801EEDB4(u8 arg0, u8 arg1, u8 arg2) {
         } else {
             sp64 = 2;
         }
+#ifdef VERSION_EU
+        (&D_8020C070[FE_ENTRY(24)].text)[D_80366F70_eu] = D_802084D0[sp64][D_80366F70_eu];
+#else
         D_8020C070[FE_ENTRY(24)].text = D_802084D0[sp64];
+#endif
         D_8020C070[FE_ENTRY(24)].unk10 = D_802084E0[sp64];
     }
     return D_8036EA70.coin;
