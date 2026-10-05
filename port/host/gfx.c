@@ -2122,10 +2122,16 @@ static int rsp_only;
 
 __attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i2, int flag);
 
+static void line_draw(int i0, int i1, int wd, int flag);
+
+/* (flag 0x80: a line, G_LINE3D's, i2 its width) */
 NOINLINE static void tri(int i0, int i1, int i2, int flag) {
     if (recording)
         rec_tri(i0, i1, i2, flag);
-    tri_draw(i0, i1, i2, flag);
+    if (flag & 0x80)
+        line_draw(i0, i1, i2, flag & 0x7F);
+    else
+        tri_draw(i0, i1, i2, flag);
     if (recording)
         rec_tri_done();
 }
@@ -2220,6 +2226,72 @@ __attribute__((always_inline)) static inline void tri_draw(int i0, int i1, int i
         to_sv(&s[i], &sv[i]);
     for (int i = 1; i + 1 < n; i++)
         raster(&sv[0], &sv[i], &sv[i + 1], fl);
+}
+
+/* G_LINE3D (the front end's line microcode: the routes on the world map),
+   as the RDP gets it: a quad 1.5 + wd / 2 pixels wide along the projected
+   segment, clipped first, shaded and z-tested as a triangle would be */
+static void line_draw(int i0, int i1, int wd, int flag) {
+    st_tris++;
+    if (rsp_only)
+        return;
+    Vtx4 p[2] = { gs.v[i0 & 15], gs.v[i1 & 15] };
+    float flat[4];
+    const float *fl = NULL;
+    if (!(gs.geom & 0x200) || !(gs.geom & 0x4)) {
+        const Vtx4 *f = flag == 1 ? &p[1] : &p[0];
+        flat[0] = f->r; flat[1] = f->g; flat[2] = f->b; flat[3] = f->a;
+        if (!(gs.geom & 0x4)) {
+            flat[0] = flat[1] = flat[2] = 0;
+            flat[3] = 255;
+        }
+        fl = flat;
+    }
+    for (int plane = 0; plane < 2; plane++) {
+        float d0 = plane == 0 ? p[0].w - 1e-3f : p[0].z + p[0].w;
+        float d1 = plane == 0 ? p[1].w - 1e-3f : p[1].z + p[1].w;
+        if (d0 < 0 && d1 < 0)
+            return;
+        if (d0 < 0)
+            lerp(&p[0], &p[0], &p[1], d0 / (d0 - d1));
+        else if (d1 < 0)
+            lerp(&p[1], &p[1], &p[0], d1 / (d1 - d0));
+    }
+    GfxVtx e[2], s[4];
+    to_screen(&p[0], &e[0]);
+    to_screen(&p[1], &e[1]);
+    float dx = e[1].x - e[0].x, dy = e[1].y - e[0].y, len = sqrtf(dx * dx + dy * dy);
+    float hw = (1.5f + wd * 0.5f) * 0.5f;
+    float nx, ny;
+    if (len < 1e-4f) {
+        nx = hw;
+        ny = 0;
+    } else {
+        nx = -dy / len * hw;
+        ny = dx / len * hw;
+    }
+    s[0] = e[0]; s[0].x += nx; s[0].y += ny;
+    s[1] = e[1]; s[1].x += nx; s[1].y += ny;
+    s[2] = e[1]; s[2].x -= nx; s[2].y -= ny;
+    s[3] = e[0]; s[3].x -= nx; s[3].y -= ny;
+    if (!ipass && charge_tris)
+        charge_poly(s, 4);
+    int gl = gl_target();
+    if (gfx_wide_off && (gl || cur_wfb))
+        wide_2d(s, 4);
+    if (gl) {
+        gfx_gl_tri(s, 4, fl);
+        if (recording)
+            rec_drawn(GFX_GL_TRI, 0);
+        return;
+    }
+    if (ipass && !cur_wfb)
+        return;
+    SV sv[4];
+    for (int i = 0; i < 4; i++)
+        to_sv(&s[i], &sv[i]);
+    raster(&sv[0], &sv[1], &sv[2], fl);
+    raster(&sv[0], &sv[2], &sv[3], fl);
 }
 
 /* ---- rectangles ------------------------------------------------------------------------ */
@@ -2656,6 +2728,9 @@ static void run(uint32_t dl, int depth) {
             gs.mvp_dirty = 1;
             break;
         case 0xBE: break;                                       /* G_CULLDL */
+        case 0xB5:                                              /* G_LINE3D */
+            CALL(tri)(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, w1 & 0xFF, 0x80 | (w1 >> 24 & 0x7F));
+            break;
         case 0xBF:                                              /* G_TRI1 */
             CALL(tri)(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10, w1 >> 24);
             break;

@@ -2288,7 +2288,11 @@ interface between them.
 - **Front end** (RSP and RDP state): matrices, vertices, lighting,
   texgen, fog (into shade alpha, as the RSP does it; the game doesn't use
   it), clipping against the near plane, culling, `gSPModifyVertex` (the
-  game rewrites texture coordinates with it: `G_MW_POINTS`), TMEM loads
+  game rewrites texture coordinates with it: `G_MW_POINTS`), `G_LINE3D`
+  (the world map's routes between the levels, from hd_front_end's own
+  line microcode: a quad 1.5 + wd / 2 pixels wide along the projected
+  segment, through the triangles' path; it used to be skipped, as some
+  emulators' plugins skip it), TMEM loads
   laid out as the RDP lays them out (the odd-row swizzle, which LoadBlock
   applies by counting `dxt` and the sampler undoes, and RGBA32 split
   across the two halves; the game's LoadBlock textures only look right with
