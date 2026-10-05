@@ -66,8 +66,8 @@ displays, see "Frame rate"), `--hd-text [FONT]` (the text from a font,
 docs/FONTS.md), `--aspect window` (the window's shape, the
 default with a window), `--aspect W:H`, `--widescreen` (16:9) and `--hud
 edges|centre` (see "Widescreen"), `--model-icons`/`--no-model-icons`
-(the icons that are pictures of the game's models drawn as the models;
-default with a window, see "Model icons"),
+(the icons that are pictures of the game's models drawn as the models,
+and the world map's chopper; default with a window, see "Model icons"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
 The port's improvements are on by default with a window: `--interpolate`
@@ -3243,10 +3243,10 @@ Many of the game's icons are 64x64 pictures Rare rendered from its own
 models: the missile carrier and the levels' goals (crates, rafts, gas
 plants, containers, spheres) in the hint panels and the level's goal,
 the vehicles of a level on the world map and the best times, the
-communication point.  `--model-icons` (`PORT_MODEL_ICONS=1`; the default
-with a window, off headless and with `--deterministic` or `--replay`)
-draws the models instead, at the internal resolution
-(`port/host/micons.c`).
+communication point; and the chopper on the world map's globe.
+`--model-icons` (`PORT_MODEL_ICONS=1`; the default with a window, off
+headless and with `--deterministic` or `--replay`) draws the models
+instead, at the internal resolution (`port/host/micons.c`).
 
 - **Which pictures.**  An icon is one or two 64x32 (or 32x32) textures
   that `func_80272C5C` (hd_code 2E490.c) loads and `func_80272ED8` draws,
@@ -3289,6 +3289,27 @@ draws the models instead, at the internal resolution
   windows' unselected entries) fades the model: a copy of its list whose
   combiners take alpha from the environment colour, with a blending
   render mode.
+- **The world map's chopper.**  Where the player is on the globe is a
+  picture of the BCT chopper (9570.c's `D_80215A70`, three frames of its
+  rotors) on a quad lying on the globe, at the selected level or on its
+  way to the next (11530.c, `func_801FC5B8`).  With `--model-icons` it is
+  the chopper's model (`chopper`, the one that flies in at a level's
+  start), circling the quad's middle: the circle closes while the quad
+  moves and opens again where it stops, and the chopper heads the way it
+  goes, banks into the turn and leans forward with its speed (its parts'
+  animations 2 and 3, as 72B80.c's `func_802B98E0` sets them, made from
+  their key frames as 56040.c's `func_8029E5AC` does), its rotors turning
+  (animation 1), its body's outline a shadow on the globe below it.  It
+  is all the renderer's: gfx.c reads the three frames' addresses as each
+  task starts (on the world map, mode 0x4000, only: elsewhere the front
+  end's memory is something else; in the LP64 build they are 8-byte
+  pointers, `port_game_ptr`), skips the quad's two triangles and runs a
+  list of micons.c's under the game's modelview, the quad's middle (from
+  its vertices, in the frame's own buffer) and the scheduler's retrace
+  count (`D_803156C4`) moving it on once a frame.  The globe draws
+  without the z-buffer, so the list clears it first.  A model's own draws
+  are never taken for pictures (they may draw before setting a texture of
+  their own), and the last vertex load is the game's again after them.
 - **Checking.**  `PORT_MODEL_ICONS_AS=N` makes the hint panels' question
   mark (and the goal's turning building) the Nth model of the table:
   `PORT_AUTOSTART=2 --model-icons --frames 1400` then shows each one in

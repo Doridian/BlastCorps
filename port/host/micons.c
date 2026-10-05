@@ -15,8 +15,10 @@
  * vertices, its textures (decoded from the ROM, or a resource pack's
  * edited ones) and its display list, behind a viewport, a projection that fits
  * the model in the rectangle and a clear of the z-buffer there.  The
- * shadow is the model in the shadow's colour; a fading picture fades the
- * model (its alpha from the environment colour).
+ * shadow is the model's outline on the ground, in the shadow's colour; a
+ * fading picture fades the model (its alpha from the environment colour).
+ * The world map's chopper, a picture on the globe, is the chopper's model
+ * flying round the selected level (at the end).
  *
  * Only the renderer reads any of it, so runs are the same with it or
  * without; it is off in the runs that are compared (headless,
@@ -216,9 +218,12 @@ typedef struct {
     uint32_t mtx;                       /* a vehicle's segment 7: its parts' matrices */
     uint32_t body[NVARIANT];            /* the display list, in each variant (a vehicle's opaque pass) */
     uint32_t body2[NVARIANT];           /* a vehicle's translucent pass */
+    uint8_t *file;                      /* a vehicle's model file (its parts' animations) */
+    uint32_t flen, blk, total;          /* ... its length, its matrix block's, the matrices' size */
     float lo[3], hi[3];                 /* the bounding box */
     float (*pos)[3];                    /* the vertices, for the shadow */
     uint8_t *used;                      /* ... and which of them a triangle drawn uses */
+    uint8_t *solid;                     /* ... a vehicle's opaque pass uses (not its rotors' discs) */
     uint32_t npos;
     int slot[16];                       /* (the RSP's vertex buffer, while finding those) */
 } Model;
@@ -436,10 +441,16 @@ static void load_vehicle(Model *m, const char *name) {
     }
     /* what its two passes draw */
     uint32_t pass[2] = { p0 - dl0, p2 - dl0 };
-    for (int q = 0; q < 2; q++)
+    for (int q = 0; q < 2; q++) {
         for (uint32_t o = pass[q]; o + 8 <= n && rd32(dd + o) >> 24 != 0xB8; o += 8)
             mark_used(m, 6, rd32(dd + o), rd32(dd + o + 4));
-    free(md);
+        if (q == 0 && (m->solid = malloc(m->npos ? m->npos : 1)))
+            memcpy(m->solid, m->used, m->npos);
+    }
+    m->file = md;
+    m->flen = (uint32_t)mlen;
+    m->blk = ve;
+    m->total = total;
     free(dd);
     model_box(m);
     m->vehicle = 1;
@@ -610,12 +621,10 @@ static uint32_t ring_alloc(uint32_t n) {
    projected so, at most 15 of them), one flat polygon, so that it is as
    dark everywhere as the picture's shadow was */
 #define SHADOW_MAX 15
-static int shadow_hull(const Model *m, const float rot[3][3], int16_t out[SHADOW_MAX][3]) {
-    float right[3] = { rot[0][0], 0, rot[2][0] }, toward[3] = { rot[0][2], 0, rot[2][2] };
-    float rl = sqrtf(right[0] * right[0] + right[2] * right[2]), tl = sqrtf(toward[0] * toward[0] + toward[2] * toward[2]);
-    if (rl <= 0 || tl <= 0 || m->npos < 3)
+static int shadow_hull(const Model *m, const uint8_t *use, const float rot[3][3], float dx, float dz,
+                       int16_t out[SHADOW_MAX][3]) {
+    if (m->npos < 3)
         return 0;
-    float dx = -0.35f * right[0] / rl + 0.15f * toward[0] / tl, dz = -0.35f * right[2] / rl + 0.15f * toward[2] / tl;
     float y0 = m->lo[1];
     uint32_t n = m->npos;
     float (*g)[4] = malloc(n * sizeof *g);          /* ground x, z; on screen u, v */
@@ -641,7 +650,7 @@ static int shadow_hull(const Model *m, const float rot[3][3], int16_t out[SHADOW
     }
     uint32_t nu = 0;
     for (uint32_t i = 0; i < n; i++)
-        if (m->used[i])
+        if (use[i])
             ix[nu++] = (int)i;
     n = nu;
     if (n < 3) {
@@ -791,7 +800,15 @@ static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const 
     dl_cmd(&d, 0x01030040u, HADDR(proj));                               /* projection: load */
     dl_cmd(&d, 0x01020040u, HADDR(mv));                                 /* modelview: load */
     int16_t hull[SHADOW_MAX][3];
-    int nh = shadow ? shadow_hull(m, rot, hull) : 0;
+    int nh = 0;
+    if (shadow) {
+        float right[3] = { rot[0][0], 0, rot[2][0] }, toward[3] = { rot[0][2], 0, rot[2][2] };
+        float rl = sqrtf(right[0] * right[0] + right[2] * right[2]);
+        float tl = sqrtf(toward[0] * toward[0] + toward[2] * toward[2]);
+        if (rl > 0 && tl > 0)
+            nh = shadow_hull(m, m->used, rot, -0.35f * right[0] / rl + 0.15f * toward[0] / tl,
+                             -0.35f * right[2] / rl + 0.15f * toward[2] / tl, hull);
+    }
     if (nh) {
         /* blended over what is there, untextured, in the shadow's colour,
            without the z-buffer (the model then covers it) */
@@ -875,3 +892,381 @@ uint32_t micons_part(int h, float x0, float y0, float x1, float y1, int shadow, 
     acc[1].done = 0;
     return draw_list(p->spec, acc[0].r, prim, sh, cimg, cimg_siz, cimg_w, zimg, scissor);
 }
+
+/* ---- the world map's chopper ------------------------------------------------- */
+
+/* The world map shows where the player is with a picture of the chopper
+   (9570.c's D_80215A70: three frames of its rotors) on a quad lying on
+   the globe, at the selected level or flying to the next (11530.c,
+   func_801FC5B8).  Here it is the BCT chopper's model (the one that flies
+   in at a level's start), circling the quad's middle: the circle closes
+   while the quad moves and opens again where it stops.  It heads the way
+   it goes, banks into the turn and leans forward with its speed (its
+   parts' animations 2 and 3, as 72B80.c's func_802B98E0 sets them), and
+   its rotors turn (animation 1).  All of it from the quad the renderer is
+   given and the scheduler's retrace count, once a frame. */
+#define GLOBE_SIZE 70.0f                /* its length, in the globe's units (radius 250) */
+#define GLOBE_LIFT 14.0f                /* its middle above where the picture lay */
+#define GLOBE_ORBIT 38.0f               /* the circle's radius */
+#define GLOBE_LAP 330.0f                /* retraces a lap */
+#define GLOBE_SETTLE 24.0f              /* retraces the circle takes to open or close (1/e) */
+#define GLOBE_STILL 0.15f               /* the quad's speed (units a retrace) it is still below */
+#define GLOBE_TURN 6.0f                 /* retraces the heading takes to follow (1/e) */
+#define GLOBE_ROTOR 0.09f               /* the rotors' keys a retrace (three a turn) */
+#define GLOBE_BANK 0.30f                /* its bank, at most (of the animation's half, 59 degrees) */
+#define GLOBE_LEAN 0.32f                /* its lean forward, at most (of the half, 22 degrees) */
+#define GLOBE_RADIUS 250.0f             /* the globe's (its shadow a little above) */
+#define GLOBE_SHADOW 0x60               /* its shadow's alpha */
+
+extern char D_803156C4[];
+#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
+#define D_803156C4 PORT_VAR(D_803156C4)
+#endif
+
+static Spec chopper = { { 0, 0 }, -1, "chopper", 0, 0, { 0 }, 0 };
+
+static struct {
+    int live;
+    uint32_t clock;
+    float anchor[3], pos[3], head[3];
+    float radius, angle, rotor, bank, lean;
+    uint32_t dl;
+} globe;
+
+static float dot3(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+static void cross3(const float a[3], const float b[3], float o[3]) {
+    float r[3] = { a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0] };
+    memcpy(o, r, sizeof r);
+}
+static float norm3(float v[3]) {
+    float l = sqrtf(dot3(v, v));
+    if (l > 0)
+        for (int j = 0; j < 3; j++)
+            v[j] /= l;
+    return l;
+}
+/* v without its part along unit u */
+static void flatten3(float v[3], const float u[3]) {
+    float d = dot3(v, u);
+    for (int j = 0; j < 3; j++)
+        v[j] -= d * u[j];
+}
+
+/* the matrices animation a of model m puts its parts at, at key position
+   u (key floor(u), the fraction on to the next; the keys loop, the last
+   being the first again), into the parts' matrix buffer at buf: as
+   56040.c's func_8029E5AC makes them from straight keys, the rest matrix
+   times the key's scale, rotations about z, y and x (the short way round)
+   and translation, times the second rest matrix */
+static void pose(const Model *m, uint32_t buf, int a, float u) {
+    const uint8_t *f = m->file;
+    uint32_t len = m->flen, rest = m->blk + 8;
+    if (!f || len < 0x14)
+        return;
+    uint32_t base = rd32(f + 0x10);
+    if (base + 64 > len)
+        return;
+    uint32_t d = base + rd16(f + base + 2 * a);
+    if (d + 2 > len)
+        return;
+    int n = f[d];
+    if (n < 1 || d + n + 2 > len)
+        return;
+    int np = f[d + n + 1];
+    uint32_t r = (d + n + 2 + 3) & ~3u;
+    int k = 0;
+    float t = 0;
+    if (n > 1) {
+        float w = fmodf(u, (float)(n - 1));
+        if (w < 0)
+            w += (float)(n - 1);
+        k = (int)w;
+        if (k > n - 2)
+            k = n - 2;
+        t = w - (float)k;
+    }
+    for (int p = 0; p < np; p++, r += 8 + 20 * (uint32_t)n) {
+        if (r + 8 + 20 * (uint32_t)n > len)
+            return;
+        uint32_t mt = rd32(f + r), rs = rd32(f + r + 4);
+        if (mt + 64 > m->total || rest + rs + 128 > len)
+            continue;
+        const uint8_t *k0 = f + r + 8 + 20 * k, *k1 = k + 1 < n ? k0 + 20 : k0;
+        float h[10];
+        for (int i = 0; i < 10; i++) {
+            float x0 = (int16_t)rd16(k0 + 2 * i), x1 = (int16_t)rd16(k1 + 2 * i);
+            if (i >= 3 && i < 6) {                  /* an angle, the short way */
+                float dd = x1 - x0;
+                if (dd < -32768) dd += 65536;
+                if (dd > 32768) dd -= 65536;
+                h[i] = x0 + dd * t;
+            } else {
+                h[i] = x0 + (x1 - x0) * t;
+            }
+        }
+        float acc[4][4], op[4][4], tmp[4][4];
+        for (int i = 0; i < 16; i++)
+            acc[i / 4][i % 4] = (int32_t)rd32(f + rest + rs + 4 * i) / 65536.0f;
+        /* acc * op, for each of the key's transforms that isn't nothing */
+#define MUL_OP()                                                                                             \
+    do {                                                                                                     \
+        for (int i_ = 0; i_ < 4; i_++)                                                                       \
+            for (int j_ = 0; j_ < 4; j_++)                                                                   \
+                tmp[i_][j_] = acc[i_][0] * op[0][j_] + acc[i_][1] * op[1][j_] + acc[i_][2] * op[2][j_] +     \
+                              acc[i_][3] * op[3][j_];                                                        \
+        memcpy(acc, tmp, sizeof acc);                                                                        \
+    } while (0)
+#define OP_IDENTITY() memset(op, 0, sizeof op), op[0][0] = op[1][1] = op[2][2] = op[3][3] = 1
+        if (h[0] != 256 || h[1] != 256 || h[2] != 256) {
+            OP_IDENTITY();
+            op[0][0] = h[0] / 256, op[1][1] = h[1] / 256, op[2][2] = h[2] / 256;
+            MUL_OP();
+        }
+        for (int ax = 2; ax >= 0; ax--) {
+            if (h[3 + ax] == 0)
+                continue;
+            float th = h[3 + ax] * (float)M_PI / 32768, c = cosf(th), s = sinf(th);
+            OP_IDENTITY();
+            if (ax == 0)
+                op[1][1] = c, op[1][2] = s, op[2][1] = -s, op[2][2] = c;
+            else if (ax == 1)
+                op[0][0] = c, op[0][2] = -s, op[2][0] = s, op[2][2] = c;
+            else
+                op[0][0] = c, op[0][1] = s, op[1][0] = -s, op[1][1] = c;
+            MUL_OP();
+        }
+        if (h[6] != 0 || h[7] != 0 || h[8] != 0) {
+            OP_IDENTITY();
+            op[3][0] = h[6], op[3][1] = h[7], op[3][2] = h[8];
+            MUL_OP();
+        }
+        for (int i = 0; i < 16; i++)
+            op[i / 4][i % 4] = (int32_t)rd32(f + rest + rs + 64 + 4 * i) / 65536.0f;
+        MUL_OP();
+#undef MUL_OP
+#undef OP_IDENTITY
+        put_mtx(buf + mt, acc);
+    }
+}
+
+/* the frame's step (dt retraces on): where the circle's middle is now c */
+static void globe_step(const float c[3], float dt) {
+    float up[3] = { c[0], c[1], c[2] };
+    float rad = norm3(up);
+    if (!globe.live) {
+        memset(&globe, 0, sizeof globe);
+        globe.live = 1;
+        globe.radius = GLOBE_ORBIT;
+        memcpy(globe.anchor, c, sizeof globe.anchor);
+        dt = 0;
+    }
+    float mv[3] = { c[0] - globe.anchor[0], c[1] - globe.anchor[1], c[2] - globe.anchor[2] };
+    float speed = dt > 0 ? sqrtf(dot3(mv, mv)) / dt : 0;
+    float settle = 1 - expf(-dt / GLOBE_SETTLE);
+    globe.radius += ((speed < GLOBE_STILL ? GLOBE_ORBIT : 0) - globe.radius) * settle;
+    globe.angle = fmodf(globe.angle + 2 * (float)M_PI * dt / GLOBE_LAP, 2 * (float)M_PI);
+    globe.rotor = fmodf(globe.rotor + GLOBE_ROTOR * dt, 3);
+    /* the circle, about the middle, on the globe */
+    float pole[3] = { 0, 1, 0 }, e1[3], e2[3];
+    cross3(pole, up, e1);
+    if (norm3(e1) < 1e-3f) {
+        float x[3] = { 1, 0, 0 };
+        cross3(x, up, e1);
+        norm3(e1);
+    }
+    cross3(up, e1, e2);
+    float q[3], ca = cosf(globe.angle) * globe.radius, sa = sinf(globe.angle) * globe.radius;
+    for (int j = 0; j < 3; j++)
+        q[j] = c[j] + ca * e1[j] + sa * e2[j];
+    float qu[3] = { q[0], q[1], q[2] };
+    norm3(qu);
+    for (int j = 0; j < 3; j++)
+        q[j] = qu[j] * (rad + GLOBE_LIFT);
+    /* the heading: the way it went, along the globe there */
+    float v[3] = { q[0] - globe.pos[0], q[1] - globe.pos[1], q[2] - globe.pos[2] };
+    flatten3(v, qu);
+    float vs = dt > 0 ? sqrtf(dot3(v, v)) / dt : 0;
+    float h[3] = { globe.head[0], globe.head[1], globe.head[2] };
+    flatten3(h, qu);
+    if (norm3(h) < 1e-3f) {                         /* (the first frame) */
+        memcpy(h, e2, sizeof h);
+        if (vs > 1e-4f)
+            memcpy(h, v, sizeof h), norm3(h);
+    }
+    float turn = 0;
+    if (vs > 1e-3f) {
+        norm3(v);
+        float follow = 1 - expf(-dt / GLOBE_TURN), nh[3], x[3];
+        for (int j = 0; j < 3; j++)
+            nh[j] = h[j] + (v[j] - h[j]) * follow;
+        if (norm3(nh) > 1e-4f) {
+            cross3(h, nh, x);
+            turn = asinf(fmaxf(-1, fminf(1, dot3(x, qu)))) / dt;   /* radians a retrace, to the left + */
+            memcpy(h, nh, sizeof h);
+        }
+    }
+    float ease = 1 - expf(-dt / 8);
+    float bank = fmaxf(-1, fminf(1, turn * 60));
+    globe.bank += (bank - globe.bank) * ease;
+    globe.lean += (fminf(1, vs / 1.2f) - globe.lean) * ease;
+    memcpy(globe.head, h, sizeof h);
+    memcpy(globe.pos, q, sizeof q);
+    memcpy(globe.anchor, c, sizeof globe.anchor);
+}
+
+uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t alpha, uint32_t cimg,
+                      int cimg_siz, int cimg_w, uint32_t zimg, const int sc[4]) {
+    if (!first)
+        return globe.dl;
+    globe.dl = 0;
+    if (!chopper.tried) {
+        chopper.tried = 1;
+        if (!gfx_host_mem && !(gfx_host_mem = calloc(1, GFX_HOST_SPAN)))
+            return 0;
+        load_vehicle(&chopper.model, chopper.vehicle);
+        if (!chopper.model.ok)
+            host_log("model-icons: no model for the world map's chopper\n");
+    }
+    Model *m = &chopper.model;
+    if (!m->ok || dot3(c, c) < 1)
+        return 0;
+    uint32_t now = port_var32(D_803156C4);
+    float dt = (float)(uint32_t)(now - globe.clock);
+    if (globe.live && dt > 120)                     /* (back on the map after a while) */
+        globe.live = 0;
+    globe_step(c, dt);
+    globe.clock = now;
+
+    /* the model's axes: x to its left (up x ahead), y up from the globe,
+       z ahead */
+    float up[3] = { globe.pos[0], globe.pos[1], globe.pos[2] }, right[3];
+    float height = norm3(up) - GLOBE_RADIUS;
+    cross3(up, globe.head, right);
+    float s = GLOBE_SIZE / fmaxf(m->hi[2] - m->lo[2], 1);
+    float mid[3] = { (m->lo[0] + m->hi[0]) / 2, (m->lo[1] + m->hi[1]) / 2, (m->lo[2] + m->hi[2]) / 2 };
+    float place[4][4], full[4][4];
+    for (int j = 0; j < 3; j++) {
+        place[0][j] = right[j] * s;
+        place[1][j] = up[j] * s;
+        place[2][j] = globe.head[j] * s;
+        place[3][j] = globe.pos[j] - s * (mid[0] * right[j] + mid[1] * up[j] + mid[2] * globe.head[j]);
+    }
+    place[0][3] = place[1][3] = place[2][3] = 0;
+    place[3][3] = 1;
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 4; j++)
+            full[i][j] = place[i][0] * mv[0][j] + place[i][1] * mv[1][j] + place[i][2] * mv[2][j] +
+                         place[i][3] * mv[3][j];
+
+    /* its shadow: its body's outline from above (once), flat on the globe
+       below it, thrown down and to the right of the view as the icons'
+       are (the view's axes: mv's columns), the further the higher it is */
+    static int16_t hull[SHADOW_MAX][3];
+    static int nhull = -1;
+    if (nhull < 0) {
+        static const float top[3][3] = { { 1, 0, 0 }, { 0, 0, 1 }, { 0, 1, 0 } };   /* (x, z on the "screen") */
+        nhull = shadow_hull(m, m->solid ? m->solid : m->used, top, 0, 0, hull);
+    }
+    float sfull[4][4];
+    if (nhull) {
+        float vr[3] = { mv[0][0], mv[1][0], mv[2][0] }, vu[3] = { mv[0][1], mv[1][1], mv[2][1] }, at[3];
+        norm3(vr);
+        norm3(vu);
+        for (int j = 0; j < 3; j++)
+            at[j] = globe.pos[j] + height * (0.5f * vr[j] - 0.7f * vu[j]);
+        norm3(at);
+        float flat[4][4];
+        for (int j = 0; j < 3; j++) {
+            flat[0][j] = right[j] * s;
+            flat[1][j] = 0;
+            flat[2][j] = globe.head[j] * s;
+            flat[3][j] = at[j] * (GLOBE_RADIUS + 0.5f) - s * (mid[0] * right[j] + mid[2] * globe.head[j]);
+        }
+        flat[0][3] = flat[1][3] = flat[2][3] = 0;
+        flat[3][3] = 1;
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+                sfull[i][j] = flat[i][0] * mv[0][j] + flat[i][1] * mv[1][j] + flat[i][2] * mv[2][j] +
+                              flat[i][3] * mv[3][j];
+    }
+
+    uint32_t total = (m->total + 15) & ~15u;
+    uint32_t base = ring_alloc(0x80 + 16 * SHADOW_MAX + total + 0x300);
+    uint32_t mvo = base, smv = base + 0x40, sv = base + 0x80, mtx = sv + 16 * SHADOW_MAX;
+    Dl d = { mtx + total, mtx + total, mtx + total + 0x300 };
+    put_mtx(mvo, full);
+    memcpy(mem(mtx), mem(m->mtx), m->total);
+    pose(m, mtx, 0, 0);                             /* at rest */
+    pose(m, mtx, 4, 0);                             /* its legs up */
+    pose(m, mtx, 2, 0.5f - 0.5f * GLOBE_LEAN * globe.lean);
+    pose(m, mtx, 3, 0.5f - 0.5f * GLOBE_BANK * globe.bank);
+    pose(m, mtx, 1, globe.rotor);
+
+    uint32_t host_phys = GFX_HOST_BASE & 0x1FFFFFFFu;
+    dl_cmd(&d, 0xE7000000u, 0);
+    dl_cmd(&d, 0xBC000006u, 0);                                         /* segment 0: physical */
+    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, host_phys);
+    dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, host_phys + m->vtx);
+    dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, host_phys + mtx);
+    /* the z-buffer, cleared (the world map draws nothing else with it) */
+    int zbuf = zimg && cimg_w == 320 && sc[2] > sc[0] && sc[3] > sc[1];
+    if (zbuf) {
+        dl_cmd(&d, 0xFF000000u | 2u << 19 | (uint32_t)(cimg_w - 1), zimg & 0x00FFFFFFu);
+        dl_cmd(&d, 0xBA001402u, 3u << 20);                              /* fill */
+        dl_cmd(&d, 0xF7000000u, 0xFFFCFFFCu);
+        dl_cmd(&d, 0xF6000000u | (uint32_t)(sc[2] - 1) << 14 | (uint32_t)(sc[3] - 1) << 2,
+               (uint32_t)sc[0] << 14 | (uint32_t)sc[1] << 2);
+        dl_cmd(&d, 0xE7000000u, 0);
+        dl_cmd(&d, 0xFF000000u | (uint32_t)cimg_siz << 19 | (uint32_t)(cimg_w - 1), cimg & 0x00FFFFFFu);
+    }
+    dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
+    dl_cmd(&d, 0xB7000000u, (zbuf ? 0x1u : 0) | 0x4u | 0x200u | 0x2000u);   /* z, shade, smooth, cull back */
+    dl_cmd(&d, 0xBA001402u, 0);                                         /* 1-cycle */
+    dl_cmd(&d, 0xBA001301u, 1u << 19);                                  /* perspective texture */
+    dl_cmd(&d, 0xBA001001u, 0);                                         /* no LOD */
+    dl_cmd(&d, 0xBA001102u, 0);                                         /* no detail */
+    dl_cmd(&d, 0xBA000E02u, 0);                                         /* no TLUT */
+    dl_cmd(&d, 0xBA000C02u, 2u << 12);                                  /* bilinear */
+    dl_cmd(&d, 0xBA000903u, 6u << 9);                                   /* filtered, not converted */
+    dl_cmd(&d, 0xB9000002u, 0);                                         /* no alpha compare */
+    dl_cmd(&d, 0xB9000201u, 0);                                         /* z from the pixel */
+    if (nhull) {
+        /* (as draw_list's: blended over the globe, untextured, no z) */
+        put_mtx(smv, sfull);
+        for (int i = 0; i < nhull; i++) {
+            uint8_t *q = mem(sv + 16 * i);
+            for (int j = 0; j < 3; j++)
+                port_wg16(q + 2 * j, (uint16_t)hull[i][j]);
+            for (int j = 6; j < 12; j += 2)
+                port_wg16(q + j, 0);
+            q[12] = q[13] = q[14] = 0;
+            q[15] = 0xFF;
+        }
+        dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
+        dl_cmd(&d, 0xB7000000u, 0x4u | 0x200u);
+        dl_cmd(&d, 0xBB000000u, 0);                                     /* no texture */
+        dl_cmd(&d, 0xB900031Du, 0x00504A40u);                           /* G_RM_XLU_SURF */
+        dl_cmd(&d, CC_SHADOW_W0, CC_SHADOW_W1);
+        dl_cmd(&d, 0xFB000000u, (uint32_t)(GLOBE_SHADOW * alpha / 255));
+        dl_cmd(&d, 0x01020040u, HADDR(smv));
+        dl_cmd(&d, 0x04000000u | (uint32_t)(nhull - 1) << 20 | (uint32_t)(nhull * 16), HADDR(sv));
+        for (int i = 1; i + 1 < nhull; i++)
+            dl_cmd(&d, 0xBF000000u, (uint32_t)(i * 10) << 8 | (uint32_t)((i + 1) * 10));
+        dl_cmd(&d, 0xE7000000u, 0);
+        dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
+        dl_cmd(&d, 0xB7000000u, (zbuf ? 0x1u : 0) | 0x4u | 0x200u | 0x2000u);
+    }
+    dl_cmd(&d, 0x01020040u, HADDR(mvo));                                /* modelview: load */
+    dl_cmd(&d, 0xFB000000u, 0xFFFFFF00u | alpha);
+    if (alpha != 0xFF)
+        dl_cmd(&d, 0xB900031Du, RM_FADE);
+    int var = alpha != 0xFF ? V_FADE : V_NORMAL;
+    dl_cmd(&d, 0x06000000u, HADDR(m->body[var]));
+    dl_cmd(&d, 0x01020040u, HADDR(mvo));
+    dl_cmd(&d, 0x06000000u, HADDR(m->body2[var]));
+    dl_cmd(&d, 0xE7000000u, 0);
+    dl_cmd(&d, 0xB8000000u, 0);
+    globe.dl = GFX_HOST_BASE + d.start;
+    return globe.dl;
+}
+

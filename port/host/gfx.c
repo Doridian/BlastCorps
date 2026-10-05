@@ -907,9 +907,14 @@ NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3],
 }
 #endif
 
+static uint32_t vtx_addr;               /* the last vertex load's (the world map's chopper, below) */
+static unsigned vtx_gen;
+
 NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
     const uint8_t *p = gfx_ptr(seg_to_k0(w1));
+    vtx_addr = seg_to_k0(w1);
+    vtx_gen++;
     if (gs.mvp_dirty) {
         mtx_mul(gs.mvp, gs.mv[gs.mv_top], gs.proj);
         gs.mvp_dirty = 0;
@@ -2154,18 +2159,20 @@ static int micon_at(void) {
     return micon_h;
 }
 
-static void micon_draw(int h, float x0, float y0, float x1, float y1) {
-    int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
-    int shadow = ((gs.cc0 >> 20) & 0xF) != 1;       /* not TEXEL0 * ...: the drop shadow's colour */
-    uint32_t dl = micons_part(h, x0, y0, x1, y1, shadow, gs.prim, gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
-                              gs.zimg_addr, sc);
-    if (!dl)
-        return;
+static int micon_in;                    /* running one (its own draws aren't pictures) */
+
+static void micon_run(uint32_t dl) {
     static GfxState save;
     save = gs;
     uint32_t hp = hud_proj;
     int wsd = wide_sides_drawn;
+    uint32_t va = vtx_addr;
+    unsigned vg = vtx_gen;
+    micon_in = 1;
     run(dl, 1);
+    micon_in = 0;
+    vtx_addr = va;
+    vtx_gen = vg;
     uint32_t tg = gs.tmem_gen, tl = gs.tile_gen;
     gs = save;
     gs.tmem_gen = tg + 1;
@@ -2175,6 +2182,65 @@ static void micon_draw(int h, float x0, float y0, float x1, float y1) {
     wide_sides_drawn = wsd;
     gfx_state_serial++;
     sw_target();
+}
+
+static void micon_draw(int h, float x0, float y0, float x1, float y1) {
+    int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
+    int shadow = ((gs.cc0 >> 20) & 0xF) != 1;       /* not TEXEL0 * ...: the drop shadow's colour */
+    uint32_t dl = micons_part(h, x0, y0, x1, y1, shadow, gs.prim, gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
+                              gs.zimg_addr, sc);
+    if (dl)
+        micon_run(dl);
+}
+
+/* the world map's chopper: its picture (9570.c's D_80215A70, three frames
+   of its rotors) on a quad lying on the globe (11530.c's func_801FC5B8) is
+   its model, about the quad's middle (micons.c).  Its frames are read as
+   each task starts, on the world map only (elsewhere the front end's
+   memory is something else). */
+extern char D_80215A70[];
+#ifdef PORT_MOVABLE
+#define D_80215A70 PORT_VAR(D_80215A70)
+#endif
+#define MODE_WORLD_MAP 0x4000u
+static uint32_t globe_tex[3];
+static unsigned globe_gen;
+
+/* (D_80215A70's pointers: 8 bytes in the LP64 build) */
+#ifdef PORT_LP64
+#define GAME_PTR_SIZE 8
+#define game_ptr port_game_ptr
+#else
+#define GAME_PTR_SIZE 4
+#define game_ptr port_var32
+#endif
+
+static void globe_begin(void) {
+    uint32_t hi = micons_on ? port_g32(D_80364A90) : 1, lo = micons_on ? port_g32(D_80364A90 + 4) : 0;
+    for (int k = 0; k < 3; k++)
+        globe_tex[k] = !hi && lo == MODE_WORLD_MAP ? game_ptr(D_80215A70 + GAME_PTR_SIZE * k) & 0x1FFFFFFFu : 0;
+}
+
+static int globe_at(void) {
+    uint32_t a = gs.timg_addr & 0x1FFFFFFFu;
+    return globe_tex[0] && (a == globe_tex[0] || a == globe_tex[1] || a == globe_tex[2]);
+}
+
+/* the quad's first triangle draws the model (its second nothing) */
+static void globe_tri(void) {
+    if (globe_gen == vtx_gen)
+        return;
+    globe_gen = vtx_gen;
+    const uint8_t *p = gfx_ptr(vtx_addr);
+    float c[3] = { 0, 0, 0 };
+    for (int i = 0; i < 4; i++)
+        for (int j = 0; j < 3; j++)
+            c[j] += (int16_t)port_g16(p + 16 * i + 2 * j) / 4.0f;
+    int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
+    uint32_t dl = micons_globe(c, gs.mv[gs.mv_top], !ipass, gs.prim[3], gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
+                               gs.zimg_addr, sc);
+    if (dl)
+        micon_run(dl);
 }
 
 /* the two triangles of a quad of a picture (func_802742D8's) */
@@ -2206,7 +2272,11 @@ static void micon_tri(int h, int i0, int i1, int i2) {
 
 /* (flag 0x80: a line, G_LINE3D's, i2 its width) */
 NOINLINE static void tri(int i0, int i1, int i2, int flag) {
-    if (micons_on && gs.tex_on && !(flag & 0x80)) {
+    if (micons_on && gs.tex_on && !(flag & 0x80) && !micon_in) {
+        if (globe_at()) {
+            globe_tri();
+            return;
+        }
         int h = micon_at();
         if (h >= 0) {
             micon_tri(h, i0, i1, i2);
@@ -2538,7 +2608,7 @@ static void wide_band_clear(int x0, int y0, int x1, int y1, int gl) {
 }
 
 NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
-    if (micons_on) {
+    if (micons_on && !micon_in) {
         int h = micon_at();
         if (h >= 0) {
             float dx = hud_task ? hud_rect_dx() : 0;
@@ -2997,6 +3067,7 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
         gfx_gl_task_begin();
     double cover = st_cover;
     hud_begin(dl, rdp);
+    globe_begin();
     hud_rect_i = 0;
     run(dl, 0);
     int replayable = recording && rec_n && rec_gen == gfx_gl_gen;

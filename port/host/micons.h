@@ -20,4 +20,12 @@ int micons_lookup(uint32_t addr);
 uint32_t micons_part(int h, float x0, float y0, float x1, float y1, int shadow, const uint8_t prim[4],
                      uint32_t cimg, int cimg_siz, int cimg_w, uint32_t zimg, const int scissor[4]);
 
+/* the world map's chopper (its picture on a quad lying on the globe): the
+   display list that draws its model about the quad's middle c (the
+   globe's space), under the game's modelview mv, with the picture's
+   alpha.  first: the frame's first pass, which moves it on; else (an
+   in-between pass of --interpolate) the first's list again. */
+uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t alpha, uint32_t cimg,
+                      int cimg_siz, int cimg_w, uint32_t zimg, const int sc[4]);
+
 #endif
