@@ -45,8 +45,8 @@ D_006D3D30 = 0x006D3E80;
 /* Two ROM ranges back to back: func_801EF380 names the end of the first and the
    start of the second separately (two lui/addiu pairs for one address). */
 D_0048F5A0 = 0x0048F6E0;
-/* D_0048F970: not in eu */
-/* D_0048F970_2: not in eu */
+D_0048F970 = 0x0048FAB0;
+D_0048F970_2 = 0x0048FAB0;
 D_0048FA70 = 0x0048FBB0;
 D_006A32B0 = 0x006A3400;
 /* named only by C, now that no asm .data labels them: hd_code's text tables
