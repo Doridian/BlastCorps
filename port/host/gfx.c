@@ -113,6 +113,7 @@ typedef struct {
 static WideFb wfb[4];
 static int nwfb;
 static WideFb *cur_wfb;         /* the color image's, when it is one */
+static int wide_sides_drawn;    /* the color image's sides drawn since it was set (a wide fill or 2D) */
 
 /* a 320-wide 16-bit color image: a framebuffer, or the z image */
 static int wide_cimg(void) { return gfx_wide_off && gs.cimg_siz == 2 && gs.cimg_w == 320; }
@@ -1841,6 +1842,7 @@ static void wide_2d(GfxVtx *s, int n) {
                     o[k] = a[k] + p * (b[k] - a[k]) + q * (c[k] - a[k]);
         }
         s[i].x = nx;
+        wide_sides_drawn = 1;
     }
 }
 
@@ -2402,6 +2404,8 @@ NOINLINE static void fill_rect(uint32_t w0, uint32_t w1) {
     int wx0 = ulx, wx1 = lrx;                       /* widescreen: a full-width fill covers the wide frame */
     if (wide_cimg())
         gfx_wide_span(ulx, lrx, &wx0, &wx1);
+    if (wx0 < ulx && gs.cimg_addr != gs.zimg_addr)
+        wide_sides_drawn = 1;
     if (ipass && gfx_gl_enabled) {      /* the twins' only; RDRAM is the first pass's */
         if (gs.cimg_addr == gs.zimg_addr && zbuf_ok())
             gfx_gl_zclear(wx0, uly, wx1, lry);
@@ -2497,10 +2501,13 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
         if (y1 > gs.sc_y1) y1 = gs.sc_y1;
         if (x1 <= x0 || y1 <= y0)
             return;
-    } else if (gfx_wide_off && (gl || cur_wfb)) {
+    } else if (gfx_wide_off && !wide_sides_drawn && (gl || cur_wfb)) {
         /* widescreen: a rectangle at an edge of the game's frame (the tiles
            of a full-screen picture) blacks out the side beyond it, so a
-           2D screen is pillarboxed rather than framed by stale pixels */
+           2D screen is pillarboxed rather than framed by stale pixels; not
+           once the frame has drawn its sides itself (the world map's
+           background fill), where it would be a black box around the
+           vehicles sliding in and out at the edges */
         if (x0 <= 0)
             wide_band_clear(-gfx_wide_off, y0, 0, y1, gl);
         if (x1 >= 320)
@@ -2560,6 +2567,7 @@ static void replay_snap(int i) {
 static void replay(void) {
     const uint32_t *e = rec, *end = rec + rec_n;
     int tri_state = -1;
+    wide_sides_drawn = 0;
     while (e < end) {
         switch (e[0]) {
         case R_CTX: {
@@ -2791,6 +2799,7 @@ static void run(uint32_t dl, int depth) {
             gs.cimg_siz = (w0 >> 19) & 3;
             gs.cimg_w = (w0 & 0xFFF) + 1;
             gs.cimg_addr = seg_to_k0(w1);
+            wide_sides_drawn = 0;
             sw_target();
             if (getenv("PORT_GFXLOG"))
                 host_log("cimg %08X w %d siz %d (w1 %08X)\n", gs.cimg_addr, gs.cimg_w, gs.cimg_siz, w1);

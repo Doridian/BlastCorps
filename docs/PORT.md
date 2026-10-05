@@ -3063,7 +3063,11 @@ What else decides what is drawn out there (`gfx.c`, shared by both):
   texture rectangle at an edge (the tiles of a
   full-screen picture: the story, results and promotion screens) blacks
   out the side beyond it, in its rows, so those screens are pillarboxed
-  instead of framed by whatever the sides held.
+  instead of framed by whatever the sides held.  Not once the frame has
+  drawn its sides itself (a wide fill or widened 2D since the color
+  image was set): the world map's vehicles slide in and out at the
+  bottom corners as texture rectangles at the edges, and the bands would
+  be black boxes over its stars there.
 - **The HUD** (`--hud edges`, the default) moves to the sides: the
   levels' radar and its arrow, the money, the counters and the timer,
   the TV in a corner and the bonus amounts keep their distance from the
