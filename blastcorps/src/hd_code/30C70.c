@@ -33,6 +33,16 @@ u8 D_802FA940[0x400] = { 0 };
 s32 D_802FAD40 = 0;
 s32 D_802FAD44 = 0;
 u8 D_802FAD48 = 0;
+#ifdef VERSION_EU
+u8 D_802FAD4C[4] = { 0 };
+/* the scheduler's video modes in eu (osCreateScheduler, __scMain): PAL's */
+OSViMode D_802FDB40_eu[2] = {
+    { 0x10, { 0x311E, 320, 0x404233A, 625, 0x150C69, 0xC6F0C6E, 0x800300, 512, 0 },
+      { { 640, 860, 0x37026B, 0x9026B, 2 }, { 640, 860, 0x37026B, 0x9026B, 2 } } },
+    { 0x10, { 0x311E, 320, 0x404233A, 625, 0x150C69, 0xC6F0C6E, 0x800300, 512, 0 },
+      { { 640, 1024, 0x5F0239, 0x9026B, 2 }, { 640, 1024, 0x5F0239, 0x9026B, 2 } } },
+};
+#endif
 
 void func_8027690C(FrameBuf *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7,
                    Mtx *arg8, f32 arg9);
