@@ -59,8 +59,10 @@ u8 D_80367BD4;
 u8 D_80367BD5;
 s16 D_80367BD6;
 s16 D_80367BD8;
-u8 *D_80367BDC[1];
-u8 *D_80367BE0[5];
+/* (PTR32: func_80264264 draws D_80367BDC[1..5], which are D_80367BE0's
+   five images, so the two stay as the N64 lays them out) */
+u8 *PTR32 D_80367BDC[1];
+u8 *PTR32 D_80367BE0[5];
 u16 D_80367BF4;
 u16 D_80367BF6;
 u8 D_80367BF8;
@@ -414,7 +416,7 @@ extern YoshiIcon *D_80367BCC;
 extern YoshiIcon *D_80367BD0;
 extern u8 D_80367BD4;
 extern s16 D_80367BD8;
-extern u8 *D_80367BE0[];
+extern u8 *PTR32 D_80367BE0[];
 extern u8 D_80367C01;
 extern char *D_80367C08;
 extern u16 *D_80367C0C;
@@ -975,7 +977,7 @@ void func_8026420C(void) {
 }
 
 extern u8 D_80367BFE;
-extern u8 *D_80367BDC[];
+extern u8 *PTR32 D_80367BDC[];
 extern s16 D_80367D50;
 extern u8 D_80367D52;
 extern u8 D_80367D53;
