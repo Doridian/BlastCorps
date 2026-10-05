@@ -13,10 +13,6 @@ extern OSViMode D_80307840;
 #define viModeNtsc D_803077F0
 #define viModeMpal D_80307840
 
-/* __osViInit is __osViInit.  eu's picks the PAL clock and was built
- * differently (the loads of the VI registers get a nop each). */
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/95110/__osViInit.s")
-#else
+/* __osViInit is __osViInit.  eu's picks the PAL clock and is built -mips1
+ * (the Makefile's MIPS1_C_FILES). */
 #include "src/libultra/io/vi.c"
-#endif
