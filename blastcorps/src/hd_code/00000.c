@@ -2908,7 +2908,111 @@ void func_8024BDA4(u16 *arg0) {
 }
 
 #ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/00000/func_8024C404.s")
+extern s32 D_802FA250;
+extern s32 D_8036BF14;
+extern s32 D_8036BF18;
+extern u32 D_8036BF20;
+extern u32 D_8036BF24;
+extern u32 D_8036BF2C;
+extern OSTime D_8036BF40;
+extern OSTime D_8036BF50;
+extern OSTime D_80368058;
+extern OSTime D_80368068;
+
+/* A frame's count ticks (eu's 20000us), as FRAME_TICKS_100 works it out. */
+#define FRAME_TICKS ((u64)20000 * osClockRate / 1000000)
+
+/*
+ * eu's frame rate and timing bars (when D_802FA250 is set): the frame
+ * rate as text, then bars from x 110, half a pixel per percent of a frame:
+ * the RSP's audio and graphics tasks, the RDP, the game's own time and the
+ * audio thread, each from the RDP's start (D_80315440.unk288).
+ */
+Gfx *func_8024C404(Gfx *arg0, FrameGame *arg1, s32 *arg2) {
+    Gfx *gfx;
+    u16 color;
+    char buf[30];
+    s64 t1;
+    s64 t2;
+    OSIntMask mask;
+
+    gfx = arg0;
+    mask = osSetIntMask(OS_IM_NONE);
+    D_802EAA54_eu += 50U / (D_8036BF14 - D_8036BF18);
+    D_802EAA58_eu++;
+    if (D_802FA250 != 0) {
+        sprintf(buf, "%d", 50U / (D_8036BF14 - D_8036BF18));
+        func_80259CCC(arg1, buf, NULL, 0, 0, 24, 200, 20, 20, 1, 0xFF, 0xFF, 0xFF, 0xFF);
+        gDPPipeSync(gfx++);
+        gDPSetCycleType(gfx++, G_CYC_FILL);
+        gDPSetRenderMode(gfx++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
+        gDPPipeSync(gfx++);
+        color = 0xFFC1;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 60, 200, 62, 225);
+        gDPFillRectangle(gfx++, 160, 200, 162, 225);
+        gDPFillRectangle(gfx++, 210, 200, 212, 225);
+        gDPFillRectangle(gfx++, 260, 200, 262, 225);
+        gDPPipeSync(gfx++);
+        color = 0xFFFF;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 200, 112, 225);
+        t1 = D_8036BF40 - D_80315440.unk288;
+        if (t1 < 0) {
+            t1 += FRAME_TICKS * 2;
+        }
+        t2 = D_8036BF50 - D_80315440.unk288;
+        if (t2 < 0) {
+            t2 += FRAME_TICKS * 2;
+        }
+        gDPPipeSync(gfx++);
+        color = 0xF83F;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, t1 / FRAME_TICKS_100 / 2 + 110, 201, t2 / FRAME_TICKS_100 / 2 + 110, 204);
+        gDPPipeSync(gfx++);
+        color = 0x6001;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 206, D_8036BF24 / 2 + 110, 209);
+        gDPPipeSync(gfx++);
+        color = 0xF801;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110 - (100 - D_8036BF2C) / 2, 206, D_8036BF24 / 2 - (100 - D_8036BF2C) / 2 + 110,
+                         209);
+        gDPPipeSync(gfx++);
+        color = 0x7C1;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 211, D_8036BF20 / 2 + 110, 214);
+        gDPPipeSync(gfx++);
+        color = 0x19;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110, 216, D_80364AC8 / 2 + 110, 219);
+        gDPPipeSync(gfx++);
+        color = 0x3F;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, 110 - (100 - D_80364ACC) / 2, 216, D_80364AC8 / 2 - (100 - D_80364ACC) / 2 + 110,
+                         219);
+        t1 = D_80368058 - D_80315440.unk288;
+        if (t1 < 0) {
+            t1 += FRAME_TICKS * 2;
+        }
+        t2 = D_80368068 - D_80315440.unk288;
+        if (t2 < 0) {
+            t2 += FRAME_TICKS * 2;
+        }
+        gDPPipeSync(gfx++);
+        color = 0x7FF;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, t1 / FRAME_TICKS_100 / 2 + 110, 221, t2 / FRAME_TICKS_100 / 2 + 110, 224);
+        gDPPipeSync(gfx++);
+        color = 0x7C1;
+        gDPSetFillColor(gfx++, (color << 16) | color);
+        gDPFillRectangle(gfx++, D_8036BF20 / 2 + 110, 200, D_8036BF20 / 2 + 110, 225);
+        func_80259C24(&gfx, arg1);
+    }
+    osSetIntMask(mask);
+    *arg2 += gfx - arg0;
+    return gfx;
+}
 #else
 Gfx *func_8024C404(Gfx *arg0, FrameGame *arg1, s32 *arg2) {
     *arg2 = 0;
