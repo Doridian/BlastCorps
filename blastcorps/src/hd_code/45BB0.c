@@ -115,6 +115,20 @@ void func_8028A470(void) {
         if (PAD_SI_FREE() && D_80370C10 != 0) {
             osRecvMesg(&D_80370BF8, NULL, OS_MESG_BLOCK);
             osContGetReadData(sp44);
+#ifdef VERSION_EU
+            if (sp44->stick_x > 90) {
+                sp44->stick_x = 90;
+            }
+            if (sp44->stick_x < -90) {
+                sp44->stick_x = -90;
+            }
+            if (sp44->stick_y > 90) {
+                sp44->stick_y = 90;
+            }
+            if (sp44->stick_y < -90) {
+                sp44->stick_y = -90;
+            }
+#endif
             if (sp44->errno != 0) {
                 func_8029A7E4("pad read error - zeroing data\n");
                 sp44->button = 0;
@@ -428,6 +442,10 @@ void func_8028B190(s8 *arg0, s8 *arg1) {
     }
 }
 
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+#endif
+
 #ifdef VERSION_JP
 extern u16 D_8030478C[];
 extern u16 D_80304738[];
@@ -436,7 +454,14 @@ extern u16 D_80304774[];
 #endif
 
 void func_8028B240(void) {
-#ifdef VERSION_JP
+#if defined(VERSION_EU)
+    /* eu's labels in each language (French has the English ones) */
+    char *sp34[3][3] = {
+        { "SPEED ON 3D STICK?", "GASGEBEN MIT 3D-JOYSTICK?", "SPEED ON 3D STICK?" },
+        { "360 DEGREE MODE?", "360 GRAD MODUS?", "360 DEGREE MODE?" },
+        { "AIRBORNE 360' MODE?", "AIRBORNE 360 GRAD MODUS?", "AIRBORNE 360' MODE?" },
+    };
+#elif defined(VERSION_JP)
     /* jp's labels are its own u16 text (see func_80259EC4) */
     u16 *sp24[3] = { D_80304738, D_8030475C, D_80304774 };
 #else
@@ -447,7 +472,9 @@ void func_8028B240(void) {
     s32 sp1C;
     s32 sp18;
 
-#ifdef VERSION_JP
+#if defined(VERSION_EU)
+    sp20 = D_80366F70_eu == 0 ? "CONTROL METHOD:" : D_80366F70_eu == 1 ? "CONTROLLER MODUS:" : NULL;
+#elif defined(VERSION_JP)
     sp20 = (char *)D_8030478C;
 #else
     sp20 = "CONTROL METHOD:";
@@ -462,9 +489,15 @@ void func_8028B240(void) {
         }
     } while (sp18 < 3 && sp1C == 0);
     if (sp1C == 0) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "found", "controller.c", 0x203);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "found", "controller.c",
+                      LINE_EU(0x203, 0x208));
     }
-#ifdef VERSION_JP
+#if defined(VERSION_EU)
+    (&D_802F5804[YOSHI_ENTRY(421)].text)[D_80366F70_eu] = sp20;
+    D_802F5804[YOSHI_ENTRY(421)].unk10 = 0;
+    (&D_802F5804[YOSHI_ENTRY(422)].text)[D_80366F70_eu] = sp34[sp18][D_80366F70_eu];
+    D_802F5804[YOSHI_ENTRY(422)].unk6 = 0x13;
+#elif defined(VERSION_JP)
     D_802F5804[YOSHI_ENTRY(421)].unk10 = (u16 *)sp20;
     D_802F5804[YOSHI_ENTRY(421)].text = NULL;
     D_802F5804[YOSHI_ENTRY(422)].unk10 = sp24[sp18];

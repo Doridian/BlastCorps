@@ -5,9 +5,22 @@
 #include "game/player.h"
 
 typedef struct {
+#ifdef VERSION_EU
+    /* 0x0 */ u8 *PTR32 unk0[3];      /* eu: English, German, French (NULL) */
+    /* 0xC */ u16 *PTR32 unk4;        /* eu: NULL */
+#else
     /* 0x0 */ u8 *PTR32 unk0;         /* (PTR32: jp's func_802979E0, still asm, reads them) */
     /* 0x4 */ u16 *PTR32 unk4;
-} UnkStruct_802FF188; /* size = 0x8 */
+#endif
+} UnkStruct_802FF188; /* size = 0x8, eu 0x10 */
+
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language: 0 English, 1 German, 2 French */
+/* An entry's text in that language (eu has text, text2, text3). */
+#define ENTRY_TEXT(e) (&(e)->text)[D_80366F70_eu]
+#else
+#define ENTRY_TEXT(e) (e)->text
+#endif
 
 extern u8 D_80364B80[][0x100];
 extern u8 D_8039CAB6;
@@ -130,6 +143,162 @@ extern u16 D_803041B4[];
 
 u8 D_802FF180[6] = { 0x04, 0x0A, 0x0D, 0x21, 0x0E, 0x11 };
 UnkStruct_802FF188 D_802FF188[7][20] = {
+#ifdef VERSION_EU
+    {
+        { { (u8 *)"WELL, IT'S ABOUT TIME!", (u8 *)"HEY, WIRD ABER AUCH", NULL }, NULL },
+        { { (u8 *)"DOES IT LOOK LIKE I'M", (u8 *)"ZEIT, DASS MICH JEMAND", NULL }, NULL },
+        { { (u8 *)"ENJOYING MYSELF HERE?", (u8 *)"HIER HERAUSHOLT!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"AND YOU'VE STILL GOT", (u8 *)"NOCH SIND GENAU", NULL }, NULL },
+        { { (u8 *)"0 OF THE OTHERS", (u8 *)"0 MEINER KOLLEGEN", NULL }, NULL },
+        { { (u8 *)"LEFT TO TRACK DOWN.", (u8 *)"NICHT GERETTET!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"VISIT GLORY CROSSING -", (u8 *)"SCHAU IN DER KATENA-", NULL }, NULL },
+        { { (u8 *)"THERE'S BOUND TO BE", (u8 *)"SCHLUCHT NACH. DORT", NULL }, NULL },
+        { { (u8 *)"ONE HOLED UP THERE.", (u8 *)"IST EIN GEFANGENER.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"IT SHOULDN'T TAKE YOU", (u8 *)"BEEILE DICH, IHN", NULL }, NULL },
+        { { (u8 *)"TOO LONG TO FIND HIM.", (u8 *)"ZU FINDEN!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+    {
+        { { (u8 *)"THIS IS IT, I TELL YOU!", (u8 *)"DAS IST DAS ENDE, WIR", NULL }, NULL },
+        { { (u8 *)"THE END! WE'RE ALL", (u8 *)"WERDEN ALLE...", NULL }, NULL },
+        { { (u8 *)"GOING TO... OH.", (u8 *)"OH MEIN...", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"WHAT ABOUT THE REST", (u8 *)"WAS IST MIT DEN", NULL }, NULL },
+        { { (u8 *)"OF MY FRIENDS?", (u8 *)"ANDEREN? DU MUSST", NULL }, NULL },
+        { { (u8 *)"ONLY 0 MORE LEFT!", (u8 *)"SIE RETTEN!!!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"WANT TO MAKE AN", (u8 *)"MACHE EINEN STOP", NULL }, NULL },
+        { { (u8 *)"EXTRA SUBWAY STOP", (u8 *)"IN SILBERSTADT.", NULL }, NULL },
+        { { (u8 *)"AT ARGENT TOWERS?", (u8 *)"DORT IST NOCH EINER.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"JUST KEEP YOUR EYE", (u8 *)"ICH HOFFE, ICH HABE", NULL }, NULL },
+        { { (u8 *)"ON THE MARKER.", (u8 *)"DIR WEITERHELFEN", NULL }, NULL },
+        { { (u8 *)"I HOPE THAT HELPS!", (u8 *)"KOENNEN!", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+    {
+        { { (u8 *)"YOU'VE MANAGED TO KEEP", (u8 *)"DU HAST DEN WEG FUER", NULL }, NULL },
+        { { (u8 *)"THE CARRIER SAFE? THAT'S", (u8 *)"DEN TRANSPORTER", NULL }, NULL },
+        { { (u8 *)"PRETTY GOOD GOING!", (u8 *)"BEREITET? TOLLE SACHE!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"ALL WE HAVE TO DO NOW IS", (u8 *)"NUN MUESSEN WIR DIE", NULL }, NULL },
+        { { (u8 *)"TRACK DOWN THE OTHER 0.", (u8 *)"ANDEREN 0 NOCH FINDEN.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"I'M SURE I REMEMBER", (u8 *)"ICH GLAUBE, AN DER", NULL }, NULL },
+        { { (u8 *)"HEARING ONE HAD MOVED", (u8 *)"ELFENBEINKUESTE LOHNT", NULL }, NULL },
+        { { (u8 *)"TO THE EBONY COAST...", (u8 *)"SICH DIE SUCHE.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"YOU'LL HAVE TO STRIKE", (u8 *)"DU MUSST DICH IN DIE", NULL }, NULL },
+        { { (u8 *)"OUT AHEAD AND GET ", (u8 *)"LUFT BEGEBEN, UM IHN", NULL }, NULL },
+        { { (u8 *)"AIRBORNE TO FIND HIM.", (u8 *)"ZU FINDEN.", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+    {
+        { { (u8 *)"WHERE'S EVERYONE GONE?", (u8 *)"ICH BIN SO FROH, DASS", NULL }, NULL },
+        { { (u8 *)"THERE WAS A LOT OF FUSS", (u8 *)"ICH WIEDER FRISCHE", NULL }, NULL },
+        { { (u8 *)"OUT THERE A WHILE BACK.", (u8 *)"LUFT ATMEN KANN.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"WHAT'S THAT? YOU'VE", (u8 *)"DU HAST 0 MEINER", NULL }, NULL },
+        { { (u8 *)"GOT 0 OF MY FRIENDS", (u8 *)"FREUNDE IMMER NOCH", NULL }, NULL },
+        { { (u8 *)"LEFT TO FIND?", (u8 *)"NICHT GEFUNDEN!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"I KNOW ONE OF THEM", (u8 *)"EINER SOLL SICH IN", NULL }, NULL },
+        { { (u8 *)"LIVES AT TEMPEST CITY,", (u8 *)"TEMPCITY BEFINDEN!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"BUT THE NOISE IS TOO", (u8 *)"BEFREIE BITTE", NULL }, NULL },
+        { { (u8 *)"MUCH FOR HIM.", (u8 *)"AUCH IHN!!!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"HE LIKES TO GET ABOVE", (u8 *)"NUR WENN WIR ALLE", NULL }, NULL },
+        { { (u8 *)"IT ALL AND SHUT", (u8 *)"ZUSAMMENARBEITEN,", NULL }, NULL },
+        { { (u8 *)"HIMSELF AWAY.", (u8 *)"RETTEN WIR DIE WELT.", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+    {
+        { { (u8 *)"HELP? OF COURSE I'LL", (u8 *)"HELFEN? NATUERLICH", NULL }, NULL },
+        { { (u8 *)"HELP. FINALLY, SOMEONE'S", (u8 *)"WERDE ICH HELFEN! ICH", NULL }, NULL },
+        { { (u8 *)"MAKING A STAND!", (u8 *)"TUE ES SOGAR GERN!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"THIS IS GOING TO TAKE", (u8 *)"DAZU BRAUCHEN WIR", NULL }, NULL },
+        { { (u8 *)"ALL SIX OF US, SO", (u8 *)"ALLE SECHS. ES FEHLEN", NULL }, NULL },
+        { { (u8 *)"YOU'LL NEED 0 MORE.", (u8 *)"ALSO NOCH 0!!!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"TRY OYSTER HARBOUR.", (u8 *)"IM AUSTERNHAFEN...", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"THIS UPROAR HAS LEFT", (u8 *)"... JA, GENAU DORT", NULL }, NULL },
+        { { (u8 *)"MY COLLEAGUE THERE", (u8 *)"BEFINDET SICH MEIN", NULL }, NULL },
+        { { (u8 *)"ALL OUT AT SEA,", (u8 *)"KOLLEGE.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"BUT YOU MUSTN'T LET", (u8 *)"MEINST DU, DU WIRST", NULL }, NULL },
+        { { (u8 *)"ANYTHING STAND IN", (u8 *)"IHN NOCH RECHTZEITIG", NULL }, NULL },
+        { { (u8 *)"YOUR WAY!", (u8 *)"RETTEN KOENNEN?", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+    {
+        { { (u8 *)"WELL, IT'S GOOD TO SEE", (u8 *)"HEY, EIN NEUES GESICHT!", NULL }, NULL },
+        { { (u8 *)"SOME NEW FACES! DON'T", (u8 *)"DICH KENNE ICH NOCH", NULL }, NULL },
+        { { (u8 *)"MIND ME, LET'S MOVE OUT.", (u8 *)"NICHT! INTERESSANT...", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"0 OF THE OTHER CHAPS", (u8 *)"0 DER ANDEREN SIND NOCH", NULL }, NULL },
+        { { (u8 *)"LEFT TO FIND, AFTER ALL.", (u8 *)"NICHT GEBORGEN WORDEN.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"I EXPECT THEY'VE DUCKED", (u8 *)"ICH GLAUBE, EIN BESUCH", NULL }, NULL },
+        { { (u8 *)"FOR COVER UNDERGROUND", (u8 *)"DER EISENMINE WUERDE", NULL }, NULL },
+        { { (u8 *)"AT IRONSTONE MINE.", (u8 *)"SICH LOHNEN.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"YOU MIGHT NEED", (u8 *)"VIELLEICHT MUSST DU DIR", NULL }, NULL },
+        { { (u8 *)"TO BLAST YOUR WAY DOWN.", (u8 *)"DEN WEG FREISCHIESSEN!", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+    {
+        { { (u8 *)"I CAN HARDLY BELIEVE", (u8 *)"UNGLAUBLICH, DIE ERDE", NULL }, NULL },
+        { { (u8 *)"THE WORLD'S STILL IN", (u8 *)"IST NOCH AN EINEM", NULL }, NULL },
+        { { (u8 *)"ONE PIECE!", (u8 *)"STUECK!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"STILL, AT LEAST NOW", (u8 *)"ENDLICH SIND WIR", NULL }, NULL },
+        { { (u8 *)"WE'RE ALL BACK", (u8 *)"ALLE WIEDER", NULL }, NULL },
+        { { (u8 *)"TOGETHER.", (u8 *)"VEREINT.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"MAYBE WE FINALLY", (u8 *)"VIELLEICHT SIND WIR", NULL }, NULL },
+        { { (u8 *)"STAND A CHANCE OF", (u8 *)"IN DER LAGE, DIE", NULL }, NULL },
+        { { (u8 *)"CLEARING UP THIS MESS.", (u8 *)"KATASTROPHE ABZUWENDEN.", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"NO TIME TO LOSE. LET'S", (u8 *)"KEINE ZEIT VERSCHWENDEN!", NULL }, NULL },
+        { { (u8 *)"HEAD FOR THE DETONATION ", (u8 *)"WIR HABEN NOCH VIEL ZU", NULL }, NULL },
+        { { (u8 *)"SITE AND GET SET UP.", (u8 *)"TUN, BEVOR ES LOSGEHT!", NULL }, NULL },
+        { { (u8 *)" ", (u8 *)" ", NULL }, NULL },
+        { { (u8 *)"WHEN IT COMES TO THE", (u8 *)"WENN ES ERNST WIRD,", NULL }, NULL },
+        { { (u8 *)"CRUNCH, EVERYTHING'S", (u8 *)"LIEGT ALLES IN", NULL }, NULL },
+        { { (u8 *)"GOING TO DEPEND ON US.", (u8 *)"UNSEREN HAENDEN.", NULL }, NULL },
+        { { NULL, NULL, NULL }, NULL },
+    },
+#else
     {
         { (u8 *)"WELL, IT'S ABOUT TIME!", D_80303B9C },
         { (u8 *)"DOES IT LOOK LIKE I'M", D_80303BB4 },
@@ -283,7 +452,9 @@ UnkStruct_802FF188 D_802FF188[7][20] = {
         { (u8 *)"CRUNCH, EVERYTHING'S", D_803041B0 },
         { (u8 *)"GOING TO DEPEND ON US.", D_803041B4 },
         { NULL, NULL },
-    },};
+    },
+#endif
+};
 u8 D_802FF5E8[14][5] = {
     { 0x01, 0x05, 0x09, 0x0D, 0x00 },
     { 0x01, 0x05, 0x09, 0x0E, 0x00 },
@@ -347,12 +518,20 @@ void func_802979E0(u8 arg0) {
     }
     sp3C = 0;
     D_8036BB24 = (YoshiEntry *)D_80358070;
-    D_80358070 += 0x24C;
+#ifdef VERSION_EU
+    D_80358070 += 0x2F4; /* 21 entries */
+#else
+    D_80358070 += 0x24C; /* 21 entries */
+#endif
     sp34 = 0;
     sp30 = 0;
     sp2F = 0;
     for (; sp3C < 20 && sp2F == 0; sp3C++) {
+#ifdef VERSION_EU
+        sp28 = D_802FF188[D_8039CAD0][sp3C].unk0[D_80366F70_eu];
+#else
         sp28 = D_802FF188[D_8039CAD0][sp3C].unk0;
+#endif
         sp24 = D_802FF188[D_8039CAD0][sp3C].unk4;
         sp48 = &D_8036BB24[sp3C];
         if (sp28 != NULL) {
@@ -365,7 +544,7 @@ void func_802979E0(u8 arg0) {
             sp48->y = sp3C * 16;
             sp48->unk6 = 16;
             sp48->unk8 = 16;
-            sp48->text = (char *)sp28;
+            ENTRY_TEXT(sp48) = (char *)sp28;
             sp48->unk10 = sp24;
             sp48->unk14 = 0;
             sp48->unk16 = 0;
@@ -377,7 +556,7 @@ void func_802979E0(u8 arg0) {
         }
     }
     sp48 = &D_8036BB24[sp30];
-    sp48->text = NULL;
+    ENTRY_TEXT(sp48) = NULL;
     sp48->unk10 = NULL;
     sp48->flags = 0x400;
     sp48->x = -0x20;
@@ -394,9 +573,9 @@ void func_802979E0(u8 arg0) {
     }
     for (sp3C = 0; sp3C < sp4C->count && sp42 == 0; sp3C++) {
         sp48 = &D_8036BB24[sp3C];
-        for (sp38 = 0; sp38 < func_8025B300((u8 *)sp48->text) && sp42 == 0; sp38++) {
-            if (((u8 *)sp48->text)[sp38] >= '0' && ((u8 *)sp48->text)[sp38] < '6') {
-                sp48->text[sp38] = sp43 + '0';
+        for (sp38 = 0; sp38 < func_8025B300((u8 *)ENTRY_TEXT(sp48)) && sp42 == 0; sp38++) {
+            if (((u8 *)ENTRY_TEXT(sp48))[sp38] >= '0' && ((u8 *)ENTRY_TEXT(sp48))[sp38] < '6') {
+                ENTRY_TEXT(sp48)[sp38] = sp43 + '0';
                 sp42 = 1;
             }
         }
