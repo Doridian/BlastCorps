@@ -256,7 +256,8 @@ PORT_HD_TEXT=path/to/font.ttf
 PORT_HD_TEXT_WEIGHT=1.1                                    # the ink area against the game's (default 1)
 ```
 
-OpenGL only; off by default.  `-v` logs each glyph's box and outline
+OpenGL only; on by default with a window (`--no-hd-text` turns it off),
+off headless and in compared runs.  `-v` logs each glyph's box and outline
 offset.  Code: `port/host/hdtext.c` (the glyphs), `gfx.c`
 (`gfx_tmem_src`), `gfx_gl.c` (`tile_glyph`, `tile_texture`'s
 high-resolution entries, `fs_hd`/`texel_hd`, the `hd` bit of a

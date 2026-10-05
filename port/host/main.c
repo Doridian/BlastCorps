@@ -213,7 +213,11 @@ uint32_t host_rom_word(uint32_t addr) {
    (threads.c): it jumps to the next event; runs as fast as the host can and
    the same every time */
 static int deterministic;
-static int model_icons = -1;            /* --model-icons, --no-model-icons (-1: neither) */
+/* the improvements on by default with a window (-1: neither --X nor --no-X) */
+static int model_icons = -1;            /* --model-icons, --no-model-icons */
+static int interp_arg = -1;             /* --interpolate, --no-interpolate */
+static int hdtext_arg = -1;             /* --hd-text, --no-hd-text */
+static int display_hz_set;              /* --display-hz */
 int host_is_deterministic(void) { return deterministic; }
 static uint64_t virtual_ns;
 
@@ -740,8 +744,10 @@ static void usage(const char *argv0) {
             "  --scale N            gl: internal resolution 320x240 times N (default: the\n"
             "                       window's)\n"
             "  --filter F           textures: n64 (3-point, default), bilinear or point\n"
-            "  --interpolate        gl: 60 frames a second where the game draws 30, by\n"
-            "                       showing a frame between each two (the game is unchanged)\n"
+            "  --interpolate, --no-interpolate\n"
+            "                       60 frames a second (or the display's rate) where the\n"
+            "                       game draws 30, by showing frames between each two (the\n"
+            "                       game is unchanged; default with a window)\n"
             "  --aspect A           the picture's shape: W:H (e.g. 16:9, 21:9; 4:3 is the\n"
             "                       N64's) or 'window', the window's as it is resized (the\n"
             "                       default with a window; 4:3 headless, --deterministic\n"
@@ -751,16 +757,19 @@ static void usage(const char *argv0) {
             "                       or where the game puts it, in the 4:3 middle\n"
             "  --max-pixels N       gl: lower the internal resolution until a picture has\n"
             "                       at most N pixels (the page passes 1300000)\n"
-            "  --hd-text [FONT]     gl: the game's text drawn from a font at the internal\n"
-            "                       resolution (built in: Stardos Stencil; FONT: a .ttf/.otf)\n"
+            "  --hd-text [FONT], --no-hd-text\n"
+            "                       gl: the game's text drawn from a font at the internal\n"
+            "                       resolution (built in: Stardos Stencil; FONT: a .ttf/.otf;\n"
+            "                       default with a window; PORT_HD_TEXT=0|1|FONT)\n"
             "  --model-icons, --no-model-icons\n"
             "                       the icons that are pictures of the game's models (the\n"
             "                       hint panels', the goals', the vehicles') drawn as the\n"
             "                       models (default with a window; off headless, with\n"
             "                       --deterministic and --replay; PORT_MODEL_ICONS=0|1)\n"
-            "  --display-hz N|auto  --interpolate for a display this fast (default 60; auto:\n"
-            "                       the display's): more in-between images, shown between\n"
-            "                       retraces by the host clock (not with --deterministic)\n"
+            "  --display-hz N|auto  --interpolate for a display this fast (default auto, the\n"
+            "                       display's, with a window; else 60): more in-between\n"
+            "                       images, shown between retraces by the host clock (not\n"
+            "                       with --deterministic)\n"
             "  --wav PATH           write the sound to a WAV file too\n"
             "  --no-audio           no sound (--headless and --deterministic imply it)\n"
             "  --cpu-model off|n64  off (the default): the game's work takes no time, and it\n"
@@ -823,10 +832,11 @@ int main(int argc, char **argv) {
             gfx_filter = !strcmp(argv[i], "n64") ? 0 : !strcmp(argv[i], "point") ? 1
                        : !strcmp(argv[i], "bilinear") ? 2 : (usage(argv[0]), 0);
         }
-        else if (!strcmp(argv[i], "--interpolate"))
-            gfx_interp = 1;
+        else if (!strcmp(argv[i], "--interpolate") || !strcmp(argv[i], "--no-interpolate"))
+            interp_arg = argv[i][2] == 'i';
         else if (!strcmp(argv[i], "--display-hz") && i + 1 < argc) {
             i++;
+            display_hz_set = 1;
             gfx_interp_hz = !strcmp(argv[i], "auto") ? -1 : atoi(argv[i]);
             if (gfx_interp_hz == 0 || gfx_interp_hz > 1000)
                 usage(argv[0]);
@@ -841,8 +851,10 @@ int main(int argc, char **argv) {
             gfx_gl_max_pixels = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--model-icons") || !strcmp(argv[i], "--no-model-icons"))
             model_icons = argv[i][2] == 'm';
+        else if (!strcmp(argv[i], "--no-hd-text"))
+            hdtext_arg = 0;
         else if (!strcmp(argv[i], "--hd-text")) {
-            hdtext_on = 1;
+            hdtext_arg = 1;
             if (i + 1 < argc && argv[i + 1][0] != '-' && hdtext_font_arg(argv[i + 1]))
                 hdtext_font_path = argv[++i];
         }
@@ -880,16 +892,24 @@ int main(int argc, char **argv) {
     /* PORT_HD_TEXT=1 (or a font file), PORT_HD_TEXT_WEIGHT=W: --hd-text, the
        glyphs' ink W times the game's (the page has no command line) */
     const char *hd = getenv("PORT_HD_TEXT");
-    if (hd && *hd && strcmp(hd, "0")) {
-        hdtext_on = 1;
-        if (strcmp(hd, "1"))
+    if (hd && *hd) {
+        hdtext_arg = strcmp(hd, "0") != 0;
+        if (hdtext_arg && strcmp(hd, "1"))
             hdtext_font_path = hd;
     }
-    /* --model-icons: by default where the picture isn't compared */
     const char *mi = getenv("PORT_MODEL_ICONS");
     if (mi && *mi)
         model_icons = strcmp(mi, "0") != 0;
-    micons_on = model_icons >= 0 ? model_icons : !deterministic && !host_headless;
+    /* the port's improvements are on by default with a window: in-between
+       frames for the display's rate, the text from a font, the models for
+       their pictures; runs that are compared (headless, deterministic,
+       replays) have them only when asked for */
+    int windowed = !deterministic && !host_headless;
+    gfx_interp = interp_arg >= 0 ? interp_arg : windowed;
+    if (windowed && !display_hz_set)
+        gfx_interp_hz = -1;                 /* --display-hz auto */
+    hdtext_on = hdtext_arg >= 0 ? hdtext_arg : windowed;
+    micons_on = model_icons >= 0 ? model_icons : windowed;
     const char *hw = getenv("PORT_HD_TEXT_WEIGHT");
     if (hw && atof(hw) > 0)
         hdtext_weight = (float)atof(hw);

@@ -44,8 +44,9 @@
     <button id="play" hidden>Play</button>
     <span id="packrow" hidden><label><input type="checkbox" id="usepack" checked> play the resource pack</label>
       <button id="forgetpack">Forget the pack</button></span>
-    <label><input type="checkbox" id="interp"> 60 fps (--interpolate)</label>
-    <label><input type="checkbox" id="hdtext"> high-res text (--hd-text)</label>
+    <label><input type="checkbox" id="interp" checked> 60 fps (--interpolate)</label>
+    <label><input type="checkbox" id="hdtext" checked> high-res text (--hd-text)</label>
+    <label><input type="checkbox" id="micons" checked> 3D icons (--model-icons)</label>
   </div>
   <div id="status">Loading...</div>
   <button id="full" hidden>Full screen</button>
@@ -127,8 +128,12 @@
     started = true;
     document.getElementById('start').hidden = true;
     var args = ['--save', SAVE];
-    if (document.getElementById('interp').checked) args.push('--interpolate');
-    if (document.getElementById('hdtext').checked) args.push('--hd-text');
+    /* (the port's improvements are on by default: the boxes turn them off;
+       the display's rate, measured below, for the in-between frames) */
+    if (document.getElementById('interp').checked) args.push('--display-hz', 'auto');
+    else args.push('--no-interpolate');
+    if (!document.getElementById('hdtext').checked) args.push('--no-hd-text');
+    if (!document.getElementById('micons').checked) args.push('--no-model-icons');
     /* more from the address: ?args=--aspect%20window&env=PORT_AUTOSTART=1 */
     var q = new URLSearchParams(location.search);
     if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));

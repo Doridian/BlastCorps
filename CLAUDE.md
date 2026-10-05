@@ -87,6 +87,14 @@ Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A pointer
 the handwritten code, the asm data or the ROM's data share with the C is
 `T *PTR32 p` (4 bytes in the LP64 port, nothing to IDO).
 
+The port's improvements for the player (`--interpolate` with
+`--display-hz auto`, `--hd-text`, `--model-icons`, and any added later) are
+on by default with a window, each with a `--no-` option to turn it off;
+headless runs and the compared ones (`--deterministic`, `--replay`) keep
+them off unless asked for, so the test references and the TAS don't move
+(`port/host/main.c`, after the options: `windowed`).  A new one follows
+the same rule, and gets a box on the page (`port/web/shell.html`).
+
 ## Assets
 
 The top-level config names every piece of the ROM (docs/ASSETS.md has the

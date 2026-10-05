@@ -202,18 +202,23 @@ wheel types it and a click on the name in the middle confirms.  The
 letter keys don't act as buttons there; the arrows and a controller still
 turn the wheel as on the N64.
 
-An SDL game controller works too.  Some options (`--help` lists them all):
+An SDL game controller works too.  With a window, the port's improvements
+are on by default: in-between frames at the display's rate, the text from
+a font and the icons' models (each has a `--no-` option to turn it off);
+headless runs and the compared ones (`--deterministic`, `--replay`) have
+them only when asked for.  Some options (`--help` lists them all):
 
 | option                       | what                                                      |
 | ---                          | ---                                                       |
 | `--renderer gl` / `sw`       | OpenGL (the default with a window) or the software renderer |
 | `--scale N`                  | OpenGL: render at 320x240 times N (default: the window's size; `--max-pixels N` caps that) |
 | `--filter n64` / `bilinear` / `point` | texture filtering (default: the N64's 3-point filter) |
-| `--interpolate`              | gameplay at 60 frames a second (either renderer), with in-between images drawn between the game's frames: 3D, texture and fill rectangles (docs/PORT.md, "Frame rate") |
-| `--display-hz N` / `auto`    | with `--interpolate`: make in-between images for an N Hz display (e.g. 120, 144; `auto`: the display's) and show them between retraces (not with `--deterministic`) |
+| `--interpolate` / `--no-interpolate` | (default with a window) gameplay at 60 frames a second (either renderer), with in-between images drawn between the game's frames: 3D, texture and fill rectangles (docs/PORT.md, "Frame rate") |
+| `--display-hz N` / `auto`    | with `--interpolate`: make in-between images for an N Hz display (e.g. 120, 144; `auto`, the default with a window: the display's) and show them between retraces (not with `--deterministic`) |
 | `--aspect window` / `W:H`, `--widescreen` | the picture's shape: the window's, followed as it is resized (the default with a window), or a fixed W:H (`4:3`, the N64's, is the default headless and with `--deterministic` or `--replay`; `--widescreen` is `16:9`).  Wider than 4:3 (up to 32:9) shows more of the 3D world; narrower gets bars above and below |
 | `--hud edges` / `centre`     | wider than 4:3: the levels' HUD (radar, money, counters, timer, TV) at the picture's sides (the default), or where the game puts it, in the 4:3 middle; menus, panels and full-screen pictures stay centred either way |
-| `--hd-text [FONT]`           | OpenGL: the game's text drawn from a font at the internal resolution (built in: Stardos Stencil, SIL OFL; docs/FONTS.md) |
+| `--hd-text [FONT]` / `--no-hd-text` | (default with a window) OpenGL: the game's text drawn from a font at the internal resolution (built in: Stardos Stencil, SIL OFL; docs/FONTS.md) |
+| `--model-icons` / `--no-model-icons` | (default with a window) the icons that are pictures of the game's models (the carrier, the goals, the vehicles) drawn as the models (docs/PORT.md, "Model icons") |
 | `--cpu-model n64`            | the N64's lag frames back: the game's work takes as long as on the N64, and busy scenes slow down as they did there (default `off`: no lag, every level frame 1/30 s; docs/PORT.md, "Lag frames") |
 | `--load-waits n64`           | the N64's waits for its hardware back: the controllers' half second at power-on, the EEPROM's write cycles, the pak thread's retrace a command (default `off`; `--cpu-model n64` implies it; docs/PORT.md, "The front end's waits") |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |

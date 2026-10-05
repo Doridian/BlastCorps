@@ -62,13 +62,20 @@ picture's height in the window, so resizing the window changes it;
 the game asks for bilinear filtering, which is the default, a 4-tap
 bilinear one, or point sampling throughout), `--interpolate` (60 frames a
 second where the game draws 30, and `--display-hz N|auto` for faster
-displays, see "Frame rate"), `--aspect window` (the window's shape, the
+displays, see "Frame rate"), `--hd-text [FONT]` (the text from a font,
+docs/FONTS.md), `--aspect window` (the window's shape, the
 default with a window), `--aspect W:H`, `--widescreen` (16:9) and `--hud
 edges|centre` (see "Widescreen"), `--model-icons`/`--no-model-icons`
 (the icons that are pictures of the game's models drawn as the models;
 default with a window, see "Model icons"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
+The port's improvements are on by default with a window: `--interpolate`
+with `--display-hz auto`, `--hd-text` and `--model-icons`, each turned off
+by its `--no-` option (`--no-interpolate`, `--no-hd-text`,
+`--no-model-icons`; the page has a box for each); headless runs and the
+ones that are compared (`--deterministic`, `--replay`) have them only when
+asked for, so the references and the TAS are as they were.
 `PORT_AUTOSTART=1` taps Start and A, which is enough to get from the title
 through the name entry into Simian Acres (`=2` taps by the game's own
 retrace count and then drives forward in the level, as
