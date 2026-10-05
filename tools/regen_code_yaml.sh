@@ -159,6 +159,7 @@ port jp A47E0:CAF60:68B80/804,69430/884,7DDA0/1EE0,804AC/1A4,8ECE0/F50,A1000/37E
 port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E0 21990:2CAB0:209E0/FB0 \
     "hd_front_end:--at 17990:text:11D10 --at 7800:data:25930 --at 7800:rodata:29B60" \
     "hd_front_end:--at 8380:rodata:29DE0 --at 17990:rodata:2B810 --at 8380:bss:8021AEC0 --add 1A240:rodata:2B950" \
+    "hd_front_end:--at 6790:data:25920" \
     "vermap:--pair 803109D0:80312DF8 --pair 80310820:80312C40 --pair 80310BD0:80313000" \
     "vermap:--pair 803153F0:803178B6 --pair 8020BD30:80208990 --pair 80217690:80213AB0" \
     "vermap:--pair 8020E3E0:8020E9F0 --pair 80210E90:80216380" \
@@ -167,13 +168,14 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 8036507C:80312FF8:4 --pair 80365080:803131B0:4 --pair 80365084:803151B8:4" \
     "vermap:--pair 80365088:803171C0:4 --pair 8036508C:803171E0:4 --pair 803153F8:80317870:40" \
     "vermap:--pair 8030F670:80311A90:11B0 --pair 8030E390:803107C0" \
+    "vermap:--pair 80215458:8021A93C:4 --pair 80215480:8021A998:30 --pair 80208378:8020C7B0:8" \
+    "vermap:--pair 80208358:8020C7B8:10 --pair 80208368:8020C7E8:10" \
     "hd_code:--asm-object 1C460" \
     "hd_code:--asm-object 1D990" \
     "hd_code:--asm-object 26570" \
     "hd_code:--asm-object 45BB0" \
     "hd_code:--asm-object 53220" \
     "hd_front_end:--asm-object 00000" \
-    "hd_front_end:--asm-object 1C40" \
     "hd_front_end:--asm-object 6790" \
     "hd_front_end:--asm-object 7800" \
     "hd_front_end:--asm-object E7B0" \

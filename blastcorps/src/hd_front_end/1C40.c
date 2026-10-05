@@ -12,6 +12,12 @@ typedef struct {
     /* 0x00 */ char *PTR32 unk0[4];   /* (PTR32: jp's func_801E8EB8, still asm, reads them) */
 } UnkStruct_80208358; /* size = 0x10 */
 
+#ifdef VERSION_EU
+typedef struct {
+    /* 0x00 */ char *PTR32 unk0[4][3];   /* eu: per language */
+} UnkStruct_80208358_eu; /* size = 0x30 */
+#endif
+
 typedef struct {
     /* 0x0 */ u8 unk0[5];
 } UnkStruct_8020849C; /* size = 0x5 */
@@ -48,10 +54,13 @@ Gfx *func_80275DA4(Gfx *, u8);
 s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
 
 /* .bss, 0x80215440-0x80215960 (tools/bss_c.py) */
-#ifdef VERSION_JP
+#if defined(VERSION_JP) || defined(VERSION_EU)
 s32 D_80215940;
 f32 D_80215944;
 f32 D_80215948;
+#ifdef VERSION_EU
+s32 D_80215458;
+#endif
 f32 D_8021594C;
 f32 D_80215950;
 #endif
@@ -64,7 +73,7 @@ f32 D_80215448;
 f32 D_8021544C;
 f32 D_80215450;
 f32 D_80215454;
-#ifndef VERSION_JP
+#if !defined(VERSION_JP) && !defined(VERSION_EU)
 s32 D_80215458;
 #endif
 f32 D_8021545C;
@@ -72,7 +81,7 @@ f32 D_80215460;
 f32 D_80215464;
 f32 D_80215468;
 s16 D_8021546C;
-#ifdef VERSION_JP
+#if defined(VERSION_JP) || defined(VERSION_EU)
 char D_80215470[0xa];
 #else
 char D_80215470[0x10];
@@ -90,6 +99,9 @@ s16 D_802154BA;
 u8 D_802154BC;
 s16 D_802154BE;
 s16 D_802154C0;
+#ifdef VERSION_EU
+char D_80215480[3][0x10];
+#endif
 s32 D_802154C4;
 s32 D_802154C8;
 s32 D_802154CC;
@@ -129,7 +141,7 @@ s16 D_8021592C;
 u8 D_8021592E;
 u16 D_80215930[6];
 s16 D_8021593C;
-#ifndef VERSION_JP
+#if !defined(VERSION_JP) && !defined(VERSION_EU)
 s32 D_80215940;
 f32 D_80215944;
 f32 D_80215948;
@@ -150,7 +162,11 @@ extern u16 D_802082F8[];
 extern u8 D_802082FC[];
 extern u8 D_80208314[];
 extern u32 D_80208350[];
+#ifdef VERSION_EU
+extern UnkStruct_80208358_eu D_80208358;
+#else
 extern UnkStruct_80208358 D_80208358;
+#endif
 extern UnkStruct_80208358 D_80208368;
 extern char *PTR32 D_80208378[];     /* (PTR32: jp's func_801E8EB8 reads it too) */
 extern Vtx D_80208380[];
@@ -250,6 +266,13 @@ void func_801E8C40(u8 arg0) {
     func_801E8DCC(D_80364AE8);
 }
 
+/* The ticker's resting speed (eu's PAL frames are longer). */
+#ifdef VERSION_EU
+#define SCROLL_SPEED 4.0f
+#else
+#define SCROLL_SPEED 3.0f
+#endif
+
 /* The name being entered (D_802158A8): up to 27 characters, 17 in jp. */
 #ifdef VERSION_JP
 #define NAME_CHARS 0x11
@@ -270,7 +293,7 @@ void func_801E8DCC(u8 arg0) {
     for (sp1C = 1; sp1C < 5; sp1C++) {
         D_802154F0[sp1C] = 9999;
     }
-    D_802154E4 = 3.0f;
+    D_802154E4 = SCROLL_SPEED;
 }
 
 extern char D_803041DC[];
@@ -311,15 +334,63 @@ extern char D_80304614[];
 #ifdef VERSION_JP
 extern u16 D_80301044[];
 extern u16 D_803043AC[];
-#else
+#elif !defined(VERSION_EU)
 extern const char D_8020E764[];
 extern const char D_8020E768[];
 #endif
+#ifndef VERSION_EU
 extern const char D_8020E770[];
 extern const char D_8020E82C[];
 extern const char D_8020E8EC[];
 extern const char D_8020E9AC[];
+#endif
+/* The crew's introductions (English). */
+#define CREW_TEXT_AMBER ".................... LEADER OF THE ARMY BASE WALKOUT YEARS AGO. AMBER'S SHARP MIND AND BRIGHT, SELFLESS OUTLOOK MAKE HER THE NEAREST THING BLAST CORPS HAS TO A LEADER ...................."
+#define CREW_TEXT_CLARK ".................... A GENIUS IN HEAVY VEHICLE DESIGN. WHILE SOMETIMES OVERLY POSSESSIVE OF HIS CREATIONS, CLARK HAS TALENTS VITAL TO BLAST CORPS' SURVIVAL AND SUCCESS ...................."
+#define CREW_TEXT_SPIKE ".................... HEAD MECHANIC OF THE BLAST CORPS TEAM. WITH YEARS OF EXPERIENCE AND A GRUFF PRIDE IN HIS WORK, SPIKE ENSURES THAT THE DOZERS ARE BUILT TO PERFECTION .................."
+#define CREW_TEXT_WESLEY ".................... A FEARLESS ARMY DAREDEVIL UNTIL HIS DISABLING ACCIDENT. WESLEY'S REJECTION BY HIS SUPERIORS TRIGGERED THE REBELLION THAT LED TO THE RISE OF BLAST CORPS ..............."
 /* .data, 0x802081C0-0x802084B0 (tools/data_c.py) */
+#ifdef VERSION_EU
+/* eu: each rank in English and German (French has none), and no u16 text */
+char *D_802081C0[0x1F][4] = {
+    { "ROOKIE WRECKER", "CRASH AZUBI" },
+    { "TRAINED CRUSHER", "CRASH MEISTER" },
+    { "EXPERIENCED RAVAGER", "CRASH PROFI" },
+    { "DECORATED DAMAGER", "CRASH LORD" },
+    { "PROFESSIONAL RAZER", "PROFI EINSTAMPFER" },
+    { "EXPERT DESTROYER", "SOFT DEMOLIERER" },
+    { "GIFTED RUINER", "EXTREM DEMOLIERER" },
+    { "ACCOMPLISHED CONQUEROR", "CHAOS VERURSACHER" },
+    { "MASTER DESPOILER", "CHAOS MEISTER" },
+    { "DEMOLITION FANATIC", "ABRISS EXPERTE" },
+    { "GRAND ERADICATOR", "RATZFATZ GENERAL" },
+    { "HEAVY DUTY WASTER", "ARCHITEKTEN TRAUMA" },
+    { "TOTAL PULVERISER", "TASMANISCHER TEUFEL" },
+    { "CHAMPION RANSACKER", "DESTRUKTIVER ELIMINATOR" },
+    { "MECHANICAL MAESTRO", "ZEMENT RASIERER" },
+    { "CHIEF OBLITERATOR", "PSYCHO PLANIERER" },
+    { "COMMANDING DESOLATOR", "BETON CHOLERIKER" },
+    { "SUPREME DEVASTATOR", "ADMIRAL FATAL" },
+    { "ULTIMATE ANNIHILATOR", "DEMOLAGE KUENSTLER" },
+    { "LEVELLING LEGEND", "INFERNO KOMMANDEUR" },
+    { "DESTRUCTIVE PSYCHOPATH", "CHAOS SCHOEPFER" },
+    { "MINDLESS DESECRATOR", "NOTORISCHER BERSERKER" },
+    { "HYSTERICAL CLAUSTROPHOBE", "ZENTRAL ZERSTOERER" },
+    { "UNCONTROLLABLE MADMAN", "NEUTRONEN SCHLUCKER" },
+    { "WORLD CLASS MEGALOMANIAC", "WELTEN ZERSTOERER" },
+    { "CAPTAIN OF CARNAGE", "PLANETEN BRECHER" },
+    { "SINGLE MINDED CHAOSMONGER", "GENESIS BLOCKER" },
+    { "GRAND HIGH SLAUGHTERMASTER", "HYPER PSYCHO" },
+    { "LUNATIC LORD OF HAVOC", "HERR DER WALZEN" },
+    { "ARMAGEDDON ADEPT", "APOKALYPTISCHER REITER" },
+    { "YOU CAN STOP NOW.", "ABSOLUTER MEGAPROFI" },
+};
+/* eu: the English ranks' numbers, then the German ones' */
+u8 D_802082B8[2][0x1f] = {
+    { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 1, 1 },
+    { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1 },
+};
+#else
 char *D_802081C0[0x1f][2] = {
     { "ROOKIE WRECKER", D_803041DC },
     { "TRAINED CRUSHER", D_803041EC },
@@ -354,6 +425,7 @@ char *D_802081C0[0x1f][2] = {
     { "YOU CAN STOP NOW.", D_8030439C },
 };
 u8 D_802082B8[0x20] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2, 2, 1, 1 };
+#endif
 u16 D_802082D8[6] = { 0x777, 0x777, 0x776, 0x773 };
 u16 D_802082E4[2] = { 0x774, 0x775 };
 #ifdef VERSION_JP
@@ -370,8 +442,29 @@ u8 D_80208314[0x3c] = {
     0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 12,
 };
 u32 D_80208350[2] = { 26, 21 };
+#ifdef VERSION_EU
+/* eu: the second is the language's "GUEST: ", set by func_801E8EB8 */
+char *PTR32 D_80208378[2] = { "", "" };
+/* eu: each one's text in English, German and French (the English again) */
+UnkStruct_80208358_eu D_80208358 = { {
+    { CREW_TEXT_AMBER,
+      ".................... LEITERIN DES BLAST CORPS TEAMS. AUSGEBILDET IN EINER SPEZIALEINHEIT DES MILITAERS. SPEZIALISTIN FUER PLANUNG UND DURCHFUEHRUNG EXTREM GEFAEHRLICHER MISSIONEN......",
+      CREW_TEXT_AMBER },
+    { CREW_TEXT_CLARK,
+      ".................... SCHOEPFER DER GENIALEN BLAST CORPS VEHIKEL. SEINE DESIGNVORSCHLAEGE HABEN DIE WISSENSCHAFTLER ZU NEUEN, BAHNBRECHENDEN ERFINDUNGEN ANIMIERT......................",
+      CREW_TEXT_CLARK },
+    { CREW_TEXT_SPIKE,
+      ".................... CHEFMECHANIKER DES BLAST CORPS TEAMS. JAHRELANGE ERFAHRUNG UND EIN EINMALIGES GESPUER FUER MECHANISCHE DEFEKTE MACHEN IHN ZU EINEM UNERSETZBAREN MITGLIED DES TEAMS............",
+      CREW_TEXT_SPIKE },
+    { CREW_TEXT_WESLEY,
+      ".................... AUSGEBILDETER EINZELKAEMPFER, DER WEGEN BEFEHLSVERWEIGERUNG AUS DER ARMEE UNEHRENHAFT ENTLASSEN WURDE. SEINE KAMPFERFAHRUNG KANN ER NUN IM BLAST CORPS TEAM EINSETZEN...",
+      CREW_TEXT_WESLEY },
+} };
+UnkStruct_80208358 D_80208368 = { { NULL, NULL, NULL, NULL } };
+#else
 UnkStruct_80208358 D_80208358 = { { (char *)D_8020E770, (char *)D_8020E82C, (char *)D_8020E8EC, (char *)D_8020E9AC } };
 UnkStruct_80208358 D_80208368 = { { D_803043B8, D_80304474, D_80304544, D_80304614 } };
+#endif
 #ifdef VERSION_JP
 /* jp's are u16 text (0x0FFE-terminated), as are its own below */
 char *PTR32 D_80208378[2] = { (char *)D_80301044, (char *)D_803043AC };
@@ -384,7 +477,7 @@ u16 D_8020832C_jp[2] = { 0x1003, 0xFFE };
 u16 D_80208330_jp[8] = { 4, 0x1002, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
 u16 D_80208340_jp[4] = { 0x1002, 3, 0xFFE };
 u16 D_80208348_jp[8] = { 0x1002, 0x3C, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
-#else
+#elif !defined(VERSION_EU)
 char *PTR32 D_80208378[2] = { (char *)D_8020E764, (char *)D_8020E768 };
 #endif
 extern Vtx D_80208380[8];
@@ -416,21 +509,23 @@ Lights2 D_80208470 = {
 u8 D_80208498[4] = { 32 };
 UnkStruct_8020849C D_8020849C = { { 0 } };
 
-#ifndef VERSION_JP
+#if !defined(VERSION_JP) && !defined(VERSION_EU)
 const char D_8020E764[] = "";
 
 const char D_8020E768[] = "GUEST: ";
 #endif
 
-const char D_8020E770[] = ".................... LEADER OF THE ARMY BASE WALKOUT YEARS AGO. AMBER'S SHARP MIND AND BRIGHT, SELFLESS OUTLOOK MAKE HER THE NEAREST THING BLAST CORPS HAS TO A LEADER ....................";
+#ifndef VERSION_EU
+const char D_8020E770[] = CREW_TEXT_AMBER;
 
-const char D_8020E82C[] = ".................... A GENIUS IN HEAVY VEHICLE DESIGN. WHILE SOMETIMES OVERLY POSSESSIVE OF HIS CREATIONS, CLARK HAS TALENTS VITAL TO BLAST CORPS' SURVIVAL AND SUCCESS ....................";
+const char D_8020E82C[] = CREW_TEXT_CLARK;
 
-const char D_8020E8EC[] = ".................... HEAD MECHANIC OF THE BLAST CORPS TEAM. WITH YEARS OF EXPERIENCE AND A GRUFF PRIDE IN HIS WORK, SPIKE ENSURES THAT THE DOZERS ARE BUILT TO PERFECTION ..................";
+const char D_8020E8EC[] = CREW_TEXT_SPIKE;
 
-const char D_8020E9AC[] = ".................... A FEARLESS ARMY DAREDEVIL UNTIL HIS DISABLING ACCIDENT. WESLEY'S REJECTION BY HIS SUPERIORS TRIGGERED THE REBELLION THAT LED TO THE RISE OF BLAST CORPS ...............";
+const char D_8020E9AC[] = CREW_TEXT_WESLEY;
+#endif
 
-#ifdef VERSION_JP
+#if defined(VERSION_JP) || defined(VERSION_EU)
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801E8EB8.s")
 #else
 void func_801E8EB8(u8 arg0, u8 arg1) {
@@ -554,7 +649,7 @@ u16 func_801E9528(void) {
     if (D_802154D4) {
         D_802154D4--;
         if (!D_802154D4) {
-            D_802154E0 = 3.0f;
+            D_802154E0 = SCROLL_SPEED;
         }
     }
     D_802154E4 = (D_802154E0 - D_802154E4) * 0.2 + D_802154E4;
@@ -568,6 +663,9 @@ s32 func_801E96F8(void) {
     return D_802154D2 == D_802154DC + 8;
 }
 
+#ifdef VERSION_EU
+#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801E9718.s")
+#else
 Gfx *func_801E9718(Gfx *arg0, FrameBuf *arg1, s32 arg2) {
     Gfx *gfx;
 
@@ -647,6 +745,7 @@ Gfx *func_801E9718(Gfx *arg0, FrameBuf *arg1, s32 arg2) {
         }
     }
 }
+#endif
 
 void func_801EA108(u8 arg0, u8 arg1, u8 arg2) {
     PlayerInfo *sp2C;
@@ -705,6 +804,9 @@ void func_801EA278(void) {
     }
 }
 
+#ifdef VERSION_EU
+#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801EA4B8.s")
+#else
 void func_801EA4B8(void) {
     s32 sp1C;
 
@@ -735,7 +837,11 @@ void func_801EA4B8(void) {
     D_8020C070[FE_ENTRY(6)].unk19 = 2;
     D_802F8BDC[10].unk8 &= ~0x400;
 }
+#endif
 
+#ifdef VERSION_EU
+#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801EF204_eu.s")
+#else
 void func_801EA6E8(void) {
     s32 sp24;
 
@@ -765,7 +871,11 @@ void func_801EA6E8(void) {
     D_802F8BDC[10].unk8 |= 0x400;
     D_802F8BDC[10].unk18 = 6;
 }
+#endif
 
+#ifdef VERSION_EU
+#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801EA93C.s")
+#else
 void func_801EA93C(char *arg0, s32 arg1, u8 arg2, u8 arg3, char *arg4) {
     D_802154B2 = 0x7FFF;
     D_802154B4 = 0x7FFF;
@@ -792,6 +902,7 @@ void func_801EA93C(char *arg0, s32 arg1, u8 arg2, u8 arg3, char *arg4) {
     D_80215920 = 1;
     D_8021592C = 0;
 }
+#endif
 
 Gfx *func_801EAA7C(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
     Gfx *spFC;
@@ -1203,7 +1314,11 @@ void func_801ECB18(void) {
         }
         osSendMesg(&D_80219EF8, (OSMesg)((D_802E8BDC << 8) | 8 | (D_80364AE8 << 16) | 0x01000000), OS_MESG_BLOCK);
     } else {
+#ifdef VERSION_EU
+        osSendMesg(&D_80219EF8, (OSMesg)((D_802E8BDC << 8) | 0x18 | (D_80364AE8 << 16) | 0x01000000), OS_MESG_BLOCK);
+#else
         osSendMesg(&D_80219EF8, (OSMesg)((D_802E8BDC << 8) | 0x16 | (D_80364AE8 << 16) | 0x01000000), OS_MESG_BLOCK);
+#endif
         func_801F8354(D_80364AE8);
     }
 }
@@ -1250,6 +1365,9 @@ void func_801ECE9C(void) {
     }
 }
 
+#ifdef VERSION_EU
+#pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/1C40/func_801ECF5C.s")
+#else
 void func_801ECF5C(void) {
     PlayerInfo *sp6C;
     u8 sp4C[0x20];
@@ -1309,6 +1427,7 @@ void func_801ECF5C(void) {
         D_8020C070[sp38 + FE_ENTRY(185)].text = D_80215480[sp38];
     }
 }
+#endif
 
 void func_801ED480(u8 *arg0, u8 *arg1) {
     u32 sp4;
@@ -1332,7 +1451,7 @@ void func_801ED4B8(void) {
     sp2C = sp54->units;
     func_801ED480((u8 *)D_80364EF0[D_80364AE8], sp34);
     if (D_8039C53C[D_80364AE8] == 0) {
-        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "saveIt[playerNumber]", "player.c", 0x5C0);
+        func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "saveIt[playerNumber]", "player.c", LINE_EU(0x5C0, 0x5CF));
     }
     for (sp26 = 0; sp26 < 0x3C; sp26++) {
         if (LEVEL_DONE_IN(D_80364AF0[D_80364AE8], sp26) &&
