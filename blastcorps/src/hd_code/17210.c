@@ -118,14 +118,15 @@ void func_8025BB50(void) {
     D_803669A0 = D_803669AC[D_80366994].unk2;
 }
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/17210/func_8025BBE8.s")
-#else
 void func_8025BBE8(u16 arg0, s8 arg1, s8 arg2) {
     if (D_803669A8 == 0) {
         if ((arg0 != D_803669A4) || (arg1 != D_803669A6) || (arg2 != D_803669A7) || (D_8036699C == 0xFF) ||
             (D_80364A98 != 0)) {
+#ifdef VERSION_EU
+            if (D_80366990 < 0xE00) { /* D_80365590 is longer in eu */
+#else
             if (D_80366990 < 0x400) {
+#endif
                 D_80365588[D_80366990].unk0 = D_803669A4 >> 8;
                 D_80365588[D_80366990].unk1 = D_803669A4 & 0xFF;
                 D_80365588[D_80366990].unk3 = D_803669A6;
@@ -145,7 +146,6 @@ void func_8025BBE8(u16 arg0, s8 arg1, s8 arg2) {
     D_803669A7 = arg2;
     D_803669A8 = 0;
 }
-#endif
 
 extern s32 D_803649E8;
 
