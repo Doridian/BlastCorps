@@ -77,23 +77,27 @@ Gfx *func_80274BF0(u8 *arg0, Gfx *arg1) {
 void func_8029A7E4(char *, ...);
 void func_80261570(f32);
 
-#ifdef VERSION_EU
-#pragma GLOBAL_ASM("asm/nonmatchings/hd_code/30430/func_80275270.s")
-#else
 void func_80275270(u64 arg0, f32 arg2) {
     if (D_8036C778 != 0) {
         func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!postFadeLoop_done", "fade.c", 100);
     }
     if (D_8036C778 == 0) {
         D_8036C778 = arg0;
+#ifdef VERSION_EU
+        D_8036C774 = 5.1 / arg2; /* eu's 50 frames a second */
+#else
         D_8036C774 = 4.25 / arg2;
+#endif
         D_8036C780 = D_803156C4;
+#ifdef VERSION_EU
+        if (!(arg0 & 0x40000000080004C2) && !(D_80364A90 & 0x4000000200040000)) {
+#else
         if (!(arg0 & 0x40000000080004C2) && !(D_80364A90 & 0x4000000000040000)) {
+#endif
             func_80261570(0.0f);
         }
     }
 }
-#endif
 
 void func_80275390(u64 arg0) {
     func_80275270(arg0, 0.25f);
