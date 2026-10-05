@@ -54,6 +54,10 @@ extern UnkStruct_80218270 D_80218270[];
 
 extern Mtx D_802182D0[2];
 /* 1C40.c's .data: two texts per entry (the first is what 6790.c prints, byte by byte). */
+#ifdef VERSION_EU
+extern char *D_802081C0[0x1F][4]; /* eu: one per language (and a NULL) */
+#else
 extern char *D_802081C0[0x1F][2];
+#endif
 
 #endif

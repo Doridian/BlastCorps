@@ -10,6 +10,23 @@ void func_801F4E70(s32);
 Gfx *func_801F4FBC(FrameBuf *, Gfx *);
 void func_80259CCC(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
 
+/* The video refresh rate, and a number of NTSC frames as many of the version's. */
+#ifdef VERSION_EU
+#define REFRESH_RATE 50
+#else
+#define REFRESH_RATE 60
+#endif
+#define FRAMES(n) ((n) * REFRESH_RATE / 60)
+
+/* 1C40.c's texts and their numbers of words, in eu in the language. */
+#ifdef VERSION_EU
+#define TEXT_802081C0(i) ((u8 *)D_802081C0[i][D_80366F70_eu])
+#define WORDS_802082B8(i) D_802082B8[D_80366F70_eu][i]
+#else
+#define TEXT_802081C0(i) ((u8 *)D_802081C0[i][0])
+#define WORDS_802082B8(i) D_802082B8[i]
+#endif
+
 /* .bss, 0x80215960-0x802159C0 (tools/bss_c.py) */
 s32 D_80215960;
 s32 D_80215964;
@@ -18,6 +35,10 @@ f32 D_8021596C;
 s32 D_80215970;
 s16 D_80215974;
 s16 D_80215976;
+#ifdef VERSION_EU
+char *D_802084B0; /* eu: in the language, set by func_801ED790 */
+char *D_802084B4;
+#endif
 s32 D_80215978;
 u8 D_8021597C[3];
 u8 D_8021597F[1];
@@ -29,7 +50,11 @@ void func_80259DC8(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32,
                    s32, s32, s32);
 s32 func_8025B300(u8 *);
 
+#ifdef VERSION_EU
+extern u8 D_802082B8[][0x1F];
+#else
 extern u8 D_802082B8[];
+#endif
 extern char *D_802084B0;
 extern char *D_802084B4;
 extern u16 *D_802084B8;
@@ -48,6 +73,9 @@ extern u8 D_80215998[];
 extern s16 D_802159B0;
 extern s32 D_802FA268;
 extern u16 D_8035807C;
+#ifdef VERSION_EU
+extern u8 D_80366F70_eu; /* the language */
+#endif
 
 void func_801ED790(void) {
     func_801F4E70(0);
@@ -56,15 +84,30 @@ void func_801ED790(void) {
     D_80215968 = D_8021596C = 0.0f;
     D_80215974 = D_80215976 = 0;
     D_80215978 = D_80364AF0[D_80364AE8].unkC;
+#ifdef VERSION_EU
+    D_802084B0 = D_80366F70_eu == 0   ? "CONGRATULATIONS"
+                 : D_80366F70_eu == 1 ? "GRATULATION ZUR"
+                                      : NULL;
+    D_802084B4 = D_80366F70_eu == 0   ? "ON YOUR PROMOTION!"
+                 : D_80366F70_eu == 1 ? "BEFOERDERUNG!!!"
+                                      : NULL;
+#endif
 }
 
+#ifndef VERSION_EU
 extern u16 D_80303B78[];
 extern u16 D_80303B88[];
+#endif
 /* .data, 0x802084B0-0x802084D0 (tools/data_c.py) */
+#ifdef VERSION_EU
+u16 *D_802084B8 = NULL; /* eu has no u16 text */
+u16 *D_802084BC = NULL;
+#else
 char *D_802084B0 = "CONGRATULATIONS";
 char *D_802084B4 = "ON YOUR PROMOTION!";
 u16 *D_802084B8 = D_80303B78;
 u16 *D_802084BC = D_80303B88;
+#endif
 s8 D_802084C0 = 1;
 
 #ifdef VERSION_JP
@@ -84,7 +127,7 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
     }
     switch (D_80215960) {
         case 0:
-            D_8021596C = sins(D_80358060 * 0x4000 * 60 / 60 / 90) * 2.85 / 32767.0;
+            D_8021596C = sins(D_80358060 * 0x4000 * 60 / REFRESH_RATE / 90) * 2.85 / 32767.0;
             if (D_8021596C >= 2.84) {
                 D_8021596C = 2.84f;
                 D_80215960 = 1;
@@ -104,7 +147,7 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
     }
     switch (D_80215964) {
         case 0:
-            if (D_80358060 == 50) {
+            if (D_80358060 == FRAMES(50)) {
                 D_80215964 = 1;
                 D_80215974 = 0;
                 D_80215976 = 0;
@@ -116,7 +159,7 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
             } else {
                 D_80215974 += 16;
             }
-            if (D_80358060 == 200) {
+            if (D_80358060 == FRAMES(200)) {
                 D_80215964 = 2;
             }
             break;
@@ -131,7 +174,7 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
             } else {
                 D_80215976 += 16;
             }
-            if (D_80358060 == 290) {
+            if (D_80358060 == FRAMES(290)) {
                 D_80215964 = 3;
             }
             break;
@@ -150,14 +193,14 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
         sp68 = &D_80364AF0[D_80364AE8];
         func_80259CCC(arg1, D_802084B0, D_802084B8, 0, 0x9C, 0, 0x18, 0x1A, 0x1A, 1, 0, 0, 0, D_80215974 / 2);
         func_80259CCC(arg1, D_802084B4, D_802084BC, 0, 0x9D, 0, 0xCB, 0x16, 0x16, 1, 0, 0, 0, D_80215974 / 2);
-        for (sp70 = 0, sp6C = 0; sp6C < D_802082B8[D_80215978]; sp70++) {
-            if ((D_80215980[sp70] = ((u8 *)D_802081C0[D_80215978][0])[sp70]) == ' ') {
+        for (sp70 = 0, sp6C = 0; sp6C < WORDS_802082B8(D_80215978); sp70++) {
+            if ((D_80215980[sp70] = TEXT_802081C0(D_80215978)[sp70]) == ' ') {
                 sp6C++;
             }
         }
         D_80215980[sp70 - 1] = 0;
-        for (sp6C = sp70; ((u8 *)D_802081C0[D_80215978][0])[sp70] != 0; sp70++) {
-            D_80215998[sp70 - sp6C] = ((u8 *)D_802081C0[D_80215978][0])[sp70];
+        for (sp6C = sp70; TEXT_802081C0(D_80215978)[sp70] != 0; sp70++) {
+            D_80215998[sp70 - sp6C] = TEXT_802081C0(D_80215978)[sp70];
         }
         D_80215998[sp70 - sp6C] = 0;
         if (func_8025B300(D_80215980) >= 14 || func_8025B300(D_80215998) >= 14) {
@@ -185,7 +228,7 @@ Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
         func_80259DC8(arg1, (char *)D_80215998, NULL, 0, 0xA0, 0, 0x73, sp64, sp64, 1, 0xFF, 0xFF - D_802159B0, 0,
                       D_80215976, 0xFF, D_802159B0, 0, D_80215976);
     }
-    D_80215968 += 12.0 - D_8021596C * 2.0f;
+    D_80215968 += 12.0 * 60 / REFRESH_RATE - D_8021596C * 2.0f;
     if (D_80215968 > 360.0) {
         D_80215968 -= 360.0;
     }

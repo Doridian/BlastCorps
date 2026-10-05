@@ -157,7 +157,7 @@ port jp A47E0:CAF60:68B80/804,69430/884,7DDA0/1EE0,804AC/1A4,8ECE0/F50,A1000/37E
 # .rodata hold it are asm there (--asm-object) until their data is written
 # for eu.
 port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E0 21990:2CAB0:209E0/FB0 \
-    "hd_front_end:--at 17990:text:11D10 --at 7800:data:25930 --at 7800:rodata:29B60" \
+    "hd_front_end:--at 17990:text:11D10 --at 6790:data:25920 --at 7800:data:25930 --at 7800:rodata:29B60" \
     "hd_front_end:--at 8380:rodata:29DE0 --at 17990:rodata:2B810 --at 8380:bss:8021AEC0 --add 1A240:rodata:2B950" \
     "vermap:--pair 803109D0:80312DF8 --pair 80310820:80312C40 --pair 80310BD0:80313000" \
     "vermap:--pair 803153F0:803178B6 --pair 8020BD30:80208990 --pair 80217690:80213AB0" \
@@ -170,10 +170,10 @@ port eu A6210:CD2D0:6B180/804,6BA30/884,80340/1EE0,82A4C/1A4,91280/F50,A2A30/37E
     "vermap:--pair 80208044:8020C380" \
     "vermap:--pair 802E9F9C:802EBDA0:4 --pair 802E9FA0:802EBDA4:C" \
     "hd_code:--at 1D990:rodata:C4510" \
-    "vermap:--pair 8020C488:8020D050" \
+    "vermap:--pair 8020C488:8020D050 --pair 80215978:8021AE70 --pair 802084B0:8021AE68 --pair 802084B4:8021AE6C" \
+    "vermap:--pair 80215980:8021AE78 --pair 80215998:8021AE90 --pair 802084C0:8020C928 --pair 802159B0:8021AEA8" \
     "hd_code:--asm-object 26570" \
     "hd_front_end:--asm-object 1C40" \
-    "hd_front_end:--asm-object 6790" \
     "hd_front_end:--asm-object 7800" \
     "hd_front_end:--asm-object 1A240" \
     "hd_code:--at C9650:rodata:CBCA0 --at BC8E0:data:C0B80 --at 00000:bss:80311A90"
