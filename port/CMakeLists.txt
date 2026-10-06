@@ -584,30 +584,25 @@ elseif(N64_LAUNCHER)
     set_target_properties(port_n64 PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
 
-# ---- the game's data, big-endian ---------------------------------------------
-# (what the N64 build links: asm/data, which holds the handwritten objects'
-# .bss too)
+# ---- the game's data: the handwritten objects', as C -------------------------
+# (what the N64 build links from asm/data, which holds their .bss too, and
+# the data islands; tools/asm2c.py types it, from the type inventory, and
+# the C is built like the game's: docs/PORT.md, "The asm data as C")
 file(GLOB DATA_S ${BLAST}/asm/data/hd_code/*.s ${BLAST}/asm/data/hd_front_end/*.s)
 # libultra's exception handler's jump table (its code is replaced)
 list(REMOVE_ITEM DATA_S ${BLAST}/asm/data/hd_code/972A0.rodata.s)
 set(DATA_BIN hd_code/68810 hd_code/690C0 hd_code/8E910 hd_code/91D50 hd_code/A0C30
              hd_code/C9BD0 hd_code/CA3D0 hd_code/CA6A0 hd_front_end/20090 hd_front_end/29690)
-set(DATA_X86)
-set(ASM2X86_FLAGS)
-if(PORT_NATIVE_ENDIAN)
-    set(ASM2X86_FLAGS --native)     # host order, by the directives and the type inventory
-endif()
+set(DATA_C ${GEN}/data_c/asm_data.h)
+set(DATA_IN)
+set(DATA_DEPS)
 foreach(s ${DATA_S})
     file(RELATIVE_PATH rel ${BLAST}/asm ${s})
     string(REPLACE "/" "_" out ${rel})
-    set(label "")
-    if(s MATCHES "/([a-z_]+)/([0-9A-F]+)\\.bin\\.s$")
-        set(label ${CMAKE_MATCH_1}_${CMAKE_MATCH_2}_bin)
-    endif()
-    add_custom_command(OUTPUT ${GEN}/data/${out}
-        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} ${GEN}/data/${out} ${s} ${label}
-        DEPENDS ${s} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${PORT_INVENTORY})
-    list(APPEND DATA_X86 ${GEN}/data/${out})
+    string(REGEX REPLACE "\\.s$" ".c" out ${out})
+    list(APPEND DATA_C ${GEN}/data_c/${out})
+    list(APPEND DATA_IN ${s})
+    list(APPEND DATA_DEPS ${s})
 endforeach()
 # the data of the IDO functions the version still has as asm (its GLOBAL_ASM,
 # which tools/recomp translates): their strings, floats and jump tables
@@ -616,27 +611,31 @@ execute_process(COMMAND ${Python3_EXECUTABLE} -c
     OUTPUT_VARIABLE GLOBAL_ASM_FUNCS OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
 foreach(g ${GLOBAL_ASM_FUNCS})
     string(REPLACE "/" "_" out ${g})
-    set(src ${BLAST}/asm/nonmatchings/${g}.s)
-    add_custom_command(OUTPUT ${GEN}/data/global_asm_${out}.s
-        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} --global-asm ${GEN}/data/global_asm_${out}.s ${src}
-        DEPENDS ${src} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
-    list(APPEND DATA_X86 ${GEN}/data/global_asm_${out}.s)
+    list(APPEND DATA_C ${GEN}/data_c/global_asm_${out}.c)
+    list(APPEND DATA_IN --global-asm ${BLAST}/asm/nonmatchings/${g}.s)
+    list(APPEND DATA_DEPS ${BLAST}/asm/nonmatchings/${g}.s)
 endforeach()
 foreach(b ${DATA_BIN})
     string(REPLACE "/" "_" label ${b})
-    add_custom_command(OUTPUT ${GEN}/data/${label}.bin.s
-        COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py ${ASM2X86_FLAGS} ${GEN}/data/${label}.bin.s ${BLAST}/assets/${b}.bin ${label}_bin
-        DEPENDS ${BLAST}/assets/${b}.bin ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2x86.py)
-    list(APPEND DATA_X86 ${GEN}/data/${label}.bin.s)
+    list(APPEND DATA_C ${GEN}/data_c/${label}_bin.c)
+    list(APPEND DATA_IN ${label}_bin=${BLAST}/assets/${b}.bin)
+    list(APPEND DATA_DEPS ${BLAST}/assets/${b}.bin)
 endforeach()
-file(MAKE_DIRECTORY ${GEN}/data)
-set_source_files_properties(${DATA_X86} PROPERTIES LANGUAGE ASM GENERATED TRUE)
-if(NOT PORT_MOVABLE)       # (the movable build takes them as IR: the arena link, below)
-    add_library(game_data OBJECT ${DATA_X86})
-    if(NOT PORT_64BIT)
-        target_compile_options(game_data PRIVATE -m32)
-    endif()
-    target_compile_options(game_data PRIVATE -Wno-unused-command-line-argument)
+add_custom_command(OUTPUT ${DATA_C}
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2c.py ${GEN}/data_c ${DATA_IN}
+    DEPENDS ${DATA_DEPS} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2c.py ${PORT_INVENTORY}
+            ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
+    VERBATIM)
+file(MAKE_DIRECTORY ${GEN}/data_c)
+set_source_files_properties(${DATA_C} PROPERTIES GENERATED TRUE OBJECT_DEPENDS ${BEPASS})
+add_library(game_data OBJECT ${DATA_C})
+target_compile_options(game_data PRIVATE -fdata-sections)
+target_include_directories(game_data PRIVATE ${GEN}/data_c ${N64_INCLUDES})
+target_compile_definitions(game_data PRIVATE ${N64_DEFINES})
+target_compile_options(game_data PRIVATE ${N64_FLAGS})
+add_dependencies(game_data BEPass)
+if(N64_LAUNCHER)
+    set_target_properties(game_data PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
 
 # ---- the translated handwritten engine (host side) ---------------------------
@@ -813,49 +812,6 @@ if(PORT_MOVABLE)
     else()
         set(LLC_RELOC -relocation-model=static)
     endif()
-    # the data files as IR (tools/asm2ll.py), from what asm2x86.py made,
-    # with the N64 side's triple and data layout (as clang has them for
-    # its flags; port-ilp32's are its target's)
-    if(PORT_64BIT AND NOT PORT_LP64)
-        set(N64_PROBE --target=${PORT_TRIPLE})
-    else()
-        set(N64_PROBE ${M32})
-        if(CMAKE_C_COMPILER_TARGET)
-            list(APPEND N64_PROBE --target=${CMAKE_C_COMPILER_TARGET})
-        endif()
-    endif()
-    # (the N64 side's compiler: under emscripten the system clang, for i386)
-    if(EMSCRIPTEN)
-        set(N64_PROBE_CC ${PORT_N64_CC})
-    else()
-        set(N64_PROBE_CC ${CMAKE_C_COMPILER})
-    endif()
-    execute_process(COMMAND ${N64_PROBE_CC} ${N64_PROBE} -S -emit-llvm -o - -x c /dev/null
-        OUTPUT_VARIABLE N64_PROBE_LL COMMAND_ERROR_IS_FATAL ANY)
-    if(NOT N64_PROBE_LL MATCHES "target datalayout = \"([^\"]*)\"")
-        message(FATAL_ERROR "no data layout from ${N64_PROBE_CC} ${N64_PROBE}")
-    endif()
-    set(N64_DATALAYOUT ${CMAKE_MATCH_1})
-    if(PORT_64BIT AND NOT PORT_LP64)
-        set(N64_TRIPLE ${PORT_TRIPLE})
-    elseif(N64_PROBE_LL MATCHES "target triple = \"([^\"]*)\"")
-        set(N64_TRIPLE ${CMAKE_MATCH_1})
-    else()
-        message(FATAL_ERROR "no triple from ${CMAKE_C_COMPILER} ${N64_PROBE}")
-    endif()
-    message(STATUS "the N64 side: ${N64_TRIPLE}")
-    set(DATA_LL)
-    foreach(s ${DATA_X86})
-        get_filename_component(n ${s} NAME_WE)
-        get_filename_component(d ${s} NAME)
-        string(REGEX REPLACE "\\.s$" ".ll" d ${d})
-        add_custom_command(OUTPUT ${GEN}/data_ll/${d}
-            COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2ll.py ${GEN}/data_ll/${d} ${s} ${GEN}/n64_syms.txt
-                    ${N64_TRIPLE} ${N64_DATALAYOUT}
-            DEPENDS ${s} ${GEN}/n64_syms.txt ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2ll.py)
-        list(APPEND DATA_LL ${GEN}/data_ll/${d})
-    endforeach()
-    file(MAKE_DIRECTORY ${GEN}/data_ll)
     set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt -port-arena-header=${GEN}/arena_syms.h
         -port-arena-fn-values=${GEN}/fn_values.txt)
     if(PORT_NATIVE_ENDIAN)
@@ -873,11 +829,13 @@ if(PORT_MOVABLE)
         list(APPEND ARENA_FLAGS -port-arena-no-runs)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h ${GEN}/arena.img ${GEN}/arena_map.txt
-        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${NOPOLL_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${ENGINE_OBJECTS} ${DATA_LL}
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${NOPOLL_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${ENGINE_OBJECTS}
+                "$<TARGET_OBJECTS:game_data>"
         COMMAND ${CMAKE_COMMAND} -E env PORT_ARENA_MAP=${GEN}/arena_map.txt
                 ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
-        DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS} BEPass ${DATA_LL} ${GEN}/n64_syms.txt
+        DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS} BEPass
+                game_data $<TARGET_OBJECTS:game_data> ${GEN}/n64_syms.txt
                 ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
@@ -1069,7 +1027,7 @@ if(PORT_MOVABLE)
     target_compile_definitions(host PRIVATE PORT_MOVABLE)
     target_compile_definitions(recomp PRIVATE PORT_MOVABLE)
     target_compile_options(recomp PRIVATE "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/include/port_arena.h")
-    # the names of the version's N64 link (port-arena, asm2ll.py) and their
+    # the names of the version's N64 link (port-arena) and their
     # addresses for the host's code (PORT_VAR)
     add_custom_command(OUTPUT ${GEN}/n64_syms.txt ${GEN}/n64_syms.h
         COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py table ${GEN}/n64_syms.txt

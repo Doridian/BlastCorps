@@ -55,9 +55,9 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 
 | # | Origin | What | Size (us.v10) | Where it enters |
 |---|---|---|---|---|
-| 1a | ROM bytes | hd_code and hd_front_end `.data`/`.rodata` from splat's extraction: menu structures, display lists, text tables, libultra's VI modes | ~38 K (+353 K bss) | `blastcorps/asm/data/**` → `asm2x86.py` / `asm2ll.py` |
+| 1a | ROM bytes | hd_code and hd_front_end `.data`/`.rodata` from splat's extraction: menu structures, display lists, text tables, libultra's VI modes | ~38 K (+353 K bss) | `blastcorps/asm/data/**` → `port/tools/asm2c.py` → C generated in the build directory |
 | 1b | ROM bytes | the two pointer-bearing data islands (7D9D0, 800DC) | 8.6 K | same |
-| 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K); the microcode's text (18.3 K) is zeros in every build now (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin`, `.incbin`'d |
+| 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K); the microcode's text (18.3 K) is zeros in every build now (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin` → `asm2c.py`, C arrays |
 | 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs ~62 K, struct tables ~46 K, strings, Vtx/Gfx | ~206 K of sections | `blastcorps/src/**/*.c` |
 | 1e | all of 1a–1d as carried | the movable/wasm build's arena image, 106 runs; **not carried with `PORT_ROM_DATA`** (the default), which carries operations instead (row 4e) | 192 K (`PORT_ROM_DATA=OFF`) | `bepass/Arena.cpp` `writeImage()` |
 | 2 | translated ROM code | **none in the default build** (2026-10-02): Rare's handwritten engine (688 functions, 220 K of MIPS) and jp's 17 IDO `GLOBAL_ASM` functions and `func_802BA3E8_jp` are hand-written C in `port/engine` (row 4g); the translation is compiled only into the check build (`PORT_ENGINE_CHECK`), which runs it against the native code, and `test.py quick` fails any other build that compiles or links it | — (was ~1.1–1.4 MB of host code) | (`tools/recomp` → `blastcorps/build/recomp/src`, check build only) |

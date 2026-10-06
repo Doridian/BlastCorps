@@ -172,10 +172,9 @@ def table(out):
     for a function, D for anything else; the size nm knows, or 0),
     hd_code's first, then the front end's, then init's: what port-arena
     resolves the N64 side's names to in the movable build
-    (bepass/Arena.cpp), and what asm2ll.py declares them as.  Also OUT's .h
-    twin, PORT_N64_<name> for the data names, for the host (each unless
-    port-arena's own header, which the LP64 build's moved variables are in,
-    has it)."""
+    (bepass/Arena.cpp).  Also OUT's .h twin, PORT_N64_<name> for the data
+    names, for the host (each unless port-arena's own header, which the
+    LP64 build's moved variables are in, has it)."""
     seen = {}
     for m in MODULES + ("init",):
         elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
