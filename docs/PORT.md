@@ -434,9 +434,12 @@ What port-ilp32 does to the i386 module:
   past their end on purpose).  Variable offsets already do, by the rule
   above; the constant ones are all on incomplete arrays (84 accesses in 11
   files, `PORT_ILP32_STATS=2` lists them).
-- **K&R calls behave as on the N64.**  The decompiled C declares the same
+- **K&R calls behave as on the N64.**  The decompiled C declared the same
   function differently in different files, which on MIPS (and i386) is
-  harmless and on x86-64 isn't.  Three rules make it so again: pointer
+  harmless and on x86-64 isn't.  Every function is declared once now
+  (`blastcorps/include/functions.h`), so a direct call has its callee's
+  type; what is left for these rules is a call through a function pointer
+  of another type.  Three rules make it so again: pointer
   arguments are re-zero-extended on entry (a caller may have passed an
   `int`); a `u8`/`s8`/`u16`/`s16` result is returned extended to 32 bits
   (`00000.c` declares `s32 func_8028653C(void)`, `41930.c` defines it
@@ -1327,7 +1330,7 @@ What port-arena does, in order:
    by renaming in the module; the replay hooks' `__builtin_return_address`
    (WebAssembly has none) becomes a caller id the pass passes.
 7. **Calls whose type isn't the callee's.**  The decompiled C's K&R
-   declarations disagree between files: 405 direct calls to 70 functions
+   declarations disagreed between files: 405 direct calls to 70 functions
    in us.v10 (`s32 f()` called for a `u8 f()`, a `u8` parameter passed an
    `int`, a pointer passed where the definition has an `s32`), plus 19 to
    translated functions and a variadic declaration of a function defined
@@ -1336,7 +1339,10 @@ What port-arena does, in order:
    another type at all (the backend makes a trap).  The pass rewrites
    each to the definition's type, converting the arguments as the N64's
    registers carry them, and the glue's prototypes are the declarations
-   for the translated code.
+   for the translated code.  Since every function is declared once, with
+   its definition's type (`blastcorps/include/functions.h`), there are
+   none: `PORT_ARENA_STATS=1` counts 0 calls made with their callee's
+   type in `m64`, `mlp64` and `mn32`, and `=2` would name each.
 8. **Pointer arguments to the host** are an error: the host's interface
    takes N64 addresses (`uint32_t`), as most of it already does.  What
    doesn't yet: `host_input`, `host_save_order`, `libc64.c`'s copies and
@@ -1504,8 +1510,9 @@ make one object.  port-arena, over the whole program:
   `replay.c` uses instead of looking the return address up in the port's
   symbol table, as the other builds do);
 - first of all, makes every direct call with its callee's type: the
-  decompiled C's K&R declarations disagree between files (449 calls in
-  us.v10's 64-bit build, 417 in the 32-bit one).  The arguments are
+  decompiled C's K&R declarations disagreed between files (449 calls in
+  us.v10's 64-bit build, 417 in the 32-bit one; none since
+  `functions.h`, `PORT_ARENA_STATS=2` lists any).  The arguments are
   truncated or extended as the N64's registers would carry them (a
   missing one is zero), a variadic callee gets the rest as they are
   (34430.c declares `func_8029A7E4` with four parameters), and the result

@@ -593,6 +593,7 @@ extern u16 D_80367C68[];
 extern u16 D_80367CB8[];
 
 #ifdef VERSION_JP
+void func_80262840(void);
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/1D990/func_80262840.s")
 #else
 void func_80262840(void) {

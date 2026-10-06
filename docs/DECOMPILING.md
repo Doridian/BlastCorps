@@ -436,6 +436,29 @@ scheme and the tools). What mattered getting them to match:
   Likewise us.v10 links 9570 after 17990, which showed that the 0x80 bytes
   before 9570's `.bss` are 9570's, not 7800's.
 
+## Functions (include/functions.h)
+
+Every function that another file calls is declared once, in
+`blastcorps/include/functions.h`, with its definition's type; the files
+include it and don't declare those themselves, so IDO and the port's
+clang check each call and definition against it.  It is grouped by the
+object that defines the function, in us.v11's order, and a type that
+differs between versions is `#if`'d there.  A function only its own file
+uses is declared in that file (prototyped: the port's build rejects `()`
+declarations, calls without a prototype and implicit declarations).
+
+- The handwritten code's functions are declared as port/engine's C
+  defines them, and port/engine includes the header too, so the two
+  can't drift apart.
+- The game's structs are named by their tags (`struct FrameBuf *`), with
+  forward declarations at the top, so the header needs no other and
+  declares no data.  A struct a prototype names needs a tag.
+- Where the files disagreed (281 declarations of 136 functions), the
+  definition's type was the one to keep: with it every caller still
+  compiled the same, in all four versions.  The exceptions were the
+  handwritten code's: `func_802C4E58`'s result is unsigned (a caller
+  compares it so), and `func_8029E0AC` takes nothing (it reads `$fp`).
+
 ## Shared types (include/game/)
 
 The game's structures have one definition each, in `blastcorps/include/game/`

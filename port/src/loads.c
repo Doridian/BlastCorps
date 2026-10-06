@@ -20,10 +20,11 @@
 #include "functions.h"
 #include "port.h"
 
-void __real_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap);
-void __real_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method);
+/* the wrapped functions' types, functions.h's */
+__typeof__(func_8025C230) __real_func_8025C230, __wrap_func_8025C230;
+__typeof__(func_8028B4C4) __real_func_8028B4C4, __wrap_func_8028B4C4;
 
-void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap) {
+void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, struct huft *heap) {
     u8 *s = *src, *d = *dst;
 
     host_loading(1);
@@ -32,7 +33,7 @@ void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap) {
     host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d));
 }
 
-void __wrap_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method) {
+void __wrap_func_8028B4C4(u32 rom, u8 *PTR32 dst, u32 *len, u8 bits, u8 bits2, u8 method) {
     host_loading(1);
     __real_func_8028B4C4(rom, dst, len, bits, bits2, method);
     host_loading(0);

@@ -404,27 +404,32 @@ if(PORT_NATIVE_ENDIAN)
     # raises their alignment, which would move them off their N64 addresses
     list(APPEND M32 -fno-vectorize -fno-slp-vectorize)
 endif()
-# The decompiled C is IDO's dialect: K&R definitions, implicit
-# declarations, prototypes that differ between files, pointers and ints
-# used interchangeably.  These flags make clang accept it and not optimise
-# on the undefined behaviour it is full of.  (-fsigned-char: IDO's -signed,
-# which AArch64 Linux doesn't have by default.)
+# The decompiled C is IDO's dialect: pointers and ints used
+# interchangeably, narrow and wide types mixed.  These flags make clang
+# accept it and not optimise on the undefined behaviour it is full of.
+# (-fsigned-char: IDO's -signed, which AArch64 Linux doesn't have by
+# default.)  Its functions are declared once, with their definitions'
+# types (blastcorps/include/functions.h), and that stays so: a declaration
+# or definition without a prototype, a call without one, an implicit
+# declaration and a non-void function that doesn't return are errors (two
+# declarations that disagree are anyway).
 set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks
     -ftrivial-auto-var-init=zero -ffp-contract=off -fno-common -fno-builtin
     -nostdinc -isystem ${CLANG_RESOURCE_DIR}/include -fpass-plugin=${BEPASS}
     -include ${CMAKE_CURRENT_SOURCE_DIR}/include/port_game.h
     -Wall -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
     -Wno-unused-label -Wno-unused-value -Wno-missing-braces -Wno-pointer-sign
-    -Wno-parentheses -Wno-dangling-else -Wno-deprecated-non-prototype
+    -Wno-parentheses -Wno-dangling-else
+    -Werror=deprecated-non-prototype -Werror=strict-prototypes -Werror=implicit-function-declaration
+    -Werror=return-type -Werror=return-mismatch
     -Wno-incompatible-library-redeclaration -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast
-    -Wno-implicit-int -Wno-return-type -Wno-uninitialized -Wno-sometimes-uninitialized
+    -Wno-implicit-int -Wno-uninitialized -Wno-sometimes-uninitialized
     -Wno-comment -Wno-tautological-constant-out-of-range-compare
     -Wno-constant-conversion -Wno-switch -Wno-array-bounds -Wno-shift-count-overflow
     -Wno-self-assign -Wno-parentheses-equality -Wno-tautological-compare -Wno-empty-body
     -Wno-unknown-pragmas -Wno-main-return-type -Wno-shift-negative-value -Wno-builtin-requires-header
     -Wno-error=incompatible-pointer-types -Wno-incompatible-pointer-types
-    -Wno-error=int-conversion -Wno-int-conversion -Wno-error=implicit-function-declaration
-    -Wno-error=return-mismatch -Wno-return-mismatch -Wno-incompatible-function-pointer-types
+    -Wno-error=int-conversion -Wno-int-conversion -Wno-incompatible-function-pointer-types
     -Wno-implicit-const-int-float-conversion -Wno-pointer-bool-conversion
     -Wno-string-plus-int -Wno-null-pointer-arithmetic -Wno-gnu-folding-constant
     -Wno-macro-redefined -Wno-ignored-pragma-intrinsic)   # (IDO's sqrtf, not one on AArch64)
@@ -556,7 +561,7 @@ file(GLOB PORT_N64_C ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
 add_library(port_n64 OBJECT ${PORT_N64_C})
 target_include_directories(port_n64 PRIVATE ${N64_INCLUDES})
 target_compile_definitions(port_n64 PRIVATE ${N64_DEFINES})
-target_compile_options(port_n64 PRIVATE ${N64_FLAGS} -Wno-implicit-function-declaration)
+target_compile_options(port_n64 PRIVATE ${N64_FLAGS})
 target_compile_definitions(port_n64 PRIVATE PORT_FE_DATA=${PORT_FE_DATA} PORT_FE_BSS=${PORT_FE_BSS})
 add_dependencies(port_n64 BEPass)
 set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
