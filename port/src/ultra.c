@@ -15,6 +15,7 @@
 #include <ultra64.h>
 #include <PR/rcp.h>
 #include "port.h"
+#include "functions.h"
 
 /* ---- globals libultra defines ------------------------------------------ */
 

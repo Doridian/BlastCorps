@@ -7,6 +7,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ char *PTR32 unk0[4];   /* (PTR32: jp's func_801E8EB8, still asm, reads them) */
@@ -27,35 +28,9 @@ typedef struct {
 } UnkStruct_8020849C; /* size = 0x5 */
 
 /* 0x1C-byte records; hd_code walks the same array through D_8036BB10. */
-void func_801E8DCC(u8);
-void func_801E8EB8(u8, u8);
-void func_801E93DC(u8);
 u16 func_801E9528(void);
 void func_801EA268(PlayerInfo *);
-Gfx *func_801EC49C(Gfx *, s32, s32, u8);
 void func_801ED480(u8 *, u8 *);
-u8 func_801EF2BC(u16, u8, u8);
-void func_801F8354(u8);
-void func_801FE018(s32);
-void func_80259BD4(Gfx **, FrameBuf *);
-void func_80259CCC(s32, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_80259DC8(s32, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-s32 func_8025B300(u8 *);
-s32 func_8025B370(u16 *);
-s32 func_8025B3F0(u8 *, u8 *);
-char *func_8025B558(u16 *);
-void func_80260650(SndBank *, s32, s32);
-void func_80261570(f32);
-void func_80264A34(char *, u16, s32);
-void func_8026AF6C(s32);
-u8 func_80272C5C(u16 *, u16 *, u8, u8, u8, f32);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
-void func_80275270(u64, f32);
-s32 func_802753C0(void);
-Gfx *func_80275DA4(Gfx *, u8);
-s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
 
 /* .bss, 0x80215440-0x80215960 (tools/bss_c.py) */
 #if defined(VERSION_JP) || defined(VERSION_EU)
@@ -152,10 +127,6 @@ f32 D_80215948;
 f32 D_8021594C;
 f32 D_80215950;
 #endif
-
-s32 func_80276130(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
-                  u8, u8, u8, u8);
-void func_8029A7E4(char *, ...);
 
 extern Lights2 D_80208470;
 extern u16 D_802082D8[];

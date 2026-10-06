@@ -17,12 +17,6 @@ extern char D_8036B980[];
 extern u16 D_802F4880[];
 extern u16 D_802E8CA0[];
 
-void func_801E8DCC(u8);
-u8 func_801EEDB4(u8, u8, u8);
-u32 func_802852EC(void);
-u16 *func_8025B5D4(u16 *, u16 *, u16 *, s32);
-void func_8029A7E4(char *, ...);
-
 /* a level's results into the player's record: the medal (returned), the
    units it brings, the time; *arg0 set when the rank goes up */
 u8 func_801EE800(u8 *arg0, u8 arg1, u8 arg2) {

@@ -4,16 +4,9 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 f32 sqrtf(f32);
-s32 func_801FE760(s32);
-u8 func_80264BA4(u8);
-void func_801FD484(f32 *, f32 *, f32 *, f32 *, f32 *, f32);
-void func_802595E0(void *, s32, s32, void *);
-void func_801F374C(UnkStruct_8020BD30 *);
-void func_801F4878(Gfx *, u8 *);
-void func_801F4C3C(UnkStruct_8020BD30 *, f32);
-s32 func_801F36B0(s32 *, s32 *);
 
 extern f32 D_8020BDE4;
 extern f32 D_8020BDEC;
@@ -35,17 +28,10 @@ extern f32 D_8021A918;
 extern f32 D_8021A91C;
 extern f32 D_8021A920;
 
-Gfx *func_801F3964(Gfx *, u8 *, UnkStruct_8020BD30 *, f32);
-Gfx *func_801F4110(Gfx *, u8 *, UnkStruct_8020BD30 *, f32);
-Gfx *func_801FE238(Gfx *, u8 *);
-void func_801FCE74(Vtx *, s32, f32, f32, s32, s32, f32, s32);
 
 extern FrameGame D_803156F8[];
 extern Vtx D_02000000[];
 
-s32 func_8026A828(s32, s32);
-void func_801FDCA4(Vtx *, s32, s32);
-void func_8027690C(u8 *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7, Mtx *arg8, f32 arg9);
 
 extern Vtx D_80217690[][2][4];
 extern f64 D_8020F0A0; /* 10000.0 */
@@ -53,8 +39,6 @@ extern f64 D_8020F0A8; /* 10000.0 */
 extern u8 D_0066C900[];
 extern u8 D_0068B550[];
 
-void func_8028B4C4(u32 arg0, u8 *arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5);
-void func_801F0570(void);
 
 typedef struct {
     /* 0x00 */ Gfx *unk0[9];

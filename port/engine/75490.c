@@ -82,12 +82,6 @@ extern u8 D_803643D6, D_803643D8;
 extern u8 D_803A7424, D_803A7426;           /* the collision walk hit something (77E20, 56040) */
 extern Part *PTR32 D_803F77D0;
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80260AB8(SndState *state, s16 type, s32 param);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_80278318(void);
-
 /* 60F60.c's */
 REGS()
 void func_802A5E60(void);
@@ -102,12 +96,6 @@ void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *v
 REGS(t0, t1, t2 -> a1)
 s32 func_802AC0BC(s32 x, s32 z, s32 y);
 
-void func_802BA148(void);
-void func_802BA354(void);
-void func_802BB054(void);
-u8 func_802BB170(void);
-void func_802BB1A0(void);
-void func_802BB274(void);
 void func_802BA074(void);
 void func_802BA104(void);
 void func_802BA5A4(void);

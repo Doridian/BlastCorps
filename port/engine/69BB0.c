@@ -43,16 +43,10 @@ extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
 extern Part *PTR32 D_803F77D0;
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_802582C4(u8 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7);
-s32 func_8026A8E0(s32 lo, s32 hi);
-void func_8028F994(s32 x, s32 y, s32 z);
 REGS(t3, t6, t7, s0, s1, s2, s3, s4, gp -> t2, t3, s3)
 s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, s32 rate, u16 *h, VS *vs,
                   s32 *step_out, s32 *rate_out);
 
-void func_802AEEC8(void);
 static void driver_frame(void);
 REGS()
 void func_802AEE84(void);

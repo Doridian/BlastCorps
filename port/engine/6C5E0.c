@@ -59,14 +59,6 @@ extern u8 D_80305CF0[];                         /* its parts' collision (56040's
 extern u8 D_802C2308[];                         /* its head (56040's list) */
 extern u8 D_802C2984[];                         /* the dust's effect record (60F60) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_80278EB0(s32 a, f32 b, s32 c);
-void func_802794A4(void);
-s32 func_8026A8E0(s32 lo, s32 hi);
-
-void func_802B152C(void);
 void func_802B14E8(void);
 REGS(gp)
 void func_802B18F4(VS *vs);

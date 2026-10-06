@@ -6,9 +6,8 @@
  * calls osInitialize, creates the idle thread and starts it.
  */
 #include "common.h"
+#include "functions.h"
 #include "port.h"
-
-void func_802447C0(void);
 
 static OSThread boot_thread;
 static u64 boot_stack[0x400];

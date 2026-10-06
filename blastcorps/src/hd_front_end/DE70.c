@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/frame.h"
 #include "game/game.h"
+#include "functions.h"
 
 /* A loaded asset's header: the fields are offsets from its start. */
 typedef struct {
@@ -12,14 +13,6 @@ typedef struct {
     /* 0x1C */ s32 unk1C;
     /* 0x20 */ s32 unk20;
 } UnkStruct_801F4E70;
-
-void func_802A0700(void);
-void func_802A08B4(void *, void *);
-void func_8028B4C4(u32 arg0, u8 *arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5);
-void func_80202100(s32, void *, void *, void *);
-void func_80202270(UnkStruct_801F4E70 *, void *, void *);
-void func_802021FC(void *, void *, void *);
-void func_802022EC(void *, s32, s32, s32, f32, s32, s32);
 
 extern u8 D_006E8980[];
 extern u8 D_006EA850[];

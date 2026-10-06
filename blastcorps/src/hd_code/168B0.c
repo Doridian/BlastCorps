@@ -1,11 +1,7 @@
 #include "common.h"
+#include "functions.h"
 
 extern u8 D_8039CAF0[][0x200];
-
-void func_8029A7E4(char *, ...);
-void func_802A1040(u16, u8 *, s32);
-s32 func_8025B300(u8 *arg0);
-s32 func_8025B370(u16 *arg0);
 
 /* .bss, 0x80365360-0x80365580 (tools/bss_c.py) */
 u8 D_80365360[0x50];

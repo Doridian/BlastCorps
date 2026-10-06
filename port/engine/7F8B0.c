@@ -14,11 +14,6 @@
 #include "game/audio.h"
 #include "game/vehicle.h"
 
-void func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *arg2);
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80260AB8(SndState *state, s16 type, s32 param);
-
 extern u8 *PTR32 D_803F7830;    /* the gzip call's source and destination */
 extern u8 *PTR32 D_803F7834;
 extern s16 D_803F7840;          /* the engine sound's last speed */

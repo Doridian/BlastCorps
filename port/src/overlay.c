@@ -19,6 +19,7 @@
  * The link wraps func_8028B3E0 (--wrap) with this.
  */
 #include "common.h"
+#include "functions.h"
 #include "port.h"
 
 #define FE_START 0x801E7000     /* the overlay area */
@@ -30,9 +31,6 @@
 
 extern u8 D_80370C50;           /* "front end loaded" */
 extern u32 *D_802FDB30, *D_802FDB34;    /* the compressed front end's ROM range */
-void func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 arg3, u8 arg4, u8 arg5);
-void func_801F57B0(void);
-void func_8029A7E4(char *, ...);
 extern void *memmove(void *, const void *, unsigned int);
 extern void *memset(void *, int, unsigned int);
 

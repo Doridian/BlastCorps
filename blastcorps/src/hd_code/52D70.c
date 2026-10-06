@@ -2,11 +2,9 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 extern s32 D_802FA268;
-
-u8 func_8029766C(u8 arg0, u8 *arg1);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
 
 /* .bss, 0x8039CAB0-0x8039CAD0 (tools/bss_c.py) */
 s16 D_8039CAB0;

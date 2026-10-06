@@ -7,6 +7,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* Element type of the arrays D_8036BB10 points at. */
 
@@ -31,20 +32,6 @@ extern u8 D_802F499A[];
 #endif
 #define FRAMES(n) ((n) * REFRESH_RATE / 60)
 
-void func_8026AF6C(u16 arg0);
-void func_8029A7E4(char *, ...);
-s32 func_80270A54(Rdu *arg0);
-char *func_8025B558(u16 *);
-void func_8026BA7C(YoshiWindow *arg0);
-s32 func_8026F92C(u64);
-u8 func_8026FA38(char **, u16 **);
-void func_8026FB50(YoshiWindow *);
-u16 func_8026F8A8(u16, u16, u16, u16);
-void func_8026A5CC(u64 *dst, u64 *src, s32 size);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-void func_802AC544(s32, s32, s32);
-void func_80260650(SndBank *, u16, s32);
-u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
 
 /*
  * YoshiWindow and dialogue text, reached only through the pointer tables in this
@@ -3081,12 +3068,8 @@ extern u8 D_8036BAE8[];
 extern s16 D_8036BB0C;
 extern s8 D_8036BB0E;
 extern u16 D_8036BB16;
-s32 func_80297EF8(s32);
 
-/* K&R definition: it reads its u8 argument back from the stack slot. */
-void func_8026B118(arg0)
-    u8 arg0;
-{
+void func_8026B118(u8 arg0) {
     YoshiWindow *sp44;
     UnkStruct_802F48D0 *sp40;
     u8 sp3F;
@@ -3259,13 +3242,11 @@ void func_8026BA7C(YoshiWindow *arg0) {
 
 Gfx *func_8026BCE0(Gfx *, FrameBuf *, s32 *);
 
-#ifdef TARGET_PC
 /* The callers use the result, which on the N64 is whatever is left in v0:
-   func_8026BCE0's return value. */
+   func_8026BCE0's return value.  The port returns that. */
 Gfx *func_8026BBD0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
+#ifdef TARGET_PC
     Gfx *ret;
-#else
-void func_8026BBD0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
 #endif
     Gfx *gfx;
 
@@ -3306,25 +3287,6 @@ extern s8 D_80370C11;
 extern s8 D_80370C12;
 extern s8 D_80370C13;
 extern s8 D_80370C14;
-f32 func_802574F0(f32);
-void func_80259BD4(Gfx **, FrameBuf *);
-void func_80259DC8(FrameBuf *, void *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32,
-                   s32, s32, s32);
-s32 func_8025B498(s16, u16, char *, u16 *);
-void func_8026EF70(YoshiWindow *);
-void func_80261570(f32);
-void *func_8026F004(YoshiWindow *, u16, u8);
-u8 func_8026F644(UnkStruct_8026F644 *, u16 *, s16);
-u16 func_8026F82C(u16, u16, u16);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274998(Gfx *);
-Gfx *func_80274AA4(Gfx *);
-Gfx *func_80274B08(Gfx *);
-Gfx *func_80275DA4(Gfx *, u8);
-s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
-s32 func_80276130(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
-                  u8, u8, u8, u8);
 
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/26570/func_8026BCE0.s")

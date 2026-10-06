@@ -30,8 +30,6 @@ extern f32 D_803EBBF0, D_803EBBF4;
 extern Part *PTR32 D_803F77D0;
 extern u8 D_80306410[];                         /* their parts' collision (56040's func_8029A800) */
 
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_802C8BB8(u8 type);
 REGS(gp)
 void func_802C95D8(VS *vs);
 void func_802C9B30(void);

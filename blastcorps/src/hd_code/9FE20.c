@@ -1,4 +1,5 @@
 #include "common.h"
+#include "functions.h"
 
 /* alFxParamHdl is func_802E4C78. */
 #define alFxParamHdl func_802E4C78

@@ -313,7 +313,6 @@ extern s16 D_803EB790;          /* ... in 0x1010-byte pieces */
 extern u8 D_803EB792;
 extern u8 D_8020ED00[], D_8021DD00[];
 extern char D_80305C34[], D_80305C48[];
-void func_8029A7E4(char *, ...);
 REGS(t6, s1)
 void func_802A11C4(u32 id, u32 dst);
 
@@ -484,8 +483,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 
 extern u32 D_80305C10[];        /* the animations kept in the heap's pieces, 0 at the end */
 extern Gfx *PTR32 D_803EB780, *PTR32 D_803EB784;   /* the effects' two display lists */
-Gfx *func_80257540(Gfx *gfx);
-Gfx *func_802575F4(Gfx *gfx, s32 arg1, s32 arg2, s16 arg3, s32 arg4, s32 arg5, s32 arg6);
 REGS(t6, s1, fp)
 void func_802A1074(u32 id, u32 dst, u32 param);
 

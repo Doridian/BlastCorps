@@ -31,7 +31,7 @@ typedef struct { u16 id, n; } Blk;
 
 /* 5CB60: model n loaded; a vehicle's record from its model */
 REGS(t3 -> s2)
-u8 *func_802A396C(s32 n);
+u32 func_802A396C(u32 type);
 REGS(a0, a1, v0, v1, s2)
 void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model);
 /* 56040 */
@@ -54,7 +54,7 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
     s32 o1, o2;
 
     ENGINE_BLK(80202100);
-    model = (Model *)func_802A396C(type);
+    model = (Model *)(__UINTPTR_TYPE__)func_802A396C(type);
     ENGINE_BLK(80202158);
     rec[0] = (u32)model;
     heap = D_80358070;

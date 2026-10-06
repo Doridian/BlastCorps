@@ -80,18 +80,6 @@ extern Part *PTR32 D_803F77D0;
 extern s32 D_80368030, D_80368044, D_80368048;
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80260AB8(SndState *state, s16 type, s32 param);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_802582C4(u8 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7);
-void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s32 arg6, s32 arg7, s16 arg8, u8 arg9,
-                   u8 arg10, u8 arg11, u8 arg12);
-s32 func_8026A610(s32 x0, s32 z0, s32 x1, s32 z1);
-void func_8026AF6C(u16 arg0);
-void func_80275390(u64);
-void func_8029A7E4(char *, ...);
-
 /* 60D50.c's */
 REGS(a0)
 void func_802A5604(LevelHeader *level);
@@ -99,7 +87,6 @@ void func_802A5604(LevelHeader *level);
 REGS(v0, t0, t1, t2, t8, gp, fp -> t3)
 s32 func_802A9B1C(s32 i, s32 x, s32 z, s32 y, s32 self, VS *vs, s32 mat);
 
-void func_802B7A88(void);
 void func_802B78B0(void);
 REGS(gp)
 void func_802B7F98(VS *vs);
@@ -111,7 +98,6 @@ REGS(gp -> s3)
 s32 func_802B83B0(VS *vs);
 REGS()
 void func_802B8424(void);
-void func_802B899C(void);
 static void chopper_frame(void);
 REGS(gp)
 void func_802B8C18(VS *vs);

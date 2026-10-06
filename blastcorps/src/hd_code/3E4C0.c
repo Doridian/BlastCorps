@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/sched.h"
 #include "game/camera.h"
+#include "functions.h"
 
 
 extern Mtx D_02000000[];
@@ -15,10 +16,7 @@ extern f32 D_80364414;
 extern s16 D_803F767C;
 extern s16 D_803F7680;
 
-s32 func_802AD7D4(s32);
-s32 func_8026A610(s32, s32, s32, s32);
-void func_802C1B9C(void);
-f32 func_80284ADC();
+f32 func_80284ADC(s16, s16, s16, s16);
 
 /* .bss, 0x8036E5E0-0x8036E660 (tools/bss_c.py) */
 Mtx D_8036E5E0[2];
@@ -318,13 +316,7 @@ void func_8028376C(Gfx **arg0, Mtx *arg1, u8 arg2, s32 arg3, s32 arg4, s32 arg5,
     *arg0 = gfx;
 }
 
-/* K&R definition: callers pass the coordinates as ints. */
-f32 func_80284ADC(arg0, arg1, arg2, arg3)
-    s16 arg0;
-    s16 arg1;
-    s16 arg2;
-    s16 arg3;
-{
+f32 func_80284ADC(s16 arg0, s16 arg1, s16 arg2, s16 arg3) {
     f32 dist;
 
     dist = sqrtf((arg2 - arg0) * (arg2 - arg0) + (arg3 - arg1) * (arg3 - arg1));
@@ -343,4 +335,7 @@ f32 func_80284ADC(arg0, arg1, arg2, arg3)
     if (arg2 < arg0 && arg3 >= arg1) {
         return (func_802AD7D4((arg3 - arg1) * 65535.9 / dist) + 0xC000) / 65536.0 * 360.0;
     }
+#ifdef TARGET_PC
+    return 0.0f;    /* not reached: the four quadrants are all of them */
+#endif
 }

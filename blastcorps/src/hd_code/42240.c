@@ -1,15 +1,13 @@
 #include "common.h"
 #include "game/vehicle.h"
 #include "game/game.h"
+#include "functions.h"
 
 extern s16 D_80367BD6;
 /* Segment 2 base, reached through a relocation, not a constant. */
 extern Mtx D_02000000[];
 
 
-void func_802A0CC8(s32, s32);
-void func_8026A378(s16, s32 *);
-void func_80259DC8(s32, s32 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
 
 /* .bss, 0x8036EC00-0x8036EC30 (tools/bss_c.py) */
 u8 *D_8036EC00;

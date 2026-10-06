@@ -80,8 +80,11 @@ All of this is IDO 5.3 at `-O1` unless it says otherwise.
 - An argument that's `lw`'d from its stack slot and truncated at use is `s32`,
   not `s16`. `andi a0,a0,0xff` at entry means a `u8` parameter.
 - A function that reads its own arguments back from their stack slots as
-  bytes, or whose callers pass narrow values unconverted, is probably a K&R
-  (non-prototype) definition. Declare it `s32 func();`.
+  bytes, or whose callers pass narrow values unconverted, looks like a K&R
+  (non-prototype) definition, but a prototype with the narrow types compiles
+  the same: the 13 the decompilation had as K&R all do, in every version.
+  Write it as one, and declare it in `include/functions.h` if another file
+  calls it (below).
 - m2c shows a 64-bit global as two 32-bit ones (`D_X` and `D_X+4`). If the
   code uses `ld`/`sd` or 64-bit compares, it's one `s64`/`u64`. A
   `(x & 0) || ...` shape in m2c is a u64 mask test.
@@ -432,6 +435,29 @@ scheme and the tools). What mattered getting them to match:
   4B450.c); their data blocks were at the ends of the previous object's.
   Likewise us.v10 links 9570 after 17990, which showed that the 0x80 bytes
   before 9570's `.bss` are 9570's, not 7800's.
+
+## Functions (include/functions.h)
+
+Every function that another file calls is declared once, in
+`blastcorps/include/functions.h`, with its definition's type; the files
+include it and don't declare those themselves, so IDO and the port's
+clang check each call and definition against it.  It is grouped by the
+object that defines the function, in us.v11's order, and a type that
+differs between versions is `#if`'d there.  A function only its own file
+uses is declared in that file (prototyped: the port's build rejects `()`
+declarations, calls without a prototype and implicit declarations).
+
+- The handwritten code's functions are declared as port/engine's C
+  defines them, and port/engine includes the header too, so the two
+  can't drift apart.
+- The game's structs are named by their tags (`struct FrameBuf *`), with
+  forward declarations at the top, so the header needs no other and
+  declares no data.  A struct a prototype names needs a tag.
+- Where the files disagreed (281 declarations of 136 functions), the
+  definition's type was the one to keep: with it every caller still
+  compiled the same, in all four versions.  The exceptions were the
+  handwritten code's: `func_802C4E58`'s result is unsigned (a caller
+  compares it so), and `func_8029E0AC` takes nothing (it reads `$fp`).
 
 ## Shared types (include/game/)
 

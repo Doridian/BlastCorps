@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/sched.h"
 #include "game/game.h"
+#include "functions.h"
 
 /*
  * The older gbi.h's scissoring texture rectangle: it clamps without the
@@ -22,15 +23,7 @@
 
 extern u8 D_803B9888;
 
-void func_80257490(s32 *, s32);
-void func_802A0700(void);
-void func_802A0B00(u16, s32);
-void func_802A0EE0(u16, s32);
-
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
 Gfx *func_802742D8(Gfx *, u8, s16, s16, s32, s32, s32, f32, u8);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
 
 /* .bss, 0x8036BFE0-0x8036C770 (tools/bss_c.py) */
 s32 D_8036BFE0[0x40][2];

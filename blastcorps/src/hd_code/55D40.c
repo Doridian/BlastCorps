@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/game.h"
 #include "game/yoshi.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ s32 unk0;
@@ -101,12 +102,6 @@ UnkStruct_80304A90 D_80304A90[] = {
     { 0x41, 0x07, 0x10, "MR. ARAKAWA" },
     { 0x61, 0x07, 0x10, "HOWARD LINCOLN" },
 };
-
-void func_80259DC8(s32, char *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_80260EE0(s32);
-void func_8026AF6C(s32);
-void func_80275270(u64, f32);
-s32 func_802753C0(void);
 
 /* .bss, 0x803A6B20-0x803A6B30 (tools/bss_c.py) */
 s32 D_803A6B20;

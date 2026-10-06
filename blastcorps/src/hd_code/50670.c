@@ -4,6 +4,7 @@
 #include "game/vehicle.h"
 #include "game/frame.h"
 #include "game/game.h"
+#include "functions.h"
 
 /* A recorded replay frame: 0x14 bytes. */
 typedef struct {
@@ -28,14 +29,10 @@ typedef struct {
     /* 0x28 */ u8 unk28;
 } UnkStruct_802FF150;
 
-extern s32 func_802AC4C4(s32, s32, s32, s32, s32, s32, s32, s32);
 extern FrameGame D_02000000;
 
 void func_80295394(s32 *arg0, s32 *arg1, s32 *arg2, s16 *arg3, s16 *arg4, s16 *arg5);
-extern void func_802AA6D0(s32, s32, s32, s16, s32, s32, s32, Mtx *);
 s16 func_80295924(s16 arg0, s16 arg1, f32 arg2);
-extern void func_8029A7E4(char *, ...);
-extern s32 func_80286038(s32);
 
 extern u16 D_803C30A8[];
 

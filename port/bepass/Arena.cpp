@@ -1066,6 +1066,9 @@ struct Arena : PassInfoMixin<Arena> {
         for (CallInst *ci : work) {
             auto *callee = cast<Function>(ci->getCalledOperand());
             FunctionType *ft = callee->getFunctionType();
+            if (const char *st = getenv("PORT_ARENA_STATS"); st && atoi(st) > 1)
+                errs() << "port-arena: " << ci->getFunction()->getName() << " calls " << callee->getName()
+                       << " as " << *ci->getFunctionType() << ", not " << *ft << "\n";
             IRBuilder<> b(ci);
             std::vector<Value *> args;
             for (unsigned a = 0; a < ft->getNumParams(); a++) {

@@ -4,6 +4,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x0 */ u16 unk0[2];
@@ -20,7 +21,6 @@ typedef struct {
 } UnkStruct_802FA280; /* size = 0xC */
 
 
-void func_802A0B00(u16, s32);
 
 /* .bss, 0x8036BFC0-0x8036BFE0 (tools/bss_c.py) */
 f32 D_8036BFC0;

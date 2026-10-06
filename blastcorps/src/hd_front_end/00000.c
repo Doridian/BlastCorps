@@ -6,6 +6,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x0 */ u8 unk0;
@@ -29,16 +30,6 @@ typedef struct {
 
 /* Per-frame buffer, double-buffered by D_8035805C. */
 void func_801E74E8(u8);
-Gfx *func_80200BE0(Gfx *, FrameBuf *, s32 *);
-void func_80202100(s32, UnkStruct_80210E90 *PTR32 *, u8 *PTR32 *, Gfx *PTR32 *);
-void func_802021FC(u8 *, u8 *, u8 *);
-void func_80202270(UnkStruct_80210E90 *, u8 *PTR32 *, u8 *);
-void func_802022EC(u8 *, u8, u8, u8, f32, u8, s32);
-void func_80202380(s32);
-void func_802025D0(u8, u32);
-void func_80259450(void);
-void func_80259C24(Gfx **, FrameBuf *);
-void func_80259CCC(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
 
 /* .bss, 0x80210E90-0x80215440 (tools/bss_c.py) */
 UnkStruct_80210E90 *PTR32 D_80210E90[0x14];
@@ -63,27 +54,6 @@ s32 D_802153E8;
 #endif
 s32 D_802153EC;
 u32 D_802153F0[0x14];
-
-void func_80259DC8(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32,
-                   s32, s32, s32);
-void func_80260650(SndBank *, s32, s32);
-void func_80260A10(void);
-Gfx *func_8026BBD0(Gfx *, FrameBuf *, s32 *);
-Gfx *func_80274BF0(FrameBuf *, Gfx *);
-void func_80275390(u64);
-s32 func_802753C0(void);
-Gfx *func_80275DA4(Gfx *, u8);
-s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
-s32 func_80276130(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
-                  u8, u8, u8, u8);
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
-void func_8028A3E4(void);
-void func_8028A470(void);
-void func_8029A7E4(char *, ...);
-void func_8029DEA0(void);
-void func_8029E0AC(void);
-void func_802A5720(void);
-void func_802A57AC(void);
 
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];

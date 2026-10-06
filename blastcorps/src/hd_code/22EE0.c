@@ -1,12 +1,12 @@
 #include "common.h"
 #include "game/audio.h"
 #include "game/sched.h"
+#include "functions.h"
 
 void func_80267A9C(void *arg);
 void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo);
 void func_80267F88(AudioInfo *info);
 void func_802682A4(void);
-void func_8029A7E4(char *, ...);
 ALDMAproc func_80268254(AMDMAState **state);
 s32 func_80267FE0(s32 addr, s32 len, void *state);
 
@@ -133,11 +133,6 @@ extern u8 D_8036772A;
 extern s32 D_8036772C;
 extern u8 D_80367730;
 
-void func_80261068(void);
-void func_802611F0(void);
-void func_80261284(void);
-void func_802613C8(void);
-void func_80261528(void);
 
 void func_80267A9C(void *arg) {
     s32 done;

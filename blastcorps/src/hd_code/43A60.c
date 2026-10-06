@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/camera.h"
 #include "game/game.h"
+#include "functions.h"
 
 /* The older gbi.h this game used has no MAX(1, ...) in the 4b load-block DXT. */
 #undef TXL2WORDS_4b
@@ -53,13 +54,9 @@ typedef struct {
 extern UnkStruct_8036EC30 *PTR32 D_802C4A20[]; /* hd_code 800DC's table */
 
 
-s32 func_8026A828(s32 lo, s32 hi);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-s32 func_802AD7D4(s32);
 void func_80289EF4(Gfx **);
-u32 func_8028A0A0();
+u32 func_8028A0A0(s16);
 void func_8028A1D0(UnkStruct_8028A1D0 *, s32);
-void func_802A1040(u16, u8 *, s32);
 
 /* .bss, 0x8036EC30-0x80370BC0 (tools/bss_c.py) */
 UnkStruct_8036EC30 *D_8036EC30;
@@ -283,10 +280,7 @@ void func_802886A0(void) {
     }
 }
 
-void func_80288DF0(arg0, arg1)
-    Gfx **arg0;
-    u8 arg1;
-{
+void func_80288DF0(Gfx **arg0, u8 arg1) {
     s32 sp2FC;
     s32 sp2F8;
     Gfx *gfx;
@@ -410,9 +404,7 @@ void func_80289EF4(Gfx **arg0) {
     *arg0 = gfx;
 }
 
-u32 func_8028A0A0(arg0)
-    s16 arg0;
-{
+u32 func_8028A0A0(s16 arg0) {
     u8 found;
     s32 i;
     u8 *sp1C;

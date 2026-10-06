@@ -30,11 +30,6 @@ extern s8 D_802084C0;
 extern s32 D_802FA268;
 extern u16 D_8035807C;
 
-Gfx *func_801F4FBC(FrameBuf *, Gfx *);
-void func_80259CCC(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_80259DC8(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32,
-                   s32, s32, s32);
-
 /* the promotion screen: the badge growing in and turning, and the
    congratulations and the new rank fading in and out */
 Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {

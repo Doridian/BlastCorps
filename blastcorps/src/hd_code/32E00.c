@@ -5,6 +5,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/objects.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x0 */ s16 unk0;
@@ -73,8 +74,6 @@ s16 D_802FBE80[0x28] = {
     2292, 2292,
 };
 
-void func_8027690C(FrameBuf *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7,
-                   Mtx *arg8, f32 arg9);
 
 s32 func_80277D34(void);
 s32 func_80277E08(void);
@@ -83,18 +82,7 @@ void func_802778FC(void);
 void func_80277AE0(void);
 void func_80277B84(void);
 
-s32 func_80276130(FrameBuf *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
-                  u8 arg8, u8 arg9, u8 arg10, u8 arg11, u8 arg12, u8 arg13, u8 arg14, u8 arg15, u8 arg16, u8 arg17,
-                  u8 arg18, u8 arg19, u8 arg20, u8 arg21, u8 arg22);
 
-s32 func_8026205C(s32);
-void func_80260650(SndBank *, s32, s32);
-s32 func_8026A828(s32, s32);
-void func_802A1040(s32, s32, s32);
-s32 func_80276080(FrameBuf *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
-                  u8 arg8, u8 arg9, u8 arg10);
-void func_80277EDC();
-void func_8029A7E4(char *, ...);
 
 extern FrameBuf D_02000000;
 extern u8 D_803643D6;
@@ -329,12 +317,7 @@ s32 func_80277E08(void) {
 
 extern u8 D_8036CB44;
 
-void func_80277EDC(arg0, arg1, arg2, arg3)
-    u8 arg0;
-    u8 arg1;
-    s32 arg2;
-    u8 arg3;
-{
+void func_80277EDC(u8 arg0, u8 arg1, s32 arg2, u8 arg3) {
     u8 sp27;
 
     if ((D_80364A90 & 0x200000000400220C) && D_8036CB34 == 0) {

@@ -3,6 +3,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ s32 unk0;
@@ -17,12 +18,6 @@ extern UnkStruct_8020D7E4 D_8020D7E4[];
 
 extern u8 D_80364B80[][0x100];
 extern u8 D_80364B81[][0x100];
-
-void func_801ECC8C(void);
-void func_80200714(u8);
-void func_80255DC8(void);
-void func_80260C20(u8, f32);
-void func_8026AF6C(s32);
 
 /* .bss, 0x8036EBA0-0x8036EC00 (tools/bss_c.py) */
 char D_8036EBA0[0x60];
@@ -80,9 +75,6 @@ void func_802862DC(void) {
 }
 
 extern u8 D_80364AF8[][0x100];
-void func_8029A7E4(char *, ...);
-void func_802995F0(s32);
-void func_801F8354(u8);
 
 void func_80286330(void) {
     switch (D_80364B81[D_80364AE8][0]) {
@@ -130,10 +122,6 @@ void func_80286330(void) {
 }
 
 extern s32 D_802FA26C;
-void func_80261570(f32);
-void func_8028B3E0(void);
-void func_801ECF5C(void);
-void func_801ED4B8(void);
 
 u8 func_8028653C(void) {
     s32 sp34;

@@ -3,6 +3,7 @@
 #include "game/level.h"
 #include "game/frame.h"
 #include "game/game.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x0 */ s16 unk0;
@@ -44,24 +45,11 @@ OSViMode D_802FDB40_eu[2] = {
 };
 #endif
 
-void func_8027690C(FrameBuf *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7,
-                   Mtx *arg8, f32 arg9);
 
 
-s32 func_80276130(FrameBuf *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
-                  u8 arg8, u8 arg9, u8 arg10, u8 arg11, u8 arg12, u8 arg13, u8 arg14, u8 arg15, u8 arg16, u8 arg17,
-                  u8 arg18, u8 arg19, u8 arg20, u8 arg21, u8 arg22);
 
-s32 func_8026AD30(s32);
-void func_8026AF6C(s32);
-s32 func_802BCE40(void);
-void func_802BD10C(s32);
-Gfx *func_80275DA4(Gfx *arg0, u8 arg1);
-s32 func_80276080(FrameBuf *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
-                  u8 arg8, u8 arg9, u8 arg10);
 void func_8027656C(FrameBuf *arg0);
 s32 func_802768A8(void);
-void func_80277EDC();
 
 extern FrameBuf D_02000000;
 extern u16 D_8035807C;

@@ -4,6 +4,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 extern OSViMode D_80306E70[];
 #ifdef VERSION_EU
@@ -43,7 +44,6 @@ s32 D_8036BFBC;
 u8 D_802FA270 = 1;
 
 
-void func_8029A7E4(char *, ...);
 
 void osCreateViManager(s32);
 void __scMain(void *);
@@ -117,7 +117,6 @@ OSMesgQueue *osScGetCmdQ(Sched *sc) {
 
 extern OSMesgQueue *PTR32 D_8036BF90;
 extern OSMesg D_8036BF94;
-u32 func_802A1320(void);
 void func_802712B4(Sched *, SchedTask *);
 void func_802712FC(Sched *);
 void __scHandleRetrace(Sched *);
@@ -483,5 +482,5 @@ s32 func_80271F48(OSMesgQueue *mq, OSMesg msg, s32 flag) {
     sp28 = D_8036BF38 + 391250 - osGetTime();
     sp20 = osGetTime();
     sp1C = 0;
-    osSendMesg(mq, msg, flag);
+    return osSendMesg(mq, msg, flag);
 }

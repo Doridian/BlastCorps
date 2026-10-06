@@ -19,6 +19,7 @@
  */
 #ifdef PORT_AUDIO_RECORD
 #include "common.h"
+#include "functions.h"
 #include "port.h"
 #include "game/audio.h"
 #include "audio_log.h"

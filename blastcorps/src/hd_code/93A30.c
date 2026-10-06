@@ -1,4 +1,5 @@
 #include "common.h"
+#include "functions.h"
 
 /* func_802D81F0 is alCSPPlay, alCSPSetVol alCSPSetVol. */
 #define alCSPPlay func_802D81F0

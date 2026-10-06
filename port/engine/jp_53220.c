@@ -19,11 +19,6 @@ extern u8 D_802FF180[6];
 extern UnkStruct_802FF188 D_802FF188[7][20];
 extern u8 D_802FF5E8[14][5];
 
-s32 func_8025B370(u16 *);
-u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
-u8 func_80297EF8(u8);
-u8 func_80297F74(void);
-
 /* the window of 21 (D_802F8BDC[21]): the entries of table D_8039CAD0, the
    first that func_80297EF8 says is free from D_8039CAB6 on and isn't arg's
    (or 6), and the count in its u16 text's digit */

@@ -40,10 +40,6 @@ extern u8 D_80305CE0[];                         /* its parts' collision (56040's
 extern s32 D_802E8BE8;
 extern u8 D_802C2390[];                         /* the rams' part record (56040's list) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-
-void func_802B03F4(void);
 void func_802B03B0(void);
 REGS(gp)
 void func_802B07DC(VS *vs);

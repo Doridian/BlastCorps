@@ -4,6 +4,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* A spline path: 0x84 bytes. */
 typedef struct {
@@ -40,9 +41,6 @@ typedef struct {
 
 void func_802949B0(s32 arg0);
 f32 func_80294840(f32 arg0, f32 arg1, f32 arg2, f32 arg3);
-extern void func_8026A2E8(f32, f32 *);
-extern u8 func_8027EED8(s32, s32, s16 *);
-extern void func_802608C8(void *);
 
 extern s16 D_8036E4C8;
 extern u8 D_8036E4CA;

@@ -8,7 +8,6 @@
 #include "src/libultra/audio/synthInternals.h"
 
 /* This object's asserts print through the game's (compiled-out) printf. */
-void func_8029A7E4(char *, ...);
 #undef assert
 #define assert(EX) if (!(EX)) func_8029A7E4("\n--- ASSERTION FAULT - %s - %s, line %d\n\n", #EX, "env.c", __LINE__)
 

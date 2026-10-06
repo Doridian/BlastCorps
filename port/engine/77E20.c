@@ -115,17 +115,6 @@ extern u8 D_8036EB92;
 extern u32 D_80364A40;
 extern u16 D_803649E0, D_803649E2, D_803649E4;  /* the spin a falling group starts with */
 
-void func_80275390(u64 mode);
-s32 func_8026A828(s32 lo, s32 hi);
-s32 func_8026A8E0(s32 lo, s32 hi);
-u8 func_80286090(s32 level);
-s32 func_80288284(u8 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
-void func_80264CB4(s16 arg0, s16 arg1, s16 arg2, s16 arg3, u8 arg4, s32 arg5);
-void func_8026A454(s16 x, s16 y, s16 z, s16 arg3, s16 arg4, Mtx *arg5);
-void func_802933A0(s32 arg0, s32 arg1, s32 arg2, s32 arg3, Mtx *arg4, void *arg5, Gfx *arg6, Gfx *arg7, s32 arg8,
-                   s32 arg9, s32 arg10, s32 arg11);
-void func_802619D0(u32 arg0);
-
 /* 56040: the object `id`'s state byte */
 REGS(t4 -> t5)
 s32 func_8029D210(s32 id);

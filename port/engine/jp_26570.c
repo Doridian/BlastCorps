@@ -49,31 +49,6 @@ extern s8 D_80370C14;
 extern Gfx D_802F98B0[];
 extern s32 D_802F9930;
 
-void func_8029A7E4(char *, ...);
-void func_8026AF6C(u16 arg0);
-void func_8026FB50(YoshiWindow *);
-u16 func_8026F8A8(u16, u16, u16, u16);
-void func_80260650(SndBank *, u16, s32);
-f32 func_802574F0(f32);
-void func_80259BD4(Gfx **, FrameBuf *);
-void func_80259DC8(FrameBuf *, void *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32,
-                   s32, s32, s32);
-s32 func_8025B498(s16, u16, char *, u16 *);
-void func_8026EF70(YoshiWindow *);
-void func_80261570(f32);
-void *func_8026F004(YoshiWindow *, u16, u8);
-u8 func_8026F644(UnkStruct_8026F644 *, u16 *, s16);
-u16 func_8026F82C(u16, u16, u16);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274998(Gfx *);
-Gfx *func_80274AA4(Gfx *);
-Gfx *func_80274B08(Gfx *);
-Gfx *func_80275DA4(Gfx *, u8);
-s32 func_80276080(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
-s32 func_80276130(FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
-                  u8, u8, u8, u8);
-
 /* (f32) of a u32: cvt.s.w, and the block adding 2^32 when it was negative */
 #define U2F(dst, v, blk)                                                    \
     do {                                                                    \

@@ -31,6 +31,7 @@
 #define ENGINE_H
 
 #include "common.h"
+#include "functions.h"
 #include "engine_blocks.h"      /* generated: ENGINE_BLK_<address> id, size */
 
 #define REGS(...)

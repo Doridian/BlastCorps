@@ -2,6 +2,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* 12-byte sort records: a u16 key, a quad index and a texture address. */
 typedef struct {
@@ -11,7 +12,6 @@ typedef struct {
 } UnkStruct_80365340; /* size = 0xC */
 
 
-void func_8025B070(void);
 void func_802597D8(u8 *arg0, u8 *arg1, s32 arg2);
 s32 func_80259814(u16 *arg0, u16 *arg1);
 void func_8025946C(Gfx **arg0, s32 arg1);
@@ -173,9 +173,6 @@ extern u16 D_802E8C8C[];
 extern u16 D_802E8C90[];
 extern u16 D_802E8C94[];
 
-u8 *func_8025B0B8(u16);
-s32 func_8025B498(s32, u32, u8 *, u16 *);
-void func_8029A7E4(char *, ...);
 
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/14B30/func_80259EC4.s")

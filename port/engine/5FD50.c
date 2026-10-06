@@ -98,7 +98,6 @@ extern u8 D_802E6820[], D_802E68F0[], D_802E77B0[], D_8030EE60[];
 extern u64 D_8036AFB0[];
 extern OSMesgQueue D_803153D8;
 extern SchedClient D_803156D8;
-void func_80285110(u32 msg);
 
 #define VIS_TASK_MSG 0x4D3              /* the visibility task's done message */
 #define VIS_NOTHING_DRAWN 0xE8000000    /* its output's first word when the box

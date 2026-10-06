@@ -8,6 +8,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x0 */ u8 unk0;
@@ -22,15 +23,7 @@ extern s32 D_80364A58;
 extern u8 D_8036DCD4;
 extern u8 D_8036EB92;
 
-u8 func_8027EED8(s32, s32, s16 *);
-s32 func_8026394C();
-void func_80264A34(char *, u16, s32);
-void func_8026AF6C(s32);
-u16 func_8028604C(u32);
-void func_8029A7E4(char *, ...);
 void alCSPSetTempo(ALCSPlayer *, s32);
-u8 func_802C1B1C(void);
-void func_802C1DD0(s32);
 
 typedef struct {
     /* 0x0 */ u8 unk0;
@@ -480,10 +473,6 @@ extern u8 D_80367C01;
 extern char *D_80367C08;
 extern u16 *D_80367C0C;
 
-u8 func_8026FA38(char **, u16 **);
-u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
-void func_8028B4C4(u8 *, u8 *, s32 *, s32, s32, s32);
-
 void func_80262320(u8 arg0) {
     s32 i;
     u8 sp33;
@@ -603,10 +592,8 @@ extern char D_80367C40[];
 extern u16 D_80367C68[];
 extern u16 D_80367CB8[];
 
-void func_80260650(SndBank *, s32, s32);
-s32 func_8026205C(s32);
-
 #ifdef VERSION_JP
+void func_80262840(void);
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/1D990/func_80262840.s")
 #else
 void func_80262840(void) {
@@ -693,15 +680,11 @@ extern u16 D_80367BF4;
 extern u16 D_80367D08;
 extern s16 D_8036BB1A;
 
-void func_802609F0(void);
-void func_80260A10(void);
 void func_80262FD0(void);
 void func_8026303C(void);
 void func_80263140(void);
 void func_80263358(void);
 void func_802633E0(void);
-void func_80275270(u64, f32);
-s32 func_802753C0(void);
 
 void func_80262BF4(void) {
     if (D_803643D7 == 0 && D_803643D6 == 0) {
@@ -927,14 +910,7 @@ void func_802633E0(void) {
 }
 #endif
 
-s32 func_8026394C(x, y, x0, y0, x1, y1)
-    s16 x;
-    s16 y;
-    s16 x0;
-    s16 y0;
-    s16 x1;
-    s16 y1;
-{
+s32 func_8026394C(s16 x, s16 y, s16 x0, s16 y0, s16 x1, s16 y1) {
     if (x >= x0 && y >= y0 && x < x1 && y < y1) {
         return 1;
     }
@@ -944,13 +920,6 @@ s32 func_8026394C(x, y, x0, y0, x1, y1)
 extern u8 D_80367BD5;
 extern s16 D_80367BD6;
 extern u8 D_80367BFB;
-
-void func_80259CCC(void *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_8025E2CC(Gfx **, void *, s32);
-Gfx *func_80264264(void *, Gfx *);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
 
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/1D990/func_802639B4.s")

@@ -86,16 +86,6 @@ extern SndState *PTR32 D_803F7844;              /* the rolling sound */
 extern Part *PTR32 D_803F77D0;
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s32 arg6, s32 arg7, s16 arg8, u8 arg9,
-                   u8 arg10, u8 arg11, u8 arg12);
-void func_80278EB0(s32 a, f32 b, s32 c);
-void func_802794A4(void);
-s32 func_8026A8E0(s32 lo, s32 hi);
-
-void func_802CFDE8(void);
 void func_802CFC10(void);
 REGS(gp)
 void func_802D02F8(VS *vs);
@@ -107,7 +97,6 @@ REGS(gp -> s3)
 s32 func_802D0710(VS *vs);
 REGS()
 void func_802D0784(void);
-void func_802D0F98(void);
 void func_802D0F54(void);
 REGS(gp)
 void func_802D1360(VS *vs);

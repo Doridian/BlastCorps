@@ -36,14 +36,6 @@ extern OSMesgQueue D_80219EF8, D_80219F30, D_80219F50;
 extern OSMesg D_80219F10[8], D_80219F48[2], D_80219F68[8];
 extern Sched D_80315440;
 
-void func_8029A7E4(char *, ...);
-void func_801F58E8(void *);
-u16 *func_801F7410(u8 *);
-s32 func_8025B300(u8 *);
-s32 func_8025B370(u16 *);
-u16 *func_8025B5D4(u16 *, u16 *, u16 *, s32);
-void func_8025B918(u16 *, u16 *);
-
 /* the Pak thread and its queues */
 void func_801F57B0(void) {
     s32 size = 0xDE0;

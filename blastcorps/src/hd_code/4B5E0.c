@@ -5,32 +5,11 @@
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/objects.h"
+#include "functions.h"
 
 extern FrameGame D_02000000;
 
 void func_80291724(s32 arg0);
-extern void *func_80260650(SndBank *, s16, void *PTR32 *);
-extern void func_802608C8(void *);
-extern s32 func_8026A610(s32, s32, s32, s32);
-extern s32 func_8029B930(void);
-extern s16 func_802A6F6C(void);
-extern void func_802CDB70(s16, s16);
-extern u8 func_802CDF94(s16);
-extern s16 func_802CE3B8(s16);
-extern void func_802CE4F0(s32, s32, s32);
-extern void func_802CE5BC(s32, s32, s32, s16, s32, s32);
-extern void func_802CE65C(s32, s32, s16, s16);
-extern void func_802CE880(s32, s32, s32, s32, s32);
-extern void func_802CE90C(s32);
-extern s32 func_802CE958(s32);
-extern void func_802CEA68(s32, s32);
-extern void func_802CE9A4(void);
-extern void func_802CE9C8(void *, u8, u8);
-extern void *func_802A0CC8(s16, s32);
-extern s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-extern void func_802AACD4(u8, s32, s32, s16 *, s16 *);
-extern void func_802AAE1C(u8, s16, s16, s32 *, s32 *);
-extern s32 func_802CE6F8(s32, s32, s32);
 
 extern u8 D_803A7424;
 extern s16 D_803A7410;

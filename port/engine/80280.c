@@ -24,9 +24,6 @@
 extern u8 D_803063F0[];                         /* the share of the groups a medal wants, by medal */
 extern s32 D_80368040;                          /* the level's groups to destroy */
 
-u8 func_8026FE6C(s32 i);
-void func_8026FE8C(s32 i);
-
 #define T(p) ((s32)(p))
 
 /* ---- the level's status ------------------------------------------------- */
@@ -141,7 +138,7 @@ void func_802C4BF0(u8 *buf) {
    buildings that count (not the goal, not of strength 1), the targets and
    then as many more as the medal's share wants destroyed, then that share
    of the RDUs collected; its length */
-s32 func_802C4E58(u8 *buf, u8 medal) {
+u32 func_802C4E58(u8 *buf, u8 medal) {
     BitOut o = { buf, 0, 0 };
     Building *b;
     u32 want;
@@ -255,18 +252,11 @@ extern u8 D_803A742B;
 extern u8 D_80370C35;                           /* 45BB0.c: the stick plays the buttons */
 extern Part *PTR32 D_803F77D0;
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-s32 func_802584BC(u8 type);
-s32 func_80258500(u8 type);
-s32 func_80288284(u8 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4);
 REGS(t0, t1, t2 -> a1)
 s32 func_802AC0BC(s32 x, s32 z, s32 y);
 REGS(v0, v1, a0)
 void func_8029FC74(s32 a, s32 b, Part *parts);
 
-void func_802C5AFC(void);
 REGS()
 void func_802C5970(void);
 REGS(gp)

@@ -4,29 +4,10 @@
 #include "game/audio.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
-void func_8024FC2C(Gfx **gfxp, s32 arg1);
 Gfx *func_8025D2B4(Gfx *gfx, s32 arg1, s32 *arg2);
 void func_8025E1E0(Gfx **gfxp);
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802609D0(void);
-void func_802609F0(void);
-void func_80260A10(void);
-void func_80260DFC(void);
-void func_80261570(f32);
-s32 func_8026B10C(void);
-void func_80275390(u64);
-void func_80260E2C(void);
-void func_80260EE0(s32);
-s32 func_8026205C(s32);
-void func_8026AF6C(s32);
-void func_80275270(u64, f32);
-s32 func_802753C0(void);
-void func_80277EDC(s32, s32, s32, s32);
-void func_80278318(void);
-void func_802C1DD0(s32);
-s32 func_802D4E10(ALCSPlayer *);
-void func_8028B4C4(u32 romAddr, void *dest, s32 *size, s32 arg3, s32 arg4, s32 arg5);
 
 /* Segment 2 base and three ROM addresses, reached through relocations. */
 extern Mtx D_02000000[];

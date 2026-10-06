@@ -56,19 +56,10 @@ extern u8 *PTR32 *PTR32 D_803F3960;
 extern u16 D_8036E4C8;
 extern u8 D_803BE738;
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s32 arg6, s32 arg7, s16 arg8, u8 arg9,
-                   u8 arg10, u8 arg11, u8 arg12);
-void func_80278EB0(s32 a, f32 b, s32 c);
-u8 func_802794F0(void);
-void func_802794A4(void);
-
 /* 77E20's: an object moved by (dx, dz) */
 REGS(v0, a2, a3, t0)
-void func_802BD99C(u8 *obj, s32 dx, s32 a3, s32 dz);
+void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz);
 
-void func_802B6294(void);
 void func_802B60BC(void);
 REGS(gp)
 void func_802B69F8(VS *vs);
@@ -503,7 +494,7 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
         *(s32 *)(o + 0x10) = 0xBB80;
         dz = 0xBB80 - *(s32 *)(o + 0x18);
         *(s32 *)(o + 0x18) = 0xBB80;
-        func_802BD99C(o, dx, 0, dz);
+        func_802BD99C((Building *)o, dx, 0, dz);
     }
 }
 
