@@ -1882,7 +1882,8 @@ those dependencies.  (`PORT_EA_GUARD` is the translated code's, which no
 default build has: it doesn't apply.)
 
 What it found (us.v10, seeds 1 and 2, the quick tier's scenarios and the
-TAS, before the asm data was C): see docs/LAYOUT.md.
+whole TAS, which both check builds play through with 57 platinum): see
+docs/LAYOUT.md.
 
 ## Resource packs
 
