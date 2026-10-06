@@ -10,15 +10,8 @@
  * passed to osCreateThread, which only the translated code uses (through
  * ctx->sp).  Each also has its own recomp_context.
  *
- * The CPU's time: the game's C and the translated engine count the
- * instructions they execute (__port_icount, BEPass's ICount and the
- * translator's BB()), and at each call into libultra (host_cpu_sync) the
- * running thread is charged for what it did since.  A thread with enough
- * owed goes "busy" until the clock catches up: it holds the CPU (nothing
- * of lower priority runs meanwhile) but a higher-priority one that wakes
- * up can preempt it, which pushes the busy thread's end back by as much.
- * That is the CPU model, off by default (--cpu-model n64 turns it on):
- * without it the game's work takes no time and no frame lags.
+ * The game's work takes no time: the clock moves only in the loop, from
+ * one retrace, timer or event to the next (docs/PORT.md, "Timing").
  */
 #include <stdlib.h>
 #include <string.h>
@@ -26,8 +19,8 @@
 #include "fiber.h"
 #include "host.h"
 
-enum { T_FREE, T_STOPPED, T_RUNNABLE, T_WAITING, T_PARKED, T_DEAD, T_BUSY };
-static const char *state_names[] = { "free", "stopped", "runnable", "waiting", "parked", "dead", "busy" };
+enum { T_FREE, T_STOPPED, T_RUNNABLE, T_WAITING, T_PARKED, T_DEAD, T_SPIN };
+static const char *state_names[] = { "free", "stopped", "runnable", "waiting", "parked", "dead", "spinning" };
 
 typedef struct {
     int state;
@@ -35,17 +28,14 @@ typedef struct {
     int pri;
     uint64_t seq;               /* FIFO order among equal priorities */
     uint32_t wait_key;
-    uint32_t recv_key;          /* the queue of the osRecvMesg it is in (host_recv_charge), or 0 */
+    uint32_t recv_key;          /* the queue of the osRecvMesg it is in (host_recv_mark), or 0 */
     void (*entry)(void *);
     void *arg;
     HostFiber *fiber;
     recomp_context ctx;
     int started;
-    uint32_t imark, imark_c;    /* the counters when last charged */
-    double owed;                /* ns not charged yet (under 1) */
     uint32_t locals_sp;         /* its port_locals_sp while it doesn't run (PORT_MOVABLE) */
-    uint64_t clock;             /* how far its own work has got (ns) */
-    uint64_t busy_until;        /* T_BUSY: host_now_ns() it may resume at */
+    uint32_t spin_irqs;         /* T_SPIN: host_irqs when it began to wait */
 } HThread;
 
 static HThread threads[PORT_MAX_THREADS];
@@ -78,7 +68,7 @@ static void fiber_main(void *p) {
 
 /* whether another thread than the running one is in osRecvMesg on this
    key: blocked, woken and not yet run, or preempted at the call's entry
-   (host_recv_charge), and so will take the next message */
+   (host_recv_mark), and so will take the next message */
 int host_receiving(uint32_t key) {
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (&threads[i] != cur && threads[i].state != T_FREE && threads[i].state != T_DEAD &&
@@ -172,7 +162,7 @@ void host_thread_stop(uint32_t key) {
     if (t == cur) {
         t->state = T_STOPPED;
         to_loop();
-    } else if (t->state == T_RUNNABLE || t->state == T_WAITING) {
+    } else if (t->state == T_RUNNABLE || t->state == T_WAITING || t->state == T_SPIN) {
         t->state = T_STOPPED;
     }
 }
@@ -242,99 +232,62 @@ void host_yield(void) {
     to_loop();
 }
 
-/* ---- the CPU's time ---------------------------------------------------------- */
+/* A busy-wait (port_game.h's port_spin_wait): on the N64 the thread spins
+   until an interrupt changes what it reads, and nothing of lower priority
+   runs meanwhile.  Here it waits for the next interrupt the loop delivers
+   (host_interrupt counts them), holding the CPU against lower priorities
+   as the spin did; equal and higher ones run. */
+static uint32_t host_irqs;
 
-uint32_t __port_icount;                     /* MIPS instructions: the translated code */
-uint32_t __port_icount_c;                   /* LLVM IR instructions: the C (BEPass) */
-/* IDO's -O1 code is bigger than clang's -O2 IR: MIPS instructions per
-   counted IR instruction, set so the attract mode's pace is mupen64plus's */
-double host_c_scale = 1.6;
-/* 0: the CPU model is off, the default (main.c: --cpu-model n64 sets
-   mupen64plus's CountPerOp = 2, 2 * 64 / 3 ns) */
-double host_ns_per_instr = 0;
-#define MIN_BUSY_NS 50000                    /* run ahead of the clock by up to 50 us */
-
-/* The thread's clock runs on from where its last busy stretch ended, not
-   from when the host got round to resuming it, so late wakeups don't add
-   up. */
-void host_cpu_sync(void) {
-    if (!cur || host_ns_per_instr <= 0 || CHECKING())
+void port_spin_wait(void) {
+    if (!cur || CHECKING())
         return;
-    cur->owed += ((uint32_t)(__port_icount - cur->imark) +
-                  (uint32_t)(__port_icount_c - cur->imark_c) * host_c_scale) * host_ns_per_instr;
-    cur->imark = __port_icount;
-    cur->imark_c = __port_icount_c;
-    uint64_t ns = (uint64_t)cur->owed;
-    cur->owed -= (double)ns;
-    cur->clock += ns;
-    for (int i = 0; i < PORT_MAX_THREADS; i++)
-        if (threads[i].state == T_BUSY) {
-            threads[i].busy_until += ns;    /* preempted by this one */
-            threads[i].clock += ns;
-        }
-    if (cur->clock < host_now_ns() + MIN_BUSY_NS)
-        return;
-    cur->busy_until = cur->clock;
-    if (host_verbose > 3)
-        host_log("busy: %08X pri %d at %.3f for %.3f ms\n", cur->key, cur->pri, host_now_ns() / 1e6,
-                 (cur->clock - host_now_ns()) / 1e6);
-    cur->state = T_BUSY;
+    cur->state = T_SPIN;
+    cur->spin_irqs = host_irqs;
+    cur->seq = seq_counter++;
     to_loop();
 }
 
-void host_cpu_charge(uint32_t n) { __port_icount += n; }
+/* whether a thread spins, with no interrupt since it began */
+int host_spinning(void) {
+    for (int i = 0; i < PORT_MAX_THREADS; i++)
+        if (threads[i].state == T_SPIN && threads[i].spin_irqs == host_irqs)
+            return 1;
+    return 0;
+}
 
-/* osRecvMesg's charge, which also marks the thread as receiving on `key`
-   until the call returns (host_preempt), for host_receiving.  (One call
-   for host_cpu_charge's one: the C's ICount stays as it was.)  A
-   non-blocking receive that finds nothing leaves the mark behind; the
-   game's only one on the SI queue is the pak/EEPROM thread's own. */
-void host_recv_charge(uint32_t key, uint32_t n) {
-    __port_icount += n;
+/* osRecvMesg marks the thread as receiving on `key` until the call
+   returns (host_preempt), for host_receiving.  A non-blocking receive that
+   finds nothing leaves the mark behind; the game's only one on the SI
+   queue is the pak/EEPROM thread's own. */
+void host_recv_mark(uint32_t key) {
     if (cur)
         cur->recv_key = key;
 }
 
-/* an interrupt's handling (libultra's exception handler, the dispatch):
-   it takes the CPU from whatever is computing */
-void host_irq_cost(uint32_t n) {
-    uint64_t ns = (uint64_t)(n * host_ns_per_instr);
-    for (int i = 0; i < PORT_MAX_THREADS; i++)
-        if (threads[i].state == T_BUSY) {
-            threads[i].busy_until += ns;
-            threads[i].clock += ns;
-        }
-}
-
-uint64_t host_busy_wake(void) {
-    uint64_t w = ~0ull;
-    for (int i = 0; i < PORT_MAX_THREADS; i++)
-        if (threads[i].state == T_BUSY && threads[i].busy_until < w)
-            w = threads[i].busy_until;
-    return w;
-}
+/* an interrupt taken (port/src/ultra.c): a spinning thread tests again */
+void host_interrupt(void) { host_irqs++; }
 
 int host_run_one(void) {
     HThread *best = NULL;
+    int spin_pri = -1;          /* the highest priority spinning with no interrupt yet */
     for (int i = 0; i < PORT_MAX_THREADS; i++) {
         HThread *t = &threads[i];
-        if (t->state != T_RUNNABLE && t->state != T_BUSY)
+        if (t->state == T_SPIN) {
+            if (t->spin_irqs == host_irqs) {
+                if (t->pri > spin_pri)
+                    spin_pri = t->pri;
+                continue;
+            }
+            t->state = T_RUNNABLE;          /* an interrupt came: it tests again */
+        }
+        if (t->state != T_RUNNABLE)
             continue;
         if (!best || t->pri > best->pri || (t->pri == best->pri && t->seq < best->seq))
             best = t;
     }
-    if (!best)
+    if (!best || best->pri < spin_pri)
         return 0;
-    if (best->state == T_BUSY) {
-        /* still computing: nothing below it may run */
-        if (host_now_ns() < best->busy_until)
-            return 0;
-        best->state = T_RUNNABLE;
-    } else if (best->clock < host_now_ns()) {
-        best->clock = host_now_ns();        /* it was waiting */
-    }
-    best->imark = __port_icount;
-    best->imark_c = __port_icount_c;
     if (host_verbose > 3)
         host_log("run %08X pri %d at %.3f\n", best->key, best->pri, host_now_ns() / 1e6);
     cur = best;

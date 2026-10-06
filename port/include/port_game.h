@@ -40,6 +40,13 @@ void port_replay_save_started(void);
    N64's hardware is slow are kept; 0, the default, leaves them out
    (docs/PORT.md, "The front end's waits") */
 int port_load_waits(void);
+/* A busy-wait's body (00000.c's waits for 15 retraces, 4B450.c's for the
+   SI, E7B0.c's on the scheduler's reset flag): on the N64 the loop spins
+   until an interrupt changes what it reads.  Here the thread waits for the
+   next interrupt, holding the CPU against lower priorities as the spin did,
+   and then tests again (port/host/threads.c).  Being a call, it also makes
+   the loop read the variable again, as IDO's code does. */
+void port_spin_wait(void);
 /* the game switches mode (00000.c's loop, before the new mode's init) */
 void port_replay_mode_switch(void);
 #define D_803156C0 port_counter(1, __func__)

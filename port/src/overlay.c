@@ -46,7 +46,6 @@ void __wrap_func_8028B3E0(void) {
     osViBlack(1);
     if (D_80370C50 == 0) {
         func_8028B4C4(*D_802FDB30, (u8 *)FE_START, &len, 13, 10, 1);
-        host_cpu_charge((FE_END - FE_START - len) / 4);     /* its bzero */
         memmove((void *)FE_DATA, fe_data, sizeof fe_data);
         memset((void *)FE_BSS, 0, FE_END - FE_BSS);
 #ifdef PORT_ACCESS_PROFILE

@@ -8,11 +8,6 @@
  * registers nobody set for them (the collision triangles' bytes, the
  * textures' palette) are values now: LEVEL_TRI_BYTES, tex_param.
  *
- * Loops charge their test block in the loop's condition
- * (`for (...; ENGINE_BLK(test), cond; ...)`), as the original runs it
- * once more than the body; chains of tests charge each one in the
- * condition the same way (`else if (ENGINE_BLK(b), x == y)`).
- *
  * The level file is the ROM's big-endian data: what the original reads a
  * byte at a time (records at any alignment) is read a byte at a time here
  * (BE16S, BE16U, UNALIGNED_W), and what it reads as halfwords or words is
@@ -192,7 +187,6 @@ void func_802A2D68(u32 h_) {
     s32 i;
     s16 *b;
 
-    ENGINE_BLK(802A2D68);
     D_803EBBF0 = (f32)h->gravity;
     D_80364458 = (u8 *)h + sizeof(LevelHeader);
     D_803BDAF4 = (s16 *)LEVEL_PTR(h, collisionFixes);
@@ -211,27 +205,19 @@ void func_802A2D68(u32 h_) {
     D_803BE728 = h->unk14[1] << 5;
     D_803EBBEC = D_803EBDB0;
     for (i = 0; i < N_KIND_PARTS; i++) {
-        ENGINE_BLK(802A2EB4);
         D_803A6B30[i].end = LIST_END;
     }
-    ENGINE_BLK(802A2EC4);
     for (i = 0; i < N_SOLIDS; i++) {
-        ENGINE_BLK(802A2ED0);
         D_803A7300[i].end = LIST_END;
     }
-    ENGINE_BLK(802A2EE0);
     for (i = 0; i < N_ED3B8; i++) {
         u8 *p = D_803ED3B8[i];
 
-        ENGINE_BLK(802A2EEC);
         p[0] = p[1] = p[2] = p[3] = 0xFF;
     }
-    ENGINE_BLK(802A2F08);
     for (i = 0; i < N_EBC10; i++) {
-        ENGINE_BLK(802A2F14);
         D_803EBC10[i][0] = LIST_END;
     }
-    ENGINE_BLK(802A2F24);
     D_803BE6F8 = (FileVehicle *)LEVEL_PTR(h, vehicles);
     b = (s16 *)LEVEL_PTR(h, levelBounds);
     D_803BE730 = b[0];
@@ -268,15 +254,11 @@ void func_802A1C88(u32 h_) {
     u32 *p = (u32 *)LEVEL_PTR(h, displayLists[6]);
     u32 *end = (u32 *)LEVEL_PTR(h, displayLists[3]);
 
-    ENGINE_BLK(802A1C88);
-    for (; ENGINE_BLK(802A1CC8), p != end; p += 2) {
-        ENGINE_BLK(802A1CD0);
+    for (; p != end; p += 2) {
         if (p[0] >> 24 == GBI_DL) {
-            ENGINE_BLK(802A1CE0);
             p[1] += base;
         }
     }
-    ENGINE_BLK(802A1CF4);
     D_803BE6E0 = (Gfx *)LEVEL_PTR(h, displayLists[6]);
     D_803BE6E4 = (Gfx *)LEVEL_PTR(h, displayLists[7]);
     D_803BE6E8 = (Gfx *)LEVEL_PTR(h, displayLists[8]);
@@ -294,25 +276,19 @@ void func_802A4464(u32 h_) {
     u8 *p = base;
     u32 *out = (u32 *)D_803BDB10;
 
-    ENGINE_BLK(802A4464);
-    for (; ENGINE_BLK(802A449C), n != 0; n--) {
-        ENGINE_BLK(802A44A4);
+    for (; n != 0; n--) {
         *out++ = (u32)(p + 4);
         p = base + UNALIGNED_W(p);
     }
-    ENGINE_BLK(802A44C8);
     *out = (u32)(p + 4);
 }
 
 /* func_802A44E4: a size rounded up to 8, if it isn't a multiple of 4 */
 REGS(a1 -> a1)
 u32 func_802A44E4(u32 a) {
-    ENGINE_BLK(802A44E4);
     if (a & 3) {
-        ENGINE_BLK(802A44F0);
         a = (a & ~7) + 8;
     }
-    ENGINE_BLK(802A44FC);
     return a;
 }
 
@@ -321,11 +297,9 @@ REGS()
 void func_802A1934(void) {
     TargetObj *b;
 
-    ENGINE_BLK(802A1934);
-    for (b = D_80306480; ENGINE_BLK(802A195C), b->level != LIST_END; b++) {
+    for (b = D_80306480; b->level != LIST_END; b++) {
         s32 x, y, z, r;
 
-        ENGINE_BLK(802A196C);
         x = b->x >> 5;
         y = b->y >> 5;
         z = b->z >> 5;
@@ -336,7 +310,6 @@ void func_802A1934(void) {
         b->corners[2][2] = b->corners[3][2] = z + r;
         b->corners[0][1] = b->corners[1][1] = b->corners[2][1] = b->corners[3][1] = y;
     }
-    ENGINE_BLK(802A19D0);
 }
 
 /* func_802A2C54: the level's lights (LevelHeader.unk60: the ambient
@@ -349,12 +322,10 @@ void func_802A2C54(u32 h_) {
     u8 *end = LEVEL_PTR(h, unk64);
     LevelLight *l;
 
-    ENGINE_BLK(802A2C54);
     D_80364A6E = *p++;
-    for (l = D_803BDFD8; ENGINE_BLK(802A2C88), p != end; l++) {
+    for (l = D_803BDFD8; p != end; l++) {
         u32 n, k;
 
-        ENGINE_BLK(802A2C90);
         l->x = BE16U(p + 0) << 5;
         l->y = BE16U(p + 2) << 5;
         l->z = BE16U(p + 4) << 5;
@@ -363,17 +334,14 @@ void func_802A2C54(u32 h_) {
         n = p[9];
         l->ntypes = n;
         p += 10;
-        for (k = 0; ENGINE_BLK(802A2D08), k < n; k++) {
-            ENGINE_BLK(802A2D10);
+        for (k = 0; k < n; k++) {
             l->types[k] = *p++;
         }
-        ENGINE_BLK(802A2D28);
         l->building = p[0];
         l->shade = p[1];
         l->on = 1;
         p += 2;
     }
-    ENGINE_BLK(802A2D4C);
     D_803BDFD4 = l;
 }
 
@@ -416,31 +384,25 @@ void func_802A1A9C(u32 h_) {
     u8 *end;
     MovingTri *d;
 
-    ENGINE_BLK(802A1A9C);
     D_803F7820 = t;
     D_803F7824 = t + size;
     end = t + size * 2;
-    for (; ENGINE_BLK(802A1AE0), t != end; t += MTX_SIZE) {
-        ENGINE_BLK(802A1AE8);
+    for (; t != end; t += MTX_SIZE) {
         mtx_identity(t);
     }
-    ENGINE_BLK(802A1B40);
     d = (MovingTri *)t;
     D_803F7828 = d;
     if (size != 0) {
         MovingGroup *g;
         s32 next;
 
-        ENGINE_BLK(802A1B50);
         g = (MovingGroup *)(src + 4);
         do {
             MovingTriFile *e = g->tris;
             u32 n;
 
-            ENGINE_BLK(802A1B58);
             next = g->next;
-            for (n = g->count; ENGINE_BLK(802A1B68), n != 0; n--, e++, d++) {
-                ENGINE_BLK(802A1B70);
+            for (n = g->count; n != 0; n--, e++, d++) {
                 d->v[0][0] = e->v[0][0] << 5;
                 d->v[0][1] = e->v[0][1] << 5;
                 d->v[0][2] = e->v[0][2] << 5;
@@ -453,10 +415,8 @@ void func_802A1A9C(u32 h_) {
                 d->unk24 = e->unk12;
             }
             g = (MovingGroup *)e;
-            ENGINE_BLK(802A1BF4);
         } while (next != -1);
     }
-    ENGINE_BLK(802A1C00);
     D_803F782C = d;
     D_80358070 = (u8 *)d;
 }
@@ -486,7 +446,6 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     s64 nx, ny, nz, ax, ay, az, nzz1;
     f32 len2, f;
 
-    ENGINE_BLK(802A41B0);
     t->unk59 = 0;
     t->unk55 = b55;
     t->unk56 = b56;
@@ -534,36 +493,25 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     t->nlen = __builtin_sqrtf(len2);
     ax = nx;
     if (ax < 0) {
-        ENGINE_BLK(802A43B8);
         ax = -ax;
     }
-    ENGINE_BLK(802A43BC);
     ay = ny;
     if (ay < 0) {
-        ENGINE_BLK(802A43C4);
         ay = -ay;
     }
-    ENGINE_BLK(802A43C8);
     az = nz;
     if (az < 0) {
-        ENGINE_BLK(802A43D0);
         az = -az;
     }
-    ENGINE_BLK(802A43D4);
-    if (az < ax || (ENGINE_BLK(802A43E0), az < ay)) {
-        ENGINE_BLK(802A43F0);
-        if (ay < ax || (ENGINE_BLK(802A43FC), ay < az)) {
-            ENGINE_BLK(802A4410);
+    if (az < ax || (az < ay)) {
+        if (ay < ax || (ay < az)) {
             t->axis = 2;
         } else {
-            ENGINE_BLK(802A4404);
             t->axis = 1;
         }
     } else {
-        ENGINE_BLK(802A43E8);
         t->axis = 0;
     }
-    ENGINE_BLK(802A4418);
     t->side = 0;
     t->heading = src[0x12] << 8 | src[0x13];
     return (u32)(t + 1);
@@ -574,28 +522,23 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
    section, then LevelCollisionTris) into CollisionTris on the heap, a
    pointer to each cell's in `table` and one past them.  The triangles'
    0x52 is the cells left, 0x57 the low byte of the list's end; 0x59 the
-   file triangle's 0x15; 0x4F, 0x50 and 0x58 are 0 (LEVEL_TRI_BYTES).  (Both charge 802A3D54's blocks: 802A3DF8's are
-   the same sizes.) */
+   file triangle's 0x15; 0x4F, 0x50 and 0x58 are 0 (LEVEL_TRI_BYTES).  (802A3D54's code: 802A3DF8 is the
+   same.) */
 static void tri_grid(LevelHeader *h, u8 *base, u32 *table) {
     s32 cells = (s16)h->unk10[0] * (s16)h->unk10[1];
     u8 *p = base, *end;
     CollisionTri *t = (CollisionTri *)D_80358070;
 
     do {
-        ENGINE_BLK(802A3D98);
         *table++ = (u32)t;
         end = base + UNALIGNED_W(p);
-        for (p += 4; ENGINE_BLK(802A3DB0), p != end; p += sizeof(LevelCollisionTri)) {
+        for (p += 4; p != end; p += sizeof(LevelCollisionTri)) {
             LevelCollisionTri *f = (LevelCollisionTri *)p;
 
-            ENGINE_BLK(802A3DB8);
             t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, cells, f->unk14, 0, 0, 0, (u32)end, 0);
-            ENGINE_BLK(802A3DC0);
             t[-1].unk59 = f->unk15;
         }
-        ENGINE_BLK(802A3DD0);
     } while (--cells != 0);
-    ENGINE_BLK(802A3DDC);
     *table = (u32)t;
     D_80358070 = (u8 *)t;
 }
@@ -604,7 +547,6 @@ REGS(t0)
 void func_802A3D54(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
 
-    ENGINE_BLK(802A3D54);
     tri_grid(h, LEVEL_PTR(h, collisionXZ), (u32 *)D_803BDCA8);
 }
 
@@ -612,7 +554,6 @@ REGS(t0)
 void func_802A3DF8(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
 
-    ENGINE_BLK(802A3DF8);
     tri_grid(h, LEVEL_PTR(h, playerCollisionXZ), (u32 *)D_803BDE40);
 }
 
@@ -631,25 +572,20 @@ void func_802A3E9C(u32 h_) {
     Wall *w;
     CollisionTri *t = (CollisionTri *)D_80358070;
 
-    ENGINE_BLK(802A3E9C);
     D_803BD308 = t;
-    for (w = D_803BD310; ENGINE_BLK(802A3ED4), p != end; w++) {
+    for (w = D_803BD310; p != end; w++) {
         u32 n, k;
 
-        ENGINE_BLK(802A3EDC);
         X3((u8 *)&w->info + 1) = p[0];      /* WALL_SIDED */
         n = p[1];
         w->nkinds = n;
         p += 2;
-        for (k = 0; ENGINE_BLK(802A3EF8), k < n; k++) {
-            ENGINE_BLK(802A3F00);
+        for (k = 0; k < n; k++) {
             w->kinds[k] = *p++;
         }
-        ENGINE_BLK(802A3F18);
         n = *p++;
         X3((u8 *)&w->info) = n;             /* WALL_COUNT */
-        for (k = 0; ENGINE_BLK(802A3F28), k < n; k++) {
-            ENGINE_BLK(802A3F30);
+        for (k = 0; k < n; k++) {
             /* (the TAS has walls of more than 0x3C triangles: tris[0x3C]
                is info, which the store overwrites, as the original does;
                -fsanitize=array-bounds reports it) */
@@ -659,12 +595,9 @@ void func_802A3E9C(u32 h_) {
                registers); 0x4F, 0x50, 0x58 0 (LEVEL_TRI_BYTES) */
             t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, (u32)&w->tris[k + 1], 1, 0, 0,
                                               n - 1 - k, 0);
-            ENGINE_BLK(802A3F40);
             p += WALL_TRI_SIZE;
         }
-        ENGINE_BLK(802A3F48);
     }
-    ENGINE_BLK(802A3F50);
     D_803BDAF0 = w;
     D_803BD30C = t;
     D_80358070 = (u8 *)t;
@@ -675,16 +608,11 @@ void func_802A3E9C(u32 h_) {
 static s32 tri_id_used(u32 id, CollisionTri *end) {
     CollisionTri *t;
 
-    ENGINE_BLK(802A4168);
-    for (t = D_803B9890; ENGINE_BLK(802A4184), t != end; t++) {
-        ENGINE_BLK(802A418C);
+    for (t = D_803B9890; t != end; t++) {
         if (t->id == id) {
-            ENGINE_BLK(802A4198);
-            ENGINE_BLK(802A419C);
             return 1;
         }
     }
-    ENGINE_BLK(802A419C);
     return 0;
 }
 
@@ -709,13 +637,11 @@ void func_802A3F80(u32 h_) {
     CollisionTri *tris = D_803B9890;   /* $fp */
     u32 last = 0;
 
-    ENGINE_BLK(802A3F80);
-    for (r = D_803BC1D0; ENGINE_BLK(802A3FB0), p != end; r++) {
+    for (r = D_803BC1D0; p != end; r++) {
         u32 n, kind;
         u8 *ids;
         CollisionTri *t;
 
-        ENGINE_BLK(802A3FB8);
         r->owner = p[0];
         kind = p[1];
         r->kind = kind;
@@ -727,7 +653,6 @@ void func_802A3F80(u32 h_) {
             s32 c[6];
 
             do {
-                ENGINE_BLK(802A3FDC);
                 c[0] = BE16S(p + 0) << 5;
                 c[1] = BE16S(p + 2) << 5;
                 c[2] = BE16S(p + 4) << 5;
@@ -743,7 +668,6 @@ void func_802A3F80(u32 h_) {
                 p += 0xC;
                 q += 6;
             } while (--n != 0);
-            ENGINE_BLK(802A407C);
             last = UNALIGNED_W(p);
             *q = last;
             p += 4;
@@ -751,47 +675,35 @@ void func_802A3F80(u32 h_) {
             u16 *q = (u16 *)r->area;   /* n halfwords, kept big-endian */
 
             do {
-                ENGINE_BLK(802A4090);
                 last = (u32)(s32)BE16S(p);
                 STORE_BE16(q, last);
                 p += 2;
                 q++;
             } while (--n != 0);
         }
-        ENGINE_BLK(802A40B4);
         n = *p++;
         t = tris;
         ids = r->level;
         r->nlevel = n;
-        for (; ENGINE_BLK(802A40CC), n != 0; n--) {
+        for (; n != 0; n--) {
             u32 id;
 
-            ENGINE_BLK(802A40D4);
             id = p[0x14];
             *ids++ = id;
             if (!tri_id_used(id, tris)) {
-                ENGINE_BLK(802A40E4);
-                ENGINE_BLK(802A40EC);
                 t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, last, 1, 0, id, n, 0);
-            } else {
-                ENGINE_BLK(802A40E4);
             }
-            ENGINE_BLK(802A40F4);
             p += STOP_TRI_SIZE;
         }
-        ENGINE_BLK(802A4100);
         tris = t;
         n = *p++;
         ids = r->own;
         r->nown = n;
         /* (the original tests n once less: its loop tests at the end) */
-        for (; ENGINE_BLK(802A4114), n != 0; n--) {
-            ENGINE_BLK(802A411C);
+        for (; n != 0; n--) {
             *ids++ = *p++;
         }
-        ENGINE_BLK(802A4134);
     }
-    ENGINE_BLK(802A413C);
     D_803BD304 = r;
     D_803BD300 = tris;
     tex_param = (u32)tris;
@@ -821,40 +733,35 @@ void func_802A1EC8(void) {
     s32 level = D_802E8BDC;
     u8 *t;
 
-#define GROUPS(b, table) (ENGINE_BLK(b), t = (table))
-    ENGINE_BLK(802A1EC8);
-    if (level == LEVEL_SIMIAN_ACRES) GROUPS(802A1EE4, D_802D30D0);
-    else if (ENGINE_BLK(802A1EF0), level == LEVEL_ANGEL_CITY) GROUPS(802A1EFC, D_802D3194);
-    else if (ENGINE_BLK(802A1F08), level == LEVEL_OUTLAND_FARM) GROUPS(802A1F14, D_802D32A0);
-    else if (ENGINE_BLK(802A1F20), level == LEVEL_BLACKRIDGE_WORKS) GROUPS(802A1F2C, D_802D331C);
-    else if (ENGINE_BLK(802A1F38), level == LEVEL_GLORY_CROSSING) GROUPS(802A1F44, D_802D33C8);
-    else if (ENGINE_BLK(802A1F50), level == LEVEL_SHUTTLE_GULLY) GROUPS(802A1F5C, D_802D3444);
-    else if (ENGINE_BLK(802A1F68), level == LEVEL_CRYSTAL_RIFT) GROUPS(802A1F74, D_802D3538);
-    else if (ENGINE_BLK(802A1F80), level == LEVEL_ARGENT_TOWERS) GROUPS(802A1F8C, D_802D3614);
-    else if (ENGINE_BLK(802A1F98), level == LEVEL_DIAMOND_SANDS) GROUPS(802A1FA4, D_802D36C0);
-    else if (ENGINE_BLK(802A1FB0), level == LEVEL_EBONY_COAST) GROUPS(802A1FBC, D_802D3784);
-    else if (ENGINE_BLK(802A1FC8), level == LEVEL_OYSTER_HARBOR) GROUPS(802A1FD4, D_802D3890);
-    else if (ENGINE_BLK(802A1FE0), level == LEVEL_CARRICK_POINT) GROUPS(802A1FEC, D_802D393C);
-    else if (ENGINE_BLK(802A1FF8), level == LEVEL_HAVOC_DISTRICT) GROUPS(802A2004, D_802D3A00);
-    else if (ENGINE_BLK(802A2010), level == LEVEL_IRONSTONE_MINE) GROUPS(802A201C, D_802D3A4C);
-    else if (ENGINE_BLK(802A2028), level == LEVEL_BEETON_TRACKS) GROUPS(802A2034, D_802D3BA0);
-    else if (ENGINE_BLK(802A2040), level == LEVEL_OBSIDIAN_MILE) GROUPS(802A204C, D_802D3BD4);
-    else if (ENGINE_BLK(802A2058), level == LEVEL_ECHO_MARCHES) GROUPS(802A2064, D_802D3CE0);
-    else if (ENGINE_BLK(802A2070), level == LEVEL_TEMPEST_CITY) GROUPS(802A207C, D_802D3DD4);
-    else if (ENGINE_BLK(802A2088), level == LEVEL_EMBER_HAMLET) GROUPS(802A2094, D_802D3EB0);
-    else if (ENGINE_BLK(802A20A0), level == LEVEL_CROMLECH_COURT) GROUPS(802A20AC, D_802D3F74);
+#define GROUPS(table) (t = (table))
+    if (level == LEVEL_SIMIAN_ACRES) GROUPS(D_802D30D0);
+    else if (level == LEVEL_ANGEL_CITY) GROUPS(D_802D3194);
+    else if (level == LEVEL_OUTLAND_FARM) GROUPS(D_802D32A0);
+    else if (level == LEVEL_BLACKRIDGE_WORKS) GROUPS(D_802D331C);
+    else if (level == LEVEL_GLORY_CROSSING) GROUPS(D_802D33C8);
+    else if (level == LEVEL_SHUTTLE_GULLY) GROUPS(D_802D3444);
+    else if (level == LEVEL_CRYSTAL_RIFT) GROUPS(D_802D3538);
+    else if (level == LEVEL_ARGENT_TOWERS) GROUPS(D_802D3614);
+    else if (level == LEVEL_DIAMOND_SANDS) GROUPS(D_802D36C0);
+    else if (level == LEVEL_EBONY_COAST) GROUPS(D_802D3784);
+    else if (level == LEVEL_OYSTER_HARBOR) GROUPS(D_802D3890);
+    else if (level == LEVEL_CARRICK_POINT) GROUPS(D_802D393C);
+    else if (level == LEVEL_HAVOC_DISTRICT) GROUPS(D_802D3A00);
+    else if (level == LEVEL_IRONSTONE_MINE) GROUPS(D_802D3A4C);
+    else if (level == LEVEL_BEETON_TRACKS) GROUPS(D_802D3BA0);
+    else if (level == LEVEL_OBSIDIAN_MILE) GROUPS(D_802D3BD4);
+    else if (level == LEVEL_ECHO_MARCHES) GROUPS(D_802D3CE0);
+    else if (level == LEVEL_TEMPEST_CITY) GROUPS(D_802D3DD4);
+    else if (level == LEVEL_EMBER_HAMLET) GROUPS(D_802D3EB0);
+    else if (level == LEVEL_CROMLECH_COURT) GROUPS(D_802D3F74);
     else {
-        ENGINE_BLK(802A20B8);
         D_803BE704 = NULL;
         D_803BE708 = NULL;
-        ENGINE_BLK(802A20E0);
         return;
     }
 #undef GROUPS
-    ENGINE_BLK(802A20CC);
     D_803BE708 = t;
     D_803BE704 = t + 4;
-    ENGINE_BLK(802A20E0);
 }
 
 #define MODE_RED_VERTICES 0x800 /* the game mode (D_80364A98) in which
@@ -866,19 +773,15 @@ REGS(t4, s0)
 void func_802A20F4(u32 m_, u32 flag) {
     u8 *m = (u8 *)m_;
 
-    ENGINE_BLK(802A20F4);
-    if (flag != 0 && (ENGINE_BLK(802A210C), D_80364A98 == MODE_RED_VERTICES)) {
+    if (flag != 0 && (D_80364A98 == MODE_RED_VERTICES)) {
         Vtx *v = (Vtx *)(m + 0x50), *end = (Vtx *)MODEL_PTR(m, unk1C);
 
-        ENGINE_BLK(802A2120);
-        for (; ENGINE_BLK(802A2130), v != end; v++) {
-            ENGINE_BLK(802A2138);
+        for (; v != end; v++) {
             v->v.cn[0] = 0xFF;
             v->v.cn[1] = 0;
             v->v.cn[2] = 0;
         }
     }
-    ENGINE_BLK(802A214C);
 }
 
 /* func_802A2164: in level 0x31, model 0x24's unk4 is 2 */
@@ -886,12 +789,9 @@ REGS(t3, s0)
 void func_802A2164(u32 n, u32 m_) {
     Model *m = (Model *)m_;
 
-    ENGINE_BLK(802A2164);
-    if (D_802E8BDC == LEVEL_END_SEQUENCE && (ENGINE_BLK(802A2184), n == 0x24)) {
-        ENGINE_BLK(802A2190);
+    if (D_802E8BDC == LEVEL_END_SEQUENCE && (n == 0x24)) {
         m->unk4 = 2;
     }
-    ENGINE_BLK(802A2198);
 }
 
 /* func_802A23E0: a building's model's effects (Model.unk30..unk38): byte
@@ -902,12 +802,9 @@ void func_802A23E0(u32 b_) {
     ModelEffect *e = (ModelEffect *)MODEL_PTR(m, unk30);
     ModelEffect *end = (ModelEffect *)MODEL_PTR(m, unk38);
 
-    ENGINE_BLK(802A23E0);
-    for (; ENGINE_BLK(802A2418), e != end; e++) {
-        ENGINE_BLK(802A2420);
+    for (; e != end; e++) {
         X3(&e->unk30[1]) = D_8030631F[X3(&e->unk30[1])];
     }
-    ENGINE_BLK(802A2438);
 }
 
 /* func_802A2458: a building's centre in x and z (unk28, unk2C), from its
@@ -917,7 +814,6 @@ void func_802A2458(u32 b_, u32 m_) {
     Building *b = (Building *)b_;
     s16 (*box)[3] = (s16 (*)[3])MODEL_PTR(m_, unk1C);
 
-    ENGINE_BLK(802A2458);
     b->unk28 = ((box[0][0] + box[1][0]) >> 1) << 5;
     b->unk2C = ((box[0][2] + box[2][2]) >> 1) << 5;
 }
@@ -930,24 +826,17 @@ void func_802A2608(u32 m_) {
     u8 *a = MODEL_PTR(m, unk28), *end = MODEL_PTR(m, unk2C);
     u32 fp = tex_param;
 
-    ENGINE_BLK(802A2608);
-    while (ENGINE_BLK(802A2638), a != end) {
+    while (a != end) {
         ModelAnimTex *at = (ModelAnimTex *)a;
         s32 n, k;
 
-        ENGINE_BLK(802A2640);
         at->frame0 = func_802A0CFC(at->frame0, fp);
-        ENGINE_BLK(802A2648);
         n = at->nframes - 1;
-        for (k = 0; ENGINE_BLK(802A265C), k < n; k++) {
-            ENGINE_BLK(802A2664);
+        for (k = 0; k < n; k++) {
             at->frames[k] = func_802A0CFC(at->frames[k], fp);
-            ENGINE_BLK(802A2670);
         }
-        ENGINE_BLK(802A267C);
         a = (u8 *)&at->frames[k];
     }
-    ENGINE_BLK(802A2684);
 }
 
 
@@ -957,18 +846,12 @@ REGS(v1)
 void func_802A24BC(u32 b_) {
     Building *b = (Building *)b_;
 
-    ENGINE_BLK(802A24BC);
-    if (b->unk30 != 0xBA && (ENGINE_BLK(802A254C), b->unk30 != 0xBB) &&
-        (ENGINE_BLK(802A2554), b->unk30 != 0xBC)) {
-        ENGINE_BLK(802A2584);
+    if (b->unk30 != 0xBA && (b->unk30 != 0xBB) &&
+        (b->unk30 != 0xBC)) {
         return;
     }
-    ENGINE_BLK(802A255C);
     D_80365330 = func_802A0CFC(0xF81, tex_param);
-    ENGINE_BLK(802A2564);
     b->unk44 = func_802CE6F8(b->x, b->z, b->y);
-    ENGINE_BLK(802A2580);
-    ENGINE_BLK(802A2584);
 }
 
 /* a big-endian s16 at any alignment plus d, stored back a byte at a time */
@@ -989,16 +872,13 @@ void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
     u8 *m = (u8 *)m_;
     s32 i;
 
-    ENGINE_BLK(802A26A8);
     {
         s16 *p = (s16 *)MODEL_PTR(m, unk40), *end = (s16 *)MODEL_PTR(m, unk44);
 
-        for (; ENGINE_BLK(802A26CC), p != end; p++) {
-            ENGINE_BLK(802A26D4);
+        for (; p != end; p++) {
             *p += dy;
         }
     }
-    ENGINE_BLK(802A26E8);
     {
         s16 *r = (s16 *)MODEL_PTR(m, unk20);
 
@@ -1010,10 +890,9 @@ void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
     {
         u8 *p = MODEL_PTR(m, unk24), *end = MODEL_PTR(m, unk28);
 
-        for (; ENGINE_BLK(802A2730), p != end; p += 0x14) {
+        for (; p != end; p += 0x14) {
             s16 *v = (s16 *)p;
 
-            ENGINE_BLK(802A2738);
             for (i = 0; i < 9; i += 3) {
                 v[i + 0] += dx;
                 v[i + 1] += dy;
@@ -1021,35 +900,28 @@ void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
             }
         }
     }
-    ENGINE_BLK(802A27AC);
     {
         s16 (*c)[3] = (s16 (*)[3])MODEL_PTR(m, unk1C);
 
-        for (i = 0; ENGINE_BLK(802A27B8), i < 4; i++) {
-            ENGINE_BLK(802A27C0);
+        for (i = 0; i < 4; i++) {
             c[i][0] += dx;
             c[i][1] += dy;
             c[i][2] += dz;
         }
     }
-    ENGINE_BLK(802A27F0);
     if (((Model *)m)->unkE == 0) {
         Vtx *v = (Vtx *)(m + 0x50), *end = (Vtx *)MODEL_PTR(m, unk1C);
 
-        ENGINE_BLK(802A27FC);
-        for (; ENGINE_BLK(802A2808), v != end; v++) {
-            ENGINE_BLK(802A2810);
+        for (; v != end; v++) {
             v->v.ob[0] += dx;
             v->v.ob[1] += dy;
             v->v.ob[2] += dz;
         }
     }
-    ENGINE_BLK(802A283C);
     {
         BuildingTri *t = (BuildingTri *)MODEL_PTR(m, unk48), *end = (BuildingTri *)MODEL_PTR(m, unk4C);
 
-        for (; ENGINE_BLK(802A284C), t != end; t++) {
-            ENGINE_BLK(802A2854);
+        for (; t != end; t++) {
             for (i = 0; i < 18; i += 6) {
                 be16_add(&t->v[i + 0], dx);
                 be16_add(&t->v[i + 2], dy);
@@ -1057,42 +929,35 @@ void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
             }
         }
     }
-    ENGINE_BLK(802A297C);
     {
         ModelEffect *e = (ModelEffect *)MODEL_PTR(m, unk30), *end = (ModelEffect *)MODEL_PTR(m, unk34);
 
-        for (; ENGINE_BLK(802A298C), e != end; e++) {
-            ENGINE_BLK(802A2994);
+        for (; e != end; e++) {
             e->x = (e->x + dx) << 16;
             e->y = (e->y + dy) << 16;
             e->z = (e->z + dz) << 16;
             e->unk28 = (e->unk28 + dy) << 16;
         }
     }
-    ENGINE_BLK(802A29DC);
     {
         ModelEffect *e = (ModelEffect *)MODEL_PTR(m, unk34), *end = (ModelEffect *)MODEL_PTR(m, unk38);
 
-        for (; ENGINE_BLK(802A29EC), e != end; e++) {
-            ENGINE_BLK(802A29F4);
+        for (; e != end; e++) {
             e->x = (e->x + dx) << 16;
             e->y = (e->y + dy) << 16;
             e->z = (e->z + dz) << 16;
             e->unk28 = (e->unk28 + dy) << 16;
         }
     }
-    ENGINE_BLK(802A2A3C);
     {
         s16 *p = (s16 *)MODEL_PTR(m, unk2C), *end = (s16 *)MODEL_PTR(m, unk30);
 
-        for (; ENGINE_BLK(802A2A4C), p != end; p += 4) {
-            ENGINE_BLK(802A2A54);
+        for (; p != end; p += 4) {
             p[0] += dx;
             p[1] += dy;
             p[2] += dz;
         }
     }
-    ENGINE_BLK(802A2A80);
 }
 
 /* func_802A1C20: the level's animated textures' frames loaded
@@ -1106,25 +971,19 @@ void func_802A1C20(u32 h_) {
        105 calls; the others an earlier function's working) */
     u32 fp = 0;
 
-    ENGINE_BLK(802A1C20);
-    while (ENGINE_BLK(802A1C38), a != end) {
+    while (a != end) {
         LevelAnimTex *at = (LevelAnimTex *)a;
         s32 n, k;
 
-        ENGINE_BLK(802A1C40);
         n = at->nframes - 1;
-        for (k = 0; ENGINE_BLK(802A1C50), k < n; k++) {
+        for (k = 0; k < n; k++) {
             u32 phys;
 
-            ENGINE_BLK(802A1C58);
             phys = func_802A0CFC(at->frames[k], fp);
-            ENGINE_BLK(802A1C64);
             at->frames[k] = phys;
         }
-        ENGINE_BLK(802A1C70);
         a = (u8 *)&at->frames[k];
     }
-    ENGINE_BLK(802A1C78);
 }
 
 /* func_802A3008: the level's display lists' textures (802A08E4 over
@@ -1134,9 +993,7 @@ REGS(t0)
 void func_802A3008(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
 
-    ENGINE_BLK(802A3008);
     func_802A08E4((u32)LEVEL_PTR(h, displayLists[0]), (u32)LEVEL_PTR(h, displayLists[3]));
-    ENGINE_BLK(802A3028);
 }
 
 /* ---- the buildings ------------------------------------------------------ */
@@ -1156,21 +1013,16 @@ extern s16 D_803F767C, D_803F767E, D_803F7680;
 
 /* a model file of `size` bytes at ROM `rom`: DMA'd to init's memory, its
    two gzip members inflated onto the heap; returns the heap's new top
-   (rounded up).  (802A2A98's blocks: 802A396C's and 802A32CC's are the
-   same sizes.) */
+   (rounded up).  (802A2A98's code: 802A396C and 802A32CC are the
+   same.) */
 static u32 load_gz_model(u32 rom, u32 size) {
     u32 src, dst;
 
     osInvalDCache((void *)INIT_AREA, size);
-    ENGINE_BLK(802A2B04);
     osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, rom, (void *)INIT_AREA, size, &D_803150A0);
-    ENGINE_BLK(802A2B30);
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
-    ENGINE_BLK(802A2B44);
     src = func_802C4108(INIT_AREA, (u32)D_80358070, GZIP_WINDOW, &dst);
-    ENGINE_BLK(802A2B60);
     src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
-    ENGINE_BLK(802A2B68);
     return func_802A44E4(dst);
 }
 
@@ -1179,16 +1031,12 @@ REGS()
 void func_802A2BB0(void) {
     u8 *t = D_80358070;
 
-    ENGINE_BLK(802A2BB0);
     D_803BE6F0 = (u32 *)t;
     D_80358070 = t + MODEL_TABLE_SIZE;
     osInvalDCache(t, MODEL_TABLE_SIZE);
-    ENGINE_BLK(802A2BF4);
     osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, (u32)D_006EC4C0, t, MODEL_TABLE_SIZE,
                  &D_803150A0);
-    ENGINE_BLK(802A2C28);
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
-    ENGINE_BLK(802A2C3C);
 }
 
 /* func_802A2A98: model `n` of the model table, loaded onto the heap.
@@ -1200,9 +1048,7 @@ u32 func_802A2A98(u32 n) {
     u32 top;
     u8 *m;
 
-    ENGINE_BLK(802A2A98);
     top = load_gz_model((u32)D_006EC4C0 + start, size);
-    ENGINE_BLK(802A2B70);
     m = D_80358070;
     D_80358070 = (u8 *)top;
     return (u32)m;
@@ -1221,20 +1067,15 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     BuildingTri *src, *end;
     CollisionTri *t;
 
-    ENGINE_BLK(802A21AC);
     func_802A2608((u32)m);
-    ENGINE_BLK(802A21C4);
     if (n == 0x38) {                    /* model 0x38: its place kept */
-        ENGINE_BLK(802A21D0);
         D_803F767C = x;
         D_803F767E = y;
         D_803F7680 = z;
     }
-    ENGINE_BLK(802A21E4);
     b = D_803F7654;
     D_803F7654 = b + 1;
     func_802A2458((u32)b, (u32)m);
-    ENGINE_BLK(802A21FC);
     b->unk34 = unk34;
     b->unk38 = 0;
     b->unk3C = 0;
@@ -1250,60 +1091,42 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     ngroups = ((Model *)m)->unk0;
     b->unkE9 = ngroups;
     /* per group: a byte from 0xEC, halfwords from 0x48 and 0x68 */
-    for (k = 0; ENGINE_BLK(802A2258), k < ngroups; k++) {
-        ENGINE_BLK(802A2260);
+    for (k = 0; k < ngroups; k++) {
         (&b->unkEC)[k] = 0;
     }
-    ENGINE_BLK(802A2270);
     f48 = &b->unk48;
-    for (k = 0; ENGINE_BLK(802A2278), k < ngroups; k++) {
-        ENGINE_BLK(802A2280);
+    for (k = 0; k < ngroups; k++) {
         f48[k] = 0;
     }
-    ENGINE_BLK(802A2290);
     f68 = (u16 *)&b->unk68;
-    for (k = 0; ENGINE_BLK(802A2298), k < ngroups; k++) {
-        ENGINE_BLK(802A22A0);
+    for (k = 0; k < ngroups; k++) {
         f68[k] = 0;
     }
-    ENGINE_BLK(802A22B0);
-    if (D_803BE704 != NULL && (ENGINE_BLK(802A22C0), flag != 0)) {
-        ENGINE_BLK(802A22C8);
+    if (D_803BE704 != NULL && (flag != 0)) {
         *(u32 *)D_803BE704 = (u32)b;
         D_803BE704 += GROUP_SIZE;
     }
-    ENGINE_BLK(802A22D8);
-    ENGINE_BLK(802A22F8);
     /* the object grid's cell it is in */
     a0 = (u32)D_803BE70C >> 5;
     cell = z / ((u32)D_803BE710 >> 5) * D_803BE714 + x / a0;
-    ENGINE_BLK(802A234C);
     b->unkE8 = cell;
     func_802A24BC((u32)b);
-    ENGINE_BLK(802A2358);
     func_802A23E0((u32)b);
-    ENGINE_BLK(802A2360);
     src = (BuildingTri *)MODEL_PTR(m, unk48);
     end = (BuildingTri *)MODEL_PTR(m, unk4C);
     t = (CollisionTri *)D_80358070;
     b->unk4 = t;
-    for (; ENGINE_BLK(802A2384), src != end; src++) {
-        ENGINE_BLK(802A238C);
+    for (; src != end; src++) {
         if (src->group2 != 0) {
-            ENGINE_BLK(802A2398);
             t->active = 0;
         } else {
-            ENGINE_BLK(802A23A0);
             t->active = 1;
         }
-        ENGINE_BLK(802A23A4);
         /* (0x4F unk34, 0x50 the low byte of &D_803F7654: the original's
            $t9 and $v0) */
         t = (CollisionTri *)func_802A41B0((u32)t, (u32)src, src->group, src->unk14, src->unk18, unk34,
                                           (u32)&D_803F7654, src->group2, src->pushes);
-        ENGINE_BLK(802A23B8);
     }
-    ENGINE_BLK(802A23C0);
     b->unk8 = t;
     D_80358070 = (u8 *)t;
 }
@@ -1322,59 +1145,42 @@ void func_802A1D54(u32 h_) {
     u8 *q;
     s32 i;
 
-    ENGINE_BLK(802A1D54);
     D_8036EB93 = 0;
     func_802A1EC8();
-    ENGINE_BLK(802A1D68);
-    for (i = 0, q = D_803EFED0; ENGINE_BLK(802A1D74), i < 1; i++, q += EFED0_SIZE) {
-        ENGINE_BLK(802A1D7C);
+    for (i = 0, q = D_803EFED0; i < 1; i++, q += EFED0_SIZE) {
         q[0xA2A] = 0;
         q[0xA2B] = 0;
     }
-    ENGINE_BLK(802A1D90);
-    for (i = 0, q = D_803F0900; ENGINE_BLK(802A1D9C), i < 4; i++, q += F0900_SIZE) {
-        ENGINE_BLK(802A1DA4);
+    for (i = 0, q = D_803F0900; i < 4; i++, q += F0900_SIZE) {
         *(s16 *)(q + 0x4B0) = 0;
         q[0x4B2] = 0;
     }
-    ENGINE_BLK(802A1DB8);
-    for (i = 0, q = D_803F1BE0; ENGINE_BLK(802A1DC4), i < 2; i++, q += F1BE0_SIZE) {
-        ENGINE_BLK(802A1DCC);
+    for (i = 0, q = D_803F1BE0; i < 2; i++, q += F1BE0_SIZE) {
         q[0x470] = 0;
         q[0x472] = 0;
     }
-    ENGINE_BLK(802A1DE0);
     D_803F7654 = D_803F4030;
     func_802A2BB0();
-    ENGINE_BLK(802A1DF8);
     p = (FileBuilding *)LEVEL_PTR(h, buildings);
     end = (FileBuilding *)LEVEL_PTR(h, unk60);
-    for (; ENGINE_BLK(802A1E08), p != end; p++) {
+    for (; p != end; p++) {
         u32 n, x, y, z;
         u8 *m;
 
-        ENGINE_BLK(802A1E10);
         n = BE16U(p->model);
         m = (u8 *)func_802A2A98(n);
-        ENGINE_BLK(802A1E24);
         func_802A2164(n, (u32)m);
-        ENGINE_BLK(802A1E2C);
         func_802A08E4((u32)MODEL_PTR(m, unk10), (u32)MODEL_PTR(m, unk14));
-        ENGINE_BLK(802A1E44);
         ((Model *)m)->unkE = p->behavior;
         x = BE16U(p->x);
         y = BE16U(p->y);
         z = BE16U(p->z);
         func_802A26A8((u32)m, x, y, z);
-        ENGINE_BLK(802A1E80);
         func_802A20F4((u32)m, p->unk8);
-        ENGINE_BLK(802A1E88);
         ((Model *)m)->unk6 = p->unk9;
         D_8036EB93 += p->unk9;
         func_802A21AC((u32)m, n, x, y, z, p->unk8, p->speed);
-        ENGINE_BLK(802A1EB0);
     }
-    ENGINE_BLK(802A1EB8);
 }
 
 /* ---- the vehicles' records --------------------------------------------- */
@@ -1397,7 +1203,6 @@ void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     u32 *src, *end, *dst;
     s32 delta;
 
-    ENGINE_BLK(802A1388);
     D_803649D0 = v + 1;
     v->unk70 = 0;
     v->unk4 = buf1;
@@ -1418,12 +1223,10 @@ void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     end = (u32 *)(model + vm->unk20);
     dst = (u32 *)D_80358070;
     delta = (u8 *)dst - (u8 *)v->unkC;
-    for (; ENGINE_BLK(802A1478), src != end; src += 2, dst += 2) {
-        ENGINE_BLK(802A1480);
+    for (; src != end; src += 2, dst += 2) {
         dst[0] = src[0];
         dst[1] = src[1];
     }
-    ENGINE_BLK(802A1494);
     D_80358070 = (u8 *)dst;
     v->unk30 = (u8 *)v->unkC + delta;
     v->unk34 = (u8 *)v->unk10 + delta;
@@ -1434,15 +1237,10 @@ void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     v->unk48 = (u8 *)v->unk24 + delta;
     v->unk4C = (u8 *)v->unk28 + delta;
     v->unk50 = (u8 *)v->unk2C + delta;
-    if (D_80364AA8 == ATTRACT_DEMO && (ENGINE_BLK(802A1518), a1 == 0)) {
-        ENGINE_BLK(802A1530);
+    if (D_80364AA8 == ATTRACT_DEMO && (a1 == 0)) {
         return;
     }
-    ENGINE_BLK(802A1520);
-    ENGINE_BLK(802A1558);
     func_80278BF0(v->unkC, v->unk18, &v->unk58);
-    ENGINE_BLK(802A15EC);
-    ENGINE_BLK(802A1530);
 }
 
 /* func_802A133C (the vehicle modules'): the Vehicle of `type` moves to
@@ -1451,10 +1249,8 @@ REGS(v0, v1, a0, a1, gp)
 void func_802A133C(s32 x, s32 y, s32 z, s32 type, VS *vs) {
     Vehicle *v;
 
-    ENGINE_BLK(802A133C);
-    for (v = D_80364460; ENGINE_BLK(802A1354), v->type != type; v++) {
+    for (v = D_80364460; v->type != type; v++) {
     }
-    ENGINE_BLK(802A1360);
     v->x = x;
     v->y = y;
     v->z = z;
@@ -1470,8 +1266,8 @@ extern u8 D_0048FE90[], D_004903C0[], D_00490AC0[], D_00491E00[], D_004929D0[], 
 REGS(s0, s1, s2)
 void func_8029DF78(u32 dl, u32 end, u32 type);
 
-/* the model file's ROM range, charging the block that picks it */
-#define ROM_RANGE(b, s, e) (ENGINE_BLK(b), start = (u32)(s), end = (u32)(e))
+/* the model file's ROM range */
+#define ROM_RANGE(s, e) (start = (u32)(s), end = (u32)(e))
 
 /* func_802A396C: vehicle model `type` (or the carrier's, the chopper's,
    the shuttle's, the comm point's or the scientist's): returns it ($s2),
@@ -1481,43 +1277,37 @@ u32 func_802A396C(u32 type) {
     u32 start, end, top;
     u8 *m;
 
-    ENGINE_BLK(802A396C);
-    if (type == VEHICLE_DRIVER) ROM_RANGE(802A3A5C, D_00491E00, D_004929D0);
-    else if (ENGINE_BLK(802A39A4), type == VEHICLE_SIDESWIPE) ROM_RANGE(802A3A74, D_004929D0, D_00494390);
-    else if (ENGINE_BLK(802A39B0), type == VEHICLE_MAGOO) ROM_RANGE(802A3A8C, D_00494390, D_00496AD0);
-    else if (ENGINE_BLK(802A39B8), type == VEHICLE_MINIMAGOO) ROM_RANGE(802A3AA4, D_004A1690, D_004A4120);
-    else if (ENGINE_BLK(802A39C0), type == VEHICLE_BUGGY) ROM_RANGE(802A3ABC, D_00490AC0, D_00491E00);
-    else if (ENGINE_BLK(802A39C8), type == VEHICLE_BULLDOZER) ROM_RANGE(802A3AD4, D_00496AD0, D_00497AF0);
-    else if (ENGINE_BLK(802A39D0), type == VEHICLE_TRUCK) ROM_RANGE(802A3AEC, D_00497AF0, D_004989E0);
-    else if (ENGINE_BLK(802A39D8), type == VEHICLE_CRANE) ROM_RANGE(802A3B04, D_0049AD20, D_0049B630);
-    else if (ENGINE_BLK(802A39E0), type == VEHICLE_TRAIN) ROM_RANGE(802A3B1C, D_0049B630, D_0049BCE0);
-    else if (ENGINE_BLK(802A39E8), type == VEHICLE_HOTROD) ROM_RANGE(802A3B34, D_0049BCE0, D_0049C480);
-    else if (ENGINE_BLK(802A39F0), type == VEHICLE_JETPACK) ROM_RANGE(802A3B4C, D_0049C480, D_0049E8E0);
-    else if (ENGINE_BLK(802A39F8), type == VEHICLE_BIKE) ROM_RANGE(802A3B64, D_0049E8E0, D_0049F7A0);
-    else if (ENGINE_BLK(802A3A00), type == VEHICLE_BARGE) ROM_RANGE(802A3B7C, D_0049F7A0, D_0049FF70);
-    else if (ENGINE_BLK(802A3A08), type == VEHICLE_BARGE_2) ROM_RANGE(802A3B7C, D_0049F7A0, D_0049FF70);
-    else if (ENGINE_BLK(802A3A10), type == VEHICLE_BARGE_3) ROM_RANGE(802A3B7C, D_0049F7A0, D_0049FF70);
-    else if (ENGINE_BLK(802A3A18), type == VEHICLE_POLICE) ROM_RANGE(802A3B94, D_0049FF70, D_004A0720);
-    else if (ENGINE_BLK(802A3A20), type == VEHICLE_ATEAM) ROM_RANGE(802A3BAC, D_004A0720, D_004A1000);
-    else if (ENGINE_BLK(802A3A28), type == VEHICLE_STARSKI) ROM_RANGE(802A3BC4, D_004A1000, D_004A1690);
-    else if (ENGINE_BLK(802A3A30), type == VEHICLE_CHOPPER) ROM_RANGE(802A3BDC, D_004989E0, D_00499690);
-    else if (ENGINE_BLK(802A3A38), type == VEHICLE_CMO) ROM_RANGE(802A3BF4, D_00499690, D_0049AD20);
-    else if (ENGINE_BLK(802A3A40), type == VEHICLE_SHUTTLE) ROM_RANGE(802A3C0C, D_004A4120, D_004A5660);
-    else if (ENGINE_BLK(802A3A48), type == VEHICLE_COMMPOINT) ROM_RANGE(802A3C24, D_004903C0, D_00490AC0);
-    else if (ENGINE_BLK(802A3A50), type == VEHICLE_SCIENTIST) ROM_RANGE(802A3C3C, D_0048FE90, D_004903C0);
+    if (type == VEHICLE_DRIVER) ROM_RANGE(D_00491E00, D_004929D0);
+    else if (type == VEHICLE_SIDESWIPE) ROM_RANGE(D_004929D0, D_00494390);
+    else if (type == VEHICLE_MAGOO) ROM_RANGE(D_00494390, D_00496AD0);
+    else if (type == VEHICLE_MINIMAGOO) ROM_RANGE(D_004A1690, D_004A4120);
+    else if (type == VEHICLE_BUGGY) ROM_RANGE(D_00490AC0, D_00491E00);
+    else if (type == VEHICLE_BULLDOZER) ROM_RANGE(D_00496AD0, D_00497AF0);
+    else if (type == VEHICLE_TRUCK) ROM_RANGE(D_00497AF0, D_004989E0);
+    else if (type == VEHICLE_CRANE) ROM_RANGE(D_0049AD20, D_0049B630);
+    else if (type == VEHICLE_TRAIN) ROM_RANGE(D_0049B630, D_0049BCE0);
+    else if (type == VEHICLE_HOTROD) ROM_RANGE(D_0049BCE0, D_0049C480);
+    else if (type == VEHICLE_JETPACK) ROM_RANGE(D_0049C480, D_0049E8E0);
+    else if (type == VEHICLE_BIKE) ROM_RANGE(D_0049E8E0, D_0049F7A0);
+    else if (type == VEHICLE_BARGE) ROM_RANGE(D_0049F7A0, D_0049FF70);
+    else if (type == VEHICLE_BARGE_2) ROM_RANGE(D_0049F7A0, D_0049FF70);
+    else if (type == VEHICLE_BARGE_3) ROM_RANGE(D_0049F7A0, D_0049FF70);
+    else if (type == VEHICLE_POLICE) ROM_RANGE(D_0049FF70, D_004A0720);
+    else if (type == VEHICLE_ATEAM) ROM_RANGE(D_004A0720, D_004A1000);
+    else if (type == VEHICLE_STARSKI) ROM_RANGE(D_004A1000, D_004A1690);
+    else if (type == VEHICLE_CHOPPER) ROM_RANGE(D_004989E0, D_00499690);
+    else if (type == VEHICLE_CMO) ROM_RANGE(D_00499690, D_0049AD20);
+    else if (type == VEHICLE_SHUTTLE) ROM_RANGE(D_004A4120, D_004A5660);
+    else if (type == VEHICLE_COMMPOINT) ROM_RANGE(D_004903C0, D_00490AC0);
+    else if (type == VEHICLE_SCIENTIST) ROM_RANGE(D_0048FE90, D_004903C0);
     else {
-        ENGINE_BLK(802A3A58);
         *(volatile u32 *)0 = 0;     /* (the original's syscall: an unknown type) */
     }
-    ENGINE_BLK(802A3C54);
     top = load_gz_model(start, end - start);
-    ENGINE_BLK(802A3CDC);
     m = D_80358070;
     D_80358070 = (u8 *)top;
     func_8029DF78((u32)VMODEL_PTR(m, unk1C), (u32)VMODEL_PTR(m, unk20), type);
-    ENGINE_BLK(802A3D04);
     func_802A08E4((u32)VMODEL_PTR(m, unk1C), (u32)VMODEL_PTR(m, unk20));
-    ENGINE_BLK(802A3D18);
     return (u32)m;
 }
 
@@ -1528,27 +1318,22 @@ u32 func_802A32CC(u32 type) {
     u32 start, end, top;
     u8 *m;
 
-    ENGINE_BLK(802A32CC);
-    if (type == VEHICLE_BUGGY) ROM_RANGE(802A334C, D_00490AC0, D_00491E00);
-    else if (ENGINE_BLK(802A3304), type == VEHICLE_BULLDOZER) ROM_RANGE(802A3364, D_00496AD0, D_00497AF0);
-    else if (ENGINE_BLK(802A3310), type == VEHICLE_TRUCK) ROM_RANGE(802A337C, D_00497AF0, D_004989E0);
-    else if (ENGINE_BLK(802A3318), type == VEHICLE_HOTROD) ROM_RANGE(802A3394, D_0049BCE0, D_0049C480);
-    else if (ENGINE_BLK(802A3320), type == VEHICLE_JETPACK) ROM_RANGE(802A33AC, D_0049C480, D_0049E8E0);
-    else if (ENGINE_BLK(802A3328), type == VEHICLE_BIKE) ROM_RANGE(802A33C4, D_0049E8E0, D_0049F7A0);
-    else if (ENGINE_BLK(802A3330), type == VEHICLE_POLICE) ROM_RANGE(802A33DC, D_0049FF70, D_004A0720);
-    else if (ENGINE_BLK(802A3338), type == VEHICLE_ATEAM) ROM_RANGE(802A33F4, D_004A0720, D_004A1000);
-    else if (ENGINE_BLK(802A3340), type == VEHICLE_STARSKI) ROM_RANGE(802A340C, D_004A1000, D_004A1690);
+    if (type == VEHICLE_BUGGY) ROM_RANGE(D_00490AC0, D_00491E00);
+    else if (type == VEHICLE_BULLDOZER) ROM_RANGE(D_00496AD0, D_00497AF0);
+    else if (type == VEHICLE_TRUCK) ROM_RANGE(D_00497AF0, D_004989E0);
+    else if (type == VEHICLE_HOTROD) ROM_RANGE(D_0049BCE0, D_0049C480);
+    else if (type == VEHICLE_JETPACK) ROM_RANGE(D_0049C480, D_0049E8E0);
+    else if (type == VEHICLE_BIKE) ROM_RANGE(D_0049E8E0, D_0049F7A0);
+    else if (type == VEHICLE_POLICE) ROM_RANGE(D_0049FF70, D_004A0720);
+    else if (type == VEHICLE_ATEAM) ROM_RANGE(D_004A0720, D_004A1000);
+    else if (type == VEHICLE_STARSKI) ROM_RANGE(D_004A1000, D_004A1690);
     else {
-        ENGINE_BLK(802A3348);
         *(volatile u32 *)0 = 0;     /* (the original's syscall) */
     }
-    ENGINE_BLK(802A3424);
     top = load_gz_model(start, end - start);
-    ENGINE_BLK(802A34AC);
     m = D_80358070;
     D_80358070 = (u8 *)top;
     func_802A08E4((u32)VMODEL_PTR(m, unk1C), (u32)VMODEL_PTR(m, unk20));
-    ENGINE_BLK(802A34D4);
     return (u32)m;
 }
 
@@ -1566,39 +1351,30 @@ void func_802A3824(u32 h_) {
     FileVehicle *r = (FileVehicle *)LEVEL_PTR(h, vehicles), *end;
     s32 x, y, z;
 
-    ENGINE_BLK(802A3824);
-    while (ENGINE_BLK(802A385C), r->type != VEHICLE_DRIVER) {
+    while (r->type != VEHICLE_DRIVER) {
         r++;
     }
-    ENGINE_BLK(802A386C);
     x = BE16S(r->x);
     y = BE16S(r->y);
     z = BE16S(r->z);
     r = (FileVehicle *)LEVEL_PTR(h, vehicles);
     end = (FileVehicle *)LEVEL_PTR(h, carrier);
-    for (; ENGINE_BLK(802A38B0), r != end; r++) {
+    for (; r != end; r++) {
         u32 type;
 
-        ENGINE_BLK(802A38B8);
         type = r->type;
-        if (type != VEHICLE_DRIVER && (ENGINE_BLK(802A38C4), BE16S(r->x) == x) &&
-            (ENGINE_BLK(802A38DC), BE16S(r->y) == y) && (ENGINE_BLK(802A38F4), BE16S(r->z) == z)) {
-            ENGINE_BLK(802A390C);
-            if (D_80364AA8 != ATTRACT_DEMO && (ENGINE_BLK(802A3920), D_80364AA8 != ATTRACT_DEMO2)) {
-                ENGINE_BLK(802A3928);
+        if (type != VEHICLE_DRIVER && (BE16S(r->x) == x) &&
+            (BE16S(r->y) == y) && (BE16S(r->z) == z)) {
+            if (D_80364AA8 != ATTRACT_DEMO && (D_80364AA8 != ATTRACT_DEMO2)) {
                 type = D_803643D4;
             }
-            ENGINE_BLK(802A3930);
             D_803BE73A = type;
         }
-        ENGINE_BLK(802A3938);
     }
-    ENGINE_BLK(802A3940);
 }
 
 /* func_802A1320 (the scheduler's): the COP0 Status register */
 u32 func_802A1320(void) {
-    ENGINE_BLK(802A1320);
     return engine_mfc0(12);
 }
 
@@ -1665,128 +1441,82 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     u32 h = (u32)hp;
     u64 mode;
 
-    ENGINE_BLK(802A1674);
     D_803BE6F4 = status;
     func_802A2D68(h);
-    ENGINE_BLK(802A16D0);
     func_802A0700();
-    ENGINE_BLK(802A16D8);
     func_802A3008(h);
-    ENGINE_BLK(802A16E0);
     func_802A1C20(h);
-    ENGINE_BLK(802A16E8);
     func_802A1C88(h);
-    ENGINE_BLK(802A16F0);
     func_8029DEA0();
-    ENGINE_BLK(802A16F8);
     func_802A3D54(h);
-    ENGINE_BLK(802A1700);
     func_802A3DF8(h);
-    ENGINE_BLK(802A1708);
     func_802A3E9C(h);
-    ENGINE_BLK(802A1710);
     func_802A3F80(h);
-    ENGINE_BLK(802A1718);
     func_802A4464(h);
-    ENGINE_BLK(802A1720);
     func_802A1A9C(h);
-    ENGINE_BLK(802A1728);
     func_802A1934();
-    ENGINE_BLK(802A1730);
     func_8029DC80();
-    ENGINE_BLK(802A1738);
     func_802A4510();
-    ENGINE_BLK(802A1740);
     func_802A2C54(h);
-    ENGINE_BLK(802A1748);
     func_802A5F30();
-    ENGINE_BLK(802A1750);
     func_802BC840();
-    ENGINE_BLK(802A1758);
     func_802A1D54(h);
-    ENGINE_BLK(802A1760);
     func_802C049C();
-    ENGINE_BLK(802A1768);
     func_8028FDA0((s16 *)LEVEL_PTR(hp, blocks), (s16 *)LEVEL_PTR(hp, bounds40));
-    ENGINE_BLK(802A1784);
     if (D_80364A98 != 0x80) {
-        ENGINE_BLK(802A179C);
         func_802A350C(h);
     }
-    ENGINE_BLK(802A17A4);
     D_80364AC1 = 0;
     D_803643DB = 0;
     D_803643DC = 0;
     /* the carrier, the shuttle and the chopper */
     mode = D_80364A98;
     if (mode == 2) {
-        ENGINE_BLK(802A17D0);
         if (D_802E8BEC == 0) {
-            ENGINE_BLK(802A17E0);
             func_802A303C(h);
-            ENGINE_BLK(802A17E8);
         }
     } else {
-        ENGINE_BLK(802A17F0);
-        if (mode != 0x80 && (ENGINE_BLK(802A17FC), D_803BE6F4 == 0)) {
-            ENGINE_BLK(802A180C);
+        if (mode != 0x80 && (D_803BE6F4 == 0)) {
             func_802A303C(h);
-            ENGINE_BLK(802A1814);
             func_802A30DC();
         }
-        ENGINE_BLK(802A181C);
         func_802A3134(h);
     }
-    ENGINE_BLK(802A1824);
     func_802A3198();
-    ENGINE_BLK(802A182C);
     func_802CEAA0((u8 *)hp);
-    ENGINE_BLK(802A1834);
     func_802A19F4();
-    ENGINE_BLK(802A183C);
     D_803BE6FC = (struct LevelUnk58 *)LEVEL_PTR(hp, unk58);
     D_803BE700 = (struct LevelUnk58 *)LEVEL_PTR(hp, buildings);
     func_8026FBB0(LEVEL_PTR(hp, rdus), LEVEL_PTR(hp, tntCrates));
-    ENGINE_BLK(802A1878);
     func_8028D4C0(LEVEL_PTR(hp, tntCrates), LEVEL_PTR(hp, blocks));
-    ENGINE_BLK(802A188C);
     func_8028C190(LEVEL_PTR(hp, ammoBoxes), LEVEL_PTR(hp, collisionFixes));
-    ENGINE_BLK(802A18A0);
     D_80370C50 = 0;
     mode = D_80364A98;
-    if (mode != 2 && (ENGINE_BLK(802A18BC), mode != 0x100000000000ULL) &&
-        (ENGINE_BLK(802A18CC), D_803BE6F4 != 0)) {
-        ENGINE_BLK(802A18DC);
+    if (mode != 2 && (mode != 0x100000000000ULL) &&
+        (D_803BE6F4 != 0)) {
         func_802C4BF0((u8 *)(__UINTPTR_TYPE__)(u32)D_803BE6F4);
     }
-    ENGINE_BLK(802A18E4);
 }
 
 /* the extra model the level has (D_8039CAB7): the scientist, its vertices
    moved by D_8039CAB0..B4; its parts into D_8039CAC0 and D_8039CABC */
 REGS()
 void func_802A19F4(void) {
-    ENGINE_BLK(802A19F4);
     if (D_8039CAB7 != 0) {
         u8 *m;
         Vtx *v, *end;
 
-        ENGINE_BLK(802A1A0C);
         m = (u8 *)(__UINTPTR_TYPE__)func_802A396C(VEHICLE_SCIENTIST);
-        ENGINE_BLK(802A1A14);
         v = (Vtx *)VMODEL_PTR(m, unk14);
         D_8039CAC0 = (u8 *)v;
         end = (Vtx *)VMODEL_PTR(m, unk18);
-        for (; ENGINE_BLK(802A1A44), v != end; v++) {
-            ENGINE_BLK(802A1A4C);
+        for (; v != end; v++) {
             v->v.ob[0] += D_8039CAB0;
             v->v.ob[1] += D_8039CAB2;
             v->v.ob[2] += D_8039CAB4;
         }
-        ENGINE_BLK(802A1A78);
         D_8039CABC = VMODEL_PTR(m, unk24[0]);
     }
-    ENGINE_BLK(802A1A88);
 }
 
 /* the missile carrier (LevelHeader.carrier) */
@@ -1795,19 +1525,14 @@ void func_802A303C(u32 h_) {
     FileCarrier *r = (FileCarrier *)LEVEL_PTR((LevelHeader *)h_, carrier);
     s32 speed = r->speed;
 
-    ENGINE_BLK(802A303C);
     if (speed != 0) {
         u32 m;
 
-        ENGINE_BLK(802A305C);
         m = func_802A396C(VEHICLE_CMO);
-        ENGINE_BLK(802A30B0);
         func_802B9C50((u8 *)(__UINTPTR_TYPE__)m, BE16S(r->x) << 5, BE16S(r->z) << 5, BE16S(r->heading),
                       BE16S(r->distance) << 5, speed);
-        ENGINE_BLK(802A30B8);
         D_803643DB = 1;
     }
-    ENGINE_BLK(802A30C8);
 }
 
 /* the shuttle (8DDB0), on the levels func_80268EE8 says */
@@ -1815,19 +1540,14 @@ REGS()
 void func_802A30DC(void) {
     s32 has;
 
-    ENGINE_BLK(802A30DC);
     has = func_80268EE8(D_802E8BDC);
-    ENGINE_BLK(802A30F8);
     if (has != 0) {
         u32 m;
 
-        ENGINE_BLK(802A3100);
         D_80364AC1 = 1;
         m = func_802A396C(VEHICLE_SHUTTLE);
-        ENGINE_BLK(802A3114);
         func_802D2570((u8 *)(__UINTPTR_TYPE__)m);
     }
-    ENGINE_BLK(802A311C);
 }
 
 /* the BCT chopper, where there is a carrier and outside the attract
@@ -1836,18 +1556,13 @@ REGS(t0)
 void func_802A3134(u32 h_) {
     FileCarrier *r = (FileCarrier *)LEVEL_PTR((LevelHeader *)h_, carrier);
 
-    ENGINE_BLK(802A3134);
-    if (r->speed != 0 && (ENGINE_BLK(802A3154), D_80364AA8 != ATTRACT_DEMO2)) {
+    if (r->speed != 0 && (D_80364AA8 != ATTRACT_DEMO2)) {
         u32 m;
 
-        ENGINE_BLK(802A3168);
         m = func_802A396C(VEHICLE_CHOPPER);
-        ENGINE_BLK(802A3170);
         func_802B8480((u8 *)(__UINTPTR_TYPE__)m);
-        ENGINE_BLK(802A3178);
         D_803643DC = 1;
     }
-    ENGINE_BLK(802A3184);
 }
 
 /* the missile carrier's cargo model (D_8039CA61, model D_8039CA7E): its
@@ -1856,14 +1571,11 @@ void func_802A3134(u32 h_) {
    (func_80295AE0 over [unk24[0], unk24[1])) */
 REGS()
 void func_802A3198(void) {
-    ENGINE_BLK(802A3198);
     if (D_8039CA61 != 0) {
         u8 *m, *heap;
         s32 n, *src, *w, *wend;
 
-        ENGINE_BLK(802A31B0);
         m = (u8 *)(__UINTPTR_TYPE__)func_802A32CC(D_8039CA7E);
-        ENGINE_BLK(802A31BC);
         D_803BDAFC = m;
         D_803BDB04 = VMODEL_PTR(m, unk14);
         D_803BDB08 = VMODEL_PTR(m, unk24[0]);
@@ -1872,23 +1584,18 @@ void func_802A3198(void) {
         src = (s32 *)VMODEL_PTR(m, unk18);
         n = src[0];
         wend = (s32 *)((u8 *)(src + 2) + src[1]);
-        for (w = src + 2; ENGINE_BLK(802A3210), w != wend; w++) {
-            ENGINE_BLK(802A3218);
+        for (w = src + 2; w != wend; w++) {
             *(s32 *)heap = *w;
             heap += 4;
             n -= 4;
         }
-        for (; ENGINE_BLK(802A3230), n != 0; n -= MTX_SIZE) {
-            ENGINE_BLK(802A3238);
+        for (; n != 0; n -= MTX_SIZE) {
             mtx_identity(heap);
             heap += MTX_SIZE;
         }
-        ENGINE_BLK(802A3294);
         D_80358070 = heap;
         func_80295AE0((Gfx *)VMODEL_PTR(m, unk24[0]), (Gfx *)VMODEL_PTR(m, unk24[1]));
-        ENGINE_BLK(802A32B4);
     }
-    ENGINE_BLK(802A32B8);
 }
 
 /* the level's vehicles (LevelHeader.vehicles): each one's model loaded and
@@ -1901,71 +1608,55 @@ void func_802A350C(u32 h_) {
     u32 type;
     s32 x, y, z, heading;
 
-    ENGINE_BLK(802A350C);
     func_802A3824(h_);
-    ENGINE_BLK(802A351C);
     D_803ED3F5 = 0;
     D_803ED40F = 0;
     r = (FileVehicle *)LEVEL_PTR((LevelHeader *)h_, vehicles);
     end = (FileVehicle *)LEVEL_PTR((LevelHeader *)h_, carrier);
-    for (; ENGINE_BLK(802A3540), r != end; r++) {
-        ENGINE_BLK(802A3548);
+    for (; r != end; r++) {
         type = r->type;
-        if (D_80364A98 == 2) {
-            ENGINE_BLK(802A3560);
-        }
-        ENGINE_BLK(802A3584);
-        if (type == VEHICLE_SIDESWIPE && (ENGINE_BLK(802A3590), D_80364AA8 != ATTRACT_DEMO) &&
-            (ENGINE_BLK(802A35A4), D_80364AA8 != ATTRACT_DEMO2)) {
-            ENGINE_BLK(802A35AC);
+        if (type == VEHICLE_SIDESWIPE && (D_80364AA8 != ATTRACT_DEMO) &&
+            (D_80364AA8 != ATTRACT_DEMO2)) {
             type = D_803643D4;
         }
         /* the crane, the train and the barges */
-        ENGINE_BLK(802A35B4);
-        if (type == VEHICLE_CRANE || (ENGINE_BLK(802A35C0), type == VEHICLE_TRAIN) ||
-            (ENGINE_BLK(802A35C8), type == VEHICLE_BARGE) ||
-            (ENGINE_BLK(802A35D0), type == VEHICLE_BARGE_2) ||
-            (ENGINE_BLK(802A35D8), type == VEHICLE_BARGE_3)) {
-            ENGINE_BLK(802A35E0);
+        if (type == VEHICLE_CRANE || (type == VEHICLE_TRAIN) ||
+            (type == VEHICLE_BARGE) ||
+            (type == VEHICLE_BARGE_2) ||
+            (type == VEHICLE_BARGE_3)) {
             D_803ED40F = 1;
         }
-        ENGINE_BLK(802A35EC);
         x = BE16S(r->x) << 5;
         y = BE16S(r->y) << 5;
         z = BE16S(r->z) << 5;
         heading = BE16S(r->heading);
         m = (u8 *)(__UINTPTR_TYPE__)func_802A396C(type);
-        ENGINE_BLK(802A3640);
 
-        /* the type's setup: each test, then the call's two blocks */
-#define RUN_SETUP(b1, b2, f) (ENGINE_BLK(b1), f(m, x, y, z, heading), ENGINE_BLK(b2))
-        if (type == VEHICLE_DRIVER) RUN_SETUP(802A3648, 802A3650, func_802AE370);
-        else if (ENGINE_BLK(802A3658), type == VEHICLE_SIDESWIPE) RUN_SETUP(802A3664, 802A366C, func_802AFC60);
-        else if (ENGINE_BLK(802A3674), type == VEHICLE_MAGOO) RUN_SETUP(802A3680, 802A3688, func_802B0DA0);
-        else if (ENGINE_BLK(802A3690), type == VEHICLE_BUGGY) RUN_SETUP(802A369C, 802A36A4, func_802B29C0);
-        else if (ENGINE_BLK(802A36AC), type == VEHICLE_BULLDOZER) RUN_SETUP(802A36B8, 802A36C0, func_802B4100);
-        else if (ENGINE_BLK(802A36C8), type == VEHICLE_TRUCK) RUN_SETUP(802A36D4, 802A36DC, func_802B5900);
-        else if (ENGINE_BLK(802A36E4), type == VEHICLE_CRANE) RUN_SETUP(802A36F0, 802A36F8, func_802BAD80);
-        else if (ENGINE_BLK(802A3700), type == VEHICLE_TRAIN) RUN_SETUP(802A370C, 802A3714, func_802BBA60);
-        else if (ENGINE_BLK(802A371C), type == VEHICLE_HOTROD) RUN_SETUP(802A3728, 802A3730, func_802B7340);
-        else if (ENGINE_BLK(802A3738), type == VEHICLE_JETPACK) RUN_SETUP(802A3744, 802A374C, func_802C5120);
-        else if (ENGINE_BLK(802A3754), type == VEHICLE_BIKE) RUN_SETUP(802A3760, 802A3768, func_802C9B90);
-        else if ((ENGINE_BLK(802A3770), type == VEHICLE_BARGE) ||
-                 (ENGINE_BLK(802A377C), type == VEHICLE_BARGE_2) ||
-                 (ENGINE_BLK(802A3784), type == VEHICLE_BARGE_3)) {
-            ENGINE_BLK(802A378C);
+        /* the type's setup */
+#define RUN_SETUP(f) f(m, x, y, z, heading)
+        if (type == VEHICLE_DRIVER) RUN_SETUP(func_802AE370);
+        else if (type == VEHICLE_SIDESWIPE) RUN_SETUP(func_802AFC60);
+        else if (type == VEHICLE_MAGOO) RUN_SETUP(func_802B0DA0);
+        else if (type == VEHICLE_BUGGY) RUN_SETUP(func_802B29C0);
+        else if (type == VEHICLE_BULLDOZER) RUN_SETUP(func_802B4100);
+        else if (type == VEHICLE_TRUCK) RUN_SETUP(func_802B5900);
+        else if (type == VEHICLE_CRANE) RUN_SETUP(func_802BAD80);
+        else if (type == VEHICLE_TRAIN) RUN_SETUP(func_802BBA60);
+        else if (type == VEHICLE_HOTROD) RUN_SETUP(func_802B7340);
+        else if (type == VEHICLE_JETPACK) RUN_SETUP(func_802C5120);
+        else if (type == VEHICLE_BIKE) RUN_SETUP(func_802C9B90);
+        else if ((type == VEHICLE_BARGE) ||
+                 (type == VEHICLE_BARGE_2) ||
+                 (type == VEHICLE_BARGE_3)) {
             func_802C80D0(type, m, x, y, z, heading);
-            ENGINE_BLK(802A3794);
         }
-        else if (ENGINE_BLK(802A379C), type == VEHICLE_POLICE) RUN_SETUP(802A37A8, 802A37B0, func_802CB720);
-        else if (ENGINE_BLK(802A37B8), type == VEHICLE_ATEAM) RUN_SETUP(802A37C4, 802A37CC, func_802CC920);
-        else if (ENGINE_BLK(802A37D4), type == VEHICLE_STARSKI) RUN_SETUP(802A37E0, 802A37E8, func_802CF6A0);
-        else if (ENGINE_BLK(802A37F0), type == VEHICLE_MINIMAGOO) RUN_SETUP(802A37FC, 802A3804, func_802D07E0);
+        else if (type == VEHICLE_POLICE) RUN_SETUP(func_802CB720);
+        else if (type == VEHICLE_ATEAM) RUN_SETUP(func_802CC920);
+        else if (type == VEHICLE_STARSKI) RUN_SETUP(func_802CF6A0);
+        else if (type == VEHICLE_MINIMAGOO) RUN_SETUP(func_802D07E0);
         else {
-            ENGINE_BLK(802A380C);
             engine_trap(0x802A380C);
         }
 #undef RUN_SETUP
     }
-    ENGINE_BLK(802A3810);
 }

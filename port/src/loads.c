@@ -12,9 +12,6 @@
  *   func_8028B4C4(rom, dst, &len, ...) DMA and gzip or Rare's LZSS (method
  *                                     2: the sound banks, static_data, the
  *                                     background images), by ROM address
- *
- * While either runs, its loops' polls take no time without the CPU model
- * (host_loading; docs/PORT.md, "The front end's waits").
  */
 #include "common.h"
 #include "functions.h"
@@ -27,16 +24,12 @@ __typeof__(func_8028B4C4) __real_func_8028B4C4, __wrap_func_8028B4C4;
 void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, struct huft *heap) {
     u8 *s = *src, *d = *dst;
 
-    host_loading(1);
     __real_func_8025C230(src, dst, heap);
-    host_loading(0);
     host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d));
 }
 
 void __wrap_func_8028B4C4(u32 rom, u8 *PTR32 dst, u32 *len, u8 bits, u8 bits2, u8 method) {
-    host_loading(1);
     __real_func_8028B4C4(rom, dst, len, bits, bits2, method);
-    host_loading(0);
     if (method == 2 && (bits != 0 || bits2 != 0))
         host_loaded_lzss(rom, (u32)dst, *len);
 }
@@ -48,9 +41,7 @@ void __wrap_func_8028B4C4(u32 rom, u8 *PTR32 dst, u32 *len, u8 bits, u8 bits2, u
  * (func_801F75A4: __osContDataCrc of every 32 bytes of the PlayerInfo, and
  * of a player's best times for a pak) are of those bytes.  In native-endian
  * memory the CRC is taken of the same 32 bytes in the N64's order, copied
- * without the game's bcopy: the big-endian build makes no copy, so this
- * one may not cost the game's CPU anything (eu seeds its random numbers
- * from the count soon after checking its save).
+ * without the game's bcopy, as the big-endian build makes no copy.
  */
 extern u8 D_80364AF0[];         /* PlayerInfo[4] (game/player.h) */
 extern u8 D_80364EF0[];         /* u16 [4][16]: the best times */

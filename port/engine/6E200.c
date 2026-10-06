@@ -110,7 +110,6 @@ void func_802B29C0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EE2E0;
     s32 avg;
 
-    ENGINE_COST(802B29C0, 239);
     SKY_MODEL = model;
     SKY_BUF0 = D_80358070;
     SKY_BUF1 = D_80358070 + 0x800;
@@ -161,7 +160,6 @@ void func_802B29C0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 void func_802B2D7C(void) {
     Part *p = SKY;
 
-    ENGINE_COST(802B2D7C, 95);
     VS_TURNING(&D_803EE2E0) = 0;
     func_802A039C(1, 0, p);
     func_802A03D4(1, 0, p);
@@ -186,13 +184,11 @@ void func_802B2D7C(void) {
 
 /* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802B2EF8(void) {
-    ENGINE_COST(802B2EF8, 20);
     return !ANY_AIRBORNE(&D_803EE2E0);
 }
 
 /* hd.c's: the player gets out */
 void func_802B2F54(void) {
-    ENGINE_COST(802B2F54, 19);
     VS_SPEED(&D_803EE2E0) = 0;
     func_802A7764((u32 *)SKY_BUF0, (u32 *)SKY_BUF1, 0x800);
     func_802C444C();
@@ -202,7 +198,6 @@ void func_802B2F54(void) {
 void func_802B2FA0(void) {
     VS *vs = &D_803EE2E0;
 
-    ENGINE_COST(802B2FA0, 35);
     func_802A9A60(VS_WHEELS(vs), SKY_Y, SKY_X, SKY_Z, VS_WHEEL_H(vs), &SKY_Y, (s16 *)&VS_HEADING(vs), VEHICLE_BUGGY,
                   vs, 0);
     func_802B3E40(vs);
@@ -212,7 +207,6 @@ void func_802B2FA0(void) {
 /* its light */
 REGS()
 void func_802B30B0(void) {
-    ENGINE_COST(802B30B0, 17);
     func_802ABD54(VEHICLE_BUGGY, SKY_X, SKY_Y, SKY_Z);
 }
 
@@ -242,7 +236,6 @@ static void skyfall_frame(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802B327C, 222);
     func_802B30B0();
     func_802A75DC((u8 *)SKY, &SKY_X, &SKY_Y, &SKY_Z, (u8 *)vs);
     if (VS_IN_SETUP(vs) == 0)
@@ -308,7 +301,6 @@ void func_802B37B0(VS *vs) {
     Part *p = SKY;
     s32 s;
 
-    ENGINE_COST(802B37B0, 151);
     if (D_803EE3AE != 0) {
         D_803EE3AE--;
     } else if (VS_TURNING(vs) != 0) {
@@ -372,7 +364,6 @@ REGS(gp)
 void func_802B3C68(VS *vs) {
     s32 size;
 
-    ENGINE_COST(802B3C68, 80);
     if (VS_TURNING(vs) != 0) {
         size = 0x32;
     } else {
@@ -393,7 +384,6 @@ REGS(gp)
 void func_802B3E40(VS *vs) {
     u8 *model = SKY_MODEL, *buf = FRAME_BUF(SKY_BUF0, SKY_BUF1);
 
-    ENGINE_COST(802B3E40, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(SKY_X, SKY_Y, SKY_Z, SKYFALL_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(SKY_X, SKY_Y, SKY_Z, VEHICLE_BUGGY, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -404,7 +394,6 @@ void func_802B3E40(VS *vs) {
    SKYFALL_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802B3F78(VS *vs) {
-    ENGINE_COST(802B3F78, 25);
     return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? SKYFALL_STEER_DIV_AIR : SKYFALL_STEER_DIV));
 }
 
@@ -412,7 +401,6 @@ s32 func_802B3F78(VS *vs) {
    its turn rate (a slide with B or Z going forward, A going back) */
 REGS(gp)
 void func_802B3FF0(VS *vs) {
-    ENGINE_COST(802B3FF0, 36);
     D_803EBBF4 = D_803EBBF0 * SKYFALL_GRAVITY;
     D_803ED3F6 = SKYFALL_BOUNCE_MIN;
     D_803ED3F7 = SKYFALL_BOUNCE_DIV;
@@ -426,24 +414,21 @@ void func_802B3FF0(VS *vs) {
    there after the carrier moved */
 REGS(a3)
 void func_802B30F4(s32 carrier) {
-    CARRY_KEEP(802B30F4, 802B3130, 802B3150, 802B315C, &D_803EE2E0, D_803EE38C, D_803EE394);
+    CARRY_KEEP(&D_803EE2E0, D_803EE38C, D_803EE394);
 }
 
 REGS(a3)
 void func_802B3180(s32 carrier) {
-    CARRY_MOVE(802B3180, 802B31BC, 802B31D0, 802B31D8, 802B322C, 802B3234, 802B3260, &D_803EE2E0, &D_803EE38C, &D_803EE390, &D_803EE394, 3, 0x2D4, 0x260,
-               (void)0, func_802B3FF0(&D_803EE2E0), func_802B3E40(&D_803EE2E0));
+    CARRY_MOVE(&D_803EE2E0, &D_803EE38C, &D_803EE390, &D_803EE394, 3, 0x2D4, 0x260, (void)0, func_802B3FF0(&D_803EE2E0), func_802B3E40(&D_803EE2E0));
 }
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B40A8(u8 *dst) {
-    ENGINE_COST(802B40A8, 7);
     func_802AC7DC(dst, (u8 *)&D_803EE2E0, (u32 *)&D_803EE38C);
 }
 
 /* and back */
 void func_802B40D4(u8 *src) {
-    ENGINE_COST(802B40D4, 11);
     func_802AC85C(src, (u8 *)&D_803EE2E0, (u32 *)&D_803EE38C);
 }
 
@@ -520,7 +505,6 @@ void func_802B4100(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EE6C0;
     s32 avg;
 
-    ENGINE_COST(802B4100, 227);
     RAM_MODEL = model;
     RAM_BUF0 = D_80358070;
     RAM_BUF1 = D_80358070 + 0x800;
@@ -567,7 +551,6 @@ void func_802B4100(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 void func_802B448C(void) {
     Part *p = RAM;
 
-    ENGINE_COST(802B448C, 92);
     VS_TURNING(&D_803EE6C0) = 0;
     func_802A03D4(1, 0, p);
     func_802A05D0(D_802C2190, 0);
@@ -593,13 +576,11 @@ void func_802B448C(void) {
 
 /* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802B45FC(void) {
-    ENGINE_COST(802B45FC, 23);
     return !ANY_AIRBORNE(&D_803EE6C0);
 }
 
 /* hd.c's: the player gets out: the tracks stopped */
 void func_802B4658(void) {
-    ENGINE_COST(802B4658, 27);
     VS_SPEED(&D_803EE6C0) = 0;
     func_802A7764((u32 *)RAM_BUF0, (u32 *)RAM_BUF1, 0x800);
     func_802C444C();
@@ -611,7 +592,6 @@ void func_802B4658(void) {
 void func_802B46C4(void) {
     VS *vs = &D_803EE6C0;
 
-    ENGINE_COST(802B46C4, 35);
     func_802A9A60(VS_WHEELS(vs), RAM_Y, RAM_X, RAM_Z, VS_WHEEL_H(vs), &RAM_Y, (s16 *)&VS_HEADING(vs),
                   VEHICLE_BULLDOZER, vs, 0);
     func_802B568C(vs);
@@ -621,7 +601,6 @@ void func_802B46C4(void) {
 /* its light */
 REGS()
 void func_802B47D4(void) {
-    ENGINE_COST(802B47D4, 17);
     func_802ABD54(VEHICLE_BULLDOZER, RAM_X, RAM_Y, RAM_Z);
 }
 
@@ -658,7 +637,6 @@ static void ramdozer_frame(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802B49AC, 220);
     func_802B47D4();
     func_802A75DC((u8 *)RAM, &RAM_X, &RAM_Y, &RAM_Z, (u8 *)vs);
     func_802C4724(0x8F);
@@ -725,7 +703,6 @@ void func_802B4EF8(VS *vs) {
     Part *p = RAM;
     s32 s;
 
-    ENGINE_COST(802B4EF8, 109);
     func_802B54EC(vs);
     if (D_803EE788 != 0) {
         D_803EE788--;
@@ -773,7 +750,6 @@ void func_802B4EF8(VS *vs) {
    static triangles) with its back wheel down */
 REGS(gp)
 void func_802B54EC(VS *vs) {
-    ENGINE_COST(802B54EC, 70);
     if (VS_TURNING(vs) != 0 && VS_AIRBORNE(vs)[2] != 1 && VS_GRIP(vs) < 3 && VS_ON_STATIC(vs) == 0)
         func_8027BE7C(3, VS_WHEEL_H(vs)[6], 0x190, -0x12C, -0x190, -0x12C, RAM_X, RAM_Z, VS_MOVE_HEADING(vs), 5, 0x32,
                       0x32, 0);
@@ -784,7 +760,6 @@ REGS(gp)
 void func_802B568C(VS *vs) {
     u8 *model = RAM_MODEL, *buf = FRAME_BUF(RAM_BUF0, RAM_BUF1);
 
-    ENGINE_COST(802B568C, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(RAM_X, RAM_Y, RAM_Z, RAMDOZER_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(RAM_X, RAM_Y, RAM_Z, VEHICLE_BULLDOZER, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -795,7 +770,6 @@ void func_802B568C(VS *vs) {
    in the air */
 REGS(gp -> s3)
 s32 func_802B57C4(VS *vs) {
-    ENGINE_COST(802B57C4, 19);
     return ANY_AIRBORNE(vs) ? RAMDOZER_STEER_AIR : RAMDOZER_STEER;
 }
 
@@ -803,7 +777,6 @@ s32 func_802B57C4(VS *vs) {
    its turn rate (slower with B or Z) */
 REGS(gp)
 void func_802B5814(VS *vs) {
-    ENGINE_COST(802B5814, 33);
     D_803EBBF4 = D_803EBBF0 * RAMDOZER_GRAVITY;
     D_803ED3F6 = RAMDOZER_BOUNCE_MIN;
     D_803ED3F7 = RAMDOZER_BOUNCE_DIV;
@@ -812,13 +785,11 @@ void func_802B5814(VS *vs) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B589C(u8 *dst) {
-    ENGINE_COST(802B589C, 7);
     func_802AC7DC(dst, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768);
 }
 
 /* and back */
 void func_802B58C8(u8 *src) {
-    ENGINE_COST(802B58C8, 11);
     func_802AC85C(src, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768);
 }
 
@@ -826,11 +797,10 @@ void func_802B58C8(u8 *src) {
    there after the carrier moved */
 REGS(a3)
 void func_802B4818(s32 carrier) {
-    CARRY_KEEP(802B4818, 802B4854, 802B4874, 802B4880, &D_803EE6C0, D_803EE768, D_803EE770);
+    CARRY_KEEP(&D_803EE6C0, D_803EE768, D_803EE770);
 }
 
 REGS(a3)
 void func_802B48A4(s32 carrier) {
-    CARRY_MOVE(802B48A4, 802B48E0, 802B48F4, 802B48FC, 802B495C, 802B4964, 802B4990, &D_803EE6C0, &D_803EE768, &D_803EE76C, &D_803EE770, 4, 0x258, 0x190,
-               D_803ED40B = 1, func_802B5814(&D_803EE6C0), func_802B568C(&D_803EE6C0));
+    CARRY_MOVE(&D_803EE6C0, &D_803EE768, &D_803EE76C, &D_803EE770, 4, 0x258, 0x190, D_803ED40B = 1, func_802B5814(&D_803EE6C0), func_802B568C(&D_803EE6C0));
 }

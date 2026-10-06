@@ -369,19 +369,15 @@ void func_802C5A14(s32 carrier);
 
 /* the first callback of a wheeled vehicle at (x, z) (the original saves
    $t0, $t1, $t3 and $t4 and loads them back) */
-#define CARRY_KEEP(b0, b1, b2, b3, vs, x, z)                                 \
+#define CARRY_KEEP(vs, x, z)                                                 \
     do {                                                                     \
         s32 t3_, t4_, t5_, t6_;                                              \
-        ENGINE_BLK(b0);                                                      \
         t3_ = func_802AAD0C(carrier, (x), (z), &t4_);                        \
-        ENGINE_BLK(b1);                                                      \
         (vs)->unk6A = t3_;                                                   \
         (vs)->unk6C = t4_;                                                   \
         (vs)->unk6E = (vs)->unk4C;                                           \
         t5_ = func_802A94A4(0, (vs)->unk52, (s16 *)&(vs)->unk4C, &t6_);      \
-        ENGINE_BLK(b2);                                                      \
         t3_ = func_802AAD0C(carrier, (x) + t5_, (z) + t6_, &t4_);            \
-        ENGINE_BLK(b3);                                                      \
         (vs)->unk70 = t3_;                                                   \
         (vs)->unk72 = t4_;                                                   \
     } while (0)
@@ -390,27 +386,20 @@ void func_802C5A14(s32 carrier);
    and spans, its camera and matrix functions called as `camera` and
    `matrix`, `flag` before func_802A8768 (the original saves $a3, $t0,
    $t1 and $t2 in its frame of 0x28 and loads them back) */
-#define CARRY_MOVE(b0, b1, b2, b3, b4, b5, b6, vs, px, py, pz, type, t9, fp, flag, camera, matrix) \
+#define CARRY_MOVE(vs, px, py, pz, type, t9, fp, flag, camera, matrix)                             \
     do {                                                                     \
         s32 t0_, t3_, t4_;                                                   \
-        ENGINE_BLK(b0);                                                      \
         t0_ = func_802AB9A4(carrier, (vs)->unk6A, (vs)->unk6C, (vs)->unk70, (vs)->unk72, (vs)->unk52, \
                             (u16 *)&(vs)->unk6E);                            \
-        ENGINE_BLK(b1);                                                      \
         (vs)->unk4E = t0_;                                                   \
         (vs)->unk4C = t0_;                                                   \
         t3_ = func_802AAE54(carrier, (vs)->unk6A, (vs)->unk6C, &t4_);        \
-        ENGINE_BLK(b2);                                                      \
         camera;                                                              \
-        ENGINE_BLK(b3);                                                      \
         flag;                                                                \
         func_802A8768(t3_, t4_, (px), (pz), (py), (type), (t9), (fp), (vs)->unk52, (vs)->unk28, (vs)->unk28 + 6, \
                       (vs)->unk28 + 3, (vs)->unk5E, (vs));                   \
-        ENGINE_BLK(b4);                                                      \
         matrix;                                                              \
-        ENGINE_BLK(b5);                                                      \
         func_802A133C(*(px), *(py), *(pz), (type), (vs));                    \
-        ENGINE_BLK(b6);                                                      \
     } while (0)
 
 #endif

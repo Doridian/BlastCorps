@@ -181,7 +181,6 @@ s32 func_802BA3E8_jp(s32 speed) {
     u8 *pairs = (u8 *)D_8030606E_jp;
     s32 i;
 
-    ENGINE_COST(802BA3E8_jp, 20);
     for (i = 0; (s8)pairs[NE_X1(i)] >= 0; i += 2)
         if (D_802E8BDC == (s8)pairs[NE_X1(i)])
             return pairs[NE_X1(i + 1)];
@@ -196,7 +195,6 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     VS *vs = &D_803EF630;
     s32 avg;
 
-    ENGINE_COST(802B9C50, 265);
     CMO_MODEL = model;
     CMO_BUF0 = D_80358070;
     CMO_BUF1 = D_80358070 + 0xC00;
@@ -260,7 +258,6 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
 void func_802BA074(void) {
     s16 *p;
 
-    ENGINE_COST(802BA074, 83);
     D_803EF6E8 = 0;
     D_803EF710 = 0;
     D_803EF6EC = 0;
@@ -276,7 +273,6 @@ void func_802BA074(void) {
 
 /* its light */
 void func_802BA104(void) {
-    ENGINE_COST(802BA104, 17);
     func_802ABD54(VEHICLE_CMO, CMO_X, CMO_Y, CMO_Z);
 }
 
@@ -285,7 +281,6 @@ void func_802BA104(void) {
 void func_802BA148(void) {
     s32 d, dx = D_803643E0 - CMO_X, pan;
 
-    ENGINE_COST(802BA148, 101);
     d = (s32)func_802ABCDC(D_803643E0, D_803643E4, D_803643E8, CMO_X, CMO_Y, CMO_Z);
     if (d > CMO_SOUND_RANGE) {
         if (D_803EF6D8 != NULL) {
@@ -316,7 +311,6 @@ void func_802BA354(void) {
     s32 step = 0, x, z;
     f32 rate;
 
-    ENGINE_COST(802BA354, 135);
     func_802BA104();
     func_802BA5A4();
     if (VS_IN_SETUP(vs) == 0)
@@ -345,7 +339,6 @@ void func_802BA354(void) {
 void func_802BA5A4(void) {
     s64 d;
 
-    ENGINE_COST(802BA5A4, 33);
     d = dist();
     if (d >= D_803EF6E8)
         D_803EF710 = 1;
@@ -359,7 +352,6 @@ void func_802BA638(void) {
     u8 *p;
     s32 z = CMO_Z >> 5, v = 0;
 
-    ENGINE_COST(802BA638, 43);
     for (p = D_80305D62; *(s16 *)p >= 0; p += 4)
         if (p[2] == D_802E8BDC && z >= *(s16 *)p)
             v = p[3];
@@ -374,7 +366,6 @@ void func_802BA6AC(VS *vs) {
     s32 s = VS_SPEED(vs), last = D_803EF6D6;
     u32 h;
 
-    ENGINE_COST(802BA6AC, 122);
     D_803EF6D6 = s;
     if (last != s && D_803EF6D8 != NULL)
         func_80260AB8(D_803EF6D8, 0x10, f2i(1.5f + (f32)s * -0.004f));
@@ -388,7 +379,6 @@ void func_802BA6AC(VS *vs) {
 
 /* the level is won when it is D_803EF6F0 from where it started */
 void func_802BA91C(void) {
-    ENGINE_COST(802BA91C, 27);
     if (dist() >= D_803EF6F0) {
         D_803643DA = 1;
         D_802E8BD8 = 1;
@@ -403,7 +393,6 @@ REGS(gp, s7)
 void func_802BA9A0(VS *vs, s32 *s7) {
     s32 lost = 0, w;
 
-    ENGINE_COST(802BA9A0, 75);
     if (D_803643D6 == 0) {
         func_8029A800(D_803EF6DC, D_803EF6E0, D_803EF6E4, D_80305D60, 0, 0, 0, vs->unk76, 0, 0, 0xFF, vs);
         func_8029C52C(VEHICLE_CMO, vs);
@@ -451,7 +440,6 @@ REGS(gp)
 void func_802BABEC(VS *vs) {
     u8 *model = CMO_MODEL, *buf = FRAME_BUF(CMO_BUF0, CMO_BUF1);
 
-    ENGINE_COST(802BABEC, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(CMO_X, CMO_Y, CMO_Z, CMO_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(CMO_X, CMO_Y, CMO_Z, VEHICLE_CMO, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -460,7 +448,6 @@ void func_802BABEC(VS *vs) {
 
 /* the physics' settings for the carrier: gravity, and how its wheels land */
 void func_802BAD24(void) {
-    ENGINE_COST(802BAD24, 23);
     D_803EBBF4 = D_803EBBF0 * CMO_GRAVITY;
     D_803ED3F6 = CMO_BOUNCE_MIN;
     D_803ED3F7 = CMO_BOUNCE_DIV;
@@ -480,7 +467,6 @@ void func_802BAD80(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EFA20;
     s32 avg;
 
-    ENGINE_COST(802BAD80, 181);
     CR_MODEL = model;
     CR_BUF0 = D_80358070;
     CR_BUF1 = D_80358070 + 0x800;
@@ -520,7 +506,6 @@ void func_802BAD80(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 
 /* hd.c's: getting in: the camera's, and the crane's arm parts' start */
 void func_802BB054(void) {
-    ENGINE_COST(802BB054, 71);
     D_8036444C = 0x1770;
     D_80364450 = 0x2328;
     func_802A039C(2, 1, Q);
@@ -538,14 +523,12 @@ void func_802BB054(void) {
 
 /* hd.c's: whether the crane can be left: not while its grab moves */
 u8 func_802BB170(void) {
-    ENGINE_COST(802BB170, 11);
     return CRANE_GRABBING(&D_803EFA20) == 0;
 }
 
 /* hd.c's: getting out: this frame's buffer to the other one, and its sounds
    off */
 void func_802BB1A0(void) {
-    ENGINE_COST(802BB1A0, 32);
     func_802A7764((u32 *)CR_BUF0, (u32 *)CR_BUF1, 0x800);
     if (D_803EFADC != NULL)
         func_802608C8(D_803EFADC);
@@ -557,7 +540,6 @@ void func_802BB1A0(void) {
 
 /* the crane's light */
 void func_802BB230(void) {
-    ENGINE_COST(802BB230, 17);
     func_802ABD54(VEHICLE_CRANE, CR_X, CR_Y, CR_Z);
 }
 
@@ -566,7 +548,6 @@ void func_802BB230(void) {
 void func_802BB274(void) {
     VS *vs = &D_803EFA20;
 
-    ENGINE_COST(802BB274, 139);
     func_802BB230();
     if (VS_IN_SETUP(vs) == 0)
         func_802BB4C0(vs);
@@ -605,7 +586,6 @@ void func_802BB4C0(VS *vs) {
     s32 t1;
     f32 f0;
 
-    ENGINE_COST(802BB4C0, 60);
     if (CRANE_HIT(vs) != 0) {
         func_802A039C(5, 0, Q);
         func_802A039C(4, 0, Q);
@@ -681,7 +661,6 @@ REGS(-> v0)
 s32 func_802BB868(void) {
     s32 *p;
 
-    ENGINE_COST(802BB868, 20);
     if (D_802E8BDC != CRANE_LEVEL || func_8029C6E4() == 0)
         return 0;
     p = record_3bd();
@@ -694,7 +673,6 @@ void func_802BB8B8(VS *vs) {
     u8 *model = CR_MODEL, *buf = FRAME_BUF(CR_BUF0, CR_BUF1);
     s32 *m = (s32 *)(buf + MODEL_MTX_OFF(model));
 
-    ENGINE_COST(802BB8B8, 95);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = VS_HEADING(vs);

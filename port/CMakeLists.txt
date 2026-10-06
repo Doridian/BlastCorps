@@ -342,10 +342,8 @@ endforeach()
 
 # libaudio (docs/PORT.md, "libaudio"): the port's own (port/libaudio), or
 # the decompiled original (src/libultra/audio, through these objects), which
-# the libaudio oracle records with and replays into.  Either is built apart
-# from the rest of the game's C, with no polls on its loops (BEPASS_NOPOLL=1;
-# docs/PORT.md, "Timing"): the original as the game's (nopoll_c, below), the
-# port's own as the port's (libaudio_c).
+# the libaudio oracle records with and replays into: the original as the
+# game's C, the port's own as the port's (libaudio_c, below).
 option(PORT_LIBAUDIO_ORIGINAL "the decompiled original libaudio, not the port's own (port/libaudio)" OFF)
 set(LIBAUDIO_ORIG
     hd_code/90390 hd_code/92350 hd_code/923B0 hd_code/926F0 hd_code/927B0 hd_code/92800
@@ -355,13 +353,11 @@ set(LIBAUDIO_ORIG
     hd_code/99620 hd_code/996A0 hd_code/996B0 hd_code/9AFF0 hd_code/9B470 hd_code/9BBF0
     hd_code/9BC90 hd_code/9BDE0 hd_code/9C930 hd_code/9CC30 hd_code/9D810 hd_code/9D920
     hd_code/9F7D0 hd_code/9FDF0 hd_code/9FE00 hd_code/9FE20)
-set(NOPOLL_C)
-foreach(f ${LIBAUDIO_ORIG})
-    list(REMOVE_ITEM GAME_C ${BLAST}/src/${f}.c)
-    if(PORT_LIBAUDIO_ORIGINAL)
-        list(APPEND NOPOLL_C ${BLAST}/src/${f}.c)
-    endif()
-endforeach()
+if(NOT PORT_LIBAUDIO_ORIGINAL)
+    foreach(f ${LIBAUDIO_ORIG})
+        list(REMOVE_ITEM GAME_C ${BLAST}/src/${f}.c)
+    endforeach()
+endif()
 
 # The SDK's headers are the port's own (port/include/sdk); PORT_SDK_2_0I puts
 # the decompilation's 2.0I back, for port/tools/sdk_identity.py, which checks
@@ -437,35 +433,9 @@ if(PORT_MOVABLE)
     list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link
 endif()
 
-# The game's C that never waits on another thread (NOPOLL_C): BEPass puts no
-# polls on its loops (BEPASS_NOPOLL=1).  The polls are where a thread that
-# busy-waits lets time pass, and every 64th advances --deterministic's
-# clock, so without them a replacement's loops needn't have the original's
-# shape for the game to keep its timing.  Its data is the game's, like
-# game_c's.
-set(NOPOLL_LAUNCHER ${N64_LAUNCHER})
-list(FIND NOPOLL_LAUNCHER env NOPOLL_ENV_AT)
-if(NOPOLL_ENV_AT EQUAL 0)
-    list(INSERT NOPOLL_LAUNCHER 1 BEPASS_NOPOLL=1)
-else()
-    list(PREPEND NOPOLL_LAUNCHER env BEPASS_NOPOLL=1)
-endif()
-set(NOPOLL_TARGETS)
-set(NOPOLL_GAME_OBJECTS)
-if(NOPOLL_C)
-    add_library(nopoll_c OBJECT ${NOPOLL_C})
-    target_compile_options(nopoll_c PRIVATE -fdata-sections)
-    target_include_directories(nopoll_c PRIVATE ${N64_INCLUDES})
-    target_compile_definitions(nopoll_c PRIVATE ${N64_DEFINES})
-    target_compile_options(nopoll_c PRIVATE ${N64_FLAGS})
-    add_dependencies(nopoll_c BEPass)
-    set_source_files_properties(${NOPOLL_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
-    set_target_properties(nopoll_c PROPERTIES C_COMPILER_LAUNCHER "${NOPOLL_LAUNCHER}")
-    list(APPEND NOPOLL_TARGETS nopoll_c)
-    set(NOPOLL_GAME_OBJECTS $<TARGET_OBJECTS:nopoll_c>)
-endif()
 # the port's own libaudio: N64 side, its data the port's (like port_n64's)
-set(NOPOLL_PORT_OBJECTS)
+set(LIBAUDIO_TARGETS)
+set(LIBAUDIO_OBJECTS)
 if(NOT PORT_LIBAUDIO_ORIGINAL)
     file(GLOB LIBAUDIO_C ${CMAKE_CURRENT_SOURCE_DIR}/libaudio/*.c)
     add_library(libaudio_c OBJECT ${LIBAUDIO_C})
@@ -474,15 +444,21 @@ if(NOT PORT_LIBAUDIO_ORIGINAL)
     target_compile_options(libaudio_c PRIVATE ${N64_FLAGS})
     add_dependencies(libaudio_c BEPass)
     set_source_files_properties(${LIBAUDIO_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
-    set(LIBAUDIO_LAUNCHER ${NOPOLL_LAUNCHER})
+    set(LIBAUDIO_LAUNCHER ${N64_LAUNCHER})
     if(PORT_MOVABLE)
-        list(INSERT LIBAUDIO_LAUNCHER 1 BEPASS_PORT_SRC=1)
+        list(FIND LIBAUDIO_LAUNCHER env ENV_AT)
+        if(ENV_AT EQUAL 0)
+            list(INSERT LIBAUDIO_LAUNCHER 1 BEPASS_PORT_SRC=1)
+        else()
+            list(PREPEND LIBAUDIO_LAUNCHER env BEPASS_PORT_SRC=1)
+        endif()
     endif()
-    set_target_properties(libaudio_c PROPERTIES C_COMPILER_LAUNCHER "${LIBAUDIO_LAUNCHER}")
-    list(APPEND NOPOLL_TARGETS libaudio_c)
-    set(NOPOLL_PORT_OBJECTS $<TARGET_OBJECTS:libaudio_c>)
+    if(LIBAUDIO_LAUNCHER)
+        set_target_properties(libaudio_c PROPERTIES C_COMPILER_LAUNCHER "${LIBAUDIO_LAUNCHER}")
+    endif()
+    set(LIBAUDIO_TARGETS libaudio_c)
+    set(LIBAUDIO_OBJECTS $<TARGET_OBJECTS:libaudio_c>)
 endif()
-set(NOPOLL_OBJECTS ${NOPOLL_GAME_OBJECTS} ${NOPOLL_PORT_OBJECTS})
 
 add_library(game_c OBJECT ${GAME_C})
 target_compile_options(game_c PRIVATE -fdata-sections)
@@ -497,22 +473,13 @@ endif()
 
 # ---- the engine's replacement (N64 side; docs/PORT.md, "Replacing the engine") --
 # Rare's handwritten functions as native C (port/engine; the translator
-# leaves out the ones replaced.txt lists).  Built like the game's C, but it
-# charges the original's MIPS instructions itself (ENGINE_BLK), so BEPass
-# neither counts nor polls in it (BEPASS_ENGINE=1).  PORT_ENGINE_CHECK runs
+# leaves out the ones replaced.txt lists).  Built like the game's C, as the
+# port's (BEPASS_PORT_SRC=1).  PORT_ENGINE_CHECK runs
 # each replaced function's translation first on the same state and
-# compares (port/host/engine_check.c); the 32-bit build only.
+# compares (port/host/engine.c); the 32-bit build only.
 option(PORT_ENGINE_CHECK "check the engine's native functions against their translation as they run" OFF)
 if(PORT_ENGINE_CHECK AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN))
     message(FATAL_ERROR "PORT_ENGINE_CHECK is the 32-bit build's")
-endif()
-# PORT_BLKLOG logs the translated and native blocks charged in a range of
-# block ids (PORT_BLKLOG=FROM,TO,FILE in the environment; the ids are
-# blocks.tsv's), and every controller read: two builds that should charge
-# the same give the same log, and the first difference is the block.
-option(PORT_BLKLOG "log the engine's blocks as they are charged" OFF)
-if(PORT_BLKLOG AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN OR PORT_ENGINE_CHECK))
-    message(FATAL_ERROR "PORT_BLKLOG is the plain 32-bit build's")
 endif()
 # PORT_ENGINE_TAINT traces what the native engine leaves in the thread's
 # context and its dead frames to where it is read back (engine_ctx,
@@ -529,27 +496,24 @@ if(PORT_ENGINE_CHECK)
 endif()
 if(ENGINE_C)
     add_library(engine_c OBJECT ${ENGINE_C})
-    target_include_directories(engine_c PRIVATE ${N64_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/engine ${RECOMP_GEN})
+    target_include_directories(engine_c PRIVATE ${N64_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/engine)
     target_compile_definitions(engine_c PRIVATE ${N64_DEFINES})
     target_compile_options(engine_c PRIVATE ${N64_FLAGS})
     add_dependencies(engine_c BEPass)
-    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS "${BEPASS};${RECOMP_GEN}/engine_blocks.h")
+    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
     set(ENGINE_LAUNCHER ${N64_LAUNCHER})
     list(FIND ENGINE_LAUNCHER env ENV_AT)
     if(ENV_AT EQUAL 0)
-        list(INSERT ENGINE_LAUNCHER 1 BEPASS_ENGINE=1 BEPASS_PORT_SRC=1)
+        list(INSERT ENGINE_LAUNCHER 1 BEPASS_PORT_SRC=1)
     else()
-        list(PREPEND ENGINE_LAUNCHER env BEPASS_ENGINE=1 BEPASS_PORT_SRC=1)
+        list(PREPEND ENGINE_LAUNCHER env BEPASS_PORT_SRC=1)
     endif()
     set_target_properties(engine_c PROPERTIES C_COMPILER_LAUNCHER "${ENGINE_LAUNCHER}")
-    if(PORT_BLKLOG)
-        target_compile_definitions(engine_c PRIVATE PORT_BLKLOG)
-    endif()
     if(PORT_ENGINE_CHECK)
         target_compile_definitions(engine_c PRIVATE PORT_ENGINE_CHECK)
         target_compile_options(engine_c PRIVATE "SHELL:-include ${GEN}/engine_check_names.h")
         set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS
-            "${BEPASS};${RECOMP_GEN}/engine_blocks.h;${GEN}/engine_check_names.h")
+            "${BEPASS};${GEN}/engine_check_names.h")
     endif()
     set(ENGINE_OBJECTS $<TARGET_OBJECTS:engine_c>)
 else()
@@ -678,10 +642,6 @@ else()
     add_library(recomp OBJECT ${GEN}/entry.c)
 endif()
 target_include_directories(recomp PRIVATE ${ROOT}/tools/recomp/runtime ${RECOMP_GEN} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_compile_definitions(recomp PRIVATE RECOMP_COUNT)
-if(PORT_BLKLOG)
-    target_compile_definitions(recomp PRIVATE PORT_BLKLOG)
-endif()
 if(PORT_ENGINE_CHECK)
     # the replaced functions' translations, which the check runs first
     target_compile_definitions(recomp PRIVATE RECOMP_ORIG PORT_ENGINE_CHECK)
@@ -878,11 +838,11 @@ if(PORT_MOVABLE)
         list(APPEND ARENA_FLAGS -port-arena-no-runs)
     endif()
     add_custom_command(OUTPUT ${GEN}/n64.o ${GEN}/arena_syms.h ${GEN}/arena.img ${GEN}/arena_map.txt
-        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${NOPOLL_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${ENGINE_OBJECTS} ${DATA_LL}
+        COMMAND ${LLVM_LINK} -o ${GEN}/n64.linked.bc "$<TARGET_OBJECTS:game_c>" ${LIBAUDIO_OBJECTS} "$<TARGET_OBJECTS:port_n64>" ${ENGINE_OBJECTS} ${DATA_LL}
         COMMAND ${CMAKE_COMMAND} -E env PORT_ARENA_MAP=${GEN}/arena_map.txt
                 ${LLVM_OPT} -load-pass-plugin=${BEPASS} -passes=port-arena ${ARENA_FLAGS} ${GEN}/n64.linked.bc -o ${GEN}/n64.bc
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
-        DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS} BEPass ${DATA_LL} ${GEN}/n64_syms.txt
+        DEPENDS game_c ${LIBAUDIO_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${LIBAUDIO_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS} BEPass ${DATA_LL} ${GEN}/n64_syms.txt
                 ${GEN}/fn_values.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
@@ -900,9 +860,9 @@ if(PORT_MOVABLE)
     set(GAME_OBJECTS ${GEN}/n64.o)
     set(N64_OBJECTS_DEPENDS n64_link ${GEN}/n64.o)
 else()
-    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS})
-    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c> ${NOPOLL_GAME_OBJECTS})
-    set(N64_OBJECTS_DEPENDS game_c ${NOPOLL_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${NOPOLL_OBJECTS} ${ENGINE_OBJECTS})
+    set(N64_OBJECTS $<TARGET_OBJECTS:game_c> ${LIBAUDIO_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS})
+    set(GAME_OBJECTS $<TARGET_OBJECTS:game_c>)
+    set(N64_OBJECTS_DEPENDS game_c ${LIBAUDIO_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${LIBAUDIO_OBJECTS} ${ENGINE_OBJECTS})
 endif()
 
 # ---- link ----------------------------------------------------------------------
@@ -952,9 +912,6 @@ if(PORT_LP64)
 endif()
 if(PORT_ENGINE_CHECK)
     target_compile_definitions(host PRIVATE PORT_ENGINE_CHECK)
-endif()
-if(PORT_BLKLOG)
-    target_compile_definitions(host PRIVATE PORT_BLKLOG)
 endif()
 if(PORT_ENGINE_TAINT)
     target_compile_definitions(host PRIVATE PORT_ENGINE_TAINT)

@@ -68,7 +68,6 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EFDF0;
     s32 avg;
 
-    ENGINE_COST(802BBA60, 218);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x800;
@@ -110,7 +109,6 @@ void func_802BBA60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 
 /* hd.c's: the player gets in */
 void func_802BBDC8(void) {
-    ENGINE_COST(802BBDC8, 18);
     D_8036444C = 3000;
     D_80364450 = 0;
     func_802C4310(0x20);
@@ -118,20 +116,17 @@ void func_802BBDC8(void) {
 
 /* hd.c's: whether it can be left (always) */
 u8 func_802BBE10(void) {
-    ENGINE_COST(802BBE10, 7);
     return 1;
 }
 
 /* hd.c's: the player gets out */
 void func_802BBE2C(void) {
-    ENGINE_COST(802BBE2C, 18);
     func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x800);
     func_802C444C();
 }
 
 /* its light */
 void func_802BBE74(void) {
-    ENGINE_COST(802BBE74, 17);
     func_802ABD54(VEHICLE_TRAIN, X, Y, Z);
 }
 
@@ -160,7 +155,6 @@ void func_802BBEB8(void) {
     s32 step = X, x, z, x0, z0;
     f32 rate, f;
 
-    ENGINE_COST(802BBEB8, 187);
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802BBE74();
     if (VS_IN_SETUP(vs) == 0)
@@ -206,7 +200,6 @@ void func_802BBEB8(void) {
 void func_802BC2C8(void) {
     VS *vs = &D_803EFDF0;
 
-    ENGINE_COST(802BC2C8, 29);
     if (D_803EFEC9 != 0) {
         D_803EFEC9--;
     } else if (VS_SPEED(vs) > 0 ? PAD_B_OR_Z != 0 : PAD_A != 0) {
@@ -224,7 +217,6 @@ REGS(gp)
 void func_802BC3D0(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_COST(802BC3D0, 98);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = VS_HEADING(vs);
@@ -238,7 +230,6 @@ void func_802BC3D0(VS *vs) {
 
 /* the physics' settings for the train: gravity, and how its wheels land */
 void func_802BC578(void) {
-    ENGINE_COST(802BC578, 23);
     D_803EBBF4 = D_803EBBF0 * TRAIN_GRAVITY;
     D_803ED3F6 = TRAIN_BOUNCE_MIN;
     D_803ED3F7 = TRAIN_BOUNCE_DIV;

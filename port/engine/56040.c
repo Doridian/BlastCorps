@@ -158,15 +158,11 @@ REGS(v0 -> v0)
 Part *func_802A06B4(void *key) {
     Part *p = D_803B35F8;
 
-    ENGINE_BLK(802A06B4);
     for (;;) {
-        ENGINE_BLK(802A06CC);
         if (p->unk0 == key)
             break;
-        ENGINE_BLK(802A06D8);
         p++;
     }
-    ENGINE_BLK(802A06E0);
     return p;
 }
 
@@ -175,7 +171,6 @@ REGS(t1 -> t1)
 s16 *func_8029FF2C(s16 *d) {
     s32 k;
 
-    ENGINE_BLK(8029FF2C);
     for (k = 0; k < 10; k++)
         d[k] = d[k - 10];
     return d + 10;
@@ -184,7 +179,6 @@ s16 *func_8029FF2C(s16 *d) {
 /* start part i's animation, with its loops' limit */
 REGS(v0, v1, a0)
 void func_802A0290(s32 i, s32 v, Part *parts) {
-    ENGINE_BLK(802A0290);
     parts[i].unk10 = 1;
     parts[i].unkE = v;
     parts[i].unkC = 0;
@@ -192,52 +186,44 @@ void func_802A0290(s32 i, s32 v, Part *parts) {
 
 REGS(v0, v1)
 void func_802A02E4(s32 i, Part *parts) {
-    ENGINE_BLK(802A02E4);
     parts[i].unk10 = 0;
 }
 
 REGS(v0, v1)
 void func_802A0320(s32 i, Part *parts) {
-    ENGINE_BLK(802A0320);
     parts[i].unk13 = 0;
     parts[i].unk4 = 0.0f;
 }
 
 REGS(v0, v1, a0, f0)
 void func_802A0360(s32 i, s32 v, Part *parts, f32 f) {
-    ENGINE_BLK(802A0360);
     parts[i].unk13 = v;
     parts[i].unk4 = f;
 }
 
 REGS(v0, v1, a0)
 void func_802A039C(s32 i, s32 v, Part *parts) {
-    ENGINE_BLK(802A039C);
     parts[i].unk14 = v;
 }
 
 REGS(v0, v1, a0)
 void func_802A03D4(s32 i, s32 v, Part *parts) {
-    ENGINE_BLK(802A03D4);
     parts[i].unk11 = v;
 }
 
 REGS(v0, v1, a0)
 void func_802A040C(s32 i, s32 v, Part *parts) {
-    ENGINE_BLK(802A040C);
     parts[i].unk12 = v;
 }
 
 REGS(v0, v1, a0)
 void func_802A0444(s32 i, s32 v, Part *parts) {
-    ENGINE_BLK(802A0444);
     parts[i].unkC = 0;
     parts[i].unkE = v;
 }
 
 REGS(v0, v1, a0, f0)
 void func_802A0480(s32 i, s32 v, Part *parts, f32 f) {
-    ENGINE_BLK(802A0480);
     parts[i].unk15 = v;
     parts[i].unk8 = f;
 }
@@ -247,7 +233,6 @@ REGS(v0, v1 -> v1, a0, a1, a2, a3, t0, t1, f0)
 s32 func_802A04BC(s32 i, Part *parts, s32 *f11, s32 *f12, s32 *f14, s32 *fC, s32 *fE, s32 *f13, f32 *f4) {
     Part *p = &parts[i];
 
-    ENGINE_BLK(802A04BC);
     *f11 = p->unk11;
     *f12 = p->unk12;
     *f14 = p->unk14;
@@ -264,9 +249,7 @@ REGS(v0, v1)
 void func_802A0508(void *key, s32 v) {
     Part *p;
 
-    ENGINE_BLK(802A0508);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A051C);
     p->unk10 = 1;
     p->unkE = v;
     p->unkC = 0;
@@ -276,9 +259,7 @@ REGS(v0)
 void func_802A0540(void *key) {
     Part *p;
 
-    ENGINE_BLK(802A0540);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A0554);
     p->unk10 = 0;
 }
 
@@ -286,9 +267,7 @@ REGS(v0)
 void func_802A0570(void *key) {
     Part *p;
 
-    ENGINE_BLK(802A0570);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A0584);
     p->unk13 = 0;
     p->unk4 = 0.0f;
 }
@@ -297,9 +276,7 @@ REGS(v0, v1, f0)
 void func_802A05A4(void *key, s32 v, f32 f) {
     Part *p;
 
-    ENGINE_BLK(802A05A4);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A05B4);
     p->unk13 = v;
     p->unk4 = f;
 }
@@ -308,9 +285,7 @@ REGS(v0, v1)
 void func_802A05D0(void *key, s32 v) {
     Part *p;
 
-    ENGINE_BLK(802A05D0);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A05E0);
     p->unk14 = v;
 }
 
@@ -318,9 +293,7 @@ REGS(v0, v1)
 void func_802A05F8(void *key, s32 v) {
     Part *p;
 
-    ENGINE_BLK(802A05F8);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A0608);
     p->unk11 = v;
 }
 
@@ -328,9 +301,7 @@ REGS(v0, v1)
 void func_802A0620(void *key, s32 v) {
     Part *p;
 
-    ENGINE_BLK(802A0620);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A0630);
     p->unk12 = v;
 }
 
@@ -338,9 +309,7 @@ REGS(v0, v1)
 void func_802A0648(void *key, s32 v) {
     Part *p;
 
-    ENGINE_BLK(802A0648);
     p = func_802A06B4(key);
-    ENGINE_BLK(802A0658);
     p->unkC = 0;
     p->unkE = v;
 }
@@ -348,9 +317,7 @@ void func_802A0648(void *key, s32 v) {
 /* (it loads the fields, as func_802A04BC does, but no caller reads them) */
 REGS(v0)
 void func_802A0674(void *key) {
-    ENGINE_BLK(802A0674);
     func_802A06B4(key);
-    ENGINE_BLK(802A0684);
 }
 
 /* ---- the triangles' small helpers ----------------------------------------- */
@@ -363,15 +330,11 @@ extern u16 D_803A7410, D_803A7412;      /* the camera's limits (12-bit headings)
 /* the triangle's unk55: whether its owner isn't the train */
 REGS(t2, s0)
 void func_8029D534(s32 kind, CollisionTri *t) {
-    ENGINE_BLK(8029D534);
     if (kind != VEHICLE_TRAIN) {
-        ENGINE_BLK(8029D548);
         t->unk55 = 1;
     } else {
-        ENGINE_BLK(8029D550);
         t->unk55 = 0;
     }
-    ENGINE_BLK(8029D554);
 }
 
 /* the object triangle of this owner and id switched off; returns it */
@@ -379,16 +342,12 @@ REGS(t7, t6 -> s0)
 CollisionTri *func_8029D1D4(s32 owner, s32 id) {
     CollisionTri *t = D_803B9890;
 
-    ENGINE_BLK(8029D1D4);
     for (;; t++) {
-        ENGINE_BLK(8029D1E4);
         if (t->owner != owner)
             continue;
-        ENGINE_BLK(8029D1F0);
         if (t->id == id)
             break;
     }
-    ENGINE_BLK(8029D1FC);
     t->active = 0;
     return t;
 }
@@ -398,13 +357,10 @@ REGS(t4 -> t5)
 s32 func_8029D210(s32 id) {
     CollisionTri *t = D_803B9890;
 
-    ENGINE_BLK(8029D210);
     for (;; t++) {
-        ENGINE_BLK(8029D228);
         if (t->id == id)
             break;
     }
-    ENGINE_BLK(8029D234);
     return t->active;
 }
 
@@ -413,17 +369,12 @@ REGS(s1)
 void func_8029CF54(s32 id) {
     s32 skip = 0;
 
-    ENGINE_BLK(8029CF54);
     if (D_803EFECB != 0) {
-        ENGINE_BLK(8029CF70);
         skip = func_802AB41C(id, 7);
-        ENGINE_BLK(8029CF7C);
     }
     if (!skip) {
-        ENGINE_BLK(8029CF84);
         D_803649ED = id;
     }
-    ENGINE_BLK(8029CF90);
 }
 
 /* a 4x4 matrix (64 bytes) from src to dst */
@@ -431,14 +382,11 @@ REGS(t5, s2)
 void func_8029DE50(u32 *dst, u32 *src) {
     s32 i;
 
-    ENGINE_BLK(8029DE50);
     for (i = 8; i != 0; i--) {
-        ENGINE_BLK(8029DE6C);
         dst[0] = src[0];
         dst[1] = src[1];
         dst += 2, src += 2;
     }
-    ENGINE_BLK(8029DE84);
 }
 
 /* D_803B7FC8's matrix copies cleared, and D_803B8568 at the first */
@@ -446,52 +394,39 @@ void func_8029DC80(void) {
     MtxCopy *c = D_803B7FC8;
     s32 n;
 
-    ENGINE_BLK(8029DC80);
     D_803B8568 = c;
     for (n = MTX_COPIES;; n--, c++) {
-        ENGINE_BLK(8029DCA4);
         if (n == 0)
             break;
-        ENGINE_BLK(8029DCAC);
         c->from = NULL;
         c->to = NULL;
     }
-    ENGINE_BLK(8029DCC0);
 }
 
 /* a hit on one of the train's triangles: D_803A742B set and D_803A7430
    counted */
 REGS(s0)
 void func_8029B5B8(CollisionTri *t) {
-    ENGINE_BLK(8029B5B8);
     if (t->owner == VEHICLE_TRAIN) {
-        ENGINE_BLK(8029B5D4);
         D_803A742B = 1;
         if (D_803A7430 < TRAIN_HITS_MAX) {
-            ENGINE_BLK(8029B5F4);
             D_803A7430++;
         }
     }
-    ENGINE_BLK(8029B600);
 }
 
 /* the camera's turn from D_803A7410 to D_803A7412 (12-bit), folded */
 s32 func_8029B930(void) {
     s32 from = D_803A7410, to = D_803A7412, r;
 
-    ENGINE_BLK(8029B930);
     if (to < from) {
-        ENGINE_BLK(8029B95C);
         r = to + (0xFFF - from);
     } else {
-        ENGINE_BLK(8029B96C);
         r = to - from;
         if (r >= 0x801) {
-            ENGINE_BLK(8029B97C);
             r -= 0x800;
         }
     }
-    ENGINE_BLK(8029B980);
     return r;
 }
 
@@ -507,23 +442,16 @@ extern u8 D_8035805C;                   /* which of the two frames' buffers is d
 static s32 crane_hook(s32 *x, s32 *y, s32 *z) {
     KindPart *p;
 
-    ENGINE_BLK(8029C6E4);
     for (p = D_803A6B30;; p++) {
-        ENGINE_BLK(8029C704);
         if (p->end == -1)
             break;
-        ENGINE_BLK(8029C710);
         if (p->kind != VEHICLE_CRANE)
             continue;
-        ENGINE_BLK(8029C71C);
         if (p->r != CRANE_HOOK_R)
             continue;
-        ENGINE_BLK(8029C728);
         *x = p->x, *y = p->y, *z = p->z;
-        ENGINE_BLK(8029C738);
         return 1;
     }
-    ENGINE_BLK(8029C738);
     return 0;
 }
 
@@ -540,31 +468,22 @@ REGS(v0 -> v1)
 s32 func_8029DC14(s32 owner) {
     CollisionTri *t;
 
-    ENGINE_BLK(8029DC14);
     for (t = D_803B9890;; t++) {
-        ENGINE_BLK(8029DC40);
         if (t == D_803BD300)
             break;
-        ENGINE_BLK(8029DC48);
         if (t->owner != owner)
             continue;
-        ENGINE_BLK(8029DC54);
         if (t->active == 0) {
-            ENGINE_BLK(8029DC64);
-            ENGINE_BLK(8029DC68);
             return 0;
         }
     }
-    ENGINE_BLK(8029DC68);
     return 1;
 }
 
 s32 func_8029DBF0(s32 owner) {
     s32 r;
 
-    ENGINE_BLK(8029DBF0);
     r = func_8029DC14(owner);
-    ENGINE_BLK(8029DC00);
     return r;
 }
 
@@ -572,19 +491,13 @@ s32 func_8029DBF0(s32 owner) {
    at parts, 0x18 each) equal to the given one, else 1 */
 REGS(s4, t5, a2 -> t4)
 s32 func_8029DB7C(u8 *pairs, s32 n, Anim *parts) {
-    ENGINE_BLK(8029DB7C);
     for (;; n--, pairs += 2) {
-        ENGINE_BLK(8029DBA0);
         if (n == 0)
             break;
-        ENGINE_BLK(8029DBA8);
         if (parts[pairs[0]].key == pairs[1]) {
-            ENGINE_BLK(8029DBD0);
-            ENGINE_BLK(8029DBD4);
             return 0;
         }
     }
-    ENGINE_BLK(8029DBD4);
     return 1;
 }
 
@@ -597,24 +510,17 @@ void func_8029DD54(u32 *to) {
        the pointer and the word after it) */
     MtxCopy *c, *end = (MtxCopy *)&D_803B8568;
 
-    ENGINE_BLK(8029DD54);
     for (c = D_803B7FC8;; c++) {
-        ENGINE_BLK(8029DD78);
         if (end < c)
             break;
-        ENGINE_BLK(8029DD84);
         if (c->to != to)
             continue;
-        ENGINE_BLK(8029DD90);
         c->from = NULL;
         c->to = NULL;
         if (c == end) {
-            ENGINE_BLK(8029DD9C);
             D_803B8568 = c - 1;
         }
-        ENGINE_BLK(8029DDA8);
     }
-    ENGINE_BLK(8029DDB0);
 }
 
 /* ---- the animated textures' slots ----------------------------------------- */
@@ -629,27 +535,18 @@ u32 func_8029E4E4(s32 kind, TexAnim *owner) {
     TexSlot *s = D_803A7440;
     s32 n;
 
-    ENGINE_BLK(8029E4E4);
     for (n = TEX_SLOTS;; n--, s++) {
-        ENGINE_BLK(8029E4FC);
         if (n == 0)
             break;
-        ENGINE_BLK(8029E504);
         if (s->used != 0) {
-            ENGINE_BLK(8029E514);
             if (s->kind == kind) {
-                ENGINE_BLK(8029E520);
                 if (s->owner == owner) {
-                    ENGINE_BLK(8029E52C);
                     s->refs = 0;
-                    ENGINE_BLK(8029E548);
                     return SLOT_PHYS(s);
                 }
             }
         }
-        ENGINE_BLK(8029E540);
     }
-    ENGINE_BLK(8029E548);
     return 0;
 }
 
@@ -660,25 +557,18 @@ u32 func_8029E47C(TexAnim *owner, s32 kind, s32 fp) {
     TexSlot *s = D_803A7440;
     s32 n;
 
-    ENGINE_BLK(8029E47C);
     for (n = TEX_SLOTS;; n--, s++) {
-        ENGINE_BLK(8029E490);
         if (n == 0) {
-            ENGINE_BLK(8029E4B0);
             break;
         }
-        ENGINE_BLK(8029E498);
         if (s->used == 0)
             break;
-        ENGINE_BLK(8029E4A8);
     }
-    ENGINE_BLK(8029E4B4);
     s->owner = owner;
     s->kind = kind;
     s->used = 1;
     s->refs = 0;
     func_802A1074(kind, (u32)s->data, fp);
-    ENGINE_BLK(8029E4D0);
     return SLOT_PHYS(s);
 }
 
@@ -690,13 +580,7 @@ s32 func_8029BEE4(CollisionTri *t, s32 x, s32 y, s32 z, s32 r) {
     s32 dx = t->v[0][0] - x, dy = t->v[0][1] - y, dz = t->v[0][2] - z;
     s64 dy2 = (s64)dy * dy, dz2 = (s64)dz * dz, d;
 
-    ENGINE_BLK(8029BEE4);
     d = engine_cvt_l_s(__builtin_sqrtf((f32)((s64)dx * dx + dy2 + dz2)));
-    if (r < d)
-        ENGINE_BLK(8029BF50);
-    else
-        ENGINE_BLK(8029BF58);
-    ENGINE_BLK(8029BF5C);
     return r >= d;
 }
 
@@ -707,26 +591,19 @@ void func_8029DCD4(u32 *from, u32 *to) {
     MtxCopy *c = D_803B7FC8;
     s32 n;
 
-    ENGINE_BLK(8029DCD4);
     for (n = MTX_COPIES;; n--, c++) {
-        ENGINE_BLK(8029DCF4);
         if (n == 0) {
-            ENGINE_BLK(8029DD3C);
             return;
         }
-        ENGINE_BLK(8029DCFC);
         if (c->from == NULL)
             break;
     }
-    ENGINE_BLK(8029DD0C);
     c->from = from;
     c->to = to;
     c->frame = D_8035805C ^ 1;
     if (D_803B8568 < c) {
-        ENGINE_BLK(8029DD38);
         D_803B8568 = c;
     }
-    ENGINE_BLK(8029DD3C);
 }
 
 /* func_8029C0DC: the triangle's corners and the point (x, y, z) seen along
@@ -734,20 +611,13 @@ void func_8029DCD4(u32 *from, u32 *to) {
 void collision_flatten(const CollisionTri *t, s32 x, s32 y, s32 z, FlatTri *f) {
     s32 p[3], i, j;
 
-    ENGINE_BLK(8029C0DC);
     if (t->axis == 0) {
-        ENGINE_BLK(8029C138);
         i = 0, j = 1;                   /* (z dropped) */
     } else if (t->axis == 1) {
-        ENGINE_BLK(8029C0E8);
-        ENGINE_BLK(8029C114);
         i = 0, j = 2;                   /* (y) */
     } else {
-        ENGINE_BLK(8029C0E8);
-        ENGINE_BLK(8029C0F0);
         i = 1, j = 2;                   /* (x) */
     }
-    ENGINE_BLK(8029C158);
     p[0] = x, p[1] = y, p[2] = z;
     f->u0 = t->v[0][i], f->v0 = t->v[0][j];
     f->u1 = t->v[1][i], f->v1 = t->v[1][j];
@@ -776,27 +646,19 @@ void func_8029DDC8(void) {
     MtxCopy *c = D_803B7FC8, *end = D_803B8568, *last = c;
     u32 frame = D_8035805C;
 
-    ENGINE_BLK(8029DDC8);
     for (;; c++) {
-        ENGINE_BLK(8029DDF0);
         if (end < c)
             break;
-        ENGINE_BLK(8029DDFC);
         if (c->from == NULL)
             continue;
-        ENGINE_BLK(8029DE08);
         if (c->frame != frame) {
-            ENGINE_BLK(8029DE14);
             last = c;
             continue;
         }
-        ENGINE_BLK(8029DE20);
         func_8029DE50(c->to, c->from);
-        ENGINE_BLK(8029DE28);
         c->from = NULL;
         c->to = NULL;
     }
-    ENGINE_BLK(8029DE38);
     D_803B8568 = last;
 }
 
@@ -807,15 +669,11 @@ s32 func_8029CFA4(s32 x1, s32 y1, s32 z1, s32 r1, s32 x2, s32 y2, s32 z2, s32 r2
     s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
     f32 d, rr;
 
-    ENGINE_BLK(8029CFA4);
     rr = (f32)(r1 + r2);
     d = __builtin_sqrtf((f32)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz));
     if (d < rr) {
-        ENGINE_BLK(8029D020);
-        ENGINE_BLK(8029D024);
         return 1;
     }
-    ENGINE_BLK(8029D024);
     return 0;
 }
 
@@ -825,9 +683,7 @@ REGS(s0, t3, t4, t5, t6 -> v1)
 s32 func_8029B514(Building *b, s32 x, s32 y, s32 z, s32 r) {
     s32 hit;
 
-    ENGINE_BLK(8029B514);
     hit = func_8029CFA4(x, y, z, r, b->x >> 2, b->y >> 2, b->z >> 2, b->unkC >> 2);
-    ENGINE_BLK(8029B57C);
     return hit;
 }
 
@@ -842,16 +698,13 @@ void func_8029F110(Anim *a, s32 mode) {
     f32 c = a->tension, nc = -c, c2;
     f32 *m = D_803B3778;
 
-    ENGINE_BLK(8029F110);
     if (mode == ANIM_SPLINE) {
-        ENGINE_BLK(8029F148);
         c2 = c * 2.0f;
         m[0] = nc, m[4] = 2.0f - c, m[8] = c - 2.0f, m[12] = c;
         m[1] = c2, m[5] = c - 3.0f, m[9] = 3.0f - c2, m[13] = nc;
         m[2] = nc, m[6] = 0.0f, m[10] = c, m[14] = 0.0f;
         m[3] = 0.0f, m[7] = 1.0f, m[11] = 0.0f, m[15] = 0.0f;
     }
-    ENGINE_BLK(8029F1A8);
 }
 
 extern f32 D_803B37B8, D_803B37BC;      /* t^2 and t^3 */
@@ -864,34 +717,24 @@ void func_8029F060(f32 t, s32 i, s32 n) {
     s32 m = n - 1;
     f32 t2 = t * t, t3 = t2 * t;
 
-    ENGINE_BLK(8029F060);
     D_803B37B8 = t2;
     D_803B37BC = t3;
     if (i - 1 >= 0) {
-        ENGINE_BLK(8029F094);
         D_803B7FC0 = i - 1;
     } else {
-        ENGINE_BLK(8029F0A0);
         D_803B7FC0 = i - 1 + m;
     }
-    ENGINE_BLK(8029F0AC);
     D_803B7FC1 = i;
     if (i + 1 < m) {
-        ENGINE_BLK(8029F0C4);
         D_803B7FC2 = i + 1;
     } else {
-        ENGINE_BLK(8029F0CC);
         D_803B7FC2 = i + 1 - m;
     }
-    ENGINE_BLK(8029F0D8);
     if (i + 2 < m) {
-        ENGINE_BLK(8029F0E8);
         D_803B7FC3 = i + 2;
     } else {
-        ENGINE_BLK(8029F0F0);
         D_803B7FC3 = i + 2 - m;
     }
-    ENGINE_BLK(8029F0FC);
 }
 
 extern f32 D_8030D870;                  /* a full turn, in the keys' angles / 16 */
@@ -902,31 +745,22 @@ REGS(a0, a1, f30 -> t4)
 s32 func_8029F6B0(s32 a, s32 b, f32 t) {
     f32 turn = D_8030D870, fa, d;
 
-    ENGINE_BLK(8029F6B0);
     fa = (f32)a / 16.0f;
     d = (f32)b / 16.0f - fa;
     if (d < -2048.0f) {
-        ENGINE_BLK(8029F704);
         d = d + turn;
     } else {
-        ENGINE_BLK(8029F70C);
         if (!(d <= 2048.0f)) {
-            ENGINE_BLK(8029F718);
             d = d - turn;
         }
     }
-    ENGINE_BLK(8029F71C);
     d = d * t + fa;
     if (d < 0.0f) {
-        ENGINE_BLK(8029F730);
         d = d + turn;
     }
-    ENGINE_BLK(8029F734);
     if (!(d <= turn)) {
-        ENGINE_BLK(8029F740);
         d = d - turn;
     }
-    ENGINE_BLK(8029F744);
     return engine_cvt_w_s(d * 16.0f);
 }
 
@@ -939,24 +773,17 @@ static s32 switch_lists(s32 owner, s32 id) {
     s32 n;
 
     for (q = D_803BC1D0;; q++) {
-        ENGINE_BLK(8029D174);
         if (q == end)
             return 0;
-        ENGINE_BLK(8029D17C);
         if (q->owner == owner) {
-            ENGINE_BLK(8029D188);
             for (b = q->level, n = q->nlevel;; b++) {
-                ENGINE_BLK(8029D190);
                 if (n == 0)
                     break;
-                ENGINE_BLK(8029D198);
                 --n;
                 if (*b == id)
                     return 1;
-                ENGINE_BLK(8029D1A8);
             }
         }
-        ENGINE_BLK(8029D1B0);
     }
 }
 
@@ -967,29 +794,21 @@ void func_8029D120(s32 owner) {
     CollisionTri *t, *end = D_803BD300;
     s32 on;
 
-    ENGINE_BLK(8029D120);
     for (t = D_803B9890;; t++) {
-        ENGINE_BLK(8029D140);
         if (t == end)
             break;
-        ENGINE_BLK(8029D148);
         if (t->owner == owner) {
             on = 1;
         } else {
-            ENGINE_BLK(8029D154);
             on = 0;
             if (t->owner == 0) {
-                ENGINE_BLK(8029D15C);
                 on = switch_lists(owner, t->id);
             }
         }
         if (on) {
-            ENGINE_BLK(8029D1B8);
             t->active = 1;
         }
-        ENGINE_BLK(8029D1BC);
     }
-    ENGINE_BLK(8029D1C4);
 }
 
 /* the spline at t: D_803B3778's columns weighted by the four points,
@@ -999,32 +818,22 @@ f32 func_8029E878(f32 p0, f32 p1, f32 p2, f32 p3, f32 t) {
     f32 *m = D_803B3778, s, r = 0.0f;
     s32 c;
 
-    ENGINE_BLK(8029E878);
     for (c = 3;; c--, m++) {
-        ENGINE_BLK(8029E894);
         s = m[0] * p0 + m[4] * p1 + m[8] * p2 + m[12] * p3;
         if (c == 3) {
-            ENGINE_BLK(8029E8E8);
             r = s * D_803B37BC;
         } else {
-            ENGINE_BLK(8029E8CC);
             if (c == 2) {
-                ENGINE_BLK(8029E8FC);
                 r = r + s * D_803B37B8;
             } else {
-                ENGINE_BLK(8029E8D8);
                 if (c != 1) {
-                    ENGINE_BLK(8029E8E0);
                     r = r + s;
                     break;
                 }
-                ENGINE_BLK(8029E910);
                 r = r + s * t;
             }
         }
-        ENGINE_BLK(8029E918);
     }
-    ENGINE_BLK(8029E924);
     return r;
 }
 
@@ -1037,11 +846,8 @@ REGS(t3, t5)
 void func_8029C284(s32 x, s32 z) {
     s32 cx, cz;
 
-    ENGINE_BLK(8029C284);
-    ENGINE_DIV(cx, (s32)((u32)x << 2), D_803BE724, 8029C2AC, 8029C2B0, 8029C2BC, 8029C2C4);
-    ENGINE_BLK(8029C2C8);
-    ENGINE_DIV(cz, (s32)((u32)z << 2), D_803BE728, 8029C2F0, 8029C2F4, 8029C300, 8029C308);
-    ENGINE_BLK(8029C30C);
+    ENGINE_DIV(cx, (s32)((u32)x << 2), D_803BE724, 8029C2AC, 8029C2C4);
+    ENGINE_DIV(cz, (s32)((u32)z << 2), D_803BE728, 8029C2F0, 8029C308);
     D_803A7418[0] = cx + (s32)((u32)cz * (u32)(s32)D_803BE72C);
     D_803A7418[1] = -1;
 }
@@ -1056,23 +862,17 @@ void func_8029DEA0(void) {
     Part *p;
     s32 n, *id = D_802C23B4, w;
 
-    ENGINE_BLK(8029DEA0);
     for (n = TEX_SLOTS;; n--, s++) {
-        ENGINE_BLK(8029DECC);
         if (n == 0)
             break;
-        ENGINE_BLK(8029DED4);
         s->used = 0;
     }
-    ENGINE_BLK(8029DEE4);
     D_803B35F0 = D_803B3500;
     for (p = D_803B35F8;; p++) {
-        ENGINE_BLK(8029DF18);
         w = *id;
         *(s32 *)&p->unk0 = w;
         if (w == -1)
             break;
-        ENGINE_BLK(8029DF28);
         id++;
         p->unk4 = 0.0f;
         p->unkC = 0;
@@ -1083,7 +883,6 @@ void func_8029DEA0(void) {
         p->unk13 = 0;
         p->unk14 = 0;
     }
-    ENGINE_BLK(8029DF54);
 }
 
 /* ---- a part's matrix from its keys (D_803B3730) ----------------------------- */
@@ -1140,63 +939,48 @@ REGS(a0, a1, a2, a3, t0, t1, f30 -> a0)
 s32 func_8029F3D0(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     s32 x, y, z;
 
-    ENGINE_BLK(8029F3D0);
     x = engine_cvt_w_s((f32)(x1 - x0) * t);
     y = engine_cvt_w_s((f32)(y1 - y0) * t) + y0;
     z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
     x += x0;
     if (x == 0) {
-        ENGINE_BLK(8029F434);
         if (y == 0) {
-            ENGINE_BLK(8029F43C);
             if (z == 0) {
-                ENGINE_BLK(8029F444);
-                ENGINE_BLK(8029F4A4);
                 return 0;
             }
         }
     }
-    ENGINE_BLK(8029F44C);
     mtx_translation(x, y, z);
-    ENGINE_BLK(8029F4A4);
     return FX_ONE;
 }
 
 /* D_803B3730 = the rotation about x (F4B8), y (F560) or z (F608) by the
    angle from a to b the fraction t of the way (func_8029F6B0), unless
    that is 0 (0x10000, or 0) */
-#define LERP_ROTATION(axis, a, b, t, B_ENTRY, B_ANGLE, B_ZERO, B_ROT, B_SIN, B_COS, B_END)                    \
+#define LERP_ROTATION(axis, a, b, t)                                                                          \
     do {                                                                                                     \
         s32 r_;                                                                                              \
-        ENGINE_BLK(B_ENTRY);                                                                                 \
         r_ = func_8029F6B0(a, b, t);                                                                         \
-        ENGINE_BLK(B_ANGLE);                                                                                 \
         if (r_ == 0) {                                                                                       \
-            ENGINE_BLK(B_ZERO);                                                                              \
-            ENGINE_BLK(B_END);                                                                               \
             return 0;                                                                                        \
         }                                                                                                    \
-        ENGINE_BLK(B_ROT);                                                                                   \
-        ENGINE_BLK(B_SIN);                                                                                   \
-        ENGINE_BLK(B_COS);                                                                                   \
         mtx_rotation(axis, r_);                                                                              \
-        ENGINE_BLK(B_END);                                                                                   \
         return FX_ONE;                                                                                       \
     } while (0)
 
 REGS(a0, a1, f30 -> a0)
 s32 func_8029F4B8(s32 a, s32 b, f32 t) {
-    LERP_ROTATION(0, a, b, t, 8029F4B8, 8029F4D4, 8029F4DC, 8029F4E4, 8029F4EC, 8029F4F4, 8029F544);
+    LERP_ROTATION(0, a, b, t);
 }
 
 REGS(a0, a1, f30 -> a0)
 s32 func_8029F560(s32 a, s32 b, f32 t) {
-    LERP_ROTATION(1, a, b, t, 8029F560, 8029F57C, 8029F584, 8029F58C, 8029F594, 8029F59C, 8029F5EC);
+    LERP_ROTATION(1, a, b, t);
 }
 
 REGS(a0, a1, f30 -> a0)
 s32 func_8029F608(s32 a, s32 b, f32 t) {
-    LERP_ROTATION(2, a, b, t, 8029F608, 8029F624, 8029F62C, 8029F634, 8029F63C, 8029F644, 8029F694);
+    LERP_ROTATION(2, a, b, t);
 }
 
 /* the four keys' i-th halves on the spline at t (func_8029E878), as a
@@ -1209,38 +993,30 @@ static s32 spline_half(Key *p0, Key *p1, Key *p2, Key *p3, s32 i, f32 t) {
 /* D_803B3730 = the rotation about x (E938), y (EA48) or z (EB58) by the
    keys' angle on the spline at t; whether it isn't 0 (else D_803B3730 is
    as it was) */
-#define SPLINE_ROTATION(axis, B_ENTRY, B_ANGLE, B_ZERO, B_ROT, B_SIN, B_COS, B_END)                            \
+#define SPLINE_ROTATION(axis)                                                                                  \
     do {                                                                                                     \
         s32 a_;                                                                                              \
-        ENGINE_BLK(B_ENTRY);                                                                                 \
         a_ = spline_half(p0, p1, p2, p3, 3 + (axis), t);                                                     \
-        ENGINE_BLK(B_ANGLE);                                                                                 \
         if (a_ == 0) {                                                                                       \
-            ENGINE_BLK(B_ZERO);                                                                              \
-            ENGINE_BLK(B_END);                                                                               \
             return 0;                                                                                        \
         }                                                                                                    \
-        ENGINE_BLK(B_ROT);                                                                                   \
-        ENGINE_BLK(B_SIN);                                                                                   \
-        ENGINE_BLK(B_COS);                                                                                   \
         mtx_rotation(axis, a_);                                                                              \
-        ENGINE_BLK(B_END);                                                                                   \
         return 1;                                                                                            \
     } while (0)
 
 REGS(t5, t6, t7, s0, f30 -> a3)
 s32 func_8029E938(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
-    SPLINE_ROTATION(0, 8029E938, 8029E998, 8029E9AC, 8029E9B4, 8029E9BC, 8029E9C4, 8029EA18);
+    SPLINE_ROTATION(0);
 }
 
 REGS(t5, t6, t7, s0, f30 -> a3)
 s32 func_8029EA48(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
-    SPLINE_ROTATION(1, 8029EA48, 8029EAA8, 8029EABC, 8029EAC4, 8029EACC, 8029EAD4, 8029EB28);
+    SPLINE_ROTATION(1);
 }
 
 REGS(t5, t6, t7, s0, f30 -> a3)
 s32 func_8029EB58(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
-    SPLINE_ROTATION(2, 8029EB58, 8029EBB8, 8029EBCC, 8029EBD4, 8029EBDC, 8029EBE4, 8029EC38);
+    SPLINE_ROTATION(2);
 }
 
 /* D_803B3730 = the scale from (x0, y0, z0) the fraction t of the way to
@@ -1249,26 +1025,19 @@ REGS(a0, a1, a2, a3, t0, t1, f30 -> a0)
 s32 func_8029F760(s32 x0, s32 y0, s32 z0, s32 x1, s32 y1, s32 z1, f32 t) {
     s32 x, y, z;
 
-    ENGINE_BLK(8029F760);
     x = engine_cvt_w_s((f32)(x1 - x0) * t);
     y = engine_cvt_w_s((f32)(y1 - y0) * t);
     z = engine_cvt_w_s((f32)(z1 - z0) * t) + z0;
     x += x0;
     y += y0;
     if (x == SCALE_ONE) {
-        ENGINE_BLK(8029F7C8);
         if (y == SCALE_ONE) {
-            ENGINE_BLK(8029F7D4);
             if (z == SCALE_ONE) {
-                ENGINE_BLK(8029F7DC);
-                ENGINE_BLK(8029F848);
                 return 0;
             }
         }
     }
-    ENGINE_BLK(8029F7E4);
     mtx_scale(x, y, z);
-    ENGINE_BLK(8029F848);
     return FX_ONE;
 }
 
@@ -1278,27 +1047,17 @@ REGS(t5, t6, t7, s0, f30 -> a3)
 s32 func_8029EC68(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
     s32 x, y, z;
 
-    ENGINE_BLK(8029EC68);
     x = spline_half(p0, p1, p2, p3, 6, t);
-    ENGINE_BLK(8029ECC4);
     y = spline_half(p0, p1, p2, p3, 7, t);
-    ENGINE_BLK(8029ED00);
     z = spline_half(p0, p1, p2, p3, 8, t);
-    ENGINE_BLK(8029ED3C);
     if (x == 0) {
-        ENGINE_BLK(8029ED4C);
         if (y == 0) {
-            ENGINE_BLK(8029ED54);
             if (z == 0) {
-                ENGINE_BLK(8029ED5C);
-                ENGINE_BLK(8029EDC0);
                 return 0;
             }
         }
     }
-    ENGINE_BLK(8029ED64);
     mtx_translation(x, y, z);
-    ENGINE_BLK(8029EDC0);
     return 1;
 }
 
@@ -1308,27 +1067,17 @@ REGS(t5, t6, t7, s0, f30 -> a3)
 s32 func_8029EDEC(Key *p0, Key *p1, Key *p2, Key *p3, f32 t) {
     s32 x, y, z;
 
-    ENGINE_BLK(8029EDEC);
     x = spline_half(p0, p1, p2, p3, 0, t);
-    ENGINE_BLK(8029EE48);
     y = spline_half(p0, p1, p2, p3, 1, t);
-    ENGINE_BLK(8029EE84);
     z = spline_half(p0, p1, p2, p3, 2, t);
-    ENGINE_BLK(8029EEC0);
     if (x == SCALE_ONE) {
-        ENGINE_BLK(8029EED4);
         if (y == SCALE_ONE) {
-            ENGINE_BLK(8029EEDC);
             if (z == SCALE_ONE) {
-                ENGINE_BLK(8029EEE4);
-                ENGINE_BLK(8029EF54);
                 return 0;
             }
         }
     }
-    ENGINE_BLK(8029EEEC);
     mtx_scale(x, y, z);
-    ENGINE_BLK(8029EF54);
     return 1;
 }
 
@@ -1340,47 +1089,21 @@ REGS(s3, s2, f30, fp)
 void func_8029EF80(Key *k, s32 *acc, f32 t, s32 fp) {
     Key *n = k + 1;
 
-    ENGINE_BLK(8029EF80);
     if (func_8029F760(k->scale[0], k->scale[1], k->scale[2], n->scale[0], n->scale[1], n->scale[2], t)) {
-        ENGINE_BLK(8029EFA8);
-        ENGINE_BLK(8029EFB0);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029EFA8);
     }
-    ENGINE_BLK(8029EFBC);
     if (func_8029F608(k->rot[2], n->rot[2], t)) {
-        ENGINE_BLK(8029EFC8);
-        ENGINE_BLK(8029EFD0);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029EFC8);
     }
-    ENGINE_BLK(8029EFDC);
     if (func_8029F560(k->rot[1], n->rot[1], t)) {
-        ENGINE_BLK(8029EFE8);
-        ENGINE_BLK(8029EFF0);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029EFE8);
     }
-    ENGINE_BLK(8029EFFC);
     if (func_8029F4B8(k->rot[0], n->rot[0], t)) {
-        ENGINE_BLK(8029F008);
-        ENGINE_BLK(8029F010);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029F008);
     }
-    ENGINE_BLK(8029F01C);
     if (func_8029F3D0(k->pos[0], k->pos[1], k->pos[2], n->pos[0], n->pos[1], n->pos[2], t)) {
-        ENGINE_BLK(8029F038);
-        ENGINE_BLK(8029F040);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029F038);
     }
-    ENGINE_BLK(8029F04C);
 }
 
 /* the spline's four keys of a part's record */
@@ -1397,47 +1120,21 @@ void func_8029E730(AnimPart *rec, s32 *acc, f32 t) {
     Key *p0, *p1, *p2, *p3;
 
     SPLINE_KEYS(rec, p0, p1, p2, p3);
-    ENGINE_BLK(8029E730);
     if (func_8029EDEC(p0, p1, p2, p3, t)) {
-        ENGINE_BLK(8029E7C4);
-        ENGINE_BLK(8029E7CC);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029E7C4);
     }
-    ENGINE_BLK(8029E7D8);
     if (func_8029EB58(p0, p1, p2, p3, t)) {
-        ENGINE_BLK(8029E7E0);
-        ENGINE_BLK(8029E7E8);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029E7E0);
     }
-    ENGINE_BLK(8029E7F4);
     if (func_8029EA48(p0, p1, p2, p3, t)) {
-        ENGINE_BLK(8029E7FC);
-        ENGINE_BLK(8029E804);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029E7FC);
     }
-    ENGINE_BLK(8029E810);
     if (func_8029E938(p0, p1, p2, p3, t)) {
-        ENGINE_BLK(8029E818);
-        ENGINE_BLK(8029E820);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029E818);
     }
-    ENGINE_BLK(8029E82C);
     if (func_8029EC68(p0, p1, p2, p3, t)) {
-        ENGINE_BLK(8029E834);
-        ENGINE_BLK(8029E83C);
         func_802ACCCC(D_803B3730, acc);
-    } else {
-        ENGINE_BLK(8029E834);
     }
-    ENGINE_BLK(8029E848);
 }
 
 /* ---- an animation's step --------------------------------------------------- */
@@ -1458,128 +1155,93 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
     s32 speed = a->speed, back = a->back, mode = (u8)a->mode, w, c, lim, stop;
     f32 f;
 
-    ENGINE_BLK(8029F1BC);
     rate = rate * (f32)speed;
     if (back != 1) {
-        ENGINE_BLK(8029F1E8);
         t = t + rate;
         w = engine_trunc_w_s(t);
         t = t - (f32)w;
         k += w;
         if (k >= n - 1) {
             /* past the last key */
-            ENGINE_BLK(8029F20C);
             if (n - 1 == 0) {
-                ENGINE_BLK(8029F21C);
                 engine_break(0x8029F21C, 7);
             }
-            ENGINE_BLK(8029F220);
             c = a->loops + (s32)((u32)k / (u32)(n - 1));
             lim = a->limit;
             a->loops = c;
             stop = 0;
             if (c >= lim) {
-                ENGINE_BLK(8029F244);
                 stop = lim != -1;
             }
             if (stop) {
-                ENGINE_BLK(8029F24C);
                 t = 1.0f;
                 k = n - 2;
                 if (mode == ANIM_BOUNCE) {
-                    ENGINE_BLK(8029F25C);
                     back = 1;
                 }
-                ENGINE_BLK(8029F260);
                 a->running = 0;
             } else {
-                ENGINE_BLK(8029F26C);
                 if (mode != ANIM_WRAP) {
-                    ENGINE_BLK(8029F274);
                     if (mode != ANIM_BOUNCE) {
-                        ENGINE_BLK(8029F27C);
                         engine_syscall(0x8029F27C);
                     }
-                    ENGINE_BLK(8029F2A4);
                     t = 1.0f;
                     back = 1;
                     k = n - 2;
                 } else {
-                    ENGINE_BLK(8029F280);
                     if (n - 1 == 0) {
-                        ENGINE_BLK(8029F298);
                         engine_break(0x8029F298, 7);
                     }
                     k = (u32)k % (u32)(n - 1);
-                    ENGINE_BLK(8029F29C);
                 }
             }
         }
     } else {
-        ENGINE_BLK(8029F2B8);
         t = t - rate;
         if (t <= 0.0f) {
-            ENGINE_BLK(8029F2D0);
             f = (f32)engine_trunc_w_s(t) - 1.0f;
             t = t - f;
             k += engine_cvt_w_s(f);
         }
-        ENGINE_BLK(8029F2F8);
         if (k < 0) {
             /* before the first key */
-            ENGINE_BLK(8029F300);
             c = a->loops + back;
             lim = a->limit;
             if (n == 0) {
-                ENGINE_BLK(8029F328);
                 engine_break(0x8029F328, 7);
             }
-            ENGINE_BLK(8029F32C);
             a->loops = c;
             stop = 0;
             if (c >= lim) {
-                ENGINE_BLK(8029F338);
                 stop = lim != -1;
             }
             if (stop) {
-                ENGINE_BLK(8029F344);
                 t = 0.0f;
                 k = 0;
                 if (mode == ANIM_BOUNCE) {
-                    ENGINE_BLK(8029F354);
                     back = 0;
                 }
-                ENGINE_BLK(8029F358);
                 a->running = 0;
             } else {
-                ENGINE_BLK(8029F364);
                 if (mode != ANIM_WRAP) {
-                    ENGINE_BLK(8029F36C);
                     if (mode != ANIM_BOUNCE) {
-                        ENGINE_BLK(8029F374);
                         engine_syscall(0x8029F374);
                     }
-                    ENGINE_BLK(8029F3A8);
                     t = 0.0f;
                     back = 0;
                     k = 0;
                 } else {
-                    ENGINE_BLK(8029F378);
                     if (n - 1 == 0) {
-                        ENGINE_BLK(8029F394);
                         engine_break(0x8029F394, 7);
                     }
                     k = (u32)(-k) % (u32)(n - 1);
-                    ENGINE_BLK(8029F398);
                     if (k != 0) {
-                        ENGINE_BLK(8029F3A0);
                         k = (n - 1) - k;
                     }
                 }
             }
         }
     }
-    ENGINE_BLK(8029F3B4);
     a->back = back;
     a->key = k;
     a->t = t;
@@ -1603,66 +1265,42 @@ void func_8029E5AC(Anim *a, u8 *base) {
     u32 *s, *w, *dst;
     f32 t = a->t;
 
-    ENGINE_BLK(8029E5AC);
     n = ANIM_KEYS_N(d);
     k = func_8029F1BC(a, k, n, ANIM_RATE(ANIM_SPEED(d, k), ANIM_SPEED(d, k + 1), t), t, &t);
-    ENGINE_BLK(8029E604);
     interp = a->interp;
     running = (u8)a->running;
     if (interp != ANIM_KEYS) {
-        ENGINE_BLK(8029E614);
         func_8029F110(a, interp);
-        ENGINE_BLK(8029E61C);
         func_8029F060(t, k, n);
     }
-    ENGINE_BLK(8029E624);
     step = ANIM_STRIDE(d);
     parts = ANIM_NPARTS(d);
-    if (ANIM_MISALIGNED(d))
-        ENGINE_BLK(8029E64C);
     for (rec = anim_parts(d);; parts--, rec = (AnimPart *)((u8 *)rec + step)) {
-        ENGINE_BLK(8029E658);
         if (parts == 0)
             break;
-        ENGINE_BLK(8029E660);
         dst = (u32 *)(base + rec->mtx);
         s = (u32 *)(base + rec->rest);
         for (w = dst, i = 8; i != 0; i--) {
-            ENGINE_BLK(8029E694);
             w[0] = s[0];
             w[1] = s[1];
             w += 2, s += 2;
         }
-        ENGINE_BLK(8029E6AC);
         if (interp == ANIM_KEYS) {
-            ENGINE_BLK(8029E6C4);
             func_8029EF80((Key *)rec->keys + k, (s32 *)dst, t, interp);
-            ENGINE_BLK(8029E6CC);
         } else {
-            ENGINE_BLK(8029E6B4);
             if (interp != ANIM_SPLINE) {
-                ENGINE_BLK(8029E6C0);
                 engine_syscall(0x8029E6C0);
             }
-            ENGINE_BLK(8029E6D4);
             func_8029E730(rec, (s32 *)dst, t);
         }
-        ENGINE_BLK(8029E6DC);
         func_802ACCCC((s32 *)(base + rec->rest + 0x40), (s32 *)dst);
-        ENGINE_BLK(8029E6E4);
         func_802AC8CC(dst);
-        ENGINE_BLK(8029E6EC);
         if (running != 1) {
-            ENGINE_BLK(8029E6F8);
             func_8029DCD4(dst, (u32 *)(D_803B3770 + rec->mtx));
-            ENGINE_BLK(8029E700);
         } else {
-            ENGINE_BLK(8029E708);
             func_8029DD54(dst);
         }
-        ENGINE_BLK(8029E710);
     }
-    ENGINE_BLK(8029E71C);
 }
 
 /* ---- an object's spheres ---------------------------------------------------- */
@@ -1693,35 +1331,27 @@ void func_8029C354(s32 kind, u8 *p, u8 *end, s32 scale_) {
     Solid *b;
     KindPart *r;
 
-    ENGINE_BLK(8029C354);
     size = SCALED(*(u16 *)p, scale);
     for (b = D_803A7300;; b++) {
-        ENGINE_BLK(8029C3A8);
         if (b->end == -1)
             break;
     }
-    ENGINE_BLK(8029C3B4);
     b->r = size;
     b->kind = kind;
     b->end = 0;
     for (r = D_803A6B30;; r++) {
-        ENGINE_BLK(8029C3CC);
         if (r->end == -1)
             break;
     }
     for (s = OBJSPHERE_FIRST(p);; s = OBJSPHERE_NEXT(s)) {
-        ENGINE_BLK(8029C3D8);
         if ((u8 *)s == end)
             break;
-        ENGINE_BLK(8029C3E0);
         r->kind = kind;
         r->end = 0;
         r->power = s->power;
         r->r = SCALED(s->r, scale);
         r++;
-        ENGINE_BLK(8029C42C);
     }
-    ENGINE_BLK(8029C43C);
 }
 
 extern s32 D_803A73FC, D_803A7400, D_803A7404;  /* the last plane hit's point */
@@ -1734,21 +1364,15 @@ s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, CollisionTri *t, s32 *px, s32 *p
     s64 dot, dist, s3, rx, ry, rz;
     f32 f;
 
-    ENGINE_BLK(8029C160);
     dot = (s64)((u64)a * (u64)(s64)x + (u64)b * (u64)(s64)y + (u64)c * (u64)(s64)z);
     dist = engine_cvt_l_s((f32)(s64)((u64)dot + (u64)d) / t->nlen);
     if (dist < 0) {
-        ENGINE_BLK(8029C1D4);
         dist = -dist;
     }
-    ENGINE_BLK(8029C1D8);
     if (lim < dist) {
-        ENGINE_BLK(8029C26C);
-        ENGINE_BLK(8029C270);
         *px = *py = *pz = 0;            /* (none: its callers don't look) */
         return 0;
     }
-    ENGINE_BLK(8029C1E4);
     s3 = (s64)(0 - (u64)d - (u64)dot);
     f = (f32)s3 / t->nlen2;
     rx = (s64)((u64)engine_cvt_l_s(f * (f32)a) + (u64)(s64)x);
@@ -1757,7 +1381,6 @@ s32 func_8029C160(s32 x, s32 y, s32 z, s32 lim, CollisionTri *t, s32 *px, s32 *p
     D_803A73FC = *px = (s32)rx;
     D_803A7400 = *py = (s32)ry;
     D_803A7404 = *pz = (s32)rz;
-    ENGINE_BLK(8029C270);
     return 1;
 }
 
@@ -1769,54 +1392,38 @@ s32 func_8029DA90(s32 *tris, s32 n, s32 x, s32 z, s32 y) {
     s32 *t = tris, lo, hi, in;
     u32 range;
 
-    ENGINE_BLK(8029DA90);
     for (;;) {
-        ENGINE_BLK(8029DABC);
         if (n == 0) {
-            ENGINE_BLK(8029DB54);
             return 1;
         }
-        ENGINE_BLK(8029DAC4);
         n--;
         t += 6;
         in = func_802AA5E0(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1]);
-        ENGINE_BLK(8029DAE8);
         if (!in)
             continue;
-        ENGINE_BLK(8029DAF0);
         in = func_802AA460(x, z, t[-6], t[-5], t[-4], t[-3], t[-2], t[-1]);
-        ENGINE_BLK(8029DAF8);
         if (in)
             break;
     }
     /* inside this triangle: the range after the last (the halves of a word
        func_802A3F80 stores, read through the word, which is how they are in
        native-endian memory) */
-    ENGINE_BLK(8029DB00);
     range = *(u32 *)(t + n * 6);
     lo = range >> 16;
     hi = range & 0xFFFF;
     if (hi < lo) {
-        ENGINE_BLK(8029DB24);
         in = 1;
         if (y < lo) {
-            ENGINE_BLK(8029DB2C);
             if (hi < y) {
-                ENGINE_BLK(8029DB34);
                 in = 0;
             }
         }
     } else {
-        ENGINE_BLK(8029DB3C);
         in = 0;
         if (y >= lo) {
-            ENGINE_BLK(8029DB48);
             in = y <= hi;
         }
     }
-    if (in)
-        ENGINE_BLK(8029DB50);
-    ENGINE_BLK(8029DB54);
     return !in;
 }
 
@@ -1835,51 +1442,35 @@ REGS(gp)
 void func_8029A914(VS *vs) {
     s32 g, h;
 
-    ENGINE_BLK(8029A914);
     if (D_803A742E != 0) {
-        ENGINE_BLK(8029A93C);
         g = D_803A742D;
         if (g > GEARS_MAX) {
-            ENGINE_BLK(8029A950);
             g = GEARS_MAX;
         }
-        ENGINE_BLK(8029A954);
         vs->unkA0 = g;
     } else {
-        ENGINE_BLK(8029A95C);
         g = vs->unkA0;
         if (g != 1) {
-            ENGINE_BLK(8029A96C);
             vs->unkA0 = g - 1;
         }
     }
-    ENGINE_BLK(8029A974);
     if (vs->unk76 == 0) {
-        ENGINE_BLK(8029A980);
         if (D_80358064 != 0) {
-            ENGINE_BLK(8029A990);
             vs->unk76 = BACKUP_SPEED;
         }
     }
-    ENGINE_BLK(8029A998);
     if (vs->unk76 < 0) {
-        ENGINE_BLK(8029A9A4);
         h = D_803A7410 - HALF_TURN;
         if (h < 0) {
-            ENGINE_BLK(8029A9C4);
             h += TURN - 1;
         }
-        ENGINE_BLK(8029A9C8);
         D_803A7410 = h;
         h = D_803A7412 + HALF_TURN;
         if (h > TURN - 1) {
-            ENGINE_BLK(8029A9E8);
             h -= TURN - 1;
         }
-        ENGINE_BLK(8029A9EC);
         D_803A7412 = h;
     }
-    ENGINE_BLK(8029A9F0);
 }
 
 #define G_SETTIMG_OP 0xFD
@@ -1898,41 +1489,31 @@ void func_8029DF78(u32 dl_, u32 end_, u32 type) {
     TexPatch *out = D_803B35F0;
     u32 *p, w, tex;
 
-    ENGINE_BLK(8029DF78);
     for (;;) {
-        ENGINE_BLK(8029DFC8);
         if (*ids == -1)
             break;
-        ENGINE_BLK(8029DFD8);
         T = *(TexAnim *PTR32 *)ids;
         ids++;
         if (T->type != type)
             continue;
-        ENGINE_BLK(8029DFE8);
         if (T->c == 0)
             continue;
-        ENGINE_BLK(8029E008);
         tex = TEXANIM_KINDS(T, 0)[0];
         for (p = dl;;) {
-            ENGINE_BLK(8029E020);
             if (p == end)
                 break;
-            ENGINE_BLK(8029E028);
             w = p[0];
             p += 2;
             if (GFX_OP(w) != G_SETTIMG_OP)
                 continue;
-            ENGINE_BLK(8029E044);
             if (p[-1] != tex)
                 continue;
-            ENGINE_BLK(8029E050);
             out->anim = T;
             out->off = (u8 *)p - (u8 *)dl - 4;
             out->idx = 0;
             out++;
         }
     }
-    ENGINE_BLK(8029E06C);
     D_803B35F0 = out;
 }
 
@@ -1944,53 +1525,36 @@ s32 func_8029BF64(s32 x0, s32 z0, s32 x1, s32 z1, s32 x2, s32 z2, s32 px, s32 pz
     f32 fpx = (f32)px, fpz = (f32)pz, cx, cz, ax, az, ex, ez, side, inside;
     s32 e;
 
-    ENGINE_BLK(8029BF64);
     cx = (f32)(x0 + x1) / 2.0f;
     cz = (f32)(z0 + z1) / 2.0f;
     cx = ((f32)x2 + cx) / 2.0f;
     cz = ((f32)z2 + cz) / 2.0f;
     /* the edges 0-1, 0-2 and 1-2 */
     for (e = 3; e != 0; e--) {
-        ENGINE_BLK(8029BFE4);
-        ENGINE_BLK(8029BFF0);
         if (e == 3) {
-            ENGINE_BLK(8029C038);
             ax = (f32)x0, az = (f32)z0;
             ez = (f32)(z1 - z0), ex = (f32)(x1 - x0);
         } else if (e == 2) {
-            ENGINE_BLK(8029BFF8);
-            ENGINE_BLK(8029C01C);
             ax = (f32)x0, az = (f32)z0;
             ez = (f32)(z2 - z0), ex = (f32)(x2 - x0);
         } else {
-            ENGINE_BLK(8029BFF8);
-            ENGINE_BLK(8029C000);
             ax = (f32)x1, az = (f32)z1;
             ez = (f32)(z2 - z1), ex = (f32)(x2 - x1);
         }
-        ENGINE_BLK(8029C050);
         side = (fpx - ax) * ez - (fpz - az) * ex;
         if (side == 0.0f)
             continue;
-        ENGINE_BLK(8029C080);
         inside = (cx - ax) * ez - (cz - az) * ex;
         if (side > 0.0f) {
-            ENGINE_BLK(8029C0B0);
             if (inside > 0.0f)
                 continue;
         } else {
-            ENGINE_BLK(8029C09C);
             if (inside < 0.0f)
                 continue;
-            ENGINE_BLK(8029C0A8);
         }
         /* on the other side of this edge */
-        ENGINE_BLK(8029C0BC);
-        ENGINE_BLK(8029C0C0);
         return 0;
     }
-    ENGINE_BLK(8029BFE4);
-    ENGINE_BLK(8029C0C0);
     return 1;
 }
 
@@ -2008,9 +1572,7 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
     s32 n, size;
     u32 w, *s;
 
-    ENGINE_BLK(8029F85C);
     for (n = 0x20; n != 0; n--, a++, off++) {
-        ENGINE_BLK(8029F888);
         a->t = 0.0f;
         a->data = base + *off;
         a->loops = 0;
@@ -2022,25 +1584,20 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
         a->speed = 0;
         a->interp = 0;
     }
-    ENGINE_BLK(8029F8C8);
     blk = model + *(s32 *)(model + 0x18);
     size = *(s32 *)blk;
     end = blk + 8 + *(s32 *)(blk + 4);
     for (s = (u32 *)(blk + 8);; size -= 4) {
-        ENGINE_BLK(8029F8E4);
         if ((u8 *)s == end)
             break;
-        ENGINE_BLK(8029F8EC);
         w = *s++;
         *(u32 *)buf1 = w;
         *(u32 *)buf2 = w;
         buf1 += 4, buf2 += 4;
     }
     for (;; size -= 0x40) {
-        ENGINE_BLK(8029F90C);
         if (size == 0)
             break;
-        ENGINE_BLK(8029F914);
         /* (the identity Mtx; by words, since its halves are a word's in
            native-endian memory, tools/recomp/native_sites.txt) */
         for (n = 0; n < 2; n++) {
@@ -2053,7 +1610,6 @@ void func_8029F85C(Part *parts, u8 *model, u8 *buf1, u8 *buf2) {
         }
         buf1 += 0x40, buf2 += 0x40;
     }
-    ENGINE_BLK(8029F9C4);
 }
 
 /* the corner's position (the triangle's are the model's << 3, from there
@@ -2070,7 +1626,6 @@ s64 func_8029D90C(CollisionTri *t, s64 *b_out, s64 *c_out, s64 *d_out) {
     s64 dy2 = y1 - y2, dz3 = z1 - z3, dz2 = z1 - z2, dy3 = y1 - y3, dx3 = x1 - x3, dx2 = x1 - x2;
     s64 a, b, c;
 
-    ENGINE_BLK(8029D90C);
     a = (s64)((u64)dy2 * (u64)dz3 - (u64)dz2 * (u64)dy3);
     b = (s64)((u64)dz2 * (u64)dx3 - (u64)dx2 * (u64)dz3);
     c = (s64)((u64)dx2 * (u64)dy3 - (u64)dy2 * (u64)dx3);
@@ -2089,25 +1644,16 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, CollisionTri *tri) {
     u64 ee, pe2, cc = 0, disc = 0, q = 0;
     f32 root, num, den, t;
 
-    ENGINE_BLK(8029BD0C);
     for (e = 3;; e--) {
-        ENGINE_BLK(8029BD14);
         if (e == 0)
             break;
-        ENGINE_BLK(8029BD20);
         if (e == 3) {
-            ENGINE_BLK(8029BD68);
             a = tri->v[0], b = tri->v[1];
         } else if (e == 2) {
-            ENGINE_BLK(8029BD28);
-            ENGINE_BLK(8029BD4C);
             a = tri->v[0], b = tri->v[2];
         } else {
-            ENGINE_BLK(8029BD28);
-            ENGINE_BLK(8029BD30);
             a = tri->v[1], b = tri->v[2];
         }
-        ENGINE_BLK(8029BD80);
         px = a[0] - x, ex = b[0] - a[0];
         py = a[1] - y, ey = b[1] - a[1];
         pz = a[2] - z, ez = b[2] - a[2];
@@ -2119,29 +1665,22 @@ s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, CollisionTri *tri) {
         disc = pe2 * pe2 - q;
         if ((s64)disc < 0)
             continue;
-        ENGINE_BLK(8029BE60);
         root = __builtin_sqrtf((f32)(s64)disc);
         num = (f32)(s64)(0 - pe2);
         den = (f32)(s64)(ee << 1);
         t = (num + root) / den;
         if (!(t < 0.0f)) {
-            ENGINE_BLK(8029BEA4);
             if (!(t > 1.0f)) {
-                ENGINE_BLK(8029BEB0);
                 break;
             }
         }
-        ENGINE_BLK(8029BEB8);
         t = (num - root) / den;
         if (t < 0.0f)
             continue;
-        ENGINE_BLK(8029BECC);
         if (t > 1.0f)
             continue;
-        ENGINE_BLK(8029BED8);
         break;
     }
-    ENGINE_BLK(8029BEDC);
     return e != 0;
 }
 
@@ -2156,85 +1695,56 @@ REGS(a0, a1)
 void func_8029B7CC(s32 a, s32 b) {
     s32 before, h0, h1;
 
-    ENGINE_BLK(8029B7CC);
     if (a < 0) {
-        ENGINE_BLK(8029B7DC);
         a += TURN - 1;
     }
-    ENGINE_BLK(8029B7E0);
     if (a >= TURN) {
-        ENGINE_BLK(8029B7EC);
         a -= TURN - 1;
     }
-    ENGINE_BLK(8029B7F0);
     if (b < 0) {
-        ENGINE_BLK(8029B7F8);
         b += TURN - 1;
     }
-    ENGINE_BLK(8029B7FC);
     if (b >= TURN) {
-        ENGINE_BLK(8029B808);
         b -= TURN - 1;
     }
-    ENGINE_BLK(8029B80C);
     before = func_8029B930();
-    ENGINE_BLK(8029B814);
     h0 = D_803A7410;
     h1 = D_803A7412;
     if (h0 == 0) {
-        ENGINE_BLK(8029B834);
         if (h1 == TURN - 1) {
-            ENGINE_BLK(8029B840);
             D_803A7410 = a;
             D_803A7412 = b;
-            ENGINE_BLK(8029B91C);
             return;
         }
     }
     /* the wider of each, compared as 12-bit angles (in the top bits) */
-    ENGINE_BLK(8029B850);
     h1 = (u32)h1 << 20;
     b = (u32)b << 20;
     h0 = (u32)h0 << 20;
     a = (u32)a << 20;
     if ((s32)((u32)b - h1) <= 0) {
-        ENGINE_BLK(8029B868);
         h1 = b;
     }
-    ENGINE_BLK(8029B86C);
     if ((s32)((u32)a - h0) > 0) {
-        ENGINE_BLK(8029B878);
         h0 = a;
     }
-    ENGINE_BLK(8029B87C);
     D_803A7410 = (u32)h0 >> 20;
     D_803A7412 = (u32)h1 >> 20;
     if (before < func_8029B930()) {
-        ENGINE_BLK(8029B8A0);
-        ENGINE_BLK(8029B8AC);
         if (D_80358064 != 0) {
-            ENGINE_BLK(8029B8BC);
             D_803A742F = 1;
             if (D_803A742C != 0) {
-                ENGINE_BLK(8029B8D8);
                 if (D_803A742E == 0) {
-                    ENGINE_BLK(8029B8E8);
                     if (D_803A742D == 1) {
-                        ENGINE_BLK(8029B8FC);
                         D_803A742D = 8;
                     } else {
-                        ENGINE_BLK(8029B904);
                         D_803A742D = D_803A742D + 1;
                     }
-                    ENGINE_BLK(8029B908);
                     D_803A742E = 1;
                 }
             }
         }
-    } else {
-        ENGINE_BLK(8029B8A0);
     }
-    ENGINE_BLK(8029B91C);
 }
 
 /* The triangle's heading in the ground plane (12-bit) from its normal: the
@@ -2251,85 +1761,61 @@ void func_8029D56C(CollisionTri *t) {
     s64 nx, ny, nz, ax, az, num, len, dn, nb, nc, nd, side;
     f64 nlen;
 
-    ENGINE_BLK(8029D56C);
     nx = (s64)((u64)ey3 * (u64)ez2 - (u64)ez3 * (u64)ey2);
     ny = (s64)((u64)ez3 * (u64)ex2 - (u64)ex3 * (u64)ez2);
     nz = (s64)((u64)ex3 * (u64)ey2 - (u64)ey3 * (u64)ex2);
     ax = nx;
     if (nx < 0) {
-        ENGINE_BLK(8029D6B0);
         ax = -nx;
     }
-    ENGINE_BLK(8029D6B4);
     az = nz;
     if (nz < 0) {
-        ENGINE_BLK(8029D6BC);
         az = -nz;
     }
-    ENGINE_BLK(8029D6C0);
     num = (s64)((u64)ax << 16);
     len = engine_cvt_l_d(__builtin_sqrt((f64)(s64)((u64)az * (u64)az + (u64)ax * (u64)ax)));
     if (len == 0) {
-        ENGINE_BLK(8029D70C);
         engine_break(0x8029D70C, 7);
     }
-    ENGINE_BLK(8029D710);
     if (len == -1) {
-        ENGINE_BLK(8029D71C);
         if ((u64)num == (u64)1 << 63) {
-            ENGINE_BLK(8029D728);
             engine_break(0x8029D728, 6);
         }
     }
-    ENGINE_BLK(8029D72C);
     h = func_802AD7FC((u32)(num / len));
-    ENGINE_BLK(8029D738);
     h = (u32)h >> 4;
     if (nx < 0) {
-        ENGINE_BLK(8029D740);
         if (nz < 0) {
-            ENGINE_BLK(8029D754);
             h += HALF_TURN;
         } else {
-            ENGINE_BLK(8029D748);
             h = TURN - 1 - h;
         }
     } else {
-        ENGINE_BLK(8029D75C);
         if (nz < 0) {
-            ENGINE_BLK(8029D764);
             h = HALF_TURN - h;
         }
     }
-    ENGINE_BLK(8029D76C);
     nlen = __builtin_sqrt((f64)(s64)((u64)nx * (u64)nx + (u64)ny * (u64)ny + (u64)nz * (u64)nz));
     px = x1 + (s32)engine_cvt_l_d((f64)nx / nlen * 100.0);
     py = y1 + (s32)engine_cvt_l_d((f64)ny / nlen * 100.0);
     pz = z1 + (s32)engine_cvt_l_d((f64)nz / nlen * 100.0);
     dn = func_8029D90C(t, &nb, &nc, &nd);
-    ENGINE_BLK(8029D81C);
     t->unk56 = 0;
     side = (s64)((u64)(s64)px * (u64)dn + (u64)(s64)py * (u64)nb + (u64)(s64)pz * (u64)nc + (u64)nd);
     if (side > 0) {
-        ENGINE_BLK(8029D868);
         if (nd > 0)
             goto done;
     } else {
-        ENGINE_BLK(8029D858);
         if (nd < 0)
             goto done;
-        ENGINE_BLK(8029D860);
     }
     /* the point and the origin on the same side: it faces away */
-    ENGINE_BLK(8029D870);
     h -= HALF_TURN;
     t->unk56 = 1;
     if (h < 0) {
-        ENGINE_BLK(8029D880);
         h += TURN - 1;
     }
 done:
-    ENGINE_BLK(8029D884);
     t->heading = h;
 }
 
@@ -2349,38 +1835,29 @@ static void c454(s32 kind, u8 *p, u8 *end, s32 x, s32 y, s32 z, u8 *base, s32 s0
     ObjSphere *s;
     s32 ry, rz;
 
-    ENGINE_BLK(8029C454);
     for (b = D_803A7300;; b++) {
-        ENGINE_BLK(8029C480);
         if (b->kind == kind)
             break;
     }
-    ENGINE_BLK(8029C48C);
     s = OBJSPHERE_FIRST(p);
     b->x = x;
     b->y = y;
     b->z = z;
     b->end = 1;
     if ((u8 *)s != end) {
-        ENGINE_BLK(8029C4A8);
         for (r = D_803A6B30;; r++) {
-            ENGINE_BLK(8029C4B0);
             if (r->kind == kind)
                 break;
         }
         for (;; s = OBJSPHERE_NEXT(s), r++) {
-            ENGINE_BLK(8029C4BC);
             if ((u8 *)s == end)
                 break;
-            ENGINE_BLK(8029C4C4);
             r->x = func_802AA890(s->x, s->y, s->z, s->nmtx, s->mtx, base, s0, s1, s2, &ry, &rz, &s1, &s2);
-            ENGINE_BLK(8029C4DC);
             r->y = ry;
             r->z = rz;
             r->end = 1;
         }
     }
-    ENGINE_BLK(8029C504);
 }
 
 /* an object model's triangles (func_8029D24C's data): their count, the
@@ -2400,12 +1877,11 @@ static void put_dword(s64 *p, s64 v) {
 
 /* the triangle's corner i through the matrices at base (func_802AA890,
    / 4) */
-#define PLACE_CORNER(i, B_AFTER)                                                                               \
+#define PLACE_CORNER(i)                                                                                        \
     do {                                                                                                     \
         s32 x_, y_, z_;                                                                                      \
         x_ = func_802AA890(c[3 * (i)], c[3 * (i) + 1], c[3 * (i) + 2], data->nmtx, data->mtx, base, (u32)t, s1, \
                            s2, &y_, &z_, &s1, &s2);                                                          \
-        ENGINE_BLK(B_AFTER);                                                                                 \
         t->v[i][0] = x_ >> 2, t->v[i][1] = y_ >> 2, t->v[i][2] = z_ >> 2;                                   \
     } while (0)
 
@@ -2422,28 +1898,21 @@ void func_8029D24C(ObjTris *data, s32 owner, u8 *base) {
     s64 nx, ny, nz, d, ax, ay, az;
     f32 len2;
 
-    ENGINE_BLK(8029D24C);
     for (;; id++, count--) {
-        ENGINE_BLK(8029D278);
         if (count == 0)
             break;
         /* its triangle of this id, or a new one */
-        ENGINE_BLK(8029D280);
         end = D_803BD300;
         for (t = D_803B9890;; t++) {
-            ENGINE_BLK(8029D294);
             if (t == end) {
                 end++;
                 break;
             }
-            ENGINE_BLK(8029D29C);
             if (t->owner != owner)
                 continue;
-            ENGINE_BLK(8029D2A8);
             if (t->id == id)
                 break;
         }
-        ENGINE_BLK(8029D2B4);
         D_803BD300 = end;
         t->owner = owner;
         t->id = id;
@@ -2452,9 +1921,9 @@ void func_8029D24C(ObjTris *data, s32 owner, u8 *base) {
            matrices) */
         s1 = (u32)end;
         s2 = (u32)&D_803BD300;
-        PLACE_CORNER(0, 8029D2F8);
-        PLACE_CORNER(1, 8029D320);
-        PLACE_CORNER(2, 8029D348);
+        PLACE_CORNER(0);
+        PLACE_CORNER(1);
+        PLACE_CORNER(2);
         x1 = t->v[0][0], y1 = t->v[0][1], z1 = t->v[0][2];
         x2 = t->v[1][0], y2 = t->v[1][1], z2 = t->v[1][2];
         x3 = t->v[2][0], y3 = t->v[2][1], z3 = t->v[2][2];
@@ -2472,42 +1941,28 @@ void func_8029D24C(ObjTris *data, s32 owner, u8 *base) {
         t->nlen = __builtin_sqrtf(len2);
         ax = nx;
         if (nx < 0) {
-            ENGINE_BLK(8029D47C);
             ax = -nx;
         }
-        ENGINE_BLK(8029D480);
         ay = ny;
         if (ny < 0) {
-            ENGINE_BLK(8029D488);
             ay = -ny;
         }
-        ENGINE_BLK(8029D48C);
         az = nz;
         if (nz < 0) {
-            ENGINE_BLK(8029D494);
             az = -nz;
         }
-        ENGINE_BLK(8029D498);
-        if (az >= ax && (ENGINE_BLK(8029D4A4), az >= ay)) {
-            ENGINE_BLK(8029D4AC);
+        if (az >= ax && (az >= ay)) {
             t->axis = 0;
         } else {
-            ENGINE_BLK(8029D4B4);
-            if (ay >= ax && (ENGINE_BLK(8029D4C0), ay >= az)) {
-                ENGINE_BLK(8029D4C8);
+            if (ay >= ax && (ay >= az)) {
                 t->axis = 1;
             } else {
-                ENGINE_BLK(8029D4D4);
                 t->axis = 2;
             }
         }
-        ENGINE_BLK(8029D4DC);
         func_8029D56C(t);
-        ENGINE_BLK(8029D4E4);
         func_8029D534(owner, t);
-        ENGINE_BLK(8029D4EC);
     }
-    ENGINE_BLK(8029D50C);
 }
 
 /* The owner's triangles placed (func_8029D24C) and switched on
@@ -2520,54 +1975,34 @@ static void d040(ObjTris *data, s32 owner, u8 *base, s32 x, s32 z, s32 y, Anim *
     u8 *b;
     s32 n, miss;
 
-    ENGINE_BLK(8029D040);
     func_8029D24C(data, owner, base);
-    ENGINE_BLK(8029D050);
     func_8029D120(owner);
-    ENGINE_BLK(8029D058);
     end = D_803BD304;
     for (q = D_803BC1D0;; q++) {
-        ENGINE_BLK(8029D06C);
         if (q == end)
             break;
-        ENGINE_BLK(8029D074);
         if (q->owner != owner)
             continue;
-        ENGINE_BLK(8029D080);
         if (q->kind == 0) {
-            ENGINE_BLK(8029D090);
             miss = func_8029DA90(q->area, q->n, x, z, y);
-            ENGINE_BLK(8029D098);
         } else {
-            ENGINE_BLK(8029D0A0);
             miss = func_8029DB7C((u8 *)q->area, q->n, parts);
         }
-        ENGINE_BLK(8029D0A8);
         if (miss != 0)
             continue;
-        ENGINE_BLK(8029D0B0);
         for (b = q->level, n = q->nlevel;; b++) {
-            ENGINE_BLK(8029D0BC);
             if (n == 0)
                 break;
-            ENGINE_BLK(8029D0C4);
             n--;
             func_8029D1D4(0, *b);
-            ENGINE_BLK(8029D0D4);
         }
-        ENGINE_BLK(8029D0DC);
         for (b = q->own, n = q->nown;; b++) {
-            ENGINE_BLK(8029D0E8);
             if (n == 0)
                 break;
-            ENGINE_BLK(8029D0F0);
             n--;
             t = func_8029D1D4(q->owner, *b);
-            ENGINE_BLK(8029D100);
         }
-        ENGINE_BLK(8029D108);
     }
-    ENGINE_BLK(8029D110);
 }
 
 /* With the crane's hook (func_8029C6E4), its point to func_8028FAC0 and
@@ -2575,17 +2010,10 @@ static void d040(ObjTris *data, s32 owner, u8 *base, s32 x, s32 z, s32 y, Anim *
 void func_8029C5EC(void) {
     s32 x, y, z;
 
-    ENGINE_BLK(8029C5EC);
     if (crane_hook(&x, &y, &z)) {
-        ENGINE_BLK(8029C650);
-        ENGINE_BLK(8029C658);
         func_8028FAC0(x, y, z, CRANE_HOOK_R);
-        ENGINE_BLK(8029C66C);
         func_802920DC(x, y, z, CRANE_HOOK_R);
-    } else {
-        ENGINE_BLK(8029C650);
     }
-    ENGINE_BLK(8029C680);
 }
 
 /* ---- the animations' blends ------------------------------------------------- */
@@ -2599,21 +2027,14 @@ void func_8029FFA0(Anim *a, AnimPart *rec, s16 *out) {
     s32 i;
     f32 t = a->t;
 
-    ENGINE_BLK(8029FFA0);
     func_8029F110(a, a->interp);
-    ENGINE_BLK(8029FFFC);
     func_8029F060(t, (u8)a->key, ANIM_KEYS_N(a->data));
-    ENGINE_BLK(802A0004);
     SPLINE_KEYS(rec, p0, p1, p2, p3);
     for (i = 0;; i++) {
-        ENGINE_BLK(802A0070);
         if (i == 9)
             break;
-        ENGINE_BLK(802A0078);
         *out++ = spline_half(p0, p1, p2, p3, i, t);
-        ENGINE_BLK(802A00AC);
     }
-    ENGINE_BLK(802A00D4);
 }
 
 /* The key k the fraction t of the way to the next, into out: the
@@ -2624,15 +2045,11 @@ void func_802A0118(Key *k, s16 *out, f32 t) {
     Key *n = k + 1;
     s32 i;
 
-    ENGINE_BLK(802A0118);
     for (i = 0; i < 3; i++)
         out[i] = k->scale[i] + engine_cvt_w_s((f32)(n->scale[i] - k->scale[i]) * t);
     out[3] = func_8029F6B0(k->rot[0], n->rot[0], t);
-    ENGINE_BLK(802A01C4);
     out[4] = func_8029F6B0(k->rot[1], n->rot[1], t);
-    ENGINE_BLK(802A01D4);
     out[5] = func_8029F6B0(k->rot[2], n->rot[2], t);
-    ENGINE_BLK(802A01E4);
     for (i = 0; i < 3; i++)
         out[6 + i] = k->pos[i] + engine_cvt_w_s((f32)(n->pos[i] - k->pos[i]) * t);
 }
@@ -2645,10 +2062,8 @@ extern u8 D_802C2984[];                 /* the hit effect's description */
 /* The hit effect (func_802A6274) at the point D_803A73FC-D_803A7404, and
    D_80370C3C set */
 void func_8029B994(void) {
-    ENGINE_BLK(8029B994);
     func_802A6274((s32)(u32)D_802C2984, D_803A7428 * HIT_FX_UNIT, 0, (u32)D_803A73FC << 13, (u32)D_803A7400 << 13,
                   (u32)D_803A7404 << 13, 0, 0, 0, 0, 0, 0, 0, 1, 0);
-    ENGINE_BLK(8029BA98);
     D_80370C3C = 1;
 }
 
@@ -2666,7 +2081,6 @@ static void a800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len,
                  s32 type, VS *vs) {
     s32 first;
 
-    ENGINE_BLK(8029A800);
     D_803A7410 = 0;
     D_803A7412 = TURN - 1;
     D_803A73F0 = x;
@@ -2688,20 +2102,14 @@ static void a800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len,
     D_803A7425 = 0;
     first = D_80358060 == 0;
     if (first) {
-        ENGINE_BLK(8029A8D8);
         func_802BCC10();
     }
-    ENGINE_BLK(8029A8E0);
     if (a2 != 0) {
-        ENGINE_BLK(8029A8E8);
         if (type != VEHICLE_CMO) {
-            ENGINE_BLK(8029A8F0);
             func_802BCC10();
         }
     }
-    ENGINE_BLK(8029A8F8);
     func_802BCBD8();
-    ENGINE_BLK(8029A900);
 }
 
 extern u8 D_803B67C0[], D_803B37C0[], D_803B4FC0[];  /* a blend's data, built and its copies */
@@ -2717,22 +2125,13 @@ static u8 *anim_frame(Anim *a, AnimPart *rec, u8 *out) {
     return out + sizeof(Key);
 }
 
-/* anim_frame() with its blocks: the spline's mode checked */
-#define ANIM_FRAME(a, rec, out, B_SPLINE, B_BAD, B_CALL, B_DONE, B_KEYS)                                       \
+/* anim_frame() with the mode checked: one that is neither keys nor a
+   spline stops the game, as the original's syscall at `bad` does */
+#define ANIM_FRAME(a, rec, out, bad)                                                                           \
     do {                                                                                                     \
-        if ((a)->interp != ANIM_KEYS) {                                                                      \
-            ENGINE_BLK(B_SPLINE);                                                                            \
-            if ((a)->interp != ANIM_SPLINE) {                                                                \
-                ENGINE_BLK(B_BAD);                                                                           \
-                engine_syscall(0x##B_BAD);                                                                   \
-            }                                                                                                \
-            ENGINE_BLK(B_CALL);                                                                              \
-            out = anim_frame(a, rec, out);                                                                   \
-            ENGINE_BLK(B_DONE);                                                                              \
-        } else {                                                                                             \
-            ENGINE_BLK(B_KEYS);                                                                              \
-            out = anim_frame(a, rec, out);                                                                   \
-        }                                                                                                    \
+        if ((a)->interp != ANIM_KEYS && (a)->interp != ANIM_SPLINE)                                          \
+            engine_syscall(0x##bad);                                                                         \
+        out = anim_frame(a, rec, out);                                                                       \
     } while (0)
 
 /* a blend's header: two keys, at speeds 1 */
@@ -2744,7 +2143,7 @@ static void blend_start(void) {
 
 /* the blend in D_803B67C0 (n parts) copied to `to`, and part p set to run
    it from its start (not running: the caller starts it) */
-#define BLEND_FINISH(p, n, to, B_LOOP, B_COPY, B_END)                                                          \
+#define BLEND_FINISH(p, n, to)                                                                                 \
     do {                                                                                                     \
         u32 *s_ = (u32 *)D_803B67C0, *d_ = (u32 *)(to);                                                      \
         s32 j_;                                                                                              \
@@ -2757,15 +2156,12 @@ static void blend_start(void) {
         (p)->data = (to);                                                                                    \
         (p)->t = 0.0f;                                                                                       \
         for (j_ = BLEND_SIZE;; j_ -= 8) {                                                                    \
-            ENGINE_BLK(B_LOOP);                                                                              \
             if (j_ == 0)                                                                                     \
                 break;                                                                                       \
-            ENGINE_BLK(B_COPY);                                                                              \
             d_[0] = s_[0];                                                                                   \
             d_[1] = s_[1];                                                                                   \
             d_ += 2, s_ += 2;                                                                                \
         }                                                                                                    \
-        ENGINE_BLK(B_END);                                                                                   \
     } while (0)
 
 /* A blend from parts[a]'s animation to parts[b]'s: a two-key animation
@@ -2778,80 +2174,47 @@ void func_8029F9D4(s32 a, s32 b, Part *parts_) {
     AnimPart *ra, *rb, *rb0;
     s32 na = ANIM_NPARTS(da), nb = ANIM_NPARTS(db), sa = ANIM_STRIDE(da), sb = ANIM_STRIDE(db), n = 0, j;
 
-    ENGINE_BLK(8029F9D4);
     blend_start();
-    if (ANIM_MISALIGNED(da))
-        ENGINE_BLK(8029FA94);
     ra = anim_parts(da);
-    ENGINE_BLK(8029FAA0);
-    if (ANIM_MISALIGNED(db))
-        ENGINE_BLK(8029FAC8);
     rb0 = anim_parts(db);
     for (;; na--, ra = (AnimPart *)((u8 *)ra + sa)) {
-        ENGINE_BLK(8029FAD4);
         if (na == 0)
             break;
         /* the same part in b's */
-        ENGINE_BLK(8029FADC);
         for (rb = rb0, j = nb;; j--, rb = (AnimPart *)((u8 *)rb + sb)) {
-            ENGINE_BLK(8029FAE8);
             if (j == 0)
                 break;
-            ENGINE_BLK(8029FAF0);
             if (ra->mtx == rb->mtx)
                 break;
-            ENGINE_BLK(8029FAFC);
         }
         if (j != 0) {
-            ENGINE_BLK(8029FB08);
             ((s32 *)out)[0] = ra->mtx;
             ((s32 *)out)[1] = ra->rest;
             out += 8;
             n++;
-            ANIM_FRAME(pa, ra, out, 8029FB28, 8029FB30, 8029FB34, 8029FB40, 8029FB48);
-            ENGINE_BLK(8029FB68);
-            ANIM_FRAME(pb, rb, out, 8029FB74, 8029FB7C, 8029FB80, 8029FB8C, 8029FB94);
+            ANIM_FRAME(pa, ra, out, 8029FB30);
+            ANIM_FRAME(pb, rb, out, 8029FB7C);
         }
-        ENGINE_BLK(8029FBB4);
     }
-    ENGINE_BLK(8029FBC0);
-    BLEND_FINISH(&parts[31], n, D_803B37C0, 8029FC04, 8029FC0C, 8029FC24);
+    BLEND_FINISH(&parts[31], n, D_803B37C0);
 }
 
 /* the parts of one animation, each its current frame held (both keys the
-   same, func_8029FF2C), appended at out; `first` picks the copy of the
-   code (and its blocks) for parts[a] or parts[b] */
-#define BLK2(first, A, B)                                                                                      \
-    do {                                                                                                     \
-        if (first)                                                                                           \
-            ENGINE_BLK(A);                                                                                   \
-        else                                                                                                 \
-            ENGINE_BLK(B);                                                                                   \
-    } while (0)
-
-static u8 *held_frames(Anim *p, u8 *out, s32 *n, s32 first) {
+   same, func_8029FF2C), appended at out */
+static u8 *held_frames(Anim *p, u8 *out, s32 *n) {
     u8 *d = p->data;
     AnimPart *r;
     s32 cnt = ANIM_NPARTS(d), stride = ANIM_STRIDE(d);
 
-    if (ANIM_MISALIGNED(d))
-        BLK2(first, 8029FD34, 8029FDEC);
     for (r = anim_parts(d);; cnt--, r = (AnimPart *)((u8 *)r + stride)) {
-        BLK2(first, 8029FD40, 8029FDF8);
         if (cnt == 0)
             break;
-        BLK2(first, 8029FD48, 8029FE00);
         ((s32 *)out)[0] = r->mtx;
         ((s32 *)out)[1] = r->rest;
         out += 8;
         (*n)++;
-        if (first)
-            ANIM_FRAME(p, r, out, 8029FD6C, 8029FD74, 8029FD78, 8029FD84, 8029FD8C);
-        else
-            ANIM_FRAME(p, r, out, 8029FE24, 8029FE2C, 8029FE30, 8029FE3C, 8029FE44);
-        BLK2(first, 8029FDAC, 8029FE64);
+        ANIM_FRAME(p, r, out, 8029FD74);
         out = (u8 *)func_8029FF2C((s16 *)out);
-        BLK2(first, 8029FDB4, 8029FE6C);
     }
     return out;
 }
@@ -2865,13 +2228,10 @@ void func_8029FC74(s32 a, s32 b, Part *parts_) {
     u8 *out = D_803B67C0 + 4;
     s32 n = 0;
 
-    ENGINE_BLK(8029FC74);
     blend_start();
-    out = held_frames(&parts[a], out, &n, 1);
-    ENGINE_BLK(8029FDC0);
-    out = held_frames(&parts[b], out, &n, 0);
-    ENGINE_BLK(8029FE78);
-    BLEND_FINISH(&parts[30], n, D_803B4FC0, 8029FEBC, 8029FEC4, 8029FEDC);
+    out = held_frames(&parts[a], out, &n);
+    out = held_frames(&parts[b], out, &n);
+    BLEND_FINISH(&parts[30], n, D_803B4FC0);
 }
 
 /* ---- a vehicle's hits ----------------------------------------------------------- */
@@ -2904,85 +2264,54 @@ void func_8029B614(CollisionTri *t, s32 kind) {
     s8 *list;
     s32 h, lo, hi, v, w, front, turn, listed = 0;
 
-    ENGINE_BLK(8029B614);
     func_802BCCD4(kind);
-    ENGINE_BLK(8029B63C);
     for (list = D_803A7408;; list++) {
-        ENGINE_BLK(8029B648);
         v = *list;
         if (v == kind) {
             listed = 1;
             break;
         }
-        ENGINE_BLK(8029B654);
         if (v < 0)
             break;
     }
     if (!listed) {
-        ENGINE_BLK(8029B65C);
         D_803A7424 = 1;
         h = t->heading;
-        if (t->d > 0)
-            ENGINE_BLK(8029B6E8);
-        else
-            ENGINE_BLK(8029B6D8);
         front = vehicle_in_front(t);
-        if (!front && t->d <= 0)
-            ENGINE_BLK(8029B6E0);
         if (front) {
-            ENGINE_BLK(8029B710);
             lo = h - QUARTER_TURN, hi = h + QUARTER_TURN;
         } else {
-            ENGINE_BLK(8029B6F0);
             lo = h + QUARTER_TURN, hi = h - QUARTER_TURN;
         }
         turn = t->unk55 == 1;
         if (!turn) {
-            if (front)
-                ENGINE_BLK(8029B720);
-            else
-                ENGINE_BLK(8029B6FC);
             /* one-way: only from the side it faces */
             turn = front == (t->unk56 != 0);
-            if (!turn && !front)
-                ENGINE_BLK(8029B708);
         }
         if (turn) {
-            ENGINE_BLK(8029B72C);
             func_8029B7CC(lo, hi);
-            ENGINE_BLK(8029B734);
             if (t->unk59 != 0) {
-                ENGINE_BLK(8029B740);
                 D_803BE738 = t->unk59;
             }
         }
     }
     /* the hit effect */
-    ENGINE_BLK(8029B744);
     if (D_803A7429 == 0) {
-        ENGINE_BLK(8029B758);
         v = D_803F77FC;
         w = D_803A7422;
         if (v < 0) {
-            ENGINE_BLK(8029B770);
             v = -v;
         }
-        ENGINE_BLK(8029B774);
         if (w < 0) {
-            ENGINE_BLK(8029B77C);
             w = -w;
         }
-        ENGINE_BLK(8029B780);
         if (v >= w) {
-            ENGINE_BLK(8029B78C);
             if (D_803A7427 != 0) {
-                ENGINE_BLK(8029B79C);
                 D_803A7429 = D_803A7427;
                 func_8029B994();
             }
         }
     }
-    ENGINE_BLK(8029B7A4);
 }
 
 #define WALL_ANY_KIND_LEVEL 9           /* the level whose walls have sides for every kind */
@@ -3002,98 +2331,62 @@ s32 func_8029BB28(CollisionTri *t, s32 kind, s32 fp) {
     u32 n;
     s32 s, cur, front;
 
-    ENGINE_BLK(8029BB28);
     for (;; w++) {
-        ENGINE_BLK(8029BB48);
         for (n = WALL_COUNT(w), pc = w->tris;; pc++) {
-            ENGINE_BLK(8029BB50);
             if (n == 0)
                 break;
-            ENGINE_BLK(8029BB58);
             n--;
             if (*pc == t)
                 goto found;
-            ENGINE_BLK(8029BB6C);
         }
-        ENGINE_BLK(8029BB74);
     }
 found:
-    ENGINE_BLK(8029BB7C);
     for (n = w->nkinds, k = w->kinds;; k++) {
-        ENGINE_BLK(8029BB84);
         if (n == 0)
             break;
-        ENGINE_BLK(8029BB8C);
         n--;
         if (*k == kind) {
-            ENGINE_BLK(8029BCE4);
             func_8029B614(t, fp);
-            ENGINE_BLK(8029BCEC);
-            ENGINE_BLK(8029BCF0);
             return 1;
         }
-        ENGINE_BLK(8029BBA0);
     }
-    ENGINE_BLK(8029BBA8);
     if (D_802E8BDC != WALL_ANY_KIND_LEVEL) {
-        ENGINE_BLK(8029BBC0);
         if (kind >= VEHICLE_TYPES) {
-            ENGINE_BLK(8029BCF0);
             return 0;
         }
     }
-    ENGINE_BLK(8029BBC8);
     if (WALL_SIDED(w) != 0) {
-        ENGINE_BLK(8029BBD4);
-        if (t->d > 0)
-            ENGINE_BLK(8029BC54);
-        else
-            ENGINE_BLK(8029BC44);
         front = vehicle_in_front(t);
         if (front) {
-            ENGINE_BLK(8029BC64);
             s = 1;
         } else {
-            if (t->d <= 0)
-                ENGINE_BLK(8029BC4C);
-            ENGINE_BLK(8029BC5C);
             s = 2;
         }
-        ENGINE_BLK(8029BC68);
         cur = t->side;
         if (cur == 0) {
-            ENGINE_BLK(8029BCDC);
             t->side = s;
         } else {
-            ENGINE_BLK(8029BC74);
             if (cur != s) {
                 /* through the wall */
-                ENGINE_BLK(8029BC7C);
                 D_803ED825 ^= 1;
                 for (n = WALL_COUNT(w), pc = w->tris;;) {
                     CollisionTri *q;
 
-                    ENGINE_BLK(8029BC98);
                     if (n == 0)
                         break;
-                    ENGINE_BLK(8029BCA0);
                     n--;
                     q = *pc++;
                     if (q->side == 0)
                         continue;
-                    ENGINE_BLK(8029BCB8);
                     if (q->side != 1) {
-                        ENGINE_BLK(8029BCC4);
                         q->side = 1;
                     } else {
-                        ENGINE_BLK(8029BCD0);
                         q->side = 2;
                     }
                 }
             }
         }
     }
-    ENGINE_BLK(8029BCF0);
     return 0;
 }
 
@@ -3116,39 +2409,24 @@ void func_8029C914(s32 kind, s32 x, s32 y, s32 z, s32 r) {
     KindPart *p;
     s32 n = 0;
 
-    ENGINE_BLK(8029C914);
     for (p = D_803A6B30;; p++) {
-        ENGINE_BLK(8029C940);
         if (p->end == -1) {
-            ENGINE_BLK(8029C9B0);
             return;
         }
-        ENGINE_BLK(8029C94C);
         if (p->kind == kind)
             break;
     }
-    ENGINE_BLK(8029C958);
     for (;; p++) {
-        ENGINE_BLK(8029C95C);
         if (p->end == -1)
             break;
-        ENGINE_BLK(8029C968);
         if (p->kind != kind)
             break;
-        ENGINE_BLK(8029C974);
         n++;
         if (func_8029CFA4(p->x, p->y, p->z, p->r, x, y, z, r)) {
-            ENGINE_BLK(8029C990);
-            ENGINE_BLK(8029C998);
             func_802CE204(p->x, p->z, x, z);
-            ENGINE_BLK(8029C9A0);
             func_802BCCD4(n);
-            ENGINE_BLK(8029C9A8);
-        } else {
-            ENGINE_BLK(8029C990);
         }
     }
-    ENGINE_BLK(8029C9B0);
 }
 
 /* Kind's bounding sphere, when placed, against the communication points'
@@ -3159,32 +2437,20 @@ void func_8029C748(s32 kind) {
     Solid *s;
     s32 *w, n;
 
-    ENGINE_BLK(8029C748);
     for (s = D_803A7300;; s++) {
-        ENGINE_BLK(8029C780);
         if (s->kind == kind)
             break;
     }
-    ENGINE_BLK(8029C78C);
     if (s->end == 1) {
-        ENGINE_BLK(8029C79C);
         for (n = D_803FC1F0, w = D_803FBBB0[0];; w += 5) {
-            ENGINE_BLK(8029C7BC);
             if (n == 0)
                 break;
-            ENGINE_BLK(8029C7C4);
             n--;
             if (func_8029CFA4(s->x, s->y, s->z, s->r, w[0], w[1], w[2], w[3])) {
-                ENGINE_BLK(8029C7DC);
-                ENGINE_BLK(8029C7E4);
                 func_8029C914(kind, w[0], w[1], w[2], w[3]);
-                ENGINE_BLK(8029C7EC);
-            } else {
-                ENGINE_BLK(8029C7DC);
             }
         }
     }
-    ENGINE_BLK(8029C7F4);
 }
 
 /* the same against the objects' 25 spheres (the free ones skipped) */
@@ -3193,35 +2459,22 @@ void func_8029C828(s32 kind) {
     Solid *s;
     s32 *w, n;
 
-    ENGINE_BLK(8029C828);
     for (s = D_803A7300;; s++) {
-        ENGINE_BLK(8029C860);
         if (s->kind == kind)
             break;
     }
-    ENGINE_BLK(8029C86C);
     if (s->end == 1) {
-        ENGINE_BLK(8029C87C);
         for (n = N_OBJ_SPHERES, w = D_803FB8B8[0];; w += 5) {
-            ENGINE_BLK(8029C898);
             if (n == 0)
                 break;
-            ENGINE_BLK(8029C8A0);
             n--;
             if (w[0] == KEY_FREE)
                 continue;
-            ENGINE_BLK(8029C8B4);
             if (func_8029CFA4(s->x, s->y, s->z, s->r, w[1], w[2], w[3], w[4])) {
-                ENGINE_BLK(8029C8C8);
-                ENGINE_BLK(8029C8D0);
                 func_8029C914(kind, w[1], w[2], w[3], w[4]);
-                ENGINE_BLK(8029C8D8);
-            } else {
-                ENGINE_BLK(8029C8C8);
             }
         }
     }
-    ENGINE_BLK(8029C8E0);
 }
 
 /* a radius over the vehicle's gears (unkA0, when it isn't 1), unless the
@@ -3230,22 +2483,16 @@ REGS(t4, t1, gp -> t1)
 s32 func_8029CB04(s32 kind, u32 v, VS *vs) {
     s32 d;
 
-    ENGINE_BLK(8029CB04);
     if (kind == VEHICLE_CMO) {
-        ENGINE_BLK(8029CF40);
         return v;
     }
-    ENGINE_BLK(8029CB18);
     d = vs->unkA0;
     if (d != 1) {
-        ENGINE_BLK(8029CB28);
         if (d == 0) {
-            ENGINE_BLK(8029CB3C);
             engine_break(0x8029CB3C, 7);
         }
         v /= (u32)d;
     }
-    ENGINE_BLK(8029CB40);
     return v;
 }
 
@@ -3253,20 +2500,15 @@ REGS(s1, t1, gp -> t1)
 s32 func_8029CF04(s32 kind, u32 v, VS *vs) {
     s32 d;
 
-    ENGINE_BLK(8029CF04);
     if (kind != VEHICLE_CMO) {
-        ENGINE_BLK(8029CF18);
         d = vs->unkA0;
         if (d != 1) {
-            ENGINE_BLK(8029CF28);
             if (d == 0) {
-                ENGINE_BLK(8029CF3C);
                 engine_break(0x8029CF3C, 7);
             }
             v /= (u32)d;
         }
     }
-    ENGINE_BLK(8029CF40);
     return v;
 }
 
@@ -3292,64 +2534,40 @@ void func_8029CB54(s32 n, s32 type, KindPart *other, s32 x, s32 z, s32 ox, s32 o
     s32 dx, dz, h = 0, set;
     f32 d;
 
-    ENGINE_BLK(8029CB54);
     func_802BCCD4(n);
-    ENGINE_BLK(8029CB84);
     if (type == VEHICLE_CMO) {
-        ENGINE_BLK(8029CB90);
         set = other->kind != VEHICLE_DRIVER;
-        if (set)
-            ENGINE_BLK(8029CB9C);
     } else {
-        ENGINE_BLK(8029CBA4);
         set = 0;
         if (type != VEHICLE_DRIVER) {
-            ENGINE_BLK(8029CBAC);
             set = other->kind == VEHICLE_CMO;
         }
     }
     if (set) {
-        ENGINE_BLK(8029CBBC);
         D_803A7426 = 1;
     }
-    ENGINE_BLK(8029CBC8);
     dx = ox - x;
     dz = oz - z;
-    if (dx == 0)
-        ENGINE_BLK(8029CBD8);
     if (dx != 0 || dz != 0) {
-        ENGINE_BLK(8029CBE0);
         d = __builtin_sqrtf((f32)dx * (f32)dx + (f32)dz * (f32)dz);
         if (!(ox < x)) {
-            ENGINE_BLK(8029CC0C);
             if (!(oz < z)) {
-                ENGINE_BLK(8029CC18);
                 h = quad_angle(ox - x, d);
-                ENGINE_BLK(8029CC48);
             } else {
-                ENGINE_BLK(8029CC50);
                 h = quad_angle(z - oz, d);
-                ENGINE_BLK(8029CC80);
                 h += QUARTER_TURN;
             }
         } else {
-            ENGINE_BLK(8029CC8C);
             if (oz < z) {
-                ENGINE_BLK(8029CC98);
                 h = quad_angle(x - ox, d);
-                ENGINE_BLK(8029CCC8);
                 h += 2 * QUARTER_TURN;
             } else {
-                ENGINE_BLK(8029CCD4);
                 h = quad_angle(oz - z, d);
-                ENGINE_BLK(8029CD04);
                 h += 3 * QUARTER_TURN;
             }
         }
     }
-    ENGINE_BLK(8029CD0C);
     func_8029B7CC(h + QUARTER_TURN, h - QUARTER_TURN);
-    ENGINE_BLK(8029CD18);
     D_803A742C = 1;
 }
 
@@ -3363,88 +2581,57 @@ void func_8029CD54(s32 a, s32 b, VS *vs) {
     KindPart *ra, *rb0, *rb, *pa, *pb;
     s32 n = 0, r, hit;
 
-    ENGINE_BLK(8029CD54);
     for (ra = D_803A6B30;; ra++) {
-        ENGINE_BLK(8029CD94);
         if (ra->end == -1)
-            goto done;
-        ENGINE_BLK(8029CDA0);
+            return;
         if (ra->kind == a)
             break;
     }
-    ENGINE_BLK(8029CDAC);
     for (rb0 = D_803A6B30;; rb0++) {
-        ENGINE_BLK(8029CDB4);
         if (rb0->end == -1)
-            goto done;
-        ENGINE_BLK(8029CDC0);
+            return;
         if (rb0->kind == b)
             break;
     }
-    ENGINE_BLK(8029CDCC);
     for (;;) {
-        ENGINE_BLK(8029CDD0);
         if (ra->end == -1)
             break;
-        ENGINE_BLK(8029CDE0);
         if (ra->kind != a)
             break;
-        ENGINE_BLK(8029CDEC);
         n++;
         pa = ra++;
         for (rb = rb0;;) {
-            ENGINE_BLK(8029CE04);
             if (rb->end == -1)
                 break;
-            ENGINE_BLK(8029CE10);
             if (rb->kind != b)
                 break;
-            ENGINE_BLK(8029CE1C);
             pb = rb++;
             r = func_8029CF04(b, pb->r, vs);
-            ENGINE_BLK(8029CE30);
             if (a == VEHICLE_CRANE) {
-                ENGINE_BLK(8029CE3C);
                 if (pa->r == CRANE_R_30E)
                     continue;
             }
-            ENGINE_BLK(8029CE48);
             if (b == VEHICLE_CRANE) {
-                ENGINE_BLK(8029CE54);
                 if (r == CRANE_HOOK_R)
                     continue;
             }
-            ENGINE_BLK(8029CE5C);
             hit = func_8029CFA4(pa->x, pa->y, pa->z, pa->r, pb->x, pb->y, pb->z, r);
-            ENGINE_BLK(8029CE64);
             if (hit == 0)
                 continue;
-            ENGINE_BLK(8029CE6C);
             if (b == VEHICLE_TRAIN) {
-                ENGINE_BLK(8029CE78);
                 if (D_803A7430 < TRAIN_HITS_MAX) {
-                    ENGINE_BLK(8029CE8C);
                     ++D_803A7430;
                 }
             }
-            ENGINE_BLK(8029CE98);
             if (a != VEHICLE_DRIVER) {
-                ENGINE_BLK(8029CEA0);
                 hit = func_802AB41C(b, a) == 0;
-                ENGINE_BLK(8029CEA8);
                 if (!hit)
                     continue;
-                ENGINE_BLK(8029CEB0);
             }
-            ENGINE_BLK(8029CEB4);
             func_8029CB54(n, a, pb, pa->x, pa->z, pb->x, pb->z);
-            ENGINE_BLK(8029CEBC);
             func_8029CF54(b);
-            ENGINE_BLK(8029CEC4);
         }
     }
-done:
-    ENGINE_BLK(8029CECC);
 }
 
 extern s32 D_803649E8;
@@ -3458,52 +2645,32 @@ void func_8029C9D4(s32 kind, VS *vs) {
     Solid *s, *q;
     s32 k, rr, skip;
 
-    ENGINE_BLK(8029C9D4);
     for (s = D_803A7300;; s++) {
-        ENGINE_BLK(8029CA10);
         if (s->kind == kind)
             break;
     }
-    ENGINE_BLK(8029CA1C);
     if (s->end != 1)
-        goto done;
-    ENGINE_BLK(8029CA2C);
+        return;
     for (q = D_803A7300;; q++) {
-        ENGINE_BLK(8029CA48);
         if (q->end == -1)
             break;
-        ENGINE_BLK(8029CA54);
         k = q->kind;
         if (k == kind)
             continue;
-        ENGINE_BLK(8029CA60);
         if (kind == VEHICLE_CRANE) {
-            ENGINE_BLK(8029CA6C);
             skip = func_802AB41C(k, kind) != 0;
-            ENGINE_BLK(8029CA74);
             if (skip)
                 continue;
         }
-        ENGINE_BLK(8029CA7C);
         if (D_803649E8 != 0) {
-            ENGINE_BLK(8029CA90);
             if (k == VEHICLE_DRIVER)
                 continue;
         }
-        ENGINE_BLK(8029CA98);
         rr = func_8029CB04(k, q->r, vs);
-        ENGINE_BLK(8029CAAC);
         if (func_8029CFA4(s->x, s->y, s->z, s->r, q->x, q->y, q->z, rr)) {
-            ENGINE_BLK(8029CAB4);
-            ENGINE_BLK(8029CABC);
             func_8029CD54(kind, k, vs);
-            ENGINE_BLK(8029CAC4);
-        } else {
-            ENGINE_BLK(8029CAB4);
         }
     }
-done:
-    ENGINE_BLK(8029CACC);
 }
 
 /* A vehicle kind's spheres against the other vehicles', the objects' and
@@ -3511,24 +2678,16 @@ done:
    D_803A7424 and D_803A7425 set when the camera's limits were moved */
 REGS(t8, gp)
 void func_8029C52C(s32 kind, VS *vs) {
-    ENGINE_BLK(8029C52C);
     func_8029C9D4(kind, vs);
-    ENGINE_BLK(8029C564);
     func_8029C828(kind);
-    ENGINE_BLK(8029C56C);
     func_8029C748(kind);
-    ENGINE_BLK(8029C574);
     if (D_803A7410 == 0) {
-        ENGINE_BLK(8029C588);
         if (D_803A7412 == TURN - 1) {
-            ENGINE_BLK(8029C5B4);
             return;
         }
     }
-    ENGINE_BLK(8029C5A0);
     D_803A7425 = 1;
     D_803A7424 = 1;
-    ENGINE_BLK(8029C5B4);
 }
 
 /* ---- the animations each frame ------------------------------------------------ */
@@ -3543,17 +2702,12 @@ void func_8029E558(Part *parts, u8 *base, u8 *other) {
     Anim *a = ANIM(parts);
     s32 n;
 
-    ENGINE_BLK(8029E558);
     D_803B3770 = other;
     for (n = N_PARTS; n != 0; n--, a++) {
-        ENGINE_BLK(8029E578);
         if (a->running != 0) {
-            ENGINE_BLK(8029E584);
             func_8029E5AC(a, base);
         }
-        ENGINE_BLK(8029E58C);
     }
-    ENGINE_BLK(8029E598);
 }
 
 extern Vehicle D_80364460[];
@@ -3576,121 +2730,82 @@ void func_8029E21C(Anim *a, s32 fp) {
     s32 k, n, c, second, idx;
     f32 t = a->t;
 
-    ENGINE_BLK(8029E21C);
     for (s = D_803A7440, n = TEX_SLOTS;; n--, s++) {
-        ENGINE_BLK(8029E238);
         if (n == 0)
             break;
-        ENGINE_BLK(8029E240);
         if (s->owner == T) {
-            ENGINE_BLK(8029E250);
             if (s->used != 0) {
-                ENGINE_BLK(8029E25C);
                 s->refs++;
             }
         }
-        ENGINE_BLK(8029E268);
     }
-    ENGINE_BLK(8029E270);
     k = a->key;
     k = func_8029F1BC(a, k, T->n, ANIM_RATE(T->rate[k], T->rate[k + 1], t), t, &t);
-    ENGINE_BLK(8029E2BC);
     c = T->c;
     second = T->second;
     h1 = TEXANIM_KINDS(T, k);
     h2 = h1 + c;
     for (idx = 0;; idx++) {
-        ENGINE_BLK(8029E2E8);
         if (c == 0)
             break;
-        ENGINE_BLK(8029E2F0);
         c--;
         tex1 = func_8029E4E4(*h1, T);
         h1++;
-        ENGINE_BLK(8029E304);
         if (tex1 == 0) {
-            ENGINE_BLK(8029E30C);
             tex1 = func_8029E47C(T, h1[-1], fp);
         }
-        ENGINE_BLK(8029E314);
         if (second != 0) {
-            ENGINE_BLK(8029E31C);
             tex2 = func_8029E4E4(*h2, T);
             h2++;
-            ENGINE_BLK(8029E328);
             if (tex2 == 0) {
-                ENGINE_BLK(8029E330);
                 tex2 = func_8029E47C(T, h2[-1], fp);
             }
         }
-        ENGINE_BLK(8029E338);
         for (m = D_80364460;; m++) {
-            ENGINE_BLK(8029E350);
             if (m->type == T->type)
                 break;
-            ENGINE_BLK(8029E35C);
         }
-        ENGINE_BLK(8029E364);
         if (D_8035805C != 0) {
-            ENGINE_BLK(8029E36C);
             dl = m->unkC;
         } else {
-            ENGINE_BLK(8029E374);
             dl = m->unk30;
         }
-        ENGINE_BLK(8029E378);
         end = D_803B35F0;
         for (e = D_803B3500;; e++) {
-            ENGINE_BLK(8029E38C);
             if (e == end)
                 break;
-            ENGINE_BLK(8029E394);
             if (e->anim == T) {
-                ENGINE_BLK(8029E3A0);
                 if (e->idx == idx) {
-                    ENGINE_BLK(8029E3AC);
                     *(u32 *)(dl + e->off) = tex1;
                     if (second != 0) {
                         /* the next record: the second texture's G_SETTIMG,
                            then the G_SETPRIMCOLOR after it gets the blend */
-                        ENGINE_BLK(8029E3BC);
                         e++;
                         w = (u32 *)(dl + e->off);
                         *w++ = tex2;
                         for (;;) {
-                            ENGINE_BLK(8029E3D4);
                             cmd = *w;
                             w += 2;
                             if (GFX_OP(cmd) == G_SETPRIMCOLOR_OP)
                                 break;
                         }
-                        ENGINE_BLK(8029E3F0);
                         w[-2] = engine_cvt_w_s(t * 255.0f) | ((u32)G_SETPRIMCOLOR_OP << 24);
                     }
                 }
             }
-            ENGINE_BLK(8029E414);
         }
     }
-    ENGINE_BLK(8029E41C);
     for (s = D_803A7440, n = TEX_SLOTS;; n--, s++) {
-        ENGINE_BLK(8029E428);
         if (n == 0)
             break;
-        ENGINE_BLK(8029E430);
         if (s->used != 0) {
-            ENGINE_BLK(8029E440);
             if (s->refs >= TEX_REFS_STALE) {
-                ENGINE_BLK(8029E450);
                 if (s->owner == T) {
-                    ENGINE_BLK(8029E45C);
                     s->used = 0;
                 }
             }
         }
-        ENGINE_BLK(8029E460);
     }
-    ENGINE_BLK(8029E468);
 }
 
 /* The texture animations (D_803B35F8's running records) one frame on.
@@ -3703,19 +2818,13 @@ void func_8029E0AC(void) {
     s32 fp = 0;
     Part *p;
 
-    ENGINE_BLK(8029E0AC);
     for (p = D_803B35F8;; p++) {
-        ENGINE_BLK(8029E150);
         if (*(s32 *)&p->unk0 == -1)
             break;
-        ENGINE_BLK(8029E160);
         if (p->unk10 != 0) {
-            ENGINE_BLK(8029E16C);
             func_8029E21C(ANIM(p), fp);
         }
-        ENGINE_BLK(8029E174);
     }
-    ENGINE_BLK(8029E17C);
 }
 
 /* ---- a vehicle's spheres against the buildings and the level ------------------- */
@@ -3731,72 +2840,45 @@ extern u8 D_803A742A;                   /* the hole group a vehicle of type 0xC8
 #define VEHICLE_ON_HOLE 0xC8            /* (the type that skips the hole group it stands on) */
 #define NO_GRID_TYPE VEHICLE_JETPACK    /* the J-Bomb skips the first grid */
 
-/* the blocks of one copy of the piece test */
-typedef struct PieceBlks {
-    EngineBlk c160, plane, c0dc, bf64, in, bd0c, edge, bee4, corner;
-} PieceBlks;
-#define PIECE_BLKS(a, b, c, d, e, f, g, h, i)                                                                   \
-    {                                                                                                        \
-        ENGINE_B(a), ENGINE_B(b), ENGINE_B(c), ENGINE_B(d), ENGINE_B(e), ENGINE_B(f), ENGINE_B(g),            \
-            ENGINE_B(h), ENGINE_B(i)                                                                         \
-    }
-
 /* The sphere (x, y, z, r) against one triangle: across its plane
    (func_8029C160), and then inside it there (collision_flatten,
    func_8029BF64), across one of its edges (func_8029BD0C) or holding its
    first corner (func_8029BEE4) */
-static s32 piece_hit(CollisionTri *t, s32 x, s32 y, s32 z, s32 r, const PieceBlks *b) {
+static s32 piece_hit(CollisionTri *t, s32 x, s32 y, s32 z, s32 r) {
     s32 px, py, pz, hit;
     FlatTri f;
 
-    ENGINE_BLK_AT(b->c160);
     hit = func_8029C160(x, y, z, r, t, &px, &py, &pz);
-    ENGINE_BLK_AT(b->plane);
     if (!hit)
         return 0;
-    ENGINE_BLK_AT(b->c0dc);
     collision_flatten(t, px, py, pz, &f);
-    ENGINE_BLK_AT(b->bf64);
     hit = collision_flat_inside(&f);
-    ENGINE_BLK_AT(b->in);
     if (hit)
         return 1;
-    ENGINE_BLK_AT(b->bd0c);
     hit = func_8029BD0C(x, y, z, r, t);
-    ENGINE_BLK_AT(b->edge);
     if (hit)
         return 1;
-    ENGINE_BLK_AT(b->bee4);
     hit = func_8029BEE4(t, x, y, z, r);
-    ENGINE_BLK_AT(b->corner);
     return hit;
 }
 
-/* whether the rule applies to this vehicle type on this level (the blocks
-   of its tests, which func_8029B02C and func_8029AB88 have each) */
-static s32 rule_applies(const BuildingRule *e, s32 type, const EngineBlk *b) {
-    ENGINE_BLK_AT(b[0]);
+/* whether the rule applies to this vehicle type on this level (the tests
+   func_8029B02C and func_8029AB88 each have) */
+static s32 rule_applies(const BuildingRule *e, s32 type) {
     if ((e->types & (1u << (type & 31))) == 0)
         return 0;
-    ENGINE_BLK_AT(b[1]);
     if (e->level != ALL_LEVELS) {
-        ENGINE_BLK_AT(b[2]);
         if (e->level != D_802E8BDC)
             return 0;
     }
-    ENGINE_BLK_AT(b[3]);
     if (e->kind == KIND_RDU) {
         s32 v;
 
-        ENGINE_BLK_AT(b[4]);
         v = func_802BD8C8();
-        ENGINE_BLK_AT(b[5]);
         if (v != 0) {
-            ENGINE_BLK_AT(b[6]);
             return 0;
         }
     }
-    ENGINE_BLK_AT(b[7]);
     return 1;
 }
 
@@ -3810,22 +2892,6 @@ static s32 rule_applies(const BuildingRule *e, s32 type, const EngineBlk *b) {
    its callers had in those registers.) */
 REGS(a1, a2, a3, t3, t4, t5, t6, t8, fp)
 void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type, s32 n) {
-    static const EngineBlk rule[] = {
-        ENGINE_B(8029B07C), ENGINE_B(8029B090), ENGINE_B(8029B0A0), ENGINE_B(8029B0B0),
-        ENGINE_B(8029B0C0), ENGINE_B(8029B0C8), ENGINE_B(8029B0D0), ENGINE_B(8029B0D8),
-    };
-    static const PieceBlks b1 = PIECE_BLKS(8029B144, 8029B14C, 8029B154, 8029B15C, 8029B164, 8029B16C,
-                                           8029B174, 8029B17C, 8029B184);
-    static const PieceBlks b2 = PIECE_BLKS(8029B208, 8029B210, 8029B218, 8029B220, 8029B228, 8029B230,
-                                           8029B238, 8029B240, 8029B248);
-    static const PieceBlks b3 = PIECE_BLKS(8029B284, 8029B28C, 8029B294, 8029B29C, 8029B2A4, 8029B2AC,
-                                           8029B2B4, 8029B2BC, 8029B2C4);
-    static const PieceBlks b4 = PIECE_BLKS(8029B320, 8029B328, 8029B330, 8029B338, 8029B340, 8029B348,
-                                           8029B350, 8029B358, 8029B360);
-    static const PieceBlks b5 = PIECE_BLKS(8029B3D8, 8029B3E0, 8029B3E8, 8029B3F0, 8029B3F8, 8029B400,
-                                           8029B408, 8029B410, 8029B418);
-    static const PieceBlks b6 = PIECE_BLKS(8029B474, 8029B47C, 8029B484, 8029B48C, 8029B494, 8029B49C,
-                                           8029B4A4, 8029B4AC, 8029B4B4);
     BuildingRule *e;
     Building *o, *oend;
     CollisionTri *t, *tend;
@@ -3833,311 +2899,195 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 type,
 
     /* (the inputs the vehicle modules' readers find in their registers
        afterwards: $t8 and $fp) */
-    ENGINE_BLK(8029B02C);
     /* the buildings */
     for (e = D_803059F0;; e++) {
-        ENGINE_BLK(8029B070);
         if (e->types == 0)
             break;
-        if (!rule_applies(e, type, rule))
+        if (!rule_applies(e, type))
             continue;
         oend = D_803F7654;
         for (o = D_803F4030;; o++) {
-            ENGINE_BLK(8029B0F0);
             if (o == oend)
                 break;
-            ENGINE_BLK(8029B0F8);
             if (o->unk30 != e->kind)
                 continue;
-            ENGINE_BLK(8029B104);
             if (!func_8029B514(o, x, y, z, r)) {
-                ENGINE_BLK(8029B10C);
                 continue;
             }
-            ENGINE_BLK(8029B10C);
-            ENGINE_BLK(8029B114);
             tend = o->unk8;
             for (t = o->unk4;; t++) {
-                ENGINE_BLK(8029B130);
                 if (t == tend)
                     break;
-                ENGINE_BLK(8029B138);
                 if (t->active == 0)
                     continue;
-                if (piece_hit(t, x, y, z, r, &b1)) {
-                    ENGINE_BLK(8029B194);
+                if (piece_hit(t, x, y, z, r)) {
                     func_8029B614(t, n);
-                    ENGINE_BLK(8029B19C);
-                } else {
-                    ENGINE_BLK(8029B18C);
                 }
             }
-            ENGINE_BLK(8029B1A4);
         }
     }
     /* the holes */
-    ENGINE_BLK(8029B1C0);
     tend = D_803FB8B0;
     for (t = D_803F9330;; t++) {
-        ENGINE_BLK(8029B1D4);
         if (t == tend)
             break;
-        ENGINE_BLK(8029B1DC);
         if (t->active == 0)
             continue;
-        ENGINE_BLK(8029B1E8);
         if (type == VEHICLE_ON_HOLE) {
-            ENGINE_BLK(8029B1F4);
             if (t->group == D_803A742A)
                 continue;
         }
-        if (piece_hit(t, x, y, z, r, &b2)) {
-            ENGINE_BLK(8029B258);
+        if (piece_hit(t, x, y, z, r)) {
             func_8029B614(t, n);
-            ENGINE_BLK(8029B260);
-        } else {
-            ENGINE_BLK(8029B250);
         }
     }
     /* the walls */
-    ENGINE_BLK(8029B268);
     tend = D_803BD30C;
     for (t = D_803BD308;; t++) {
-        ENGINE_BLK(8029B27C);
         if (t == tend)
             break;
-        if (piece_hit(t, x, y, z, r, &b3)) {
-            ENGINE_BLK(8029B2D4);
+        if (piece_hit(t, x, y, z, r)) {
             func_8029BB28(t, type, n);
-            ENGINE_BLK(8029B2DC);
-        } else {
-            ENGINE_BLK(8029B2CC);
         }
     }
     /* the objects */
-    ENGINE_BLK(8029B2E4);
     tend = D_803BD300;
     for (t = D_803B9890;; t++) {
-        ENGINE_BLK(8029B2F8);
         if (t == tend)
             break;
-        ENGINE_BLK(8029B300);
         if (t->active == 0)
             continue;
-        ENGINE_BLK(8029B30C);
         if (t->owner != 0) {
-            ENGINE_BLK(8029B318);
             if (t->owner == type)
                 continue;
         }
-        if (piece_hit(t, x, y, z, r, &b4)) {
-            ENGINE_BLK(8029B370);
+        if (piece_hit(t, x, y, z, r)) {
             func_8029B614(t, n);
-            ENGINE_BLK(8029B378);
             func_8029B5B8(t);
-            ENGINE_BLK(8029B380);
-        } else {
-            ENGINE_BLK(8029B368);
         }
     }
     /* the grid cells */
-    ENGINE_BLK(8029B388);
     func_8029C284(x, z);
-    ENGINE_BLK(8029B390);
     if (type != NO_GRID_TYPE) {
-        ENGINE_BLK(8029B39C);
         for (cell = D_803A7418;; cell++) {
-            ENGINE_BLK(8029B3A4);
             if (*cell == -1)
                 break;
-            ENGINE_BLK(8029B3B4);
             tend = CELL_TRIS(D_803BDE40, *cell + 1);
             for (t = CELL_TRIS(D_803BDE40, *cell);; t++) {
-                ENGINE_BLK(8029B3D0);
                 if (t == tend)
                     break;
-                if (piece_hit(t, x, y, z, r, &b5)) {
-                    ENGINE_BLK(8029B428);
+                if (piece_hit(t, x, y, z, r)) {
                     func_8029B614(t, n);
-                    ENGINE_BLK(8029B430);
-                } else {
-                    ENGINE_BLK(8029B420);
                 }
             }
         }
     }
-    ENGINE_BLK(8029B438);
     for (cell = D_803A7418;; cell++) {
-        ENGINE_BLK(8029B440);
         if (*cell == -1)
             break;
-        ENGINE_BLK(8029B450);
         tend = CELL_TRIS(D_803BDCA8, *cell + 1);
         for (t = CELL_TRIS(D_803BDCA8, *cell);; t++) {
-            ENGINE_BLK(8029B46C);
             if (t == tend)
                 break;
-            if (piece_hit(t, x, y, z, r, &b6)) {
-                ENGINE_BLK(8029B4C4);
+            if (piece_hit(t, x, y, z, r)) {
                 func_8029B614(t, n);
-                ENGINE_BLK(8029B4CC);
-            } else {
-                ENGINE_BLK(8029B4BC);
             }
         }
     }
-    ENGINE_BLK(8029B4D4);
 }
 
 /* Whether the sphere (x, y, z, r) meets any triangle func_8029B02C would
    test, for this vehicle type: the same walk, stopping at a hit */
 static s32 ab88(s32 x, s32 y, s32 z, s32 r, s32 type) {
-    static const EngineBlk rule[] = {
-        ENGINE_B(8029ABD8), ENGINE_B(8029ABEC), ENGINE_B(8029ABFC), ENGINE_B(8029AC0C),
-        ENGINE_B(8029AC1C), ENGINE_B(8029AC24), ENGINE_B(8029AC2C), ENGINE_B(8029AC34),
-    };
-    static const PieceBlks b1 = PIECE_BLKS(8029ACA0, 8029ACA8, 8029ACB0, 8029ACB8, 8029ACC0, 8029ACC8,
-                                           8029ACD0, 8029ACD8, 8029ACE0);
-    static const PieceBlks b2 = PIECE_BLKS(8029AD6C, 8029AD74, 8029AD7C, 8029AD84, 8029AD8C, 8029AD94,
-                                           8029AD9C, 8029ADA4, 8029ADAC);
-    static const PieceBlks b3 = PIECE_BLKS(8029ADD8, 8029ADE0, 8029ADE8, 8029ADF0, 8029ADF8, 8029AE00,
-                                           8029AE08, 8029AE10, 8029AE18);
-    static const PieceBlks b4 = PIECE_BLKS(8029AE64, 8029AE6C, 8029AE74, 8029AE7C, 8029AE84, 8029AE8C,
-                                           8029AE94, 8029AE9C, 8029AEA4);
-    static const PieceBlks b5 = PIECE_BLKS(8029AF04, 8029AF0C, 8029AF14, 8029AF1C, 8029AF24, 8029AF2C,
-                                           8029AF34, 8029AF3C, 8029AF44);
-    static const PieceBlks b6 = PIECE_BLKS(8029AF90, 8029AF98, 8029AFA0, 8029AFA8, 8029AFB0, 8029AFB8,
-                                           8029AFC0, 8029AFC8, 8029AFD0);
     BuildingRule *e;
     Building *o, *oend;
     CollisionTri *t, *tend;
     s16 *cell;
 
-    ENGINE_BLK(8029AB88);
     for (e = D_803059F0;; e++) {
-        ENGINE_BLK(8029ABCC);
         if (e->types == 0)
             break;
-        if (!rule_applies(e, type, rule))
+        if (!rule_applies(e, type))
             continue;
         oend = D_803F7654;
         for (o = D_803F4030;; o++) {
-            ENGINE_BLK(8029AC4C);
             if (o == oend)
                 break;
-            ENGINE_BLK(8029AC54);
             if (o->unk30 != e->kind)
                 continue;
-            ENGINE_BLK(8029AC60);
             if (!func_8029B514(o, x, y, z, r)) {
-                ENGINE_BLK(8029AC68);
                 continue;
             }
-            ENGINE_BLK(8029AC68);
-            ENGINE_BLK(8029AC70);
             tend = o->unk8;
             for (t = o->unk4;; t++) {
-                ENGINE_BLK(8029AC8C);
                 if (t == tend)
                     break;
-                ENGINE_BLK(8029AC94);
                 if (t->active == 0)
                     continue;
-                if (piece_hit(t, x, y, z, r, &b1)) {
-                    ENGINE_BLK(8029AD0C);
+                if (piece_hit(t, x, y, z, r)) {
                     return 1;
                 }
-                ENGINE_BLK(8029ACE8);
             }
-            ENGINE_BLK(8029ACF0);
         }
     }
-    ENGINE_BLK(8029AD24);
     tend = D_803FB8B0;
     for (t = D_803F9330;; t++) {
-        ENGINE_BLK(8029AD38);
         if (t == tend)
             break;
-        ENGINE_BLK(8029AD40);
         if (t->active == 0)
             continue;
-        ENGINE_BLK(8029AD4C);
         if (type == VEHICLE_ON_HOLE) {
-            ENGINE_BLK(8029AD58);
             if (t->group == D_803A742A)
                 continue;
         }
-        if (piece_hit(t, x, y, z, r, &b2))
+        if (piece_hit(t, x, y, z, r))
             return 1;
-        ENGINE_BLK(8029ADB4);
     }
-    ENGINE_BLK(8029ADBC);
     tend = D_803BD30C;
     for (t = D_803BD308;; t++) {
-        ENGINE_BLK(8029ADD0);
         if (t == tend)
             break;
-        if (piece_hit(t, x, y, z, r, &b3))
+        if (piece_hit(t, x, y, z, r))
             return 1;
-        ENGINE_BLK(8029AE20);
     }
-    ENGINE_BLK(8029AE28);
     tend = D_803BD300;
     for (t = D_803B9890;; t++) {
-        ENGINE_BLK(8029AE3C);
         if (t == tend)
             break;
-        ENGINE_BLK(8029AE44);
         if (t->active == 0)
             continue;
-        ENGINE_BLK(8029AE50);
         if (t->owner != 0) {
-            ENGINE_BLK(8029AE5C);
             if (t->owner == type)
                 continue;
         }
-        if (piece_hit(t, x, y, z, r, &b4))
+        if (piece_hit(t, x, y, z, r))
             return 1;
-        ENGINE_BLK(8029AEAC);
     }
-    ENGINE_BLK(8029AEB4);
     func_8029C284(x, z);
-    ENGINE_BLK(8029AEBC);
     if (type != NO_GRID_TYPE) {
-        ENGINE_BLK(8029AEC8);
         for (cell = D_803A7418;; cell++) {
-            ENGINE_BLK(8029AED0);
             if (*cell == -1)
                 break;
-            ENGINE_BLK(8029AEE0);
             tend = CELL_TRIS(D_803BDE40, *cell + 1);
             for (t = CELL_TRIS(D_803BDE40, *cell);; t++) {
-                ENGINE_BLK(8029AEFC);
                 if (t == tend)
                     break;
-                if (piece_hit(t, x, y, z, r, &b5))
+                if (piece_hit(t, x, y, z, r))
                     return 1;
-                ENGINE_BLK(8029AF4C);
             }
         }
     }
-    ENGINE_BLK(8029AF54);
     for (cell = D_803A7418;; cell++) {
-        ENGINE_BLK(8029AF5C);
         if (*cell == -1)
             break;
-        ENGINE_BLK(8029AF6C);
         tend = CELL_TRIS(D_803BDCA8, *cell + 1);
         for (t = CELL_TRIS(D_803BDCA8, *cell);; t++) {
-            ENGINE_BLK(8029AF88);
             if (t == tend)
                 break;
-            if (piece_hit(t, x, y, z, r, &b6))
+            if (piece_hit(t, x, y, z, r))
                 return 1;
-            ENGINE_BLK(8029AFD8);
         }
     }
-    ENGINE_BLK(8029AFE8);
     return 0;
 }
 
@@ -4146,9 +3096,6 @@ s32 func_8029AB88(s32 x, s32 y, s32 z, s32 r, s32 type) {
     s32 hit;
 
     hit = ab88(x, y, z, r, type);
-    if (hit)
-        ENGINE_BLK(8029AFE0);
-    ENGINE_BLK(8029AFEC);
     return hit;
 }
 
@@ -4163,50 +3110,32 @@ static void aa10(s32 type) {
     KindPart *p;
     s32 n = 0;
 
-    ENGINE_BLK(8029AA10);
     D_803A742B = 0;
     for (s = D_803A7300;; s++) {
-        ENGINE_BLK(8029AA58);
         if (s->kind == type)
             break;
     }
-    ENGINE_BLK(8029AA64);
     if (s->end != 0) {
-        ENGINE_BLK(8029AA74);
         if (func_8029AB88(s->x >> 2, s->y >> 2, s->z >> 2, s->r >> 2, type)) {
-            ENGINE_BLK(8029AA98);
-            ENGINE_BLK(8029AAA0);
             for (p = D_803A6B30;; p++) {
-                ENGINE_BLK(8029AAAC);
                 if (p->end == -1)
                     break;
-                ENGINE_BLK(8029AABC);
                 if (p->end == 0)
                     continue;
-                ENGINE_BLK(8029AAC4);
                 if (p->kind != type)
                     continue;
-                ENGINE_BLK(8029AAD0);
                 n++;
                 func_8029B02C(0, 0, 0, p->x >> 2, p->y >> 2, p->z >> 2, p->r >> 2, type, n);
-                ENGINE_BLK(8029AAFC);
             }
-        } else {
-            ENGINE_BLK(8029AA98);
         }
     }
-    ENGINE_BLK(8029AB04);
     if (D_803A7410 == 0) {
-        ENGINE_BLK(8029AB18);
         if (D_803A7412 == TURN - 1) {
-            ENGINE_BLK(8029AB4C);
             return;
         }
     }
-    ENGINE_BLK(8029AB30);
     D_803A7425 = 1;
     D_803A740C = D_80358068;
-    ENGINE_BLK(8029AB4C);
 }
 
 /* ---- the entry points as the vehicle modules declare them (shared.h) ----- */

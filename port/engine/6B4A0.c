@@ -84,7 +84,6 @@ void func_802AFC60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EDB40;
     s32 avg;
 
-    ENGINE_COST(802AFC60, 221);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x800;
@@ -129,7 +128,6 @@ void func_802AFC60(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 void func_802AFFD4(void) {
     Part *p = PARTS;
 
-    ENGINE_COST(802AFFD4, 130);
     VS_TURNING(&D_803EDB40) = 0;
     func_802A039C(1, 0, p);
     func_802A03D4(1, 0, p);
@@ -163,7 +161,6 @@ void func_802AFFD4(void) {
    rams out (part 5's state 1) the original answers 5, its $v0, which hd.c
    takes as yes all the same */
 u8 func_802B01DC(void) {
-    ENGINE_COST(802B01DC, 30);
     if (ANY_AIRBORNE(&D_803EDB40))
         return 0;
     return part_state(5, PARTS) != 1 ? 1 : 5;
@@ -171,7 +168,6 @@ u8 func_802B01DC(void) {
 
 /* hd.c's: the player gets out */
 void func_802B0254(void) {
-    ENGINE_COST(802B0254, 19);
     VS_SPEED(&D_803EDB40) = 0;
     func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x800);
     func_802C444C();
@@ -181,7 +177,6 @@ void func_802B0254(void) {
 void func_802B02A0(void) {
     VS *vs = &D_803EDB40;
 
-    ENGINE_COST(802B02A0, 35);
     func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_SIDESWIPE, vs, 0);
     func_802B0B3C(vs);
     func_802A133C(X, Y, Z, VEHICLE_SIDESWIPE, vs);
@@ -189,7 +184,6 @@ void func_802B02A0(void) {
 
 /* its light */
 void func_802B03B0(void) {
-    ENGINE_COST(802B03B0, 17);
     func_802ABD54(VEHICLE_SIDESWIPE, X, Y, Z);
 }
 
@@ -199,7 +193,6 @@ void func_802B03F4(void) {
     s32 step = 0, x, z, rate_i, turn;
     f32 rate;
 
-    ENGINE_COST(802B03F4, 184);
     func_802B03B0();
     if (VS_IN_SETUP(vs) == 0)
         func_802B07DC(vs);
@@ -247,7 +240,6 @@ void func_802B07DC(VS *vs) {
     u32 a;
     s32 s;
 
-    ENGINE_COST(802B07DC, 113);
     /* the wheels' turn: the camera's heading from behind, in thirds */
     a = (u16)D_80364452 + ANGLE_HALF;
     if ((s32)a >= ANGLE_TURN)
@@ -275,7 +267,6 @@ void func_802B07DC(VS *vs) {
 /* the rams out against something breakable (func_802BCD80's kinds 4 and
    5): they stop, and the screen shakes */
 void func_802B0AAC(void) {
-    ENGINE_COST(802B0AAC, 13);
     if (part_state(5, PARTS) != 0 && (func_802BCD80(4) != 0 || func_802BCD80(5) != 0)) {
         func_802A03D4(5, 1, PARTS);
         func_802A0290(5, 1, PARTS);
@@ -289,7 +280,6 @@ REGS(gp)
 void func_802B0B3C(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_COST(802B0B3C, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(X, Y, Z, SIDESWIPE_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(X, Y, Z, VEHICLE_SIDESWIPE, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -300,14 +290,12 @@ void func_802B0B3C(VS *vs) {
    SIDESWIPE_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802B0C74(VS *vs) {
-    ENGINE_COST(802B0C74, 26);
     return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? SIDESWIPE_STEER_DIV_AIR : SIDESWIPE_STEER_DIV));
 }
 
 /* the physics' settings for the Sideswipe: gravity, and how its wheels
    land */
 void func_802B0CE8(void) {
-    ENGINE_COST(802B0CE8, 23);
     D_803EBBF4 = D_803EBBF0 * SIDESWIPE_GRAVITY;
     D_803ED3F6 = SIDESWIPE_BOUNCE_MIN;
     D_803ED3F7 = SIDESWIPE_BOUNCE_DIV;
@@ -315,12 +303,10 @@ void func_802B0CE8(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B0D44(u8 *dst) {
-    ENGINE_COST(802B0D44, 7);
     func_802AC7DC(dst, (u8 *)&D_803EDB40, (u32 *)&D_803EDBE8);
 }
 
 /* and back */
 void func_802B0D70(u8 *src) {
-    ENGINE_COST(802B0D70, 11);
     func_802AC85C(src, (u8 *)&D_803EDB40, (u32 *)&D_803EDBE8);
 }

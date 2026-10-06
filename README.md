@@ -89,7 +89,7 @@ make VERSION=us.v11 -C blastcorps extract
 make -j VERSION=us.v11 -C blastcorps       # the decompilation, sha1-checked
 make VERSION=us.v11 -C blastcorps compress
 make VERSION=us.v11                        # the ROM's layout the port reads
-make -C tools/recomp                       # the engine's tables (block sizes; the check build's translation)
+make -C tools/recomp                       # the glue's tables (and the check build's translation)
 
 cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
       -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang \
@@ -220,8 +220,7 @@ them only when asked for.  Some options (`--help` lists them all):
 | `--hd-text [FONT]` / `--no-hd-text` | (default with a window) OpenGL: the game's text drawn from a font at the internal resolution (built in: Stardos Stencil, SIL OFL; docs/FONTS.md) |
 | `--free-camera` / `--no-free-camera` | (default with a window) in a level, dragging with the left mouse button and a controller's right stick turn the camera freely and tilt it up and down, where C-left/right turn it 45 degrees at a time (the stick's click is C-down there); `PORT_CAMERA_SENS` is the mouse's degrees a pixel (0.2) (docs/PORT.md, "Keyboard, mouse and touch") |
 | `--model-icons` / `--no-model-icons` | (default with a window) the icons that are pictures of the game's models (the carrier, the goals, the vehicles) drawn as the models, and the world map's chopper as the one that flies in at a level's start, circling the selected level (docs/PORT.md, "Model icons") |
-| `--cpu-model n64`            | the N64's lag frames back: the game's work takes as long as on the N64, and busy scenes slow down as they did there (default `off`: no lag, every level frame 1/30 s; docs/PORT.md, "Lag frames") |
-| `--load-waits n64`           | the N64's waits for its hardware back: the controllers' half second at power-on, the EEPROM's write cycles, the pak thread's retrace a command (default `off`; `--cpu-model n64` implies it; docs/PORT.md, "The front end's waits") |
+| `--load-waits n64`           | the N64's waits for its hardware back: the controllers' half second at power-on, the EEPROM's write cycles, the pak thread's retrace a command (default `off`; docs/PORT.md, "The front end's waits") |
 | `--no-audio`, `--wav PATH`   | no sound, or everything the game plays to a file          |
 | `--headless`, `--frames N`, `--screenshot PREFIX` | run without a window (with the software renderer unless `--renderer gl`), for N frames, saving the last frame as `PREFIXnnnnn.bmp` |
 

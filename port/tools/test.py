@@ -8,8 +8,8 @@
     port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
                                 [--emsdk DIR] [--gameplay]
 
-quick: deterministic headless runs (--deterministic, the CPU model off as
-by default, the software renderer), a few thousand frames each; the save, the --wav and
+quick: deterministic headless runs (--deterministic, the software
+renderer), a few thousand frames each; the save, the --wav and
 a screenshot every 250 frames are hashed and compared with the committed
 references (port/tools/test_refs.json, by version), with --against another
 build's results, and within the build (the pthread backend against
@@ -144,8 +144,8 @@ SCENARIOS = {
     "auto3.pack": ("3", 3000, [], {}, "auto3", "all"),
     "auto3.pack.edit": ("3", 3000, [], {}, "auto3", "edit"),
     # a pack without the code modules (make_pack.py --no-code): the data
-    # alone; the front end's load takes other CPU time, which this tier
-    # doesn't count (PORT_COUNT_PER_OP=0), so every hash as from the ROM
+    # alone; the front end's load takes no time either way, so every hash
+    # as from the ROM
     "auto3.pack.nocode": ("3", 3000, [], {}, "auto3", "all"),
     # the painted texture as a PNG 4 times as wide and high: the game gets it
     # averaged down (the same as auto3.pack.edit's), OpenGL draws it whole
@@ -281,7 +281,7 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
     for k in list(e):
         if k.startswith("PORT_"):
             del e[k]
-    e.update(PORT_COUNT_PER_OP="0", PORT_AUTOSTART=autostart, SDL_VIDEODRIVER="offscreen",
+    e.update(PORT_AUTOSTART=autostart, SDL_VIDEODRIVER="offscreen",
              SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST)
     if shots:
         e["PORT_SHOT_EVERY"] = str(SHOT_EVERY)

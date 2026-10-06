@@ -22,9 +22,9 @@
  *     the port's read before it went through: a read's SI completion is
  *     held until the scheduler has had them, and a retrace is held back
  *     once the next read's are there (taking the next read to be the log's
- *     next).  Within the frame the retraces come by the port's CPU model, so
- *     the game reads the count mid-frame (the music's and the messages'
- *     timing, func_8026BCE0) about where mupen64plus's did.  Where it waits
+ *     next).  Within the frame they come at once (the game's work takes
+ *     no time), and the game's reads of the count mid-frame are the
+ *     movie's (port_counter, below).  Where it waits
  *     for a retrace the log's frame didn't have, one is given anyway, and
  *     counted.
  *   - The random number generator is seeded from osGetCount, the port's

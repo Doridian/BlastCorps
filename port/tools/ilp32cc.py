@@ -14,7 +14,7 @@ in three steps, keeping the intermediate files next to the object:
   2. opt -passes=port-ilp32 (X.bc): the module becomes TRIPLE's, 64-bit
      pointers in registers, 32-bit ones in memory, the layout unchanged;
   3. CC for TRIPLE, optimising and generating code with the plugin's own
-     passes (BEPass, the polls, the instruction count).
+     passes (BEPass, KeepAlign).
 """
 
 import subprocess

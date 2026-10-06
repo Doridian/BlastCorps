@@ -13,10 +13,6 @@
 #include "game/vehicle.h"
 
 
-/* a block table, for code repeated with its own blocks */
-typedef struct { u16 id, n; } Blk;
-#define B(addr) {ENGINE_BLK_##addr}
-#define BLK(t, i) ENGINE_BLK_((t)[i].id, (t)[i].n)
 
 /* each of a front end vehicle's two part buffers */
 #define PART_BUF_SIZE 0x1770
@@ -53,9 +49,7 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
     u8 *heap;
     s32 o1, o2;
 
-    ENGINE_BLK(80202100);
     model = (Model *)(__UINTPTR_TYPE__)func_802A396C(type);
-    ENGINE_BLK(80202158);
     rec[0] = (u32)model;
     heap = D_80358070;
     bufs[0] = (u32)heap;
@@ -69,84 +63,45 @@ void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
     dls[2] = (u32)((u8 *)model + o2);
     dls[3] = (u32)(heap + o2 - o1);
     func_802A1388(type, 0, (u8 *)bufs[0], (u8 *)bufs[1], (u8 *)rec[0]);
-    ENGINE_BLK(802021C8);
 }
 
 /* the parts stepped a frame (from the buffer `buf`, `other` the next) */
 void func_802021FC(Part *parts, u8 *buf, u8 *other) {
-    ENGINE_BLK(802021FC);
     func_8029E558(parts, buf, other);
-    ENGINE_BLK(8020223C);
 }
 
 /* the parts set up from the model in the two buffers */
 void func_80202270(u8 *model, u32 *bufs, Part *parts) {
-    ENGINE_BLK(80202270);
     func_8029F85C(parts, model, (u8 *)bufs[0], (u8 *)bufs[1]);
-    ENGINE_BLK(802022B8);
 }
 
 /* part i's settings */
 void func_802022EC(Part *parts, s32 i, s32 a, s32 b, f32 f, s32 c, s32 d) {
-    ENGINE_BLK(802022EC);
     func_802A039C(i, c, parts);
-    ENGINE_BLK(80202328);
     func_802A03D4(i, d, parts);
-    ENGINE_BLK(80202330);
     func_802A040C(i, a, parts);
-    ENGINE_BLK(80202338);
     func_802A0480(i, b, parts, f);
-    ENGINE_BLK(80202344);
     func_802A0290(i, -1, parts);
-    ENGINE_BLK(8020234C);
 }
 
-/* one part's four settings (func_802A05D0... by its key), with the blocks
-   of its copy `k` */
-static void part_reset(u8 *key, s32 k) {
-    static const Blk blks[][4] = {
-        { B(802023CC), B(802023DC), B(802023EC), B(802023FC) },
-        { B(8020240C), B(8020241C), B(8020242C), B(8020243C) },
-        { B(80202454), B(80202464), B(80202474), B(80202484) },
-        { B(80202494), B(802024A4), B(802024B4), B(802024C4) },
-        { B(802024D4), B(802024E4), B(802024F4), B(80202504) },
-    };
-
-    BLK(blks[k], 0);
+/* one part's four settings (func_802A05D0... by its key) */
+static void part_reset(u8 *key) {
     func_802A05D0(key, 0);
-    BLK(blks[k], 1);
     func_802A05F8(key, 0);
-    BLK(blks[k], 2);
     func_802A0620(key, 0);
-    BLK(blks[k], 3);
     func_802A0508(key, -1);
 }
 
 /* the front end's vehicle `type`'s moving parts at rest (the truck's two,
    the bulldozer's three) */
 void func_80202380(s32 type) {
-    u8 *last = NULL;
-
-    ENGINE_BLK(80202380);
     if (type == VEHICLE_TRUCK) {
-        part_reset(D_802C2208, 0);
-        part_reset(D_802C226C, 1);
-        last = D_802C226C;
-        ENGINE_BLK(8020244C);
-    } else {
-        ENGINE_BLK(802023B8);
-        if (type == VEHICLE_BULLDOZER) {
-            part_reset(D_802C2190, 2);
-            part_reset(D_802C21A4, 3);
-            part_reset(D_802C21B8, 4);
-            last = D_802C21B8;
-            ENGINE_BLK(80202514);
-        } else {
-            ENGINE_BLK(802023C4);
-        }
-    }
-    ENGINE_BLK(8020259C);
-    if (last != NULL) {
+        part_reset(D_802C2208);
+        part_reset(D_802C226C);
+    } else if (type == VEHICLE_BULLDOZER) {
+        part_reset(D_802C2190);
+        part_reset(D_802C21A4);
+        part_reset(D_802C21B8);
     }
 }
 
@@ -157,50 +112,30 @@ void func_80202380(s32 type) {
 void func_802025D0(u8 type, u32 a) {
     u32 s;
 
-    ENGINE_BLK(802025D0);
     if (type == VEHICLE_TRUCK) {
-        ENGINE_BLK(8020261C);
         s = a;
         if ((s32)s >= ANGLE_HALF_TURN) {
-            ENGINE_BLK(8020262C);
             s -= ANGLE_HALF_TURN;
         }
-        ENGINE_BLK(80202630);
         s /= TRUCK_PART_STEP;
-        ENGINE_BLK(80202654);
         func_802A05A4(D_802C2208, s, 0.0f);
-        ENGINE_BLK(80202664);
         func_802A05A4(D_802C226C, s, 0.0f);
-        ENGINE_BLK(80202678);
     } else {
-        ENGINE_BLK(80202608);
         if (type == VEHICLE_BULLDOZER) {
-            ENGINE_BLK(80202680);
             s = a;
             if ((s32)s < DOZER_ANGLE_LO) {
                 s = 0;
-                ENGINE_BLK(802026A0);
             } else {
-                ENGINE_BLK(80202690);
                 if ((s32)s >= DOZER_ANGLE_HI) {
                     s = 0;
-                    ENGINE_BLK(802026A0);
                 } else {
-                    ENGINE_BLK(80202698);
                     s -= DOZER_ANGLE_LO;
                 }
             }
-            ENGINE_BLK(802026A4);
             s /= DOZER_PART_STEP;
-            ENGINE_BLK(802026C4);
             func_802A05A4(D_802C21B8, s, 0.0f);
-            ENGINE_BLK(802026D4);
             func_802A05D0(D_802C2190, DOZER_FIXED_PART);
-            ENGINE_BLK(802026E8);
             func_802A05D0(D_802C21A4, DOZER_FIXED_PART);
-        } else {
-            ENGINE_BLK(80202614);
         }
     }
-    ENGINE_BLK(802026F8);
 }

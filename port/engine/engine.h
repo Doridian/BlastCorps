@@ -16,13 +16,6 @@
  *     Without REGS() it is o32's.  port/tools/conventions.py says what each
  *     function really takes and gives back; the glue checks REGS() against
  *     it.
- *   - The CPU's time: the port charges the MIPS instructions the original
- *     would have executed (docs/PORT.md, "Timing"), and the game's pace,
- *     and the TAS, depend on it to the instruction.  ENGINE_BLK(802AC1E4)
- *     charges the original's basic block at 0x802AC1E4: the code calls it
- *     wherever the original would have run that block, so it costs what
- *     the original did on every path.  (BEPass doesn't count this code, and
- *     puts no polls in it: BEPASS_ENGINE=1.)
  *
  * Built like the game's C (N64 side: BEPass, port-ilp32, port-arena), so
  * memory, pointers and PTR32 work as there, in every variant.
@@ -32,24 +25,8 @@
 
 #include "common.h"
 #include "functions.h"
-#include "engine_blocks.h"      /* generated: ENGINE_BLK_<address> id, size */
 
 #define REGS(...)
-
-/* the translated code's instruction count (port/host/threads.c); not
-   byte-swapped (BEPass leaves __port_ names alone) */
-extern unsigned int __port_icount;
-#ifdef PORT_ENGINE_CHECK
-void engine_trace_blk(unsigned int id);
-#define ENGINE_BLK_(id, n) (__port_icount += (n), engine_trace_blk(id))
-#elif defined(PORT_BLKLOG)
-void port_blklog(unsigned int id);
-#define ENGINE_BLK_(id, n) (__port_icount += (n), port_blklog(id))
-#else
-#define ENGINE_BLK_(id, n) (__port_icount += (n))
-#endif
-#define ENGINE_BLK_X(...) ENGINE_BLK_(__VA_ARGS__)
-#define ENGINE_BLK(addr) ENGINE_BLK_X(ENGINE_BLK_##addr)
 
 /* The VR4300's conversions as the translated code does them (recomp.h):
    cvt.w.s/round.w.s round to nearest (to even, or halves up as the TAS's
@@ -65,36 +42,13 @@ s64 engine_cvt_l_s(f32 x);
 /* IDO's conversion of a float to an unsigned int (jp's IDO code, still
    asm in the C): the FCSR set to truncate, cvt.w.s, and where its V flag
    says the float is 2^31 or more, a second one of x - 2^31 with the top bit
-   set; negative or out of range gives 0xFFFFFFFF.  Returns the result in
-   the low word and the path in the high one: 0 in range, 1 negative, 2 the
-   second conversion, 3 that one out of range (not through a pointer: the
-   host's store to the game's C memory would be in the host's order, which
-   BEPass reads swapped).  IDO_CVT_U_S charges its blocks after the first
-   one (the caller's): b1 the second conversion, b2 its result, b3 the
-   0xFFFFFFFF, b4 the first's result (port/host/engine.c). */
-u64 engine_ido_cvt_u_s(f32 x);
-#define IDO_CVT_U_S(dst, x, b1, b2, b3, b4)                                 \
-    do {                                                                    \
-        u64 cvt_ = engine_ido_cvt_u_s(x);                                   \
-        switch ((u32)(cvt_ >> 32)) {                                        \
-        case 0: ENGINE_BLK(b4); break;                                      \
-        case 1: ENGINE_BLK(b4); ENGINE_BLK(b3); break;                      \
-        case 2: ENGINE_BLK(b1); ENGINE_BLK(b2); break;                      \
-        default: ENGINE_BLK(b1); ENGINE_BLK(b3); break;                     \
-        }                                                                   \
-        (dst) = (u32)cvt_;                                                  \
-    } while (0)
+   set; negative or out of range gives 0xFFFFFFFF (port/host/engine.c). */
+u32 engine_ido_cvt_u_s(f32 x);
+#define IDO_CVT_U_S(dst, x) ((dst) = engine_ido_cvt_u_s(x))
 
-/* sprintf as the translation's call of it from IDO's code cost: nothing
-   for the C (gen_glue.py's recomp_extern_sprintf).  The 32-bit build's
-   own n64_sprintf is counted as the game's C (port/src/libc.c), so the
-   native code calls engine_libc.c's; elsewhere sprintf is host code
-   (port/host/libc64.c). */
-#if !defined(PORT_64BIT) && !defined(PORT_MOVABLE)
-int engine_sprintf(char *buf, const char *fmt, ...);
-#else
-#define engine_sprintf sprintf
-#endif
+/* the game's sprintf (port_game.h's n64_sprintf: port/src/libc.c, or
+   port/host/libc64.c) */
+int sprintf(char *buf, const char *fmt, ...);
 
 /* The original's syscall at pc (a state it doesn't expect): the game
    stops, as with the translation (port/host/engine.c). */
@@ -135,27 +89,19 @@ void engine_leave64(unsigned int reg, u32 lo, u32 hi);
 
 /* the original's `break` (IDO's division checks: code 7 for a zero
    divisor, 6 for an overflow): it stops the port as the translation's
-   recomp_trap does.  pc is us.v11's address of the block, for the report. */
+   recomp_trap does.  pc is us.v11's address of the break, for the report. */
 void engine_break(u32 pc, u32 code) __attribute__((noreturn));
 /* and its `syscall` (Rare's "can't happen" in a switch) */
 void engine_syscall(u32 pc) __attribute__((noreturn));
-/* q = n / d, as IDO's checked div: the blocks of its zero test (bz, its
-   break), the -1 test (bm1) and the overflow test (bmin, its break bov) */
-#define ENGINE_DIV(q, n, d, bz, bm1, bmin, bov)                             \
+/* q = n / d, as IDO's checked div: bz and bov name its two breaks (a zero
+   divisor, the overflow of 0x80000000 / -1) for the report */
+#define ENGINE_DIV(q, n, d, bz, bov)                                        \
     do {                                                                    \
         s32 n_ = (n), d_ = (d);                                             \
-        if (d_ == 0) {                                                      \
-            ENGINE_BLK(bz);                                                 \
+        if (d_ == 0)                                                        \
             engine_break(0x##bz, 7);                                        \
-        }                                                                   \
-        ENGINE_BLK(bm1);                                                    \
-        if (d_ == -1) {                                                     \
-            ENGINE_BLK(bmin);                                               \
-            if (n_ == (s32)0x80000000) {                                    \
-                ENGINE_BLK(bov);                                            \
-                engine_break(0x##bov, 6);                                   \
-            }                                                               \
-        }                                                                   \
+        if (d_ == -1 && n_ == (s32)0x80000000)                              \
+            engine_break(0x##bov, 6);                                       \
         (q) = n_ / d_;                                                      \
     } while (0)
 #define ENGINE_LEAVE64(gpr, v) engine_leave64((gpr), (u32)(v), (u32)((u64)(v) >> 32))
@@ -185,10 +131,6 @@ void engine_frame_sw(u32 off, u32 v);
 /* the word at $sp + off, as the original's lw reads what is there */
 u32 engine_frame_lw(u32 off);
 #define ENGINE_C_FRAME 16
-/* $ra as the original's jal leaves it for a callee that saves it in its
-   frame: the address of the block after the call, ENGINE_RA(802AB6C4),
-   each version's own (engine_blocks.h's ENGINE_ADDR_) */
-#define ENGINE_RA(next) ENGINE_LEAVE(31, ENGINE_ADDR_##next)
 /* the frame of 0x58 and 0x30 most of Rare's functions save $ra, $s0..$s7,
    $gp, $fp and $f20..$f31 in (engine_frame(0x30 + 0x58) leaves it) */
 void engine_frame_s(void);
@@ -198,16 +140,6 @@ void engine_frame_s(void);
 u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)
 
-/* A block as data: a helper that stands for several copies of the
-   original's code (each with its own blocks) takes the caller's as a
-   table of these, ENGINE_B(8029B144) each, and charges one with
-   ENGINE_BLK_AT(table[i]) */
-typedef struct EngineBlk {
-    u16 id, n;
-} EngineBlk;
-#define ENGINE_B(addr) { ENGINE_BLK_##addr }
-#define ENGINE_BLK_AT(b) ENGINE_BLK_((b).id, (b).n)
-
 /* A count for the taint build (-DPORT_ENGINE_TAINT=ON, port/host/engine.c;
    port/tools/taint.py --probes): whether a path some leftover feeds is
    ever taken, say.  Nothing in the other builds. */
@@ -216,15 +148,5 @@ void engine_probe(unsigned id);
 #else
 #define engine_probe(id) ((void)0)
 #endif
-
-/* A function's charge in one: n instructions at its entry, under its entry
-   block's id (for the check build's and PORT_BLKLOG's traces), in place of
-   its blocks one by one.  n is what its original took a call on average
-   over the TAS and the quick tier (us.v10's blocks; docs/PORT.md, "The
-   engine made readable"): the --cpu-model n64 timing stays right over a
-   frame without the code keeping the asm's blocks. */
-#define ENGINE_BLK_ID_(id, n) (id)
-#define ENGINE_BLK_ID_X(...) ENGINE_BLK_ID_(__VA_ARGS__)
-#define ENGINE_COST(addr, n) ENGINE_BLK_(ENGINE_BLK_ID_X(ENGINE_BLK_##addr), (n))
 
 #endif

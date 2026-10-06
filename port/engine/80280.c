@@ -73,7 +73,6 @@ s32 func_802C4A40(u8 *buf) {
     Building *b;
     s32 k, i;
 
-    ENGINE_COST(802C4A40, 4545);
     for (b = D_803F4030; b != D_803F7654; b++)
         for (k = 0; k < B_NGROUPS(b); k++)
             put_bit(&o, B_DAMAGE(b)[k] == 100);
@@ -95,7 +94,6 @@ void func_802C4BF0(u8 *buf) {
     Piece *q;
     s32 g, all, any, total = 0, i, n;
 
-    ENGINE_COST(802C4BF0, 85541);
     for (b = D_803F4030; b != D_803F7654; b++) {
         all = 1;
         any = 0;
@@ -144,7 +142,6 @@ u32 func_802C4E58(u8 *buf, u8 medal) {
     u32 want;
     s32 k, count = 0, targets = 0, bit, i;
 
-    ENGINE_COST(802C4E58, 89);
     medal--;
     for (b = D_803F4030; b != D_803F7654; b++)
         if (B_ID(b) != MODEL_GOAL && M_STRENGTH(B_MODEL(b)) != 1)
@@ -381,7 +378,6 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803F7B50;
     s32 avg;
 
-    ENGINE_COST(802C5120, 250);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x1000;
@@ -450,7 +446,6 @@ void func_802C5120(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 u8 func_802C5508(void) {
     VS *vs = &D_803F7B50;
 
-    ENGINE_COST(802C5508, 42);
     if (ANY_AIRBORNE(vs))
         return 0;
     if (JB_MODE(vs) == JB_LANDED) {
@@ -473,7 +468,6 @@ u8 func_802C5508(void) {
 
 /* hd.c's: the player gets out: the sounds off */
 void func_802C5688(void) {
-    ENGINE_COST(802C5688, 32);
     VS_SPEED(&D_803F7B50) = 0;
     func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x1000);
     func_802A02E4(0x1F, JB);
@@ -486,7 +480,6 @@ void func_802C5688(void) {
 /* hd.c's (and 17210.c's): the player gets in: its jets' tilts and flames
    set */
 void func_802C5714(void) {
-    ENGINE_COST(802C5714, 83);
     VS_TURNING(&D_803F7B50) = 0;
     func_802A039C(3, 0, JB);
     func_802A03D4(3, 0, JB);
@@ -505,7 +498,6 @@ void func_802C5714(void) {
 void func_802C5860(void) {
     VS *vs = &D_803F7B50;
 
-    ENGINE_COST(802C5860, 34);
     func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_JETPACK, vs, 0);
     func_802C7CB0(vs);
     func_802A133C(X, Y, Z, VEHICLE_JETPACK, vs);
@@ -514,7 +506,6 @@ void func_802C5860(void) {
 /* its light */
 REGS()
 void func_802C5970(void) {
-    ENGINE_COST(802C5970, 17);
     func_802ABD54(VEHICLE_JETPACK, X, Y, Z);
 }
 
@@ -525,7 +516,6 @@ void func_802C59B4(s32 carrier) {
     VS *vs = &D_803F7B50;
     s32 cz;
 
-    ENGINE_COST(802C59B4, 24);
     VS_CARRY_X(vs) = func_802AAD0C(carrier, X, Z, &cz);
     VS_CARRY_Z(vs) = cz;
 }
@@ -536,7 +526,6 @@ void func_802C5A14(s32 carrier) {
     VS *vs = &D_803F7B50;
     s32 x, z;
 
-    ENGINE_COST(802C5A14, 58);
     x = func_802AAE54(carrier, VS_CARRY_X(vs), VS_CARRY_Z(vs), &z);
     func_802C7ECC(vs);
     func_802C7F28(vs);
@@ -557,7 +546,6 @@ static void jbomb_frame(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802C5AFC, 257);
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802C5970();
     func_802C7ECC(vs);
@@ -656,7 +644,6 @@ void func_802C5AFC(void) {
    throttle or D_80370C35 holds it */
 REGS(gp)
 void func_802C617C(VS *vs) {
-    ENGINE_COST(802C617C, 16);
     if (D_80370C35 == 0 && STICK_Y == 0)
         VS_SPEED(vs) = step_toward(VS_SPEED(vs), 0, JBOMB_AIR_DRAG);
 }
@@ -819,7 +806,6 @@ void func_802C61F0(VS *vs) {
     Part *p = JB;
     s32 v, mode;
 
-    ENGINE_COST(802C61F0, 164);
     mode = JB_MODE(vs);
     JB_LAST_MODE(vs) = mode;
     if (mode == JB_FLY || mode == JB_FALL || mode == JB_DROP) {
@@ -925,7 +911,6 @@ void func_802C61F0(VS *vs) {
    7) */
 REGS(gp)
 void func_802C6DAC(VS *vs) {
-    ENGINE_COST(802C6DAC, 16);
     if (VS_SPEED(vs) == 0 && JB_MODE(vs) == JB_WALK) {
         if (D_803F7C4B != 0)
             D_803F7C4B--;
@@ -950,7 +935,6 @@ REGS(gp)
 void func_802C6ECC(VS *vs) {
     s32 mode = JB_MODE(vs);
 
-    ENGINE_COST(802C6ECC, 29);
     if ((mode == JB_WALK || mode == JB_SLAM) && D_803F7C1C != NULL)
         func_802608C8(D_803F7C1C);
     if (D_803F7C3E != 0) {
@@ -974,7 +958,6 @@ REGS(gp -> s6)
 s32 func_802C6FD8(VS *vs) {
     s32 *f = VS_WHEEL_FALL(vs), t, now, last, top;
 
-    ENGINE_COST(802C6FD8, 66);
     t = f[6];
     now = f[0] * t + engine_cvt_w_s(D_803EBBF4 * (f32)(t * t));
     t = f[6] - 1;
@@ -995,7 +978,6 @@ REGS(gp)
 void func_802C70E8(VS *vs) {
     s32 d;
 
-    ENGINE_COST(802C70E8, 15);
     if (func_802AC0BC(X, Z, Y) == 0 || D_803EBBFC < Y)
         return;
     d = D_803EBBFC - Y;
@@ -1015,7 +997,6 @@ void func_802C70E8(VS *vs) {
    it there but not just above (D_803F7C49) */
 REGS(t0, t1)
 void func_802C71FC(s32 x, s32 z) {
-    ENGINE_COST(802C71FC, 72);
     D_803F7C49 = 0;
     if (func_802AC0BC(x, z, Y) != 0 && !(D_803EBBFC < Y) && D_803EBBFC - Y >= JBOMB_CEILING_NEAR)
         D_803F7C49 = 1;
@@ -1025,7 +1006,6 @@ void func_802C71FC(s32 x, s32 z) {
    falling once it is JBOMB_WRECK_HEIGHT above its shadow */
 REGS(gp)
 void func_802C7354(VS *vs) {
-    ENGINE_COST(802C7354, 11);
     if (VS_TOP_MATERIAL(vs) != 0x64)
         return;
     if (JB_MODE(vs) != JB_FLY) {
@@ -1055,7 +1035,6 @@ REGS()
 void func_802C7410(void) {
     s32 a, d;
 
-    ENGINE_COST(802C7410, 51);
     if (Y < JB_LOW) {
         D_8036444C = 0xD48;
         D_80364450 = 0x258;
@@ -1077,7 +1056,6 @@ REGS(gp)
 void func_802C7544(VS *vs) {
     s32 s, *pt, r;
 
-    ENGINE_COST(802C7544, 56);
     if (D_803F7C43 == 0 && VS_AIRBORNE(vs)[0] == 1 && D_803F7C3E != 0) {
         r = func_802584BC(VEHICLE_JETPACK);
         pt = (s32 *)func_802ABC88(VEHICLE_JETPACK, 1);
@@ -1131,7 +1109,6 @@ static void count_presses(u8 *count, u8 *frames, s32 held) {
    D_803F7C46 (three of L's: the slam) */
 REGS()
 void func_802C770C(void) {
-    ENGINE_COST(802C770C, 37);
     count_presses(&D_803F7C44, &D_803F7C45, PAD_L);
     count_presses(&D_803F7C46, &D_803F7C47, PAD_R);
 }
@@ -1154,7 +1131,6 @@ void func_802C7864(VS *vs) {
     f32 f, lim, step;
     s32 k;
 
-    ENGINE_COST(802C7864, 120);
     /* part 4 */
     f = D_803F7C2C;
     k = D_803F7C34;
@@ -1215,7 +1191,6 @@ REGS(-> f4)
 f32 func_802C7BC0(void) {
     f32 f;
 
-    ENGINE_COST(802C7BC0, 22);
     f = (f32)iabs(STICK_Y) / 80.0f;
     f = 1.0f - f;
     return f / 2.0f;
@@ -1227,7 +1202,6 @@ REGS(s2, gp -> f2)
 f32 func_802C7C1C(s32 up, VS *vs) {
     f32 f;
 
-    ENGINE_COST(802C7C1C, 33);
     f = (f32)iabs(VS_SPEED(vs)) / JBOMB_TILT_SPEED;
     f = f * 0.5f;
     f = up != 0 ? f + 0.5f : 0.5f - f;
@@ -1243,7 +1217,6 @@ REGS(gp)
 void func_802C7CB0(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_COST(802C7CB0, 75);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = VS_HEADING(vs);
@@ -1260,7 +1233,6 @@ REGS(gp -> s3)
 s32 func_802C7DFC(VS *vs) {
     s32 mode = JB_MODE(vs), v;
 
-    ENGINE_COST(802C7DFC, 24);
     if (mode == JB_WALK || mode == JB_LANDED)
         return engine_cvt_w_s((f32)VS_SPEED(vs) / JBOMB_STEER_DIV);
     if (mode < JB_FLY || mode > JB_SLAM)
@@ -1280,7 +1252,6 @@ s32 func_802C7DFC(VS *vs) {
 /* the gravity: four times the level's falling, else the level's */
 REGS(gp)
 void func_802C7ECC(VS *vs) {
-    ENGINE_COST(802C7ECC, 20);
     D_803EBBF4 = D_803EBBF0 * (JB_MODE(vs) == JB_FALL ? 4.0f : 1.0f);
 }
 
@@ -1288,7 +1259,6 @@ void func_802C7ECC(VS *vs) {
    air */
 REGS(gp)
 void func_802C7F28(VS *vs) {
-    ENGINE_COST(802C7F28, 50);
     D_803ED3F6 = 0xFF;
     D_803ED3F7 = 0xFF;
     if (JB_MODE(vs) != JB_WALK) {
@@ -1302,12 +1272,10 @@ void func_802C7F28(VS *vs) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802C8074(u8 *dst) {
-    ENGINE_COST(802C8074, 6);
     func_802AC7DC(dst, (u8 *)&D_803F7B50, (u32 *)&D_803F7BF8);
 }
 
 /* and back */
 void func_802C80A0(u8 *src) {
-    ENGINE_COST(802C80A0, 11);
     func_802AC85C(src, (u8 *)&D_803F7B50, (u32 *)&D_803F7BF8);
 }

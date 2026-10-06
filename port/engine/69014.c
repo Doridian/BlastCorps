@@ -20,26 +20,20 @@ s32 func_802AD7FC(u32 x) {
     u32 frac = x & STEP_MASK;
     s32 a, b;
 
-    ENGINE_BLK(802AD7FC);
     if ((s32)i >= LAST_STEP) {
-        ENGINE_BLK(802AD81C);
         a = D_802AE084[frac];
     } else {
-        ENGINE_BLK(802AD838);
         a = D_802AD880[i];
         b = D_802AD880[i + 1];
         /* (an unsigned shift of the signed product, as the original) */
         a = a + (s32)((u32)((b - a) * (s32)frac) >> STEP_BITS);
     }
-    ENGINE_BLK(802AD868);
     return a;
 }
 
 s32 func_802AD7D4(s32 x) {
     s32 r;
 
-    ENGINE_BLK(802AD7D4);
     r = func_802AD7FC(x);
-    ENGINE_BLK(802AD7E8);
     return r;
 }

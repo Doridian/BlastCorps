@@ -38,8 +38,6 @@ void osCreateMesgQueue(OSMesgQueue *mq, OSMesg *msg, s32 count) {
 }
 
 static s32 send(OSMesgQueue *mq, OSMesg msg, s32 flag, int jam) {
-    host_cpu_charge(COST_MESG);
-    host_cpu_sync();
     while (mq->validCount >= mq->msgCount) {
         if (flag != OS_MESG_BLOCK)
             return -1;
@@ -61,8 +59,7 @@ s32 osSendMesg(OSMesgQueue *mq, OSMesg msg, s32 flag) { return send(mq, msg, fla
 s32 osJamMesg(OSMesgQueue *mq, OSMesg msg, s32 flag) { return send(mq, msg, flag, 1); }
 
 s32 osRecvMesg(OSMesgQueue *mq, OSMesg *msg, s32 flag) {
-    host_recv_charge(KEY_NOT_EMPTY(mq), COST_MESG);     /* until host_preempt below */
-    host_cpu_sync();
+    host_recv_mark(KEY_NOT_EMPTY(mq));  /* until host_preempt below */
     while (mq->validCount == 0) {
         if (flag == OS_MESG_NOBLOCK)
             return -1;
@@ -91,7 +88,7 @@ void osSetEventMesg(OSEvent e, OSMesgQueue *mq, OSMesg msg) {
 }
 
 void port_irq_event(int e) {
-    host_irq_cost(COST_IRQ);
+    host_interrupt();
     if (e >= 0 && e < OS_NUM_EVENTS && events[e].mq != NULL)
         osSendMesg(events[e].mq, events[e].msg, OS_MESG_NOBLOCK);
 }
@@ -143,16 +140,15 @@ OSId osGetThreadId(OSThread *t) {
 
 void osYieldThread(void) { host_yield(); }
 
-/* interrupts: one thread runs at a time, and the only preemption is a
-   loop's poll (BEPass's __port_poll), which lets the host loop deliver what
-   is due and so run a higher-priority thread.  With every interrupt masked
-   it doesn't, as on the N64: the game walks its sound list that way while
-   the audio thread frees from it (hd_code 1A630.c). */
+/* interrupts: one thread runs at a time, and nothing preempts it but its
+   own calls into libultra (a message sent, a thread started), so the mask
+   has nothing to hold off: the game walks its sound list under it while
+   the audio thread frees from it (hd_code 1A630.c), and no thread can run
+   in between, as on the N64. */
 static OSIntMask int_mask = OS_IM_ALL;
 OSIntMask osSetIntMask(OSIntMask m) {
     OSIntMask old = int_mask;
     int_mask = m;
-    port_ints_masked = (m & OS_IM_ALL & ~OS_IM_NONE) == 0;
     return old;
 }
 OSIntMask osGetIntMask(void) { return int_mask; }
@@ -163,9 +159,9 @@ void __osRestoreInt(u32 s) { }
 
 static OSTime time_base;
 
-OSTime osGetTime(void) { host_cpu_sync(); return host_ticks() - time_base; }
+OSTime osGetTime(void) { return host_ticks() - time_base; }
 void osSetTime(OSTime t) { time_base = host_ticks() - t; }
-u32 osGetCount(void) { host_cpu_sync(); return (u32)host_ticks(); }
+u32 osGetCount(void) { return (u32)host_ticks(); }
 
 #define MAX_TIMERS 16
 static OSTimer *timers[MAX_TIMERS];
@@ -267,7 +263,7 @@ u64 port_irq_timers(u64 now) {
     u64 next = ~0ull;
     int i;
     while (pi_n > 0 && pi_q[pi_head].due <= now) {
-        host_irq_cost(COST_IRQ);
+        host_interrupt();
         osSendMesg(pi_q[pi_head].mq, pi_q[pi_head].msg, OS_MESG_NOBLOCK);
         pi_head = (pi_head + 1) % PI_MAX;
         pi_n--;
@@ -286,7 +282,7 @@ u64 port_irq_timers(u64 now) {
             } else {
                 timers[i] = NULL;
             }
-            host_irq_cost(COST_IRQ);
+            host_interrupt();
             if (t->mq != NULL)
                 osSendMesg(t->mq, t->msg, OS_MESG_NOBLOCK);
         }
@@ -343,8 +339,6 @@ s32 osPiStartDma(OSIoMesg *mb, s32 pri, s32 dir, u32 devAddr, void *vAddr, u32 n
     mb->dramAddr = vAddr;
     mb->devAddr = devAddr;
     mb->size = nbytes;
-    host_cpu_charge(COST_PI_DMA);
-    host_cpu_sync();
     if (dir == OS_READ)
         host_rom_read((u32)vAddr, devAddr, nbytes);
     else
@@ -526,7 +520,7 @@ void osViSetEvent(OSMesgQueue *mq, OSMesg msg, u32 retraceCount) {
         host_log("osViSetEvent(%08X, %X, %u)\n", (unsigned)mq, (unsigned)msg, (unsigned)retraceCount);
 }
 
-void osViSwapBuffer(void *fb) { host_cpu_sync(); vi_next_fb = fb; }
+void osViSwapBuffer(void *fb) { vi_next_fb = fb; }
 void *osViGetCurrentFramebuffer(void) { return vi_cur_fb; }
 void *osViGetNextFramebuffer(void) { return vi_next_fb; }
 void osViBlack(u8 active) { vi_black = active; }
@@ -537,7 +531,7 @@ u32 osViGetCurrentLine(void) { return 0; }
 u32 osViGetCurrentField(void) { return 0; }
 
 void port_irq_vi(void) {
-    host_irq_cost(COST_IRQ);
+    host_interrupt();
     if (vi_next_fb != NULL)
         vi_cur_fb = vi_next_fb;
     host_vi_set_framebuffer(vi_black ? 0 : (u32)vi_cur_fb,
@@ -616,7 +610,6 @@ u32 osDpGetStatus(void) { return dp_frozen ? DPC_STATUS_FREEZE : 0; }
 void osSpTaskLoad(OSTask *t) { sp_task = t; }
 
 void osSpTaskStartGo(OSTask *t) {
-    host_cpu_sync();
     if (t->t.type == M_GFXTASK) {
         if (dp_frozen && dp_npending < (int)(sizeof dp_pending / sizeof dp_pending[0])) {
             dp_pending[dp_npending].dl = (u32)t->t.data_ptr;
@@ -663,11 +656,10 @@ s32 osAiSetFrequency(u32 f) {
 }
 
 s32 osAiSetNextBuffer(void *buf, u32 size) {
-    host_cpu_sync();
     return host_ai_submit((u32)buf, size);
 }
 
-u32 osAiGetLength(void) { host_cpu_sync(); return host_ai_length(); }
+u32 osAiGetLength(void) { return host_ai_length(); }
 u32 osAiGetStatus(void) { return host_ai_status(); }
 
 /* ---- debug output --------------------------------------------------------------------------- */

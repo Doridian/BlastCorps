@@ -12,8 +12,8 @@ last line (a line marked * has all of them).  Two runs are aligned by what
 the game did, not by when: the modes and levels in order (a mode the one
 run visits and the other doesn't is reported), and within a mode by the
 game's frame (a stretch of frames each time the count starts again).  So
-runs that took different numbers of retraces (lag frames, the CPU model)
-line up frame by frame.
+runs that took different numbers of retraces (the movie's lag frames, a
+build's own pace) line up frame by frame.
 
 What's compared, by the fields' kind:
 

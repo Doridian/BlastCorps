@@ -18,13 +18,6 @@
  * Functions that call llvm.va_start are left alone: the va_list and the
  * argument area are host memory written by the caller's native call.
  *
- * It also puts a call to __port_poll() on every loop back edge.  The game
- * busy-waits on counters other threads or interrupts advance (on the N64
- * something preempts it); the port runs its threads one at a time, and
- * the poll is where it lets time pass.  Being an opaque call, it also
- * makes such a loop reload what it waits on, as IDO's code did.  Not
- * with BEPASS_NOPOLL=1 (libaudio, which never waits).
- *
  * BEPASS_NATIVE=1 when compiling (the native-endian build, PORT_NATIVE_ENDIAN;
  * docs/PORT.md "Native-endian memory"): memory is in host order, so nothing
  * is swapped but the 64-bit scalars (u64, s64, double), whose two 32-bit
@@ -32,26 +25,14 @@
  * one first, as the translated asm's ld/sd/ldc1/sdc1 and every piece of code
  * that reads one half of a u64 as a word (the game mode D_80364A90) have
  * them.  Only their initializers need fixing then (__bepass_fixup_rot64).
- * The polls and the instruction count are the same in both modes.
  *
  * The pass runs at the start of the pipeline, before anything can combine
  * or reorder accesses; later passes see explicit bswaps and optimise them
  * (a swapped store to a local followed by a swapped load folds away).
- *
- * A second pass (ICount), at the end of the optimisation pipeline, adds each
- * basic block's size to the global counter __port_icount_c, as a stand-in for
- * the MIPS instructions the N64 would execute there: the port charges the
- * CPU's time from it (docs/PORT.md, "Timing").  The size is the optimised
- * IR's, without what is free or doesn't exist on the N64 (phis, casts,
- * constant address arithmetic, the byte swaps, debug intrinsics).  Not
- * with BEPASS_ENGINE=1: the engine's native replacement (port/engine)
- * charges what the original MIPS would have, block by block, itself.
  */
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -236,8 +217,7 @@ struct BEPass : PassInfoMixin<BEPass> {
         LLVMContext &c = f.getContext();
         bool changed = false;
         for (Instruction *i : work) {
-            /* the port's own counters (__port_icount, which the engine's
-               replacement adds to) are host data */
+            /* the port's own variables (__port_*) are host data */
             if (Value *p = getLoadStorePointerOperand(i))
                 if (auto *g = dyn_cast<GlobalVariable>(getUnderlyingObject(p)))
                     if (g->getName().starts_with("__port_"))
@@ -428,33 +408,6 @@ struct BEPass : PassInfoMixin<BEPass> {
         appendToGlobalCtors(m, ctor, 101);
     }
 
-    static void addPolls(Function &f, FunctionCallee poll) {
-        /* BEPASS_NOPOLL=1 (CMakeLists.txt's NOPOLL_C; BEPASS_ENGINE=1 implies
-           it): code that never waits on another thread needs no polls, and
-           without them its loops' shape doesn't move --deterministic's
-           clock (every 64th poll advances it), so a replacement needn't
-           have the original's (docs/PORT.md, "Timing") */
-        const char *np = getenv("BEPASS_NOPOLL");
-        if (np && *np == '1')
-            return;
-        DominatorTree dt(f);
-        std::vector<Instruction *> at;
-        for (BasicBlock &bb : f) {
-            Instruction *t = bb.getTerminator();
-            if (!t)
-                continue;
-            for (BasicBlock *succ : successors(&bb))
-                if (dt.dominates(succ, &bb)) {
-                    at.push_back(t);
-                    break;
-                }
-        }
-        for (Instruction *t : at) {
-            IRBuilder<> b(t);
-            b.CreateCall(poll);
-        }
-    }
-
     /* BEPASS_TRACE=1 when compiling: every function calls
        __port_trace(hash of its name) on entry, for comparing two builds
        call by call (port/host/runtime.c, PORT_TRACE) */
@@ -475,17 +428,9 @@ struct BEPass : PassInfoMixin<BEPass> {
         if (tr && *tr == '1')
             trace = m.getOrInsertFunction("__port_trace", FunctionType::get(Type::getVoidTy(m.getContext()),
                                                                             {Type::getInt32Ty(m.getContext())}, false));
-        FunctionCallee poll = m.getOrInsertFunction(
-            "__port_poll", FunctionType::get(Type::getVoidTy(m.getContext()), false));
-        /* (not in the engine's replacement, BEPASS_ENGINE=1: the translated
-           code it stands in for never polls, and a poll is a host_cpu_sync) */
-        const char *eng = getenv("BEPASS_ENGINE");
-        bool polls = !(eng && *eng == '1');
         for (Function &f : m)
             if (!f.isDeclaration()) {
                 runOnFunction(f, dl);
-                if (polls)
-                    addPolls(f, poll);
                 if (trace)
                     addTrace(f, trace);
             }
@@ -561,63 +506,6 @@ struct KeepAlign : PassInfoMixin<KeepAlign> {
     }
 };
 
-struct ICount : PassInfoMixin<ICount> {
-    static bool isRequired() { return true; }
-
-    static bool costs(const Instruction &i) {
-        if (isa<PHINode>(i) || isa<CastInst>(i) || isa<DbgInfoIntrinsic>(i))
-            return false;
-        if (auto *ci = dyn_cast<CallInst>(&i))      /* the profiler's hooks are free */
-            if (Function *f = ci->getCalledFunction())
-                if (f->getName().starts_with("__port_access"))
-                    return false;
-        if (auto *ii = dyn_cast<IntrinsicInst>(&i)) {
-            switch (ii->getIntrinsicID()) {
-            case Intrinsic::bswap:
-            case Intrinsic::fshl:       /* BEPASS_NATIVE's word exchange */
-            case Intrinsic::lifetime_start:
-            case Intrinsic::lifetime_end:
-            case Intrinsic::assume:
-                return false;
-            default:
-                return true;
-            }
-        }
-        if (auto *gep = dyn_cast<GetElementPtrInst>(&i))
-            return !gep->hasAllConstantIndices();
-        return true;
-    }
-
-    PreservedAnalyses run(Module &m, ModuleAnalysisManager &) {
-        /* BEPASS_ENGINE=1: the engine's replacement (port/engine), which
-           charges the original's MIPS instructions itself (ENGINE_BLK) */
-        const char *nc = getenv("BEPASS_ENGINE");
-        if (nc && *nc == '1')
-            return PreservedAnalyses::all();
-        LLVMContext &c = m.getContext();
-        Type *i32 = Type::getInt32Ty(c);
-        GlobalVariable *cnt = m.getGlobalVariable("__port_icount_c");
-        if (!cnt)
-            cnt = new GlobalVariable(m, i32, false, GlobalValue::ExternalLinkage, nullptr, "__port_icount_c");
-        for (Function &f : m) {
-            if (f.isDeclaration())
-                continue;
-            for (BasicBlock &bb : f) {
-                unsigned n = 0;
-                for (Instruction &i : bb)
-                    n += costs(i);
-                if (n == 0)
-                    continue;
-                IRBuilder<> b(&*bb.getFirstInsertionPt());
-                Value *v = b.CreateLoad(i32, cnt);
-                b.CreateStore(b.CreateAdd(v, ConstantInt::get(i32, n)), cnt);
-            }
-        }
-        return PreservedAnalyses::none();
-    }
-
-};
-
 } // namespace
 
 /* ILP32.cpp: port-ilp32, for opt (the 64-bit build); LP64.cpp: port-lp64,
@@ -635,8 +523,7 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
                 pb.registerOptimizerLastEPCallback(
                     [](ModulePassManager &mpm, OptimizationLevel, ThinOrFullLTOPhase) {
                         mpm.addPass(KeepAlign());
-                        mpm.addPass(ICount());
                     });
-                portRegisterArena(pb);      /* after ICount: BEPASS_ARENA=1 */
+                portRegisterArena(pb);      /* after KeepAlign: BEPASS_ARENA=1 */
             }};
 }

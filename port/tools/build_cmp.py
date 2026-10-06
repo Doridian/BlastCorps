@@ -35,7 +35,7 @@
       order), with the registers that differed so before it.
 
 Runs to be compared need the same inputs and a timing that doesn't depend
-on the code: --deterministic, the same --save (or none), PORT_COUNT_PER_OP=0.
+on the code: --deterministic and the same --save (or none).
 """
 
 import os

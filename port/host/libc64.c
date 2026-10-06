@@ -42,7 +42,6 @@ int n64_sprintf(char *buf, const char *fmt, ...) {
 }
 
 void n64_bcopy(const void *src, void *dst, int n) {
-    host_cpu_charge(n / 2);
 #ifdef PORT_ACCESS_PROFILE
     __port_access_copy(dst, (void *)src, n, 0);
 #endif
@@ -50,7 +49,6 @@ void n64_bcopy(const void *src, void *dst, int n) {
 }
 
 void n64_bzero(void *p, int n) {
-    host_cpu_charge(n / 4);
 #ifdef PORT_ACCESS_PROFILE
     __port_access_set(p, n, 0);
 #endif
@@ -58,7 +56,6 @@ void n64_bzero(void *p, int n) {
 }
 
 void *n64_memcpy(void *dst, const void *src, uint32_t n) {
-    host_cpu_charge(n / 2);
 #ifdef PORT_ACCESS_PROFILE
     __port_access_copy(dst, (void *)src, n, 0);
 #endif

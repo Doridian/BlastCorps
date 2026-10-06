@@ -220,12 +220,8 @@ void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused);
 
 /* --load-waits n64 (main.c): keep the N64's hardware waits (the
    controllers' power-on half second, the EEPROM's write cycles, the pak
-   thread's retrace a command, the decompressors' polls' time without the
-   CPU model); 0, the default, leaves them out */
+   thread's retrace a command); 0, the default, leaves them out */
 int host_load_waits(void);
-/* a decompressor runs on the current thread (loads.c): 1 on entry, 0 on
-   return */
-void host_loading(int on);
 
 /* 46.875 MHz CPU count since boot */
 uint64_t host_ticks(void);
@@ -244,21 +240,11 @@ void host_wake(uint32_t key);
 /* let a higher-priority runnable thread run now (libultra preemption) */
 void host_preempt(void);
 void host_yield(void);
-extern int port_ints_masked;        /* osSetIntMask(OS_IM_NONE): no preemption at the polls */
-/* charge the running thread for the instructions it executed (see
-   threads.c); it may be held back until the clock catches up */
-void host_cpu_sync(void);
 /* the check build's C under a check (PORT_ENGINE_CHECK): no time passes and no
    thread switches (threads.c) */
 int host_time_stopped(void);
-/* add instructions to the count, for work done by host code */
-void host_cpu_charge(uint32_t instructions);
-/* instructions an interrupt's handling takes from the running thread */
-void host_irq_cost(uint32_t instructions);
-/* rough costs of libultra's own code, which the port doesn't run */
-#define COST_MESG 60            /* osSendMesg/osRecvMesg */
-#define COST_IRQ 300            /* __osException, the dispatch, the handler */
-#define COST_PI_DMA 300         /* osPiStartDma through the PI manager */
+/* an interrupt taken: a thread in port_spin_wait tests again (threads.c) */
+void host_interrupt(void);
 
 /* "interrupts" the host raises from its loop, into port/src */
 void port_irq_vi(void);             /* one retrace */
@@ -297,8 +283,8 @@ int host_replay_save_due(int sync);
 int host_blocked_on(uint32_t wait_key);
 /* whether a thread other than the running one is in osRecvMesg on this key */
 int host_receiving(uint32_t key);
-/* osRecvMesg's charge: marks the thread as receiving on key until it returns */
-void host_recv_charge(uint32_t key, uint32_t n);
+/* osRecvMesg marks the thread as receiving on key until it returns */
+void host_recv_mark(uint32_t key);
 
 /* EEPROM (4 Kbit) */
 void host_eeprom_read(int block, uint32_t dst);

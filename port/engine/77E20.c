@@ -15,10 +15,6 @@
  * The model file's sections are buildings.h's MS_; the per-frame rates
  * (falling, smoke, dust, shadows, the queue's delay, the push) its named
  * constants.
- *
- * ENGINE_BLK charges the original's blocks for --cpu-model n64: each path
- * charges what the original's did (a loop's test once more than its body;
- * ENGINE_BLKN where a loop became one copy), in an order of their own.
  */
 #include "buildings.h"
 #include "level_tables.h"
@@ -207,30 +203,20 @@ s32 func_802C1A28(s32 group, Building *b);
 /* Whether the level's goal is reached once its goal building is hit: in
    a level that asks nothing else (D_803643DB and D_80364AC1 clear), yes;
    else once every target building is down (D_803F7806), every hole filled
-   and every object destroyed.  Two callers, with their blocks: */
-typedef struct GoalBlks {
-    Blk open, check, holes, holes_b, objs, objs_b;
-} GoalBlks;
-
-static s32 goal_open(const GoalBlks *k) {
+   and every object destroyed (func_802BC5E0's and func_802BDDB4's test) */
+static s32 goal_open(void) {
     s32 ok;
 
     if (D_803643DB == 0) {
-        BLKT(k->open);
         if (D_80364AC1 == 0)
             return 1;
     }
-    BLKT(k->check);
     if (D_803F7806 == 0)
         return 0;
-    BLKT(k->holes);
     ok = func_802BC7DC();
-    BLKT(k->holes_b);
     if (!ok)
         return 0;
-    BLKT(k->objs);
     ok = func_802BC714();
-    BLKT(k->objs_b);
     return ok;
 }
 
@@ -238,55 +224,34 @@ static s32 goal_open(const GoalBlks *k) {
    hit), the level is won if the goal is open: D_803643DA, and the game
    mode moves on. */
 void func_802BC5E0(void) {
-    static const GoalBlks k = {
-        {ENGINE_BLK_802BC638}, {ENGINE_BLK_802BC648}, {ENGINE_BLK_802BC658},
-        {ENGINE_BLK_802BC660}, {ENGINE_BLK_802BC668}, {ENGINE_BLK_802BC670},
-    };
-
-    ENGINE_BLK(802BC5E0);
     if (D_803F7805 != 0) {
-        ENGINE_BLK(802BC620);
         D_803F7805 = 0;
-        if (goal_open(&k)) {
-            ENGINE_BLK(802BC678);
+        if (goal_open()) {
             D_803643DA = 1;
             D_802E8BD8 = 1;
             if (D_803643DB == 0) {
-                ENGINE_BLK(802BC6A0);
                 if (D_80364A90 == 0x40) {
-                    ENGINE_BLK(802BC6D0);
                     func_80275390(D_80364A90);
                 } else {
-                    ENGINE_BLK(802BC6B4);
                     *((u8 *)&D_803649E8 + NE_X3(0)) = 1;
                     D_80364A98 = 8;
                 }
             }
         }
     }
-    ENGINE_BLK(802BC6DC);
 }
 
 /* whether target object o is destroyed: every one of its ids' state
-   (func_8029D210) is 0; blocks: the test, an id, after its state, the
-   next id, and the alive one's */
-typedef struct ObjBlks {
-    Blk test, id, state, next, alive;
-} ObjBlks;
-
-static s32 obj_destroyed(TargetObj *o, const ObjBlks *k) {
+   (func_8029D210) is 0 */
+static s32 obj_destroyed(TargetObj *o) {
     s8 *q;
     s32 alive;
 
-    for (q = o->ids; BLKT(k->test), *q != -1; q++) {
-        BLKT(k->id);
+    for (q = o->ids; *q != -1; q++) {
         alive = func_8029D210(*q);
-        BLKT(k->state);
         if (alive) {
-            BLKT(k->alive);
             return 0;
         }
-        BLKT(k->next);
     }
     return 1;
 }
@@ -295,29 +260,18 @@ static s32 obj_destroyed(TargetObj *o, const ObjBlks *k) {
    not behind the carrier (z, D_803EF6E4) */
 REGS(-> t4)
 s32 func_802BC714(void) {
-    static const ObjBlks k = {
-        {ENGINE_BLK_802BC77C}, {ENGINE_BLK_802BC78C}, {ENGINE_BLK_802BC794},
-        {ENGINE_BLK_802BC79C}, {ENGINE_BLK_802BC7A4},
-    };
     TargetObj *o;
     s32 lim = D_803EF6E4;
 
-    ENGINE_BLK(802BC714);
-    for (o = D_80306480; ENGINE_BLK(802BC748), o->level != -1; o++) {
-        ENGINE_BLK(802BC758);
+    for (o = D_80306480; o->level != -1; o++) {
         if (o->level == D_802E8BDC) {
-            ENGINE_BLK(802BC768);
             if (!(o->z < lim)) {
-                ENGINE_BLK(802BC778);
-                if (!obj_destroyed(o, &k)) {
-                    ENGINE_BLK(802BC7B4);
+                if (!obj_destroyed(o)) {
                     return 0;
                 }
             }
         }
-        ENGINE_BLK(802BC7AC);
     }
-    ENGINE_BLK(802BC7B4);
     return 1;
 }
 
@@ -327,17 +281,11 @@ s32 func_802BC7DC(void) {
     UnkStruct_8039C800 *h = D_8039C800;
     s32 n;
 
-    ENGINE_BLK(802BC7DC);
-    for (n = D_8039C940; ENGINE_BLK(802BC804), n != 0; n--, h++) {
-        ENGINE_BLK(802BC80C);
+    for (n = D_8039C940; n != 0; n--, h++) {
         if (h->unk26 == 0) {
-            ENGINE_BLK(802BC828);
             return 0;
         }
-        ENGINE_BLK(802BC818);
     }
-    ENGINE_BLK(802BC824);
-    ENGINE_BLK(802BC828);
     return 1;
 }
 
@@ -348,12 +296,9 @@ REGS()
 void func_802BC840(void) {
     s32 i;
 
-    ENGINE_BLK(802BC840);
-    for (i = 0; ENGINE_BLK(802BC85C), i < NDELAYED; i++) {
-        ENGINE_BLK(802BC864);
+    for (i = 0; i < NDELAYED; i++) {
         D_803F7690[i].frames = 0;
     }
-    ENGINE_BLK(802BC874);
 }
 
 /* `amount` of damage to group `group` of building b: added to what is
@@ -364,37 +309,25 @@ void func_802BC888(s32 amount, s32 group, Building *b) {
     DelayedHit *h;
     s32 i;
 
-    ENGINE_BLK(802BC888);
-    for (i = 0, h = D_803F7690; ENGINE_BLK(802BC918), i < NDELAYED; i++, h++) {
-        ENGINE_BLK(802BC920);
+    for (i = 0, h = D_803F7690; i < NDELAYED; i++, h++) {
         if (h->frames == 0)
             continue;
-        ENGINE_BLK(802BC930);
         if (h->b != b)
             continue;
-        ENGINE_BLK(802BC93C);
         if (h->group != group)
             continue;
-        ENGINE_BLK(802BC948);
         h->amount += amount;
-        ENGINE_BLK(802BC9A4);
         return;
     }
-    ENGINE_BLK(802BC958);
-    for (i = 0, h = D_803F7690; ENGINE_BLK(802BC964), i < NDELAYED; i++, h++) {
-        ENGINE_BLK(802BC96C);
+    for (i = 0, h = D_803F7690; i < NDELAYED; i++, h++) {
         if (h->frames == 0) {
-            ENGINE_BLK(802BC984);
             h->group = group;
             h->amount = amount;
             h->b = b;
             h->frames = func_8026A8E0(1, DELAY_MAX);
-            ENGINE_BLK(802BC9A0);
             break;
         }
-        ENGINE_BLK(802BC97C);
     }
-    ENGINE_BLK(802BC9A4);
 }
 
 /* a queued hit whose time has come, done (the damage capped at 100; at
@@ -404,66 +337,45 @@ static void delayed_hit_apply(DelayedHit *h) {
     Piece *q;
     s32 amount, g, d;
 
-    ENGINE_BLK(802BCA8C);
     amount = h->amount;
     h->frames = 0;
     b = h->b;
     g = h->group;
     D_802E8BE4 = SHAKE_HIT_FRAMES;
     if (amount <= SHAKE_HIT_MAX) {
-        ENGINE_BLK(802BCAB4);
         D_802E8BE8 = amount;
     } else {
-        ENGINE_BLK(802BCABC);
         D_802E8BE8 = SHAKE_HIT_MAX;
     }
-    ENGINE_BLK(802BCAC8);
     d = B_DAMAGE(b)[g - 1] + amount;
     if (d >= 100) {
-        ENGINE_BLK(802BCAE4);
         d = 100;
     }
-    ENGINE_BLK(802BCAE8);
     B_DAMAGE(b)[g - 1] = d;
     if (d == 100) {
         /* the group destroyed: its shadow, smoke (not while the level
            ends), dust, the building's first effect, its pieces off */
-        ENGINE_BLK(802BCAF4);
         func_802C1438(g, b);
-        ENGINE_BLK(802BCAFC);
         if (D_803643D6 == 0) {
-            ENGINE_BLK(802BCB0C);
             if (D_803643D7 == 0) {
-                ENGINE_BLK(802BCB1C);
                 func_802C09B8(g, b);
             }
         }
-        ENGINE_BLK(802BCB24);
         func_802C0E8C(g, b);
-        ENGINE_BLK(802BCB2C);
         if (D_80364A90 != 0x200) {
-            ENGINE_BLK(802BCB40);
             if (D_80364A90 != 0x400) {
-                ENGINE_BLK(802BCB48);
                 func_802BF384(b);
             }
         }
-        ENGINE_BLK(802BCB50);
-        for (q = b->unk4; ENGINE_BLK(802BCB58), q != (Piece *)b->unk8; q++) {
-            ENGINE_BLK(802BCB60);
+        for (q = b->unk4; q != (Piece *)b->unk8; q++) {
             if (q->group == g) {
-                ENGINE_BLK(802BCB6C);
                 q->active = 0;
             }
         }
     }
-    ENGINE_BLK(802BCB78);
     func_802BF668(b);
-    ENGINE_BLK(802BCB80);
     func_802BF534(b);
-    ENGINE_BLK(802BCB88);
     func_802BF898(g, d, b);
-    ENGINE_BLK(802BCB90);
 }
 
 /* Each frame (hd.c): the queued hits counted down, those whose time has
@@ -472,21 +384,15 @@ void func_802BCA2C(void) {
     DelayedHit *h;
     s32 i;
 
-    ENGINE_BLK(802BCA2C);
-    for (i = 0, h = D_803F7690; ENGINE_BLK(802BCA68), i < NDELAYED; i++, h++) {
-        ENGINE_BLK(802BCA70);
+    for (i = 0, h = D_803F7690; i < NDELAYED; i++, h++) {
         if (h->frames != 0) {
-            ENGINE_BLK(802BCA80);
             if (h->frames != 1) {
-                ENGINE_BLK(802BCB98);
                 h->frames--;
             } else {
                 delayed_hit_apply(h);
             }
         }
-        ENGINE_BLK(802BCB9C);
     }
-    ENGINE_BLK(802BCBA4);
 }
 
 /* ---- the parts hit, this frame and the last -------------------------- */
@@ -497,14 +403,12 @@ void func_802BCA2C(void) {
 /* this frame's list emptied */
 REGS()
 void func_802BCBD8(void) {
-    ENGINE_BLK(802BCBD8);
     D_803F77D4 = D_803F77D8;
 }
 
 /* last frame's list emptied */
 REGS()
 void func_802BCC10(void) {
-    ENGINE_BLK(802BCC10);
     D_803F77E4 = D_803F77E8;
 }
 
@@ -513,15 +417,11 @@ REGS()
 void func_802BCC48(void) {
     u8 *d = D_803F77E8, *s;
 
-    ENGINE_BLK(802BCC48);
     if (D_80358060 != 0) {
-        ENGINE_BLK(802BCC7C);
-        for (s = D_803F77D8; ENGINE_BLK(802BCC90), s != D_803F77D4;) {
-            ENGINE_BLK(802BCC98);
+        for (s = D_803F77D8; s != D_803F77D4;) {
             *d++ = *s++;
         }
     }
-    ENGINE_BLK(802BCCAC);
     D_803F77E4 = d;
 }
 
@@ -530,15 +430,11 @@ REGS(fp)
 void func_802BCCD4(s32 kind) {
     s32 found;
 
-    ENGINE_BLK(802BCCD4);
     found = func_802BCD80(kind);
-    ENGINE_BLK(802BCCEC);
     if (!found) {
-        ENGINE_BLK(802BCCF4);
         *D_803F77D4 = kind;
         D_803F77D4++;
     }
-    ENGINE_BLK(802BCD0C);
 }
 
 /* whether this frame's list holds anything but `kind` (unused) */
@@ -547,16 +443,12 @@ s32 func_802BCD20(s32 kind) {
     u8 *p;
     s32 r = 0;
 
-    ENGINE_BLK(802BCD20);
-    for (p = D_803F77D8; ENGINE_BLK(802BCD4C), p != D_803F77D4;) {
-        ENGINE_BLK(802BCD54);
+    for (p = D_803F77D8; p != D_803F77D4;) {
         if (kind != *p++) {
-            ENGINE_BLK(802BCD64);
             r = 1;
             break;
         }
     }
-    ENGINE_BLK(802BCD68);
     return r;
 }
 
@@ -566,16 +458,12 @@ s32 func_802BCD80(s32 kind) {
     u8 *p;
     s32 r = 0;
 
-    ENGINE_BLK(802BCD80);
-    for (p = D_803F77D8; ENGINE_BLK(802BCDAC), p != D_803F77D4;) {
-        ENGINE_BLK(802BCDB4);
+    for (p = D_803F77D8; p != D_803F77D4;) {
         if (kind == *p++) {
-            ENGINE_BLK(802BCDC4);
             r = 1;
             break;
         }
     }
-    ENGINE_BLK(802BCDC8);
     return r;
 }
 
@@ -585,16 +473,12 @@ s32 func_802BCDE0(s32 kind) {
     u8 *p;
     s32 r = 0;
 
-    ENGINE_BLK(802BCDE0);
-    for (p = D_803F77E8; ENGINE_BLK(802BCE0C), p != D_803F77E4;) {
-        ENGINE_BLK(802BCE14);
+    for (p = D_803F77E8; p != D_803F77E4;) {
         if (kind == *p++) {
-            ENGINE_BLK(802BCE24);
             r = 1;
             break;
         }
     }
-    ENGINE_BLK(802BCE28);
     return r;
 }
 
@@ -605,10 +489,6 @@ s32 func_802BCDE0(s32 kind) {
    its kind (1, 2, 3; 0 none) in D_803F7808 and its outline in
    D_8036C790. */
 s32 func_802BCE40(void) {
-    static const ObjBlks k = {
-        {ENGINE_BLK_802BCFAC}, {ENGINE_BLK_802BCFBC}, {ENGINE_BLK_802BCFC4},
-        {ENGINE_BLK_802BCFCC}, {ENGINE_BLK_802BCFD4},
-    };
     Building *b;
     s32 px = D_803643E0, py = D_803643E4, pz = D_803643E8;
     s64 best = 9999999, d;
@@ -617,82 +497,55 @@ s32 func_802BCE40(void) {
     UnkStruct_8039C800 *h;
     TargetObj *o;
 
-    ENGINE_BLK(802BCE40);
-    for (b = D_803F4030; ENGINE_BLK(802BCEB0), b != D_803F7654; b++) {
-        ENGINE_BLK(802BCEB8);
+    for (b = D_803F4030; b != D_803F7654; b++) {
         if (!B_TARGET(b))
             continue;
-        ENGINE_BLK(802BCEC4);
         if (B_DESTROYED(b))
             continue;
-        ENGINE_BLK(802BCED0);
         d = func_802ABCDC(b->x, b->y, b->z, px, py, pz);
-        ENGINE_BLK(802BCEE0);
         if (!(d < best))
             continue;
-        ENGINE_BLK(802BCEEC);
         down = func_802BD064(b + 1);
-        ENGINE_BLK(802BCEF4);
         if (down)
             continue;
-        ENGINE_BLK(802BCEFC);
         best = d;
         found = (u32)b;
         kind = 1;
     }
-    ENGINE_BLK(802BCF0C);
-    for (n = D_8039C940, h = D_8039C800; ENGINE_BLK(802BCF1C), n != 0; n--, h++) {
-        ENGINE_BLK(802BCF24);
+    for (n = D_8039C940, h = D_8039C800; n != 0; n--, h++) {
         if (h->unk26 == 0) {
-            ENGINE_BLK(802BCF30);
             d = func_802ABCDC(h->x, h->y, h->z, px, py, pz);
-            ENGINE_BLK(802BCF40);
             if (d < best) {
-                ENGINE_BLK(802BCF4C);
                 kind = 2;
                 found = (u32)h;
                 best = d;
             }
         }
-        ENGINE_BLK(802BCF58);
     }
-    ENGINE_BLK(802BCF64);
-    for (o = D_80306480; ENGINE_BLK(802BCF6C), o->level != -1; o++) {
-        ENGINE_BLK(802BCF7C);
+    for (o = D_80306480; o->level != -1; o++) {
         if (o->level == D_802E8BDC) {
-            ENGINE_BLK(802BCF8C);
             d = func_802ABCDC(o->x, o->y, o->z, px, py, pz);
-            ENGINE_BLK(802BCF9C);
             if (d < best) {
-                ENGINE_BLK(802BCFA8);
-                if (!obj_destroyed(o, &k)) {
+                if (!obj_destroyed(o)) {
                     kind = 3;
                     found = (u32)o;
                     best = d;
                 }
             }
         }
-        ENGINE_BLK(802BCFE0);
     }
-    ENGINE_BLK(802BCFE8);
     outline = 0;
     if (kind != 0) {
-        ENGINE_BLK(802BCFF0);
         if (kind == 1) {
-            ENGINE_BLK(802BD014);
             outline = (u32)B_SECTION((Building *)found, MS_CORNERS);
         } else {
-            ENGINE_BLK(802BCFFC);
             if (kind == 3) {
-                ENGINE_BLK(802BD00C);
                 outline = (u32)((TargetObj *)found)->corners;
             } else {
-                ENGINE_BLK(802BD004);
                 outline = (u32)((UnkStruct_8039C800 *)found)->corners;
             }
         }
     }
-    ENGINE_BLK(802BD020);
     D_8036C790 = outline;
     D_803F7808 = kind;
     return found;
@@ -706,12 +559,9 @@ static GroupSet *group_set_of(Building *b) {
 
     if (sets == NULL)
         return NULL;
-    ENGINE_BLK(802BD090);
-    for (n = *(u32 *)sets, s = (GroupSet *)(sets + 4); ENGINE_BLK(802BD098), n != 0; n--, s++) {
-        ENGINE_BLK(802BD0A0);
+    for (n = *(u32 *)sets, s = (GroupSet *)(sets + 4); n != 0; n--, s++) {
         if (s->b == b)
             return s;
-        ENGINE_BLK(802BD0B0);
     }
     return NULL;
 }
@@ -725,23 +575,16 @@ s32 func_802BD064(Building *next) {
     u8 *g;
     s32 k;
 
-    ENGINE_BLK(802BD064);
     s = group_set_of(b);
     if (s != NULL) {
-        ENGINE_BLK(802BD0B8);
-        for (k = s->n, g = s->groups; ENGINE_BLK(802BD0C0), k != 0; k--, g++) {
-            ENGINE_BLK(802BD0C8);
+        for (k = s->n, g = s->groups; k != 0; k--, g++) {
             if (B_DAMAGE(b)[*g] != 100)
                 break;
-            ENGINE_BLK(802BD0E4);
         }
         if (k == 0) {
-            ENGINE_BLK(802BD0EC);
-            ENGINE_BLK(802BD0F0);
             return 1;
         }
     }
-    ENGINE_BLK(802BD0F0);
     return 0;
 }
 
@@ -751,31 +594,22 @@ void func_802BD10C(s32 t_) {
     s32 x, z;
     s64 d;
 
-    ENGINE_BLK(802BD10C);
     if (D_803F7809 == 2) {
-        ENGINE_BLK(802BD168);
         x = ((UnkStruct_8039C800 *)t_)->x;
         z = ((UnkStruct_8039C800 *)t_)->z;
     } else {
-        ENGINE_BLK(802BD144);
         if (D_803F7809 == 3) {
-            ENGINE_BLK(802BD15C);
             x = ((TargetObj *)t_)->x;
             z = ((TargetObj *)t_)->z;
         } else {
-            ENGINE_BLK(802BD150);
             x = ((Building *)t_)->x;
             z = ((Building *)t_)->z;
         }
     }
-    ENGINE_BLK(802BD170);
     d = func_802ABCDC(x, 0, z, D_803EF6DC, 0, D_803EF6E4);
-    ENGINE_BLK(802BD194);
     if (D_803EF6FC != 0) {
-        ENGINE_BLK(802BD1A8);
         d = (s32)engine_divu((u32)d, D_803EF6FC);
     }
-    ENGINE_BLK(802BD1C0);
     D_8036C7C8 = (s32)d;
 }
 
@@ -791,13 +625,10 @@ static inline u32 *copy_cmds(u32 *d, const u32 *src, s32 n) {
     return d + n * 2;
 }
 
-/* Display list commands copied from src to src_end at d, in one go; the
-   original's loop charged its test block once more than its copy block. */
-#define COPY_CMDS(d, src, src_end, B_TEST, B_COPY)                          \
+/* Display list commands copied from src to src_end at d, in one go */
+#define COPY_CMDS(d, src, src_end)                                          \
     do {                                                                    \
         s32 ncmd_ = ((u8 *)(src_end) - (u8 *)(src)) / 8;                    \
-        ENGINE_BLKN(B_TEST, ncmd_ + 1);                                     \
-        ENGINE_BLKN(B_COPY, ncmd_);                                         \
         (d) = copy_cmds((d), (src), ncmd_);                                 \
     } while (0)
 
@@ -814,46 +645,34 @@ static void draw_look(Building *b, s32 gi, GroupDls *dls, AnimTex *anim, AnimTex
     u32 mtx = 0;
     s32 falling, t, fall;
 
-    ENGINE_BLK(802BD608);
     falling = B_FALLING(b)[gi];
     if (falling) {
-        ENGINE_BLK(802BD620);
         t = B_FALL_T(b)[gi] + 1;
         B_FALL_T(b)[gi] = t;
         fall = (s32)((u32)t * (u32)t * (u32)-FALL_ACCEL);
         *fell = 1;
         if (!(-(s32)((u32)((u16 *)B_SECTION(b, MS_FALLS))[gi] << 16) < fall)) {
             /* it has landed */
-            ENGINE_BLK(802BD678);
             B_FALLING(b)[gi] = 0;
             func_802BFD1C(b, gi);
-            ENGINE_BLK(802BD684);
             D_802E8BE4 = SHAKE_HIT_FRAMES;
             D_802E8BE8 = SHAKE_LANDED;
             B_DAMAGE(b)[gi] = 100;
             func_802BD85C(b, gi);
-            ENGINE_BLK(802BD6B8);
         }
-        ENGINE_BLK(802BD6BC);
         mtx = func_802BE574(b, gi, fall);
-        ENGINE_BLK(802BD6C4);
         d0[0] = DL_MTX_PUSH;
         d0[1] = mtx;
         d0 += 2;
     }
-    ENGINE_BLK(802BD6D8);
     src = (u32 *)(model + dls->dl0);
     src_end = (u32 *)(model + dls->dl0_end);
     if (anim != anim_end) {
-        ENGINE_BLK(802BD6EC);
         d0 = func_802BE228(d0, src_end, anim, anim_end, src, &src);
-        ENGINE_BLK(802BD6F4);
     } else {
-        COPY_CMDS(d0, src, src_end, 802BD6FC, 802BD704);
+        COPY_CMDS(d0, src, src_end);
     }
-    ENGINE_BLK(802BD718);
     if (falling) {
-        ENGINE_BLK(802BD720);
         d0[0] = DL_MTX_POP;
         d0[1] = 0;
         d0 += 2;
@@ -861,37 +680,31 @@ static void draw_look(Building *b, s32 gi, GroupDls *dls, AnimTex *anim, AnimTex
         d1[1] = mtx;
         d1 += 2;
     }
-    ENGINE_BLK(802BD744);
     src = (u32 *)(model + dls->dl1);
     src_end = (u32 *)(model + dls->dl1_end);
     if (anim != anim_end) {
-        ENGINE_BLK(802BD758);
         d1 = func_802BE3C8(d1, src_end, anim, anim_end, src, &src);
-        ENGINE_BLK(802BD760);
     } else {
-        COPY_CMDS(d1, src, src_end, 802BD768, 802BD770);
+        COPY_CMDS(d1, src, src_end);
     }
-    ENGINE_BLK(802BD784);
     if (falling) {
-        ENGINE_BLK(802BD78C);
         d1[0] = DL_MTX_POP;
         d1[1] = 0;
         d1 += 2;
     }
-    ENGINE_BLK(802BD79C);
     *d0p = d0;
     *d1p = d1;
 }
 
 /* Each visible cell's place in D_803C30A8 (the visible cells, to -1) + 1,
-   0 for the others: the original searched the list for each building,
-   its blocks charged by the place.  Marked for one func_802BD1F8 and
-   cleared after it (the cells it marked). */
+   0 for the others: the original searched the list for each building.
+   Marked for one func_802BD1F8 and cleared after it (the cells it
+   marked). */
 static u16 cell_at[256];
 static u8 cells_marked[256];
 static s32 ncells_marked;
 
-static s32 visible_cells_mark(void) {
+static void visible_cells_mark(void) {
     s32 n;
     s16 c;
 
@@ -900,7 +713,6 @@ static s32 visible_cells_mark(void) {
             cell_at[c] = n + 1;
             cells_marked[ncells_marked++] = c;
         }
-    return n;
 }
 
 static void visible_cells_clear(void) {
@@ -927,46 +739,31 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     AnimTex *anim, *anim_end;
     u32 *src, *src_end;
     Mtx *m;
-    s32 first, n, gi, dmg, i, nvis, hidden;
+    s32 first, n, gi, dmg, i, hidden;
     GroupCond *c;
-    s32 drawn = 0, fell = 0;
+    s32 fell = 0;
 
-    ENGINE_BLK(802BD1F8);
     D_803F7658 = arg4;
     D_803F765C = arg5;
     func_802C08C4((u32 *)g6);
-    ENGINE_BLK(802BD248);
     func_802C0CBC((u32 *)g7);
-    ENGINE_BLK(802BD250);
     if (D_8035805C != 0) {
-        ENGINE_BLK(802BD268);
         D_803F3964 = D_803F24D0;
     } else {
-        ENGINE_BLK(802BD274);
         D_803F3964 = D_803F2ED0;
     }
-    ENGINE_BLK(802BD27C);
-    nvis = visible_cells_mark();
+    visible_cells_mark();
     end = D_803F7654;
-    for (b = D_803F4030; ENGINE_BLK(802BD29C), b != end; b++) {
-        ENGINE_BLK(802BD2A4);
+    for (b = D_803F4030; b != end; b++) {
         i = cell_at[B_CELL(b)] - 1;
         if (i < 0) {
-            ENGINE_BLKN(802BD2B0, nvis + 1);
-            ENGINE_BLKN(802BD2C4, nvis);
             goto done;
         }
-        ENGINE_BLKN(802BD2B0, i + 1);
-        ENGINE_BLKN(802BD2C4, i + 1);
-        ENGINE_BLK(802BD2CC);
         if (B_ID(b) == MODEL_GOAL) {
-            ENGINE_BLK(802BD2DC);
             n = func_802BD8C8();
-            ENGINE_BLK(802BD2E4);
             if (n)
                 goto done;
         }
-        ENGINE_BLK(802BD2EC);
         model = B_MODEL(b);
         if (M_MOVES(model)) {
             /* a moving building: its matrix (4EBE0.c, from its place
@@ -974,12 +771,10 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                unk34) pushed, and its parts moved to where it is now */
             s32 ox, oy, oz;
 
-            ENGINE_BLK(802BD2FC);
             m = D_803F765C;
             D_803F765C = (Mtx *)((u8 *)m + 0x40);
             func_802933A0(b->unk1C, b->unk20, b->unk24, M_MOVES(model), m, (u8 *)b + 0x38, (Gfx *)g0,
                           (Gfx *)g1, b->unk34, b->x, b->y, b->z);
-            ENGINE_BLK(802BD3A4);
             g0 += 2;
             g1 += 2;
             ox = b->x, oy = b->y, oz = b->z;
@@ -987,14 +782,11 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             b->y = D_803F7668;
             b->z = D_803F766C;
             func_802BD99C(b, D_803F7664 - ox, D_803F7668 - oy, D_803F766C - oz);
-            ENGINE_BLK(802BD480);
         }
-        ENGINE_BLK(802BD4C8);
         model = B_MODEL(b);
         anim = (AnimTex *)B_SECTION(b, MS_ANIMS);
         anim_end = (AnimTex *)B_SECTION(b, MS_CENTRES);
         func_802BDDB4(b, anim, anim_end);
-        ENGINE_BLK(802BD4F0);
         g0[0] = DL_SEGMENT(9);          /* the model's textures */
         g0[1] = K0(M_TEXTURES(model));
         g1[0] = DL_SEGMENT(9);
@@ -1008,37 +800,28 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         /* the head, in both */
         src = (u32 *)B_SECTION(b, MS_DL);
         src_end = (u32 *)B_SECTION(b, MS_DL_END);
-        drawn = 1;
         n = ((u8 *)src_end - (u8 *)src) / 8;
-        ENGINE_BLKN(802BD568, n + 1);
-        ENGINE_BLKN(802BD570, n);
         copy_cmds(d0, src, n);
         copy_cmds(d1, src, n);
         d0 += n * 2;
         d1 += n * 2;
-        ENGINE_BLK(802BD58C);
         /* the groups' looks */
         first = 1;
         grp_end = B_SECTION(b, MS_FALLS);
-        for (r = B_SECTION(b, MS_GROUP_DLS); ENGINE_BLK(802BD590), r != grp_end; r = next) {
-            ENGINE_BLK(802BD598);
+        for (r = B_SECTION(b, MS_GROUP_DLS); r != grp_end; r = next) {
             gi = GDL_GROUP(r) - 1;
             n = GDL_N(r);
             next = GDL_NEXT(r);
             hidden = 0;
-            for (c = GDL_COND(r); ENGINE_BLK(802BD5A8), n != 0; c++) {
-                ENGINE_BLK(802BD5B0);
+            for (c = GDL_COND(r); n != 0; c++) {
                 dmg = B_DAMAGE(b)[c->group - 1];
                 --n;
                 if (c->below) {
-                    ENGINE_BLK(802BD5D8);
                     if (dmg < c->limit) {
-                        ENGINE_BLK(802BD5E4);
                         hidden = 1;
                         break;
                     }
                 } else {
-                    ENGINE_BLK(802BD5EC);
                     if (c->limit < dmg) {
                         hidden = 1;
                         break;
@@ -1046,17 +829,14 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
                 }
             }
             if (hidden) {
-                ENGINE_BLK(802BD5F8);
             } else {
                 draw_look(b, gi, GDL_DLS(r, GDL_N(r)), anim, anim_end, &d0, &d1, &fell);
                 if (first)
                     break;
             }
-            ENGINE_BLK(802BD7A4);
             first = 0;
         }
     done:
-        ENGINE_BLK(802BD7AC);
         d0[0] = DL_END;
         d0[1] = 0;
         d1[0] = DL_END;
@@ -1064,7 +844,6 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         d0 += 2;
         d1 += 2;
         if (M_MOVES(B_MODEL(b))) {
-            ENGINE_BLK(802BD7D8);
             g0[0] = DL_MTX_POP;         /* the moving one's matrix popped */
             g0[1] = 0;
             g1[0] = DL_MTX_POP;
@@ -1072,15 +851,10 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             g0 += 2;
             g1 += 2;
         }
-        ENGINE_BLK(802BD7FC);
     }
-    ENGINE_BLK(802BD804);
     visible_cells_clear();
-    if (drawn) {
-    }
     if (fell)
-    g0 = func_802C12E0(g0, g1, &g1);
-    ENGINE_BLK(802BD80C);
+        g0 = func_802C12E0(g0, g1, &g1);
     g0[0] = DL_END;
     g0[1] = 0;
     g1[0] = DL_END;
@@ -1093,19 +867,14 @@ REGS(v0, a3)
 void func_802BD85C(Building *b, s32 g) {
     Piece *p;
 
-    ENGINE_BLK(802BD85C);
     g++;
-    for (p = b->unk4; ENGINE_BLK(802BD880), p != (Piece *)b->unk8; p++) {
-        ENGINE_BLK(802BD888);
+    for (p = b->unk4; p != (Piece *)b->unk8; p++) {
         if (p->group != g)
             continue;
-        ENGINE_BLK(802BD894);
         if (p->group2 == 0)
             continue;
-        ENGINE_BLK(802BD8A0);
         p->active = 0;
     }
-    ENGINE_BLK(802BD8AC);
 }
 
 /* in level 0x32, whether func_80286090 says no (the goal there can't be
@@ -1114,42 +883,30 @@ REGS(-> t1)
 s32 func_802BD8C8(void) {
     s32 r = 0, ok;
 
-    ENGINE_BLK(802BD8C8);
     if (D_802E8BDC == 0x32) {
-        ENGINE_BLK(802BD930);
         ok = func_80286090(D_802E8BDC);
-        ENGINE_BLK(802BD938);
         if (!ok) {
-            ENGINE_BLK(802BD940);
             r = 1;
         }
     }
-    ENGINE_BLK(802BD944);
     return r;
 }
 
 /* the axis piece p is flattest along, from its normal's sizes: z if |nz|
    is the largest, then y, else x */
 static void piece_axis(Piece *p, s64 ax, s64 ay, s64 az) {
-    ENGINE_BLK(802BDD58);
     if (!(az < ax)) {
-        ENGINE_BLK(802BDD64);
         if (!(az < ay)) {
-            ENGINE_BLK(802BDD6C);
             p->axis = 0;
             return;
         }
     }
-    ENGINE_BLK(802BDD74);
     if (!(ay < ax)) {
-        ENGINE_BLK(802BDD80);
         if (!(ay < az)) {
-            ENGINE_BLK(802BDD88);
             p->axis = 1;
             return;
         }
     }
-    ENGINE_BLK(802BDD94);
     p->axis = 2;
 }
 
@@ -1166,60 +923,46 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
     s32 n, k;
     Piece *p;
 
-    ENGINE_BLK(802BD99C);
-    for (s = B_SECTION(b, MS_HEIGHTS), e = B_SECTION(b, MS_SUPPORTS); ENGINE_BLK(802BD9D0), s != e; s += 2) {
-        ENGINE_BLK(802BD9D8);
+    for (s = B_SECTION(b, MS_HEIGHTS), e = B_SECTION(b, MS_SUPPORTS); s != e; s += 2) {
         *(s16 *)s += sy;
     }
-    ENGINE_BLK(802BD9EC);
     s = B_SECTION(b, MS_SHADOW);
     ((s16 *)s)[0] += sx;
     ((s16 *)s)[1] += sz;
     ((s16 *)s)[2] += sx;
     ((s16 *)s)[3] += sz;
-    for (s = B_SECTION(b, MS_TRIS), e = B_SECTION(b, MS_ANIMS); ENGINE_BLK(802BDA34), s != e; s += 0x14) {
-        ENGINE_BLK(802BDA3C);
+    for (s = B_SECTION(b, MS_TRIS), e = B_SECTION(b, MS_ANIMS); s != e; s += 0x14) {
         for (k = 0; k < 9; k += 3) {
             ((s16 *)s)[k] += sx;
             ((s16 *)s)[k + 1] += sy;
             ((s16 *)s)[k + 2] += sz;
         }
     }
-    ENGINE_BLK(802BDAB0);
     s = B_SECTION(b, MS_CORNERS);
-    for (n = 4; ENGINE_BLK(802BDABC), n != 0; n--, s += 6) {
-        ENGINE_BLK(802BDAC4);
+    for (n = 4; n != 0; n--, s += 6) {
         ((s16 *)s)[0] += sx;
         ((s16 *)s)[1] += sy;
         ((s16 *)s)[2] += sz;
     }
-    ENGINE_BLK(802BDAF4);
-    for (s = B_SECTION(b, MS_FX_HIT), e = B_SECTION(b, MS_FX_LAND); ENGINE_BLK(802BDB04), s != e; s += FX_SIZE) {
-        ENGINE_BLK(802BDB0C);
+    for (s = B_SECTION(b, MS_FX_HIT), e = B_SECTION(b, MS_FX_LAND); s != e; s += FX_SIZE) {
         FX_W(s, FX_X) += wx, FX_W(s, FX_Y) += wy, FX_W(s, FX_Z) += wz;
         FX_W(s, FX_UNK28) += wy;
     }
-    ENGINE_BLK(802BDB44);
-    for (s = B_SECTION(b, MS_FX_LAND), e = B_SECTION(b, MS_GROUP_DLS); ENGINE_BLK(802BDB54), s != e; s += FX_SIZE) {
-        ENGINE_BLK(802BDB5C);
+    for (s = B_SECTION(b, MS_FX_LAND), e = B_SECTION(b, MS_GROUP_DLS); s != e; s += FX_SIZE) {
         FX_W(s, FX_X) += wx, FX_W(s, FX_Y) += wy, FX_W(s, FX_Z) += wz;
         FX_W(s, FX_UNK28) += wy;
     }
-    ENGINE_BLK(802BDB94);
-    for (s = B_SECTION(b, MS_CENTRES), e = B_SECTION(b, MS_FX_HIT); ENGINE_BLK(802BDBA4), s != e; s += 8) {
-        ENGINE_BLK(802BDBAC);
+    for (s = B_SECTION(b, MS_CENTRES), e = B_SECTION(b, MS_FX_HIT); s != e; s += 8) {
         ((s16 *)s)[0] += sx;
         ((s16 *)s)[1] += sy;
         ((s16 *)s)[2] += sz;
     }
-    ENGINE_BLK(802BDBD8);
-    for (p = b->unk4; ENGINE_BLK(802BDBEC), p != (Piece *)b->unk8; p++) {
+    for (p = b->unk4; p != (Piece *)b->unk8; p++) {
         s32 x1, y1, z1, x2, y2, z2, x3, y3, z3;
         s32 ey, ez3, ez2, ey3, ex3, ex2;
         s64 nx, ny, nz, ax, ay, az;
         f32 fx, fy, fz, sq;
 
-        ENGINE_BLK(802BDBF4);
         x1 = p->v[0][0] + qx, y1 = p->v[0][1] + qy, z1 = p->v[0][2] + qz;
         x2 = p->v[1][0] + qx, y2 = p->v[1][1] + qy, z2 = p->v[1][2] + qz;
         x3 = p->v[2][0] + qx, y3 = p->v[2][1] + qy, z3 = p->v[2][2] + qz;
@@ -1244,23 +987,16 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
         p->d = -(nx * x2 + ny * y2 + nz * z2);
         ax = nx, ay = ny, az = nz;
         if (ax < 0) {
-            ENGINE_BLK(802BDD3C);
             ax = -ax;
         }
-        ENGINE_BLK(802BDD40);
         if (ay < 0) {
-            ENGINE_BLK(802BDD48);
             ay = -ay;
         }
-        ENGINE_BLK(802BDD4C);
         if (az < 0) {
-            ENGINE_BLK(802BDD54);
             az = -az;
         }
         piece_axis(p, ax, ay, az);
-        ENGINE_BLK(802BDD9C);
     }
-    ENGINE_BLK(802BDDA4);
 }
 
 /* Building b's animated textures stepped (anim to end, AnimTex).  Kind 0
@@ -1270,135 +1006,86 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz) {
    while its goal is open. */
 REGS(v0, t1, t2)
 void func_802BDDB4(Building *b, AnimTex *a, AnimTex *end) {
-    static const GoalBlks gk = {
-        {ENGINE_BLK_802BDE04}, {ENGINE_BLK_802BDE14}, {ENGINE_BLK_802BDE24},
-        {ENGINE_BLK_802BDE2C}, {ENGINE_BLK_802BDE34}, {ENGINE_BLK_802BDE3C},
-    };
-    static const HeadingBlks hk = {
-        {ENGINE_BLK_802BDEC8}, {ENGINE_BLK_802BDEF8}, {ENGINE_BLK_802BDF00}, {ENGINE_BLK_802BDF30},
-        {ENGINE_BLK_802BDF48}, {ENGINE_BLK_802BDF78}, {ENGINE_BLK_802BDF84}, {ENGINE_BLK_802BDFB4},
-        {ENGINE_BLK_802BDEBC}, {ENGINE_BLK_802BDF3C},
-    };
     s32 lo, hi, n, t, h, span;
 
-    ENGINE_BLK(802BDDB4);
     if (B_ID(b) == MODEL_GOAL) {
-        ENGINE_BLK(802BDDF4);
-        if (!goal_open(&gk))
-            goto out;
+        if (!goal_open())
+            return;
     }
-    for (; ENGINE_BLK(802BDE44), a != end; a = ANIM_NEXT(a)) {
-        ENGINE_BLK(802BDE4C);
+    for (; a != end; a = ANIM_NEXT(a)) {
         if (a->kind == 0) {
             /* the next step every `lo` frames, the blend as far into it */
-            ENGINE_BLK(802BE178);
             t = a->hi + 1;
             n = a->lo;
             if (t == n) {
-                ENGINE_BLK(802BE18C);
                 lo = a->cur + 1;
                 if (lo == a->n) {
-                    ENGINE_BLK(802BE1A0);
                     lo = 0;
                 }
-                ENGINE_BLK(802BE1A4);
                 a->cur = lo;
                 t = 0;
             }
-            ENGINE_BLK(802BE1AC);
             a->hi = t;
             a->blend = engine_divu((u32)t * 255, n);
             if (n == 0) {
-                ENGINE_BLK(802BE1DC);
                 engine_break(0x802BE1DC, 7);
             }
         } else if (a->kind == 1) {
             /* a random frame, every `lo` sixteenths of D_803649D8 */
-            ENGINE_BLK(802BDE58);
-            ENGINE_BLK(802BE114);
             t = (u32)D_803649D8 >> 4;
             if (a->lo == 0) {
-                ENGINE_BLK(802BE140);
                 engine_break(0x802BE140, 7);
             }
-            ENGINE_BLK(802BE144);
             if (engine_remu(t, a->lo) == 0) {
-                ENGINE_BLK(802BE14C);
                 if (a->n == 0) {
-                    ENGINE_BLK(802BE160);
                     engine_break(0x802BE160, 7);
                 }
-                ENGINE_BLK(802BE164);
                 a->cur = engine_remu((u32)t >> 8, a->n);
             }
         } else {
             /* by the camera's heading from the building: the first frame
                before lo, the last after hi, between them in steps and
                blends (the range may wrap past 0) */
-            ENGINE_BLK(802BDE58);
-            ENGINE_BLK(802BDE60);
-            h = heading_to(b->x, b->z, (u32)D_803643F8 >> 11, (u32)D_80364400 >> 11, &hk);
-            ENGINE_BLK(802BDFBC);
+            h = heading_to(b->x, b->z, (u32)D_803643F8 >> 11, (u32)D_80364400 >> 11);
             lo = a->lo;
             hi = a->hi;
             if (!(hi < lo)) {
-                ENGINE_BLK(802BDFD0);
                 if (h < lo)
                     goto first;
-                ENGINE_BLK(802BDFD8);
                 if (hi < h)
                     goto final;
-                ENGINE_BLK(802BDFE0);
                 t = engine_divu((u32)(h - lo) * (a->n - 1) * 255, hi - lo);
                 if (hi - lo == 0) {
-                    ENGINE_BLK(802BE028);
                     engine_break(0x802BE028, 7);
                 }
-                ENGINE_BLK(802BE02C);
                 a->cur = (u32)t / 255;
-                ENGINE_BLK(802BE048);
                 a->blend = (u32)t % 255;
             } else {
-                ENGINE_BLK(802BE058);
                 if (h < lo) {
-                    ENGINE_BLK(802BE064);
                     if (hi < h)
                         goto first;
                 }
-                ENGINE_BLK(802BE06C);
                 span = 0xFFF - lo;
                 if (h < lo) {
-                    ENGINE_BLK(802BE080);
                     t = span + h;
                 } else {
-                    ENGINE_BLK(802BE088);
                     t = h - lo;
                 }
-                ENGINE_BLK(802BE08C);
                 t = engine_divu((u32)t * (a->n - 1) * 255, span + hi);
                 if (span + hi == 0) {
-                    ENGINE_BLK(802BE0CC);
                     engine_break(0x802BE0CC, 7);
                 }
-                ENGINE_BLK(802BE0D0);
                 a->cur = (u32)t / 255;
-                ENGINE_BLK(802BE0F0);
                 a->blend = (u32)t % 255;
             }
-            goto step;
+            continue;
         first:
-            ENGINE_BLK(802BE0FC);
             a->cur = 0;
-            goto step;
+            continue;
         final:
-            ENGINE_BLK(802BE104);
             a->cur = a->n - 1;
         }
-    step:
-        ENGINE_BLK(802BE1E0);
     }
-out:
-    ENGINE_BLK(802BE1F4);
 }
 
 /* A building's display list from src to end copied to dl, its animated
@@ -1406,91 +1093,66 @@ out:
    to anim_end) gets its current frame; one that blends (AnimTex.blends)
    also the next G_SETTIMG the frame after, and the G_SETPRIMCOLOR after
    them the blend between the two.  func_802BE228 and func_802BE3C8 are
-   this for the two lists, with their own blocks. */
-typedef struct {
-    Blk entry, loop, cmd, scan0, scan, cmp, skip, found, anim, cur, set, wrap, cmd2, copy2, sel, sel2,
-        set2, cmd3, copy3, prim, still, still2, put, out;
-} CopyBlks;
-
-static u32 *copy_dl(const CopyBlks *k, u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
+   this for the two lists. */
+static u32 *copy_dl(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
     u32 w0, w1, f;
     AnimTex *a;
 
-    BLKT(k->entry);
-    while (BLKT(k->loop), src != end) {
-        BLKT(k->cmd);
+    while (src != end) {
         w0 = src[0];
         dl[0] = w0;
         w1 = src[1];
         if (w0 >> 24 == DL_SETTIMG) {
             /* a texture: one of the animated ones? */
-            BLKT(k->scan0);
-            for (a = anim; BLKT(k->scan), a != anim_end; a = ANIM_NEXT(a)) {
-                BLKT(k->cmp);
+            for (a = anim; a != anim_end; a = ANIM_NEXT(a)) {
                 if (w1 == a->texture)
                     break;
-                BLKT(k->skip);
             }
             if (a != anim_end) {
-                BLKT(k->found);
                 if (!a->blends) {
                     /* its current frame, if not the first */
-                    BLKT(k->still);
                     f = a->cur;
                     if (f != 0) {
-                        BLKT(k->still2);
                         w1 = ANIM_FRAME(a, f);
                     }
                 } else {
-                    BLKT(k->anim);
                     f = a->cur;
                     if (f != 0) {
-                        BLKT(k->cur);
                         w1 = ANIM_FRAME(a, f);
                     }
-                    BLKT(k->set);
                     dl[1] = w1;
                     src += 2;
                     dl += 2;
                     if (++f == a->n) {
-                        BLKT(k->wrap);
                         f = 0;
                     }
                     /* the next texture: the frame after */
                     for (;;) {
-                        BLKT(k->cmd2);
                         w0 = src[0];
                         dl[0] = w0;
                         w1 = src[1];
                         if (w0 >> 24 == DL_SETTIMG)
                             break;
-                        BLKT(k->copy2);
                         dl[1] = w1;
                         src += 2;
                         dl += 2;
                     }
-                    BLKT(k->sel);
                     if (f != 0) {
-                        BLKT(k->sel2);
                         w1 = ANIM_FRAME(a, f);
                     }
-                    BLKT(k->set2);
                     dl[1] = w1;
                     src += 2;
                     dl += 2;
                     /* the blend, at the primitive colour */
                     for (;;) {
-                        BLKT(k->cmd3);
                         w0 = src[0];
                         if (w0 >> 24 == DL_SETPRIMCOLOR)
                             break;
-                        BLKT(k->copy3);
                         dl[0] = w0;
                         dl[1] = src[1];
                         src += 2;
                         dl += 2;
                     }
-                    BLKT(k->prim);
                     dl[0] = w0 | a->blend;
                     dl[1] = src[1];
                     src += 2;
@@ -1499,44 +1161,24 @@ static u32 *copy_dl(const CopyBlks *k, u32 *dl, u32 *end, AnimTex *anim, AnimTex
                 }
             }
         }
-        BLKT(k->put);
         dl[1] = w1;
         src += 2;
         dl += 2;
     }
-    BLKT(k->out);
     *src_out = src;
     return dl;
 }
 
-static const CopyBlks blks_802BE228 = {
-    {ENGINE_BLK_802BE228}, {ENGINE_BLK_802BE24C}, {ENGINE_BLK_802BE254}, {ENGINE_BLK_802BE270},
-    {ENGINE_BLK_802BE278}, {ENGINE_BLK_802BE280}, {ENGINE_BLK_802BE28C}, {ENGINE_BLK_802BE2A0},
-    {ENGINE_BLK_802BE2AC}, {ENGINE_BLK_802BE2B8}, {ENGINE_BLK_802BE2C4}, {ENGINE_BLK_802BE2DC},
-    {ENGINE_BLK_802BE2E0}, {ENGINE_BLK_802BE2FC}, {ENGINE_BLK_802BE30C}, {ENGINE_BLK_802BE314},
-    {ENGINE_BLK_802BE320}, {ENGINE_BLK_802BE32C}, {ENGINE_BLK_802BE344}, {ENGINE_BLK_802BE35C},
-    {ENGINE_BLK_802BE37C}, {ENGINE_BLK_802BE388}, {ENGINE_BLK_802BE394}, {ENGINE_BLK_802BE3A4},
-};
-
-static const CopyBlks blks_802BE3C8 = {
-    {ENGINE_BLK_802BE3C8}, {ENGINE_BLK_802BE3F0}, {ENGINE_BLK_802BE3F8}, {ENGINE_BLK_802BE414},
-    {ENGINE_BLK_802BE41C}, {ENGINE_BLK_802BE424}, {ENGINE_BLK_802BE430}, {ENGINE_BLK_802BE444},
-    {ENGINE_BLK_802BE450}, {ENGINE_BLK_802BE460}, {ENGINE_BLK_802BE46C}, {ENGINE_BLK_802BE484},
-    {ENGINE_BLK_802BE488}, {ENGINE_BLK_802BE4A4}, {ENGINE_BLK_802BE4B4}, {ENGINE_BLK_802BE4BC},
-    {ENGINE_BLK_802BE4C8}, {ENGINE_BLK_802BE4D4}, {ENGINE_BLK_802BE4EC}, {ENGINE_BLK_802BE504},
-    {ENGINE_BLK_802BE524}, {ENGINE_BLK_802BE530}, {ENGINE_BLK_802BE53C}, {ENGINE_BLK_802BE54C},
-};
-
 /* the first list (dl in $a2) */
 REGS(a2, s0, t1, t2, t7 -> a2, t7)
 u32 *func_802BE228(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
-    return copy_dl(&blks_802BE228, dl, end, anim, anim_end, src, src_out);
+    return copy_dl(dl, end, anim, anim_end, src, src_out);
 }
 
 /* the second (dl in $t0) */
 REGS(t0, s0, t1, t2, t7 -> t0, t7)
 u32 *func_802BE3C8(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
-    return copy_dl(&blks_802BE3C8, dl, end, anim, anim_end, src, src_out);
+    return copy_dl(dl, end, anim, anim_end, src, src_out);
 }
 
 /* The matrix of building b's falling group g (0-based): turned about its
@@ -1550,62 +1192,42 @@ u32 func_802BE574(Building *b, s32 g, s32 fall) {
     s32 ax, ay, az, cx, cy, cz;
     u16 *c;
 
-    ENGINE_BLK(802BE574);
     D_803F3964 = (u8 *)m + 0x40;
     ax = (s32)(t * (u32)B_SPIN_X(b)[g]);
     if (ax < 0) {
-        ENGINE_BLK(802BE5F8);
         ax += 0xFFF;
     }
-    ENGINE_BLK(802BE600);
     ay = (s32)(t * B_SPIN_Y(b)[g]);
     if (ay < 0) {
-        ENGINE_BLK(802BE618);
         ay += 0xFFF;
     }
-    ENGINE_BLK(802BE620);
     az = (s32)(t * B_SPIN_Z(b)[g]);
     if (az < 0) {
-        ENGINE_BLK(802BE638);
         az += 0xFFF;
     }
-    ENGINE_BLK(802BE640);
     c = (u16 *)(B_SECTION(b, MS_CENTRES) + g * 8);
     cx = c[0] << 16;
     cy = c[1] << 16;
     cz = c[2] << 16;
     func_802ACA60(-cx, -cy, -cz, m);
-    ENGINE_BLK(802BE680);
     func_802ACBDC(ax, D_803F38D0);
-    ENGINE_BLK(802BE690);
     func_802ACCCC(D_803F38D0, m);
-    ENGINE_BLK(802BE69C);
     func_802ACAC4(ay, D_803F38D0);
-    ENGINE_BLK(802BE6AC);
     func_802ACCCC(D_803F38D0, m);
-    ENGINE_BLK(802BE6B8);
     func_802ACB50(az, D_803F38D0);
-    ENGINE_BLK(802BE6C8);
     func_802ACCCC(D_803F38D0, m);
-    ENGINE_BLK(802BE6D4);
     func_802ACA60(cx, cy, cz, D_803F38D0);
-    ENGINE_BLK(802BE6EC);
     func_802ACCCC(D_803F38D0, m);
-    ENGINE_BLK(802BE6F8);
     func_802ACA60(0, fall, 0, D_803F38D0);
-    ENGINE_BLK(802BE710);
     func_802ACCCC(D_803F38D0, m);
-    ENGINE_BLK(802BE71C);
     func_802AC8CC((u32 *)m);
-    ENGINE_BLK(802BE724);
     return K0(m);
 }
 
 /* ---- a vehicle against the buildings --------------------------------- */
 
-/* whether the camera's limits (D_803A7410..12) are narrowed; blocks: the
-   second test's */
-#define CAMERA_NARROWED(B2) (D_803A7410 != 0 || (ENGINE_BLK(B2), D_803A7412 != 0xFFF))
+/* whether the camera's limits (D_803A7410..12) are narrowed */
+#define CAMERA_NARROWED() (D_803A7410 != 0 || D_803A7412 != 0xFFF)
 
 /* Each frame, from every vehicle module: the vehicle of type `type` (its
    VehicleState vs) against the buildings, by its sphere (its Solid,
@@ -1617,55 +1239,37 @@ void func_802BE77C(s32 type, VS *vs) {
     Building *b;
     s32 hit, t;
 
-    ENGINE_BLK(802BE77C);
     D_803F7802 = 0;
     D_803F7803 = 0;
     D_803F7807 = 0;
     D_803F77F4 = D_803F77F8;
     D_803F780F = 0;
     func_802BFEE4(vs);
-    ENGINE_BLK(802BE7E8);
     func_802BE9F8();
-    ENGINE_BLK(802BE7F0);
-    while (ENGINE_BLK(802BE7F8), s->kind != type)
+    while (s->kind != type)
         s++;
-    ENGINE_BLK(802BE804);
     if (s->end != 0) {
-        ENGINE_BLK(802BE810);
-        for (b = D_803F4030; ENGINE_BLK(802BE834), b != D_803F7654; ENGINE_BLK(802BE890), b++) {
-            ENGINE_BLK(802BE83C);
+        for (b = D_803F4030; b != D_803F7654; b++) {
             hit = func_8029CFA4(s->x, s->y, s->z, s->r, b->x, b->y, b->z, B_RADIUS(b));
-            ENGINE_BLK(802BE850);
             if (hit) {
-                ENGINE_BLK(802BE858);
                 if (B_ID(b) == MODEL_GOAL) {
-                    ENGINE_BLK(802BE868);
                     t = func_802BD8C8();
-                    ENGINE_BLK(802BE870);
                     if (t)
                         continue;
                 }
-                ENGINE_BLK(802BE878);
                 t = func_802BE944(b, type);
-                ENGINE_BLK(802BE880);
                 if (!t) {
-                    ENGINE_BLK(802BE888);
                     func_802BEADC(b, s->x, s->y, s->z, s->r, type);
                 }
             }
         }
     }
-    ENGINE_BLK(802BE898);
     if (type != 0xFF) {
-        ENGINE_BLK(802BE8A4);
         func_802BCC48();
     }
-    ENGINE_BLK(802BE8AC);
-    if (CAMERA_NARROWED(802BE8C0)) {
-        ENGINE_BLK(802BE8D8);
+    if (CAMERA_NARROWED()) {
         D_803A7425 = 1;
     }
-    ENGINE_BLK(802BE8E4);
     vs->unk9C = (s8)D_803F7802;
     vs->unk9D = (s8)D_803F7803;
     vs->unk9E = (s8)D_803F7807;
@@ -1678,36 +1282,27 @@ s32 func_802BE944(Building *b, s32 type) {
     Immune *p;
     s32 model = B_ID(b), r = 0;
 
-    ENGINE_BLK(802BE944);
     if (model != MODEL_GOAL) {
-        for (p = D_803059F0; ENGINE_BLK(802BE980), p->types != 0; p++) {
-            ENGINE_BLK(802BE990);
+        for (p = D_803059F0; p->types != 0; p++) {
             if (p->level != 0xFFFF) {
-                ENGINE_BLK(802BE9A0);
                 if (p->level != (u32)D_802E8BDC)
                     continue;
             }
-            ENGINE_BLK(802BE9A8);
             if (p->model != (u32)model) {
-                ENGINE_BLK(802BE9B4);
                 continue;
             }
-            ENGINE_BLK(802BE9BC);
             if ((p->types & (1u << (type & 31))) == 0)
                 continue;
-            ENGINE_BLK(802BE9D4);
             r = 1;
             break;
         }
     }
-    ENGINE_BLK(802BE9D8);
     return r;
 }
 
 /* the list of (building, group) pairs hit this frame emptied */
 REGS()
 void func_802BE9F8(void) {
-    ENGINE_BLK(802BE9F8);
     D_803F3960 = D_803F3910;
 }
 
@@ -1716,7 +1311,6 @@ REGS(t3, t9)
 void func_802BEA30(s32 group, Building *b) {
     HitPair *p = D_803F3960;
 
-    ENGINE_BLK(802BEA30);
     p->b = b;
     p->group = group;
     D_803F3960 = p + 1;
@@ -1727,19 +1321,13 @@ REGS(t3, t9 -> t7)
 s32 func_802BEA70(s32 group, Building *b) {
     HitPair *p;
 
-    ENGINE_BLK(802BEA70);
-    for (p = D_803F3910; ENGINE_BLK(802BEA9C), p != D_803F3960; p++) {
-        ENGINE_BLK(802BEAA4);
+    for (p = D_803F3910; p != D_803F3960; p++) {
         if (p->b != b)
             continue;
-        ENGINE_BLK(802BEAB4);
         if (p->group != group)
             continue;
-        ENGINE_BLK(802BEAC0);
-        ENGINE_BLK(802BEAC4);
         return 1;
     }
-    ENGINE_BLK(802BEAC4);
     return 0;
 }
 
@@ -1747,38 +1335,20 @@ s32 func_802BEA70(s32 group, Building *b) {
    func_802BEBB0 */
 REGS(t3, v0, v1, a0, a1, t8)
 void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
-    static const PieceTestBlks k = {
-        {ENGINE_BLK_802BEB38}, {ENGINE_BLK_802BEB40}, {ENGINE_BLK_802BEB48}, {ENGINE_BLK_802BEB50},
-        {ENGINE_BLK_802BEB58}, {ENGINE_BLK_802BEB60}, {ENGINE_BLK_802BEB68}, {ENGINE_BLK_802BEB70},
-    };
     Piece *p;
 
-    ENGINE_BLK(802BEADC);
     x >>= 2;
     y >>= 2;
     z >>= 2;
     r >>= 2;
-    for (p = b->unk4; ENGINE_BLK(802BEB1C), p != (Piece *)b->unk8; p++) {
-        ENGINE_BLK(802BEB24);
+    for (p = b->unk4; p != (Piece *)b->unk8; p++) {
         if (p->active == 0)
             continue;
-        ENGINE_BLK(802BEB30);
-        if (piece_touched(p, x, y, z, r, &k)) {
-            ENGINE_BLK(802BEB78);
+        if (piece_touched(p, x, y, z, r)) {
             func_802BEBB0(p, type, b);
         }
-        ENGINE_BLK(802BEB80);
     }
-    ENGINE_BLK(802BEB88);
 }
-
-/* us.v10's func_802BEBB0 lacks the check of D_803F7812 (802BED4C), and
-   its blocks after it are named 0x10 lower */
-#ifdef VERSION_US_V10
-#define BLK_V10(v11, v10) ENGINE_BLK(v10)
-#else
-#define BLK_V10(v11, v10) ENGINE_BLK(v11)
-#endif
 
 /* whether the hit marks building b as the one the player last hit
    (D_8036B974; 23C20.c's hint): not an explosion's, not on a building of
@@ -1786,16 +1356,12 @@ void func_802BEADC(Building *b, s32 x, s32 y, s32 z, s32 r, s32 type) {
 static s32 hit_marks(Building *b, s32 type) {
     if (type == 0xFF)
         return 0;
-    ENGINE_BLK(802BECAC);
     if (M_STRENGTH(B_MODEL(b)) == 1)
         return 0;
-    ENGINE_BLK(802BECC0);
     if (B_TARGET(b))
         return 0;
-    ENGINE_BLK(802BECCC);
     if (B_ID(b) == MODEL_GOAL)
         return 0;
-    ENGINE_BLK(802BECDC);
     return D_8036B974 != b;
 }
 
@@ -1805,26 +1371,19 @@ static s32 hit_marks(Building *b, s32 type) {
 static s32 hit_damages(s32 type, s32 n) {
     s32 again;
 
-    ENGINE_BLK(802BED34);
     if (D_803F7800 != 0)
         return 1;
-    ENGINE_BLK(802BED44);
     if (type == 0xFF)
         return 1;
 #ifndef VERSION_US_V10
-    ENGINE_BLK(802BED4C);
     if (D_803F7812 == 0)
 #endif
     {
-        BLK_V10(802BED5C, 802BED4C);
         func_802BEFF4();
-        BLK_V10(802BED64, 802BED54);
         if (D_803F780C != 0)
             return 1;
     }
-    BLK_V10(802BED74, 802BED64);
     again = func_802BCDE0(n);
-    BLK_V10(802BED7C, 802BED6C);
     return !again;
 }
 
@@ -1835,177 +1394,115 @@ static s32 hit_damages(s32 type, s32 n) {
    flag, the group destroyed at 100. */
 REGS(s0, t8, t9)
 void func_802BEBB0(Piece *p, s32 type, Building *b) {
-    static const PieceTestBlks pk = {
-        {ENGINE_BLK_802BEC44}, {ENGINE_BLK_802BEC4C}, {ENGINE_BLK_802BEC54}, {ENGINE_BLK_802BEC5C},
-        {ENGINE_BLK_802BEC64}, {ENGINE_BLK_802BEC6C}, {ENGINE_BLK_802BEC74}, {ENGINE_BLK_802BEC7C},
-    };
     KindPart *k;
     s32 n = 0, g, d, dmg, seen;
     s8 *c;
     Piece *q;
 
-    ENGINE_BLK(802BEBB0);
     /* the type's parts (numbered n from 1): the first that touches p */
     for (k = D_803A6B30;; k++) {
-        ENGINE_BLK(802BEBF4);
         if (k->end == -1) {
-            BLK_V10(802BEF5C, 802BEF4C);
-            BLK_V10(802BEF60, 802BEF50);
             return;
         }
-        ENGINE_BLK(802BEC04);
         if (k->end == 0)
             continue;
-        ENGINE_BLK(802BEC0C);
         if (k->kind != type)
             continue;
-        ENGINE_BLK(802BEC18);
         n++;
-        if (piece_touched(p, k->x >> 2, k->y >> 2, k->z >> 2, k->r >> 2, &pk))
+        if (piece_touched(p, k->x >> 2, k->y >> 2, k->z >> 2, k->r >> 2))
             break;
     }
-    ENGINE_BLK(802BEC84);
     if (type != 0xFF) {
-        ENGINE_BLK(802BEC90);
         D_803F77F8 = D_80358068;
     }
-    ENGINE_BLK(802BECA0);
     if (hit_marks(b, type)) {
-        ENGINE_BLK(802BECEC);
         D_8036B971 = 1;
         D_8036B974 = b;
     }
-    ENGINE_BLK(802BED00);
     func_802BEF9C(b);
-    ENGINE_BLK(802BED08);
     if (D_803BE738 != 0) {
-        BLK_V10(802BEF60, 802BEF50);
         return;
     }
-    ENGINE_BLK(802BED18);
     g = p->group;
     func_802BCCD4(n);
-    ENGINE_BLK(802BED24);
     seen = func_802BEA70(g, b);
-    ENGINE_BLK(802BED2C);
     if (!seen && hit_damages(type, n)) {
         /* the damage, once a frame for each group */
-        BLK_V10(802BED84, 802BED74);
         func_802BEA30(g, b);
-        BLK_V10(802BED8C, 802BED7C);
         if (B_ID(b) == MODEL_GOAL) {
-            BLK_V10(802BED9C, 802BED8C);
             if (type == 0) {
-                BLK_V10(802BEDA4, 802BED94);
                 D_803F7805 = 1;
             }
-            BLK_V10(802BEDB0, 802BEDA0);
             d = 0;
         } else {
-            BLK_V10(802BEDB8, 802BEDA8);
             d = func_802BFF6C(g, k->power, type, b, M_STRENGTH(B_MODEL(b)), n);
         }
-        BLK_V10(802BEDC8, 802BEDB8);
         D_802E8BE4 = SHAKE_HIT_FRAMES;
         if (d <= SHAKE_HIT_MAX) {
-            BLK_V10(802BEDE8, 802BEDD8);
             D_802E8BE8 = d;
         } else {
-            BLK_V10(802BEDF0, 802BEDE0);
             D_802E8BE8 = SHAKE_HIT_MAX;
         }
-        BLK_V10(802BEDF8, 802BEDE8);
         dmg = B_DAMAGE(b)[g - 1] + d;
         if (dmg >= 100) {
-            BLK_V10(802BEE18, 802BEE08);
             dmg = 100;
         }
-        BLK_V10(802BEE1C, 802BEE0C);
         B_DAMAGE(b)[g - 1] = dmg;
         D_803F77FE = d;
         func_802BF898(g, dmg, b);
-        BLK_V10(802BEE2C, 802BEE1C);
         if (dmg == 100) {
             /* the group destroyed: its triangles, shadow, smoke, dust,
                the building's first effect; its pieces off, the ones it
                brings back on */
-            BLK_V10(802BEE38, 802BEE28);
             func_802BF1F0(g, b);
-            BLK_V10(802BEE40, 802BEE30);
             func_802C1438(g, b);
-            BLK_V10(802BEE48, 802BEE38);
             func_802C09B8(g, b);
-            BLK_V10(802BEE50, 802BEE40);
             func_802C0E8C(g, b);
-            BLK_V10(802BEE58, 802BEE48);
             func_802BF384(b);
-            BLK_V10(802BEE60, 802BEE50);
             D_802E8BE4 = SHAKE_DOWN_FRAMES;
             D_802E8BE8 = SHAKE_DOWN;
-            for (q = b->unk4; BLK_V10(802BEE88, 802BEE78), q != (Piece *)b->unk8; q++) {
-                BLK_V10(802BEE90, 802BEE80);
+            for (q = b->unk4; q != (Piece *)b->unk8; q++) {
                 if (q->group == g) {
-                    BLK_V10(802BEE9C, 802BEE8C);
                     q->active = 0;
                 }
-                BLK_V10(802BEEA0, 802BEE90);
                 if (q->group2 == g) {
-                    BLK_V10(802BEEAC, 802BEE9C);
                     if (B_DAMAGE(b)[q->group - 1] != 100) {
-                        BLK_V10(802BEEC8, 802BEEB8);
                         q->active = 1;
                     }
                 }
-                BLK_V10(802BEED0, 802BEEC0);
             }
         }
     }
     /* the camera turned by the piece (unless the part is listed,
        D_803A7408), or, the group gone, D_803F7802 */
-    BLK_V10(802BEED8, 802BEEC8);
     D_803F7803 = 1;
     for (c = D_803A7408;; c++) {
-        BLK_V10(802BEEF0, 802BEEE0);
         if (*c == n)
             goto done;
-        BLK_V10(802BEEFC, 802BEEEC);
         if (*c < 0)
             break;
     }
-    BLK_V10(802BEF04, 802BEEF4);
     if (B_DAMAGE(b)[g - 1] != 100) {
-        BLK_V10(802BEF20, 802BEF10);
         D_803A7424 = 1;
         func_802BF264(p);
-        BLK_V10(802BEF30, 802BEF20);
     } else {
-        BLK_V10(802BEF38, 802BEF28);
         D_803F7802 = 1;
     }
 done:
-    BLK_V10(802BEF44, 802BEF34);
     func_802BF668(b);
-    BLK_V10(802BEF4C, 802BEF3C);
     func_802BF534(b);
-    BLK_V10(802BEF54, 802BEF44);
-    BLK_V10(802BEF60, 802BEF50);
 }
 
 /* level 0x2D's buildings 0xE7-0xE9 end it when hit */
 REGS(t9)
 void func_802BEF9C(Building *b) {
-    ENGINE_BLK(802BEF9C);
     if (D_802E8BDC == 0x2D) {
-        ENGINE_BLK(802BEFBC);
         if (!(B_ID(b) < 0xE7)) {
-            ENGINE_BLK(802BEFCC);
             if (B_ID(b) < 0xEA) {
-                ENGINE_BLK(802BEFD4);
                 D_803BE738 = 1;
             }
         }
     }
-    ENGINE_BLK(802BEFE0);
 }
 
 /* The pushing of the vehicles that can (not types 0-2, 6, 7, 9, 0xB,
@@ -2015,90 +1512,56 @@ void func_802BEF9C(Building *b) {
 REGS()
 void func_802BEFF4(void) {
     static const u8 types[] = { 1, 2, 6, 7, 9, 0xB, 0x10, 0x11, 0x12 };
-    static const Blk tblk[] = {
-        {ENGINE_BLK_802BF018}, {ENGINE_BLK_802BF024}, {ENGINE_BLK_802BF02C}, {ENGINE_BLK_802BF034},
-        {ENGINE_BLK_802BF03C}, {ENGINE_BLK_802BF044}, {ENGINE_BLK_802BF04C}, {ENGINE_BLK_802BF054},
-        {ENGINE_BLK_802BF05C},
-    };
     s32 type = D_80364456, dir, steer, k, cnt;
 
-    ENGINE_BLK(802BEFF4);
     if (type == 0)
-        goto out;
+        return;
     for (k = 0; k < 9; k++) {
-        BLKT(tblk[k]);
         if (type == types[k])
-            goto out;
+            return;
     }
-    ENGINE_BLK(802BF064);
     dir = 0;
     if (D_803F77FC < 0) {
-        ENGINE_BLK(802BF088);
         dir = -1;
     } else {
-        ENGINE_BLK(802BF078);
         if (D_803F77FC != 0) {
-            ENGINE_BLK(802BF080);
             dir = 1;
         }
     }
-    ENGINE_BLK(802BF08C);
     if (D_803F780F != 0)                /* once a frame */
-        goto out;
-    ENGINE_BLK(802BF09C);
+        return;
     D_803F780F = 1;
     if (D_803F77F4 + 1 != D_80358068)   /* not hit last frame: start again */
         goto reset;
-    ENGINE_BLK(802BF0C4);
     if (dir != 0) {
-        ENGINE_BLK(802BF0CC);
         if (D_803F780A == dir)
             goto reset;
     }
-    ENGINE_BLK(802BF0DC);
     cnt = D_803F780B;
     steer = (u8)D_80370C2C != 0;
     if (cnt == 0) {
-        ENGINE_BLK(802BF0EC);
-        ENGINE_BLK(802BF100);
-        if (steer)
-            ENGINE_BLK(802BF108);
-        ENGINE_BLK(802BF114);
         D_803F780E = steer;
         D_803F780D = 0;
     } else {
-        ENGINE_BLK(802BF128);
-        ENGINE_BLK(802BF13C);
-        if (steer) {
-            ENGINE_BLK(802BF144);
-            ENGINE_BLK(802BF150);
-        }
         if (!steer || steer != D_803F780E) {
-            ENGINE_BLK(802BF160);
             D_803F780D = 1;
         }
     }
-    ENGINE_BLK(802BF16C);
     cnt++;
     D_803F780B = cnt;
     D_803F780A = dir;
     D_803F780C = 0;
     if (cnt != PUSH_FRAMES)
-        goto out;
-    ENGINE_BLK(802BF194);
+        return;
     D_803F780B = 0;
     if (D_803F780D == 0)
-        goto out;
-    ENGINE_BLK(802BF1AC);
+        return;
     D_803F780C = 1;
-    goto out;
+    return;
 reset:
-    ENGINE_BLK(802BF1BC);
     D_803F780B = 0;
     D_803F780A = dir;
     D_803F780C = 0;
-out:
-    ENGINE_BLK(802BF1D4);
 }
 
 /* the triangles (MS_TRIS) of group `group` (1-based) marked gone */
@@ -2106,15 +1569,11 @@ REGS(t3, t9)
 void func_802BF1F0(s32 group, Building *b) {
     u8 *t, *end = B_SECTION(b, MS_ANIMS);
 
-    ENGINE_BLK(802BF1F0);
-    for (t = B_SECTION(b, MS_TRIS); ENGINE_BLK(802BF224), t != end; t += 0x14) {
-        ENGINE_BLK(802BF22C);
+    for (t = B_SECTION(b, MS_TRIS); t != end; t += 0x14) {
         if (t[0x12] == group) {
-            ENGINE_BLK(802BF238);
             t[0x13] = 1;
         }
     }
-    ENGINE_BLK(802BF244);
 }
 
 /* a piece that pushes the camera (Piece.pushes): the camera kept within a
@@ -2125,47 +1584,34 @@ void func_802BF264(Piece *p) {
     s64 d;
     s32 h = p->heading, a, c;
 
-    ENGINE_BLK(802BF264);
     if (p->pushes == 0)
-        goto out;
-    ENGINE_BLK(802BF294);
+        return;
     d = (s64)((u64)p->nx * (u64)(s64)(D_803A73F0 >> 2) + (u64)p->ny * (u64)(s64)(D_803A73F4 >> 2) +
               (u64)p->nz * (u64)(s64)(D_803A73F8 >> 2) + (u64)p->d);
     if (p->d > 0) {
-        ENGINE_BLK(802BF310);
         if (d > 0)
             goto behind;
     } else {
-        ENGINE_BLK(802BF300);
         if (d < 0)
             goto behind;
-        ENGINE_BLK(802BF308);
     }
-    ENGINE_BLK(802BF318);
     a = h + 0x400;
     c = h - 0x400;
     if (p->unk55 != 1) {
-        ENGINE_BLK(802BF324);
         if (p->unk56 != 0) {
-            ENGINE_BLK(802BF330);
-            goto out;
+            return;
         }
     }
     goto push;
 behind:
-    ENGINE_BLK(802BF338);
     a = h - 0x400;
     c = h + 0x400;
     if (p->unk55 != 1) {
-        ENGINE_BLK(802BF348);
         if (p->unk56 == 0)
-            goto out;
+            return;
     }
 push:
-    ENGINE_BLK(802BF354);
     func_8029B7CC(a, c);
-out:
-    ENGINE_BLK(802BF35C);
 }
 
 /* ---- destruction ------------------------------------------------------- */
@@ -2176,22 +1622,15 @@ void func_802BF384(Building *b) {
     s32 n, gone = 0;
     u8 *d = B_DAMAGE(b);
 
-    ENGINE_BLK(802BF384);
-    for (n = B_NGROUPS(b); ENGINE_BLK(802BF3A8), n != 0; n--) {
-        ENGINE_BLK(802BF3B0);
+    for (n = B_NGROUPS(b); n != 0; n--) {
         if (*d++ == 100) {
-            ENGINE_BLK(802BF3C4);
             gone++;
         }
     }
-    ENGINE_BLK(802BF3CC);
     if (gone == 1) {
-        ENGINE_BLK(802BF3D8);
         func_80264CB4((u32)b->x >> 5, (u32)b->y >> 5, (u32)b->z >> 5, (u32)B_RADIUS(b) >> 5, B_CELL(b),
                       M_UNK6(B_MODEL(b)));
-        ENGINE_BLK(802BF494);
     }
-    ENGINE_BLK(802BF518);
 }
 
 /* Building b destroyed, when every group but the main one is gone or
@@ -2205,42 +1644,30 @@ void func_802BF534(Building *b) {
     u16 *f;
     u32 v;
 
-    ENGINE_BLK(802BF534);
     if (B_DESTROYED(b))
-        goto out;
-    ENGINE_BLK(802BF560);
+        return;
     main = M_MAIN(B_MODEL(b));
     d = B_DAMAGE(b);
     f = B_FALLING(b);
-    for (k = 1, n = B_NGROUPS(b); ENGINE_BLK(802BF578), n != 0; k++, n--, d++, f++) {
-        ENGINE_BLK(802BF580);
+    for (k = 1, n = B_NGROUPS(b); n != 0; k++, n--, d++, f++) {
         if (main != k) {
-            ENGINE_BLK(802BF58C);
             if (*d != 100) {
-                ENGINE_BLK(802BF59C);
                 if (*f == 0)
-                    goto out;
+                    return;
             }
         }
-        ENGINE_BLK(802BF5A8);
     }
-    ENGINE_BLK(802BF5B4);
     B_DESTROYED(b) = 1;
     v = M_VALUE(B_MODEL(b));
     D_80364A40 = v;
     D_803649F0 += v;
     idx = (u32)((u8 *)b - (u8 *)D_803F4030) / sizeof(Building);
-    ENGINE_BLK(802BF618);
     idx++;
-    for (l = D_803BDFD8; ENGINE_BLK(802BF624), l != D_803BDFD4; l++) {
-        ENGINE_BLK(802BF62C);
+    for (l = D_803BDFD8; l != D_803BDFD4; l++) {
         if (l->building == idx) {
-            ENGINE_BLK(802BF638);
             l->on = 0;
         }
     }
-out:
-    ENGINE_BLK(802BF644);
 }
 
 /* The groups that rest on others (MS_SUPPORTS): one, still standing,
@@ -2255,68 +1682,47 @@ void func_802BF668(Building *b) {
     s32 again, g, n, sum, q;
     Piece *p;
 
-    ENGINE_BLK(802BF668);
     do {
-        ENGINE_BLK(802BF6A4);
         again = 0;
         end = B_SECTION(b, MS_END);
-        for (r = B_SECTION(b, MS_SUPPORTS); ENGINE_BLK(802BF6C4), r != end;) {
-            ENGINE_BLK(802BF6CC);
+        for (r = B_SECTION(b, MS_SUPPORTS); r != end;) {
             g = r[0] - 1;
-            if (B_FALLING(b)[g] != 0 || (ENGINE_BLK(802BF6EC), B_DAMAGE(b)[g] == 100)) {
-                ENGINE_BLK(802BF704);
+            if (B_FALLING(b)[g] != 0 || (B_DAMAGE(b)[g] == 100)) {
                 r = SUP_NEXT(r);
                 continue;
             }
-            ENGINE_BLK(802BF718);
             sum = 0;
-            for (n = r[2], s = r + 3; ENGINE_BLK(802BF724), n != 0; n--, s += 2) {
-                ENGINE_BLK(802BF72C);
+            for (n = r[2], s = r + 3; n != 0; n--, s += 2) {
                 q = s[0] - 1;
                 if (B_DAMAGE(b)[q] != 100) {
-                    ENGINE_BLK(802BF748);
                     if (B_FALLING(b)[q] == 0) {
-                        ENGINE_BLK(802BF764);
                         sum += s[1];
                     }
                 }
-                ENGINE_BLK(802BF76C);
             }
-            ENGINE_BLK(802BF774);
             if (sum < r[1]) {
-                ENGINE_BLK(802BF784);
                 again = 1;
                 func_802BF1F0(r[0], b);
-                ENGINE_BLK(802BF790);
                 g = r[0] - 1;
                 B_FALLING(b)[g] = 1;
                 B_SPIN_X(b)[g] = D_803649E0;
                 B_SPIN_Y(b)[g] = D_803649E2;
                 B_SPIN_Z(b)[g] = D_803649E4;
                 g++;
-                for (p = b->unk4; ENGINE_BLK(802BF7F8), p != (Piece *)b->unk8; p++) {
-                    ENGINE_BLK(802BF800);
+                for (p = b->unk4; p != (Piece *)b->unk8; p++) {
                     if (p->group == g) {
-                        ENGINE_BLK(802BF80C);
                         p->active = 0;
                     }
-                    ENGINE_BLK(802BF810);
                     if (p->group2 == g) {
-                        ENGINE_BLK(802BF81C);
                         if (B_DAMAGE(b)[p->group - 1] != 100) {
-                            ENGINE_BLK(802BF838);
                             p->active = 1;
                         }
                     }
-                    ENGINE_BLK(802BF840);
                 }
             }
-            ENGINE_BLK(802BF848);
             r = s;
         }
-        ENGINE_BLK(802BF850);
     } while (again);
-    ENGINE_BLK(802BF858);
 }
 
 /* ---- a hit's effects ------------------------------------------------- */
@@ -2327,24 +1733,16 @@ void func_802BF668(Building *b) {
 static void fx_fire(u8 *fx, s32 damage, Building *b) {
     s32 t;
 
-    ENGINE_BLK(802BF8F0);
     t = FX_B(fx, FX_LIMIT);
     if (t == 0xFF) {
-        ENGINE_BLK(802BF900);
         if (D_803F77FE >= FX_STRONG_HIT) {
-            ENGINE_BLK(802BF914);
-            ENGINE_BLK(802BF944);
             func_802C04F0(fx);
         }
         return;
     }
-    ENGINE_BLK(802BF91C);
     if (damage >= t) {
-        ENGINE_BLK(802BF928);
         func_802BFBF4(fx, b);
-        ENGINE_BLK(802BF930);
         func_802C04F0(fx);
-        ENGINE_BLK(802BF938);
         FX_B(fx, FX_DONE) = 1;
     }
 }
@@ -2357,22 +1755,15 @@ REGS(t3, t5, t9)
 void func_802BF898(s32 group, s32 damage, Building *b) {
     u8 *model = B_MODEL(b), *fx, *end;
 
-    ENGINE_BLK(802BF898);
     if (M_DEBRIS(model) != 0) {
-        ENGINE_BLK(802BF954);
         func_802BF978(model, group, damage, b);
-        ENGINE_BLK(802BF95C);
         return;
     }
-    ENGINE_BLK(802BF8C0);
     end = B_SECTION(b, MS_FX_LAND);
-    for (fx = B_SECTION(b, MS_FX_HIT); ENGINE_BLK(802BF8D0), fx != end; fx += FX_SIZE) {
-        ENGINE_BLK(802BF8D8);
-        if (FX_B(fx, FX_DONE) == 0 && (ENGINE_BLK(802BF8E4), FX_B(fx, FX_GROUP) == group))
+    for (fx = B_SECTION(b, MS_FX_HIT); fx != end; fx += FX_SIZE) {
+        if (FX_B(fx, FX_DONE) == 0 && (FX_B(fx, FX_GROUP) == group))
             fx_fire(fx, damage, b);
-        ENGINE_BLK(802BF94C);
     }
-    ENGINE_BLK(802BF95C);
 }
 
 /* the chance tables' records (D_80306344, D_80306350, D_803063D4): kept
@@ -2397,41 +1788,30 @@ void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
     s32 x = c[0] << 16, y = c[1] << 16, z = c[2] << 16;
     s32 roll, n, k, sp;
 
-    ENGINE_BLK(802BF978);
     roll = func_802BFB50(0, 100);
-    ENGINE_BLK(802BF9EC);
-    for (t = D_803063E0; ENGINE_BLK(802BF9F4), t[0] < roll; t += 2)
-        ENGINE_BLK(802BFA04);
-    ENGINE_BLK(802BFA0C);
+    for (t = D_803063E0; t[0] < roll; t += 2) {
+    }
     n = t[1];
-    for (k = 0; ENGINE_BLK(802BFA14), k != n; k++) {
-        ENGINE_BLK(802BFA1C);
+    for (k = 0; k != n; k++) {
         if (damage >= 100) {
-            ENGINE_BLK(802BFA24);
             t = D_80306350;
         } else {
-            ENGINE_BLK(802BFA30);
             t = D_80306344;
             if (D_803F77FE < FX_STRONG_HIT)
-                goto out;
+                return;
         }
-        ENGINE_BLK(802BFA4C);
         roll = func_802BFB50(0, 100);
-        for (; ENGINE_BLK(802BFA58), !(roll < CHANCE(t)); t += 0xC)
-            ENGINE_BLK(802BFA68);
-        ENGINE_BLK(802BFA70);
+        for (; !(roll < CHANCE(t)); t += 0xC) {
+        }
         fx = D_803F3FF8;
         FX_W(fx, FX_X) = x;
         FX_W(fx, FX_Y) = y;
         FX_W(fx, FX_Z) = z;
         roll = func_802BFB50(CHANCE_LO(t), CHANCE_HI(t));
-        ENGINE_BLK(802BFA90);
         sp = (s32)((u32)M_DEBRIS(model) * (u32)roll);
         if (D_803EF6FF != 0) {
-            ENGINE_BLK(802BFAAC);
             sp <<= 1;
         }
-        ENGINE_BLK(802BFAB0);
         FX_W(fx, FX_SPEED) = sp;
         FX_W(fx, FX_VEL) = 0;
         FX_W(fx, FX_VEL + 4) = 0;
@@ -2441,25 +1821,18 @@ void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
         FX_W(fx, FX_UNK14 + 8) = 0;
         FX_W(fx, FX_UNK28) = FX_UNK28_INIT;
         if (k != 0) {
-            ENGINE_BLK(802BFAD8);
             FX_H(fx, FX_DELAY) = FX_DEBRIS_DELAY;
         } else {
-            ENGINE_BLK(802BFAE4);
             FX_H(fx, FX_DELAY) = 0;
         }
-        ENGINE_BLK(802BFAE8);
         FX_B(fx, FX_RADIUS) = 0;
         FX_B(fx, FX_AMOUNT) = 0;
         FX_B(fx, FX_DONE) = 0;
         FX_B(fx, FX_UNK35) = 0;
         FX_B(fx, FX_KIND) = CHANCE_KIND(t);
         func_802C04F0(fx);
-        ENGINE_BLK(802BFB04);
     }
-    ENGINE_BLK(802BFB0C);
     func_802BFBF4(fx, b);
-out:
-    ENGINE_BLK(802BFB14);
 }
 
 /* a random number from lo up to hi (23C20.c's) */
@@ -2467,9 +1840,7 @@ REGS(a0, a1 -> s4)
 s32 func_802BFB50(s32 lo, s32 hi) {
     s32 r;
 
-    ENGINE_BLK(802BFB50);
     r = func_8026A828(lo, hi);
-    ENGINE_BLK(802BFBA0);
     return r;
 }
 
@@ -2480,26 +1851,17 @@ void func_802BFBF4(u8 *fx, Building *b) {
     s8 *k;
     s32 kind;
 
-    ENGINE_BLK(802BFBF4);
     if (M_STRENGTH(B_MODEL(b)) == 1)
-        goto out;
-    ENGINE_BLK(802BFC54);
+        return;
     kind = FX_B(fx, FX_KIND);
     for (k = (s8 *)D_8030633C;;) {
-        ENGINE_BLK(802BFC64);
         if (*k == -1)
-            goto out;
-        ENGINE_BLK(802BFC70);
+            return;
         if (*k++ == kind)
             break;
     }
-    ENGINE_BLK(802BFC78);
-    ENGINE_BLK(802BFC9C);
     func_80288284(((u32)D_803649D8 >> 8) % 4, (u32)FX_W(fx, FX_X) >> 11, (u32)FX_W(fx, FX_Y) >> 11,
                   (u32)FX_W(fx, FX_Z) >> 11, b->y);
-    ENGINE_BLK(802BFCC8);
-out:
-    ENGINE_BLK(802BFCCC);
 }
 
 /* a group of building b (g, from 0) landed: its effect records for it
@@ -2509,25 +1871,17 @@ REGS(v0, a3)
 void func_802BFD1C(Building *b, s32 g) {
     u8 *fx, *end;
 
-    ENGINE_BLK(802BFD1C);
     g++;
     if (M_DEBRIS(B_MODEL(b)) != 0) {
-        ENGINE_BLK(802BFD84);
         func_802BFDAC(b, g);
-        goto out;
+        return;
     }
-    ENGINE_BLK(802BFD4C);
     end = B_SECTION(b, MS_GROUP_DLS);
-    for (fx = B_SECTION(b, MS_FX_LAND); ENGINE_BLK(802BFD60), fx != end; fx += FX_SIZE) {
-        ENGINE_BLK(802BFD68);
+    for (fx = B_SECTION(b, MS_FX_LAND); fx != end; fx += FX_SIZE) {
         if (FX_B(fx, FX_GROUP) == g) {
-            ENGINE_BLK(802BFD74);
             func_802C04F0(fx);
         }
-        ENGINE_BLK(802BFD7C);
     }
-out:
-    ENGINE_BLK(802BFD8C);
 }
 
 /* a piece of debris where group `group` (1-based) landed, of a kind from
@@ -2538,18 +1892,14 @@ void func_802BFDAC(Building *b, s32 group) {
     s16 *c = (s16 *)(B_SECTION(b, MS_CENTRES) + (group - 1) * 8);
     s32 x = c[0], y = b->y, z = c[2], roll;
 
-    ENGINE_BLK(802BFDAC);
     roll = func_802BFB50(0, 100);
-    ENGINE_BLK(802BFE10);
-    for (t = D_803063D4; ENGINE_BLK(802BFE18), !(roll < CHANCE(t)); t += 0xC)
-        ENGINE_BLK(802BFE28);
-    ENGINE_BLK(802BFE30);
+    for (t = D_803063D4; !(roll < CHANCE(t)); t += 0xC) {
+    }
     fx = D_803F3FF8;
     FX_W(fx, FX_X) = x << 16;
     FX_W(fx, FX_Y) = y << 11;
     FX_W(fx, FX_Z) = z << 16;
     roll = func_802BFB50(CHANCE_LO(t), CHANCE_HI(t));
-    ENGINE_BLK(802BFE5C);
     FX_W(fx, FX_VEL) = 0;
     FX_W(fx, FX_VEL + 4) = 0;
     FX_W(fx, FX_VEL + 8) = 0;
@@ -2565,7 +1915,6 @@ void func_802BFDAC(Building *b, s32 group) {
     FX_B(fx, FX_UNK35) = 0;
     FX_B(fx, FX_KIND) = CHANCE_KIND(t);
     func_802C04F0(fx);
-    ENGINE_BLK(802BFEAC);
 }
 
 /* D_803F7800: whether the vehicle (vs) is dashing or so (D_803F7801 2, or
@@ -2574,22 +1923,17 @@ REGS(gp)
 void func_802BFEE4(VS *vs) {
     s32 m = D_803F7801, dash;
 
-    ENGINE_BLK(802BFEE4);
     if (m == 1) {
         dash = 0;
     } else {
-        ENGINE_BLK(802BFF0C);
-        dash = m == 2 || (ENGINE_BLK(802BFF18), vs->unk96[0] == 1) || (ENGINE_BLK(802BFF28), vs->unk96[1] == 1) ||
-               (ENGINE_BLK(802BFF38), vs->unk96[2] == 1);
+        dash = m == 2 || (vs->unk96[0] == 1) || (vs->unk96[1] == 1) ||
+               (vs->unk96[2] == 1);
     }
     if (dash) {
-        ENGINE_BLK(802BFF50);
         D_803F7800 = 1;
     } else {
-        ENGINE_BLK(802BFF48);
         D_803F7800 = 0;
     }
-    ENGINE_BLK(802BFF58);
 }
 
 /* the next of D_80305E50's damage rules after r, when r isn't taken: the
@@ -2598,27 +1942,17 @@ void func_802BFEE4(VS *vs) {
 static u8 *rule_skip(u8 *r) {
     s32 t;
 
-    ENGINE_BLK(802C0170);
     t = r[2];
     if (t == 0xFC || t == 0xFB) {
-        if (t == 0xFB)
-            ENGINE_BLK(802C0180);
-        ENGINE_BLK(802C01B8);
         return r + 4;
     }
-    ENGINE_BLK(802C0180);
-    ENGINE_BLK(802C0188);
     if (t != 0xFD) {
-        ENGINE_BLK(802C0190);
         if (t != 0xFF) {
-            ENGINE_BLK(802C0198);
             if (t != 0xFE) {
-                ENGINE_BLK(802C01A0);
                 return r + r[3] + 4;
             }
         }
     }
-    ENGINE_BLK(802C01B0);
     return r + 4;
 }
 
@@ -2640,135 +1974,94 @@ s32 func_802BFF6C(s32 group, s32 power, s32 type, Building *b, s32 strength, s32
     u32 d = power;
     f32 f4;
 
-    ENGINE_BLK(802BFF6C);
     if (type == 0xFF) {
-        ENGINE_BLK(802BFFC4);
         if (strength == 1) {
-            ENGINE_BLK(802BFFD8);
             d = 100;
             goto out;
         }
-        ENGINE_BLK(802BFFD0);
         d = 0;
         goto out;
     }
-    ENGINE_BLK(802BFFAC);
     D_8036CB2F = 1;
     D_8036CB2E = type;
-    ENGINE_BLK(802BFFE0);
     if (M_MAIN(B_MODEL(b)) == group) {
-        ENGINE_BLK(802BFFF0);
         D_803F7807 = 1;
         D_8036CB2F = 0;
         d = 0;
         goto out;
     }
-    ENGINE_BLK(802C000C);
     t = func_802C0284(d, type, strength, &k);
     d = k;
-    ENGINE_BLK(802C0014);
     if (t != 0)
         goto out;
-    ENGINE_BLK(802C001C);
     if (D_803F7800 != 0) {
-        ENGINE_BLK(802C0030);
         D_8036CB2A = 100;
         D_8036CB2C = 100;
         d = 100;
         goto out;
     }
-    ENGINE_BLK(802C0048);
 #define SKIP_RULE                                                           \
     {                                                                       \
         r = rule_skip(r);                                                   \
         continue;                                                           \
     }
     for (r = D_80305E50;;) {
-        ENGINE_BLK(802C005C);
         if (r[0] != type)
             SKIP_RULE
-        ENGINE_BLK(802C0068);
         if (r[1] != n)
             SKIP_RULE
-        ENGINE_BLK(802C0074);
         t = r[2];
         if (t == 0xFC) {
-            ENGINE_BLK(802C0084);
             if (D_803F7804 == 0)
                 SKIP_RULE
-            ENGINE_BLK(802C0094);
-            ENGINE_BLK(802C01C0);
             d = r[3] * d;
             goto divide;
         }
-        ENGINE_BLK(802C009C);
         if (t == 0xFB) {
-            ENGINE_BLK(802C00A8);
             s = func_802C038C(sel, b);
-            ENGINE_BLK(802C00B0);
             if (!s)
                 SKIP_RULE
-            ENGINE_BLK(802C00B8);
-            ENGINE_BLK(802C01D4);
             d = r[3] * d;
             goto divide;
         }
-        ENGINE_BLK(802C00C0);
         if (t == 0xFF) {
-            ENGINE_BLK(802C00CC);
             if (D_803F77FC < 0)
                 SKIP_RULE
-            ENGINE_BLK(802C00E0);
             break;
         }
-        ENGINE_BLK(802C00E8);
         if (t == 0xFE) {
-            ENGINE_BLK(802C00F4);
             if (D_803F77FC > 0)
                 SKIP_RULE
-            ENGINE_BLK(802C0108);
             break;
         }
-        ENGINE_BLK(802C0110);
         if (t == 0xFD)
             break;
         /* the state of a part of the vehicle's (D_803F77D0) */
-        ENGINE_BLK(802C011C);
         sel = t;
         s = func_802A04BC(t, D_803F77D0, &f11, &f12, &f14, &fC, &fE, &f13, &f4);
-        ENGINE_BLK(802C0128);
         if (s != 0) {
-            ENGINE_BLK(802C0130);
             r += f13;
             s = engine_cvt_w_s(f4 * (f32)(r[5] - r[4]));
             d = (u32)(s + r[4]) * d;
             goto divide;
         }
-        ENGINE_BLK(802C01A0);
         r += r[3] + 4;
     }
 #undef SKIP_RULE
     /* by the push */
-    ENGINE_BLK(802C01E8);
     k = D_803F77FC;
     if (k < 0) {
-        ENGINE_BLK(802C01FC);
         k = -k;
     }
-    ENGINE_BLK(802C0200);
     d = ((u32)k * d * r[3]) >> 4;
 divide:
-    ENGINE_BLK(802C0224);
     D_8036CB2A = d;
     d = engine_divu(d, strength);
     if (strength == 0) {
-        ENGINE_BLK(802C0244);
         engine_break(0x802C0244, 7);
     }
-    ENGINE_BLK(802C0248);
     D_8036CB2C = d;
 out:
-    ENGINE_BLK(802C024C);
     return d;
 }
 
@@ -2781,58 +2074,40 @@ s32 func_802C0284(s32 power, s32 type, s32 strength, s32 *power_out) {
     u32 *p;
     s32 r = 0;
 
-    ENGINE_BLK(802C0284);
     if (D_803F780C != 0) {
-        ENGINE_BLK(802C02A8);
         D_803F780C = 0;
-        ENGINE_BLK(802C0374);
         *power_out = 100;
         return 1;
     }
-    ENGINE_BLK(802C02BC);
     if (D_803A740C + 1 == D_80358068) {
-        ENGINE_BLK(802C02D8);
-        for (p = D_80305E10; ENGINE_BLK(802C02E0), p[1] != 0; p += 2) {
-            ENGINE_BLK(802C02EC);
+        for (p = D_80305E10; p[1] != 0; p += 2) {
             if ((p[1] & (1u << (type & 31))) == 0)
                 continue;
-            ENGINE_BLK(802C0300);
             if (p[0] != (u32)D_802E8BDC)
                 continue;
-            ENGINE_BLK(802C0318);
             r = 1;
             power = 100;
             break;
         }
     }
-    ENGINE_BLK(802C0320);
     if (type == 1) {
-        ENGINE_BLK(802C032C);
         if (strength == 1) {
-            ENGINE_BLK(802C0334);
             r = 1;
             power = 100;
         }
     }
-    ENGINE_BLK(802C033C);
     if (type == 0xA) {
-        ENGINE_BLK(802C0348);
         if (strength == 1) {
-            ENGINE_BLK(802C0350);
             r = 1;
             power = 100;
         }
     }
-    ENGINE_BLK(802C0358);
     if (type == 0x10) {
-        ENGINE_BLK(802C0364);
         if (strength == 1) {
-            ENGINE_BLK(802C036C);
             r = 1;
             power = 100;
         }
     }
-    ENGINE_BLK(802C0374);
     *power_out = power;
     return r;
 }
@@ -2845,30 +2120,18 @@ s32 func_802C038C(s32 group, Building *b) {
     u8 *r, *end = B_SECTION(b, MS_END), *s;
     s32 k;
 
-    ENGINE_BLK(802C038C);
-    for (r = B_SECTION(b, MS_SUPPORTS); ENGINE_BLK(802C03D4), r != end; r = SUP_NEXT(r)) {
-        ENGINE_BLK(802C03DC);
-        for (k = r[2], s = r + 3; ENGINE_BLK(802C03E8), k != 0; k--, s += 2) {
-            ENGINE_BLK(802C03F0);
+    for (r = B_SECTION(b, MS_SUPPORTS); r != end; r = SUP_NEXT(r)) {
+        for (k = r[2], s = r + 3; k != 0; k--, s += 2) {
             if (s[0] == group) {
-                ENGINE_BLK(802C0408);
                 if (B_DAMAGE(b)[r[0] - 1] == 100)
                     break;
-                ENGINE_BLK(802C0420);
-                ENGINE_BLK(802C046C);
                 return 0;
             }
-            ENGINE_BLK(802C0400);
         }
-        ENGINE_BLK(802C0428);
     }
-    ENGINE_BLK(802C0438);
     if (D_803A73F4 + 0x578 < ((s16 *)B_SECTION(b, MS_HEIGHTS))[group - 1] << 5) {
-        ENGINE_BLK(802C0468);
-        ENGINE_BLK(802C046C);
         return 0;
     }
-    ENGINE_BLK(802C046C);
     return 1;
 }
 
@@ -2879,12 +2142,9 @@ REGS()
 void func_802C049C(void) {
     s32 i;
 
-    ENGINE_BLK(802C049C);
-    for (i = 0; ENGINE_BLK(802C04C0), i < NFX; i++) {
-        ENGINE_BLK(802C04C8);
+    for (i = 0; i < NFX; i++) {
         FX_B(D_803F3968[i], FX_DONE) = 1;
     }
-    ENGINE_BLK(802C04D8);
 }
 
 /* effect record `src` copied into the first free one (none if none) */
@@ -2892,20 +2152,13 @@ REGS(v1)
 void func_802C04F0(u8 *src) {
     s32 i;
 
-    ENGINE_BLK(802C04F0);
-    for (i = 0; ENGINE_BLK(802C0514), i < NFX; i++) {
-        ENGINE_BLK(802C051C);
+    for (i = 0; i < NFX; i++) {
         if (FX_B(D_803F3968[i], FX_DONE) != 0) {
             /* (fourteen words: the copy's loop) */
-            ENGINE_BLK(802C0534);
-            ENGINE_BLKN(802C0538, FX_SIZE / 4 + 1);
-            ENGINE_BLKN(802C0540, FX_SIZE / 4);
             __builtin_memcpy(D_803F3968[i], src, FX_SIZE);
             break;
         }
-        ENGINE_BLK(802C0528);
     }
-    ENGINE_BLK(802C0558);
 }
 
 /* Each frame (hd.c): each waiting effect counts down (FX_DELAY) and then
@@ -2916,72 +2169,48 @@ void func_802C0574(void) {
     u8 *fx, *kinds;
     s32 i, t, k, big, started;
 
-    ENGINE_BLK(802C0574);
-    for (i = 0; ENGINE_BLK(802C05A8), i < NFX; ENGINE_BLK(802C0890), i++) {
+    for (i = 0; i < NFX; i++) {
         fx = D_803F3968[i];
-        ENGINE_BLK(802C05B0);
         if (FX_B(fx, FX_DONE) != 0)
             continue;
-        ENGINE_BLK(802C05C0);
         t = FX_H(fx, FX_DELAY);
         if (t != 0) {
-            ENGINE_BLK(802C05CC);
             FX_H(fx, FX_DELAY) = t - 1;
             continue;
         }
-        ENGINE_BLK(802C05D8);
         kinds = D_80306270[FX_B(fx, FX_KIND)];
         k = kinds[1 + engine_remu((u32)D_803649D8 >> 4, kinds[0])];
         if (kinds[0] == 0) {
-            ENGINE_BLK(802C0638);
             engine_break(0x802C0638, 7);
         }
-        ENGINE_BLK(802C063C);
         big = 1;
         if (FX_B(fx, FX_KIND) != FX_KIND_SPARK) {
-            ENGINE_BLK(802C0674);
             if (D_803F7810 == 0) {
-                ENGINE_BLK(802C0684);
                 if (D_8036DCD4 == 0)
                     big = 0;
                 else {
-                    ENGINE_BLK(802C0694);
                     if (D_8036DCD7 != 1)
                         big = 0;
                 }
             }
         }
-        if (big)
-            ENGINE_BLK(802C06A8);
-        else
-            ENGINE_BLK(802C06F0);
         started = func_802A6274(D_802C3FFC[k], FX_W(fx, FX_SPEED), 0, FX_W(fx, FX_X), FX_W(fx, FX_Y),
                                 FX_W(fx, FX_Z), FX_W(fx, FX_VEL), FX_W(fx, FX_VEL + 4), FX_W(fx, FX_VEL + 8),
                                 FX_W(fx, FX_UNK14), FX_W(fx, FX_UNK14 + 4), FX_W(fx, FX_UNK14 + 8),
                                 FX_W(fx, FX_UNK28), FX_B(fx, FX_UNK35), big);
-        if (big)
-            ENGINE_BLK(802C06E8);
-        ENGINE_BLK(802C0730);
         if (started != 0) {
-            ENGINE_BLK(802C0738);
             if (D_80364A98 == 0) {
-                ENGINE_BLK(802C0748);
                 if (D_803643D6 == 0) {
-                    ENGINE_BLK(802C0758);
                     func_802619D0(FX_B(fx, FX_KIND));
-                    ENGINE_BLK(802C07E4);
                 }
             }
         }
-        ENGINE_BLK(802C0868);
         FX_B(fx, FX_DONE) = 1;
         t = FX_H(fx, FX_RADIUS);
         if (t != 0) {
-            ENGINE_BLK(802C0884);
             func_802C18D4(t, FX_W(fx, FX_X), FX_W(fx, FX_Y), FX_W(fx, FX_Z), FX_B(fx, FX_AMOUNT) << 4);
         }
     }
-    ENGINE_BLK(802C0898);
 }
 
 /* ---- smoke, dust and the falling groups' shadows --------------------- */
@@ -2994,28 +2223,20 @@ void func_802C08C4(u32 *g) {
     Smoke *s;
     s32 i, a;
 
-    ENGINE_BLK(802C08C4);
-    for (i = 0, s = D_803F0900; ENGINE_BLK(802C08EC), i < NSMOKE; i++, s++) {
-        ENGINE_BLK(802C08F4);
+    for (i = 0, s = D_803F0900; i < NSMOKE; i++, s++) {
         a = s->alpha;
         if (a == 0) {
-            ENGINE_BLK(802C0904);
             if (s->wait != 0) {
-                ENGINE_BLK(802C0910);
                 s->wait--;
             }
-            ENGINE_BLK(802C0918);
             continue;
         }
-        ENGINE_BLK(802C0920);
         a -= SMOKE_FADE;
         if (a <= 0) {
-            ENGINE_BLK(802C092C);
             s->alpha = 0;
             s->wait = SMOKE_WAIT;
             continue;
         }
-        ENGINE_BLK(802C0940);
         s->alpha = a;
         g[0] = DL_PIPESYNC;
         g[1] = 0;
@@ -3025,41 +2246,28 @@ void func_802C08C4(u32 *g) {
         g[5] = K0(s->dl);
         g += 6;
     }
-    ENGINE_BLK(802C0988);
     g[0] = DL_END;
     g[1] = 0;
 }
 
 /* whether the look at r (a GroupDl of group `group`'s, 1-based) is shown
    the moment the group goes: no condition hides it, the group itself
-   counted at GROUP_DYING_DAMAGE; blocks: the test, a condition, the group
-   itself, another, after, below, below and hidden, over */
-typedef struct LookBlks {
-    Blk test, cond, self, other, after, below, below_hit, over;
-} LookBlks;
-
-static s32 look_shown(u8 *r, s32 group, Building *b, const LookBlks *k) {
+   counted at GROUP_DYING_DAMAGE */
+static s32 look_shown(u8 *r, s32 group, Building *b) {
     GroupCond *c;
     s32 n, dmg;
 
-    for (n = GDL_N(r), c = GDL_COND(r); BLKT(k->test), n != 0; n--, c++) {
-        BLKT(k->cond);
+    for (n = GDL_N(r), c = GDL_COND(r); n != 0; n--, c++) {
         if (c->group == group) {
-            BLKT(k->self);
             dmg = GROUP_DYING_DAMAGE;
         } else {
-            BLKT(k->other);
             dmg = B_DAMAGE(b)[c->group - 1];
         }
-        BLKT(k->after);
         if (c->below) {
-            BLKT(k->below);
             if (dmg < c->limit) {
-                BLKT(k->below_hit);
                 return 0;
             }
         } else {
-            BLKT(k->over);
             if (c->limit < dmg)
                 return 0;
         }
@@ -3069,20 +2277,13 @@ static s32 look_shown(u8 *r, s32 group, Building *b, const LookBlks *k) {
 
 /* A display list's commands from src to src_end copied to *d (through
    func_802C0C64 when `subst`) while *k, counting down, lasts: 0 if it ran
-   out.  Blocks: the test, the count's, the copy, after func_802C0C64. */
-typedef struct CopyNBlks {
-    Blk test, count, copy, after;
-} CopyNBlks;
-
-static s32 copy_cmds_n(u32 **d, u32 *src, u32 *src_end, s32 *k, s32 subst, const CopyNBlks *bk) {
-    for (; BLKT(bk->test), src != src_end; src += 2) {
-        BLKT(bk->count);
+   out. */
+static s32 copy_cmds_n(u32 **d, u32 *src, u32 *src_end, s32 *k, s32 subst) {
+    for (; src != src_end; src += 2) {
         if (--*k == 0)
             return 0;
-        BLKT(bk->copy);
         if (subst) {
             *(u64 *)*d = func_802C0C64(*(u64 *)src);
-            BLKT(bk->after);
         } else
             *(u64 *)*d = *(u64 *)src;
         *d += 2;
@@ -3096,66 +2297,41 @@ static s32 copy_cmds_n(u32 **d, u32 *src, u32 *src_end, s32 *k, s32 subst, const
    D_802F46C0), to fade from SMOKE_ALPHA. */
 REGS(t3, t9)
 void func_802C09B8(s32 group, Building *b) {
-    static const LookBlks lk = {
-        {ENGINE_BLK_802C0ADC}, {ENGINE_BLK_802C0AE4}, {ENGINE_BLK_802C0AFC}, {ENGINE_BLK_802C0B04},
-        {ENGINE_BLK_802C0B14}, {ENGINE_BLK_802C0B1C}, {ENGINE_BLK_802C0B24}, {ENGINE_BLK_802C0B2C},
-    };
-    static const CopyNBlks c0 = {
-        {ENGINE_BLK_802C0B58}, {ENGINE_BLK_802C0B60}, {ENGINE_BLK_802C0B6C}, {ENGINE_BLK_802C0B74},
-    };
-    static const CopyNBlks c1 = {
-        {ENGINE_BLK_802C0B94}, {ENGINE_BLK_802C0B9C}, {ENGINE_BLK_802C0BA8}, {ENGINE_BLK_802C0BB0},
-    };
     u8 *model = B_MODEL(b), *r, *end;
     Smoke *s;
     GroupDls *dls;
     u32 *d;
     s32 i, k;
 
-    ENGINE_BLK(802C09B8);
     if (M_SHADOWS(model) != 0)
-        goto out;
-    ENGINE_BLK(802C0A48);
+        return;
     for (i = NSMOKE, s = D_803F0900;; i--, s++) {
-        ENGINE_BLK(802C0A54);
         if (i == 0)
-            goto out;
-        ENGINE_BLK(802C0A5C);
+            return;
         if (s->alpha == 0) {
-            ENGINE_BLK(802C0A68);
             if (s->wait == 0)
                 break;
         }
-        ENGINE_BLK(802C0A74);
     }
-    ENGINE_BLK(802C0A80);
     d = s->dl;
     d[0] = DL_SEGMENT(9);
     d[1] = K0(M_TEXTURES(model));
     d += 2;
     k = SMOKE_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
-    for (r = B_SECTION(b, MS_GROUP_DLS); ENGINE_BLK(802C0AC0), r != end; r = GDL_NEXT(r)) {
-        ENGINE_BLK(802C0AC8);
-        if (GDL_GROUP(r) != group || !look_shown(r, group, b, &lk)) {
-            ENGINE_BLK(802C0B38);
+    for (r = B_SECTION(b, MS_GROUP_DLS); r != end; r = GDL_NEXT(r)) {
+        if (GDL_GROUP(r) != group || !look_shown(r, group, b)) {
             continue;
         }
-        ENGINE_BLK(802C0B48);
         dls = GDL_DLS(r, GDL_N(r));
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k, 1, &c0))
-            goto out;
-        ENGINE_BLK(802C0B84);
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k, 1, &c1))
-            goto out;
-        ENGINE_BLK(802C0BC0);
+        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k, 1))
+            return;
+        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k, 1))
+            return;
     }
-    ENGINE_BLK(802C0BC8);
     s->alpha = SMOKE_ALPHA;
     d[0] = DL_END;
     d[1] = 0;
-out:
-    ENGINE_BLK(802C0BE0);
 }
 
 /* a display list command as a smoke cloud has it: D_802F46C0's pairs
@@ -3165,16 +2341,12 @@ u64 func_802C0C64(u64 cmd) {
     u64 *p;
     s32 n;
 
-    ENGINE_BLK(802C0C64);
-    for (n = 12, p = D_802F46C0; ENGINE_BLK(802C0C84), n != 0; n--, p += 2) {
-        ENGINE_BLK(802C0C8C);
+    for (n = 12, p = D_802F46C0; n != 0; n--, p += 2) {
         if (p[0] == cmd) {
-            ENGINE_BLK(802C0CA0);
             cmd = p[1];
             break;
         }
     }
-    ENGINE_BLK(802C0CA4);
     return cmd;
 }
 
@@ -3188,69 +2360,50 @@ void func_802C0CBC(u32 *g) {
     s32 i, h, y, x, z;
     s32 *m;
 
-    ENGINE_BLK(802C0CBC);
     D_803F7810 = 0;
-    for (i = 0, s = D_803EFED0; ENGINE_BLK(802C0D08), i < NDUST; i++, s++) {
-        ENGINE_BLK(802C0D10);
+    for (i = 0, s = D_803EFED0; i < NDUST; i++, s++) {
         if (s->active == 0) {
-            ENGINE_BLK(802C0D20);
             if (s->wait != 0) {
-                ENGINE_BLK(802C0D2C);
                 s->wait--;
             }
-            ENGINE_BLK(802C0D34);
             continue;
         }
-        ENGINE_BLK(802C0D3C);
         h = s->speed + DUST_ACCEL;
         y = s->y + h;
         s->speed = h;
         if (y >= s->top) {
-            ENGINE_BLK(802C0D5C);
             s->active = 0;
             s->wait = DUST_WAIT;
             continue;
         }
-        ENGINE_BLK(802C0D70);
         s->y = y;
         D_803F7810 = 1;
         x = func_802BFB50(-DUST_SHAKE, DUST_SHAKE);
-        ENGINE_BLK(802C0D8C);
         x <<= 12;
         z = func_802BFB50(-DUST_SHAKE, DUST_SHAKE);
-        ENGINE_BLK(802C0D9C);
         y = -(y << 11);
         z <<= 12;
         if (D_8035805C != 0) {
-            ENGINE_BLK(802C0DB4);
             m = s->mtx[1];
         } else {
-            ENGINE_BLK(802C0DBC);
             m = s->mtx[0];
         }
-        ENGINE_BLK(802C0DC0);
         func_802ACA60(x, y, z, m);
-        ENGINE_BLK(802C0DC8);
         func_802AC8CC((u32 *)m);
-        ENGINE_BLK(802C0DD0);
         g[0] = DL_PIPESYNC;
         g[1] = 0;
         g += 2;
         if (D_8035805C != 0) {
-            ENGINE_BLK(802C0DF0);
             m = s->mtx[1];
         } else {
-            ENGINE_BLK(802C0DF8);
             m = s->mtx[0];
         }
-        ENGINE_BLK(802C0DFC);
         g[0] = DL_SEGMENT(12);          /* the matrix */
         g[1] = K0(m);
         g[2] = DL_CALL;                 /* the cloud */
         g[3] = K0(s->dl);
         g += 4;
     }
-    ENGINE_BLK(802C0E40);
     g[0] = DL_END;
     g[1] = 0;
 }
@@ -3262,16 +2415,6 @@ void func_802C0CBC(u32 *g) {
    to the building's. */
 REGS(t3, t9)
 void func_802C0E8C(s32 group, Building *b) {
-    static const LookBlks lk = {
-        {ENGINE_BLK_802C104C}, {ENGINE_BLK_802C1054}, {ENGINE_BLK_802C106C}, {ENGINE_BLK_802C1074},
-        {ENGINE_BLK_802C1084}, {ENGINE_BLK_802C108C}, {ENGINE_BLK_802C1094}, {ENGINE_BLK_802C109C},
-    };
-    static const CopyNBlks c0 = {
-        {ENGINE_BLK_802C10C8}, {ENGINE_BLK_802C10D0}, {ENGINE_BLK_802C10DC}, {0, 0},
-    };
-    static const CopyNBlks c1 = {
-        {ENGINE_BLK_802C1100}, {ENGINE_BLK_802C1108}, {ENGINE_BLK_802C1114}, {0, 0},
-    };
     u8 *model = B_MODEL(b), *r, *end;
     s16 *id;
     Dust *s;
@@ -3280,65 +2423,46 @@ void func_802C0E8C(s32 group, Building *b) {
     u64 *c;
     s32 i, k;
 
-    ENGINE_BLK(802C0E8C);
     if ((D_80364A90 & 0x440) != 0)
-        goto out;
-    ENGINE_BLK(802C0F1C);
-    for (id = D_80305E38; ENGINE_BLK(802C0F28), B_ID(b) != *id; id++) {
-        ENGINE_BLK(802C0F34);
+        return;
+    for (id = D_80305E38; B_ID(b) != *id; id++) {
         if (*id < 0)
-            goto out;
-        ENGINE_BLK(802C0F3C);
+            return;
     }
-    ENGINE_BLK(802C0F44);
     for (i = NDUST, s = D_803EFED0;; i--, s++) {
-        ENGINE_BLK(802C0F50);
         if (i == 0)
-            goto out;
-        ENGINE_BLK(802C0F58);
+            return;
         if (s->active == 0) {
-            ENGINE_BLK(802C0F64);
             if (s->wait == 0)
                 break;
         }
-        ENGINE_BLK(802C0F70);
     }
-    ENGINE_BLK(802C0F7C);
     func_802C1214(s, b);
-    ENGINE_BLK(802C0F84);
     d = s->dl;
     d[0] = DL_SEGMENT(9);               /* the model's textures */
     d[1] = K0(M_TEXTURES(model));
     d[2] = DL_SEGMENT(11);              /* the corners */
     d[3] = K0(s->corners);
     d += 4;
-    for (i = 6, c = D_802F4780; ENGINE_BLK(802C0FE0), i != 0; i--) {
-        ENGINE_BLK(802C0FE8);
+    for (i = 6, c = D_802F4780; i != 0; i--) {
         *(u64 *)d = *c++;
         d += 2;
     }
-    ENGINE_BLK(802C1000);
     d[0] = DL_MTX_PUSH;                 /* segment 12's matrix */
     d[1] = 0x0C000000;
     d += 2;
     k = DUST_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
-    for (r = B_SECTION(b, MS_GROUP_DLS); ENGINE_BLK(802C1030), r != end; r = GDL_NEXT(r)) {
-        ENGINE_BLK(802C1038);
-        if (GDL_GROUP(r) != group || !look_shown(r, group, b, &lk)) {
-            ENGINE_BLK(802C10A8);
+    for (r = B_SECTION(b, MS_GROUP_DLS); r != end; r = GDL_NEXT(r)) {
+        if (GDL_GROUP(r) != group || !look_shown(r, group, b)) {
             continue;
         }
-        ENGINE_BLK(802C10B8);
         dls = GDL_DLS(r, GDL_N(r));
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k, 0, &c0))
-            goto out;
-        ENGINE_BLK(802C10F0);
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k, 0, &c1))
-            goto out;
-        ENGINE_BLK(802C1128);
+        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k, 0))
+            return;
+        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k, 0))
+            return;
     }
-    ENGINE_BLK(802C1130);
     s->y = 0;
     s->top = (((s16 *)B_SECTION(b, MS_HEIGHTS))[group - 1] << 5) - b->y;
     s->speed = 0;
@@ -3347,8 +2471,6 @@ void func_802C0E8C(s32 group, Building *b) {
     d[1] = 0;
     d[2] = DL_END;
     d[3] = 0;
-out:
-    ENGINE_BLK(802C1190);
 }
 
 /* the dust's four corners: the model's shadow rectangle (MS_SHADOW)
@@ -3359,7 +2481,6 @@ void func_802C1214(Dust *s, Building *b) {
     s32 y = b->y >> 5, x0 = r[0] - DUST_MARGIN, z0 = r[1] - DUST_MARGIN, x1 = r[2] + DUST_MARGIN,
         z1 = r[3] + DUST_MARGIN;
 
-    ENGINE_BLK(802C1214);
     s->corners[0][0] = x0, s->corners[0][1] = y, s->corners[0][2] = z0;
     s->corners[1][0] = x1, s->corners[1][1] = y, s->corners[1][2] = z0;
     s->corners[2][0] = x0, s->corners[2][1] = y, s->corners[2][2] = z1;
@@ -3377,40 +2498,29 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
     Mtx *m = D_803F7658;
     s32 i, sz, sz2, gr;
 
-    ENGINE_BLK(802C12E0);
-    for (i = 0, s = D_803F1BE0; ENGINE_BLK(802C1304), i < NSHADOW; i++, s++, m = (Mtx *)((u8 *)m + 0x40)) {
-        ENGINE_BLK(802C130C);
+    for (i = 0, s = D_803F1BE0; i < NSHADOW; i++, s++, m = (Mtx *)((u8 *)m + 0x40)) {
         if (s->active == 0) {
-            ENGINE_BLK(802C131C);
             if (s->wait != 0) {
-                ENGINE_BLK(802C1328);
                 s->wait--;
             }
-            ENGINE_BLK(802C1400);
             continue;
         }
-        ENGINE_BLK(802C1334);
         gr = s->growth;
         sz = s->size + gr;
         gr += SHADOW_ACCEL;
         if (sz < SHADOW_SIZE_MAX) {
-            ENGINE_BLK(802C134C);
             s->growth = gr;
             s->size = sz;
         } else {
-            ENGINE_BLK(802C1358);
             sz2 = s->held + 1;
             s->held = sz2;
             if (sz2 >= SHADOW_HOLD) {
-                ENGINE_BLK(802C140C);
                 s->active = 0;
                 s->wait = SHADOW_WAIT;
                 continue;
             }
         }
-        ENGINE_BLK(802C136C);
         func_8026A454(s->x, s->y, s->z, sz, s->heading, m);
-        ENGINE_BLK(802C138C);
         g0[0] = DL_SEGMENT(9);          /* the model's textures */
         g0[1] = s->textures - 0x80000000;
         g1[0] = DL_SEGMENT(9);
@@ -3421,9 +2531,7 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
         g1[3] = K0(s->dl1);
         g0 += 4;
         g1 += 4;
-        ENGINE_BLK(802C1400);
     }
-    ENGINE_BLK(802C1424);
     *g1_out = g1;
     return g0;
 }
@@ -3436,21 +2544,6 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
    facing the player. */
 REGS(t3, t9)
 void func_802C1438(s32 group, Building *b) {
-    static const LookBlks lk = {
-        {ENGINE_BLK_802C157C}, {ENGINE_BLK_802C1584}, {ENGINE_BLK_802C159C}, {ENGINE_BLK_802C15A4},
-        {ENGINE_BLK_802C15B4}, {ENGINE_BLK_802C15BC}, {ENGINE_BLK_802C15C4}, {ENGINE_BLK_802C15CC},
-    };
-    static const CopyNBlks c0 = {
-        {ENGINE_BLK_802C15F8}, {ENGINE_BLK_802C1600}, {ENGINE_BLK_802C160C}, {0, 0},
-    };
-    static const CopyNBlks c1 = {
-        {ENGINE_BLK_802C1630}, {ENGINE_BLK_802C1638}, {ENGINE_BLK_802C1644}, {0, 0},
-    };
-    static const HeadingBlks hk = {
-        {ENGINE_BLK_802C1748}, {ENGINE_BLK_802C1778}, {ENGINE_BLK_802C1780}, {ENGINE_BLK_802C17B0},
-        {ENGINE_BLK_802C17C8}, {ENGINE_BLK_802C17F8}, {ENGINE_BLK_802C1804}, {ENGINE_BLK_802C1834},
-        {ENGINE_BLK_802C173C}, {ENGINE_BLK_802C17BC},
-    };
     u8 *model = B_MODEL(b), *r, *end;
     FallShadow *s;
     GroupDls *dls;
@@ -3458,28 +2551,19 @@ void func_802C1438(s32 group, Building *b) {
     u32 *d0, *d1, seg = 0x02000000;
     s32 i, k0, k1, t, h;
 
-    ENGINE_BLK(802C1438);
     if (M_SHADOWS(model) == 0)
-        goto out;
-    ENGINE_BLK(802C14C8);
+        return;
     t = func_802C1A28(group, b);
-    ENGINE_BLK(802C14D0);
     if (t != 0)
-        goto out;
-    ENGINE_BLK(802C14D8);
+        return;
     for (i = NSHADOW, s = D_803F1BE0;; i--, s++, seg += 0x40) {
-        ENGINE_BLK(802C14E8);
         if (i == 0)
-            goto out;
-        ENGINE_BLK(802C14F0);
+            return;
         if (s->active == 0) {
-            ENGINE_BLK(802C14FC);
             if (s->wait == 0)
                 break;
         }
-        ENGINE_BLK(802C1508);
     }
-    ENGINE_BLK(802C1518);
     s->textures = (u32)M_TEXTURES(model);
     d0 = s->dl0;
     d1 = s->dl1;
@@ -3492,22 +2576,16 @@ void func_802C1438(s32 group, Building *b) {
     k0 = SHADOW_DL_MAX;
     k1 = SHADOW_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
-    for (r = B_SECTION(b, MS_GROUP_DLS); ENGINE_BLK(802C1560), r != end; r = GDL_NEXT(r)) {
-        ENGINE_BLK(802C1568);
-        if (GDL_GROUP(r) != group || !look_shown(r, group, b, &lk)) {
-            ENGINE_BLK(802C15D8);
+    for (r = B_SECTION(b, MS_GROUP_DLS); r != end; r = GDL_NEXT(r)) {
+        if (GDL_GROUP(r) != group || !look_shown(r, group, b)) {
             continue;
         }
-        ENGINE_BLK(802C15E8);
         dls = GDL_DLS(r, GDL_N(r));
-        if (!copy_cmds_n(&d0, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k0, 0, &c0))
-            goto out;
-        ENGINE_BLK(802C1620);
-        if (!copy_cmds_n(&d1, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k1, 0, &c1))
-            goto out;
-        ENGINE_BLK(802C1658);
+        if (!copy_cmds_n(&d0, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k0, 0))
+            return;
+        if (!copy_cmds_n(&d1, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k1, 0))
+            return;
     }
-    ENGINE_BLK(802C1660);
     d0[0] = DL_MTX_POP;
     d0[1] = 0;
     d0[2] = DL_END;
@@ -3524,17 +2602,12 @@ void func_802C1438(s32 group, Building *b) {
     c = (s16 *)(B_SECTION(b, MS_CENTRES) + (group - 1) * 8);
     s->x = c[0];
     s->z = c[2];
-    h = heading_to(c[0] << 5, c[2] << 5, D_803A73F0, D_803A73F8, &hk);
-    ENGINE_BLK(802C183C);
+    h = heading_to(c[0] << 5, c[2] << 5, D_803A73F0, D_803A73F8);
     h -= 0x400;
     if (h < 0) {
-        ENGINE_BLK(802C1848);
         h += 0xFFF;
     }
-    ENGINE_BLK(802C184C);
     s->heading = h;
-out:
-    ENGINE_BLK(802C1850);
 }
 
 /* An explosion of radius r (<< 5) at (x, y, z) (16.16): each building it
@@ -3546,34 +2619,23 @@ void func_802C18D4(s32 r, s32 x, s32 y, s32 z, s32 amount) {
     s32 cx = (u32)x >> 11, cy = (u32)y >> 11, cz = (u32)z >> 11, n, g, a, hit;
     u8 *d;
 
-    ENGINE_BLK(802C18D4);
     r <<= 5;
-    for (b = D_803F4030; ENGINE_BLK(802C1940), b != D_803F7654; ENGINE_BLK(802C19D4), b++) {
-        ENGINE_BLK(802C1948);
+    for (b = D_803F4030; b != D_803F7654; b++) {
         hit = func_8029CFA4(cx, cy, cz, r, b->x, b->y, b->z, B_RADIUS(b));
-        ENGINE_BLK(802C195C);
         if (!hit)
             continue;
-        ENGINE_BLK(802C1964);
         if (B_ID(b) == MODEL_GOAL)
             continue;
-        ENGINE_BLK(802C1974);
-        for (g = 1, n = B_NGROUPS(b), d = B_DAMAGE(b); ENGINE_BLK(802C1980), n != 0; g++, n--, d++) {
-            ENGINE_BLK(802C1988);
+        for (g = 1, n = B_NGROUPS(b), d = B_DAMAGE(b); n != 0; g++, n--, d++) {
             if (*d != 100) {
-                ENGINE_BLK(802C199C);
                 if (M_STRENGTH(B_MODEL(b)) == 0) {
-                    ENGINE_BLK(802C19B4);
                     engine_break(0x802C19B4, 7);
                 }
-                ENGINE_BLK(802C19B8);
                 a = engine_divu(amount, M_STRENGTH(B_MODEL(b)));
                 func_802BC888(a, g, b);
             }
-            ENGINE_BLK(802C19C8);
         }
     }
-    ENGINE_BLK(802C19DC);
 }
 
 /* whether a group of building b's falls lower than group `group` (the
@@ -3584,14 +2646,10 @@ s32 func_802C1A28(s32 group, Building *b) {
     s16 *f = (s16 *)B_SECTION(b, MS_FALLS);
     s32 n = M_NHEIGHTS(B_MODEL(b)), h = f[group - 1];
 
-    ENGINE_BLK(802C1A28);
-    for (; ENGINE_BLK(802C1A60), n != 0; f++, n--) {
-        ENGINE_BLK(802C1A68);
+    for (; n != 0; f++, n--) {
         if (*f < h)
             break;
-        ENGINE_BLK(802C1A78);
     }
-    ENGINE_BLK(802C1A84);
     return n;
 }
 
@@ -3603,21 +2661,14 @@ s32 func_802C1AA0(void) {
     Building *b;
     s32 down;
 
-    ENGINE_BLK(802C1AA0);
-    for (b = D_803F4030; ENGINE_BLK(802C1AD0), b != D_803F7654; b++) {
-        ENGINE_BLK(802C1AD8);
+    for (b = D_803F4030; b != D_803F7654; b++) {
         if (!B_TARGET(b))
             continue;
-        ENGINE_BLK(802C1AE8);
         down = func_802BD064(b + 1);
-        ENGINE_BLK(802C1AF0);
         if (!down) {
-            ENGINE_BLK(802C1AF8);
-            ENGINE_BLK(802C1AFC);
             return 0;
         }
     }
-    ENGINE_BLK(802C1AFC);
     return 1;
 }
 
@@ -3626,20 +2677,14 @@ u8 func_802C1B1C(void) {
     Building *b;
     s32 n = 0, down;
 
-    ENGINE_BLK(802C1B1C);
-    for (b = D_803F4030; ENGINE_BLK(802C1B4C), b != D_803F7654; b++) {
-        ENGINE_BLK(802C1B54);
+    for (b = D_803F4030; b != D_803F7654; b++) {
         if (!B_TARGET(b))
             continue;
-        ENGINE_BLK(802C1B64);
         down = func_802BD064(b + 1);
-        ENGINE_BLK(802C1B6C);
         if (down) {
-            ENGINE_BLK(802C1B74);
             n++;
         }
     }
-    ENGINE_BLK(802C1B7C);
     return n;
 }
 
@@ -3648,83 +2693,56 @@ u8 func_802C1B1C(void) {
    D_803F7660 (and returned).  A target building or object behind it (in
    z) only within its radius, or not at all. */
 s32 func_802C1B9C(void) {
-    static const ObjBlks k = {
-        {ENGINE_BLK_802C1D48}, {ENGINE_BLK_802C1D58}, {ENGINE_BLK_802C1D60},
-        {ENGINE_BLK_802C1D68}, {ENGINE_BLK_802C1D70},
-    };
     Building *b;
     s32 cx = D_803EF6DC, cy = D_803EF6E0, cz = D_803EF6E4, n, down;
     s64 best = 9999999, d;
     UnkStruct_8039C800 *h;
     TargetObj *o;
 
-    ENGINE_BLK(802C1B9C);
-    for (b = D_803F4030; ENGINE_BLK(802C1C04), b != D_803F7654; b++) {
-        ENGINE_BLK(802C1C0C);
+    for (b = D_803F4030; b != D_803F7654; b++) {
         if (!B_TARGET(b))
             continue;
-        ENGINE_BLK(802C1C18);
         if (B_DESTROYED(b))
             continue;
-        ENGINE_BLK(802C1C24);
         d = func_802ABCDC(b->x, b->y, b->z, cx, cy, cz);
-        ENGINE_BLK(802C1C34);
         if (!(d < best))
             continue;
-        ENGINE_BLK(802C1C40);
         down = func_802BD064(b + 1);
-        ENGINE_BLK(802C1C48);
         if (down)
             continue;
-        ENGINE_BLK(802C1C50);
         if (b->z < cz) {
-            ENGINE_BLK(802C1C5C);
             if (B_RADIUS(b) < d)
                 continue;
         }
-        ENGINE_BLK(802C1C6C);
         D_803F7670 = b->unk28;
         best = d;
         D_803F7674 = b->y;
         D_803F7678 = b->unk2C;
     }
-    ENGINE_BLK(802C1C98);
-    for (n = D_8039C940, h = D_8039C800; ENGINE_BLK(802C1CA8), n != 0; n--, h++) {
-        ENGINE_BLK(802C1CB0);
+    for (n = D_8039C940, h = D_8039C800; n != 0; n--, h++) {
         if (h->unk26 == 0) {
-            ENGINE_BLK(802C1CBC);
             d = func_802ABCDC(h->x, h->y, h->z, cx, cy, cz);
-            ENGINE_BLK(802C1CCC);
             if (d < best) {
-                ENGINE_BLK(802C1CD8);
                 D_803F7670 = h->x;
                 D_803F7678 = h->z;
                 best = d;
             }
         }
-        ENGINE_BLK(802C1CEC);
     }
-    ENGINE_BLK(802C1CF8);
-    for (o = D_80306480; ENGINE_BLK(802C1D00), o->level != -1; ENGINE_BLK(802C1D90), o++) {
-        ENGINE_BLK(802C1D10);
+    for (o = D_80306480; o->level != -1; o++) {
         if (o->level != D_802E8BDC)
             continue;
-        ENGINE_BLK(802C1D20);
         d = func_802ABCDC(o->x, o->y, o->z, cx, cy, cz);
-        ENGINE_BLK(802C1D30);
         if (!(d < best))
             continue;
-        ENGINE_BLK(802C1D3C);
         if (o->z < cz)
             continue;
-        ENGINE_BLK(802C1D44);
-        if (!obj_destroyed(o, &k)) {
+        if (!obj_destroyed(o)) {
             D_803F7670 = o->x;
             D_803F7678 = o->z;
             best = d;
         }
     }
-    ENGINE_BLK(802C1D98);
     D_803F7660 = (s32)best;
     return (s32)best;
 }
@@ -3740,40 +2758,26 @@ void func_802C1DD0(s32 targets) {
     u32 value = 0;
     u8 *model;
 
-    ENGINE_BLK(802C1DD0);
-    for (b = D_803F4030; ENGINE_BLK(802C1E18), b != D_803F7654; b++) {
-        ENGINE_BLK(802C1E20);
+    for (b = D_803F4030; b != D_803F7654; b++) {
         model = B_MODEL(b);
         if (targets != 0) {
-            ENGINE_BLK(802C1E28);
             if (!B_TARGET(b))
-                goto next;
-            ENGINE_BLK(802C1E34);
+                continue;
             D_803F7684 = B_ID(b);
         }
-        ENGINE_BLK(802C1E40);
         kind = M_STRENGTH(model);
         if (kind == 0xFF)
-            goto next;
-        ENGINE_BLK(802C1E50);
+            continue;
         if (kind != 1) {
-            ENGINE_BLK(802C1E58);
             all++;
         }
-        ENGINE_BLK(802C1E5C);
         if ((B_DESTROYED(b) | D_803F7688) == 0)
             continue;
-        ENGINE_BLK(802C1E74);
         if (kind != 1) {
-            ENGINE_BLK(802C1E80);
             down++;
         }
-        ENGINE_BLK(802C1E84);
         value += M_VALUE(model);
-    next:
-        ENGINE_BLK(802C1E8C);
     }
-    ENGINE_BLK(802C1E94);
     D_8036EB92 = all;
     D_8036EA70.bd = down;
     D_8036EA70.ip = value;
@@ -3794,12 +2798,9 @@ void func_802C1DD0(s32 targets) {
 s16 *func_802C1EE0(s32 n) {
     u8 *base = L74(D_80358074), *p;
 
-    ENGINE_BLK(802C1EE0);
-    for (p = base + 4, n--; ENGINE_BLK(802C1F04), n != 0; n--) {
-        ENGINE_BLK(802C1F0C);
+    for (p = base + 4, n--; n != 0; n--) {
         p = base + *(u16 *)p;
     }
-    ENGINE_BLK(802C1F1C);
     return (s16 *)(p + 2);
 }
 
@@ -3810,49 +2811,33 @@ void func_802C1F30(s32 n, s32 part, s32 x, s32 y, s32 z) {
     u8 *base = L74(D_80358074), *p, *t, *m;
     s32 id, k;
 
-    ENGINE_BLK(802C1F30);
-    for (p = base + 4, n--; ENGINE_BLK(802C1F58), n != 0; n--) {
-        ENGINE_BLK(802C1F60);
+    for (p = base + 4, n--; n != 0; n--) {
         p = *(u16 *)p + base;
     }
-    ENGINE_BLK(802C1F70);
     id = ((u16 *)(p + 0x14))[part - 1];
     if (D_8035805C != 0) {
-        ENGINE_BLK(802C1F98);
         m = D_803F7824;
     } else {
-        ENGINE_BLK(802C1FA8);
         m = D_803F7820;
     }
-    ENGINE_BLK(802C1FB4);
     func_802ACA60(x, y, z, (s32 *)(m + id));
-    ENGINE_BLK(802C1FC8);
     func_802AC8CC((u32 *)(m + id));
-    ENGINE_BLK(802C1FD0);
     x >>= 11;
     y >>= 11;
     z >>= 11;
-    for (k = *(s32 *)(p + 0x28), t = p + 0x2C; ENGINE_BLK(802C1FE4), k != 0; k--, t += 0x44) {
+    for (k = *(s32 *)(p + 0x28), t = p + 0x2C; k != 0; k--, t += 0x44) {
         s32 *w = (s32 *)t;
 
-        ENGINE_BLK(802C1FEC);
         if (w[5] == id) {
-            ENGINE_BLK(802C1FFC);
             w[6] = x, w[7] = y, w[8] = z;
         }
-        ENGINE_BLK(802C2008);
         if (w[9] == id) {
-            ENGINE_BLK(802C2014);
             w[10] = x, w[11] = y, w[12] = z;
         }
-        ENGINE_BLK(802C2020);
         if (w[13] == id) {
-            ENGINE_BLK(802C202C);
             w[14] = x, w[15] = y, w[16] = z;
         }
-        ENGINE_BLK(802C2038);
     }
-    ENGINE_BLK(802C2040);
 }
 
 /* each frame (hd.c): the section's triangles made (into D_803F7828's
@@ -3862,20 +2847,16 @@ void func_802C2054(void) {
     u32 *d = (u32 *)D_803F7828;
     s32 k, last;
 
-    ENGINE_BLK(802C2054);
     if (*(u32 *)base == 0)
-        goto out;
-    ENGINE_BLK(802C2088);
+        return;
     t = base + 4;
     do {
-        ENGINE_BLK(802C208C);
         r = t;
         last = *(s16 *)r;
-        for (k = *(s32 *)(r + 0x28), t = r + 0x2C; ENGINE_BLK(802C209C), k != 0; k--, t += 0x44, d += 10) {
+        for (k = *(s32 *)(r + 0x28), t = r + 0x2C; k != 0; k--, t += 0x44, d += 10) {
             u16 *pt = (u16 *)t;
             s32 *w = (s32 *)t;
 
-            ENGINE_BLK(802C20A4);
             d[0] = (pt[0] << 5) + w[6];
             d[1] = (pt[1] << 5) + w[7];
             d[2] = (pt[2] << 5) + w[8];
@@ -3886,8 +2867,5 @@ void func_802C2054(void) {
             d[7] = (pt[7] << 5) + w[15];
             d[8] = (pt[8] << 5) + w[16];
         }
-        ENGINE_BLK(802C2168);
     } while (last != -1);
-out:
-    ENGINE_BLK(802C2174);
 }
