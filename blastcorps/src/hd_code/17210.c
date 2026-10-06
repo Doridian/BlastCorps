@@ -39,14 +39,13 @@ u8 D_80365580;
 u8 D_80365581[1];
 u8 D_80365582[2];
 u8 D_80365584[4];
-UnkStruct_80365588 D_80365588[1];
-u8 D_8036558D[1];
-u8 D_8036558E[2];
+/* func_8025BBE8's records (splat made D_8036558D..D_80365590 of them) */
 #ifdef VERSION_EU
-u8 D_80365590[0x45FC]; /* eu's is 0x3200 bytes longer */
+UnkStruct_80365588 D_80365588[0xE00]; /* eu's are 0x3200 bytes longer */
 #else
-u8 D_80365590[0x13FC];
+UnkStruct_80365588 D_80365588[0x400];
 #endif
+u8 D_80366988[4];
 u8 D_8036698C;
 s32 D_80366990;
 s32 D_80366994;
