@@ -6,10 +6,6 @@
  * leaves it alone and the arguments are read as the native call passed
  * them.  The output is bytes, which need no swapping.
  *
- * The copies charge the CPU about what libultra's unrolled bcopy/bzero
- * take (half and a quarter of an instruction a byte): being host calls,
- * BEPass's instruction count doesn't see inside them.
- *
  * The 64-bit build has sprintf and the copies in port/host/libc64.c
  * instead: port-ilp32 can't take a va_start, and the host's memmove wants
  * a size_t.
@@ -35,7 +31,6 @@ int n64_sprintf(char *buf, const char *fmt, ...) {
 }
 
 void n64_bcopy(const void *src, void *dst, int n) {
-    host_cpu_charge(n / 2);
 #ifdef PORT_ACCESS_PROFILE
     __port_access_copy(dst, (void *)src, n, 0);
 #endif
@@ -43,7 +38,6 @@ void n64_bcopy(const void *src, void *dst, int n) {
 }
 
 void n64_bzero(void *p, int n) {
-    host_cpu_charge(n / 4);
 #ifdef PORT_ACCESS_PROFILE
     __port_access_set(p, n, 0);
 #endif
@@ -51,7 +45,6 @@ void n64_bzero(void *p, int n) {
 }
 
 void *n64_memcpy(void *dst, const void *src, port_size_t n) {
-    host_cpu_charge(n / 2);
 #ifdef PORT_ACCESS_PROFILE
     __port_access_copy(dst, (void *)src, n, 0);
 #endif

@@ -55,7 +55,6 @@ void func_802AC1A0(s32 radius) {
     u8 *p, *end;
     s32 x, y, z;
 
-    ENGINE_COST(802AC1A0, 111);
     radius <<= 5;
     for (p = D_803F4030, end = D_803F7654; p != end; p += 0xFC) {
         if (p[0xEA] != 0)
@@ -75,7 +74,6 @@ REGS(v0, v1, a0)
 void func_802AC3B8(s32 *x, s32 *y, s32 *z) {
     s32 t;
 
-    ENGINE_COST(802AC3B8, 15);
     if (D_802E8BDC == 0x17) {
         t = *x;
         if (t >= 0x15181) {
@@ -103,25 +101,21 @@ void func_802AC3B8(s32 *x, s32 *y, s32 *z) {
 
 /* whether (x, z) is inside the triangle of the other three points */
 s32 func_802AC4C4(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
-    ENGINE_COST(802AC4C4, 32);
     return func_802AA460(x, z, x1, z1, x2, z2, x3, z3);
 }
 
 /* effects at a point (whole units): one of D_802C2A5C's */
 void func_802AC544(s32 x, s32 y, s32 z) {
-    ENGINE_COST(802AC544, 54);
     func_802A6274((s32)D_802C2A5C, 0x28488, 0, x << 16, y << 16, z << 16, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /* effects at a position (<< 5), of kind `kind` (D_802C3FFC) */
 void func_802AC61C(s32 x, s32 y, s32 z, s32 kind, s32 t1) {
-    ENGINE_COST(802AC61C, 56);
     func_802A6274(D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /* the same with a3 = 1 */
 void func_802AC6FC(s32 x, s32 y, s32 z, s32 kind, s32 t1) {
-    ENGINE_COST(802AC6FC, 56);
     func_802A6274(D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 1);
 }
 
@@ -135,7 +129,6 @@ REGS(a0, a1, a2)
 void func_802AC7DC(u8 *dst, u8 *src, u32 *words) {
     s32 n;
 
-    ENGINE_COST(802AC7DC, 16);
     for (n = 0; n < 0xA6; n++)
         *dst++ = *src++;
     ((UnalignedWord *)dst)[0].v = words[0];
@@ -148,7 +141,6 @@ REGS(a0, a1, a2)
 void func_802AC85C(u8 *src, u8 *dst, u32 *words) {
     s32 n;
 
-    ENGINE_COST(802AC85C, 1350);
     for (n = 0; n < 0xA6; n++)
         *dst++ = *src++;
     words[0] = ((UnalignedWord *)src)[0].v;
@@ -164,7 +156,6 @@ void func_802AC8CC(u32 *m) {
     u32 w[16];
     s32 k;
 
-    ENGINE_COST(802AC8CC, 101);
     for (k = 0; k < 16; k++)
         w[k] = m[k];
     for (k = 0; k < 8; k++) {
@@ -176,7 +167,6 @@ void func_802AC8CC(u32 *m) {
 /* a translation */
 REGS(t0, t1, t2, t3)
 void func_802ACA60(s32 x, s32 y, s32 z, s32 *m) {
-    ENGINE_COST(802ACA60, 25);
     m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
     m[4] = 0, m[5] = 0x10000, m[6] = 0, m[7] = 0;
     m[8] = 0, m[9] = 0, m[10] = 0x10000, m[11] = 0;
@@ -188,7 +178,6 @@ REGS(t0, t3)
 void func_802ACAC4(s32 angle, s32 *m) {
     s32 s, c;
 
-    ENGINE_COST(802ACAC4, 35);
     s = func_802AE160(angle);
     c = func_802AE104(angle);
     m[0] = c, m[1] = 0, m[2] = -s, m[3] = 0;
@@ -202,7 +191,6 @@ REGS(t0, t3)
 void func_802ACB50(s32 angle, s32 *m) {
     s32 s, c;
 
-    ENGINE_COST(802ACB50, 35);
     s = func_802AE160(angle);
     c = func_802AE104(angle);
     m[0] = c, m[1] = s, m[2] = 0, m[3] = 0;
@@ -216,7 +204,6 @@ REGS(t0, t3)
 void func_802ACBDC(s32 angle, s32 *m) {
     s32 s, c;
 
-    ENGINE_COST(802ACBDC, 35);
     s = func_802AE160(angle);
     c = func_802AE104(angle);
     m[0] = 0x10000, m[1] = 0, m[2] = 0, m[3] = 0;
@@ -228,7 +215,6 @@ void func_802ACBDC(s32 angle, s32 *m) {
 /* a scale */
 REGS(t0, t1, t2, t3)
 void func_802ACC68(s32 x, s32 y, s32 z, s32 *m) {
-    ENGINE_COST(802ACC68, 25);
     m[0] = x, m[1] = 0, m[2] = 0, m[3] = 0;
     m[4] = 0, m[5] = y, m[6] = 0, m[7] = 0;
     m[8] = 0, m[9] = 0, m[10] = z, m[11] = 0;
@@ -241,7 +227,6 @@ void func_802ACCCC(s32 *b, s32 *a) {
     s32 i, j;
     s32 *d = D_803ED420;
 
-    ENGINE_COST(802ACCCC, 605);
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 4; j++) {
             *d++ = (s32)(((s64)a[4 * i] * b[j] + (s64)a[4 * i + 1] * b[4 + j] + (s64)a[4 * i + 2] * b[8 + j] +
@@ -260,7 +245,6 @@ REGS(a0, a2, a3 -> a1, a3, t1)
 s64 func_802ACE38(s64 x, s64 z, s32 angle, s32 *xr, s32 *zr) {
     s64 c, s;
 
-    ENGINE_COST(802ACE38, 32);
     c = func_802AE104(angle);
     s = func_802AE160(angle);
     *xr = (s32)((x * c) >> 16) + (s32)((z * s) >> 16);
@@ -276,7 +260,6 @@ s32 func_802ACF64(u32 x) {
     u32 i;
     s32 a, b;
 
-    ENGINE_COST(802ACF64, 26);
     i = x >> 8;
     if ((s32)i >= 0x3FF)
         i = 0x3FF;
@@ -286,6 +269,5 @@ s32 func_802ACF64(u32 x) {
 }
 
 s32 func_802ACF3C(s32 x) {
-    ENGINE_COST(802ACF3C, 10);
     return func_802ACF64(x);
 }

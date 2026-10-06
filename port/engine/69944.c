@@ -22,26 +22,19 @@ f32 func_802AE1BC(f32 x) {
     f32 twopi, pi, x2, x4, x6, x8, r;
     s32 neg = 0;
 
-    ENGINE_BLK(802AE1BC);
     twopi = D_80305C70;
     x = __builtin_fabsf(x);
     while (twopi < x) {
-        ENGINE_BLK(802AE1D8);
         x = x - twopi;
     }
-    ENGINE_BLK(802AE1E8);
     pi = D_80305C74;
     if (pi < x) {
-        ENGINE_BLK(802AE1FC);
         x = twopi - x;
     }
-    ENGINE_BLK(802AE200);
     if (D_80305C78 < x) {
-        ENGINE_BLK(802AE218);
         x = pi - x;
         neg = 1;
     }
-    ENGINE_BLK(802AE220);
     x2 = x * x;
     x4 = x2 * x2;
     x6 = x4 * x2;
@@ -51,10 +44,8 @@ f32 func_802AE1BC(f32 x) {
     r = r - x6 * D_80305C8C;
     r = r + x8 * D_80305C94;
     if (neg) {
-        ENGINE_BLK(802AE284);
         r = -r;
     }
-    ENGINE_BLK(802AE288);
     return r;
 }
 
@@ -64,31 +55,22 @@ f32 func_802AE290(f32 x) {
     f32 twopi, pi, x2, x4, x6, r;
     s32 neg = 0;
 
-    ENGINE_BLK(802AE290);
     twopi = D_80305C70;
     if (x < 0.0f) {
-        ENGINE_BLK(802AE2B0);
         x = __builtin_fabsf(x);
         neg = 1;
     }
-    ENGINE_BLK(802AE2B8);
     while (twopi < x) {
-        ENGINE_BLK(802AE2C4);
         x = x - twopi;
     }
-    ENGINE_BLK(802AE2D4);
     pi = D_80305C74;
     if (pi < x) {
-        ENGINE_BLK(802AE2E8);
         x = twopi - x;
         neg ^= 1;
     }
-    ENGINE_BLK(802AE2F0);
     if (D_80305C78 < x) {
-        ENGINE_BLK(802AE304);
         x = pi - x;
     }
-    ENGINE_BLK(802AE308);
     x2 = x * x;
     x4 = x2 * x2;
     x6 = x4 * x2;
@@ -97,10 +79,8 @@ f32 func_802AE290(f32 x) {
     r = r - x6 * D_80305C90;
     r = r * x;
     if (neg) {
-        ENGINE_BLK(802AE35C);
         r = -r;
     }
-    ENGINE_BLK(802AE360);
     return r;
 }
 
@@ -109,9 +89,7 @@ REGS(v1 -> fp)
 s32 func_802AE104(s32 angle) {
     f32 c;
 
-    ENGINE_BLK(802AE104);
     c = func_802AE1BC((f32)(angle & ANGLE_MASK) * D_80305CA0);
-    ENGINE_BLK(802AE134);
     return engine_cvt_w_s(c * D_80305C9C);
 }
 
@@ -120,8 +98,6 @@ REGS(v1 -> fp)
 s32 func_802AE160(s32 angle) {
     f32 s;
 
-    ENGINE_BLK(802AE160);
     s = func_802AE290((f32)(angle & ANGLE_MASK) * D_80305CA0);
-    ENGINE_BLK(802AE190);
     return engine_cvt_w_s(s * D_80305C9C);
 }

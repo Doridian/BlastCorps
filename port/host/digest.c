@@ -3,13 +3,13 @@
  * digest"): at every controller poll, what a player sees or what decides a
  * level's outcome, read from the game's variables.  port/tools/digest_cmp.py
  * compares two of them, aligned by the game's mode, level and frame rather
- * than by retrace, so that runs whose timing differs (lag frames, the CPU
- * model) can still be compared field by field; the clock's fields are
- * reported as differences in time, not as failures.
+ * than by retrace, so that runs whose timing differs (the movie's lag
+ * frames, a build's own pace) can still be compared field by field; the
+ * clock's fields are reported as differences in time, not as failures.
  *
  * It only reads, at the poll (host_controller_poll, main.c), which the game
- * reaches once per frame: nothing here charges the CPU model or touches
- * game memory, so it changes neither the game nor any other output.
+ * reaches once per frame: nothing here touches game memory, so it changes
+ * neither the game nor any other output.
  *
  * One line per poll:
  *

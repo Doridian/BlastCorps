@@ -3,11 +3,10 @@
 
     port/tools/engine_asm.py FUNC|OBJECT ...  [--no-conv]
 
-Prints each function's instructions with the basic blocks the translator
-charges (`== ENGINE_BLK(802AC1E4)  7 ==` before each: what the native code
-calls where that block would run; docs/PORT.md, "Replacing the engine"),
-and its register convention (conventions.py: what it reads, what callers
-read of what it writes).
+Prints each function's instructions with its basic blocks
+(`== 802AC1E4  7 ==` before each: its us.v11 address and its
+instructions), and its register convention (conventions.py: what it
+reads, what callers read of what it writes).
 """
 import os
 import re
@@ -16,16 +15,6 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from liveness import load_functions  # noqa: E402
-
-
-# the translator's own table, where it is
-SIZES = {}
-_h = os.path.join(HERE, "..", "..", "blastcorps", "build", "recomp", "src", "engine_blocks.h")
-if os.path.exists(_h):
-    for _l in open(_h):
-        if _l.startswith("#define ENGINE_BLK_"):
-            _a, _v = _l.split()[1:3]
-            SIZES[_a[11:]] = int(_l.split(",")[1])
 
 
 def leaders(fn):
@@ -65,17 +54,14 @@ def show(fn, conv=None):
         if i in lead and i not in skip:
             j = lead.index(i)
             nxt = lead[j + 1] if j + 1 < len(lead) else len(lines)
-            # (keyed by us.v11's address in every version, a version's own
-            # function by its address and suffix: translate.py)
+            # (by us.v11's address in every version, a version's own
+            # function by its address and suffix)
             m = re.fullmatch(r"func_([0-9A-F]{8})(_\w+)?", fn.name)
             if m and not m.group(2):
                 key = f"{int(m.group(1), 16) + ln.vram - fn.vram:08X}"
             else:
                 key = f"{ln.vram:08X}{m.group(2) if m else ''}"
-            if key not in SIZES and f"{key}_{fn.name[5:]}" in SIZES:
-                key = f"{key}_{fn.name[5:]}"       # (two functions' blocks at one name: translate.py)
-            n = SIZES.get(key, nxt - i)
-            print(f"  == ENGINE_BLK({key})  {n} ==")
+            print(f"  == {key}  {nxt - i} ==")
         d = "  " if not ln.delay else "   "
         print(f"    {ln.vram:08X}: {d}{ln.text_op:<10} {ln.operands}")
     print()

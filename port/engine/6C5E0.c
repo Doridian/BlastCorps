@@ -127,7 +127,6 @@ void func_802B0DA0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803EDF10;
     s32 avg;
 
-    ENGINE_COST(802B0DA0, 236);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x1400;
@@ -178,13 +177,11 @@ void func_802B0DA0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 u8 func_802B1150(void) {
     VS *vs = &D_803EDF10;
 
-    ENGINE_COST(802B1150, 26);
     return !ANY_AIRBORNE(vs) && MAGOO_STATE(vs) == MAGOO_WALK;
 }
 
 /* hd.c's: the player gets out */
 void func_802B11B8(void) {
-    ENGINE_COST(802B11B8, 28);
     VS_SPEED(&D_803EDF10) = 0;
     func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x1400);
     func_802A02E4(0x1F, P);
@@ -194,7 +191,6 @@ void func_802B11B8(void) {
 
 /* hd.c's: the player gets in: its sound, its head and its arms */
 void func_802B1228(void) {
-    ENGINE_COST(802B1228, 108);
     VS_TURNING(&D_803EDF10) = 0;
     D_8036444C = 0x1068;
     D_80364450 = 0xBB8;
@@ -220,7 +216,6 @@ void func_802B1228(void) {
 void func_802B13D8(void) {
     VS *vs = &D_803EDF10;
 
-    ENGINE_COST(802B13D8, 35);
     func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_MAGOO, vs, 0);
     func_802B2768(vs);
     func_802A133C(X, Y, Z, VEHICLE_MAGOO, vs);
@@ -228,7 +223,6 @@ void func_802B13D8(void) {
 
 /* its light */
 void func_802B14E8(void) {
-    ENGINE_COST(802B14E8, 17);
     func_802ABD54(VEHICLE_MAGOO, X, Y, Z);
 }
 
@@ -240,7 +234,6 @@ void func_802B152C(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802B152C, 188);
     func_802B14E8();
     if (VS_IN_SETUP(vs) == 0)
         func_802B18F4(vs);
@@ -324,7 +317,6 @@ static void hand_over(const s32 *parts, s32 n, s32 to, s32 stop_first) {
 static void stand(VS *vs) {
     s32 r;
 
-    ENGINE_COST(802B19B0, 46);
     if (MAGOO_WALKING(vs) != 0) {
         func_802A0360(7, 0, P, 0.0f);
         if (part(0x1F, NULL, NULL) != 0) {
@@ -365,7 +357,6 @@ static void leg_speed(s32 leg) {
 static void walk(VS *vs) {
     s32 a0, leg, idles[3] = { 7, 8, 9 };
 
-    ENGINE_COST(802B1C74, 54);
     if (MAGOO_WALKING(vs) != 1) {
         func_802A0360(1, 0, P, 0.0f);
         hand_over(idles, 3, 1, 0);
@@ -457,7 +448,6 @@ REGS(gp)
 void func_802B18F4(VS *vs) {
     s32 t1, last;
 
-    ENGINE_COST(802B18F4, 38);
     switch (MAGOO_STATE(vs)) {
     case MAGOO_WALK:
         if (part(1, NULL, &t1) == 1 || part(5, NULL, &t1) == 1) {
@@ -543,7 +533,6 @@ void func_802B2768(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
     s32 h = (u16)VS_HEADING(vs) + ANGLE_QUARTER;
 
-    ENGINE_COST(802B2768, 75);
     if (h >= ANGLE_TURN)
         h -= ANGLE_WRAP;
     D_803ED390[1] = h;
@@ -558,7 +547,6 @@ void func_802B2768(VS *vs) {
    MAGOO_STEER */
 REGS(gp -> s3)
 s32 func_802B28B8(VS *vs) {
-    ENGINE_COST(802B28B8, 16);
     if (VS_SPEED(vs) == 0)
         return 0;
     return MAGOO_STATE(vs) == MAGOO_ROLL || MAGOO_STATE(vs) == MAGOO_CURL ? MAGOO_STEER_ROLL : MAGOO_STEER;
@@ -566,7 +554,6 @@ s32 func_802B28B8(VS *vs) {
 
 /* the physics' settings for Thunderfist: gravity, and how it lands */
 void func_802B2900(void) {
-    ENGINE_COST(802B2900, 23);
     D_803EBBF4 = D_803EBBF0 * MAGOO_GRAVITY;
     D_803ED3F6 = MAGOO_BOUNCE_MIN;
     D_803ED3F7 = MAGOO_BOUNCE_DIV;
@@ -574,12 +561,10 @@ void func_802B2900(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B295C(u8 *dst) {
-    ENGINE_COST(802B295C, 7);
     func_802AC7DC(dst, (u8 *)&D_803EDF10, (u32 *)&D_803EDFB8);
 }
 
 /* and back */
 void func_802B2988(u8 *src) {
-    ENGINE_COST(802B2988, 11);
     func_802AC85C(src, (u8 *)&D_803EDF10, (u32 *)&D_803EDFB8);
 }

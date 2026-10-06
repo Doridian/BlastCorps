@@ -42,7 +42,6 @@ void func_802A6F00(VS *vs) {
     s16 *row = VS_GEARS(vs);
     s32 n;
 
-    ENGINE_COST(802A6F00, 16);
     if (D_80367C10 != 0) {
         for (n = 0; n < GEAR_ROWS; n++, row += 3) {
             row[GEAR_LO] <<= 1;
@@ -55,7 +54,6 @@ void func_802A6F00(VS *vs) {
 s32 func_802A6F6C(void) {
     s32 a = (u16)D_803A7410, b = (u16)D_803A7412, r;
 
-    ENGINE_COST(802A6F6C, 21);
     if (b < a) {
         r = ((ANGLE_WRAP - a + b) >> 1) + a;
         if (r >= ANGLE_TURN)
@@ -72,7 +70,6 @@ REGS(a1, gp)
 void func_802A6FE4(s32 limit, VS *vs) {
     s32 v;
 
-    ENGINE_COST(802A6FE4, 25);
     if (D_80358064 == 0)
         return;
     v = VS_SPEED(vs);
@@ -95,7 +92,6 @@ REGS(t7, gp)
 void func_802A7070(s16 *heading, VS *vs) {
     s32 sign = VS_SPEED(vs) > 0 ? 1 : -1, v = *heading;
 
-    ENGINE_COST(802A7070, 19);
     if (VS_SPEED_SIGN(vs) != sign) {
         v -= ANGLE_HALF;
         if (v < 0)
@@ -111,7 +107,6 @@ REGS(gp)
 void func_802A70D8(VS *vs) {
     s32 h = VS_HEADING(vs), lo, hi, a = VS_MOVE_HEADING(vs);
 
-    ENGINE_COST(802A70D8, 31);
     lo = wrap_fff(h - ANGLE_QUARTER);
     hi = wrap_fff(h + ANGLE_QUARTER);
     if (hi < lo) {
@@ -131,7 +126,6 @@ REGS(a1, gp)
 void func_802A746C(s32 turn, VS *vs) {
     s32 h = VS_HEADING(vs), target = VS_MOVE_HEADING(vs), n, past;
 
-    ENGINE_COST(802A746C, 21);
     if (h == target)
         return;
     n = wrap_fff(h + turn);
@@ -154,7 +148,6 @@ REGS(gp)
 void func_802A754C(VS *vs) {
     s32 k;
 
-    ENGINE_COST(802A754C, 36);
     VS_AIRBORNE(vs)[0] = 0;
     VS_AIRBORNE(vs)[1] = 0;
     VS_AIRBORNE(vs)[2] = 0;
@@ -183,7 +176,6 @@ void func_802A75DC(u8 *parts, s32 *x, s32 *y, s32 *z, u8 *vs) {
     u8 *d = D_803EB7A0;
     s32 n;
 
-    ENGINE_COST(802A75DC, 7504);
     for (n = 0; n < 0x300; n++)
         *d++ = *parts++;
     for (n = 0; n < 0xA6; n++)
@@ -199,7 +191,6 @@ void func_802A768C(u8 *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n,
     u8 *s = D_803EB7A0;
     s32 k;
 
-    ENGINE_COST(802A768C, 9529);
     for (k = 0; k < 0x300; k++)
         *parts++ = *s++;
     for (k = 0; k < 0xA6; k++)
@@ -218,7 +209,6 @@ REGS(a0, a1, a2)
 void func_802A7764(u32 *a, u32 *b, s32 n) {
     u32 *t;
 
-    ENGINE_COST(802A7764, 3293);
     if (D_8035805C != 0)
         t = a, a = b, b = t;
     for (; n != 0; n -= 8, a += 2, b += 2) {
@@ -232,7 +222,6 @@ REGS(gp)
 void func_802A77D0(VS *vs) {
     s32 v;
 
-    ENGINE_COST(802A77D0, 12);
     if (STICK_Y != 0)
         return;
     v = VS_SPEED(vs);
@@ -252,14 +241,12 @@ void func_802A77D0(VS *vs) {
    stick pulled back (STICK_Y / -STICK_RANGE) */
 REGS(t2, s1 -> t4)
 s32 func_802A7A1C(s32 x, s16 *rows) {
-    ENGINE_COST(802A7A1C, 32);
     return x < rows[0] * STICK_Y / -STICK_RANGE;
 }
 
 /* the same against the last row's highest, pushed forward */
 REGS(t2, s1 -> t4)
 s32 func_802A7AAC(s32 x, s16 *rows) {
-    ENGINE_COST(802A7AAC, 32);
     return rows[3 * (GEAR_ROWS - 1) + GEAR_HI] * STICK_Y / STICK_RANGE < x;
 }
 
@@ -271,7 +258,6 @@ REGS(t2, s1, gp -> t4, s1)
 s32 func_802A7C28(s32 x, s16 *rows, VS *vs, u32 *rows_out) {
     s32 n, r = 0;
 
-    ENGINE_COST(802A7C28, 64);
     n = VS_GRIP(vs) == 1 ? GEAR_ROWS : 7 - VS_GRIP(vs);
     if ((s8)D_803ED40C != 0)
         n -= 2;
@@ -292,7 +278,6 @@ REGS(v1, gp -> v0)
 s32 func_802A7CB0(s32 range, VS *vs) {
     s32 v = VS_SPEED(vs), g;
 
-    ENGINE_COST(802A7CB0, 34);
     if (v >= 0) {
         g = VS_GRIP(vs) == 1 ? GEAR_ROWS - 1 : 6 - VS_GRIP(vs);
         v -= VS_GEARS(vs)[3 * g + GEAR_HI];
@@ -310,7 +295,6 @@ REGS(t7, s0 -> t3)
 s32 func_802A7D68(s32 mode, u8 *flags) {
     s32 r;
 
-    ENGINE_COST(802A7D68, 23);
     switch (mode) {
     case 0:
         r = (flags[0] == 0 ? 2 : 0) + (flags[1] == 0 ? 2 : 0);
@@ -345,7 +329,6 @@ REGS(s3, s4 -> s3, t0, t2)
 s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick) {
     s32 x = STICK_X, t = *h;
 
-    ENGINE_COST(802A7E70, 48);
     if (D_80367C10 != 0)
         rate -= rate / 3;
     if (D_80370C75 != 0)
@@ -379,7 +362,6 @@ s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
     f32 fx = (f32)x, fz = (f32)z, cx, cz, ex, ez, d, c, dx, dz;
     s32 edge;
 
-    ENGINE_COST(802AA460, 118);
     cx = (f32)(x2 + x3) / 2.0f;
     cz = (f32)(z2 + z3) / 2.0f;
     cx = ((f32)x1 + cx) / 2.0f;
@@ -434,7 +416,6 @@ static inline s32 in_box(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s
 
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA5E0(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) {
-    ENGINE_COST(802AA5E0, 48);
     return in_box(x, z, x1, z1, x2, z2, x3, z3);
 }
 
@@ -460,7 +441,6 @@ void func_802AC8CC(u32 *m);
    and moved to (x, y, z) << 5 */
 REGS(s4, s5, s6, s7, t8 -> s2)
 s32 *func_802AA764(s32 x, s32 y, s32 z, s32 scale, s32 *m) {
-    ENGINE_COST(802AA764, 53);
     func_802ACC68(scale, scale, scale, m);
     func_802ACBDC((u16)D_803ED390[0], D_803EBB58);
     func_802ACCCC(D_803EBB58, m);
@@ -476,7 +456,6 @@ s32 *func_802AA764(s32 x, s32 y, s32 z, s32 scale, s32 *m) {
 
 /* the same, with the angles as arguments */
 void func_802AA6D0(s32 x, s32 y, s32 z, s32 ax, s32 ay, s32 az, s32 scale, s32 *m) {
-    ENGINE_COST(802AA6D0, 37);
     D_803ED390[1] = ay;
     D_803ED390[0] = ax;
     D_803ED390[2] = az;
@@ -489,7 +468,6 @@ void func_802AA838(u8 *a, u8 *b, s32 off) {
     u32 *s = (u32 *)(a + off), *d = (u32 *)(b + off);
     s32 n;
 
-    ENGINE_COST(802AA838, 64);
     for (n = 0; n < 16; n++)
         d[n] = s[n];
 }
@@ -500,7 +478,6 @@ REGS(v1, a0, a1, t0, t1, s7, t9 -> f10, f20)
 f32 func_802AB1B0(s32 v1, s32 a0, s32 a1, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
     f32 b = (f32)(t0 - s7) / (f32)v1;
 
-    ENGINE_COST(802AB1B0, 33);
     *f20 = b;
     return ((f32)a1 * b + (f32)t9 - (f32)t1) / (f32)a0;
 }
@@ -509,7 +486,6 @@ REGS(v0, a0, a1, t0, t1, s7, t9 -> f10, f20)
 f32 func_802AB234(s32 v0, s32 a0, s32 a1, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
     f32 a = (f32)(s7 - t0) / (f32)v0;
 
-    ENGINE_COST(802AB234, 33);
     *f20 = ((f32)a0 * a + (f32)t1 - (f32)t9) / (f32)a1;
     return a;
 }
@@ -518,7 +494,6 @@ REGS(v0, v1, a1, t0, t1, s7, t9 -> f10, f20)
 f32 func_802AB2B8(s32 v0, s32 v1, s32 a1, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
     f32 b = (f32)(t1 - t9) / (f32)a1;
 
-    ENGINE_COST(802AB2B8, 33);
     *f20 = b;
     return ((f32)v1 * b + (f32)s7 - (f32)t0) / (f32)v0;
 }
@@ -527,7 +502,6 @@ REGS(v0, v1, a0, t0, t1, s7, t9 -> f10, f20)
 f32 func_802AB33C(s32 v0, s32 v1, s32 a0, s32 t0, s32 t1, s32 s7, s32 t9, f32 *f20) {
     f32 a = (f32)(t9 - t1) / (f32)a0;
 
-    ENGINE_COST(802AB33C, 33);
     *f20 = ((f32)v0 * a + (f32)t0 - (f32)s7) / (f32)v1;
     return a;
 }
@@ -543,7 +517,6 @@ extern u8 D_803ED3B8[];
 s32 func_802AB3C0(s32 type) {
     u8 *p;
 
-    ENGINE_COST(802AB3C0, 43);
     for (p = D_803ED3B8; !RECORDS_END(p); p += 4)
         if (p[0] == type)
             return p[1] != 0;
@@ -555,7 +528,6 @@ REGS(t4, t8 -> a2)
 s32 func_802AB41C(s32 a, s32 b) {
     u8 *p;
 
-    ENGINE_COST(802AB41C, 39);
     for (p = D_803ED3B8; !RECORDS_END(p); p += 4)
         if (p[1] == b && p[0] == a)
             return 1;
@@ -572,7 +544,6 @@ s32 func_802ABB1C(s32 x, s32 z, s32 dx, s32 dz, s32 x2, s32 z2) {
     s32 a = x - x2, b = z - z2, r;
     f32 d1, d2;
 
-    ENGINE_COST(802ABB1C, 51);
     d1 = __builtin_sqrtf((f32)((s64)a * a + (s64)b * b));
     a = x2 + dx - x;
     b = z2 + dz - z;
@@ -594,7 +565,6 @@ REGS(v0, v1 -> a0)
 void *func_802ABC88(s32 id, s32 n) {
     u8 *p = D_803EBC10;
 
-    ENGINE_COST(802ABC88, 48);
     while (p[0xC] != id)
         p += 0x10;
     return p + (u32)(n - 1) * 0x10;
@@ -605,7 +575,6 @@ REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
 s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2) {
     s32 dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
 
-    ENGINE_COST(802ABCDC, 30);
     return engine_cvt_l_d(__builtin_sqrt((f64)((s64)dx * dx + (s64)dy * dy + (s64)dz * dz)));
 }
 
@@ -634,7 +603,6 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
     s32 r = D_80364A6E[0], amb, level, radius;
     Vehicle *v;
 
-    ENGINE_COST(802ABD54, 53);
     for (p = D_803BDFD8; p != D_803BDFD4; p++) {
         d = func_802ABCDC(x, y, z, p->x, p->y, p->z);
         if (!light_reaches(p, d, type))
@@ -667,7 +635,6 @@ REGS(t5 -> t5)
 s32 func_802A8314(s32 v) {
     s32 base = D_803A740C, now = D_80358068, *p;
 
-    ENGINE_COST(802A8314, 25);
     if (base + RATE_OVERRIDE_FRAMES < now)
         return v;
     for (p = D_80305C58; p[1] != 0; p += 3)
@@ -683,7 +650,6 @@ s32 func_802A8314(s32 v) {
    the air or the speed is 0.  *t3_out: the speed (t3 if it didn't look). */
 REGS(t3, t6, s0, s7, t8 -> f12, t3)
 f32 func_802A83B8(s32 t3, s16 *speed, u8 *flags, s32 *pos, f32 *ratio, s32 *t3_out) {
-    ENGINE_COST(802A83B8, 30);
     if (flags[1] != 1 && flags[2] != 1 && flags[0] != 1) {
         t3 = *speed;
         if (t3 != 0)
@@ -699,7 +665,6 @@ REGS(s7 -> t1)
 s32 func_802A8590(s32 *s7) {
     s32 a = s7[0] - s7[6], b = s7[3] - s7[6];
 
-    ENGINE_COST(802A8590, 27);
     return iabs(b) < iabs(a) ? b : a;
 }
 
@@ -711,7 +676,6 @@ s32 func_802A860C(s32 angle, s16 *speed, s32 *x, s32 *z, f32 rate, s32 *z_out) {
     s32 v = *speed, rem, s, c, dx, dz, rx, rz, px = *x, pz = *z;
     f32 a = __builtin_fabsf(rate);
 
-    ENGINE_COST(802A860C, 63);
     if (v != 0) {
         if (!(a >= 1.0f))
             v = engine_cvt_w_s((1.0f - a / 2.0f) * (f32)v);
@@ -769,7 +733,6 @@ s32 func_802A785C(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brak
     s32 t2, g;
     u32 rows2;
 
-    ENGINE_COST(802A785C, 32);
     if (PAD_Z != 0) {
         t2 = D_803ED400;
         if (t2 != 0)
@@ -827,7 +790,6 @@ s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brak
     u32 sa;
     s32 st;
 
-    ENGINE_COST(802A7834, 10);
     *turn_out = func_802A7E70(rate, h, &sa, &st);
     return func_802A785C(step, speed, mode, flags, rows, brake, vs, step_out);
 }
@@ -841,7 +803,6 @@ void func_802A7B3C(s16 *speed, s16 *rows, s32 brake, VS *vs) {
     s32 v, g;
     u32 rows2;
 
-    ENGINE_COST(802A7B3C, 30);
     if (PAD_Z != 0) {
         if (D_803ED400 != 0)
             *speed = brake_to_zero(*speed, D_803ED400, brake);
@@ -893,7 +854,6 @@ extern u8 D_803ED3F6, D_803ED3F7;
 
 /* gravity tripled with D_803ED3F5 */
 void func_802A8FB4(void) {
-    ENGINE_COST(802A8FB4, 10);
     if (D_803ED3F5 != 0)
         GRAVITY = GRAVITY * 3.0f;
 }
@@ -901,7 +861,6 @@ void func_802A8FB4(void) {
 /* landings softer on MATERIAL_SOFT on level 12 */
 REGS(gp)
 void func_802A8FF4(VS *vs) {
-    ENGINE_COST(802A8FF4, 9);
     if (VS_TOP_MATERIAL(vs) == MATERIAL_SOFT && D_802E8BDC == 0xC)
         LAND_BOUNCE_DIV = 8;
 }
@@ -911,7 +870,6 @@ REGS(gp)
 void func_802A9038(VS *vs) {
     s32 k;
 
-    ENGINE_COST(802A9038, 43);
     WHEEL_AIRBORNE(1) = WHEEL_AIRBORNE(2) = WHEEL_AIRBORNE(0);
     D_803ED39C = D_803ED3A0 = D_803ED398;
     D_803ED3AC = D_803ED3B0 = D_803ED3A8[0];
@@ -924,7 +882,6 @@ void func_802A9038(VS *vs) {
 /* D_803ED410: whether all three of a set of wheel offsets are 0 */
 REGS(v1)
 void func_802A90E4(u16 *g) {
-    ENGINE_COST(802A90E4, 15);
     D_803ED410 = g[0] == 0 && g[1] == 0 && g[2] == 0 && g[3] == 0 && g[4] == 0 && g[5] == 0;
 }
 
@@ -941,7 +898,6 @@ REGS(s0, t8, gp)
 void func_802A9164(u8 *flags, s32 type, VS *vs) {
     s32 m = 0;
 
-    ENGINE_COST(802A9164, 68);
     VS_GRIP(vs) = (u32)(grip_part(D_803ED3F2) + grip_part(D_803ED3F3) + grip_part(D_803ED3F4)) / 3;
     if (m < D_803ED3F2)
         m = D_803ED3F2;
@@ -967,7 +923,6 @@ REGS(v0, v1, s4 -> t5, t6)
 s32 func_802A94A4(s32 i, s16 *pts, s16 *a, s32 *z_out) {
     s32 xr, zr;
 
-    ENGINE_COST(802A94A4, 28);
     func_802ACE38(pts[2 * i], pts[2 * i + 1], *a, &xr, &zr);
     *z_out = zr;
     return xr;
@@ -976,7 +931,6 @@ s32 func_802A94A4(s32 i, s16 *pts, s16 *a, s32 *z_out) {
 /* a wheel's upward speed, at most WHEEL_RISE_MAX */
 REGS(s3 -> s3)
 s32 func_802A9514(s32 v) {
-    ENGINE_COST(802A9514, 10);
     return v > WHEEL_RISE_MAX ? WHEEL_RISE_MAX : v;
 }
 
@@ -985,7 +939,6 @@ s32 func_802A9514(s32 v) {
    ground where it left) */
 REGS(v0, a1, a2, a3, t2, s3)
 void func_802A9540(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 v) {
-    ENGINE_COST(802A9540, 25);
     h[i] = func_802A9514(v);
     state[i] = 2;
     ground[i] = g;
@@ -1006,7 +959,6 @@ s32 func_802AA2E4(s32 x, s32 z, s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2, 
     s64 nx, ny, nz, w, t;
     f64 f;
 
-    ENGINE_COST(802AA2E4, 95);
     /* the plane's normal and its distance (64-bit, wrapping as the
        original's dmult/dsub) */
     nx = (s64)((u64)((s64)a * b) - (u64)((s64)c * d));
@@ -1054,7 +1006,6 @@ s32 func_802A9DC0(s32 x, s32 z, s32 y, s32 mat, s32 *mat_out) {
     s32 best = NO_GROUND, h, *w;
     u32 dist = NO_GROUND, a;
 
-    ENGINE_COST(802A9DC0, 284);
     for (p = D_803F7828; p != D_803F782C; p += 0x28) {
         w = (s32 *)p;
         if (!tri_under(x, z, w[0], w[2], w[3], w[5], w[6], w[8]))
@@ -1079,7 +1030,6 @@ s32 func_802A9F24(s32 x, s32 z, s32 y, s32 self, s32 *id_out) {
     s32 best = NO_GROUND, h, id = 0, k, *w;
     u32 dist = NO_GROUND, a;
 
-    ENGINE_COST(802A9F24, 170);
     for (p = D_803EBDB0; p != D_803EBBEC; p += MOVING_TRI_SIZE) {
         k = MOVING_TRI_ID(p);
         if (k == self)
@@ -1110,7 +1060,6 @@ s32 func_802AA094(s32 x, s32 z, s32 y, s32 h, s32 mat, s32 *h_out, s32 *mat_out)
     u8 *p, *end;
     s16 *w;
 
-    ENGINE_COST(802AA094, 5132);
     cell = &D_803BDB10[D_803BE720 * (z / D_803BE71C) + x / D_803BE718];
     p = (u8 *)cell[0];
     end = (u8 *)cell[1] - 4;
@@ -1147,7 +1096,6 @@ void func_802A9CAC(s32 i, s32 who) {
     u32 *found = (u32 *)D_803EBC08, *there = (u32 *)q, *tmp = (u32 *)D_803EBBD8;
     s32 n;
 
-    ENGINE_COST(802A9CAC, 127);
     if (D_803EBC04 - D_803EBC00 < 7 * LEVEL_TRI_SIZE || D_803EBC08 == q)
         return;
     for (n = 0; n < LEVEL_TRI_SIZE / 4; n++)
@@ -1170,7 +1118,6 @@ REGS(v0, t0, t1, t2, t8, gp, fp -> t3)
 s32 func_802A9B1C(s32 i, s32 x, s32 z, s32 y, s32 self, VS *vs, s32 mat) {
     s32 st, st_mat, mov, obj, h, m, found, d_mov, d_st;
 
-    ENGINE_COST(802A9B1C, 67);
     y += WHEEL_LIFT;
     st = func_802A9DC0(x, z, y, mat, &st_mat);
     mov = func_802A9F24(x, z, y, self, &obj);
@@ -1238,7 +1185,6 @@ s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
                    s32 *avg_out) {
     s32 i, dx, dz, h, id, back;
 
-    ENGINE_COST(802A992C, 134);
     for (i = 0; i < 3; i++) {
         dx = func_802A94A4(i, pts, a, &dz);
         h = func_802A9F24(x + dx, z + dz, y, self, &id);
@@ -1264,7 +1210,6 @@ REGS(v1, t2, t7, s0, s1, s2, s4, t8, gp, fp -> s1)
 s32 *func_802A9A60(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s32 self, VS *vs, s32 mat) {
     s32 i, dx, dz, h;
 
-    ENGINE_COST(802A9A60, 80);
     for (i = 0; i < 3; i++) {
         dx = func_802A94A4(i, pts, a, &dz);
         VS_ON_STATIC(vs) = 0;
@@ -1287,7 +1232,6 @@ REGS(t0, t1, t3, s4, s7, t8, gp, fp)
 void func_802A92C8(s32 x, s32 z, s16 *pts, s16 *a, s32 *heights, s32 self, VS *vs, s32 mat) {
     s32 i, dx, dz;
 
-    ENGINE_COST(802A92C8, 91);
     for (i = 0; i < 3; i++) {
         dx = func_802A94A4(i, pts, a, &dz);
         func_802A9B1C(i, x + dx, z + dz, heights[3 * i], self, vs, mat);
@@ -1306,7 +1250,6 @@ s32 func_802A93B0(s32 i, s16 *pts, s32 *h, s32 *state, s32 *ground, s32 x, s32 z
                   s32 self, VS *vs, s32 mat) {
     s32 dx, dz, now = heights[3 * i], rise, next, g;
 
-    ENGINE_COST(802A93B0, 57);
     dx = func_802A94A4(i, pts, a, &dz);
     rise = func_802A9514(now - heights[3 * i + 1]);
     next = rise + engine_cvt_w_s(GRAVITY) + now;
@@ -1336,7 +1279,6 @@ s32 func_802ABFC8(s32 found, s32 x, s32 z, s32 y, u8 *model) {
     s32 h, d, x1, z1, x2, z2, x3, z3;
     s16 *w;
 
-    ENGINE_COST(802ABFC8, 825);
     for (; p != end; p += LEVEL_TRI_SIZE) {
         if (p[0x13] != 0)
             continue;
@@ -1366,7 +1308,6 @@ s32 func_802ABEDC(s32 x, s32 y, s32 z) {
     s16 *r;
     s32 found = 0, x1, z1, x2, z2;
 
-    ENGINE_COST(802ABEDC, 576);
     for (p = D_803F4030; p != D_803F7654; p += 0xFC) {
         model = *(u8 *PTR32 *)p;
         r = (s16 *)(model + *(s32 *)(model + 0x20));
@@ -1386,7 +1327,6 @@ s32 func_802AC0BC(s32 x, s32 z, s32 y) {
     s32 h, found = 0, x1, z1, x2, z2, x3, z3;
     s16 *w;
 
-    ENGINE_COST(802AC0BC, 264);
     for (p = D_803BDAF4; p != D_803BDAF8; p += LEVEL_TRI_SIZE) {
         w = (s16 *)p;
         x1 = w[0] << 5, z1 = w[2] << 5, x2 = w[3] << 5, z2 = w[5] << 5, x3 = w[6] << 5, z3 = w[8] << 5;
@@ -1417,7 +1357,6 @@ s32 func_802AAF64(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3, 
     s32 dx, ex, dz, ez;
     f32 t, e, den, a, b, fdx;
 
-    ENGINE_COST(802AAF64, 69);
     if (x == x1 && z == z1) {
         *v_out = v1;
         return u1;
@@ -1494,7 +1433,6 @@ s32 func_802AAD0C(s32 id, s32 x, s32 z, s32 *v_out) {
     s32 *w;
     s16 *h;
 
-    ENGINE_COST(802AAD0C, 171);
     p = moving_tri_under(id, x, z, 0);
     w = (s32 *)p;
     h = MOVING_TRI_OWN(p);
@@ -1508,7 +1446,6 @@ s32 func_802AAE54(s32 id, s32 x, s32 z, s32 *v_out) {
     s32 *w;
     s16 *h;
 
-    ENGINE_COST(802AAE54, 180);
     p = moving_tri_under(id, x, z, 1);
     w = (s32 *)p;
     h = MOVING_TRI_OWN(p);
@@ -1518,7 +1455,6 @@ s32 func_802AAE54(s32 id, s32 x, s32 z, s32 *v_out) {
 void func_802AACD4(s32 id, s32 x, s32 z, s16 *u, s16 *v) {
     s32 vv;
 
-    ENGINE_COST(802AACD4, 14);
     *u = func_802AAD0C(id, x, z, &vv);
     *v = vv;
 }
@@ -1526,7 +1462,6 @@ void func_802AACD4(s32 id, s32 x, s32 z, s16 *u, s16 *v) {
 void func_802AAE1C(s32 id, s32 x, s32 z, s32 *u, s32 *v) {
     s32 vv;
 
-    ENGINE_COST(802AAE1C, 14);
     *u = func_802AAE54(id, x, z, &vv);
     *v = vv;
 }
@@ -1540,7 +1475,6 @@ REGS(s2 -> t0)
 s32 func_802AB8D8(s32 id) {
     u8 *p;
 
-    ENGINE_COST(802AB8D8, 100);
     for (p = D_803ED3B8; !RECORDS_END(p); p += 4) {
         if (p[1] == id) {
             if (p[2] != id || p[3] != id)
@@ -1555,7 +1489,6 @@ s32 func_802AB8D8(s32 id) {
 }
 
 s32 func_802AB878(s32 id) {
-    ENGINE_COST(802AB878, 24);
     return func_802AB8D8(id);
 }
 
@@ -1605,7 +1538,6 @@ s32 func_802AA890(s32 x, s32 y, s32 z, s32 n, s32 *offs, u8 *base, s32 s0, s32 s
     s32 i, j, k, a[16], b[16];
     u64 sum;
 
-    ENGINE_COST(802AA890, 1449);
     if (n != 0) {
         src = (u32 *)(base + *offs++);
         for (k = 0; k < 16; k++)
@@ -1652,7 +1584,6 @@ void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2) {
     s16 *h;
     s32 *w;
 
-    ENGINE_COST(802AABE4, 312);
     for (count = data[0]; count != 0; count--, t += 10, r += MOVING_TRI_SIZE) {
         /* this id's next triangle, or a new one at the end */
         for (; r != end; r += MOVING_TRI_SIZE)
@@ -1685,7 +1616,6 @@ REGS(t6, t8, t7, s0, s7, f2, gp -> t1)
 s32 func_802A843C(s16 *speed, s32 limit, s32 type, s8 *wheels, s32 *h, f32 div, VS *vs) {
     s32 v, lim, friction;
 
-    ENGINE_COST(802A843C, 58);
     if (PAD_Z != 0 && *speed == 0)
         return 0;
     if (limit != 0) {
@@ -1752,7 +1682,6 @@ REGS(-> a1, a3)
 s32 func_802A8B10(s32 *across_out) {
     s32 h0 = D_803ED3A8[0];
 
-    ENGINE_COST(802A8B10, 64);
     *across_out = slope_angle(D_803ED3A8[1] - h0, D_803ED404, 1);
     return slope_angle(D_803ED3A8[2] - h0, D_803ED402, 0);
 }
@@ -1775,7 +1704,6 @@ REGS(a3, t0, t1, s1, s2, v1, a2 -> t0)
 s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
     s32 ox, oz, px, pz, dx, dz, a = *angle, turn, plus, minus, d_plus, d_minus;
 
-    ENGINE_COST(802AB9A4, 59);
     ox = func_802AAE54(id, x, z, &oz);
     px = func_802AAE54(id, x2, z2, &pz);
     dx = func_802A94A4(0, pts, (s16 *)angle, &dz);
@@ -1821,7 +1749,6 @@ static s32 fall_drop(s32 rise, s32 t) {
    speed (bounced). */
 REGS(v0, a1, a2, a3, t3, s6 -> s6)
 s32 func_802A9710(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 y) {
-    ENGINE_COST(802A9710, 84);
     y = iabs(y - fall_drop(h[i], state[i] - 2));
     if (LAND_BOUNCE_MIN < y) {
         if (D_803ED40B != 0)
@@ -1852,7 +1779,6 @@ s32 func_802A95A4(s32 i, s32 *h, s32 *state, s32 *ground, s32 x, s32 z, s32 *hei
                   s32 self, VS *vs, s32 mat) {
     s32 t = state[i], drop, y, dx, dz, g;
 
-    ENGINE_COST(802A95A4, 81);
     state[i] = t + 1;
     drop = fall_drop(h[i], t);
     y = ground[i] + drop;
@@ -1910,7 +1836,6 @@ REGS(t5, t6, t1, s4, s5, s6, s7, gp)
 void func_802A7FD8(s32 rate, s16 *speed, u16 *angle, u16 *target, u16 *out, s8 *turning, s32 sound, VS *vs) {
     s32 v = *speed, a, t = *target, step, d, n;
 
-    ENGINE_COST(802A7FD8, 65);
     step = func_802A8314(rate);
     if (v != 0)
         step = (s32)((u32)step * VS_GRIP(vs)) / v;
@@ -1967,8 +1892,6 @@ REGS(a0, a1, f0, gp -> a0, a1)
 s32 func_802A71DC(s32 h, s32 h2, f32 rate, VS *vs, s32 *rate_out) {
     s32 lo = (u16)D_803A7410, hi = (u16)D_803A7412, dl, dh, s, neg;
 
-    /* (the original's two range tests' blocks folded in, as its divisions' in func_802A8B10, func_802A8768 and func_802A7FD8) */
-    ENGINE_COST(802A71DC, 72);
     if (in_camera_range(h2, lo, hi)) {
         *rate_out = 0;
         return h2;
@@ -2025,7 +1948,6 @@ s32 func_802A8CCC(s32 x, s32 z, s32 *xo, s32 *yo, s32 *zo, s32 type, VS *vs) {
     s32 cx = x >> 5, cz = z >> 5, key, rx, ry, rz, i, out;
     u8 *r;
 
-    ENGINE_COST(802A8CCC, 36);
     out = cx < D_803BE730 || D_803BE732 < cx || cz < D_803BE734 || D_803BE736 < cz;
 #ifndef VERSION_US_V10
     if (type == VEHICLE_TRAIN &&
@@ -2059,7 +1981,6 @@ static void abbec(s32 id, u8 *p, u8 *end, u8 *base) {
     s16 *h;
     s32 x, y, z, n, s1, s2;
 
-    ENGINE_COST(802ABBEC, 115);
     for (r = D_803EBC10; !RECORDS_END(r) && r[0xC] != id; r += 0x10)
         ;
     for (; p != end; p += n * 4 + 8, r += 0x10) {
@@ -2100,7 +2021,6 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
     s32 *hist = VS_WHEEL_H(vs);
     s32 along = t9, across = fp, i, w, hw[3], roll, shadow_along, shadow_across;
 
-    ENGINE_COST(802A8768, 187);
     if (func_802A8CCC(x, z, px, py, pz, type, vs)) {
         x = *px;
         z = *pz;

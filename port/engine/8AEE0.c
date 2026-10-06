@@ -165,7 +165,6 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803FC500;
     s32 avg;
 
-    ENGINE_COST(802CF6A0, 219);
     SK_MODEL = model;
     SK_BUF0 = D_80358070;
     SK_BUF1 = D_80358070 + 0x100;
@@ -207,7 +206,6 @@ void func_802CF6A0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 
 /* hd.c's: the player gets in */
 void func_802CFA0C(void) {
-    ENGINE_COST(802CFA0C, 19);
     VS_TURNING(&D_803FC500) = 0;
     D_8036444C = 0xBB8;
     D_80364450 = 0x3E8;
@@ -216,13 +214,11 @@ void func_802CFA0C(void) {
 
 /* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802CFA58(void) {
-    ENGINE_COST(802CFA58, 23);
     return !ANY_AIRBORNE(&D_803FC500);
 }
 
 /* hd.c's: the player gets out */
 void func_802CFAB4(void) {
-    ENGINE_COST(802CFAB4, 19);
     VS_SPEED(&D_803FC500) = 0;
     func_802A7764((u32 *)SK_BUF0, (u32 *)SK_BUF1, 0x100);
     func_802C444C();
@@ -232,7 +228,6 @@ void func_802CFAB4(void) {
 void func_802CFB00(void) {
     VS *vs = &D_803FC500;
 
-    ENGINE_COST(802CFB00, 34);
     func_802A9A60(VS_WHEELS(vs), SK_Y, SK_X, SK_Z, VS_WHEEL_H(vs), &SK_Y, (s16 *)&VS_HEADING(vs), VEHICLE_STARSKI,
                   vs, 0);
     func_802D05D8(vs);
@@ -241,7 +236,6 @@ void func_802CFB00(void) {
 
 /* its light */
 void func_802CFC10(void) {
-    ENGINE_COST(802CFC10, 17);
     func_802ABD54(VEHICLE_STARSKI, SK_X, SK_Y, SK_Z);
 }
 
@@ -274,7 +268,6 @@ void func_802CFDE8(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802CFDE8, 213);
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802CFC10();
     func_802A75DC((u8 *)SK, &SK_X, &SK_Y, &SK_Z, (u8 *)vs);
@@ -329,7 +322,6 @@ void func_802CFDE8(void) {
    and the engine's sound */
 REGS(gp)
 void func_802D02F8(VS *vs) {
-    ENGINE_COST(802D02F8, 24);
     func_802D0438(vs);
     if (D_803FC5C2 != 0) {
         D_803FC5C2--;
@@ -349,7 +341,6 @@ void func_802D02F8(VS *vs) {
    static triangles) with its back wheel down */
 REGS(gp)
 void func_802D0438(VS *vs) {
-    ENGINE_COST(802D0438, 69);
     if (VS_TURNING(vs) != 0 && VS_AIRBORNE(vs)[2] != 1 && VS_GRIP(vs) < 3 && VS_ON_STATIC(vs) == 0)
         func_8027BE7C(3, VS_WHEEL_H(vs)[6], 0xFA, -0x190, -0x190, -0x190, SK_X, SK_Z, VS_MOVE_HEADING(vs), 3, 0x32,
                       0x32, 0);
@@ -360,7 +351,6 @@ REGS(gp)
 void func_802D05D8(VS *vs) {
     u8 *model = SK_MODEL, *buf = FRAME_BUF(SK_BUF0, SK_BUF1);
 
-    ENGINE_COST(802D05D8, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(SK_X, SK_Y, SK_Z, STARSKI_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(SK_X, SK_Y, SK_Z, VEHICLE_STARSKI, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -371,14 +361,12 @@ void func_802D05D8(VS *vs) {
    STARSKI_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802D0710(VS *vs) {
-    ENGINE_COST(802D0710, 24);
     return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? STARSKI_STEER_DIV_AIR : STARSKI_STEER_DIV));
 }
 
 /* the physics' settings for the hotrod: gravity, and how its wheels land */
 REGS()
 void func_802D0784(void) {
-    ENGINE_COST(802D0784, 23);
     D_803EBBF4 = D_803EBBF0 * STARSKI_GRAVITY;
     D_803ED3F6 = STARSKI_BOUNCE_MIN;
     D_803ED3F7 = STARSKI_BOUNCE_DIV;
@@ -414,7 +402,6 @@ void func_802D07E0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803FC8D0;
     s32 avg;
 
-    ENGINE_COST(802D07E0, 236);
     CS_MODEL = model;
     CS_BUF0 = D_80358070;
     CS_BUF1 = D_80358070 + 0x1400;
@@ -466,13 +453,11 @@ void func_802D07E0(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 u8 func_802D0B90(void) {
     VS *vs = &D_803FC8D0;
 
-    ENGINE_COST(802D0B90, 26);
     return !ANY_AIRBORNE(vs) && SUIT_STATE(vs) == SUIT_WALK;
 }
 
 /* hd.c's: the player gets out */
 void func_802D0BF8(void) {
-    ENGINE_COST(802D0BF8, 14);
     VS_SPEED(&D_803FC8D0) = 0;
     func_802A7764((u32 *)CS_BUF0, (u32 *)CS_BUF1, 0x1400);
     func_802A02E4(0x1F, CS);
@@ -483,7 +468,6 @@ void func_802D0BF8(void) {
 /* hd.c's (and 17210.c's): the player gets in: its sound, its light and its
    arms */
 void func_802D0C68(void) {
-    ENGINE_COST(802D0C68, 119);
     VS_TURNING(&D_803FC8D0) = 0;
     D_8036444C = 0x7D0;
     D_80364450 = -0x3E8;
@@ -512,7 +496,6 @@ void func_802D0C68(void) {
 void func_802D0E44(void) {
     VS *vs = &D_803FC8D0;
 
-    ENGINE_COST(802D0E44, 34);
     func_802A9A60(VS_WHEELS(vs), CS_Y, CS_X, CS_Z, VS_WHEEL_H(vs), &CS_Y, (s16 *)&VS_HEADING(vs), VEHICLE_MINIMAGOO,
                   vs, 0);
     func_802D22F4(vs);
@@ -521,7 +504,6 @@ void func_802D0E44(void) {
 
 /* its light */
 void func_802D0F54(void) {
-    ENGINE_COST(802D0F54, 17);
     func_802ABD54(VEHICLE_MINIMAGOO, CS_X, CS_Y, CS_Z);
 }
 
@@ -533,7 +515,6 @@ void func_802D0F98(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802D0F98, 188);
     /* (its $s4 and $fp as it found them: 5CB60.c and the other vehicles read them from the context) */
     func_802D0F54();
     if (VS_IN_SETUP(vs) == 0)
@@ -741,7 +722,6 @@ REGS(gp)
 void func_802D1360(VS *vs) {
     s32 t1, last;
 
-    ENGINE_COST(802D1360, 50);
     switch (SUIT_STATE(vs)) {
     case SUIT_WALK:
         if (part(1, NULL, &t1) == 1 || part(5, NULL, &t1) == 1 || part(6, NULL, &t1) == 1) {
@@ -826,7 +806,6 @@ void func_802D22F4(VS *vs) {
     u8 *model = CS_MODEL, *buf = FRAME_BUF(CS_BUF0, CS_BUF1);
     s32 h = (u16)VS_HEADING(vs) + ANGLE_QUARTER;
 
-    ENGINE_COST(802D22F4, 75);
     if (h >= ANGLE_TURN)
         h -= ANGLE_WRAP;
     D_803ED390[1] = h;
@@ -841,7 +820,6 @@ void func_802D22F4(VS *vs) {
    SUIT_STEER */
 REGS(gp -> s3)
 s32 func_802D2444(VS *vs) {
-    ENGINE_COST(802D2444, 18);
     if (VS_SPEED(vs) == 0)
         return 0;
     return SUIT_STATE(vs) >= SUIT_CURL && SUIT_STATE(vs) <= SUIT_GET_UP ? SUIT_STEER_ROLL : SUIT_STEER;
@@ -849,7 +827,6 @@ s32 func_802D2444(VS *vs) {
 
 /* the physics' settings for the suit: gravity, and how it lands */
 void func_802D249C(void) {
-    ENGINE_COST(802D249C, 23);
     D_803EBBF4 = D_803EBBF0 * SUIT_GRAVITY;
     D_803ED3F6 = SUIT_BOUNCE_MIN;
     D_803ED3F7 = SUIT_BOUNCE_DIV;
@@ -858,13 +835,11 @@ void func_802D249C(void) {
 /* its state and position saved to dst (0xB2 bytes; Thunderfist's
    func_802B295C, but nothing calls it) */
 void func_802D24F8(u8 *dst) {
-    ENGINE_COST(802D24F8, 6);
     func_802AC7DC(dst, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978);
 }
 
 /* and back */
 void func_802D2524(u8 *src) {
-    ENGINE_COST(802D2524, 6);
     func_802AC85C(src, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978);
 }
 
@@ -873,19 +848,16 @@ void func_802D2524(u8 *src) {
    calls it */
 void func_802D2550(u32 compare) {
     (void)compare;
-    ENGINE_COST(802D2550, 4);
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier, and back
    there after the carrier moved */
 REGS(a3)
 void func_802CFC54(s32 carrier) {
-    CARRY_KEEP(802CFC54, 802CFC90, 802CFCB0, 802CFCBC, &D_803FC500, D_803FC5A8, D_803FC5B0);
+    CARRY_KEEP(&D_803FC500, D_803FC5A8, D_803FC5B0);
 }
 
 REGS(a3)
 void func_802CFCE0(s32 carrier) {
-    CARRY_MOVE(802CFCE0, 802CFD1C, 802CFD30, 802CFD38, 802CFD98, 802CFDA0, 802CFDCC, &D_803FC500, &D_803FC5A8,
-               &D_803FC5AC, &D_803FC5B0, 0xF, 0x1F4, 0x15E, D_803ED40B = 1, func_802D0784(),
-               func_802D05D8(&D_803FC500));
+    CARRY_MOVE(&D_803FC500, &D_803FC5A8, &D_803FC5AC, &D_803FC5B0, 0xF, 0x1F4, 0x15E, D_803ED40B = 1, func_802D0784(), func_802D05D8(&D_803FC500));
 }

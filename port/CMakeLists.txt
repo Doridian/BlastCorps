@@ -496,22 +496,13 @@ endif()
 
 # ---- the engine's replacement (N64 side; docs/PORT.md, "Replacing the engine") --
 # Rare's handwritten functions as native C (port/engine; the translator
-# leaves out the ones replaced.txt lists).  Built like the game's C, but it
-# charges the original's MIPS instructions itself (ENGINE_BLK), so BEPass
-# neither counts nor polls in it (BEPASS_ENGINE=1).  PORT_ENGINE_CHECK runs
+# leaves out the ones replaced.txt lists).  Built like the game's C, but
+# BEPass puts no polls in it (BEPASS_ENGINE=1).  PORT_ENGINE_CHECK runs
 # each replaced function's translation first on the same state and
-# compares (port/host/engine_check.c); the 32-bit build only.
+# compares (port/host/engine.c); the 32-bit build only.
 option(PORT_ENGINE_CHECK "check the engine's native functions against their translation as they run" OFF)
 if(PORT_ENGINE_CHECK AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN))
     message(FATAL_ERROR "PORT_ENGINE_CHECK is the 32-bit build's")
-endif()
-# PORT_BLKLOG logs the translated and native blocks charged in a range of
-# block ids (PORT_BLKLOG=FROM,TO,FILE in the environment; the ids are
-# blocks.tsv's), and every controller read: two builds that should charge
-# the same give the same log, and the first difference is the block.
-option(PORT_BLKLOG "log the engine's blocks as they are charged" OFF)
-if(PORT_BLKLOG AND (PORT_64BIT OR PORT_MOVABLE OR PORT_NATIVE_ENDIAN OR PORT_ENGINE_CHECK))
-    message(FATAL_ERROR "PORT_BLKLOG is the plain 32-bit build's")
 endif()
 # PORT_ENGINE_TAINT traces what the native engine leaves in the thread's
 # context and its dead frames to where it is read back (engine_ctx,
@@ -528,11 +519,11 @@ if(PORT_ENGINE_CHECK)
 endif()
 if(ENGINE_C)
     add_library(engine_c OBJECT ${ENGINE_C})
-    target_include_directories(engine_c PRIVATE ${N64_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/engine ${RECOMP_GEN})
+    target_include_directories(engine_c PRIVATE ${N64_INCLUDES} ${CMAKE_CURRENT_SOURCE_DIR}/engine)
     target_compile_definitions(engine_c PRIVATE ${N64_DEFINES})
     target_compile_options(engine_c PRIVATE ${N64_FLAGS})
     add_dependencies(engine_c BEPass)
-    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS "${BEPASS};${RECOMP_GEN}/engine_blocks.h")
+    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
     set(ENGINE_LAUNCHER ${N64_LAUNCHER})
     list(FIND ENGINE_LAUNCHER env ENV_AT)
     if(ENV_AT EQUAL 0)
@@ -541,14 +532,11 @@ if(ENGINE_C)
         list(PREPEND ENGINE_LAUNCHER env BEPASS_ENGINE=1 BEPASS_PORT_SRC=1)
     endif()
     set_target_properties(engine_c PROPERTIES C_COMPILER_LAUNCHER "${ENGINE_LAUNCHER}")
-    if(PORT_BLKLOG)
-        target_compile_definitions(engine_c PRIVATE PORT_BLKLOG)
-    endif()
     if(PORT_ENGINE_CHECK)
         target_compile_definitions(engine_c PRIVATE PORT_ENGINE_CHECK)
         target_compile_options(engine_c PRIVATE "SHELL:-include ${GEN}/engine_check_names.h")
         set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS
-            "${BEPASS};${RECOMP_GEN}/engine_blocks.h;${GEN}/engine_check_names.h")
+            "${BEPASS};${GEN}/engine_check_names.h")
     endif()
     set(ENGINE_OBJECTS $<TARGET_OBJECTS:engine_c>)
 else()
@@ -677,10 +665,6 @@ else()
     add_library(recomp OBJECT ${GEN}/entry.c)
 endif()
 target_include_directories(recomp PRIVATE ${ROOT}/tools/recomp/runtime ${RECOMP_GEN} ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_compile_definitions(recomp PRIVATE RECOMP_COUNT)
-if(PORT_BLKLOG)
-    target_compile_definitions(recomp PRIVATE PORT_BLKLOG)
-endif()
 if(PORT_ENGINE_CHECK)
     # the replaced functions' translations, which the check runs first
     target_compile_definitions(recomp PRIVATE RECOMP_ORIG PORT_ENGINE_CHECK)
@@ -951,9 +935,6 @@ if(PORT_LP64)
 endif()
 if(PORT_ENGINE_CHECK)
     target_compile_definitions(host PRIVATE PORT_ENGINE_CHECK)
-endif()
-if(PORT_BLKLOG)
-    target_compile_definitions(host PRIVATE PORT_BLKLOG)
 endif()
 if(PORT_ENGINE_TAINT)
     target_compile_definitions(host PRIVATE PORT_ENGINE_TAINT)

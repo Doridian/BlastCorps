@@ -1,7 +1,6 @@
 # The renderer's functions, which Asyncify leaves alone (-sASYNCIFY_REMOVE):
 # a graphics task runs to its end without a fiber switch (nothing under
-# gfx_task_call sleeps or yields: the GL calls, host_log and the CPU model's
-# charge don't), so no unwind or rewind ever passes through them, and the
+# gfx_task_call sleeps or yields: the GL calls and host_log don't), so no unwind or rewind ever passes through them, and the
 # instrumentation (a check after each call that might unwind: here every
 # call that reaches printf's indirect calls, or GL's) only costs.  One name
 # a line; each is defined once in the link (a static of the same name in

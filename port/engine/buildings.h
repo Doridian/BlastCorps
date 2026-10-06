@@ -298,29 +298,6 @@ static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }
 #define DL_SETTIMG 0xFD                 /* (opcodes) */
 #define DL_SETPRIMCOLOR 0xFA
 
-/* ---- the CPU model's charges (engine.h's ENGINE_BLK) ----------------------- */
-
-/* ENGINE_BLKN(addr, k): block addr's charge k times at once (a loop that
-   ran k times, done with memcpy).  The check and block-log builds want
-   every one. */
-#if defined(PORT_ENGINE_CHECK) || defined(PORT_BLKLOG)
-#define ENGINE_BLKN(addr, k)                                                \
-    do {                                                                    \
-        u32 blkn_ = (k);                                                    \
-        while (blkn_--)                                                     \
-            ENGINE_BLK(addr);                                               \
-    } while (0)
-#else
-#define ENGINE_BLKN_(id, n, k) (__port_icount += (u32)(n) * (u32)(k))
-#define ENGINE_BLKN_X(...) ENGINE_BLKN_(__VA_ARGS__)
-#define ENGINE_BLKN(addr, k) ENGINE_BLKN_X(ENGINE_BLK_##addr, (k))
-#endif
-
-/* a block named in a table, for code several functions share with blocks
-   of their own: {ENGINE_BLK_802BE228} */
-typedef struct { u16 id, n; } Blk;
-#define BLKT(b) ENGINE_BLK_((b).id, (b).n)
-
 /* ---- 56040's (engine-A's): the collision tests ---- */
 
 /* whether the spheres (x, y, z, r) and (bx, by, bz, br) overlap */
@@ -346,7 +323,7 @@ s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r);
 
 /* Piece p's corners and the point (x, y, z) seen along its axis (0 drops
    z, 1 y, else x): func_8029BF64's arguments, by 56040.c's
-   collision_flatten() (func_8029C0DC's body, with its blocks; shared.h's
+   collision_flatten() (func_8029C0DC's body; shared.h's
    FlatTri, the same words).  (The original also leaves them in $v0-$t1;
    the taint build finds no reader of those but the callers here, which
    take them from the struct now.) */
@@ -359,36 +336,22 @@ static inline void piece_flat(Piece *p, s32 x, s32 y, s32 z, PieceFlat *f) {
 /* The sphere (x, y, z, r) (>> 2) against piece p: across its plane
    (func_8029C160), and then inside its triangle there, across one of its
    edges or holding its first corner.  Three callers (func_802BEADC,
-   func_802BEBB0, func_802CDC7C) do it with blocks of their own, in this
-   order: after the plane's test, its point flattened, after that, after
-   the triangle's test, before and after the edges', and the corner's. */
-typedef struct PieceTestBlks {
-    Blk plane, cross, flat, tri, edge0, edge, corner0, corner;
-} PieceTestBlks;
-
-static inline s32 piece_touched(Piece *p, s32 x, s32 y, s32 z, s32 r, const PieceTestBlks *k) {
+   func_802BEBB0, func_802CDC7C) do it alike. */
+static inline s32 piece_touched(Piece *p, s32 x, s32 y, s32 z, s32 r) {
     PieceFlat f;
     s32 px, py, pz, in;
 
     in = func_8029C160(x, y, z, r, p, &px, &py, &pz);
-    BLKT(k->plane);
     if (!in)
         return 0;
-    BLKT(k->cross);
     piece_flat(p, px, py, pz, &f);
-    BLKT(k->flat);
     in = collision_flat_inside(&f);
-    BLKT(k->tri);
     if (in)
         return 1;
-    BLKT(k->edge0);
     in = func_8029BD0C(x, y, z, r, p);
-    BLKT(k->edge);
     if (in)
         return 1;
-    BLKT(k->corner0);
     in = func_8029BEE4((u8 *)p, x, y, z, r);
-    BLKT(k->corner);
     return in;
 }
 
@@ -401,13 +364,10 @@ void func_8029B02C(s32 a1, s32 a2, s32 a3, s32 x, s32 y, s32 z, s32 r, s32 t8, s
 
 /* The heading from (x, z) to (tx, tz), a 12-bit angle (0 along +x, a
    quarter towards -z): the arcsine (func_802AD7FC) of the 16.16 sine,
-   quadrant by quadrant, with each quadrant's blocks.  Three functions
+   quadrant by quadrant.  Three functions
    (func_802BDDB4, func_802C1438, func_802CE204) do it alike. */
-typedef struct HeadingBlks {
-    Blk q0, q0b, q1, q1b, q2, q2b, q3, q3b, right, left;
-} HeadingBlks;
 
-static inline s32 heading_to(s32 x, s32 z, s32 tx, s32 tz, const HeadingBlks *k) {
+static inline s32 heading_to(s32 x, s32 z, s32 tx, s32 tz) {
     f32 d, q;
     s32 h;
 
@@ -415,28 +375,18 @@ static inline s32 heading_to(s32 x, s32 z, s32 tx, s32 tz, const HeadingBlks *k)
     q = (f32)(tz - z) * (f32)(tz - z);
     d = __builtin_sqrtf(d + q);
     if (!(tx < x)) {
-        BLKT(k->right);
         if (!(tz < z)) {
-            BLKT(k->q0);
             h = func_802AD7FC(engine_cvt_w_s(65536.0f * ((f32)(tx - x) / d)));
-            BLKT(k->q0b);
             return (u32)h >> 4;
         }
-        BLKT(k->q1);
         h = func_802AD7FC(engine_cvt_w_s(65536.0f * ((f32)(z - tz) / d)));
-        BLKT(k->q1b);
         return ((u32)h >> 4) + 0x400;
     }
-    BLKT(k->left);
     if (tz < z) {
-        BLKT(k->q2);
         h = func_802AD7FC(engine_cvt_w_s(65536.0f * ((f32)(x - tx) / d)));
-        BLKT(k->q2b);
         return ((u32)h >> 4) + 0x800;
     }
-    BLKT(k->q3);
     h = func_802AD7FC(engine_cvt_w_s(65536.0f * ((f32)(tz - z) / d)));
-    BLKT(k->q3b);
     return ((u32)h >> 4) + 0xC00;
 }
 

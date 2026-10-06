@@ -18,16 +18,12 @@ REGS(gp)
 void func_802CB690(VS *vs) {
     s32 v;
 
-    ENGINE_BLK(802CB690);
     if (D_80364A98 != 0x40) {
-        ENGINE_BLK(802CB6AC);
         func_80260650(D_80367738, 0x55, NULL);
     }
-    ENGINE_BLK(802CB6C0);
     v = D_80364A72;
     vs->unk76 = v + (v >> 1);
     D_80367BFF = 0;
     func_80278EB0(6, 0.25f, 100);
-    ENGINE_BLK(802CB6F8);
     D_80367C00 = 1;
 }

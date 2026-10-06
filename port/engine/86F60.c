@@ -87,7 +87,6 @@ void func_802CB720(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803F8E80;
     s32 avg;
 
-    ENGINE_COST(802CB720, 221);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x100;
@@ -131,7 +130,6 @@ void func_802CB720(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 void func_802CBA94(void) {
     VS *vs = &D_803F8E80;
 
-    ENGINE_COST(802CBA94, 51);
     VS_TURNING(vs) = 0;
     D_8036444C = 3000;
     D_80364450 = 1000;
@@ -148,13 +146,11 @@ void func_802CBA94(void) {
 
 /* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802CBB60(void) {
-    ENGINE_COST(802CBB60, 23);
     return !ANY_AIRBORNE(&D_803F8E80);
 }
 
 /* hd.c's: the player gets out */
 void func_802CBBBC(void) {
-    ENGINE_COST(802CBBBC, 19);
     VS_SPEED(&D_803F8E80) = 0;
     func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x100);
     func_802C444C();
@@ -164,7 +160,6 @@ void func_802CBBBC(void) {
 void func_802CBC08(void) {
     VS *vs = &D_803F8E80;
 
-    ENGINE_COST(802CBC08, 35);
     func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_POLICE, vs, 0);
     func_802CC70C(vs);
     func_802A133C(X, Y, Z, VEHICLE_POLICE, vs);
@@ -172,7 +167,6 @@ void func_802CBC08(void) {
 
 /* its light */
 void func_802CBD18(void) {
-    ENGINE_COST(802CBD18, 17);
     func_802ABD54(VEHICLE_POLICE, X, Y, Z);
 }
 
@@ -205,7 +199,6 @@ void func_802CBEF0(void) {
     s32 stick;
     f32 rate;
 
-    ENGINE_COST(802CBEF0, 214);
     func_802CBD18();
     func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
     func_802C4724(VEHICLE_POLICE);
@@ -261,7 +254,6 @@ REGS(gp)
 void func_802CC400(VS *vs) {
     s32 l;
 
-    ENGINE_COST(802CC400, 48);
     if (PAD_L == 0 && PAD_R == 0) {
         l = D_803F8F45 = 0;
     } else {
@@ -291,7 +283,6 @@ void func_802CC400(VS *vs) {
    static triangles) with its back wheel down */
 REGS(gp)
 void func_802CC56C(VS *vs) {
-    ENGINE_COST(802CC56C, 70);
     if (VS_TURNING(vs) != 0 && VS_AIRBORNE(vs)[2] != 1 && VS_GRIP(vs) < 3 && VS_ON_STATIC(vs) == 0)
         func_8027BE7C(3, VS_WHEEL_H(vs)[6], 0xFA, -0x190, -0x190, -0x190, X, Z, VS_MOVE_HEADING(vs), 3, 0x32, 0x32,
                       0);
@@ -302,7 +293,6 @@ REGS(gp)
 void func_802CC70C(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_COST(802CC70C, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(X, Y, Z, POLICE_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(X, Y, Z, VEHICLE_POLICE, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -313,14 +303,12 @@ void func_802CC70C(VS *vs) {
    POLICE_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802CC844(VS *vs) {
-    ENGINE_COST(802CC844, 25);
     return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? POLICE_STEER_DIV_AIR : POLICE_STEER_DIV));
 }
 
 /* the physics' settings for the police car: gravity, and how its wheels
    land */
 void func_802CC8B8(void) {
-    ENGINE_COST(802CC8B8, 23);
     D_803EBBF4 = D_803EBBF0 * POLICE_GRAVITY;
     D_803ED3F6 = POLICE_BOUNCE_MIN;
     D_803ED3F7 = POLICE_BOUNCE_DIV;
@@ -330,11 +318,10 @@ void func_802CC8B8(void) {
    there after the carrier moved */
 REGS(a3)
 void func_802CBD5C(s32 carrier) {
-    CARRY_KEEP(802CBD5C, 802CBD98, 802CBDB8, 802CBDC4, &D_803F8E80, D_803F8F28, D_803F8F30);
+    CARRY_KEEP(&D_803F8E80, D_803F8F28, D_803F8F30);
 }
 
 REGS(a3)
 void func_802CBDE8(s32 carrier) {
-    CARRY_MOVE(802CBDE8, 802CBE24, 802CBE38, 802CBE40, 802CBEA0, 802CBEA8, 802CBED4, &D_803F8E80, &D_803F8F28, &D_803F8F2C, &D_803F8F30, 0xD, 0x2BC, 0x190,
-               D_803ED40B = 1, func_802CC8B8(), func_802CC70C(&D_803F8E80));
+    CARRY_MOVE(&D_803F8E80, &D_803F8F28, &D_803F8F2C, &D_803F8F30, 0xD, 0x2BC, 0x190, D_803ED40B = 1, func_802CC8B8(), func_802CC70C(&D_803F8E80));
 }

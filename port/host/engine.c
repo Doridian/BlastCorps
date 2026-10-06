@@ -32,13 +32,13 @@ static int ido_trunc_ok(float x, int32_t *v) {
     return 1;
 }
 
-uint64_t engine_ido_cvt_u_s(float x) {
+uint32_t engine_ido_cvt_u_s(float x) {
     int32_t v;
     if (ido_trunc_ok(x, &v))
-        return (uint64_t)(v < 0) << 32 | (v < 0 ? 0xFFFFFFFFu : (uint32_t)v);
+        return v < 0 ? 0xFFFFFFFFu : (uint32_t)v;
     if (ido_trunc_ok(x - 2147483648.0f, &v))
-        return (uint64_t)2 << 32 | ((uint32_t)v | 0x80000000u);
-    return (uint64_t)3 << 32 | 0xFFFFFFFFu;
+        return (uint32_t)v | 0x80000000u;
+    return 0xFFFFFFFFu;
 }
 
 extern recomp_context *port_ctx(void);
@@ -47,78 +47,6 @@ void engine_break(uint32_t pc, uint32_t code) {
     recomp_trap(port_ctx(), RECOMP_TRAP_BREAK, pc, code);
 }
 
-#ifdef PORT_BLKLOG
-/* PORT_BLKLOG=FILE:FROM:TO:LO-HI,LO-HI...: from the FROMth controller read
-   to the TOth, the ids of the blocks charged (translated or native) in the
-   ranges given, one a line, and "P n" at the nth read (port/host/main.c);
-   the run ends at the TOth. */
-static FILE *blklog_f;
-static unsigned blklog_from, blklog_to, blklog_n;
-static unsigned blklog_r[64][2];
-static int blklog_on;
-
-static void blklog_init(void) {
-    static int done;
-    char path[512];
-    const char *s = getenv("PORT_BLKLOG"), *p;
-    int k;
-    if (done)
-        return;
-    done = 1;
-    if (!s || sscanf(s, "%511[^:]:%u:%u:%n", path, &blklog_from, &blklog_to, &k) != 3)
-        return;
-    for (p = s + k; *p && blklog_n < 64;) {
-        char *e;
-        blklog_r[blklog_n][0] = (unsigned)strtoul(p, &e, 10);
-        if (*e != '-')
-            break;
-        blklog_r[blklog_n][1] = (unsigned)strtoul(e + 1, &e, 10);
-        blklog_n++;
-        p = *e == ',' ? e + 1 : e;
-    }
-    blklog_f = fopen(path, "w");
-}
-
-/* PORT_BLKLOG_REGS=ID: at block ID, the context's GPRs too (as the
-   translated code would see them) */
-
-void port_blklog(unsigned int id) {
-    static long regs_at = -2;
-    unsigned k;
-    if (!blklog_on)
-        return;
-    if (regs_at == -2) {
-        const char *s = getenv("PORT_BLKLOG_REGS");
-        regs_at = s ? atol(s) : -1;
-    }
-    for (k = 0; k < blklog_n; k++)
-        if (id >= blklog_r[k][0] && id <= blklog_r[k][1]) {
-            fprintf(blklog_f, "%u\n", id);
-            if ((long)id == regs_at) {
-                recomp_context *ctx = port_ctx();
-                int r;
-                fprintf(blklog_f, "R");
-                for (r = 1; r < 32; r++)
-                    fprintf(blklog_f, " %d=%llx", r, (unsigned long long)ctx->r[r]);
-                fprintf(blklog_f, "\n");
-            }
-            return;
-        }
-}
-
-void port_blklog_poll(unsigned int n) {
-    blklog_init();
-    if (!blklog_f)
-        return;
-    blklog_on = n >= blklog_from && n < blklog_to;
-    if (n >= blklog_from)
-        fprintf(blklog_f, "P %u\n", n);
-    if (n >= blklog_to) {
-        fclose(blklog_f);
-        exit(0);
-    }
-}
-#endif
 
 /* engine.h's engine_trap: the original's syscall (Rare's "can't happen"),
    which stops the game as the translation's recomp_trap does */
@@ -576,11 +504,8 @@ uint32_t engine_reg(unsigned int reg) {
  * are saved, the translation (recomp_orig_X) runs, its RDRAM, context and
  * instruction count are kept, everything is put back, the native function
  * runs, and the two are compared: every byte of RDRAM but the dead stack
- * below the N64 $sp, the registers the convention says a caller reads,
- * and the instructions charged (translated code and native code both
- * charge __port_icount, the game's C __port_icount_c).  On a difference
- * it says where, and where the two runs' blocks first part (both charge
- * block by block: BB() and ENGINE_BLK()).  The game goes on with the
+ * below the N64 $sp, and the registers the convention says a caller
+ * reads.  On a difference it says where.  The game goes on with the
  * native function's results.
  *
  * Only functions whose translation calls nothing but translated code are
@@ -594,15 +519,11 @@ extern const unsigned engine_check_count;
 
 #define RDRAM_P ((uint8_t *)(uintptr_t)PORT_RDRAM_BASE)
 #define DEAD_STACK 0x10000u          /* below the $sp: nobody's any more */
-#define TRACE_MAX (1u << 20)
 
 int engine_tracing;
 static int active = -1;             /* the function being checked */
 static recomp_context ctx0, ctx_o;
 static uint8_t *mem0, *mem_o;
-static uint32_t ic0, icc0, ic_o, icc_o;
-static uint32_t *trace_o, *trace_n, *trace_cur;
-static unsigned ntrace_o, ntrace_n, *ntrace_cur;
 static unsigned long *ncalls, *nchecked, *nfailed;
 static unsigned long first_n = 2000;
 static unsigned long show_n = 10;     /* differences shown per function (PORT_ENGINE_CHECK_SHOW) */
@@ -635,8 +556,6 @@ static uint8_t *pi_copy(uint8_t *buf, int load) {
     return buf;
 }
 
-extern uint32_t __port_icount, __port_icount_c;
-
 static void cov_write(void);
 
 static void report(void) {
@@ -656,8 +575,6 @@ static void report(void) {
 static void init(void) {
     mem0 = malloc(PORT_RDRAM_SIZE);
     mem_o = malloc(PORT_RDRAM_SIZE);
-    trace_o = malloc(TRACE_MAX * sizeof *trace_o);
-    trace_n = malloc(TRACE_MAX * sizeof *trace_n);
     stk0 = malloc(PORT_STACK_SIZE);
     stk_o = malloc(PORT_STACK_SIZE);
     pi0 = pi_copy(NULL, 0);
@@ -672,14 +589,13 @@ static void init(void) {
     atexit(report);
 }
 
-/* PORT_ENGINE_COV=FILE: the ids of the blocks the checked calls ran, one a
-   line, at exit (what the fuzz reached: cov.py-like counts per function) */
+/* PORT_ENGINE_COV=FILE: the ids of the blocks the checked calls'
+   translations ran, one a line, at exit (what the fuzz reached: cov.py-like
+   counts per function) */
 #define COV_MAX 0x10000u
 static uint8_t cov_hit[COV_MAX];
 
 void engine_trace_blk(unsigned int id) {
-    if (engine_tracing && *ntrace_cur < TRACE_MAX)
-        trace_cur[(*ntrace_cur)++] = id;
     if (engine_tracing && id < COV_MAX)
         cov_hit[id] = 1;
 }
@@ -715,12 +631,7 @@ int engine_check_begin(unsigned id, recomp_context *ctx, void *frame) {
         stk_hi = PORT_STACK_BASE + ((f - PORT_STACK_BASE) / PORT_STACK_SIZE + 1) * PORT_STACK_SIZE;
         memcpy(stk0, (void *)stk_lo, stk_hi - stk_lo);
     }
-    ic0 = __port_icount;
-    icc0 = __port_icount_c;
     pi_copy(pi0, 0);
-    ntrace_o = ntrace_n = 0;
-    trace_cur = trace_o;
-    ntrace_cur = &ntrace_o;
     engine_tracing = 1;
     return 1;
 }
@@ -729,19 +640,14 @@ void engine_check_mid(unsigned id, recomp_context *ctx) {
     (void)id;
     ctx_o = *ctx;
     memcpy(mem_o, RDRAM_P, PORT_RDRAM_SIZE);
-    ic_o = __port_icount - ic0;
-    icc_o = __port_icount_c - icc0;
     *ctx = ctx0;
     memcpy(RDRAM_P, mem0, PORT_RDRAM_SIZE);
     if (stk_hi) {
         memcpy(stk_o, (void *)stk_lo, stk_hi - stk_lo);
         memcpy((void *)stk_lo, stk0, stk_hi - stk_lo);
     }
-    __port_icount = ic0;
-    __port_icount_c = icc0;
     pi_copy(pi0, 1);
-    trace_cur = trace_n;
-    ntrace_cur = &ntrace_n;
+    engine_tracing = 0;
 }
 
 static uint64_t reg_of(const recomp_context *c, unsigned r) {
@@ -781,7 +687,6 @@ static int host_stack_words(uint32_t k) {
 void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1, uint64_t m2) {
     if (active != (int)id)
         return;
-    engine_tracing = 0;
     active = -1;
     nchecked[id]++;
     uint64_t mask[3] = { m0, m1, m2 };
@@ -821,21 +726,11 @@ void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1
             k++;
         len += snprintf(what + len, sizeof what - len, " host stack: first %08lX", (unsigned long)(stk_lo + k));
     }
-    uint32_t ic_n = __port_icount - ic0, icc_n = __port_icount_c - icc0;
-    if ((ic_n != ic_o || icc_n != icc_o) && len < sizeof what - 64)
-        len += snprintf(what + len, sizeof what - len, " cost: %u+%u/%u+%u", ic_o, icc_o, ic_n, icc_n);
     if (!len)
         return;
-    if (nfailed[id]++ < show_n) {
+    if (nfailed[id]++ < show_n)
         fprintf(stderr, "engine check: %s (call %lu) differs (translation/native):%s\n",
                 engine_check_names[id], ncalls[id] - 1, what);
-        unsigned k = 0;
-        while (k < ntrace_o && k < ntrace_n && trace_o[k] == trace_n[k])
-            k++;
-        if (k < ntrace_o || k < ntrace_n)
-            fprintf(stderr, "  blocks (blocks.tsv ids) part after %u: translation %d, native %d (of %u, %u)\n", k,
-                    k < ntrace_o ? (int)trace_o[k] : -1, k < ntrace_n ? (int)trace_n[k] : -1, ntrace_o, ntrace_n);
-    }
 }
 
 /*
@@ -844,19 +739,16 @@ void engine_check_end(unsigned id, recomp_context *ctx, uint64_t m0, uint64_t m1
  * replaced functions at the READth controller read, on game memory it
  * varies, every call checked as above (with PORT_ENGINE_CHECK=0): paths no
  * run reaches, a jp results screen in the attract mode, say.  Before each
- * trial, and after the last, game memory, the context and the counts are
- * put back as they were at the read, so the run goes on as without it.
+ * trial, and after the last, game memory and the context are put back as
+ * they were at the read, so the run goes on as without it.
  */
 static uint8_t *fuzz_mem, *fuzz_pi;
 static recomp_context fuzz_ctx;
-static uint32_t fuzz_ic, fuzz_icc;
 
 void engine_fuzz_reset(void) {
     memcpy(RDRAM_P, fuzz_mem, PORT_RDRAM_SIZE);
     pi_copy(fuzz_pi, 1);
     *port_ctx() = fuzz_ctx;
-    __port_icount = fuzz_ic;
-    __port_icount_c = fuzz_icc;
 }
 
 void engine_fuzz(unsigned trials, unsigned seed) __attribute__((weak));
@@ -880,8 +772,6 @@ void engine_fuzz_poll(unsigned polls) {
     memcpy(fuzz_mem, RDRAM_P, PORT_RDRAM_SIZE);
     fuzz_pi = pi_copy(NULL, 0);
     fuzz_ctx = *port_ctx();
-    fuzz_ic = __port_icount;
-    fuzz_icc = __port_icount_c;
     engine_fuzz(trials, seed);
     engine_fuzz_reset();
     free(fuzz_mem);

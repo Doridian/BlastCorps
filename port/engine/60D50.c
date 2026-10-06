@@ -25,23 +25,18 @@ extern u8 D_803BE73A;           /* the vehicle the player starts in */
 extern s32 D_803EF304;
 extern s16 D_80305B90[][3];     /* by D_803BE73A */
 
-/* the highest of the boxes [b, end) over (x, z) (world units), or -1.
-   (Both callers charge func_802A5510's blocks: func_802A5604's are the
-   same sizes.) */
+/* the highest of the boxes [b, end) over (x, z) (world units), or -1
+   (func_802A5510's code: func_802A5604 is the same) */
 static s32 highest_box(HeightBox *b, HeightBox *end, s32 x, s32 z) {
     s32 best = -1;
 
-    for (; ENGINE_BLK(802A554C), b != end; b++) {
-        ENGINE_BLK(802A5554);
-        if (b->x1 <= x && (ENGINE_BLK(802A5564), b->z1 <= z) &&
-            (ENGINE_BLK(802A5574), b->x2 >= x) && (ENGINE_BLK(802A5584), b->z2 >= z)) {
-            ENGINE_BLK(802A5594);
+    for (; b != end; b++) {
+        if (b->x1 <= x && (b->z1 <= z) &&
+            (b->x2 >= x) && (b->z2 >= z)) {
             if (b->height >= best) {
-                ENGINE_BLK(802A55A4);
                 best = b->height;
             }
         }
-        ENGINE_BLK(802A55A8);
     }
     return best;
 }
@@ -53,18 +48,13 @@ void func_802A5510(LevelHeader *h) {
     s32 x = (u32)D_803643E0 >> 5, z = (u32)D_803643E8 >> 5;
     s32 best;
 
-    ENGINE_BLK(802A5510);
     best = highest_box(b, end, x, z);
-    ENGINE_BLK(802A55B0);
     if (best == HEIGHT_NONE) {
-        ENGINE_BLK(802A55BC);
         D_80364411 = 1;
     } else {
-        ENGINE_BLK(802A55CC);
         D_8036444E = (best << 5) + D_80364450;
         D_80364411 = 0;
     }
-    ENGINE_BLK(802A55F4);
 }
 
 /* func_802A5604 (72B80's): the same for the position at D_803EF2EC, from
@@ -74,16 +64,13 @@ void func_802A5604(LevelHeader *h) {
     HeightBox *end = (HeightBox *)((u8 *)h + h->unk48);
     s32 x = (u32)(&D_803EF2EC)[0] >> 5, z = (u32)(&D_803EF2EC)[2] >> 5;
 
-    ENGINE_BLK(802A5604);
     D_803EF304 = highest_box(b, end, x, z) << 5;
-    ENGINE_BLK(802A56A4);
 }
 
 /* func_802A56C4 (00000.c's): this level's three values; returns the third */
 s32 func_802A56C4(void) {
     s16 *v = D_80305B90[D_803BE73A];
 
-    ENGINE_BLK(802A56C4);
     D_8036444C = v[0];
     D_80364450 = v[1];
     return v[2];

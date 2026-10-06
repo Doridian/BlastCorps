@@ -121,7 +121,6 @@ void func_802B5900(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     Part *p = PARTS;
     s32 avg, h;
 
-    ENGINE_COST(802B5900, 245);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x800;
@@ -171,7 +170,6 @@ void func_802B5900(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 void func_802B5CD8(void) {
     Part *p = PARTS;
 
-    ENGINE_COST(802B5CD8, 139);
     VS_TURNING(&D_803EEA90) = 0;
     func_802A039C(1, 0, p);
     func_802A03D4(1, 0, p);
@@ -205,13 +203,11 @@ void func_802B5CD8(void) {
 
 /* hd.c's: whether it can be left: not while a wheel is in the air */
 u8 func_802B5F04(void) {
-    ENGINE_COST(802B5F04, 23);
     return !ANY_AIRBORNE(&D_803EEA90);
 }
 
 /* hd.c's: the player gets out */
 void func_802B5F60(void) {
-    ENGINE_COST(802B5F60, 19);
     VS_SPEED(&D_803EEA90) = 0;
     func_802A7764((u32 *)BUF0, (u32 *)BUF1, 0x800);
     func_802C444C();
@@ -221,7 +217,6 @@ void func_802B5F60(void) {
 void func_802B5FAC(void) {
     VS *vs = &D_803EEA90;
 
-    ENGINE_COST(802B5FAC, 35);
     func_802A9A60(VS_WHEELS(vs), Y, X, Z, VS_WHEEL_H(vs), &Y, (s16 *)&VS_HEADING(vs), VEHICLE_TRUCK, vs, 0);
     func_802B7030(vs);
     func_802A133C(X, Y, Z, VEHICLE_TRUCK, vs);
@@ -229,7 +224,6 @@ void func_802B5FAC(void) {
 
 /* its light */
 void func_802B60BC(void) {
-    ENGINE_COST(802B60BC, 17);
     func_802ABD54(VEHICLE_TRUCK, X, Y, Z);
 }
 
@@ -259,7 +253,6 @@ void func_802B6294(void) {
     s32 step = 0, x, z, rate_i, turn;
     f32 rate;
 
-    ENGINE_COST(802B6294, 259);
     func_802B60BC();
     func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
     if (VS_IN_SETUP(vs) == 0)
@@ -340,7 +333,6 @@ void func_802B69F8(VS *vs) {
     f32 f;
     s32 t, left, right;
 
-    ENGINE_COST(802B69F8, 78);
     if (VS_TURNING(vs) == 0 || VS_AIRBORNE(vs)[2] == 1 || VS_GRIP(vs) >= 3 || VS_ON_STATIC(vs) != 0)
         return;
     f = D_803EEB54;
@@ -367,7 +359,6 @@ void func_802B6C28(VS *vs) {
     s32 a, s, t;
     f32 f, g;
 
-    ENGINE_COST(802B6C28, 168);
     /* the wheels: the camera's heading from where they started, in 0x55 steps */
     a = camera_turn((u16)VS_HEADING(vs));
     if (a >= ANGLE_TURN)
@@ -418,7 +409,6 @@ REGS(gp)
 void func_802B7030(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
 
-    ENGINE_COST(802B7030, 70);
     D_803ED390[1] = VS_HEADING(vs);
     func_802AA764(X, Y, Z, TRUCK_SCALE, (s32 *)(buf + MODEL_MTX_OFF(model)));
     func_8029C454(X, Y, Z, VEHICLE_TRUCK, MODEL_AT(model, 4), MODEL_AT(model, 8), buf);
@@ -429,7 +419,6 @@ void func_802B7030(VS *vs) {
    TRUCK_STEER_DIV_AIR with a wheel in the air */
 REGS(gp -> s3)
 s32 func_802B7168(VS *vs) {
-    ENGINE_COST(802B7168, 25);
     return engine_cvt_w_s((f32)VS_SPEED(vs) / (ANY_AIRBORNE(vs) ? TRUCK_STEER_DIV_AIR : TRUCK_STEER_DIV));
 }
 
@@ -438,7 +427,6 @@ REGS(gp, s2 -> f2)
 f32 func_802B71DC(VS *vs, s32 up) {
     f32 f;
 
-    ENGINE_COST(802B71DC, 23);
     f = (f32)iabs(VS_SPEED(vs)) / 240.0f * 0.5f;
     return up != 0 ? f + 0.5f : 0.5f - f;
 }
@@ -446,7 +434,6 @@ f32 func_802B71DC(VS *vs, s32 up) {
 /* the physics' settings for the truck: gravity, how its wheels land, and
    its turn rate (slower with L or R) */
 void func_802B7240(void) {
-    ENGINE_COST(802B7240, 38);
     D_803EBBF4 = D_803EBBF0 * TRUCK_GRAVITY;
     D_803ED3F6 = TRUCK_BOUNCE_MIN;
     D_803ED3F7 = TRUCK_BOUNCE_DIV;
@@ -455,13 +442,11 @@ void func_802B7240(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B72DC(u8 *dst) {
-    ENGINE_COST(802B72DC, 7);
     func_802AC7DC(dst, (u8 *)&D_803EEA90, (u32 *)&D_803EEB38);
 }
 
 /* and back */
 void func_802B7308(u8 *src) {
-    ENGINE_COST(802B7308, 11);
     func_802AC85C(src, (u8 *)&D_803EEA90, (u32 *)&D_803EEB38);
 }
 
@@ -470,7 +455,6 @@ void func_802B7308(u8 *src) {
 /* the position (*x, *y, *z) kept in the level's bounds (func_802AC3B8) */
 REGS(v0, v1, a0)
 void func_802AC284(s32 *x, s32 *y, s32 *z) {
-    ENGINE_COST(802AC284, 8);
     func_802AC3B8(x, y, z);
 }
 
@@ -483,7 +467,6 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
     u8 *o;
     s32 dx, dz;
 
-    ENGINE_COST(802AC2A4, 12);
     if (D_80364AA8 != 0x40)
         return;
     func_8029A800(x, y, z, a1, 1, 0, 0, 0, 0, 0, type, vs);
@@ -511,11 +494,10 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
    there after the carrier moved */
 REGS(a3)
 void func_802B6100(s32 carrier) {
-    CARRY_KEEP(802B6100, 802B613C, 802B615C, 802B6168, &D_803EEA90, D_803EEB38, D_803EEB40);
+    CARRY_KEEP(&D_803EEA90, D_803EEB38, D_803EEB40);
 }
 
 REGS(a3)
 void func_802B618C(s32 carrier) {
-    CARRY_MOVE(802B618C, 802B61C8, 802B61DC, 802B61E4, 802B6244, 802B624C, 802B6278, &D_803EEA90, &D_803EEB38, &D_803EEB3C, &D_803EEB40, 5, 0x2D0, 0x2D0,
-               D_803ED40B = 1, func_802B7240(), func_802B7030(&D_803EEA90));
+    CARRY_MOVE(&D_803EEA90, &D_803EEB38, &D_803EEB3C, &D_803EEB40, 5, 0x2D0, 0x2D0, D_803ED40B = 1, func_802B7240(), func_802B7030(&D_803EEA90));
 }

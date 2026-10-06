@@ -45,7 +45,6 @@ static void carry_fns(s32 type, CarryFn **keep, CarryFn **move) {
 
 /* hd.c's: the vehicles on `carrier` keep where they stand on it */
 void func_802AB478(u8 carrier) {
-    ENGINE_COST(802AB478, 37);
     func_802AB50C(carrier);
 }
 
@@ -57,7 +56,6 @@ void func_802AB50C(s32 carrier) {
     s32 type;
     CarryFn *keep, *move;
 
-    ENGINE_COST(802AB50C, 55);
     for (p = D_803ED3B8; *(s32 *)p != -1; p += 4) {
         if (p[1] != carrier)
             continue;
@@ -73,7 +71,6 @@ void func_802AB50C(s32 carrier) {
 /* hd.c's: the vehicles on `carrier`, which moved, put back where they
    stood on it */
 void func_802AB670(u8 carrier) {
-    ENGINE_COST(802AB670, 41);
     func_802AB714(carrier);
 }
 
@@ -85,7 +82,6 @@ void func_802AB714(s32 carrier) {
     s32 type;
     CarryFn *keep, *move;
 
-    ENGINE_COST(802AB714, 49);
     for (p = D_803ED3B8; *(s32 *)p != -1; p += 4) {
         if (p[1] != carrier || carrier == 0)
             continue;

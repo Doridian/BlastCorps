@@ -24,8 +24,7 @@ extern TexDecode *PTR32 D_803C4B54;     /* the next to do */
 
 /* A back reference: `w & 0x1F` units copied from back in the output, the
    distance in the word's other bits (by bytes for 16-bit units, by halves
-   for 32-bit ones).  (The decoders' charges have these loops' blocks
-   folded in.) */
+   for 32-bit ones). */
 #define BACKREF16()                                                         \
     do {                                                                    \
         s32 n_ = w & 0x1F;                                                  \
@@ -52,7 +51,6 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5958, 3284);
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
 
@@ -77,7 +75,6 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5A2C, 19881);
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
 
@@ -100,7 +97,6 @@ u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5AE0, 18127);
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
 
@@ -122,7 +118,6 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
     s16 *in = (s16 *)in_;
     u8 *out = (u8 *)out_;
 
-    ENGINE_COST(802A5B90, 10239);
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
 
@@ -147,7 +142,6 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
     u8 *out = (u8 *)out_;
     u8 *pal = (u8 *)pal_;
 
-    ENGINE_COST(802A5C5C, 10356);
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
 
@@ -174,7 +168,6 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
     u8 *out = (u8 *)out_;
     u8 *pal = (u8 *)pal_;
 
-    ENGINE_COST(802A5D34, 13330);
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
 
@@ -200,7 +193,6 @@ u32 func_802A5E10(u32 in_, u32 len, u32 out_) {
     u32 *out = (u32 *)out_;
     u32 n = len >> 3;
 
-    ENGINE_COST(802A5E10, 1075);
     for (; n != 0; n--, in += 2, out += 2) {
         out[0] = in[0];
         out[1] = in[1];
@@ -217,7 +209,6 @@ u32 func_802A57DC(TexDecode *req) {
     u32 out = req->dst, end;
     u32 in = (u32)D_803C3250;
 
-    ENGINE_COST(802A57DC, 856);
     /* the stream to D_803C3250: doublewords, then the halves left */
     len -= n8;
     for (; n8 != 0; n8 -= 8, from += 2, to += 2) {
@@ -246,7 +237,6 @@ u32 func_802A57DC(TexDecode *req) {
 
 /* func_802A5720 (the C's): empty it */
 void func_802A5720(void) {
-    ENGINE_COST(802A5720, 17);
     D_803C4B50 = D_803C4250;
     D_803C4B54 = D_803C4250;
 }
@@ -256,7 +246,6 @@ REGS(s1, s2, s3, fp)
 void func_802A5764(u32 dst, u32 length, u32 type, u32 param) {
     TexDecode *q = D_803C4B50;
 
-    ENGINE_COST(802A5764, 18);
     q->dst = dst;
     q->length = length;
     q->type = type;
@@ -268,7 +257,6 @@ void func_802A5764(u32 dst, u32 length, u32 type, u32 param) {
 void func_802A57AC(void) {
     TexDecode *q = D_803C4B54;
 
-    ENGINE_COST(802A57AC, 12);
     {
         u32 size = func_802A57DC(q);
 
@@ -325,7 +313,6 @@ void func_802A5E60(void) {
     EffectSlot *s = D_803C4B70;
     s32 n = 16;
 
-    ENGINE_COST(802A5E60, 158);
     for (; n != 0; n--, s++)
         if (s->active != 0)
             s->frame = *(u16 *)(s->anim + 0xE) - 1;
@@ -337,7 +324,6 @@ s32 func_802A5ED0(void) {
     EffectSlot *s = D_803C4B70;
     s32 n = 16, used = 0;
 
-    ENGINE_COST(802A5ED0, 151);
     for (; n != 0; n--, s++)
         if (s->active != 0)
             used++;
@@ -349,7 +335,6 @@ REGS()
 void func_802A5F30(void) {
     s32 i;
 
-    ENGINE_COST(802A5F30, 152);
     D_803EB788 = NULL;
     D_803EB78C = NULL;
     D_803EB790 = 0;
@@ -367,7 +352,6 @@ void func_802A5FA8(void) {
     s32 left;
     u32 n;
 
-    ENGINE_COST(802A5FA8, 677);
     if (D_80364AA8 & 0x20) {
         limit = D_8020ED00;
     } else {
@@ -405,7 +389,6 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
     s32 n = 16, need, k;
     u8 *cell, *c;
 
-    ENGINE_COST(802A6274, 237);
     D_803EB792 = a3;
     /* a free slot */
     for (; n != 0 && s->active != 0; n--, s++, dest += 0x100)
@@ -496,7 +479,6 @@ void func_802A6748(void) {
     u8 *p = D_803EB788, *end = D_803EB78C;
     s32 freed = 0;
 
-    ENGINE_COST(802A6748, 629);
     for (; p != end; p = PIECE_NEXT(p)) {
         if (PIECE_KEY(p) == 0)
             continue;
@@ -522,7 +504,6 @@ u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_o
     u32 key = (u32)s->anim;
     u32 dst;
 
-    ENGINE_COST(802A67C4, 408);
     *t9_out = t9;
     *t6_out = t6;
     for (; p != end; p = PIECE_NEXT(p)) {
@@ -568,7 +549,6 @@ void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
     s32 sw = w << 5, sh = h << 5;
     s32 i;
 
-    ENGINE_COST(802A6C10, 73);
     v[0x00] = x;  v[0x01] = y;  v[0x02] = 0; v[0x03] = 0; v[0x04] = 0;  v[0x05] = 0;
     v[0x08] = x1; v[0x09] = y;  v[0x0A] = 0; v[0x0B] = 0; v[0x0C] = sw; v[0x0D] = 0;
     v[0x10] = x;  v[0x11] = y1; v[0x12] = 0; v[0x13] = 0; v[0x14] = 0;  v[0x15] = sh;
@@ -586,7 +566,6 @@ void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
 /* func_802A6D34: the effects' two display lists begun (func_80257540) */
 REGS()
 void func_802A6D34(void) {
-    ENGINE_COST(802A6D34, 45);
     D_803EB780 = func_80257540(D_803EB780);
     D_803EB784 = func_80257540(D_803EB784);
 }
@@ -597,7 +576,6 @@ REGS(t4 -> t2)
 u32 func_802A6EB8(u32 s_) {
     EffectSlot *s = (EffectSlot *)s_;
 
-    ENGINE_COST(802A6EB8, 13);
     return s->unk3B != 0 ? (u32)&D_803EB784 : (u32)&D_803EB780;
 }
 
@@ -609,7 +587,6 @@ void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) 
     Gfx *PTR32 *dl;
     Gfx *g;
 
-    ENGINE_COST(802A6DE8, 52);
     dl = (Gfx *PTR32 *)func_802A6EB8(s);
     g = func_802575F4(*dl, a1, a2, a3, sp10, sp14, sp18);
     dl = (Gfx *PTR32 *)func_802A6EB8(s);
@@ -637,7 +614,6 @@ void func_802A68D4(u32 s_, u32 m_) {
     s32 x, y, z, scale, step, cx, cy, cz, angle, pitch;
     s64 dist, q, num;
 
-    ENGINE_COST(802A68D4, 182);
     dl = (Gfx *PTR32 *)func_802A6EB8(s_);
     g = *dl;
     ((u32 *)g)[1] = m_ & 0x1FFFFFFF;
@@ -707,7 +683,6 @@ void func_802A64A4(void) {
     s32 n;
     u32 t6;
 
-    ENGINE_COST(802A64A4, 396);
     if (D_8035805C != 0) {
         D_803EB780 = (Gfx *)D_803C6370;
         D_803EB784 = (Gfx *)D_803C7B70;

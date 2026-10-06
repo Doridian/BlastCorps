@@ -6,7 +6,7 @@
  * positions D_803F8748 + 12k, model files D_803F876C + 4k, buffer pairs
  * D_803F8778 + 8k.  Here they are one function each (barge_setup,
  * barge_frame, barge_draw) over the barge's number; the nine original
- * functions charge their own copy's cost and call them.
+ * functions call them.
  *
  * func_802C80D0 sets one up (from the level loader), func_802C8BB8 runs one
  * each frame (from hd.c and at the end of its setup); the others are hd.c's
@@ -56,7 +56,7 @@ void func_802C995C(VS *vs);
 #define BARGE_BOUNCE_DIV 4              /* ... at the speed over this */
 
 static const u8 barge_type[3] = { VEHICLE_BARGE, VEHICLE_BARGE_2, VEHICLE_BARGE_3 };
-/* each barge's drawing, its copy's function (each charges its own) */
+/* each barge's drawing, its copy's function */
 static void (*const barge_draw_fn[3])(VS *vs) = { func_802C9624, func_802C97C0, func_802C995C };
 
 #define PARTS(n) (D_803F7C50 + 32 * (n))
@@ -168,56 +168,47 @@ static void barge_draw(s32 n, VS *vs) {
    the heading (barges 0, 1, 2) */
 REGS(s2, t7, s3, s0, s1)
 void func_802C8150(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
-    ENGINE_COST(802C8150, 200);
     barge_setup(0, model, x, y, z, heading);
 }
 
 REGS(s2, t7, s3, s0, s1)
 void func_802C8470(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
-    ENGINE_COST(802C8470, 200);
     barge_setup(1, model, x, y, z, heading);
 }
 
 REGS(s2, t7, s3, s0, s1)
 void func_802C8790(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
-    ENGINE_COST(802C8790, 200);
     barge_setup(2, model, x, y, z, heading);
 }
 
 /* each frame (each copy runs its own barge, whatever `type` says) */
 REGS(a0)
 void func_802C8C90(u8 type) {
-    ENGINE_COST(802C8C90, 152);
     barge_frame(0);
 }
 
 REGS(a0)
 void func_802C8FA8(u8 type) {
-    ENGINE_COST(802C8FA8, 152);
     barge_frame(1);
 }
 
 REGS(a0)
 void func_802C92C0(u8 type) {
-    ENGINE_COST(802C92C0, 152);
     barge_frame(2);
 }
 
 REGS(gp)
 void func_802C9624(VS *vs) {
-    ENGINE_COST(802C9624, 95);
     barge_draw(0, vs);
 }
 
 REGS(gp)
 void func_802C97C0(VS *vs) {
-    ENGINE_COST(802C97C0, 95);
     barge_draw(1, vs);
 }
 
 REGS(gp)
 void func_802C995C(VS *vs) {
-    ENGINE_COST(802C995C, 95);
     barge_draw(2, vs);
 }
 
@@ -234,13 +225,11 @@ REGS(t3, s2, t7, s3, s0, s1)
 void func_802C80D0(s32 type, u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     static void (*const setup[3])(u8 *, s32, s32, s32, s32) = { func_802C8150, func_802C8470, func_802C8790 };
 
-    ENGINE_COST(802C80D0, 24);
     setup[barge_of(type)](model, x, y, z, heading);
 }
 
 /* hd.c's: the player gets in */
 void func_802C8AB0(void) {
-    ENGINE_COST(802C8AB0, 16);
     D_8036444C = 3000;
     D_80364450 = 0;
     func_802C4310(0x72);
@@ -248,7 +237,6 @@ void func_802C8AB0(void) {
 
 /* hd.c's: whether it can be left (always) */
 u8 func_802C8AF0(void) {
-    ENGINE_COST(802C8AF0, 7);
     return 1;
 }
 
@@ -256,7 +244,6 @@ u8 func_802C8AF0(void) {
 void func_802C8B0C(u8 type) {
     s32 n = type == VEHICLE_BARGE_2 ? 1 : type == VEHICLE_BARGE_3 ? 2 : 0;    /* (another type: barge 0's) */
 
-    ENGINE_COST(802C8B0C, 23);
     func_802A7764((u32 *)BUF0(n), (u32 *)BUF1(n), 0x800);
     func_802C444C();
 }
@@ -265,7 +252,6 @@ void func_802C8B0C(u8 type) {
 void func_802C8BB8(u8 type) {
     static void (*const frame[3])(u8) = { func_802C8C90, func_802C8FA8, func_802C92C0 };
 
-    ENGINE_COST(802C8BB8, 46);
     frame[barge_of(type)](type);
 }
 
@@ -275,7 +261,6 @@ REGS(gp)
 void func_802C95D8(VS *vs) {
     s32 v = VS_SPEED(vs);
 
-    ENGINE_COST(802C95D8, 15);
     if (v < 0) {
         if (v > -BARGE_HIT_MIN_SPEED)
             v = -BARGE_HIT_MIN_SPEED;
@@ -289,13 +274,11 @@ void func_802C95D8(VS *vs) {
    barge, though) */
 REGS(gp -> s3)
 s32 func_802C9AF8(VS *vs) {
-    ENGINE_COST(802C9AF8, 7);
     return engine_cvt_w_s((f32)VS_SPEED(vs) / BARGE_STEER_DIV);
 }
 
 /* the physics' settings for a barge: gravity, and how it lands */
 void func_802C9B30(void) {
-    ENGINE_COST(802C9B30, 23);
     D_803EBBF4 = D_803EBBF0 * BARGE_GRAVITY;
     D_803ED3F6 = BARGE_BOUNCE_MIN;
     D_803ED3F7 = BARGE_BOUNCE_DIV;

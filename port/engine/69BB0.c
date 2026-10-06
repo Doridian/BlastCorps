@@ -152,7 +152,6 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
     VS *vs = &D_803ED760;
     s32 avg, k;
 
-    ENGINE_COST(802AE370, 316);
     D_803ED818 = (VehicleModel *)model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0xC80;
@@ -211,7 +210,6 @@ void func_802AE370(u8 *model, s32 x, s32 y, s32 z, s32 heading) {
 
 /* hd.c's: part 0x1F (the run) stopped */
 void func_802AE860(void) {
-    ENGINE_COST(802AE860, 10);
     func_802A02E4(0x1F, DRV);
 }
 
@@ -225,7 +223,6 @@ u8 func_802AE888(s32 dist) {
     s8 *t;
     s32 side = 0, mul = 1, d, r = 0, h;
 
-    ENGINE_COST(802AE888, 235);
 #ifndef VERSION_US_V10
     D_803F7812 = 1;
 #endif
@@ -283,7 +280,6 @@ REGS(a3 -> a1)
 s32 func_802AEB9C(s32 test) {
     s32 x = D_803643E0 >> 5, z = D_803643E8 >> 5;
 
-    ENGINE_COST(802AEB9C, 18);
     if (test == 1)
         return z >= 0xCCD && z <= 0xDB4;
     if (test == 2)
@@ -298,7 +294,6 @@ REGS(a2, gp -> a3)
 s32 func_802AEC3C(s32 d, VS *vs) {
     s32 r;
 
-    ENGINE_COST(802AEC3C, 110);
     X = D_803643E0;
     Z = D_803643E8;
     side_step(D_803ED828, d, &X, &Z);
@@ -321,7 +316,6 @@ s32 func_802AEC3C(s32 d, VS *vs) {
 /* its light */
 REGS()
 void func_802AEE84(void) {
-    ENGINE_COST(802AEE84, 17);
     func_802ABD54(VEHICLE_DRIVER, X, Y, Z);
 }
 
@@ -345,7 +339,6 @@ static void driver_frame(void) {
     f32 rate;
     u64 mode;
 
-    ENGINE_COST(802AEEC8, 191);
     func_802AEE84();
     if (VS_IN_SETUP(vs) == 0)
         func_802AF4BC(vs);
@@ -405,7 +398,6 @@ REGS(gp)
 void func_802AF340(VS *vs) {
     s32 v, past;
 
-    ENGINE_COST(802AF340, 58);
     VS_SPEED(vs) = DRIVER_OUT_SPEED;
     side_step(D_803ED828, DRIVER_OUT_STEP, &X, &Z);
     /* (as func_802AEC3C's) */
@@ -439,7 +431,6 @@ void func_802AF4BC(VS *vs) {
     Part *p = DRV;
     s32 s = VS_SPEED(vs), v, f13, last, k;
 
-    ENGINE_COST(802AF4BC, 106);
     if (s == 0) {
         if (DRV_WALKING(vs) != 0) {
             func_802A02E4(1, p);
@@ -507,7 +498,6 @@ void func_802AFA64(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
     s32 *m = (s32 *)(buf + MODEL_MTX_OFF(model));
 
-    ENGINE_COST(802AFA64, 64);
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     D_803ED390[1] = VS_HEADING(vs);
@@ -518,14 +508,12 @@ void func_802AFA64(VS *vs) {
 /* the steering rate */
 REGS(-> s3)
 s32 func_802AFB84(void) {
-    ENGINE_COST(802AFB84, 7);
     return DRIVER_STEER;
 }
 
 /* the physics' settings for the driver: gravity, and how it lands */
 REGS()
 void func_802AFBA0(void) {
-    ENGINE_COST(802AFBA0, 23);
     D_803EBBF4 = D_803EBBF0 * DRIVER_GRAVITY;
     D_803ED3F6 = DRIVER_BOUNCE_MIN;
     D_803ED3F7 = DRIVER_BOUNCE_DIV;
@@ -533,12 +521,10 @@ void func_802AFBA0(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802AFBFC(u8 *dst) {
-    ENGINE_COST(802AFBFC, 7);
     func_802AC7DC(dst, (u8 *)&D_803ED760, (u32 *)&D_803ED808);
 }
 
 /* and back */
 void func_802AFC28(u8 *src) {
-    ENGINE_COST(802AFC28, 7);
     func_802AC85C(src, (u8 *)&D_803ED760, (u32 *)&D_803ED808);
 }

@@ -57,7 +57,6 @@ REGS(s2)
 void func_802D2570(u8 *model) {
     VS *vs = &D_803FCCA0;
 
-    ENGINE_COST(802D2570, 217);
     MODEL = model;
     BUF0 = D_80358070;
     BUF1 = D_80358070 + 0x800;
@@ -116,7 +115,6 @@ void func_802D2570(u8 *model) {
 void func_802D291C(void) {
     VS *vs = &D_803FCCA0;
 
-    ENGINE_COST(802D291C, 67);
     func_802D2A40();
     if (VS_IN_SETUP(vs) == 0) {
         func_802D2A74();
@@ -127,7 +125,6 @@ void func_802D291C(void) {
 }
 
 void func_802D2A40(void) {
-    ENGINE_COST(802D2A40, 13);
     func_80269258();
 }
 
@@ -135,7 +132,6 @@ void func_802D2A40(void) {
 void func_802D2A74(void) {
     s32 d, v;
 
-    ENGINE_COST(802D2A74, 106);
     if (D_803FCD64 == NULL)
         return;
     d = (s32)func_802ABCDC(D_803643F8 >> 11, D_803643FC >> 11, D_80364400 >> 11, D_803FCD48, D_803FCD4C, D_803FCD50);
@@ -158,7 +154,6 @@ void func_802D2C20(void) {
     u8 *played[3];
     s32 s0 = 0, k;
 
-    ENGINE_COST(802D2C20, 63);
     switch (D_803FCD70) {
     case 2:
         func_802A039C(1, 1, PARTS);
@@ -224,7 +219,6 @@ void func_802D2FA4(VS *vs) {
     u8 *model = MODEL, *buf = FRAME_BUF(BUF0, BUF1);
     u16 h = (u16)D_803FCD6C;
 
-    ENGINE_COST(802D2FA4, 64);
     D_803ED390[0] = D_803FCD6A;
     VS_HEADING(vs) = h;
     D_803FCD68 = h;
