@@ -220,12 +220,8 @@ void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused);
 
 /* --load-waits n64 (main.c): keep the N64's hardware waits (the
    controllers' power-on half second, the EEPROM's write cycles, the pak
-   thread's retrace a command, the decompressors' polls' time without the
-   CPU model); 0, the default, leaves them out */
+   thread's retrace a command); 0, the default, leaves them out */
 int host_load_waits(void);
-/* a decompressor runs on the current thread (loads.c): 1 on entry, 0 on
-   return */
-void host_loading(int on);
 
 /* 46.875 MHz CPU count since boot */
 uint64_t host_ticks(void);
@@ -244,7 +240,6 @@ void host_wake(uint32_t key);
 /* let a higher-priority runnable thread run now (libultra preemption) */
 void host_preempt(void);
 void host_yield(void);
-extern int port_ints_masked;        /* osSetIntMask(OS_IM_NONE): no preemption at the polls */
 /* the check build's C under a check (PORT_ENGINE_CHECK): no time passes and no
    thread switches (threads.c) */
 int host_time_stopped(void);

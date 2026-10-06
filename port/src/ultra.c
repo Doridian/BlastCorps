@@ -139,16 +139,15 @@ OSId osGetThreadId(OSThread *t) {
 
 void osYieldThread(void) { host_yield(); }
 
-/* interrupts: one thread runs at a time, and the only preemption is a
-   loop's poll (BEPass's __port_poll), which lets the host loop deliver what
-   is due and so run a higher-priority thread.  With every interrupt masked
-   it doesn't, as on the N64: the game walks its sound list that way while
-   the audio thread frees from it (hd_code 1A630.c). */
+/* interrupts: one thread runs at a time, and nothing preempts it but its
+   own calls into libultra (a message sent, a thread started), so the mask
+   has nothing to hold off: the game walks its sound list under it while
+   the audio thread frees from it (hd_code 1A630.c), and no thread can run
+   in between, as on the N64. */
 static OSIntMask int_mask = OS_IM_ALL;
 OSIntMask osSetIntMask(OSIntMask m) {
     OSIntMask old = int_mask;
     int_mask = m;
-    port_ints_masked = (m & OS_IM_ALL & ~OS_IM_NONE) == 0;
     return old;
 }
 OSIntMask osGetIntMask(void) { return int_mask; }

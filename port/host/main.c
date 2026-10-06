@@ -315,49 +315,9 @@ static void deliver_pending(void) {
     }
 }
 
-/* BEPass calls this on every loop back edge of the game's C: a thread that
-   spins waiting for something another thread or an interrupt changes gives
-   way when the next event is due. */
-static uint64_t next_event_ns;
-
-/* --replay: the loop holds a retrace back (replay.c), and how often a
-   thread spun while it did */
-static int replay_vi_held;
-static unsigned spins_held;
-
-int port_ints_masked;
-
 /* --load-waits n64: the N64's hardware waits (port.h); off by default */
 static int load_waits;
 int host_load_waits(void) { return load_waits; }
-
-/* the thread a decompressor runs on (loads.c), or 0 */
-static uint32_t loading_thread;
-static int loading_depth;
-
-void host_loading(int on) {
-    if (on && loading_depth++ == 0)
-        loading_thread = host_thread_current();
-    else if (!on && --loading_depth == 0)
-        loading_thread = 0;
-}
-
-void __port_poll(void) {
-    static unsigned n;
-    if (++n & 63 || port_ints_masked)
-        return;
-    /* A poll is where virtual time passes for a
-       thread that spins on what another thread or an interrupt changes.
-       A decompressor's loops don't wait for anything: they take no time
-       (unless --load-waits n64), as the rest of the game's work. */
-    if ((deterministic || host_paced) &&
-        (load_waits || !loading_thread || loading_thread != host_thread_current()))
-        virtual_ns += 2000;
-    if (replay_vi_held)
-        spins_held++;
-    if (npending || now_ns() >= next_event_ns || replay_vi_held)
-        host_yield();
-}
 
 #ifdef PORT_HAVE_ASYNCIFY
 #include <emscripten.h>
@@ -1001,7 +961,6 @@ int main(int argc, char **argv) {
                     present_due(1e9);                       /* (left the queue: what it held, now) */
             }
             vi_force = 0;
-            spins_held = 0;
             next_vi += vi_period;
             if (now > next_vi + 4 * vi_period)      /* fell behind: don't catch up */
                 next_vi = now + vi_period;
@@ -1049,18 +1008,7 @@ int main(int argc, char **argv) {
         uint64_t deadline = port_irq_timers(host_ticks());
         /* a held retrace is given anyway when the game can't go on without
            one: nothing to run and nothing due (below), or a thread spinning
-           on the count (__port_poll yields to the loop while one is held) */
-        replay_vi_held = vi_held;
-        if (!vi_held)
-            spins_held = 0;
-        if (vi_held && spins_held >= 4096) {
-            host_replay_vi_forced();
-            next_vi = now;
-            vi_force = 1;
-            continue;
-        }
-        /* a thread spinning on the count (port_spin_wait) gets the held
-           retrace when it is due */
+           on the count (port_spin_wait) when it is due */
         int spinning = host_spinning();
         if (vi_held && spinning && now >= vi_at) {
             host_replay_vi_forced();
@@ -1077,7 +1025,6 @@ int main(int argc, char **argv) {
         uint64_t due = raise_due(now);
         if (due < wake)
             wake = due;
-        next_event_ns = wake;
         if (npending)
             continue;
         if (host_run_one())
