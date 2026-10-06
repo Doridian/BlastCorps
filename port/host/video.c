@@ -681,10 +681,15 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
             if (ay > 4000 || ay < -4000) sy = -ay * 80 / 32767;
             int cx = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX);
             int cy = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY);
-            if (cx > 16000) b |= B_CR;
-            if (cx < -16000) b |= B_CL;
-            if (cy > 16000) b |= B_CD;
-            if (cy < -16000) b |= B_CU;
+            if (host_ui_camera_stick(cx, cy)) {
+                if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_RIGHTSTICK))
+                    b |= B_CD;                  /* (Y is C-up) */
+            } else {
+                if (cx > 16000) b |= B_CR;
+                if (cx < -16000) b |= B_CL;
+                if (cy > 16000) b |= B_CD;
+                if (cy < -16000) b |= B_CU;
+            }
         }
     }
     /* the keyboard, the mouse and touch, by what is on the screen (ui.c);

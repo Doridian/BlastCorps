@@ -217,6 +217,7 @@ static int deterministic;
 static int model_icons = -1;            /* --model-icons, --no-model-icons */
 static int interp_arg = -1;             /* --interpolate, --no-interpolate */
 static int hdtext_arg = -1;             /* --hd-text, --no-hd-text */
+static int free_cam_arg = -1;           /* --free-camera, --no-free-camera */
 static int display_hz_set;              /* --display-hz */
 int host_is_deterministic(void) { return deterministic; }
 static uint64_t virtual_ns;
@@ -767,6 +768,12 @@ static void usage(const char *argv0) {
             "                       map's chopper) drawn as the models (default with a\n"
             "                       window; off headless, with\n"
             "                       --deterministic and --replay; PORT_MODEL_ICONS=0|1)\n"
+            "  --free-camera, --no-free-camera\n"
+            "                       in a level, dragging with the left mouse button and\n"
+            "                       the right stick turn and tilt the camera (C-left/right\n"
+            "                       still turn it 45 degrees, the stick's click is C-down;\n"
+            "                       default with a window; PORT_FREE_CAMERA=0|1,\n"
+            "                       PORT_CAMERA_SENS: the mouse's degrees a pixel, 0.2)\n"
             "  --display-hz N|auto  --interpolate for a display this fast (default auto, the\n"
             "                       display's, with a window; else 60): more in-between\n"
             "                       images, shown between retraces by the host clock (not\n"
@@ -852,6 +859,8 @@ int main(int argc, char **argv) {
             gfx_gl_max_pixels = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--model-icons") || !strcmp(argv[i], "--no-model-icons"))
             model_icons = argv[i][2] == 'm';
+        else if (!strcmp(argv[i], "--free-camera") || !strcmp(argv[i], "--no-free-camera"))
+            free_cam_arg = argv[i][2] == 'f';
         else if (!strcmp(argv[i], "--no-hd-text"))
             hdtext_arg = 0;
         else if (!strcmp(argv[i], "--hd-text")) {
@@ -903,14 +912,21 @@ int main(int argc, char **argv) {
         model_icons = strcmp(mi, "0") != 0;
     /* the port's improvements are on by default with a window: in-between
        frames for the display's rate, the text from a font, the models for
-       their pictures; runs that are compared (headless, deterministic,
-       replays) have them only when asked for */
+       their pictures, the free camera; runs that are compared (headless,
+       deterministic, replays) have them only when asked for */
     int windowed = !deterministic && !host_headless;
     gfx_interp = interp_arg >= 0 ? interp_arg : windowed;
     if (windowed && !display_hz_set)
         gfx_interp_hz = -1;                 /* --display-hz auto */
     hdtext_on = hdtext_arg >= 0 ? hdtext_arg : windowed;
     micons_on = model_icons >= 0 ? model_icons : windowed;
+    const char *fc = getenv("PORT_FREE_CAMERA");
+    if (fc && *fc && free_cam_arg < 0)
+        free_cam_arg = strcmp(fc, "0") != 0;
+    host_free_camera = free_cam_arg >= 0 ? free_cam_arg : windowed;
+    const char *sens = getenv("PORT_CAMERA_SENS");
+    if (sens && atof(sens) > 0)
+        host_camera_sens = (float)atof(sens);
     const char *hw = getenv("PORT_HD_TEXT_WEIGHT");
     if (hw && atof(hw) > 0)
         hdtext_weight = (float)atof(hw);

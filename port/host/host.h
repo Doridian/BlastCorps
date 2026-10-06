@@ -80,6 +80,13 @@ enum {
 union SDL_Event;
 void host_ui_event(const union SDL_Event *e);
 void host_ui_input(int live, const uint8_t *keys, uint16_t *buttons, int *x, int *y);
+/* --free-camera: the mouse and the right stick turn a level's camera
+   (port_camera_turn); PORT_CAMERA_SENS, the mouse's degrees a pixel */
+extern int host_free_camera;
+extern float host_camera_sens;
+/* the right stick for this read (video.c, before host_ui_input): 1 if it
+   turns the camera, 0 if it is the C buttons still */
+int host_ui_camera_stick(int x, int y);
 
 /* digest.c: PORT_DIGEST=FILE, the gameplay digest at every controller poll */
 void host_digest_poll(unsigned poll);

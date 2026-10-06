@@ -4,7 +4,8 @@
  *
  * All of it is the host's, made into the pad the game reads, as the name
  * entry's typing is (video.c): the game's C only has the world map's
- * camera hook (port_globe_view).  --replay never takes any of it, and
+ * camera hook (port_globe_view) and a level's (port_camera_turn, the free
+ * camera: the mouse and the right stick).  --replay never takes any of it, and
  * --deterministic runs only PORT_POINTER's script.
  *
  * What is on the screen (ui_context):
@@ -120,6 +121,20 @@ static uint16_t key_held[SDL_NUM_SCANCODES];     /* the buttons a key went down 
 static uint8_t key_up[SDL_NUM_SCANCODES];        /* up again, not yet read */
 static uint8_t key_seen[SDL_NUM_SCANCODES];      /* a read has had it */
 static int ui_live;                              /* the keyboard and mouse are the player's */
+
+/* --free-camera (below, "the free camera") */
+int host_free_camera;
+float host_camera_sens = 0.2f;
+static struct {
+    int held;                       /* the left button is down: the mouse turns
+                                       the camera (SDL's relative mode is on) */
+    float turn;                     /* degrees, not yet taken by the game */
+    float stick;                    /* the right stick, -1..1 past its dead zone */
+    float pitch;                    /* degrees more (down) than the game's own */
+    float stick_y;                  /* the right stick's y, -1 (up)..1 */
+    Uint32 last;                    /* the last read's time (ms) */
+} cam;
+static int cam_button(int down);
 
 static uint16_t key_buttons(int sc, int ctx) {
     if (ctx == UI_NAME)                          /* the letters type there (video.c) */
@@ -241,11 +256,19 @@ void host_ui_event(const SDL_Event *e) {
     /* (SDL makes the mouse's events from touch too, as SDL_TOUCH_MOUSEID:
        the fingers are taken as themselves) */
     case SDL_MOUSEMOTION:
+        if (cam.held && e->motion.which != SDL_TOUCH_MOUSEID) {
+            cam.turn += e->motion.xrel * host_camera_sens;
+            cam.pitch += e->motion.yrel * host_camera_sens;
+            break;
+        }
         if (e->motion.which != SDL_TOUCH_MOUSEID && host_window_to_n64(-1, -1, &x, &y))
             ptr_move(-1, x, y);
         break;
     case SDL_MOUSEBUTTONDOWN:
     case SDL_MOUSEBUTTONUP:
+        if (e->button.which != SDL_TOUCH_MOUSEID && e->button.button == SDL_BUTTON_LEFT &&
+            cam_button(e->type == SDL_MOUSEBUTTONDOWN))
+            break;
         if (e->button.which == SDL_TOUCH_MOUSEID || !host_window_to_n64(-1, -1, &x, &y))
             break;
         if (e->button.button == SDL_BUTTON_LEFT) {
@@ -279,7 +302,8 @@ void host_ui_event(const SDL_Event *e) {
 /* PORT_POINTER=READ:WHAT:X:Y,... : the pointer at the READth controller
    read (from 1) does WHAT at X, Y on the 320x240 screen: d down, m move
    (with no button down: the mouse pointing), u up, b the right button
-   (back), w/W the wheel up/down; for tests, in any run */
+   (back), w/W the wheel up/down, t the mouse dragged X pixels across and
+   Y down in a level with --free-camera; for tests, in any run */
 static void script_poll(unsigned read) {
     static const char *s;
     static int init;
@@ -309,6 +333,10 @@ static void script_poll(unsigned read) {
         case 'b': ev_push(EV_BACK, x, y); break;
         case 'w': ev_push(EV_WHEEL_UP, x, y); break;
         case 'W': ev_push(EV_WHEEL_DOWN, x, y); break;
+        case 't':
+            cam.turn += x * host_camera_sens;
+            cam.pitch += y * host_camera_sens;
+            break;
         }
     }
 }
@@ -941,6 +969,113 @@ static int map_poll(int *sx, int *sy, int last_stick) {
     return 1;
 }
 
+/* ---- the free camera ------------------------------------------------------ */
+
+/* --free-camera: in a level (mode 4, not the carrier's overview), the
+   mouse dragged with the left button down (relative: the pointer is
+   caught while it is) and the right stick turn the camera.  Across is its
+   heading, which the game keeps in D_80364414 (degrees; C-left/right turn
+   it 45 at a time, 00000.c's func_80255190, which takes port_camera_turn
+   each frame); the view turns right as it grows, as C-right turns it.  Up
+   and down is the pitch, which the game hasn't got (port_camera_pitch,
+   below).  The right stick is no longer C-left/right and C-up/down there:
+   clicking it is C-down, and Y is still C-up. */
+
+static int cam_on(int ctx) {
+    return host_free_camera && ctx == UI_DRIVE && mode() == 4;
+}
+
+static void cam_release(void) {
+    if (cam.held)
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+    cam.held = 0;
+}
+
+/* the left button down or up: 1 if the camera takes it (a drag starts in
+   a level, or the one under way ends), so that it isn't a click */
+static int cam_button(int down) {
+    if (!down) {
+        int was = cam.held;
+        cam_release();
+        return was;
+    }
+    if (!ui_live || !cam_on(ui_context()))
+        return 0;
+    SDL_SetRelativeMouseMode(SDL_TRUE);
+    cam.held = 1;
+    return 1;
+}
+
+/* -1..1 past the dead zone, finer near the middle */
+static float stick_curve(int v) {
+    const int dead = 8000;
+    if (v <= dead && v >= -dead)
+        return 0;
+    float f = (float)(v > 0 ? v - dead : v + dead) / (32767 - dead);
+    return f * fabsf(f);
+}
+
+int host_ui_camera_stick(int x, int y) {
+    cam.stick = cam.stick_y = 0;
+    if (!ui_live || !cam_on(ui_context()))
+        return 0;
+    cam.stick = stick_curve(x);
+    cam.stick_y = stick_curve(y);
+    return 1;
+}
+
+/* the pitch: the eye's offset from the point it looks at (00000.c, the
+   level's follow camera, as it is drawn: the game's eye, which eases
+   there, and gameplay are left as they are) turned up or down by
+   cam.pitch, its length kept, between 8 degrees above the ground and 85
+   (straight down would leave guLookAt no "up"); cam.pitch is held to what
+   that allows, so that turning back takes effect at once */
+float port_camera_pitch(int what, float h, float dy) {
+    if (cam.pitch == 0 || h < 1)
+        return what ? dy : h;
+    const float deg = 3.14159265f / 180;
+    float e0 = atan2f(dy, h) / deg, e = e0 + cam.pitch;
+    if (e < 8) e = 8;
+    if (e > 85) e = 85;
+    if (e0 >= 8 && e0 <= 85)
+        cam.pitch = e - e0;                     /* (the same again for what 1) */
+    float r = sqrtf(h * h + dy * dy);
+    return what ? r * sinf(e * deg) : r * cosf(e * deg);
+}
+
+int port_camera_turn(void) {
+    int t = (int)lroundf(cam.turn * 1000);
+    cam.turn -= t / 1000.0f;
+    return t;
+}
+
+/* each read: let the pointer go outside a level (paused with the button
+   down, say), and turn by the stick for the time since the last read (180
+   degrees a second at full tilt) */
+static void cam_poll(int live, int ctx) {
+    int on = cam_on(ctx);
+    if (!on) {
+        if (cam.held) {
+            cam_release();
+            SDL_ShowCursor(ctx == UI_DRIVE ? SDL_DISABLE : SDL_ENABLE);
+        }
+        cam.turn = 0;
+        if (mode() != 4 && mode() != 0x100)
+            cam.pitch = 0;                      /* (kept for the level, paused too) */
+        return;
+    }
+    if (live) {
+        Uint32 now = SDL_GetTicks();
+        float dt = (now - cam.last) / 1000.0f;
+        cam.last = now;
+        if (dt > 0.1f)
+            dt = 0.1f;
+        cam.turn += cam.stick * 180.0f * dt;
+        cam.pitch += cam.stick_y * 90.0f * dt;
+    }
+    cam.stick = cam.stick_y = 0;
+}
+
 /* ---- the read -------------------------------------------------------------- */
 
 void host_ui_input(int live, const Uint8 *k, uint16_t *b, int *sx, int *sy) {
@@ -961,6 +1096,7 @@ void host_ui_input(int live, const Uint8 *k, uint16_t *b, int *sx, int *sy) {
             SDL_ShowCursor(ctx == UI_DRIVE ? SDL_DISABLE : SDL_ENABLE);
         last_ctx = ctx;
     }
+    cam_poll(live, ctx);
 
     if (ctx == UI_DRIVE && host_verbose) {
         static int last_type = -1, last_pedals = -1;

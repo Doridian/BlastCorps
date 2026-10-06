@@ -47,10 +47,11 @@
     <label><input type="checkbox" id="interp" checked> 60 fps (--interpolate)</label>
     <label><input type="checkbox" id="hdtext" checked> high-res text (--hd-text)</label>
     <label><input type="checkbox" id="micons" checked> 3D icons (--model-icons)</label>
+    <label><input type="checkbox" id="freecam" checked> mouse/right stick camera (--free-camera)</label>
   </div>
   <div id="status">Loading...</div>
   <button id="full" hidden>Full screen</button>
-  <div id="keys">Menus and the map: arrows/WASD, Enter = select, Escape = back, or the mouse or a finger (drag the globe, click a level).  Driving: W/S = accelerate/brake, A/D = steer, Space = brake/get out, Shift = special, Q/E = camera, Escape = pause.  X/C/Z = A/B/Z, IJKL = C buttons; a gamepad works too.</div>
+  <div id="keys">Menus and the map: arrows/WASD, Enter = select, Escape = back, or the mouse or a finger (drag the globe, click a level).  Driving: W/S = accelerate/brake, A/D = steer, Space = brake/get out, Shift = special, Q/E = camera, drag with the mouse or use a right stick to turn and tilt it, Escape = pause.  X/C/Z = A/B/Z, IJKL = C buttons; a gamepad works too.</div>
 </div>
 <script>
   var statusEl = document.getElementById('status');
@@ -134,6 +135,7 @@
     else args.push('--no-interpolate');
     if (!document.getElementById('hdtext').checked) args.push('--no-hd-text');
     if (!document.getElementById('micons').checked) args.push('--no-model-icons');
+    if (!document.getElementById('freecam').checked) args.push('--no-free-camera');
     /* more from the address: ?args=--aspect%20window&env=PORT_AUTOSTART=1 */
     var q = new URLSearchParams(location.search);
     if (q.get('args')) args = args.concat(q.get('args').split(' ').filter(Boolean));

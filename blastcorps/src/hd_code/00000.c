@@ -4466,6 +4466,25 @@ void func_802507C8(Mtx *arg0, LookAt *arg1, Mtx *arg2) {
             D_803649F8 -= 0.01;
         }
     }
+#ifdef TARGET_PC
+    /* the follow camera tilted by the mouse or the right stick
+       (port/host/ui.c): the eye drawn from, not the one the game keeps */
+    if (D_80364A90 == 4 && D_8036B8B0 == 0 && sp95 == 0 && D_80364A85 == 0 && D_8030F668 == 0 &&
+        D_8030F66A == 0 && D_8030F669 == 0) {
+        f32 dx = spB4 - D_80365084;
+        f32 dy = spB0 - D_80365088;
+        f32 dz = spAC - D_8036508C;
+        f32 h = sqrtf(dx * dx + dz * dz);
+
+        if (h >= 1.0f) {
+            f32 k = port_camera_pitch(0, h, dy) / h;
+
+            spB0 = D_80365088 + port_camera_pitch(1, h, dy);
+            spB4 = D_80365084 + dx * k;
+            spAC = D_8036508C + dz * k;
+        }
+    }
+#endif
     sp7C = (D_80365084 * 32.0f + spC0) / 32.0f;
     sp78 = (D_8036508C * 32.0f + spB8) / 32.0f;
     sp84 = spB4 - sp7C;
@@ -4695,6 +4714,22 @@ void func_80255190(void) {
                 }
             }
         }
+#ifdef TARGET_PC
+        /* the mouse and the right stick turn the camera freely
+           (port/host/ui.c); a C turn under way keeps its 45 degrees */
+        {
+            s32 turn = port_camera_turn();
+
+            if (turn != 0 && sp1F == 0 && D_80364A90 != 0x2000) {
+                D_80364414 += turn / 1000.0f;
+                D_80364418 += turn / 1000.0f;
+                while (D_80364414 >= 360.0f) D_80364414 -= 360.0f;
+                while (D_80364414 < 0.0f) D_80364414 += 360.0f;
+                while (D_80364418 >= 360.0f) D_80364418 -= 360.0f;
+                while (D_80364418 < 0.0f) D_80364418 += 360.0f;
+            }
+        }
+#endif
         if (D_8036441D != 0 || D_8036441C != 0) {
             func_802A45D4(2);
         }

@@ -48,6 +48,15 @@ void port_replay_mode_switch(void);
    heads for 1, the longitude, and 2, the latitude, in thousandths of a
    degree, by 3, ten-thousandths of the way a frame) */
 int port_globe_view(int what);
+/* a level's camera (00000.c, func_80255190): thousandths of a degree to
+   turn it by this frame, from the mouse and the right stick with
+   --free-camera (port/host/ui.c); 0 otherwise */
+int port_camera_turn(void);
+/* the pitch: the follow camera's eye, h across and dy up from the point it
+   looks at (00000.c, func_802507C8), turned up or down: what = 0, the new
+   h, 1, the new dy (values, not pointers: the game's stack isn't the
+   host's) */
+float port_camera_pitch(int what, float h, float dy);
 /* 1 when a press may cut the logos and the attract mode's screens short
    (8380.c, 00000.c, 17990.c): not with --replay or PORT_AUTOSTART, whose
    input is the original's (port/host/video.c) */

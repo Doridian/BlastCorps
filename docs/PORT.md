@@ -68,12 +68,15 @@ default with a window), `--aspect W:H`, `--widescreen` (16:9) and `--hud
 edges|centre` (see "Widescreen"), `--model-icons`/`--no-model-icons`
 (the icons that are pictures of the game's models drawn as the models,
 and the world map's chopper; default with a window, see "Model icons"),
+`--free-camera`/`--no-free-camera` (a drag with the left mouse button
+and the right stick turn and tilt a level's camera; default with a window, see "Keyboard, mouse and touch"),
 `--wav PATH` (everything the game plays, at the AI's rate) and `--no-audio`; sound goes
 to SDL unless the run is `--headless` or `--deterministic`.
 The port's improvements are on by default with a window: `--interpolate`
-with `--display-hz auto`, `--hd-text` and `--model-icons`, each turned off
-by its `--no-` option (`--no-interpolate`, `--no-hd-text`,
-`--no-model-icons`; the page has a box for each); headless runs and the
+with `--display-hz auto`, `--hd-text`, `--model-icons` and
+`--free-camera`, each turned off by its `--no-` option
+(`--no-interpolate`, `--no-hd-text`, `--no-model-icons`,
+`--no-free-camera`; the page has a box for each); headless runs and the
 ones that are compared (`--deterministic`, `--replay`) have them only when
 asked for, so the references and the TAS are as they were.
 `PORT_AUTOSTART=1` taps Start and A, which is enough to get from the title
@@ -177,7 +180,35 @@ up:
   and, held when stopped, out of the vehicle: `00000.c`), Shift R (each
   vehicle's special), Q/E C-left/right (the camera), R/F and the mouse
   wheel C-up/down (the zoom), Escape and Enter Start.  The mouse pointer
-  is hidden there.
+  is hidden there.  With `--free-camera` (the default with a window),
+  in mode 4 (not the carrier's overview) a drag with the left button
+  turns the camera across and tilts it up and down, `PORT_CAMERA_SENS`
+  degrees a pixel (0.2); the window catches the mouse while the button
+  is down (SDL's relative mode; the page's pointer lock), and the press
+  and release aren't clicks.  A controller's right stick does the same,
+  180 degrees a second across and 90 up and down at full tilt, instead
+  of being the C buttons; its click is C-down there (Y is still C-up).
+  - The turn: the game keeps the camera's heading in `D_80364414`
+    (degrees, the view turning right as it grows, as C-right turns it),
+    which C-left/right turn 45 degrees at 3 a frame (`func_80255190`,
+    `00000.c`).  That function asks `port_camera_turn` (`port_game.h`)
+    each frame for the thousandths of a degree to add, and adds them to
+    a C turn's target too, so one under way still ends 45 degrees on.
+    Where the game holds the camera itself (`func_80255628`: parts of
+    some levels, where it turns back to 135) the turn is dropped, as the
+    C buttons are.  The heading is gameplay (the 360-degree modes steer
+    by it), and the turn is the player's input like the C buttons, so
+    `--replay` and the compared runs never have it.
+  - The tilt: the game has no pitch of its own (the eye is a height and
+    a distance behind the player, its height eased slowly).  The follow
+    camera's eye as it is drawn (`func_802507C8`, before
+    `guLookAtReflect`/`guLookAt`; not with the game's other cameras) is
+    turned up or down about the point it looks at, its distance kept,
+    between 8 and 85 degrees above the ground, by `port_camera_pitch`
+    (values in and out: the game's stack is in N64 memory, not the
+    host's).  The game's own eye, which culling, sound and the building
+    checks use, is left alone, so the tilt is only the picture.  It lasts
+    for the level (paused too).
 - **one of the game's windows taking input** (yoshi.c, `26570.c`: the
   window `D_8036BB18` in state 2, `D_8036BB1C`, with input, flag 0x20),
   in the front end or paused: the arrows and WASD move, Enter and Space
@@ -212,7 +243,7 @@ up:
   pixels a degree moves the ground are measured with the same matrices
   when the drag starts), and go on a little after it, slowing.  The
   game's camera always eases back to the selected level, so this is the
-  one hook in the game's C: `port_globe_view` (`port_game.h`), which
+  first hook in the game's C: `port_globe_view` (`port_game.h`), which
   `func_801F8980` asks each frame (under `TARGET_PC`) for a view to head
   for instead, and how fast.  The turned view stays until a level is
   picked or the keys or a controller are used.  Touch is the same with
