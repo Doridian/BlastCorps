@@ -43,6 +43,13 @@ the quick tier's references in all four base scenarios from frame 750 on
 crashes after 1.1 and 1.8 minutes (a mode forced at the log's read 28,533
 and 39,568 first).  The builds without `PORT_SCATTER` are unchanged.
 
+This was made before the asm data became C (`port/tools/asm2c.py`).  The
+`F` builds placed each data file whole, which no longer exists; and
+since asm2c.py types the labels, a label inside a typed array or a file
+struct is now a name inside a variable (an alias) where it was a label of
+its own: 256 names, 241 in the asm data.  The sites are the same; run
+the check again to have them as aliases.
+
 ## The kinds
 
 - **alias**: a name the C declares as its own that is inside another

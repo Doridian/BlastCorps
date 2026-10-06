@@ -1,7 +1,7 @@
 /*
  * port-arena: the movable build's arena link (PORT_MOVABLE, docs/PORT.md
  * "Movable memory").  `opt -passes=port-arena` runs it over the whole N64
- * side (the game's C, port/src and the asm data, asm2ll.py) as one module.
+ * side (the game's C, port/src and the asm data, asm2c.py) as one module.
  *
  * The N64 side's pointer values are N64 addresses; memory is the arena, a
  * block the host allocates anywhere (port_arena, port_arena.h), holding
@@ -46,6 +46,7 @@
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
@@ -97,9 +98,6 @@ static cl::opt<std::string> Scatter("port-arena-scatter",
                                     cl::desc("SEED: every N64-named variable at a shuffled address after RDRAM, "
                                              "with padding between, instead of its N64 address"));
 static cl::opt<bool> ScatterFE("port-arena-scatter-fe", cl::desc("... the front end's variables too"));
-static cl::opt<bool> ScatterSplit("port-arena-scatter-split",
-                                  cl::desc("the asm data is split per label (asm2ll.py --split): a name inside "
-                                           "a label's span is an alias, not followed"));
 static cl::opt<bool> ScatterCheck("port-arena-scatter-check",
                                   cl::desc("every mapped access calls port_scatter_check(address, size, site)"));
 static cl::opt<std::string> ScatterReport("port-arena-scatter-report",
@@ -226,9 +224,7 @@ struct Arena : PassInfoMixin<Arena> {
             if (!portSrc && it != syms.end() && it->second.first - K0 < RDRAM) {
                 uint64_t a = it->second.first & MASK;
                 uint64_t align = std::max<uint64_t>(g->getAlign() ? g->getAlign()->value() : 1, 1);
-                bool asmData = g->hasSection() && g->getSection() == "port.asmdata";
-                if (!asmData && (DL->getTypeAllocSize(g->getValueType()) > room(g->getName().str(), a) ||
-                                 a % align)) {
+                if (DL->getTypeAllocSize(g->getValueType()) > room(g->getName().str(), a) || a % align) {
                     moved.push_back(g);
                     extra.push_back(g);
                 } else {
@@ -301,19 +297,18 @@ struct Arena : PassInfoMixin<Arena> {
 
     /* ---- the scattered layout (-port-arena-scatter) -------------------
        The oracle for the code that depends on where the N64 put things:
-       every N64-named variable of RDRAM (the C's, and the asm data's, per
-       file or per label) is laid out after the rest of the data instead,
+       every N64-named variable of RDRAM (the C's, and the asm data's: a
+       label each, asm2c.py) is laid out after the rest of the data instead,
        in an order the seed shuffles, at an address with the N64's one's
        offset in 16 bytes, after padding of 16 to 2,048 bytes and as many
        as the one before has (up to 16 KB: so that an access past the end
        of one, by an index the N64 had room for, lands in padding).  A
        name the N64 link has inside one of them (a declaration: a field
        read through a name of its own, a table's second half) gets room of
-       its own there ("alias"), but for a name inside a data file placed
-       whole or inside a bin (which has no labels to split it by), or
-       another name of an asm object's start, which goes with it
-       ("follow").  The front end's variables stay (port/src/overlay.c
-       restores them by address) unless -port-arena-scatter-fe.  What
+       its own there ("alias"); a struct's members but the first in the
+       asm data (asm2c.py's FILE_STRUCTS) are such names too.  The front
+       end's variables stay (port/src/overlay.c restores them by address)
+       unless -port-arena-scatter-fe.  What
        nothing should touch any more (the N64 places left behind, the
        padding, the aliases' own room) is listed in __port_scatter_bad:
        the host fills it with a pattern (PORT_SCATTER_POISON) and, with
@@ -378,7 +373,15 @@ struct Arena : PassInfoMixin<Arena> {
         moved = stay;
     }
 
-    static bool asmData(GlobalVariable *g) { return g->hasSection() && g->getSection() == "port.asmdata"; }
+    /* the asm data (asm2c.py's gen/data_c), by its debug info's file */
+    static bool asmData(GlobalVariable *g) {
+        SmallVector<DIGlobalVariableExpression *, 1> gves;
+        g->getDebugInfo(gves);
+        for (auto *gve : gves)
+            if (gve->getVariable()->getFilename().contains("data_c"))
+                return true;
+        return false;
+    }
 
     /* where a value is used: "function (file:line)", or a variable's initializer */
     void users(Value *v, std::set<std::string> &out, int depth = 0) {
@@ -431,9 +434,9 @@ struct Arena : PassInfoMixin<Arena> {
             }
             return best;
         };
-        std::vector<std::pair<GlobalVariable *, std::pair<size_t, uint64_t>>> follows;
         std::string report;
         raw_string_ostream rs(report);
+        std::vector<std::pair<GlobalVariable *, std::pair<size_t, uint64_t>>> follows;
         size_t nItems = scItems.size();
         for (GlobalVariable *g : decls) {
             uint64_t a = syms[g->getName().str()].first;
@@ -446,16 +449,18 @@ struct Arena : PassInfoMixin<Arena> {
             ScItem &ct = scItems[c];
             std::set<std::string> us;
             users(g, us);
-            /* (a data file placed whole, a bin, which has no labels inside,
-               or another name for an asm object's start: it goes with it) */
-            bool follow = asmData(ct.g) && (!ScatterSplit || a == ct.n64 || ct.g->getName().ends_with("_bin"));
-            rs << (follow ? "follow " : "alias ") << g->getName() << " " << format_hex_no_prefix(K0 | a, 8) << " "
+            rs << "alias " << g->getName() << " " << format_hex_no_prefix(K0 | a, 8) << " "
                << ct.g->getName() << "+0x" << format_hex_no_prefix(a - ct.n64, 1) << " "
                << (asmData(ct.g) ? "asm" : "c") << " " << DL->getTypeAllocSize(g->getValueType());
             for (auto &u : us)
                 rs << " | " << u;
             rs << "\n";
-            if (follow) {
+            /* (with the check, a name inside the asm data goes with its
+               variable: the generated data points into the variable, not
+               at the name, and a pointer compared, as func_802A06B4 does
+               its keys, can't be taken where it meant; the report lists
+               them all the same) */
+            if (ScatterCheck && asmData(ct.g)) {
                 follows.push_back({g, {(size_t)c, a - ct.n64}});
                 continue;
             }
@@ -463,6 +468,10 @@ struct Arena : PassInfoMixin<Arena> {
             auto ss = symSize.find(g->getName().str());
             if (ss != symSize.end())
                 n = std::max(n, ss->second);
+            /* (room to the container's end: what is reached from it as the
+               N64 has it, an array's later elements, stays in the room,
+               where the check knows what it meant) */
+            n = std::max(n, ct.n64size - (a - ct.n64));
             n = alignTo(std::max<uint64_t>(n, 4), 4);
             std::string what = g->getName().str() + " (" + ct.g->getName().str() + "+0x" +
                                utohexstr(a - ct.n64) + ")";
@@ -541,10 +550,9 @@ struct Arena : PassInfoMixin<Arena> {
             raw_fd_ostream os(ScatterReport, ec);
             if (ec)
                 fail("can't write " + ScatterReport);
-            os << "# port-arena -port-arena-scatter=" << Scatter << (ScatterSplit ? " (asm data per label)" : "")
+            os << "# port-arena -port-arena-scatter=" << Scatter
                << (ScatterFE ? " (the front end too)" : "") << "\n"
                << "# alias NAME N64 CONTAINER+OFF c|asm SIZE | users...: a name inside another variable, given its own room\n"
-               << "# follow ...: a name inside a data file placed whole or a bin, or another name of its start, which goes with it\n"
                << "# host NAME N64 CONTAINER+OFF: a name only the host may use (PORT_N64_), where it went\n"
                << "# item NAME N64 N64SIZE ADDRESS SIZE c|asm: a variable placed\n"
                << rs.str();
@@ -717,14 +725,12 @@ struct Arena : PassInfoMixin<Arena> {
     /* the initializers in host order, as the compiler would have emitted
        them; then what BEPass's tables say to swap is swapped (big-endian
        memory: every scalar the C's initializers had; native: the words of
-       their 64-bit ones).  The asm data's symbolic words are in memory
-       order already (bigEndianWords). */
-    bool bigEndianWords = false;
+       their 64-bit ones). */
     void putInt(uint64_t off, uint64_t v, unsigned size) {
         if (off + size > image.size())
             fail("an initializer outside the arena image");
         for (unsigned k = 0; k < size; k++)
-            image[off + k] = (uint8_t)(v >> (8 * (bigEndianWords ? size - 1 - k : k)));
+            image[off + k] = (uint8_t)(v >> (8 * k));
     }
 
     struct Swap {
@@ -867,11 +873,9 @@ struct Arena : PassInfoMixin<Arena> {
         std::map<GlobalVariable *, uint64_t> at;
         for (auto &p : placed) {
             at[p.g] = p.addr;
-            bigEndianWords = !Native && p.g->hasSection() && p.g->getSection() == "port.asmdata";
             if (p.g->hasInitializer())
                 put(p.addr, p.g->getInitializer());
         }
-        bigEndianWords = false;
         applySwaps(at);
         for (auto &p : placed) {
             if (!p.g->use_empty())

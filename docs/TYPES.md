@@ -192,8 +192,9 @@ give what they gave before.
 ## For the port
 
 - Everything in `pointers` is 4 bytes on the N64.  The initialized-data
-  pointers (`ptr (initialized data)`) are the port's existing `port_bswap32`
-  words; the rest are written at run time.
+  pointers (`ptr (initialized data)`) are pointer initializers in the
+  port's C (the asm data's too, port/tools/asm2c.py); the rest are written
+  at run time.
 - ROM data with offsets: `LevelHeader` (the offsets are added where used;
   the loader stores the sums in the level variables of level.h),
   `VehicleModel` and `Model` (the same; `Model` is also written into), the

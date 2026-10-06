@@ -648,7 +648,6 @@ static void on_crash(int sig, siginfo_t *si, void *uc) {
 /* ---- main ------------------------------------------------------------------ */
 
 extern void port_boot(void);
-extern void port_fixups(void);
 extern void port_arena_init(void);   /* runtime.c, PORT_MOVABLE */
 
 /* --hd-text's optional FONT: a name ending in a font's extension (so that
@@ -893,8 +892,6 @@ int main(int argc, char **argv) {
     load_rom(rom_path);
 #ifdef PORT_MOVABLE
     port_arena_init();
-#else
-    port_fixups();
 #endif
     host_video_init();
     hdtext_init();

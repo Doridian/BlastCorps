@@ -7,8 +7,7 @@
 Each --run is a run's output (LOG, the "scatter: " lines) from a
 PORT_SCATTER_CHECK build (BUILD: its gen/scatter_report.txt says what it
 placed where).  --static is the PORT_SCATTER build whose names inside
-other variables are listed (one with PORT_SCATTER_ASM=label has them
-all).  Writes Markdown to stdout: every site the runs saw reach where
+other variables are listed.  Writes Markdown to stdout: every site the runs saw reach where
 nothing should be, by kind, with the symbols and where the N64's layout
 has what it reached (a site that walks on, through padding after padding,
 is one row: the first place it reached, and how many more); then the
@@ -21,8 +20,7 @@ Kinds:
   past end  an access past a C variable's end (a T x[1] placeholder that is
             bigger, a read past an array): the padding after it
   label     an access past an asm data label's end into the next label of
-            the same file (a walk across labels, a table's end pointer):
-            only with the asm data per label (PORT_SCATTER_ASM=label)
+            the same file (a walk across labels, a table's end pointer)
   before    an access before a variable's start
   address   an N64 place a variable left: an address made otherwise than
             from the variable (a range by address, a constant)
@@ -54,7 +52,7 @@ def squeeze(users):
 
 
 def load_report(path):
-    items, aliases, follows, hosts = {}, [], [], []
+    items, aliases, hosts = {}, [], []
     for line in open(path):
         p = line.split()
         if not p or p[0].startswith("#"):
@@ -62,17 +60,17 @@ def load_report(path):
         if p[0] == "item":
             items[p[1]] = dict(n64=int(p[2], 16), n64size=int(p[3], 16), addr=int(p[4], 16), size=int(p[5], 16),
                                kind=p[6])
-        elif p[0] in ("alias", "follow"):
+        elif p[0] == "alias":
             head, _, users = line.partition(" | ")
             h = head.split()
             cont, off = h[3].split("+")
             rec = dict(name=h[1], n64=int(h[2], 16), cont=cont, off=int(off, 16), ckind=h[4], size=int(h[5]),
                        users=[u.strip() for u in line.split(" | ")[1:]])
-            (aliases if p[0] == "alias" else follows).append(rec)
+            aliases.append(rec)
         elif p[0] == "host":
             cont, off = p[3].split("+")
             hosts.append(dict(name=p[1], n64=int(p[2], 16), cont=cont, off=int(off, 16)))
-    return items, aliases, follows, hosts
+    return items, aliases, hosts
 
 
 def load_syms(path):
@@ -103,7 +101,7 @@ def main():
     ap.add_argument("--title", default="Layout dependencies")
     args = ap.parse_args()
     gen = os.path.join(args.static, "gen")
-    _, aliases, follows, hosts = load_report(os.path.join(gen, "scatter_report.txt"))
+    _, aliases, hosts = load_report(os.path.join(gen, "scatter_report.txt"))
     syms = load_syms(os.path.join(gen, "n64_syms.txt"))
     addrs = [s[0] for s in syms]
     reports = {}
@@ -227,15 +225,6 @@ def main():
         out.append(f"| `{a['name']}` | `{a['cont']}+0x{a['off']:X}` | {a['ckind']} | {users} | "
                    f"{'seen' if a['name'] in seen else ''} |")
     out.append("")
-    if follows:
-        out += ["## Names that go with what they are inside", "",
-                f"{len(follows)} names inside a bin (no labels to split it by), another name of an asm "
-                "object's start, or (PORT_SCATTER_ASM=file) inside a data file: they move with it, so the "
-                "scattered layout doesn't test them.", "",
-                "| name | inside | users |", "| --- | --- | --- |"]
-        for a in sorted(follows, key=lambda a: (a["cont"], a["off"])):
-            out.append(f"| `{a['name']}` | `{a['cont']}+0x{a['off']:X}` | {squeeze(a['users'])} |")
-        out.append("")
     used = set()
     root = ROOT
     for d in ("port/host", "port/src"):

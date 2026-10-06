@@ -45,19 +45,6 @@ void __bepass_fixup_rot64(const struct bepass_entry *e, uint32_t n) {
         }
 }
 
-/* asm2x86.py: symbolic .words in the game's data, in host order until now.
-   (Not in the movable build, whose arena image has them swapped already:
-   it has no ELF section symbols to go by, which Mach-O doesn't know.) */
-#ifndef PORT_MOVABLE
-extern uint32_t __start_port_bswap32[] __attribute__((weak));
-extern uint32_t __stop_port_bswap32[] __attribute__((weak));
-
-void port_fixups(void) {
-    for (uint32_t *p = __start_port_bswap32; p < __stop_port_bswap32; p++)
-        swap_bytes((uint8_t *)(uintptr_t)*p, 4);
-}
-#endif
-
 /* A thread's host stack: inside the KSEG0 window (at PORT_STACK_BASE,
    port.h), so that the address of a local means the same to the translated
    code; in the movable build that range is in the arena (port_arena.h). */

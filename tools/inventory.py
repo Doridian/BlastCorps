@@ -433,6 +433,51 @@ ASM_DATA_LAYOUTS = {
     "D_802FFF38": ([(0, "s16"), (2, "s16"), (4, "s16"), (6, "u16"), (8, "s16"), (10, "s16"),
                     (12, "u8"), (13, "u8"), (14, "u8"), (15, "u8")], 16,
                    "Vtx[179], the carrier's explosion's dome: 39050.c's segment 6 for D_80300A68's G_VTXs"),
+    # (read by the C and port/engine, which the analysis doesn't follow)
+    "D_803059F0": ([(0, "u32"), (4, "s32"), (8, "u32")], 12,
+                   "{level (0xFFFF: any), building kind, a bit per vehicle type}, to a zero mask: "
+                   "port/engine 56040.c's BuildingRule, 77E20.c's Immune"),
+    "D_80306E70": ([(0, "u8")] + [(k, "u32") for k in range(4, 0x50, 4)], 0x50,
+                   "OSViMode[]: u8 type, then the common and the two fields' registers (2C560.c's "
+                   "osViSetMode(&D_80306E70[mode]))"),
+}
+
+# The rest of the handwritten objects' data that no code reads at a width
+# the analysis sees, typed by its readers in the C and port/engine:
+# {symbol: (type, evidence)}; the count is the symbol's size over the type's
+ASM_DATA_TYPES = {
+    "D_80301098": ("u16", "text in the 0x0FFE-terminated u16 encoding, as BC8E0's (26570.c)"),
+    "D_80305C10": ("ptr", "the animations kept in the effects' heap, 0 at the end (port/engine 60F60.c)"),
+    "D_80305C34": ("bytes", "a C string (port/engine 60F60.c)"),
+    "D_80305C50": ("f64", "a constant of the height search (port/engine 62740.c)"),
+    "D_80305CB0": ("bytes", "its parts' collision, read as bytes (port/engine 69BB0.c, 56040's func_8029A800)"),
+    "D_80305D40": ("bytes", "a C string (port/engine 72B80.c)"),
+    "D_803063F0": ("bytes", "the share of the groups a medal wants, by medal (port/engine 80280.c)"),
+    "D_802FF730": ("gfx", "a display list: gsSPEndDisplayList()"),
+    "__osHwIntTable": ("ptr", "libultra's interrupt handlers (the port's libultra has its own)"),
+    "D_803C2B80": ("u64", "the effects' task's output size (port/engine 5FD50.c: output_buff_size)"),
+    "D_803C4F70": ("Mtx", "the effects' sprites' matrices, one frame's (port/engine 60F60.c), as D_803C5370"),
+    "D_803C8770": ("Vtx", "the effects' sprites' vertices, one frame's (port/engine 60F60.c), as D_803C9770"),
+    "D_803CA770": ("bytes", "the effects' sprites' texture cells, one frame's (port/engine 60F60.c)"),
+    "D_803DA770": ("bytes", "the other frame's"),
+    "D_803EA770": ("bytes", "the effects' sprites' cells, 0x100 bytes per slot (port/engine 60F60.c)"),
+    "D_803F2ED0": ("Mtx", "the falling groups' matrices, one frame's (port/engine 77E20.c), as D_803F24D0"),
+    # YoshiEntry.text of hd_front_end 25070's tables
+    "D_8020F49C": ("bytes", "a C string, empty (YoshiEntry.text)"),
+    "D_8020F4A0": ("bytes", "a C string, empty (YoshiEntry.text)"),
+    "D_8020F4A4": ("bytes", "a C string, empty (YoshiEntry.text)"),
+    "D_8020F4A8": ("bytes", "a C string, empty (YoshiEntry.text)"),
+    "D_8020F4AC": ("bytes", "a C string, empty (YoshiEntry.text)"),
+    "D_8020F788": ("bytes", "a C string, \" \" (YoshiEntry.text)"),
+    "D_8020FD90": ("bytes", "a C string, \" \" (YoshiEntry.text)"),
+    "D_8020FDE4": ("bytes", "a C string, \" \" (YoshiEntry.text)"),
+}
+
+# data files that are all text in the 0x0FFE-terminated u16 encoding, every
+# label a u16 array: {file: evidence}
+ASM_DATA_TEXT16 = {
+    "asm/data/hd_code/BC8E0.data.s": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; "
+                                     "yoshi.h's YoshiEntry.unk10)",
 }
 
 # data kept in the N64's byte order, whatever its fields: the code that
@@ -530,6 +575,22 @@ def build_asm_data_types(prog, an, res, elem, symbols, types):
                                     "note": why}
         out_syms[name] = {"type": "asm_" + name, "count": (size + esize - 1) // esize, "storage": owned[name],
                           "derived": "the port's access-width profiler"}
+    scalar = {"u8": 1, "s8": 1, "u16": 2, "s16": 2, "u32": 4, "s32": 4, "f32": 4, "u64": 8, "s64": 8, "f64": 8,
+              "ptr": 4, "gfx": 4, "bytes": 1}
+    for name, (t, why) in ASM_DATA_TYPES.items():
+        addr = prog.named.get(name)
+        if addr is None or name not in owned or name in symbols or name in out_syms:
+            continue
+        esize = types[t]["size"] if t in types else scalar[t]
+        out_syms[name] = {"type": t, "count": max(1, prog.var_size(addr) // esize), "storage": owned[name],
+                          "derived": why}
+        if t == "ptr":
+            out_syms[name]["to"] = "void"
+    for name, f in sorted(owned.items()):
+        if f in ASM_DATA_TEXT16 and name not in symbols and name not in out_syms \
+                and prog.named.get(name) is not None and prog.var_size(prog.named[name]) >= 2:
+            out_syms[name] = {"type": "u16", "count": prog.var_size(prog.named[name]) // 2, "storage": f,
+                              "derived": ASM_DATA_TEXT16[f]}
     # bytes by what they hold or how a table reaches them, where no code
     # reads them at a width
     contents = asm_data_contents(owned)
@@ -543,7 +604,7 @@ def build_asm_data_types(prog, an, res, elem, symbols, types):
             if k:
                 byte_syms[name] = k
     for name, why in sorted(byte_syms.items()):
-        if name in owned and name not in symbols and prog.named.get(name) is not None:
+        if name in owned and name not in symbols and name not in out_syms and prog.named.get(name) is not None:
             out_syms[name] = {"type": "bytes", "count": prog.var_size(prog.named[name]), "storage": owned[name],
                               "derived": why}
     for name in sorted(widths):

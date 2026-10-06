@@ -367,9 +367,9 @@ exactly, and adapts the host to that, rather than the other way round:
   names of their own (other files read the scheduler's frame counter,
   `Sched.frameCount`, as `D_803156C4`), tables are indexed from a
   neighbour, the front end's area is cleared by address.  The game's C is
-  built with `-fdata-sections`, the data files are converted one section per
-  file (`tools/asm2x86.py`), and `gen_ld.py` places each at its address in
-  the N64 link; the build checks all 3,937 symbols afterwards.  Anything in
+  built with `-fdata-sections`, the handwritten objects' data is C too
+  ("The asm data as C"), and `gen_ld.py` places each variable at its
+  address in the N64 link; the build checks all 3,937 symbols afterwards.  Anything in
   RDRAM the port doesn't define is simply there, at its N64 address
   (`tools/gen_syms.py`).
 - **Big-endian memory.**  The data files, the ROM's assets and most of the
@@ -381,8 +381,7 @@ exactly, and adapts the host to that, rather than the other way round:
   behave as on the N64.  The translated asm stays in its tested big-endian
   mode, and DMA is a plain copy.  Initialized data is fixed at startup: the
   pass records the scalars in C initializers and a constructor swaps them
-  (`__bepass_fixup`), and symbolic `.word`s in the data files are listed in
-  a `port_bswap32` section and swapped by `port_fixups()`.  Swaps on locals
+  (`__bepass_fixup`), the asm data's included ("The asm data as C").  Swaps on locals
   fold away; what's left costs a `bswap` or `movbe`.  Only code built with
   the pass is on the "N64 side"; host code (`port/host/`) that touches game
   memory does so through `port_be32()` and friends (`port/include/port.h`).
@@ -848,8 +847,8 @@ game.  The plan, in stages, and what each needs:
   as untyped bytes need converting, once, where they're produced: PI DMA
   from the ROM, the two decompressors' output (gzip's inflate, which
   loads the code modules and the levels, and Rare's `func_802C41C0` in
-  hd_code 7F8B0), and the asm data files (`asm2x86.py` knows each
-  directive's width).  What stays wrong is every place that reads bytes at
+  hd_code 7F8B0), and the asm data files (each directive's width is
+  known).  What stays wrong is every place that reads bytes at
   another width than they were written at: those need fixing one by one.
 
 **The translated code** (`RECOMP_NATIVE_ENDIAN`) fits this model: bytes,
@@ -975,7 +974,7 @@ names the ROM's segments from the link map):
 - the save: the EEPROM file keeps the N64's bytes (`host_save_order`
   converts each block in and out), and `__osContDataCrc` is taken of them.
 
-**The asm data files** (`asm2x86.py --native`) are typed by the inventory
+**The asm data files** (C now, `asm2c.py`: "The asm data as C") are typed by the inventory
 (`blastcorps/include/game/inventory.json`, `symbols`): header types, and
 for the handwritten objects' own data the widths their code reads it at
 (`tools/inventory.py` from fieldscan's events), with `bytes` for text (C
@@ -1432,13 +1431,12 @@ interface do.
 - Jump tables: `pc_base` is `SYM(func)`, the vram, and the tables hold
   the labels' vrams, which the asm data's conversion (below) writes.
 - The glue passes and returns N64 values already: no change.
-- **The asm data files** become LLVM IR instead of x86 assembly
-  (`asm2x86.py`'s parser and typing, a new writer): per file a global of
-  byte runs and `ptrtoint (ptr @sym to i32)` words, the inner labels as
-  aliases into it, which port-arena resolves like the C's.  Mach-O's `as`
-  and wasm have no use for the x86 directives, and the arena image needs
-  them as data anyway.  The same goes for the islands and the jp
-  `GLOBAL_ASM` rodata.
+- **The asm data files** become LLVM IR instead of x86 assembly: per
+  file a global of byte runs and `ptrtoint (ptr @sym to i32)` words, which
+  port-arena resolves like the C's.  Mach-O's `as` and wasm have no use
+  for the x86 directives, and the arena image needs them as data anyway.
+  The same goes for the islands and the jp `GLOBAL_ASM` rodata.  (They
+  are typed C now, compiled like the game's: "The asm data as C".)
 
 ### The host side
 
@@ -1492,9 +1490,8 @@ address `a`, KSEG0 or KSEG1, is at `port_arena + (a & 0x1FFFFFFF)`
   (`PORT_ARENA_LOCALS`, below).
 
 **The arena link** (`CMakeLists.txt`): the N64 side (the game's C and
-`port/src`) is compiled per file as before, to bitcode; the asm data
-files become LLVM IR (`tools/asm2ll.py`, from `asm2x86.py`'s output: each
-file a global of byte runs and its symbolic words as `ptrtoint`s); then
+`port/src`) is compiled per file as before, to bitcode, and so is the
+asm data (C, from `tools/asm2c.py`: "The asm data as C"); then
 `llvm-link`, `opt -passes=port-arena` (`bepass/Arena.cpp`) and `llc`
 make one object.  port-arena, over the whole program:
 
@@ -1696,7 +1693,7 @@ anyway.
   words of `port/src`'s own variables.
 - **The RSP microcode's text** (hd_code's after `ldiv`, hd_front_end's
   last 0xFB0 bytes of `.text`, 18.3 K) is zeros in every build now
-  (`asm2x86.py`'s `RSP_TEXT`): the HLE never runs it and nothing reads
+  (`asm2c.py`'s `RSP_TEXT`): the HLE never runs it and nothing reads
   it.  Its data segments stay, as the ROM's: `aspmain.c` reads the audio
   microcode's resampling table.
 - **Checked** with `tools/rom_scan.py` (`test.py quick` runs it on every
@@ -1712,6 +1709,102 @@ are the executable's own sections at N64 addresses, initialized by the
 loader, and the C's are swapped by constructors before `main` has the ROM;
 see docs/DISTRIBUTION.md.
 
+### The asm data as C
+
+The handwritten objects' data is typed C in every build: `asm/data`'s
+`.data`, `.rodata` and `.bss` files of hd_code and hd_front_end (but
+libultra's exception jump table, `972A0.rodata.s`), the two pointer-bearing
+islands of hd_code's `.text` (`7D9D0.bin.s`, `800DC.bin.s`), the islands
+kept as `.bin` and jp's `GLOBAL_ASM` rodata.  `port/tools/asm2c.py` writes
+it at build time from the extracted asm (`gen/data_c/`: a `.c` per file
+and `asm_data.h`, the types and every variable's declaration; the data is
+the ROM's, so nothing of it is committed), and it is built like the game's
+C (`game_data`: the N64 side's flags, BEPass, `-fdata-sections`; bitcode
+for the arena link in the movable build).  `asm2x86.py` and `asm2ll.py`
+are gone, and the `port_bswap32` words with them: BEPass swaps the
+initializers in the big-endian builds, pointers included, as it does the
+game's.
+
+- **Types.**  Each label is a variable of the type the inventory gives it
+  (`symbols`, `inventory.json`): the header types under their names
+  (`YoshiEntry`, `VehicleState`, `Building`, `UnkStruct_803ED460`, `Mtx`,
+  `Vtx`), each handwritten-data record type as `asm_D_X` from its fields
+  (a record of one field is that field), scalars as themselves; a label
+  the inventory doesn't type is typed by its directives (`u32` for
+  `.word`, `u16`, `u8`, `f32`, a pointer for a symbol).  A variable runs to
+  the next one: what is left after its whole elements (a record cut short,
+  a terminator, padding) is a `tail` beside them in a struct of its own
+  (`D_X_t`), so that every byte of the file is in a variable.
+- **Pointers.**  A symbolic `.word` is a pointer initializer: `(T *)&D_X`,
+  `&D_8030xxxx` of a member, or `(u8 *)&D_X + n` for a name inside a
+  variable (YoshiEntry's text pointers into hd_code's u16 text), and a
+  function's name for a function.  Every pointer is `T *PTR32`: 4 bytes in
+  the LP64 build too, where the handwritten code reads this data at its
+  N64 offsets, as it did the words.
+- **The same bytes.**  The native-endian builds had each datum in host
+  order at the width `asm2x86.py --native` gave it (the inventory's
+  fields, the islands' layouts, `ISLANDS` and `BLOBS`, the u16 text of
+  `HALF_FILES`, all in `asm2c.py` now); the generator still works those
+  widths out and checks each variable's C type against them unit by unit,
+  so a type that would put a datum in another order gives way to the
+  directives' runs (`gen/data_c/asm_data_report.txt` lists them: three,
+  where a fieldscan record type is bigger than its label or has a word
+  where the display list `D_80300A68` has a pointer).
+- **The inventory types every label** now (1,481 in us.v11; it typed 900):
+  `tools/inventory.py`'s `ASM_DATA_TYPES` gives the rest their readers'
+  types (port/engine's and the C's declarations: `D_80305C50` an `f64`,
+  `D_80305C10` pointers, the effects' buffers `Mtx` and `Vtx`, the front
+  end's one-word strings), `ASM_DATA_LAYOUTS` the records the engine names
+  (`D_803059F0`, the building rules) and the VI modes (`D_80306E70`,
+  `OSViMode`), and `ASM_DATA_TEXT16` makes hd_code BC8E0's 555 labels the
+  `u16` text they are.  The native-endian builds see three of these in
+  another order than before, each now as the big-endian builds have it:
+  the front end's eight 4-byte strings (`" "` had been `""`), `D_80301098`'s
+  u16 text, and `OSViMode.type`, which nothing reads.  What the
+  generator still types by directives: the 12 islands (by their readers'
+  layouts), the report's three and hd_code's copies of `__osRcpImTable`
+  and `__osHwIntTable` (the inventory has init's).
+- **What code walks across.**  Every variable is still at its N64
+  address (`gen_ld.py`'s script, port-arena's placement), which keeps the
+  tables that a walk runs off into the next label working as on the N64.
+  For the day the variables aren't at fixed addresses, the files where the
+  code does that are one struct each (`FILE_STRUCTS`), the labels its
+  members in their N64 order: hd_code 77E20's `.data` (the chance records
+  of `D_80306344`, `D_80306350` and `D_803063D4`, walked into
+  `D_803063E0`), 75490's `.data` (`D_80305D74`'s records into
+  `D_80305DF0`) and 77E20's `.bss` (`D_803F3910`'s pairs into
+  `D_803F3968[0]`).  The struct is named after the file's first label,
+  which is where it is placed.  `D_8020C070[]` (`YoshiEntry`, hd_front_end
+  25070) is one array to its file's end already, over the labels splat
+  made inside it.
+- **Names inside a variable** (a struct's members but the first, the
+  labels inside `D_8020C070[]`, a label with no bytes before the next):
+  the builds at fixed addresses define each as an alias at its offset
+  (`.set D_80306350, D_80305E10 + 0x540`, top-level asm in the generated
+  file), so the C, the engine, the host and the translated code (the
+  check build's `SYM()`s) link to them as before, and `gen_ld.py check`
+  sees them where the N64 has them; the movable build's arena link
+  resolves an undefined N64 name to its N64 address, which is where it
+  is.  In C that doesn't rely on addresses they are the members
+  (`D_80305E10.D_80306350`), which is what the generated initializers use.
+- **How it was checked.**  us.v10, before the inventory's additions: the
+  arena images of the movable builds (64-bit big-endian, LP64, 32-bit
+  native) the same as before, byte for byte; `gen_ld.py` placing the same
+  3,388 names (the aliases included), with nothing moved in LP64 but the
+  C's 107; the quick tier on all seven variants.  With them: us.v11's
+  quick tier on all seven, and us.v10's `test.py variants --tas` (the
+  eight variants, wasm included): every hash the references', and the
+  TAS on each with 57 platinum, all 125,297 of the log's reads matched
+  and the gameplay digest the reference's.  jp (its 17 `GLOBAL_ASM`
+  functions' rodata too): the quick tier on the 32-bit and the movable
+  32-bit native-endian builds.
+- **What stays bytes**: text (C strings as `char` arrays, the
+  0xFF-terminated text, the u16 text as `u16`), the dome's texture, data
+  read only as bytes, the chance records the code reads both ways (kept
+  big-endian, `ASM_DATA_BE`), the islands' byte runs (the microcode's
+  data, 8E910's per-level cells), and the RSP microcode's text (zeros,
+  `RSP_TEXT`).
+
 ### The scattered layout (`PORT_SCATTER`)
 
 Every build so far keeps each N64-named variable at its N64 address, and
@@ -1724,20 +1817,20 @@ N64-named variable of RDRAM an address after the data without N64
 addresses instead, in an order the seed shuffles, keeping its N64
 address's offset in 16 bytes, with padding before it of 16 to 2,048
 bytes plus the size of the one before (up to 16 KB, so that an index the
-N64 had room for lands in padding).  About 2,270 variables in us.v10
-(1,010 with the asm data per file), to about `0x840000`.
+N64 had room for lands in padding).  2,166 variables in us.v10, to about
+`0x910000`.
 
-- **The unit.**  A C variable is its own.  The asm data is split per
-  global label (`asm2ll.py --split`; `-DPORT_SCATTER_ASM=label`, the
-  default), each from its label to the next; `-DPORT_SCATTER_ASM=file`
-  places each file whole, which hides the walks from one label into the
-  next (the engine's per-wheel bytes, begin and end pointers to the next
-  label).  A bin (no labels inside) moves whole.
+- **The unit** is a C variable, the asm data's included ("The asm data
+  as C": a label each, the three files the code walks across one struct
+  each), so a walk from one label into the next breaks unless its file
+  is one of those structs.  (Before the asm data was C, a
+  `PORT_SCATTER_ASM=file` placed each data file whole; it only hid those
+  walks, and the structs now keep together the files that need it.)
 - **Names inside another variable** (a declaration whose N64 address is
-  inside something placed: not a label) get room of their own, so the
-  C's view through them parts from the container's.  But for a name
-  inside a data file placed whole or a bin, or another name of an asm
-  object's start: those go with it.
+  inside something placed: a field's own name, a label inside a typed
+  array, a struct's members but the first) get room of their own, to the
+  container's end, so the C's view through them parts from the
+  container's: 256 in us.v10, 241 of them in the asm data.
 - **What stays**: the front end's variables (`port/src/overlay.c` restores
   its `.data` and clears its `.bss` by address; `-DPORT_SCATTER_FE=ON`
   moves them too), and the fixed buffers (the framebuffers, the level
@@ -1761,7 +1854,11 @@ such place, `scatter: SITE: N bytes at A reach WHAT`, and then takes it
 where the N64's layout has what it meant (an alias into its container, a
 byte of padding as the nearer neighbour's N64 place, an N64 place to the
 variable's new one), so the game plays on and the next one shows
-(`PORT_SCATTER_REDIRECT=0` doesn't).  An access off the arena stops the
+(`PORT_SCATTER_REDIRECT=0` doesn't).  With the check a name inside the
+asm data stays in its variable: the generated data points into the
+variable, not at the name, and where the code compares such pointers
+(`func_802A06B4`'s keys) no redirection can make them equal; the report
+lists those names all the same.  An access off the arena stops the
 port with its site.  `gen/scatter_report.txt` lists what was placed where
 and every name inside another variable with the lines that use it, and
 `port/tools/scatter_list.py` makes the two into the list of what
@@ -1769,8 +1866,8 @@ depends on the layout, by kind: docs/LAYOUT.md, the input for removing
 those dependencies.  (`PORT_EA_GUARD` is the translated code's, which no
 default build has: it doesn't apply.)
 
-What it found, us.v10, seeds 1 and 2, each unit, the quick tier's
-scenarios and the TAS: see docs/LAYOUT.md.
+What it found (us.v10, seeds 1 and 2, the quick tier's scenarios and the
+TAS, before the asm data was C): see docs/LAYOUT.md.
 
 ## Resource packs
 
@@ -5063,8 +5160,8 @@ stage 2 of another version.  What differs between versions in the port:
     run caught this: `func_80259EC4` took the other path.)
   - **Their `.rodata`.**  A `GLOBAL_ASM` function's `.s` carries its
     strings, floats and jump tables (asm-processor puts them in the C
-    file's object); `asm2x86.py --global-asm` turns each label into a data
-    section, placed at its N64 address like the rest, with a jump table's
+    file's object); `asm2c.py --global-asm` turns each label into a C
+    variable, placed at its N64 address like the rest, with a jump table's
     labels as their addresses.
   - libultra calls from them (the `gu` matrix functions with float
     arguments, `osCreateThread`, `sprintf`, `alCSPGetTempo`...) have
@@ -5108,7 +5205,7 @@ word slot (`lbu 0x5B($sp)` for a `u8` the glue stored as a word), so a
 byte or half access through `$sp` to a word it or its caller stores whole
 is XORed as a site (`x3`/`x2`, translate.py); and the menus' `u16` text
 (`hd_code/BC8E0`, `D_803010A0` on, which only jp shows) is converted as
-halves (`asm2x86.py`, `HALF_FILES`).  Two more reads of the IDO code and
+halves (`asm2c.py`, `HALF_FILES`; `u16` arrays in the inventory now).  Two more reads of the IDO code and
 of Rare's jp-only code are sites of jp's own (`native_sites.txt` lines
 with a third field, `jp`: a version's asm at its own offsets):
 `func_8026BCE0` takes the fade's low byte as the byte after the `s16`

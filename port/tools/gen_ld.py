@@ -10,13 +10,12 @@ data: a struct read past the end of one variable into the next, fixed
 RDRAM addresses, the heap starting where hd_code's .bss ends.  So the port
 keeps every variable where the N64 has it.  The game's C is built with
 -fdata-sections (one section per variable, `.data.NAME`, `.bss.NAME`), and
-asm2x86.py puts each data file in one section named after its first label
-(`.n64.NAME`, `.n64b.NAME`).  The script puts all of them in one output
-section, `.rdram`, at 0x80000000, each at its symbol's address in the N64
-link; the section is the 4 MB of RDRAM, so it also replaces a separate
-arena.  Sections of variables with no N64 symbol (literals, statics the
-N64 build doesn't name, the port's own data) go wherever the host linker
-puts them.
+so is the handwritten objects' data, which tools/asm2c.py writes as C.
+The script puts all of them in one output section, `.rdram`, at
+0x80000000, each at its symbol's address in the N64 link; the section is
+the 4 MB of RDRAM, so it also replaces a separate arena.  Sections of
+variables with no N64 symbol (literals, statics the N64 build doesn't
+name, the port's own data) go wherever the host linker puts them.
 """
 
 import os
@@ -77,7 +76,7 @@ def script(out, objects):
     place = []
     for obj in objs:
         for sec, size, align in sections(obj):
-            m = re.match(r"^\.(?:data|bss|rodata|n64|n64b)\.(.+)$", sec)
+            m = re.match(r"^\.(?:data|bss|rodata)\.(.+)$", sec)
             if not m:
                 continue
             name = m.group(1)
@@ -92,15 +91,15 @@ def script(out, objects):
     if LP64:
         # a variable of the C's the host made bigger than the N64's goes
         # wherever the host linker puts it; the translated code finds it
-        # through SYM() all the same (the asm data files are converted
-        # word for word, and don't grow)
+        # through SYM() all the same (the asm data's types keep the N64's
+        # layout, PTR32 pointers, and don't grow)
         # (a symbol's N64 size isn't always the object's: up to the next
         # sized N64 symbol is its room)
         sized = sorted(set(n64[k] for k, v in n64_sizes.items() if v and k in n64)) + [RDRAM_END]
         keep = []
         for p in place:
             room = max(n64_sizes.get(p[3], 0), next(a for a in sized if a > p[0]) - p[0])
-            grew = not p[2].startswith((".n64.", ".n64b.")) and (p[4] > room or p[0] % max(p[5], 1))
+            grew = p[4] > room or p[0] % max(p[5], 1)
             (moved if grew else keep).append(p + (room,))
         place = keep
     with open(moved_path(out), "w") as f:

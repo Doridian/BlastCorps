@@ -33,7 +33,7 @@
 /* writer kinds (low nibble: the width; 0 for DMA).  In the native-endian
    build also: what a loader converted (host/native.c, at its width: 1 for
    what it left as bytes) and the image's own initialized data, typed by
-   asm2x86.py (port_widths) and BEPass (port_cwidths). */
+   BEPass (port_cwidths; the asm data is C too, tools/asm2c.py). */
 enum { K_C = 0x10, K_ASM = 0x20, K_DMA = 0x40, K_HOST = 0x80, K_CONV = 0xC0, K_IMG = 0xA0 };
 
 static uint8_t *wkind;
