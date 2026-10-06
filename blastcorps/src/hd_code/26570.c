@@ -47,12 +47,21 @@ char D_8036B9E8[0x20];
 char D_8036BA08[0x20];
 char D_8036BA28[0x20];
 u8 D_8036BA48[0x50];
+#ifdef TARGET_PC
+/* The icons' frames (D_8036BA98, by YoshiIcon index: up to 75) run over the
+   hints' flags after them (D_8036BAA2, by hint), as on the N64: one object
+   here, so that no build's compiler takes an index past 0xA for impossible */
+u8 D_8036BA98[0x64];
+#define D_8036BAA2 (D_8036BA98 + 0xA)
+#define D_8036BAE8 (D_8036BA98 + 0x50)
+#else
 u8 D_8036BA98[0xa];
 u8 D_8036BAA2[3];
 u8 D_8036BAA5[1];
 u8 D_8036BAA6[2];
 u8 D_8036BAA8[0x40];
 u8 D_8036BAE8[0x14];
+#endif
 u32 D_8036BAFC;
 u32 D_8036BB00;
 u16 D_8036BB04;
@@ -3064,7 +3073,9 @@ u16 func_8026B10C(void) {
     return D_8036BB14;
 }
 
+#ifndef TARGET_PC
 extern u8 D_8036BAE8[];
+#endif
 extern s16 D_8036BB0C;
 extern s8 D_8036BB0E;
 extern u16 D_8036BB16;

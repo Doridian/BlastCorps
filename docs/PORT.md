@@ -416,6 +416,21 @@ waits was built without them, `BEPASS_NOPOLL`).  Without the polls the
 clock moves only from event to event ("Timing"), and a replacement's loops
 needn't have the original's shape.
 
+The polls also hid undefined behaviour: being opaque calls, they kept
+clang from concluding that a loop storing past an array's declared end
+can't happen.  Without them it removed `func_801E8DCC`'s loop over the
+name being entered (`D_802158A8`, declared `[1]` by bss_c.py's split at
+splat's labels) in the 32-bit builds and kept it in the 64-bit ones, so
+the variants' attract modes parted (us.v11's and jp's `attract.long`,
+retrace 4750).  An `-fsanitize=array-bounds` build (`CMAKE_C_FLAGS`, with
+`-fsanitize-minimal-runtime -fsanitize-recover=array-bounds`) over the
+quick tier and the TAS lists every index past a declared end; every store
+past a global array's end it found is now in bounds (the arrays have
+their real size, or, where the N64's layout makes two named arrays one,
+one array under `TARGET_PC`).  What it still lists, reads past a data
+table's end and indices past a member array inside its struct, no
+optimisation acts on.
+
 ## The 64-bit build
 
 `-DPORT_64BIT=ON` makes the port an ordinary 64-bit program (x86-64; the

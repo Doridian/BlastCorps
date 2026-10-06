@@ -99,10 +99,9 @@ char D_80215520[5][0x19];
 u8 D_802155A0[0x300];
 u16 *D_802158A0;
 u8 D_802158A4[4];
-u16 D_802158A8[1];
-u8 D_802158AA[2];
-u8 D_802158AC[4];
-u8 D_802158B0[0x50];
+/* the name being entered, NAME_CHARS and its end mark (func_801E8DCC), and
+   0x20 bytes after it that nothing names (splat made D_802158AA..B0 of it) */
+u16 D_802158A8[0x2C];
 u8 D_80215900[2];
 u8 D_80215902[3];
 s32 D_80215908[2];

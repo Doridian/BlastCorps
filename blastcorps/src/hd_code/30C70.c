@@ -20,8 +20,7 @@ s32 D_8036C798;
 UnkStruct_8036C7A0 *D_8036C7A0[10];
 s32 D_8036C7C8;
 u8 D_8036C7CC;
-Vtx D_8036C7D0[1][4];
-u8 D_8036C810[0x40];
+Vtx D_8036C7D0[2][4];                  /* (one a frame buffer; splat made D_8036C810 of 1) */
 Mtx D_8036C850[2];
 
 /* .data, 0x802FA940-0x802FAD50 (tools/data_c.py) */
