@@ -28,10 +28,6 @@ extern u16 D_802E8C8C[];
 extern u16 D_802E8C90[];
 extern u16 D_802E8C94[];
 
-u8 *func_8025B0B8(u16);
-s32 func_8025B498(s16, u16, char *, u16 *);
-void func_8029A7E4(char *, ...);
-
 /* a string's glyphs as quads at (arg5, arg6), arg7 by arg8, into the
    frame's vertices (D_80365348) and sort records (D_80365340): arg9 set
    left to right from its start, else right to left from its end; arg4 set,

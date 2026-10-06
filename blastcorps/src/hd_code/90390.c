@@ -1,4 +1,5 @@
 #include "common.h"
+#include "functions.h"
 
 /* (the port's compiler does 64-bit arithmetic itself) */
 #ifndef TARGET_PC

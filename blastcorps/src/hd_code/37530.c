@@ -3,6 +3,7 @@
 #include "game/frame.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x0 */ s16 unk0;
@@ -42,7 +43,6 @@ typedef struct {
 
 void func_8027D350(s16 x0, s16 y0, s16 z0, s16 x1, s16 y1, s16 z1, Vtx *vtx, s32 i);
 void func_8027D5AC(void);
-s32 func_802AC4C4(s32, s32, s32, s32, s32, s32, s32, s32);
 
 extern FrameGame D_02000000;
 

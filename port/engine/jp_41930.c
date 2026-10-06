@@ -23,12 +23,6 @@ extern u8 D_802FDA60[0x10];
 extern char D_8036EBA0[0x60];
 extern u16 D_80301260[];
 
-void func_801ECC8C(void);
-void func_80200714(u8);
-void func_80255DC8(void);
-void func_8026AF6C(s32);
-u16 *func_8025B5D4(u16 *, u16 *, u16 *, s32);
-
 /* a level's start: the music and, for the kind of level it is, its
    message (a race's level not yet done: "IN <level>.", in the u16 text
    too at D_8036EBA0 + 0x20) */

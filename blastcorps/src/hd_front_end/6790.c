@@ -4,11 +4,9 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* Per-frame buffer, double-buffered by D_8035805C. */
-void func_801F4E70(s32);
-Gfx *func_801F4FBC(FrameBuf *, Gfx *);
-void func_80259CCC(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
 
 /* The video refresh rate, and a number of NTSC frames as many of the version's. */
 #ifdef VERSION_EU
@@ -45,10 +43,6 @@ u8 D_8021597F[1];
 u8 D_80215980[0x18];
 u8 D_80215998[0x18];
 s16 D_802159B0;
-
-void func_80259DC8(FrameBuf *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32,
-                   s32, s32, s32);
-s32 func_8025B300(u8 *);
 
 #ifdef VERSION_EU
 extern u8 D_802082B8[][0x1F];

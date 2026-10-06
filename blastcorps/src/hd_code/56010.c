@@ -1,4 +1,5 @@
 #include "common.h"
+#include "functions.h"
 
 void func_8029A7D0(char *arg0, ...) {
 }

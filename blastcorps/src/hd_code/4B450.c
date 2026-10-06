@@ -9,6 +9,7 @@
 #include "game/level.h"
 #include "game/player.h"
 #include "game/objects.h"
+#include "functions.h"
 
 extern s32 D_802E8BE8;
 extern OSMesgQueue D_80370BF8;
@@ -25,33 +26,8 @@ extern s16 D_803A7412;
 extern s32 D_803F9320;
 extern s32 D_803F9324;
 
-void func_80260650(SndBank *, s32, SndState *PTR32 *);
-void func_802608C8(SndState *);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-s32 func_802A0CC8(s32, s32);
-void func_802AACD4(u8, s32, s32, s16 *, s16 *);
-void func_802AAE1C(u8, s16, s16, s32 *, s32 *);
-void func_802CDA10(s32, s32, s32);
-s32 func_802CDB70(s16, s16);
-void func_802CE4F0(s32, s32, s32);
-s32 func_802CE6F8(s32, s32, s32);
 void osContGetReadData(OSContPad *);
-void func_8028DA5C(Vtx *, u8);
-void func_8026AD30(s32);
-s32 func_8029B930(void);
-s16 func_802A6F6C(void);
-void func_802CDAE8(s16, s16);
-u8 func_802CDF94(s16);
-s16 func_802CE3B8(s16);
-void func_802CE5BC(s32, s32, s32, s16, s32, s32);
-void func_802CE65C(s32, s32, s16, s16);
-void func_802CE880(s32, s32, s32, s32, s32);
-void func_802CE90C(s32);
-s32 func_802CE958(s32);
 f32 sqrtf(f32);
-void func_8028DD64();
-TntCrate *func_8028DE94(void);
-u8 func_8028FCD4(OSMesgQueue *, u8 *);
 
 
 /* .data, 0x802FDBD0-0x802FDBE0 (tools/data_c.py) */

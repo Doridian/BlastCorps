@@ -5,6 +5,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* Indexed by D_802E8BDC. */
 typedef struct {
@@ -15,23 +16,6 @@ extern UnkStruct_8039C4B8 D_8039C4B8[];
 extern s32 D_80358064;
 extern char D_8036B9A8[][0x20];
 extern OSMesgQueue D_80219F50;
-
-void func_80255DC8(void);
-void func_80256A34(UnkStruct_8039C4B8 *);
-void func_80260650(SndBank *, s32, s32);
-void func_80264A34(char *, s32, s32);
-void func_80264C20(UnkStruct_8039C4B8 *);
-void func_8026AD30(s32);
-void func_8026AF6C(s32);
-s32 func_8026B10C(void);
-void func_80275270(u64, f32);
-void func_8029A7E4(char *, ...);
-void func_802C1DD0(s32);
-void func_802C4BF0(UnkStruct_8039C4B8 *);
-u32 func_802C4E58(UnkStruct_8039C4B8 *, u8);
-void func_802CF5B0(void);
-void func_80285A78(u8 *, u8 *);
-u16 func_8028604C(u32);
 
 /* .bss, 0x8036EA60-0x8036EBA0 (tools/bss_c.py) */
 LevelStats D_8036EA60;

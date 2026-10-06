@@ -9,9 +9,6 @@
 
 extern s16 D_80364A72;
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80278EB0(s32 a, f32 b, s32 c);
-
 /* unless the level is over (D_80364A98 0x40): sound 0x55; then the speed
    is D_80364A72 * 1.5, and func_80278EB0(6, 0.25, 100) */
 REGS(gp)

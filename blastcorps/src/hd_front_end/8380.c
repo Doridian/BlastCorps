@@ -11,22 +11,9 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* Per-frame buffer, double-buffered by D_8035805C. */
-void func_801E8DCC(u8);
-u8 func_801EEDB4(u8, u8, u8);
-u8 func_801EF2BC(u16, u8, u8);
-Gfx *func_801F4FBC(FrameBuf *, Gfx *);
-void func_80260650(SndBank *, s32, s32);
-void func_80264A34(char *, u16, s32);
-u8 func_80272C5C(u16 *, u16 *, u8, u8, u8, f32);
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
-u32 func_802852EC(void);
-s32 func_80286038(u16);
-void func_8028A3E4(void);
-void func_8028A470(void);
-void func_80295A20(s32);
-void func_8029A7E4(char *, ...);
 
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
@@ -59,8 +46,6 @@ extern u8 D_0048F5A0[];
 extern u8 D_0048F970[];
 extern u8 D_0048F970_2[]; /* same address as D_0048F970: see undefined_syms */
 extern u8 D_0048FA70[];
-void func_801F4E70(s32);
-void func_8028B4C4(u8 *romStart, u8 *dst, u32 *size, u8, u8, u8);
 
 #ifdef VERSION_EU
 extern s32 D_802FA250;

@@ -9,6 +9,7 @@
  * answers (port/host/replay.c); otherwise they are the real ones.
  */
 #include "common.h"
+#include "functions.h"
 #include "port.h"
 #include <PR/libaudio.h>
 

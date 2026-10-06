@@ -1,10 +1,9 @@
 #include "common.h"
 #include "game/game.h"
+#include "functions.h"
 
 extern u8 D_0048FA70[];
 extern u8 D_0048FE90[];
-
-void func_8028B4C4(u8 *, u8 *, s32 *, s32, s32, s32);
 
 /* .bss, 0x803A6B10-0x803A6B20 (tools/bss_c.py) */
 u8 *D_803A6B10;

@@ -1806,7 +1806,6 @@ s32 func_802AB9A4(s32 id, s32 x, s32 z, s32 x2, s32 z2, s16 *pts, u16 *angle) {
 #include "game/audio.h"
 
 extern u8 D_803ED40B;                   /* the vehicle's wheels make a sound landing */
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 
 /* how far a wheel has fallen after `t` frames from rising at `rise`:
    rise * t + gravity * t * t */
@@ -1871,7 +1870,6 @@ s32 func_802A95A4(s32 i, s32 *h, s32 *state, s32 *ground, s32 x, s32 z, s32 *hei
 
 extern u8 D_803ED3F8;                   /* frames since the turning sound */
 extern f32 D_803ED3FC, D_8030D890;      /* its pitch, and the speed's part in it */
-void func_80260AB8(SndState *state, s16 type, s32 param);
 
 /* a 12-bit angle a step toward a target, the short way round, not past
    it */
@@ -2008,7 +2006,6 @@ s32 func_802A71DC(s32 h, s32 h2, f32 rate, VS *vs, s32 *rate_out) {
 extern s16 D_803BE730, D_803BE732, D_803BE734, D_803BE736; /* the level's bounds (game/level.h) */
 extern u8 *PTR32 D_803BE6F8;            /* the start points: 9-byte records, a key, then (x, y, z) as s16 pairs of bytes */
 extern u8 D_80364412;
-void func_80277EDC(s32 a, s32 b, s32 c, s32 d);
 
 /* a start point's coordinate: a big-endian s16 at p, << 5 */
 #define START_COORD(p) ((s32)(((u32)((s8)(p)[0] << 8) | (p)[1]) << 5))
@@ -2077,7 +2074,6 @@ static void abbec(s32 id, u8 *p, u8 *end, u8 *base) {
 
 extern s16 D_803ED406;                  /* the heading, for the shadow */
 extern u8 D_803ED40E, D_803ED40F;
-void func_802582C4(u8 type, s32 x, s32 y, s32 z, s32 h, s32 along, s32 across, s32 heading);
 
 /* The wheeled vehicle (type, at (x, z), vs) one frame on: back in the
    level's bounds (func_802A8CCC); its spans (along, across) and heading

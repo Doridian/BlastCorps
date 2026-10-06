@@ -47,14 +47,6 @@ extern u16 *D_802158A0;
 extern u8 D_8021592E;
 extern u16 D_80215930[6];
 
-void func_801E93DC(u8);
-s32 func_8025B300(u8 *);
-s32 func_8025B370(u16 *);
-u16 *func_8025B5D4(u16 *, u16 *, u16 *, s32);
-u16 *func_8025B7AC(u8 *);
-void func_8025B918(u16 *, u16 *);
-void func_8029A7E4(char *, ...);
-
 /* the players' menu's scroller for player arg0 (4: none): its name, the
    medals, its money and rank; arg1 or no player, the faster scroll */
 void func_801E8EB8(u8 arg0, u8 arg1) {
@@ -235,14 +227,6 @@ extern u8 D_80215902[];
 extern s16 D_80215910[];
 extern u8 D_80215914;
 extern u8 D_80364B81[][0x100];
-
-Gfx *func_801EC49C(Gfx *, s32, s32, u8);
-void func_80259CCC(s32, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_80259DC8(s32, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_80264A34(char *, u16, s32);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
 
 /* the medal screen's cups (two players: the two of them) and, for one, the
    time to beat for the next medal, with its shadow */

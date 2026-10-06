@@ -1,12 +1,12 @@
 #include "common.h"
 #include "game/game.h"
+#include "functions.h"
 
 extern u8 D_006A8DA0[];
 extern u8 D_006A9F10[];
 extern s8 D_80370C32;
 extern s8 D_80370C33;
 
-void func_8028B4C4(u8 *, u8 *, s32 *, s32, s32, s32);
 Gfx *func_8029700C(Gfx *gfx, s16 arg1, s16 arg2);
 
 /* .bss, 0x8039CA90-0x8039CAB0 (tools/bss_c.py) */

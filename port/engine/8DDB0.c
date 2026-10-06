@@ -38,18 +38,11 @@ extern u8 D_8036B964;
 extern s32 D_802E8BE8;
 extern u8 D_802C28E4[], D_802C3804[];           /* effect records (60F60) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80260AB8(SndState *state, s16 type, s32 param);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_80268F54(void);
-void func_80269258(void);
-
 void func_802D2A40(void);
 void func_802D2A74(void);
 void func_802D2C20(void);
 REGS(gp)
 void func_802D2FA4(VS *vs);
-void func_802D291C(void);
 
 /* set up: the model's buffers, its Vehicle record, its parts, the rotor's
    sound, and a first frame */

@@ -1,9 +1,7 @@
 #include "common.h"
 #include "game/level.h"
 #include "game/player.h"
-
-void func_801F8354(u8);
-void func_8029A7E4(char *, ...);
+#include "functions.h"
 
 extern OSMesgQueue D_80219EF8;
 extern OSMesgQueue D_80219F50;

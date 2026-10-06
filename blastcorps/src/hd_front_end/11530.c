@@ -5,61 +5,21 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 #define SQ(x) ((x) * (x))
 
-void func_801ECB18(void);
-Gfx *func_801F1568(void);
-Gfx *func_801F2000(void);
-Gfx *func_801F2428(void);
-Gfx *func_801F2E20(void);
-Gfx *func_801F3450(Gfx *, u8 *);
 void func_801F885C(s32);
 Gfx *func_801F9258(Gfx *, u8 *, s32 *);
 Gfx *func_801F9820(Gfx *, u8 *, s32 *);
 Gfx *func_801F9B84(Gfx *, u8 *, s32 *);
 Gfx *func_801FA180(Gfx *, u8 *, f32, s8 *);
-Gfx *func_801FA74C(); /* K&R: callers pass the u8 arguments unconverted */
+Gfx *func_801FA74C(u8 *, Gfx *, u8, u8, s8 *, f32 *, u8, u8, u8, u8, u8, u8, u8);
 Gfx *func_801FC5B8(u8 *, Gfx *, u8, u8);
 void func_801FCF38(Vtx *, f32, f32, f32, u8, u8, f32, u8);
-void func_801FD484(f32 *, f32 *, f32 *, f32 *, f32 *, f32);
 f32 func_801FD6B8(f32, f32, f32);
 void func_801FD748(void);
-void func_801FDCA4(Vtx *, s32, s32);
-void func_801FDE50(void);
 void func_801FDE98(void);
-Gfx *func_801FE5D0(Gfx *, u8 *);
-u8 func_801FE760(u8);
-Gfx *func_8024C404(Gfx *, u8 *, s32 *);
-f32 func_802574F0(f32);
-f32 func_80257514(f32);
-void func_80259450(void);
-void func_80259C24(Gfx **, u8 *);
-void func_80259DC8(u8 *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-s32 func_8025B300(char *);
-s32 func_8025B498(s16, u16, char *, u16 *);
-void func_80260650(SndBank *, s32, s32 *);
-void func_802608C8(s32);
-void func_80260A10(void);
-void func_80261FB0(u8);
-u8 func_80264BA4(u8);
-s32 func_8026A828(s32, s32);
-u8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
-Gfx *func_80274BF0(u8 *, Gfx *);
-void func_80275390(u64);
-s32 func_802753C0(void);
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
-void func_8028A3E4(void);
-void func_8028A470(void);
-f32 func_8028BBF4(s16, s16, s16, s16);
-u64 func_80299FE8(s32);
-void func_8029A7E4(char *, ...);
-void func_802A5720(void);
-void func_802A57AC(void);
-s32 func_802AD7D4(s32);
 void guMtxXFMF(float mf[4][4], float x, float y, float z, float *ox, float *oy, float *oz);
 void guRotateF(float mf[4][4], float a, float x, float y, float z);
 u32 osVirtualToPhysical(void *);
@@ -1164,23 +1124,7 @@ Gfx *func_801FA180(Gfx *arg0, u8 *arg1, f32 arg2, s8 *arg3) {
 
 #define ABS(x) (((x) > 0) ? (x) : -(x))
 
-void func_8027690C(u8 *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7, Mtx *arg8, f32 arg9);
-
-Gfx *func_801FA74C(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12)
-    u8 *arg0;
-    Gfx *arg1;
-    u8 arg2;
-    u8 arg3;
-    s8 *arg4;
-    f32 *arg5;
-    u8 arg6;
-    u8 arg7;
-    u8 arg8;
-    u8 arg9;
-    u8 arg10;
-    u8 arg11;
-    u8 arg12;
-{
+Gfx *func_801FA74C(u8 *arg0, Gfx *arg1, u8 arg2, u8 arg3, s8 *arg4, f32 *arg5, u8 arg6, u8 arg7, u8 arg8, u8 arg9, u8 arg10, u8 arg11, u8 arg12) {
     Vtx *sp12C;
     Vtx *sp128;
     Gfx *gfx;

@@ -9,9 +9,6 @@
 
 extern f32 D_802E8C84[2];       /* a glyph's advance: char text's, u16 text's */
 
-s32 func_8025B300(u8 *);
-s32 func_8025B370(u16 *);
-
 /* where a line of text starts for it to be centred on x at scale: the u16
    text (jp's) where there is some, else the char text */
 s32 func_8025B498(s16 x, u16 scale, char *s, u16 *t) {

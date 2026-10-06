@@ -1,17 +1,9 @@
 #include "common.h"
 #include "game/frame.h"
 #include "game/game.h"
+#include "functions.h"
 
 /* Per-frame buffer, double-buffered by D_8035805C. */
-void func_80259450(void);
-void func_8025B2B8(void);
-void func_80260A10(void);
-void func_8026AF6C(s32);
-Gfx *func_8026BBD0(Gfx *, FrameBuf *, s32 *);
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
-void func_80285110(s32);
-void func_802A5720(void);
-void func_802A57AC(void);
 
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];

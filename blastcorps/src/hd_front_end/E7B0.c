@@ -5,18 +5,10 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* YoshiWindow entries, sorted with func_801F7FF4. */
-void func_8029A7E4(char *, ...);
-u8 func_8028FCD4(OSMesgQueue *, u8 *);
-u8 func_8028A370(void);
-s32 func_8025B300(u8 *);
 u8 __osContDataCrc(u8 *);
-void func_801F58E8();
-void func_801F74B0(u8 *);
-void func_801EE390(void);
-void func_801EE398(s32);
-void func_8028A42C(void);
 s32 func_801F5FE4(void);
 s32 func_801F60C8(void);
 s32 func_801F6160(u8);
@@ -39,13 +31,6 @@ extern u32 D_8021A828;
 extern u8 D_8021A7E8[];
 
 
-Gfx *func_80272ED8(Gfx *, s32, s32, s32, s32, s32, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
-void func_80260650(SndBank *, s32, s32);
-void func_801E8EB8(u8, s32);
-s32 func_801F81B4(u8);
-void func_801F8228(void);
 
 extern char D_8020FF34[];
 extern char D_8020FF60[];
@@ -62,25 +47,12 @@ s32 func_801F7120_eu(u8);
 #else
 extern u16 D_80301080[];
 #endif
-void func_801F7410(u8 *);
-void func_801F8354(u8);
-s32 func_801F7F74();
-s32 func_801F7FF4(YoshiEntry *, YoshiEntry *);
-s32 func_801EF2BC(u16, s32, u8);
-void func_801FDE50(void);
-void func_802595E0(void *, s32, s32, void *);
-void func_80264A34(char *, u16, s32);
 
 extern char D_80219FD0[][0x20];
 extern char D_8020D800[][4];
 extern char D_8020FF20[];
 extern char D_8020FF2C[];
 
-s32 func_801F75A4(u8 *, s32);
-s32 func_801F76E4(u8 *, s32);
-s32 func_801F6BD0(u8, u64 *);
-void func_802042D0(OSMesgQueue *, s32, void *, s32);
-void func_80204410(OSMesgQueue *, s32, void *, s32);
 
 /* .bss, 0x80218740-0x80219FD0 (tools/bss_c.py) */
 #ifdef VERSION_JP

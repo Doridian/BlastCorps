@@ -2,6 +2,7 @@
 #include "game/frame.h"
 #include "game/game.h"
 #include "game/sched.h"
+#include "functions.h"
 
 /* An RSP task with the bookkeeping sent along with it: 0x60 bytes, two per
  * task slot (double-buffered by D_8035805C). */
@@ -16,8 +17,6 @@ extern OSMesgQueue D_803153D8;
 extern FrameGame D_803156F8[];
 extern u64 D_80367750[];
 extern u64 D_8036AFB0[];
-
-void func_8029A7E4(char *, ...);
 
 /* .bss, 0x8036E660-0x8036EA60 (tools/bss_c.py) */
 u64 *D_8036E660[6];

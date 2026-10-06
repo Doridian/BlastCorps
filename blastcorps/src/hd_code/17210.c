@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/vehicle.h"
 #include "game/game.h"
+#include "functions.h"
 
 /* 5-byte records: a u16 value (big-endian), a repeat count, and two s8s. */
 typedef struct {
@@ -18,12 +19,6 @@ extern s16 D_8036BB1C;
 extern s8 D_80370C32;
 extern s8 D_80370C33;
 
-void func_8029A7E4(char *, ...);
-u8 func_80272C5C(u16 *, s32, s32, s32, s32, f32);
-void func_80275270(u64, f32);
-void func_80275390(u64);
-s32 func_802753C0(void);
-
 /* A recording file: a header, 0x400 input records, then a variable-length tail. */
 typedef struct {
     /* 0x0000 */ u16 unk0;
@@ -38,9 +33,6 @@ typedef struct {
 
 extern u8 D_006A9F10[];
 extern u8 D_006AD3F0[];
-
-void func_8028B4C4(u8 *, u8 *, s32 *, s32, s32, s32);
-void func_80257490(void *, s32);
 
 /* .bss, 0x80365580-0x803669C0 (tools/bss_c.py) */
 u8 D_80365580;
@@ -148,24 +140,6 @@ void func_8025BBE8(u16 arg0, s8 arg1, s8 arg2) {
 }
 
 extern s32 D_803649E8;
-
-void func_802AFC28(u8 *);
-void func_802B0D70(u8 *);
-void func_802AFFD4(void);
-void func_802B2988(u8 *);
-void func_802B1228(void);
-void func_802B40D4(u8 *);
-void func_802B2D7C(void);
-void func_802B58C8(u8 *);
-void func_802B448C(void);
-void func_802B7308(u8 *);
-void func_802B5CD8(void);
-void func_802C80A0(u8 *);
-void func_802C5714(void);
-void func_802CB660(u8 *);
-void func_802C9F54(void);
-void func_802D2524(u8 *);
-void func_802D0C68(void);
 
 void func_8025BD98(void) {
     switch (D_8036698C) {

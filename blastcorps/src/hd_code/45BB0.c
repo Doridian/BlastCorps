@@ -4,17 +4,12 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 
 extern s32 D_80364BE0[][0x40];
 extern s32 D_80358064;
 
-void func_8026AF6C(s32);
-void func_8029A7E4(char *, ...);
-void func_8028A42C(void);
-void func_8025BEF8(void);
-void func_8025BBE8(u16, s8, s8);
-void func_8028B734(s8 *, s8 *, u8);
 void func_8028ADF0(u8, u8, u16 *, s8 *, s8 *);
 void func_8028AFA4(u16, s8 *, s8 *);
 void func_8028B0E8(u16 *, s8, s8);

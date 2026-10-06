@@ -4,6 +4,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ s32 unk0;
@@ -58,13 +59,6 @@ extern u8 D_8036C7CC;
 extern u8 D_803A7430;
 
 f32 func_80268D84(f32, f32, f32, f32, f32, f32, f32);
-s32 func_8026A610(s32, s32, s32, s32);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-s32 func_8026AD30(s32);
-s32 func_802AB3C0(s32);
-s32 func_802753C0(void);
-void func_8029A7E4(char *, ...);
-s32 func_802AC4C4(s32, s32, s32, s32, s32, s32, s32, s32);
 
 typedef struct {
     /* 0x00 */ s32 unk0;
@@ -470,11 +464,6 @@ extern u8 D_8036B960[4];
 extern u8 D_80364A84;
 extern u8 D_8036EB92;
 f32 func_8026A184(f32, f32, f32, f32, f32, f32, f32);
-void func_8026A2E8(f32, f32 *);
-void func_8026AF6C(u16);
-void func_80275270(u64, f32);
-void func_802C1DD0(s32);
-void func_80260DFC(void);
 
 void func_80269258(void) {
     s32 i;

@@ -4,6 +4,7 @@
 #include "game/audio.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* Saved sequence state: a copy of the player's 16 channel states, the
  * sequence position and tempo, and the song number. */
@@ -15,26 +16,9 @@ typedef struct {
 } UnkStruct_80366C30; /* size = 0x1F4 */
 
 
-void func_8028B4C4(s32, u8 *, s32 *, s32, s32, s32);
-void func_8029A7E4(char *, ...);
-void func_80260650(SndBank *, u16, s32);
-void func_80260B40(s32, s32);
-void func_802609F0(void);
-void func_80260A10(void);
-void func_80260A30(s32);
-u8 func_80264BA4(u8);
-void func_802D76C0(ALCSPlayer *);
-void func_802D81B0(ALCSPlayer *, ALCSeq *);
-void func_802D81F0(ALCSPlayer *);
 void alCSPSetTempo(ALCSPlayer *, s32);
-s32 func_802D4E10(ALCSPlayer *);
 
-void func_80260EE0(u8 arg0);
 void func_80260F60(f32 arg0);
-void func_8026101C(void);
-void func_80261570(f32 arg0);
-void func_80261FB0(u8 arg0);
-void func_80261E9C(u64 arg0);
 
 /* .bss, 0x80366C30-0x80367B50 (tools/bss_c.py) */
 UnkStruct_80366C30 D_80366C30[4];
@@ -286,10 +270,6 @@ extern ALHeap D_80367718;
 extern ALBank *D_8036773C;
 extern u8 D_80370C80[];
 
-void func_802676A0(SynConfig *c, OSPri pri);
-void func_80267A74(void);
-void func_8025EDF0(SndConfig *c);
-void func_802D97E0(ALCSPlayer *, ALBank *);
 
 void func_80261588(void) {
     SndConfig sndConfig;

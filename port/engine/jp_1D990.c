@@ -63,22 +63,7 @@ extern u8 D_803643D7;
 extern u16 D_80301040[], D_803047F8[], D_80304814[], D_80304838[], D_80304844[], D_80304860[], D_80304878[],
     D_80304888[], D_8030489C[], D_803048AC[], D_803048B8[], D_803048C0[];
 
-s32 func_8026394C();
-void func_80264A34(char *, u16, s32);
-void func_8026AF6C(s32);
-u16 func_8028604C(u32);
-void func_8029A7E4(char *, ...);
 void alCSPSetTempo(ALCSPlayer *, s32);
-void func_802C1DD0(s32);
-void func_80260650(SndBank *, s32, s32);
-s32 func_8026205C(s32);
-u16 *func_8025B5D4(u16 *, u16 *, u16 *, s32);
-void func_80259CCC(void *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_8025E2CC(Gfx **, void *, s32);
-Gfx *func_80264264(void *, Gfx *);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
 
 /* the level's intro, a second at a time: the goal's text, then the
    countdown's sounds */

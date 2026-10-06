@@ -51,13 +51,6 @@ extern u8 D_802C2314[];                         /* the flame's part record (5604
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 extern u8 D_802C37C0[];                         /* the boost's effect record */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802608C8(SndState *state);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s32 arg6, s32 arg7, s16 arg8, u8 arg9,
-                   u8 arg10, u8 arg11, u8 arg12);
-
-void func_802B327C(void);
 static void skyfall_frame(void);
 REGS()
 void func_802B30B0(void);
@@ -474,7 +467,6 @@ extern u8 D_80305D10[];                         /* Ramdozer's parts' collision (
 extern u8 D_802C2190[], D_802C21A4[];           /* its tracks' part records (56040's list) */
 extern u8 D_802C21B8[];                         /* part 3's */
 
-void func_802B49AC(void);
 static void ramdozer_frame(void);
 REGS()
 void func_802B47D4(void);

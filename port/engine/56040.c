@@ -2570,9 +2570,6 @@ static void d040(ObjTris *data, s32 owner, u8 *base, s32 x, s32 z, s32 y, Anim *
     ENGINE_BLK(8029D110);
 }
 
-void func_8028FAC0(s32 x, s32 y, s32 z, s32 id);
-void func_802920DC(s32 x, s32 y, s32 z, s32 id);
-
 /* With the crane's hook (func_8029C6E4), its point to func_8028FAC0 and
    func_802920DC */
 void func_8029C5EC(void) {
@@ -3696,9 +3693,14 @@ void func_8029E21C(Anim *a, s32 fp) {
     ENGINE_BLK(8029E468);
 }
 
-/* The texture animations (D_803B35F8's running records) one frame on */
-REGS(fp)
-void func_8029E0AC(s32 fp) {
+/* The texture animations (D_803B35F8's running records) one frame on.
+   The original passes its caller's $fp on to the textures' decodes
+   (func_802A1074's param), which the game's C never sets for it: 0, what
+   the movable build's call always gave it (the others passed whatever was
+   left, and played the same). */
+REGS()
+void func_8029E0AC(void) {
+    s32 fp = 0;
     Part *p;
 
     ENGINE_BLK(8029E0AC);

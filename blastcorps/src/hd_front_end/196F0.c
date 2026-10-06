@@ -1,5 +1,6 @@
 #include "common.h"
 #include "game/game.h"
+#include "functions.h"
 
 /*
  * gen_symbols matched these to libultra's osViExtendVStart and its
@@ -10,10 +11,6 @@ extern u8 D_006AD3F0[];
 extern u8 D_006BF2F0[];
 extern u8 D_006D3D30[];
 extern u8 D_006E8980[];
-
-void func_8028B4C4(u8 *romStart, u8 *dst, u32 *size, u8, u8, u8);
-
-void func_80200714(u8);
 
 /* .bss, 0x8021AB80-0x8021AB90 (tools/bss_c.py) */
 u32 __additional_scanline;

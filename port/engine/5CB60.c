@@ -803,7 +803,6 @@ REGS(t6, fp -> s0)
 u32 func_802A0CFC(u32 id, u32 param);
 REGS(s0, s1)
 void func_802A08E4(u32 dl, u32 end);
-s32 func_802CE6F8(s32 x, s32 z, s32 y);
 
 extern u8 *PTR32 D_803BE704, *PTR32 D_803BE708;    /* this level's building groups */
 extern u8 D_802D30D0[], D_802D3194[], D_802D32A0[], D_802D331C[], D_802D33C8[], D_802D3444[],
@@ -1382,7 +1381,6 @@ void func_802A1D54(u32 h_) {
 
 #include "shared.h"
 
-void func_80278BF0(void *, void *, void *);
 
 #define ATTRACT_DEMO 1          /* D_80364AA8 in the attract modes */
 #define ATTRACT_DEMO2 0x80
@@ -1636,7 +1634,6 @@ REGS(t0)
 void func_802CEAA0(u8 *level);
 REGS()
 void func_802A0700(void);
-void func_8029DEA0(void);
 void func_8029DC80(void);
 REGS()
 void func_802A4510(void);
@@ -1646,13 +1643,6 @@ REGS()
 void func_802BC840(void);
 REGS()
 void func_802C049C(void);
-void func_802C4BF0(u8 *buf);
-void func_8028FDA0(s16 *a, s16 *b);
-void func_8026FBB0(void *a, void *b);
-void func_8028D4C0(void *a, void *b);
-void func_8028C190(void *a, void *b);
-s32 func_80268EE8(s32 level);
-void func_80295AE0(Gfx *gfx, Gfx *end);
 void func_802A303C(u32 h_);
 void func_802A30DC(void);
 void func_802A3134(u32 h_);

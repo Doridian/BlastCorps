@@ -6,6 +6,7 @@
 #include "game/game.h"
 #include "game/audio.h"
 #include "game/sched.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ s16 unk0;
@@ -36,15 +37,11 @@ typedef struct {
 } UnkStruct_80267614;
 
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
 void func_80265428(void);
 void func_8026513C(void);
 s32 func_80265A0C(s32 arg0);
 void func_80265B7C(s32 arg0);
 void func_80265E48(void);
-s32 func_8026A610(s32, s32, s32, s32);
-s32 func_8026A8E0(s32, s32);
-void func_8026AD30(s32);
 
 extern s32 osViClock;
 extern u16 D_803C30A8[];
@@ -539,7 +536,6 @@ void func_80265B7C(s32 arg0) {
     }
 }
 
-void func_80260AB8(SndState *state, s16 type, s32 param);
 
 
 void func_80265E48(void) {
@@ -633,7 +629,6 @@ extern FrameGame D_02000000;
 extern f32 D_80364414;
 
 s32 func_80267614(UnkStruct_80267614 *arg0);
-void func_8026A5CC(u64 *dst, u64 *src, s32 size);
 
 void func_80266248(Gfx **gfxp, FrameGame *arg1) {
     Gfx *gfx;

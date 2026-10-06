@@ -40,10 +40,6 @@ extern Part *PTR32 D_803F77D0;
 extern u8 D_80305E00[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2984[];                         /* the sparks' effect record (60F60) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80258230(u8 a, s32 b, s16 c, s16 d);
-
-void func_802BBEB8(void);
 void func_802BBE74(void);
 void func_802BC2C8(void);
 REGS(gp)

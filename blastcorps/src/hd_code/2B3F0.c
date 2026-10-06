@@ -13,6 +13,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* Element type of the arrays D_8036BB10 points at. */
 
@@ -28,20 +29,6 @@ extern u16 D_803C30A8[];
 extern s32 D_803F7684;
 extern u8 D_802F499A[];
 
-void func_8026AF6C(u16 arg0);
-void func_8029A7E4(char *, ...);
-s32 func_80270A54(Rdu *arg0);
-char *func_8025B558(u16 *);
-void func_8026BA7C(YoshiWindow *arg0);
-s32 func_8026F92C(u64);
-u8 func_8026FA38(char **, u16 **);
-void func_8026FB50(YoshiWindow *);
-u16 func_8026F8A8(u16, u16, u16, u16);
-void func_8026A5CC(u64 *dst, u64 *src, s32 size);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-void func_802AC544(s32, s32, s32);
-void func_80260650(SndBank *, u16, s32);
-u8 func_80272C5C(u8 *, s32, s32, s32, s32, f32);
 
 /*
  * YoshiWindow and dialogue text, reached only through the pointer tables in this
@@ -119,7 +106,6 @@ void func_8026FE8C(s32 arg0) {
     D_8036EA70.rt++;
 }
 
-s32 func_8026AD30(s32);
 
 void func_8026FEC4(void) {
     s32 i;

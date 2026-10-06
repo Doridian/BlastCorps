@@ -2,16 +2,11 @@
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/yoshi.h"
-
-s32 func_801E96F8(void);
-void func_80260650(SndBank *, s32, s32 *);
-s32 func_8026A828(s32, s32);
-void func_8026AF6C(s32);
+#include "functions.h"
 
 extern u8 D_802FAD50[];
 
 /* 0x1C-byte menu entries, laid out like YoshiEntry in hd_front_end/E7B0.c. */
-void func_8028B4C4(u8 *romStart, u8 *dst, u32 *size, u8, u8, u8);
 
 extern u8 D_0068B550[];
 extern u8 D_006A32B0[];

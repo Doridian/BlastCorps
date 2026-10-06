@@ -3,13 +3,9 @@
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/objects.h"
+#include "functions.h"
 
 
-void func_80260650(SndBank *, s32, s32 *);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-s32 func_802A0CC8(s32, s32);
-void func_802CE880(s32, s32, s32, s32, s32);
-void func_802CE90C(s32);
 void func_8028C41C(Vtx *, u8, s16, s16, s16);
 
 /* .bss, 0x8039AF00-0x8039B070 (tools/bss_c.py) */

@@ -6,6 +6,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 /* A 0x1C-byte record of D_8020C070. */
 typedef struct {
@@ -15,52 +16,7 @@ typedef struct {
     /* 0x12 */ u8 unk12[0xA];
 } UnkStruct_802F8BDC_1C; /* size = 0x1C */
 
-void func_80260650(SndBank *, s32, s32 *);
-void func_8029A7E4(char *, ...);
-void func_801EA278(void);
-void func_802608C8(s32);
-void func_8026AF6C(s32);
-s32 func_8026F92C(u64);
-void func_80275270(u64, f32);
-void func_80275390(u64);
-void func_801E8EB8(u8, s32);
-void func_801EA108(u8, s32, s32);
-void func_801E8C40(s32);
-void func_801E8DCC(u8);
-s32 func_801F73FC(void);
-void func_802A5720(void);
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
 u32 osVirtualToPhysical(void *);
-void func_80259450(void);
-Gfx *func_80200BE0(Gfx *, FrameBuf *, s32 *);
-Gfx *func_8026BBD0(Gfx *, FrameBuf *, s32 *);
-void func_80262008(u8, f32);
-void func_80260EE0(s32);
-Gfx *func_801E9718(Gfx *, FrameBuf *, s32);
-Gfx *func_8025C878(Gfx *, FrameBuf *, u8, s32 *);
-void func_8028A3E4(void);
-Gfx *func_801ED800(Gfx *, FrameBuf *, u8, s32 *);
-Gfx *func_80201364(FrameBuf *, Gfx *);
-Gfx *func_8024C404(Gfx *, FrameBuf *, s32 *);
-Gfx *func_801EC770(Gfx *, FrameBuf *, s32 *);
-Gfx *func_801F51C8(FrameBuf *, Gfx *);
-void func_8028A470(void);
-void func_802862DC(void);
-void func_80259CCC(FrameBuf *, char *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_80259DC8(FrameBuf *, char *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-void func_801F803C(void);
-Gfx *func_801F8440(FrameBuf *, Gfx *);
-void func_80259C24(Gfx **, FrameBuf *);
-Gfx *func_80274BF0(FrameBuf *, Gfx *);
-Gfx *func_801EAA7C(Gfx *, FrameBuf *, s32 *);
-void func_802A57AC(void);
-s32 func_802753F8(void);
-s32 func_802753C0(void);
-#ifdef TARGET_PC
-void func_80260B40(u8, u16);
-#endif
-void func_80261570(f32);
-void func_802995F0(s32);
 
 extern OSMesgQueue D_80219F50;
 extern u16 D_8036BB16;

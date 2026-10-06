@@ -1,10 +1,9 @@
 #include "common.h"
 #include "gzip.h"
+#include "functions.h"
 
 int method = DEFLATED;
 int exit_code = 0;
-
-void func_80220714(const char *fmt, ...);
 
 #define GZIP_UNZIP          func_80220360
 #define GZIP_PRINTF         func_80220714

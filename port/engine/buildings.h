@@ -342,7 +342,7 @@ REGS(t3, t4, t5, t6, s0 -> t7)
 s32 func_8029BD0C(s32 x, s32 y, s32 z, s32 r, Piece *p);
 /* whether the sphere holds piece p's first corner (56040.c, native) */
 REGS(s0, t3, t4, t5, t6 -> t7)
-s32 func_8029BEE4(u8 *part, s32 x, s32 y, s32 z, s32 r);
+s32 func_8029BEE4(CollisionTri *t, s32 x, s32 y, s32 z, s32 r);
 
 /* Piece p's corners and the point (x, y, z) seen along its axis (0 drops
    z, 1 y, else x): func_8029BF64's arguments, by 56040.c's
@@ -387,7 +387,7 @@ static inline s32 piece_touched(Piece *p, s32 x, s32 y, s32 z, s32 r, const Piec
     if (in)
         return 1;
     BLKT(k->corner0);
-    in = func_8029BEE4((u8 *)p, x, y, z, r);
+    in = func_8029BEE4(p, x, y, z, r);
     BLKT(k->corner);
     return in;
 }

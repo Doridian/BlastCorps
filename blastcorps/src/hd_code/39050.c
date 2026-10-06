@@ -3,16 +3,14 @@
 #include "game/audio.h"
 #include "game/vehicle.h"
 #include "game/game.h"
+#include "functions.h"
 
 extern s32 D_803649E8;
 
 f32 func_8027DB5C(s32 *arg0, s32 *arg1, s32 arg2);
 f32 func_8027DD88(s32 arg0, s32 arg1, s32 *arg2, s32 *arg3);
 s32 func_8027E164(s32 arg0, s32 arg1, s32 *arg2, s32 *arg3);
-f32 func_8027E228();
-s16 *func_802C1EE0(s32);
-void func_802C1F30(s32, s32, s32, s32, s32);
-s32 func_802AC4C4(s32, s32, s32, s32, s32, s32, s32, s32);
+f32 func_8027E228(u8);
 
 typedef struct {
     /* 0x00 */ u8 unk0;
@@ -44,7 +42,6 @@ typedef struct {
 void func_802802D4(Vtx *arg0, s32 arg1, s32 arg2, s32 arg3);
 void func_8028072C(Vtx *arg0, s16 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s16 arg6);
 
-s32 func_802A0CC8(s32, s32);
 
 typedef struct {
     /* 0x00 */ u8 unk0;
@@ -78,8 +75,6 @@ typedef struct {
 } UnkStruct_8036DCE0; /* size = 0xC */
 
 
-s32 func_8026A828(s32, s32);
-void func_802CE65C(s32, s32, s16, s16);
 extern s32 D_803F9320;
 extern s32 D_803F9324;
 
@@ -108,12 +103,6 @@ extern Gfx D_802FFF38[];
 extern Gfx D_80300A68[];
 extern u8 D_803643D6;
 
-void func_8026A5CC(u64 *dst, u64 *src, s32 size);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
-void func_80260650(SndBank *, s32, SndState *PTR32 *);
-void func_802A0B00(u16, s32);
-s32 func_8029DBF0(u8);
-void func_802AC1A0(s32);
 
 void func_8027DA10(s32 arg0, s32 arg1, s32 arg2);
 
@@ -367,11 +356,8 @@ s32 func_8027E164(s32 arg0, s32 arg1, s32 *arg2, s32 *arg3) {
     return 0;
 }
 
-void func_8029A7E4(char *, ...);
 
-f32 func_8027E228(arg0)
-    u8 arg0;
-{
+f32 func_8027E228(u8 arg0) {
     switch (arg0) {
     case 0x0:
         return 0.3f;
@@ -527,11 +513,7 @@ void func_8027E9B8(u8 arg0) {
     }
 }
 
-u8 func_8027EED8(arg0, arg1, arg2)
-    s16 arg0;
-    s16 arg1;
-    s16 *arg2;
-{
+u8 func_8027EED8(s16 arg0, s16 arg1, s16 *arg2) {
     register f32 s;
     f32 step;
     f32 t;

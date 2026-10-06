@@ -2,15 +2,14 @@
 #include "game/camera.h"
 #include "game/vehicle.h"
 #include "game/audio.h"
+#include "functions.h"
 
 #define ABS(x) ((x) > 0 ? (x) : -(x))
 
 extern f32 D_80364414;
 
 f32 sqrtf(f32);
-s32 func_802AD7D4(s32);
 u16 func_8028BA1C(s16 arg0, s16 arg1, s8 *arg2, u8 arg3);
-f32 func_8028BBF4(s16 arg0, s16 arg1, s16 arg2, s16 arg3);
 f32 func_8028BD88(f32 arg0, f32 arg1);
 
 /* .bss, 0x80370C70-0x8039AF00 (tools/bss_c.py) */

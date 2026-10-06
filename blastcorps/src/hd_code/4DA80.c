@@ -3,6 +3,7 @@
 #include "game/level.h"
 #include "game/frame.h"
 #include "game/audio.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ s32 x;
@@ -33,17 +34,8 @@ typedef struct {
     /* 0x5B0 */ u8 unk5B0;
 } UnkStruct_802FE3C0; /* size = 0x5B8 */
 
-extern s32 func_802AD7D4(s32);
 void func_80292DDC(s32 arg0);
-extern void func_802CE4F0(s32, s32, s32);
-extern void func_802CDF94(s16);
-extern void func_802CE5BC(s32, s32, s32, s16, s32, s32);
-extern void func_802CDB70(s16, s16);
-extern s32 func_802CE6F8(s32, s32, s32);
 extern FrameGame D_02000000;
-
-extern void func_802AC61C(s32, s32, s32, u8, s32);
-extern void *func_80260650(SndBank *, s16, void *);
 
 extern s32 D_802E8BE8;
 extern s16 D_803A7410;

@@ -3,13 +3,9 @@
 #include "game/level.h"
 #include "game/player.h"
 #include "game/objects.h"
+#include "functions.h"
 
 extern s32 D_803EBBF8;
-
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
-
-u8 func_8027EED8(s32, s32, s16 *);
-u8 func_802ABEDC(s32, s32, s32);
 
 /* .bss, 0x803650B0-0x80365340 (tools/bss_c.py) */
 Gfx D_803650B0[0x28];

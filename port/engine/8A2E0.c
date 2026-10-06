@@ -32,15 +32,9 @@ extern s16 D_803FBAB0[];                        /* each one's box, 8 Vtx (0x80 b
 extern s32 D_803643E0, D_803643E4, D_803643E8;  /* the player's position */
 extern u8 D_803F3FF8[];                         /* a debris record being made (77E20) */
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_80285AB0(u8 i);
-s32 func_80285B10(u8 i);
-void func_80285B68(s32 i);
-void func_80285CA0(void);
-
 /* 5CB60's: model n, loaded */
 REGS(t3 -> s2)
-u8 *func_802A396C(s32 n);
+u32 func_802A396C(u32 type);
 /* 60F60's */
 REGS()
 void func_802A5E60(void);
@@ -126,7 +120,7 @@ void func_802CEAA0(u8 *level) {
     end = (LevelCommPoint *)(level + *(s32 *)(level + 0x2C));
     if (p != end) {
         ENGINE_BLK(802CEACC);
-        D_803FBBD8 = func_802A396C(0x96);
+        D_803FBBD8 = (u8 *)(__UINTPTR_TYPE__)func_802A396C(0x96);
         ENGINE_BLK(802CEAD4);
         for (c = D_803FBBB0; ENGINE_BLK(802CEAE4), p != end; c++, p++) {
             ENGINE_BLK(802CEAEC);

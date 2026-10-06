@@ -1,4 +1,5 @@
 #include "common.h"
+#include "functions.h"
 
 /* The game's gbi.h predates the MAX(1, ...) guard in TXL2WORDS_4b. */
 #undef TXL2WORDS_4b

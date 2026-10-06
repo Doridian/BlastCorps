@@ -3,6 +3,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
 extern u8 D_802E8BF0;
 /*
@@ -19,16 +20,6 @@ u8 D_803A6B03;
 u8 D_803A6B04;
 
 
-u64 func_801ECA50(u8);
-void func_8025B9D0(s32, s32 *);
-void func_8025BB50(void);
-void func_80260650(SndBank *, s32, s32);
-void func_802609D0(void);
-void func_8026AF6C(s32);
-s32 func_8026F92C(u64);
-void func_80295E50(void);
-void func_8029A500(void);
-void func_8029A7E4(char *, ...);
 
 #define LEVEL_DONE(l) LEVEL_DONE_IN(D_80364AF0[D_80364AE8], l)
 

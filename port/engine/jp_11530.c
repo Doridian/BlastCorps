@@ -22,19 +22,6 @@ extern s16 D_8021AB2C;
 extern PlayerInfo *D_8021AB30;
 extern f32 D_802E8C84[2];
 
-Gfx *func_801F3450(Gfx *, u8 *);
-Gfx *func_801FE5D0(Gfx *, u8 *);
-Gfx *func_8024C404(Gfx *, u8 *, s32 *);
-void func_80259450(void);
-void func_80259C24(Gfx **, u8 *);
-void func_80259DC8(u8 *, char *, u16 *, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32, s32);
-s32 func_8025B300(char *);
-s32 func_8025B370(u16 *);
-s32 func_8025B498(s16, u16, char *, u16 *);
-Gfx *func_80272ED8(Gfx *, u8, s16, s16, u8, u8, f32);
-Gfx *func_80274868(Gfx *);
-Gfx *func_80274AA4(Gfx *);
-
 /* the level screen's display list: the level's name, its medals */
 Gfx *func_801F9258(Gfx *arg0, u8 *arg1, s32 *arg2) {
     Gfx *gfx = arg0;

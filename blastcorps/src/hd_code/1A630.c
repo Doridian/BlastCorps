@@ -3,18 +3,13 @@
 #include "game/audio.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "functions.h"
 
-void func_8029A7E4(char *, ...);
 ALMicroTime func_8025F044(void *node);
 void func_8025F0F0(SndPlayer *sndp, SndEvent *event);
 void func_80260148(ALEventQueue *evtq, SndState *state, u16 eventType);
 SndState *func_80260300(SndBank *bank, ALSound *sound);
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle);
-void func_802609D0(void);
-void func_802609F0(void);
-void func_80260A10(void);
 void func_802604FC(SndState *state);
-void func_802608C8(SndState *state);
 void func_80260934(u8 arg0);
 
 /*
@@ -85,7 +80,6 @@ ALMicroTime func_8025F044(void *node) {
     return sndp->nextDelta;
 }
 
-void func_80260AB8(SndState *state, s16 type, s32 param);
 u16 func_80260210(u16 *arg0, u16 *arg1);
 void func_8026005C(SndState *state);
 void func_802600D8(SndState *state);

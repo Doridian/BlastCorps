@@ -17,6 +17,7 @@
  * (host_loading; docs/PORT.md, "The front end's waits").
  */
 #include "common.h"
+#include "functions.h"
 #include "port.h"
 
 void __real_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, void *heap);

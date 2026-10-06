@@ -80,8 +80,11 @@ All of this is IDO 5.3 at `-O1` unless it says otherwise.
 - An argument that's `lw`'d from its stack slot and truncated at use is `s32`,
   not `s16`. `andi a0,a0,0xff` at entry means a `u8` parameter.
 - A function that reads its own arguments back from their stack slots as
-  bytes, or whose callers pass narrow values unconverted, is probably a K&R
-  (non-prototype) definition. Declare it `s32 func();`.
+  bytes, or whose callers pass narrow values unconverted, looks like a K&R
+  (non-prototype) definition, but a prototype with the narrow types compiles
+  the same: the 13 the decompilation had as K&R all do, in every version.
+  Write it as one, and declare it in `include/functions.h` if another file
+  calls it (below).
 - m2c shows a 64-bit global as two 32-bit ones (`D_X` and `D_X+4`). If the
   code uses `ld`/`sd` or 64-bit compares, it's one `s64`/`u64`. A
   `(x & 0) || ...` shape in m2c is a u64 mask test.

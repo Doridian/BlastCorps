@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/level.h"
 #include "game/game.h"
+#include "functions.h"
 
 typedef struct {
     /* 0x00 */ f32 unk0;
@@ -13,17 +14,12 @@ typedef struct {
 
 
 
-void func_80257490(s32, s32);
-void func_80284E54(Gfx *, s32, s32, s32, s32, s32);
-s32 func_8026A6F0(s32, s32, s32, s32, s32, s32);
 s32 func_802796D8(s32 arg0, s32 *arg1, s32 *arg2);
-s32 func_802ACF3C(s32);
 s32 func_8027AC00(f32 a[3][3], f32 b[3][3], s32 p);
 s32 func_8027B200(f32 a[3][3], f32 b[3][3]);
 s32 func_8027B87C(f32 dst[4][4], f32 src[4][4]);
 void func_8027A7DC(Gfx **gfxp, s32 arg1, s32 arg2);
 s32 func_8027B5D0(f32 m[4][4], f32 *arg1, f32 *arg2, s32 *arg3);
-void func_8029A7E4(char *, char *, char *, s32);
 
 /* .bss, 0x8036CB60-0x8036D3D0 (tools/bss_c.py) */
 UnkStruct_8036CB60 D_8036CB60[11];
