@@ -149,9 +149,10 @@ unidentified.
   constants for vehicle physics, animation, the carrier's route and camera smoothing. Physics at 60 ticks
   therefore means re-deriving those constants in 62740, 56040, the vehicle modules, 77E20 and 5FD50, and
   the TAS no longer syncs in that mode.
-- The game's pace depends on the engine's CPU cost. `RECOMP_COUNT` charges its MIPS instructions, and
-  that decides how many retraces a frame takes. A rewrite needs a cost model, e.g. each function charged
-  its original instruction counts, or the 30 fps pacing and the TAS drift.
+- The game's pace depended on the engine's CPU cost while the port had a CPU model (`RECOMP_COUNT`
+  charged its MIPS instructions, and that decided how many retraces a frame took), so the rewrite
+  charged each function its original instruction counts.  The model is gone since 2026-10-05: the
+  game's work takes no time, and only retraces, timers and the hardware's events move the clock.
 
 **Effort:** 688 functions (220 K of MIPS).  The mechanism is `port/engine` (docs/PORT.md, "Replacing
 the engine"): one function at a time, each charged its original blocks and checked call by call
@@ -270,7 +271,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
     `func_802475D8`, which runs every subsystem once and then bumps `D_80358060/64/68`.
   - The 30 Hz comes from the scheduler's swap (`hd_code/2C560.c`): a frame is held until a retrace has
     gone by since the last swap, so at least 2 VIs a frame (more on the N64 when the CPU was slow; the
-    port's CPU model is off by default since O1, so there it's 2).
+    port's game takes no time since O1, so there it's 2).
     Audio runs on every second retrace and doesn't depend on the frame rate.
   - Nothing scales by elapsed time except `func_8026BCE0` (message scrolling, music cues).  The clock,
     medal times, countdowns, blinks, fades and timeouts count retraces, about 72 reads in 12 C files,
@@ -282,13 +283,13 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   - The camera eases multiplicatively (0.95 a frame, `camera.h`).  Collision is discrete: move, test,
     restore and reflect, so it depends on the step size.
   - The LCG (`func_8026A828`) runs a varying number of times a frame, and `D_803649D8 = osGetTime()`
-    is a per-frame "random" from the clock (shake, debris; the virtual clock in `--deterministic` and the page, spread enough without the CPU model).
+    is a per-frame "random" from the clock (shake, debris; the virtual clock in `--deterministic` and the page, spread enough with neither the CPU model nor the loop polls).
   - About 42 K lines in `port/engine`, about 320 float literals and 380 constant `+=`/`-=` sites.
 - **Designs:**
   - **(a) A fixed higher tick:** `-DPORT_TICK=N`, N steps per original frame.  Per-frame constants
     divided by N (with remainder accumulators or wider fixed point, since 3/2 isn't an integer),
     frame timers times N, damping `k^(1/N)`, animation steps 1/N, `port_counter()` and the VI rate
-    scaled, the CPU model scaled or off for N>1.  N=1 stays the current code, exact.
+    scaled.  N=1 stays the current code, exact.
   - **(b) A true variable dt:** all of (a) plus float or wider state, which breaks the layouts the C,
     the ROM's data and the saves share; replays must log dt; the fixed-30 mode becomes a second engine.
   - **(c) The 30 Hz simulation, rendered smoother:** already there (`--interpolate`, `--display-hz`).
@@ -319,7 +320,7 @@ simulation frames at any refresh rate, with a fixed-30 mode for the TAS.
   | Phase | Work | Check | Agent-hours |
   |---|---|---|---|
   | O0 | The gameplay digest: per level, at each TAS checkpoint, what a player sees (vehicles' and the carrier's positions and damage, what is destroyed, clock, score, medal); `test.py` compares digests where it compared hashes | runs on main as is | 2–4; **done** (2026-10-02, about 3): `PORT_DIGEST`, `digest_cmp.py`, `test.py --gameplay` (docs/PORT.md, "The gameplay digest") |
-  | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5; **done** (2026-10-02, about 3): the model is off by default (`--cpu-model n64` brings the N64's lag back), no level frame lags; the TAS with the port's own frame timing (`PORT_REPLAY_TIMING=free`, `test.py tas`'s default) matches every read, 57 platinum, the reference's gameplay digest and save; the levels' clock runs 5% less in all (up to 12% in the busiest), the whole run 9.6% shorter (docs/PORT.md, "Lag frames"); then the front end's hardware waits (the controllers' power-on, the EEPROM's writes, the pak thread's retrace a command, the loads' decompression time) left out, `--load-waits n64` keeps them (about 1.5 agent-hours; docs/PORT.md, "The front end's waits") |
+  | O1 | The CPU model: measure whether the TAS syncs without it (lag frames, "retraces given anyway"), then keep a coarse per-frame model or drop it; the clock's frame counts decide medal times, so this one is a decision with numbers | the TAS | 2–5; **done** (2026-10-02, about 3): the model is off by default (`--cpu-model n64` brought the N64's lag back until the model was removed on 2026-10-05, with the instruction counting and BEPass's loop polls: docs/PORT.md, "Timing"), no level frame lags; the TAS with the port's own frame timing (`PORT_REPLAY_TIMING=free`, `test.py tas`'s default) matches every read, 57 platinum, the reference's gameplay digest and save; the levels' clock runs 5% less in all (up to 12% in the busiest), the whole run 9.6% shorter (docs/PORT.md, "Lag frames"); then the front end's hardware waits (the controllers' power-on, the EEPROM's writes, the pak thread's retrace a command, the loads' decompression time) left out, `--load-waits n64` keeps them (about 1.5 agent-hours; docs/PORT.md, "The front end's waits") |
   | O2 | Strip the scaffolding: `ENGINE_BLK`, `ENGINE_LEAVE*`, register reads, the dead frames and the shadows that read them (each a real dependency to replace with a variable) | the TAS, the digest, the quick tier re-recorded | 5–10; **done** (2026-10-02, about 8 over two agents, `ENGINE_BLK` kept for `--cpu-model n64`): below |
   | O3 | Make the engine readable: struct fields for offsets, named per-frame constants, loops and calls in place of the asm's shape, by module over 4 agents | the TAS per module | 15–30; **done** (2026-10-03, three agents: core and collision, vehicles, buildings and the world): structs for the records, named per-frame constants (tabled in docs/PORT.md, "The engine made readable"), loops and calls in place of the asm's gotos (vehicles 14.7k → 8.6k lines, 444 → 5 gotos); `--cpu-model n64` charges kept block for block except the vehicles' (one average charge a function, the TAS's total within 0.13%); the TAS, the variants and jp's quick tier unchanged; then the buildings' vehicle modules on `vehicle.h`, and the last garbage reads given defined values (the driver's shadow tilt fixed at the value the original reads in 762 of the TAS's 802 frames; the rest unread or 0, docs/PORT.md, "Garbage made values"): nothing in port/engine reads the thread's context or the dead N64 stack, every `ENGINE_LEAVE`/`engine_save` gone; the gameplay digest unchanged |
   | O4 | Measured hot spots (`PORT_PERF`, `web_perf.mjs`): collision, the display-list building, texture decoding, whatever the profile says | the TAS, frame times | 4–10; **outside the engine done** (2026-10-02, about 3): Binaryen's one-caller inlining limited (the game's C 2-3 times faster in the page under Asyncify), the renderer's TMEM loads, texture lookups and per-triangle state cut (the in-between pass 54% less natively, a third in the page); the page's work at 4x on the GPU 6.5 → 3.8 ms a retrace with O1; pictures byte for byte; the engine's hot spots listed for the engine round (docs/PORT.md, "The second round"); then (about 2) the in-between pass replays the first pass's record instead of the display list (`gfx2` 0.11 → 0.065 ms natively, 0.88 → 0.45 in the page at 4x), and the renderer out of Asyncify's instrumentation; `tri` in the page turned out about native speed (the "3-4x" was the 4x throttle); pictures byte for byte ("The third round"); then (about 2) the vertex transform in four-lane vectors (`PORT_SIMD`, SIMD128 in the page: Chrome 91, Firefox 89, Safari 16.4), bit for bit the scalar code's, 1.4x the loop but only about 0.02 ms a retrace at 4x (the vertices were small); the draw calls measured (about 300 a pass, 71% differing only in their textures: an atlas would save 3-6% of the page's work, not done) ("The fourth round"); then (about 3) a late retrace's picture held a retrace (`PORT_QUEUE`, on in the page only while retraces come late: at 12-16x CPU throttling the pictures held 3 frames 28 → 1 and 539 → 24 of 2,000-3,400), and the first pass's divisions once a vertex and its RDP cover skipped (the page's renderer at 4x 2.0 → 1.8 ms, `tri` 0.43 → 0.25; natively 3.3% fewer instructions) ("The fifth round") |
@@ -408,9 +409,9 @@ is `ll.c` (`#ifndef TARGET_PC` in 90390.c, whose other half is libaudio's).
   the perspective's degrees in double, the rotation's in float, guMtxCatF's sums from 0), and writes
   game memory at the original's widths (the fixed-point matrix a word at a time, as the native-endian
   builds need).
-- It also runs exactly as many loop back edges: BEPass puts a poll on each, and every 64 polls take 2
-  µs of virtual time, so a loop the original didn't have moved the quick tier's hashes (the look-at
-  functions are straight-line for that reason).
+- It also ran exactly as many loop back edges while BEPass put a poll on each (until 2026-10-05):
+  every 64 polls took 2 µs of virtual time, so a loop the original didn't have moved the quick tier's
+  hashes (the look-at functions are straight-line for that reason).
 - `port/tools/sdk_check/sdk_check.py` checks it against the originals, which only it builds (from
   `src/libultra`, and `orig_rotate.c` for guRotate(F)), for i386 and for LP64's `long`: sinf and fcos
   over all 2^32 floats, sins and coss over all 65,536 angles, every function on 1,000,000 random
@@ -469,9 +470,8 @@ player (MIDI state, voice mapping, tempo, markers, loops).
   allocation doesn't reach level logic (not verified).
 - The references would be recorded again.
 
-**Timing.** libaudio is N64-side C, so ICount charges the replacement's own instructions. That leaves
-the quick tier alone (the CPU model off) and moves only the TAS's "retraces given anyway" with
-`--cpu-model n64`, which the suite doesn't check.
+**Timing.** libaudio's work takes no time, as the rest of the game's C's (the CPU model that charged
+its instructions is gone since 2026-10-05).
 
 **Third-party code checked** (2026-09-30):
 - Nothing libaudio-compatible and open exists.

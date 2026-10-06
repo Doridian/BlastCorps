@@ -365,23 +365,26 @@ exactly, and adapts the host to that, rather than the other way round:
   the first and keeps the second.  Native-endian memory is the harder
   half and needs the data typed (see "Native-endian memory").
 
-BEPass also puts a call to `__port_poll()` on every loop back edge.  The
-game busy-waits on counters that another thread or an interrupt advances
-(`while (D_803156C4 - sp60 < 15) {}` waits for retraces); the port runs its
-threads one at a time, and the poll is where it lets a due event in.  As an
-opaque call it also stops clang from hoisting the load out of the loop, as
-IDO never would.
+The game's loops are plain loops.  It busy-waits in four places on what
+another thread or an interrupt changes: `func_80244930`'s two waits for 15
+retraces (`while (D_80315440.frameCount - sp60 < 15) {}`, 00000.c), the
+wait for the SI after `osContStartQuery` (4B450.c) and the pak thread's on
+the scheduler's reset flag (E7B0.c).  The port runs its threads one at a
+time, so each of those loops' bodies calls `port_spin_wait()` under
+`TARGET_PC`: the thread waits for the next interrupt the loop delivers,
+holding the CPU against lower priorities as the spin did (equal and higher
+ones run), and then tests again (`port/host/threads.c`).  Being a call, it
+also makes the loop read its variable again, as IDO's code does.  A
+busy-wait without it would spin forever with nothing else running; one
+found later in the game's C needs the same.
 
-Every 64th poll also moves `--deterministic`'s clock on by 2 µs (with
-the CPU model off, the default and the quick tier's, it is the only thing that does
-while the game computes), so the number of loop iterations the N64 side
-runs is part of the game's timing: one poll more per audio frame changes
-the attract mode's sound.  Code that never waits on another thread is
-built without the polls (`BEPASS_NOPOLL=1`; the `nopoll_c` objects in
-`port/CMakeLists.txt`, libaudio's for now), so that a replacement of it
-needn't loop the way the original does.  Add a file to that list only
-after checking it doesn't busy-wait.  (The quick tier's references were
-recorded again when libaudio's objects went in, on 2026-10-01.)
+Until 2026-10-05 BEPass put a call to `__port_poll()` on every loop back
+edge instead, where a spinning thread let a due event in, and every 64th
+moved `--deterministic`'s clock on by 2 µs, so the number of loop
+iterations the N64 side ran was part of the game's timing (code that never
+waits was built without them, `BEPASS_NOPOLL`).  Without the polls the
+clock moves only from event to event ("Timing"), and a replacement's loops
+needn't have the original's shape.
 
 ## The 64-bit build
 
@@ -513,10 +516,9 @@ memory"; macOS takes it: "Other hosts", "macOS".)
 
 ## Comparing builds
 
-Two builds of the port can be compared run for run when the timing
-doesn't depend on the code: `--deterministic`, the same `--save` (or
-none), and `PORT_COUNT_PER_OP=0` (the CPU takes no time, so the C's and
-the asm's instruction counts don't move events).  Then:
+Two builds of the port can be compared run for run with
+`--deterministic` and the same `--save` (or none): the game's work takes
+no time, so neither build's code moves events.  Then:
 
 - `PORT_DUMP=N,...` in both and `port/tools/build_cmp.py rdram A B N...`
   compares RDRAM at those controller reads, leaving out words that are
@@ -564,9 +566,9 @@ skip) when nothing could run: no ROM, no TAS log (`build/tas/run/polls.csv`,
 `port/tools/tas.sh`), no venv with numpy and unicorn.  The outputs stay in
 `BUILD/test/` for a closer look.
 
-**quick.**  Deterministic runs (`--deterministic`, the CPU model off,
-`--headless`, the software renderer, no save to start from): the attract
-mode for 4,000 frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
+**quick.**  Deterministic runs (`--deterministic`, `--headless`, the
+software renderer, no save to start from): the attract mode for 4,000
+frames and `PORT_AUTOSTART=1`, `=2` and `=3` for 3,000,
 2,000 and 3,000, each with `--save`, `--wav` and a screenshot every 250
 frames; for us.v11 and jp, which the TAS doesn't cover, also the attract
 mode for 12,000 frames (`attract.long`: the story and several of its demo
@@ -691,9 +693,8 @@ a 32-thread machine (`wasm`'s is the slowest; the Linux ones 18 to 25).
 ### The gameplay digest
 
 The hashes above check that nothing changed at all: RDRAM, the save, the
-sound and the pictures follow the CPU model's timing (lag frames, the
-retrace count, `osGetTime`), so a change that keeps the game and changes
-its timing (dropping the CPU model, stripping the engine's scaffolding:
+sound and the pictures follow the port's timing (the retrace count,
+`osGetTime`), so a change that keeps the game and changes its timing (dropping the CPU model, stripping the engine's scaffolding:
 DISTRIBUTION.md's optimization pass) changes them all.  The gate for such a
 change is what a player could notice, which is what the gameplay digest
 holds.
@@ -704,9 +705,8 @@ mode (`D_80364A90`), the level (`D_802E8BDC`) and the game's frame in the
 mode (`D_80358064`), then the fields that changed since the line before (a
 line marked `*`, at the first poll of each mode or level, has them all;
 `key=~` is a field gone).  It only reads game memory, at the poll, from the
-host side, so it charges nothing to the CPU model and changes no other
-output (the quick tier's hashes are the same with it).  The fields, read
-from the variables the headers in `blastcorps/include/game` and
+host side, so it changes no other output (the quick tier's hashes are the
+same with it).  The fields, read from the variables the headers in `blastcorps/include/game` and
 `port/engine` describe:
 
 | field | what | from |
@@ -879,8 +879,8 @@ So the stages are:
    audio reading native types (`Mtx` as words, `Vtx` fields, the audio
    command list).  Checked against the big-endian build with
    `build_cmp.py` through the type map.
-2. BEPass without the swaps (it keeps the loop polls and the instruction
-   count), with the C's punning sites fixed under `TARGET_PC`.
+2. BEPass without the swaps, with the C's punning sites fixed under
+   `TARGET_PC`.
 3. Native LP64 structs where a struct's pointers are only the C's: those
    the asm or the ROM data share keep 32-bit fields (`PTR32`), and the
    `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
@@ -903,10 +903,23 @@ asm share `D_80364A90`, `D_803649D8` and the rest without a case each.  An
 RSP's DMA or the audio reads as bytes stays in the N64's byte order:
 texels, palettes, framebuffers, samples, the microcode's data.
 
-**BEPass** (`BEPASS_NATIVE=1`) swaps nothing but those 64-bit halves, and
-keeps the loop polls and the instruction count, so both builds keep the
-same time and can be compared run for run.  The N64 side is built without
-the vectorizers there (`ilp32cc.py`): they raise globals' alignment, which
+The 64-bit words stay in that order with no asm left (checked on
+2026-10-05) because of the display lists: the game's C and `port/engine`
+move a command as a `u64` in places (77E20's copies through
+`func_802C0C64`, which compares them with the smoke's command tables
+`D_802F46C0` and `D_802F4780`, typed `u64`; `func_8026A5CC`'s copies),
+while gbi.h's macros, the renderer and the audio microcode write and read
+its two words.  With the high word first both see the same command.  A
+build with every 64-bit scalar in plain host order (BEPass's exchange and
+its initializer fixups gone, the loaders, the asm data, the save and the
+host's readers of `D_80364A90` changed to match) played differently from
+the CMO intro's first frame on, in every native-endian variant, and the
+big-endian ones the same as before; to drop the exchange, those `u64`
+display-list accesses have to become word pairs first.
+
+**BEPass** (`BEPASS_NATIVE=1`) swaps nothing but those 64-bit halves, so
+both builds keep the same time and can be compared run for run.  The N64
+side is built without the vectorizers there (`ilp32cc.py`): they raise globals' alignment, which
 would move them off their N64 addresses.
 
 **What arrives as bytes is converted by type where it arrives**
@@ -1088,8 +1101,7 @@ side, and each checks the other.  Stage 1 needs `types`, `symbols` and
 `-DPORT_LP64=ON` (which turns on `PORT_64BIT` and `PORT_NATIVE_ENDIAN`)
 compiles the game's C for the host as it is: no i386 frontend, no
 port-ilp32, 8-byte pointers, and every struct laid out by the host but
-where the N64's layout is shared.  BEPass still runs (the polls, the
-instruction count, the u64 words).
+where the N64's layout is shared.  BEPass still runs (the u64 words).
 
 **`PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's `__ptr32 __uptr` in this
 build, nothing elsewhere, so IDO sees the same code) is a pointer that stays
@@ -1280,7 +1292,7 @@ Code, the host's data and the ROM stay where the host has them.
 ### The game's C: one pass over the whole program
 
 The front half of the N64 side's build stays per file and parallel
-(clang `-O2` with port-ilp32/port-lp64, BEPass and ICount, as now), but
+(clang `-O2` with port-ilp32/port-lp64 and BEPass, as now), but
 ends in bitcode.  Then one "arena link": `llvm-link` of the N64 side (the
 game's C, `port/src` and the asm data, below), `opt -passes=port-arena`,
 `llc`, one object.  Measured on us.v10's N64 side: `llvm-link` 0.5 s,
@@ -1310,7 +1322,7 @@ What port-arena does, in order:
    tables and `port_bswap32` go with it.
 3. **Map the accesses.**  Every load, store, atomic and memory intrinsic
    through a pointer that isn't a host-resident global or a local gets
-   `arena + (p & 0x1FFFFFFF)` (after ICount, so the timing is the same).
+   `arena + (p & 0x1FFFFFFF)`.
 4. **Locals.**  An alloca whose address escapes becomes `n64()` of its
    host address (it is on an arena stack); one used only by loads and
    stores stays as it is.  `byval` arguments (x86-64 passes big structs
@@ -1455,7 +1467,7 @@ make one object.  port-arena, over the whole program:
   declaration with an N64 name (a variable of the asm or of another
   module, a name inside a data island, a ROM offset, a fixed address such
   as `D_803FF600`) is its value; every reference becomes the constant.
-  What is left is the host's (`__port_icount_c`, `port_ints_masked`...),
+  What is left is the host's (the port's own `__port_` variables),
   accessed where it is;
 - writes the arena's initial contents from the initializers, in host
   order, then swaps what BEPass's `__bepass_table`s list (the C's
@@ -1709,9 +1721,8 @@ the PNG's texels over what it decoded: `host_tex_decoded(id, dst, size)`
 after each of 5BF40's three decodes (`port/engine/5BF40.c`), and for the
 decode queue `host_tex_queued(slot, id)` when func_802A1074 queues one and
 `host_tex_decoded_slot()` when 60F60's func_802A57AC does it.  These are
-host calls: they cost the game nothing (`ENGINE_BLK` charges what the
-original ran, as before), so the game takes the same time and makes the same
-choices; only the pictures change.  The texels are in the N64's byte order
+host calls: they take the game no time, so it makes the same choices;
+only the pictures change.  The texels are in the N64's byte order
 in every build (`texture.h`), so they are copied as they are.  A PNG with
 no stream beside it (new art) is compressed by the port instead, with
 `blast.encode`'s greedy encoder.
@@ -1751,21 +1762,18 @@ the ROM's modules too, so the operations `rom_data.py` writes never
 depended on code: us.v10 m64 3,141 literal bytes where it had 2,932).
 `make_pack.py --no-code` leaves `rom/`'s code out, and the port stands in
 for the front end's members (its `.text` as zeros, its `.data`): the game
-still DMAs and inflates them when it loads the front end, for the time that
-takes (port/src/overlay.c), and that is the one difference.  Inflating
-zeros takes less CPU time than inflating Rare's code, so the front end's
-loads are quicker in a run the CPU model times.  The quick tier, which
-doesn't count CPU time, is the same in every hash; the TAS from the pack
-without the code (us.v10, the 32-bit build) still matches all of the log's
-125,297 reads with none skipped and no mode forced, 57 platinum and the
-reference save, with the same report as from the ROM (50 retraces given
-anyway): the loads happen at menus, where the replay waits for the log's
-reads anyway.  A free-running game's frame timing in those loads is what
-differs.  What a pack without the code still holds of the ROM: the assets
-and the modules' data (`data/`: 207 K in us.v10, the game's tables,
-strings, display lists and the RSP's data).  Making the front-end load cost
-exactly what it did would need the inflate's cost recorded per version (its
-instruction counts and poll points), about 2-4 agent-hours.
+still DMAs and inflates them when it loads the front end, for the time
+that takes (port/src/overlay.c), and that is the one difference.
+Inflating zeros took less CPU time than inflating Rare's code, which only
+the CPU model (removed since, "Timing") saw.  The quick tier is the same
+in every hash; the TAS from the pack without the code (us.v10, the 32-bit
+build) still matches all of the log's 125,297 reads with none skipped and
+no mode forced, 57 platinum and the reference save, with the same report
+as from the ROM (50 retraces given anyway): the loads happen at menus,
+where the replay waits for the log's reads anyway.  A free-running game's
+frame timing in those loads is what differs.  What a pack without the code
+still holds of the ROM: the assets and the modules' data (`data/`: 207 K
+in us.v10, the game's tables, strings, display lists and the RSP's data).
 
 **Checked:**
 
@@ -1804,17 +1812,16 @@ instruction counts and poll points), about 2-4 agent-hours.
   as libultra does: the highest-priority runnable thread runs until it
   blocks, yields, or wakes a thread of higher priority.  The idle thread parks when it drops to priority 0.  Each thread
   has its own `recomp_context`, whose `$sp` is the N64 stack the game gave
-  `osCreateThread` (only the translated code uses it).  A loop's poll
-  (BEPass's `__port_poll`) can yield to the loop, and so let a higher
-  thread run, which on the N64 an interrupt would; with every interrupt
-  masked (`osSetIntMask(OS_IM_NONE)`) it doesn't.  The game walks its list
-  of playing sounds that way while the audio thread frees from it; before
-  the polls honoured the mask, the walk once reached a freed state (the
-  TAS on the 64-bit build, read 28,965).
+  `osCreateThread` (only the translated code uses it).  Nothing preempts
+  a thread but its own calls into libultra, and `port_spin_wait` in the
+  game's busy-waits ("Memory model"), so `osSetIntMask` has nothing to hold
+  off: the game walks its list of playing sounds under it while the audio
+  thread frees from it.  (When the loops still had polls that could yield,
+  they had to honour the mask: the walk once reached a freed state, the TAS
+  on the 64-bit build, read 28,965.)
 - **The loop** (`port/host/main.c`) runs when no thread can: it raises the
   events the hardware would (VI retrace at 60 Hz, timers, PI, SP and DP task
-  completion) and sleeps until the next one, or until a busy thread's work
-  is done (see "Timing").
+  completion) and sleeps until the next one (see "Timing").
 - **libultra** (`port/src/ultra.c`, N64 side): messages, events, timers,
   `osGetTime` from the host clock (at 46.875 MHz), PI DMA from the ROM
   file, the controller from SDL, EEPROM to a file, no Controller Pak, VI
@@ -1937,8 +1944,8 @@ as it was.  What the fibers needed there
 - **emscripten's fibers** (`emscripten_fiber_init`/`_swap`, which need
   Asyncify): a third backend in the same shape as the ucontext one, all on
   the page's thread.  Asyncify instruments every function that can be on
-  the stack at a switch, which here is nearly all of the game (any loop's
-  `__port_poll` can yield), for size and speed.
+  the stack at a switch, which here is nearly all of the game (any call
+  into libultra can switch), for size and speed.
 - The replay's audio answers name their caller by its return address
   (`replay.c`, `replay_hooks.c`); WebAssembly has none to look up, so
   `--replay` there needs the callers passed explicitly.
@@ -1959,8 +1966,7 @@ What wasn't portable in the host code, and what became of it:
   audio answers; elsewhere it would ask `dladdr`.  The movable build does
   neither: the arena link names the callers (`port_replay_set_caller`).
 - `ucontext` is only used where `swapcontext` links (not macOS, emscripten
-  or musl), and the instruction count `__port_icount` is a plain global the
-  translated code and BEPass add to: nothing x86-specific (no inline asm,
+  or musl); nothing is x86-specific (no inline asm,
   `rdtsc` or intrinsics in the host code; `gfx.c` gets `-msse4.1` only on
   x86).
 - What the fixed builds need of the link can't be had on macOS (arm64
@@ -2285,25 +2291,25 @@ How the game paces itself, and what the port does about each part:
   too fast without it) and gameplay at two.
 - **The game's frame** waits for its task's done message
   (`func_80285110`), and in the levels for the texture DMAs of the frame.
-  How long a frame takes is then the CPU's time, which on the port is
-  charged, not spent: the engine charges the MIPS instructions its
-  original executes (`ENGINE_BLK` per basic block, or a function's average,
-  `ENGINE_COST`: "Replacing the engine", "The engine made readable"), the
-  game's C counts its optimised IR instructions
-  (BEPass's second pass, ICount, into `__port_icount_c`), and libultra's
-  own work that the port doesn't run is charged at rough fixed costs
-  (`COST_*` in `port.h`, and the copies in `port/src/libc.c`).  At each
-  call into libultra the running thread is charged for what it did since
-  (`host_cpu_sync`, `port/host/threads.c`), at mupen64plus's CountPerOp = 2
-  (42.7 ns an instruction; `PORT_COUNT_PER_OP` changes it) and 1.6 MIPS
-  instructions per IR instruction for the C (`PORT_C_SCALE`; IDO's `-O1`
-  code is bigger than clang's `-O2`).  A thread that is ahead of the clock
-  goes "busy": it holds the CPU against lower priorities, higher ones
-  preempt it (and push its end back), and `--deterministic` jumps its
-  virtual clock through it.  That is the CPU model, and since 2026-10-02
-  it is **off by default** (`--cpu-model n64` or `PORT_CPU_MODEL=n64` turn
-  it on): the game's work takes no time, so no frame is held for it and
-  the game never lags ("Lag frames").  What follows measures the model.
+  On the N64 how long a frame takes is then the CPU's time.  On the port
+  the game's work takes no time: the clock (virtual in `--deterministic`
+  and the page, real otherwise) moves only in the loop, from one retrace,
+  timer, PI DMA or RDP event to the next, so no frame is held for the CPU
+  and the game never lags ("Lag frames").  A thread that spins on what an
+  interrupt changes waits for the next one (`port_spin_wait`, "Memory
+  model").
+- **The CPU model**, which charged the game's work to the clock, is gone
+  since 2026-10-05 (off by default since 2026-10-02): the engine charged
+  the MIPS instructions its original executed (`ENGINE_BLK` per basic
+  block, or a function's average, `ENGINE_COST`), the game's C its
+  optimised IR instructions (BEPass's second pass, ICount, at 1.6 MIPS
+  instructions each), libultra's work rough fixed costs, all at
+  mupen64plus's CountPerOp = 2 (42.7 ns an instruction), and a thread
+  ahead of the clock went "busy", holding the CPU.  `--cpu-model`,
+  `PORT_CPU_MODEL`, `PORT_COUNT_PER_OP`, `PORT_C_SCALE`, `PORT_ICOUNT_LOG`
+  and `PORT_BLKLOG` went with it, and with BEPass's loop polls ("Memory
+  model") the last thing that moved the clock while the game computed.
+  The table below measured the model against mupen64plus.
 - **The RDP** is instant, as in mupen64plus.  The renderer's estimate of
   its time (`host_charge`) delays OS_EVENT_DP by that much times
   `PORT_RDP_SCALE` (default 0).  It used to advance `--deterministic`'s
@@ -2319,7 +2325,7 @@ the port's `PORT_PACE=FILE` does: at each controller read, the scheduler's
 retrace count, the mode and the samples played) and
 `port/tools/pace_cmp.py`, both from no save, `--deterministic`:
 
-| mode (D_80364A90)            | port (the CPU model on): retraces a frame | mupen64plus |
+| mode (D_80364A90)            | port (with the CPU model): retraces a frame | mupen64plus |
 | ---                          | ---                    | ---         |
 | N64 logo (0x10), 250 frames  | 1.01                   | 1.00        |
 | Rare logo (0x20), 250 frames | 1.30                   | 1.27        |
@@ -2401,9 +2407,8 @@ original's.  What that takes:
   output tap ahead of the write position, a tempo change re-queues the note
   offs in the order the original's relinking leaves them.
 
-Like the original it is built without loop polls (`BEPASS_NOPOLL`, "Memory
-model"), and ICount charges its own instructions: the TAS's "retraces given
-anyway" move, nothing the suite checks does.
+Its work takes no time, as the rest of the game's does ("Timing"), so its
+loops' shape doesn't matter to the timing.
 
 ### The libaudio oracle
 
@@ -2653,9 +2658,9 @@ to run at 60, because its logic doesn't scale with time.
   In every other mode, the levels and the world map among them, a frame
   is held until a retrace has gone by since the last one showed.  So each
   frame is on screen for two retraces at least: 30 frames a second at
-  most, and fewer when the CPU takes longer: on the N64, and on the port
-  with its CPU model on (the world map then averages 3.45 retraces a
-  frame, see "Timing"), which it no longer is by default ("Lag frames").
+  most, and fewer when the CPU takes longer on the N64 (the world map
+  averaged 3.45 retraces a frame with the port's old CPU model, "Timing");
+  the port's game takes no time, so there it never is ("Lag frames").
 - **The game's frame.**  One pass of the mode's frame function (the
   level's is `func_802475D8`, 00000.c) runs one step of the game and builds
   one display list.  The step is the same size however long the frame
@@ -2688,26 +2693,38 @@ and three or more when it isn't: a lag frame.  The game slows down (its
 step per frame is fixed) while the level clock, which counts retraces,
 runs on.  The port used to reproduce that with its CPU model ("Timing"):
 the game's work was charged at the N64's speed and frames were held for
-it.  Since 2026-10-02 the model is **off by default**, natively and in the
-page: the game's work takes no time, every level frame takes the minimum
-two retraces (30 a second), and the front end goes as fast as its own
-waits let it.  The bar is the owner's: the port may differ wherever a
-player, even a perfect one, couldn't tell, and beyond that smoother play is
-preferred over the N64's in-game times to the tenth.
+it.  Since 2026-10-02 the model was **off by default**, and since
+2026-10-05 it is gone: the game's work takes no time, every level frame
+takes the minimum two retraces (30 a second), and the front end goes as
+fast as its own waits let it.  The bar is the owner's: the port may differ
+wherever a player, even a perfect one, couldn't tell, and beyond that
+smoother play is preferred over the N64's in-game times to the tenth.
 
-- **The option.**  `--cpu-model n64` (or `PORT_CPU_MODEL=n64`, which the
-  page takes as `?env=PORT_CPU_MODEL=n64`) turns the model back on, for
-  the N64's lag and timing; `PORT_COUNT_PER_OP=N` still sets its rate (2,
-  mupen64plus's, is what `n64` means; 0 is off).  `--cpu-model off` is the
-  default.
-- **Nothing else depends on it.**  The quick tier always ran without it
-  (its references are unchanged), and the TAS replays the same with it on
-  or off.  `D_803649D8 = osGetTime()`, the per-frame "random" number of the
-  screen shake, the dust and the debris, is from the virtual clock in
-  `--deterministic` and the page: without the model it is still spread
-  (`PORT_AUTOSTART=1`'s Simian Acres, 1,018 frames: all 40 values of
-  `% 40`, the four of `>> 8 & 3` within 250-265 each, dust on 27 frames;
-  with the model 887 frames, dust on 27), so it was left as it is.
+- **No option.**  `--cpu-model n64` brought the model back until it was
+  removed (2026-10-05, with its instruction counts: "Timing"); the owner
+  decided it has no value to the port outside testing, and the testing
+  doesn't need it.
+- **Nothing else depended on it.**  The quick tier always ran without it,
+  and the TAS replayed the same with it on or off.  `D_803649D8 =
+  osGetTime()`, the per-frame "random" number of the screen shake, the dust
+  and the debris, is from the virtual clock in `--deterministic` and the
+  page.  The loop polls' 2 µs moved it a little while the game computed;
+  without them it takes the times of the frame's events, and is spread as
+  much as before (`PORT_AUTOSTART=1`, 3,000 retraces, Simian Acres' 693
+  frames: all 40 values of `% 40` (8 to 29 frames each; with the polls 6 to
+  31), the four of `>> 8 & 3` 172 to 174 each (172 to 175), dust on 20
+  frames (19)), though from frame to frame both step by about a retrace's
+  ticks, so `% 40` takes two values by turns for a while either way.
+- **No time moved.**  The pacing is the same without the polls: `PORT_PACE`
+  gives the same retrace count, frame and mode at every controller read of
+  the attract mode (4,000 retraces) and of `PORT_AUTOSTART=1` (3,000: the
+  title at retrace 518, Simian Acres' first frame at 1,205), and the TAS's
+  levels the same 52:29.1 by the level timer.  What moved is within the
+  retraces: the audio thread's samples at a read (40 reads of the attract
+  mode's 2,241) and `D_803649D8`, so the quick tier's sound and its
+  screenshots with explosions in them changed, and its references were
+  recorded again (2026-10-05; us.v10, us.v11 and jp); the saves and the
+  gameplay digests are the same.
 
 **The TAS without lag.**  `--replay` gives every frame the movie's
 retraces (its lag) unless `PORT_REPLAY_TIMING=free`: then each frame takes
@@ -2855,7 +2872,7 @@ build, `--deterministic`, no save):
 | the boot | `osContInit`'s half second for the controllers after power-on (libultra; `port/src/ultra.c` waited it on a timer) | 30, once | gone |
 | Start on the title, before the name entry | the pak thread (hd_front_end `E7B0.c`, `func_801F58E8`) waits for the scheduler's next retrace message after every command, done or not; the front end sends it one command at a time (15 reads of the save's slots, a probe, a check) and waits for each reply | 1 a command: 29 there | the wait after a command that is done is left out; a retry still waits (the "insert a pak" loops) |
 | the name entered, the save written | `osEepromLongWrite`'s 12 ms after each 8-byte block, the EEPROM's write cycle (32 blocks a save) | 23 a save | gone |
-| every load (the front end, the title, the map, each level) | the decompressors' loops (gzip's inflate, the LZSS): without the CPU model the polls on loop back edges still moved virtual time on (2 us for each 64), so a load took about two retraces in `--deterministic` and the page | about 2 a load | no time while `func_8025C230` or `func_8028B4C4` runs (`host_loading`, `port/src/loads.c`) |
+| every load (the front end, the title, the map, each level) | the decompressors' loops (gzip's inflate, the LZSS): without the CPU model the polls on loop back edges still moved virtual time on (2 us for each 64), so a load took about two retraces in `--deterministic` and the page | about 2 a load | no time while `func_8025C230` or `func_8028B4C4` ran (`host_loading`); since the polls went (2026-10-05) no loop takes time |
 
 Kept, as the game's own (a player sees them as its pacing):
 
@@ -2880,22 +2897,22 @@ the name entry's reads, 22 at its save, the rest the loads).  In the TAS
 most of it is the loads.  The replay passes as before: every read
 matched, 57 platinum, the reference's save and gameplay digest.
 
-`--load-waits n64` (or `PORT_LOAD_WAITS=n64`) keeps all four, and
-`--cpu-model n64` implies it: with it the pacing log is the one before,
-byte for byte.  The quick tier's references were re-recorded (us.v10):
-their scripted input (`PORT_AUTOSTART`) is keyed to retraces, so it
-lands on other frames once the boot is 30 retraces shorter.  With the
-in-level taps' phase moved by the same retraces (119), auto1's and
-auto3's digests are the old runs' frame for frame; attract's and auto2's
-are the same gameplay without that (`digest_cmp.py` against
-`--load-waits n64` runs).  The same for us.v11 and jp (their 32-bit
-builds): with `--load-waits n64` every hash of every scenario is the old
-references' (the layout-dependent static aside), the digests compare as
-us.v10's do (`attract.long` too: 4,611 and 4,805 level frames, the same),
-and their references were recorded again, with gameplay digests for the
-first time.  `PORT_AUTOSTART` taps nothing in the first
-30 retraces now: a button held at the game's first read asks to erase
-the save (mode 0x40000000000000), and that read now comes at once.
+`--load-waits n64` (or `PORT_LOAD_WAITS=n64`) keeps the first three (with
+the CPU model, which implied it, the pacing log was the one before, byte
+for byte; the loads' time went with the polls).  The quick tier's
+references were re-recorded (us.v10): their scripted input
+(`PORT_AUTOSTART`) is keyed to retraces, so it lands on other frames once
+the boot is 30 retraces shorter.  With the in-level taps' phase moved by
+the same retraces (119), auto1's and auto3's digests are the old runs'
+frame for frame; attract's and auto2's are the same gameplay without that
+(`digest_cmp.py` against `--load-waits n64` runs).  The same for us.v11
+and jp (their 32-bit builds): with `--load-waits n64` every hash of every
+scenario is the old references' (the layout-dependent static aside), the
+digests compare as us.v10's do (`attract.long` too: 4,611 and 4,805 level
+frames, the same), and their references were recorded again, with gameplay
+digests for the first time.  `PORT_AUTOSTART` taps nothing in the first 30
+retraces now: a button held at the game's first read asks to erase the
+save (mode 0x40000000000000), and that read now comes at once.
 
 ### Running the game at 60: a turbo, not 60 fps
 
@@ -2973,10 +2990,10 @@ either renderer:
   (`host_gfx_frame_shown`), the frame in it is complete: the next frame's
   tasks wait for the RDP's thaw, which comes after.  Its twins are then
   marked ready if every task of the frame had its passes.  The hook
-  is on the host side on purpose.  A call in `osViSwapBuffer` would be
-  counted as the game's CPU time (BEPass's ICount), and that alone moved
-  the TAS replay's timing a little (76 retraces given anyway instead of 80,
-  with the option off).  The retraces that show the frame show its twins
+  is on the host side on purpose.  A call in `osViSwapBuffer` was counted
+  as the game's CPU time then (the CPU model, since removed), and that
+  alone moved the TAS replay's timing a little (76 retraces given anyway
+  instead of 80, with the option off).  The retraces that show the frame show its twins
   in turn and then the frame (`gfx_interp_image`, for both renderers).
   The frame is therefore on screen one retrace later than before, and
   in-between images take the retraces a frame used to repeat on.
@@ -3338,15 +3355,16 @@ DISTRIBUTION.md's O0-O5 (2026-10-02/03), in short, for us.v10's TAS as the
 yardstick (the same 125,297 reads, 57 platinum, the same gameplay digest
 throughout):
 
-- **No lag frames** (O1, "Lag frames").  The CPU model is off by default:
-  the game's work takes no time, so a level frame is always two retraces
+- **No lag frames** (O1, "Lag frames").  The CPU model is gone (off by
+  default since O1, removed on 2026-10-05, "Timing"): the game's work
+  takes no time, so a level frame is always two retraces
   (1/30 s) where the N64 dropped to 20 fps and below in busy scenes.  The
   level timer counts retraces, so the levels' times are shorter: 5% over
   the TAS, up to 12% in the busiest levels, and the whole run 9.6%;
   medals and best times are a little easier.  The front end's waits for
   the hardware (the controllers' power-on, the EEPROM's writes, the
-  decompression) are gone too ("The front end's waits").
-  `--cpu-model n64` and `--load-waits n64` bring both back.
+  decompression) are gone too ("The front end's waits"); `--load-waits
+  n64` brings the hardware waits back.
 - **The engine is ordinary C** (O2, O3: "Replacing the engine", "The
   engine made readable"): no translated code in any default build, no
   register or dead-stack leftovers (the few garbage values the original
@@ -3816,7 +3834,7 @@ where each function is defined, `--callers` names a library's samples by
 their caller), `cpuprofile_report.py` (node's profiles of a
 `--profiling-funcs` WebAssembly build, the same areas by name), and
 `engine_costs.py` (O3's per-function charges: measuring the blocks,
-writing `ENGINE_COST`).
+writing `ENGINE_COST`; removed with the CPU model).
 
 **Done since** (the same measure, the TAS natively with `--renderer gl
 --scale 1`; the runs' own totals vary with the machine's load, so the
@@ -4267,23 +4285,16 @@ quick` fails a build that compiles or links any of it ("engine": no
   the truck's 71140 this way, and 62740's carrying dispatchers with the
   vehicles' callbacks.
 
-**The cost model.**  The game's pace, and with it the TAS, depends on the
-engine's CPU time to the instruction ("Timing").
-- The native code charges exactly what the original would have.
-  `ENGINE_BLK(802AC1E4)` adds the size of the translator's basic block at
-  that address, which is us.v11's in every version (the function's name
-  plus the offset).  The size comes from the generated `engine_blocks.h`.
-  The code calls it once each time the original would have run that
-  block, and before any call where the original charges before the call.
-- Blocks start at the function's entry, at labels, and after each branch's
-  delay slot.  A block includes its branch and the delay slot, likely or
-  not.
-- `port/tools/engine_asm.py FUNC|OBJECT` prints the asm with each block
-  and its size, plus the convention.  That's what to write from.
-- BEPass neither counts (ICount) nor polls in this code (`BEPASS_ENGINE=1`):
-  the translation polls nowhere, and a poll is a `host_cpu_sync`.  It also
-  leaves `__port_` globals unswapped, which is what lets
-  `__port_icount += n` work.
+**The cost model**, while the CPU model was the port's timing (until
+2026-10-05, "Timing"): the game's pace, and with it the TAS, depended on
+the engine's CPU time to the instruction, so the native code charged
+exactly what the original would have.  `ENGINE_BLK(802AC1E4)` added the
+size of the translator's basic block at that address (us.v11's in every
+version; the size from the generated `engine_blocks.h`), once each time
+the original would have run that block; BEPass neither counted nor polled
+in this code.  All of it is gone with the model.
+- `port/tools/engine_asm.py FUNC|OBJECT` prints the asm with each basic
+  block and its size, plus the convention.  That's what to write from.
 - Float to int: `engine_cvt_w_s` and its siblings, which follow
   `recomp_round_half_up` as the translation does.
 - IDO's checked division is `ENGINE_DIV`, and a `break` or Rare's
@@ -4349,23 +4360,13 @@ a native-endian build (n64, mn32) does.
   call C that can't run twice: func_801F57B0 (the Pak thread's start,
   which every run reaches), func_801F6F18 (the Pak's files) and
   func_802860F0 (a level's start) were reviewed against the asm twice.
-- The quick tier runs with the CPU model off, so it can't see cost
-  errors.  The check build sees them, and so does the TAS with
-  `--cpu-model n64` (its "retraces given anyway").
 - For functions that call C that can't run twice (the Pak thread's
-  messages, the music's start), the TAS is the check.  Comparing `__port_icount` at every controller
-  read between a build with the replacement and one without also finds
-  where the cost first differs.
-  `PORT_ICOUNT_LOG=FILE` writes that log: "read, `__port_icount`,
-  `__port_icount_c`" per controller read.  Two `--deterministic` runs
-  (with `--cpu-model n64`) of builds that should cost the same give
-  the same file.
-- `-DPORT_BLKLOG=ON` and `PORT_BLKLOG=FILE:FROM:TO:IDS` log every
-  translated block run, and every `ENGINE_BLK`, between controller reads
-  FROM and TO.  Two such builds, with and without the replacement, give
-  the same file exactly when the native code charges what the original
-  does, in its order; the first line that differs is the block to look
-  at.  It found what the cost logs only narrowed to a frame in 77E20.
+  messages, the music's start), the TAS is the check.  While the cost model
+  was there, `PORT_ICOUNT_LOG` (the instructions charged at every
+  controller read) and `PORT_BLKLOG` (every block, translated and native,
+  between two reads) of a build with the replacement against one without
+  found where the cost first differed; it found what the cost logs only
+  narrowed to a frame in 77E20.  Both went with the model.
 - A replaced function that saves registers and loads them back (77E20's,
   the front end's 1B100) does so with `engine_save(gmask, fmask)` and
   `engine_restore()`, since a translated callee's inputs and leftovers
@@ -4401,9 +4402,9 @@ a native-endian build (n64, mn32) does.
   it sets it first, as the `jal` would, with `ENGINE_RA(next block)`
   (the block's address in the version built, `engine_blocks.h`'s
   `ENGINE_ADDR_`), and the caller loads its own back (`engine_save()`
-  with `ENGINE_GPR(31)`).  The TAS needs it: at read 108453 the shadow's
+  with `ENGINE_GPR(31)`).  The TAS needed it: at read 108453 the shadow's
   pitch is the `$ra` that `func_802AB714`'s frame saved, the carrying's,
-  and `__port_icount_c` drifted from there without it.  (O2 later
+  and the C's instruction count drifted from there without it.  (O2 later
   removed all of these frames: the three stores that reach the shadow
   write its one word directly, "The scaffolding stripped" below.)
 - A native called from another native gets its inputs as C arguments,
@@ -4416,7 +4417,7 @@ a native-endian build (n64, mn32) does.
   (`func_8029BF64`'s `$t8` inside `func_8029B02C`), since no glue
   between two natives does it.  The replay with `PORT_ICOUNT_LOG`
   against a build without the replacement, then `PORT_BLKLOG` around
-  the first read that differs, finds such a register.
+  the first read that differs, found such a register.
 
 **What else the native code has to do** (from the loaders, terrain and
 textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
@@ -4445,7 +4446,7 @@ textures: 5BF40, 5CB60, 5FD50, 60D50, 60F60, 7F8B0, 8A080):
   check build (its callers' translations call it).
 - A difference between versions is a `#if` on `VERSION_*` in the native
   code, as in the decompiled C (us.v10's `func_802A2D68` doesn't clear
-  `D_803F7812`); `ENGINE_BLK` sizes are each version's.
+  `D_803F7812`).
 
 **The scaffolding stripped** (DISTRIBUTION.md's phase O2, both halves of
 `port/engine`, 2026-10-02).  With nothing translated left, the thread's
@@ -4453,8 +4454,8 @@ context and the dead N64 stack are only the native code's own: what
 `ENGINE_LEAVE`, `engine_restore()` and the frame stores put there matters
 only where some native code reads it back (`engine_ctx`, `ENGINE_REG`,
 `engine_frame_lw`).  A write no read takes was removed: a read sees the
-last write, and those are never last.  `ENGINE_BLK` stays (the
-`--cpu-model n64` timing uses it).
+last write, and those are never last.  `ENGINE_BLK` stayed then (the
+`--cpu-model n64` timing used it; it went with the model on 2026-10-05).
 - **Finding the readers.**  Two debug builds of the plain 32-bit port
   answer it, made side by side for the two halves (one since O3: the
   taint build does both, "The engine made readable"):
@@ -4546,20 +4547,21 @@ DISTRIBUTION.md's phase O3: `port/engine` in ordinary C, by module over
 four agents (2026-10-03).  Each agent's part is a subsection below.  What
 all of them keep:
 
-- **The CPU model's charges stay.**  `ENGINE_BLK` charges the original's
-  blocks for `--cpu-model n64`; the readable code charges, on every path,
-  the same blocks as before (in its own order: a C loop's test is
-  `for (...; ENGINE_BLK(test), cond; ...)`, its body's block inside), so
-  the n64 timing is exactly what it was.  A loop that became one copy
-  charges its blocks in bulk (`ENGINE_BLKN(addr, k)`, buildings.h), and
-  code several functions share takes its callers' blocks from a table
-  (`Blk`, `BLKT`).  The check build (`PORT_ENGINE_CHECK`) compares the
-  cost and the state, which stay; its block trace, a diagnostic for a
-  difference, now comes in another order.
+- **The CPU model's charges stayed.**  `ENGINE_BLK` charged the
+  original's blocks for `--cpu-model n64`; the readable code charged, on
+  every path, the same blocks as before (a C loop's test was
+  `for (...; ENGINE_BLK(test), cond; ...)`), a loop that became one copy
+  its blocks in bulk (`ENGINE_BLKN`), and code several functions share
+  took its callers' blocks from a table (`Blk`, `BLKT`, `EngineBlk`).  All
+  of that went with the model on 2026-10-05 ("Timing"): 4,000 `ENGINE_BLK`s,
+  386 `ENGINE_COST`s and the tables, with the helpers'
+  parameters that passed them.  The engine's objects (us.v10) are the
+  same code as with the charges compiled to nothing, but for the functions
+  whose tables went; the descriptions of the charges below are history.
 - **The check.**  Besides the quick tier and the TAS (free timing): the
   quick tier's four scenarios with `PORT_COUNT_PER_OP=2` (the n64 model,
-  lag frames and all), whose save, sound, digest and every screenshot have
-  to be the build before's, byte for byte: the CPU model's clock turns any
+  lag frames and all), whose save, sound, digest and every screenshot had
+  to be the build before's, byte for byte: the CPU model's clock turned any
   difference in the charges into a different game.
 
 ### Buildings and the world
@@ -4815,10 +4817,11 @@ objects to destroy (`TargetObj`, D_80306480) and the lights
 
 ### Vehicles
 
-(The vehicles part charges differently from the other parts: one average a function, not the
-original's blocks path by path, so with the n64 model a frame of vehicle code costs about what
-it did but not exactly, and the `PORT_COUNT_PER_OP=2` byte-for-byte check above doesn't hold
-for it; the quick tier and the TAS, with the model off as by default, are exact.)
+(The vehicles part charged differently from the other parts, while there were charges: one
+average a function, not the original's blocks path by path, so with the n64 model a frame of
+vehicle code cost about what it did but not exactly, and the `PORT_COUNT_PER_OP=2`
+byte-for-byte check above didn't hold for it; the quick tier and the TAS, with the model off,
+were exact.)
 
 62740 (the shared physics), 62740_carry, 60F60 (texture decoders and the
 effects' sprites), 679E0 (math and matrices) and the vehicle modules
@@ -4834,7 +4837,7 @@ carrier, the crane), 86F60 (police car), 8DDB0 (the shuttle) and 69BB0
   divided by its calls (us.v10's block counts, a `PORT_BLKLOG` build that
   counted instead of logging); the 18 functions no run reaches charge
   half their blocks.  Over the TAS the total is the original's to 0.13%,
-  so `--cpu-model n64` stays right over a frame; a single call is off by
+  so `--cpu-model n64` stayed right over a frame; a single call was off by
   its path's difference from the average.  Blocks that macros charged
   (the decoders' back references, IDO's division checks, the camera's
   range tests) are folded into their function's average the same way.
@@ -4970,28 +4973,21 @@ stage 2 of another version.  What differs between versions in the port:
     their prototypes in `gen_glue.py` (`LIBULTRA_TYPED`).
 - **They are native now**, as Rare's engine is ("Replacing the engine"):
   `port/engine/jp_<object>.c`, under `#ifdef VERSION_JP`, each written from
-  jp's asm (the US C of the same function as the guide) and charged by its
-  blocks, and Rare's `func_802BA3E8_jp` in 75490.c.  The translation above
+  jp's asm (the US C of the same function as the guide; charged by its
+  blocks while the CPU model was there), and Rare's `func_802BA3E8_jp` in
+  75490.c.  The translation above
   is the check build's only.  What IDO's code needed of the native code:
   - its prototype is the US version's C definition's (the types the US
     port's LP64 build passes), the result where jp's callers use it
     (`func_801F7410` returns the text it made);
   - IDO's float to unsigned conversion is `IDO_CVT_U_S` (engine.h), its
-    checked `div` `ENGINE_DIV`, its signed division by 2^n a fixup block
-    charged only for a negative dividend;
-  - `sprintf` is `engine_sprintf`: the translation's call cost the C
-    nothing (`recomp_extern_sprintf`), and the 32-bit build's own
-    `n64_sprintf` is counted as the game's C;
-  - a host helper returns its results (`engine_ido_cvt_u_s` a u64): a host
+    checked `div` `ENGINE_DIV`;
+  - a host helper returns its results (`engine_ido_cvt_u_s`): a host
     store through a pointer into the N64 side's locals is in the host's
-    order, which BEPass reads swapped;
-  - `ENGINE_BLK` names a version's own function's blocks by its address and
-    suffix (`802BA40C_jp`), and where a jp function is longer than us.v11's
-    and its blocks' names reach the next function's, by both
-    (`801F7428_801F6F18`; `translate.py` leaves the bare name undefined).
+    order, which BEPass reads swapped.
   The register leftovers and the dead stack of the IDO code aren't
   mirrored: its callers are the C, which reads neither, and long jp runs
-  (`PORT_AUTOSTART` 0 to 3, 12,000 frames each) give the same
+  (`PORT_AUTOSTART` 0 to 3, 12,000 frames each) gave the same
   `PORT_ICOUNT_LOG`, screenshots, saves and sound as the translated build.
 - **The differential test** takes the version too:
   `make -C tools/recomp VERSION=jp test` (`RECOMP_VERSION` for
@@ -5059,6 +5055,8 @@ the same in C):
 
 Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
 
+- `hd_code/00000.c`, `hd_code/4B450.c`, `hd_front_end/E7B0.c`: the four
+  busy-waits' bodies call `port_spin_wait()` ("Memory model").
 - `hd_code/26570.c`: `func_8026BBD0` is `void`, but its callers use the
   result, which on the N64 is `v0` left over from `func_8026BCE0`; the port
   returns that.  Two string copies whose unsequenced `a[i] = b[i++]` IDO
@@ -5084,10 +5082,11 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   leaves out the cull box: 4 vertices in one frame are paired with other
   points over the same run (an entry that a strip's break and a commit in
   one frame make the head and then draw, while the full ring hands it
-  the tail's place), and every quad is drawn.  The game's loops poll
-  (`__port_poll`, "Memory model"), so a different number of iterations
-  moves `--deterministic`'s clock: the sound and the screenshots changed
-  (the references were updated), the gameplay digests didn't.
+  the tail's place), and every quad is drawn.  The game's loops polled
+  then (`__port_poll`, "Memory model"), so a different number of
+  iterations moved `--deterministic`'s clock: the sound and the
+  screenshots changed (the references were updated), the gameplay digests
+  didn't.
 - `hd_front_end/196F0.c`: `func_80200714`'s texel reads and writes go
   through `IMG_RD`/`IMG_WR`, byte-swapping only in the native-endian build
   (`TARGET_PC && PORT_NATIVE_ENDIAN`; plain accesses otherwise, so IDO's
@@ -5170,9 +5169,10 @@ frames and gives each the movie's input for that frame:
   again at its frame 0.  A read with no match gets no buttons.
 - **Retraces by frame.**  Each frame gets the log's retraces for it,
   counted from the read before: the read's SI completion waits for them, and
-  a VI is held once the next frame's are there.  Within the frame they come
-  by the CPU model.  A VI the game waits for that the log's frame doesn't
-  have is given anyway and counted.
+  a VI is held once the next frame's are there.  Within the frame the
+  game's work takes no time.  A VI the game waits for that the log's frame
+  doesn't have is given anyway and counted (at once to a thread that
+  spins on the count, `port_spin_wait`, when it is due).
 - **The game's reads of the count.**  The game reads the scheduler's retrace
   count and level timer (`D_803156C4`, `D_803156C0`) in the middle of its
   frames: the title's fade (`func_80274BF0`), the messages' and the music's
@@ -5254,8 +5254,8 @@ given anyway are reported at the end; and the save has the medals.
 starts (`rdram_N.bin`, in the build's byte order, with `rdram_N.widths` in
 a `PORT_ACCESS_PROFILE` build), and `TAS_DUMP=N,...` makes `m64p_tas`
 write the same at its Nth read, to compare the two.  Two builds of the
-port replay the movie in step with `PORT_COUNT_PER_OP=0` (the reads and
-retraces are the log's either way), so `PORT_DUMP`, `PORT_TRACE` and
+port replay the movie in step (the reads and retraces are the log's), so
+`PORT_DUMP`, `PORT_TRACE` and
 `PORT_ITRACE` compare them as in "Comparing builds"; those count the
 port's controller polls, about a hundred fewer than the log's reads by
 the levels (`PORT_PACE` lists the polls with their modes).
@@ -5277,7 +5277,14 @@ differs (376 retraces given anyway).  Since the CPU model is off by
 default no retrace is given anyway, and with the port's own frame timing
 (`PORT_REPLAY_TIMING=free`, no lag frames) the replay is as exact: every
 read matched, none skipped, no mode forced, 57 platinum, the same save
-and the same gameplay digest ("Lag frames").
+and the same gameplay digest ("Lag frames").  Without the loop polls and
+the CPU model (2026-10-05) nothing changed in it: all eight variants of
+us.v10 (`test.py variants --tas`, free timing) match all 125,297 reads,
+skip none, force no mode, give no retrace anyway, let 2 save commands go
+early, and end with 57 platinum, the reference's save and gameplay digest,
+and 83 levels in 95,143 frames, 52:29.1 by the level timer, as before;
+with the movie's timing (`--timing movie`, the 32-bit build) the same, the
+levels 55:46.9 by the level timer.
 
 - **The mode switches.**  `m64p_tas` logs every mode the game's loop
   switches to (`switches.csv`, an exec breakpoint where it prints "game mode
@@ -5302,30 +5309,19 @@ writable, as the N64 has it.
   it is left running; with Start/A it goes through the save-erase prompt,
   the name entry, the world map and into Simian Acres, which plays (the
   bulldozer, the carrier, the pause menu).
-- With the CPU model on (`--cpu-model n64`), pacing matches mupen64plus to
-  a few percent in every mode measured ("Timing"); by default the game's
-  work takes no time and no frame lags ("Lag frames").  The music and sound
-  effects play ("Audio").
+- The game's work takes no time and no frame lags ("Lag frames"); the
+  CPU model that matched mupen64plus's pacing to a few percent is gone
+  ("Timing").  The music and sound effects play ("Audio").
 - `--interpolate` shows gameplay at 60 frames a second, or at a faster
   display's rate (`--display-hz`), with either renderer ("Frame rate"),
   without changing what the game does.
-- Known problems: with `--cpu-model n64`, the CPU's time is a model
-  (instruction counts, a scale for the C, fixed costs for libultra), and
-  the reference is mupen64plus, not
-  the hardware: its CPU is CountPerOp = 2, its RDP instant.  The loading
-  screens (the level's drop-in, 0x800) differ most: they are short and
-  their frames are all loading.  The boot before hd_code (IPL3, init's
-  inflate of hd_code) isn't run or charged; by the scheduler's count the
-  N64 logo comes 14 retraces later than in mupen64plus and the title 22.
-  Rendering: no anti-aliasing (see "Graphics").  Non-void functions that fall off the
+- Known problems: the boot before hd_code (IPL3, init's inflate of
+  hd_code) isn't run.  Rendering: no anti-aliasing (see "Graphics").  Non-void functions that fall off the
   end (`func_8024B4B8`, `func_80271F48`, `func_8027E164`, `func_801F6160`,
   `func_801F61C8`, `func_801F6ED4`) return whatever the host leaves.
 
 ## What's left for the port
 
-- **Timing.**  A better RDP estimate would let `PORT_RDP_SCALE` default to
-  1; the C's instruction scale could come from IDO's actual code size per
-  function instead of one number.
 - **Real call states** for the translator's test (the check of the native
   engine).  Recording `ctx` and
   memory at each translated function's entry during play would replace the
