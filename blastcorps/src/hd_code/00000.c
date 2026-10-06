@@ -768,6 +768,9 @@ void func_80244930(void *arg0) {
                     func_801EF380(1);
                     sp60 = D_80315440.frameCount;
                     while (D_80315440.frameCount - sp60 < 15) {
+#ifdef TARGET_PC
+                        port_spin_wait();
+#endif
                     }
                     break;
                 case 0x100000000:
@@ -1057,6 +1060,9 @@ void func_80244930(void *arg0) {
                     func_80255DC8();
                     sp54 = D_80315440.frameCount;
                     while (D_80315440.frameCount - sp54 < 15) {
+#ifdef TARGET_PC
+                        port_spin_wait();
+#endif
                     }
                     func_801ED790();
                     func_80200714(3);

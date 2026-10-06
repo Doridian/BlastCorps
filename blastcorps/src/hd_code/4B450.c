@@ -83,6 +83,9 @@ u8 func_8028FCD4(OSMesgQueue *arg0, u8 *arg1) {
     *arg1 = 0;
     osContStartQuery(arg0);
     while (arg0->validCount == 0) {
+#ifdef TARGET_PC
+        port_spin_wait();
+#endif
     }
     osRecvMesg(arg0, NULL, OS_MESG_NOBLOCK);
     osContGetQuery(sp20);

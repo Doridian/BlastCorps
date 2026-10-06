@@ -202,6 +202,9 @@ void func_801F58E8(void) {
         osRecvMesg(&D_80219EF8, &sp3C, OS_MESG_BLOCK);
         osSetEventMesg(OS_EVENT_SI, &D_80370BF8, NULL);
         while (D_8036BF10 != 0) {
+#ifdef TARGET_PC
+            port_spin_wait();
+#endif
         }
         sp2F = (u32)sp3C & 0xFF;
         sp31 = ((u32)sp3C >> 8) & 0xFF;

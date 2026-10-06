@@ -1110,7 +1110,16 @@ int main(int argc, char **argv) {
             vi_force = 1;
             continue;
         }
-        uint64_t wake = vi_held ? ~0ull : vi_at;
+        /* a thread spinning on the count (port_spin_wait) gets the held
+           retrace when it is due */
+        int spinning = host_spinning();
+        if (vi_held && spinning && now >= vi_at) {
+            host_replay_vi_forced();
+            next_vi = now;
+            vi_force = 1;
+            continue;
+        }
+        uint64_t wake = vi_held && !spinning ? ~0ull : vi_at;
         if (next_disp < wake)
             wake = next_disp;
         /* (rounded up: at deadline * 64 / 3 the counter may not be there yet) */

@@ -26,6 +26,8 @@ recomp_context *port_ctx(void);
 void host_charge(uint64_t ns);
 int host_rdp_scaled(void);             /* PORT_RDP_SCALE isn't 0: host_charge counts */
 uint64_t host_busy_wake(void);       /* threads.c: when a busy thread may go on */
+int host_spinning(void);             /* threads.c: a thread waits in port_spin_wait */
+void port_spin_wait(void);           /* (port_game.h) */
 extern double host_ns_per_instr, host_c_scale;          /* the N64's clock: real or virtual time */
 
 /* perf.c: PORT_PERF=N, where the host's time goes per retrace */

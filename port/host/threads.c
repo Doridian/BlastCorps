@@ -26,8 +26,8 @@
 #include "fiber.h"
 #include "host.h"
 
-enum { T_FREE, T_STOPPED, T_RUNNABLE, T_WAITING, T_PARKED, T_DEAD, T_BUSY };
-static const char *state_names[] = { "free", "stopped", "runnable", "waiting", "parked", "dead", "busy" };
+enum { T_FREE, T_STOPPED, T_RUNNABLE, T_WAITING, T_PARKED, T_DEAD, T_BUSY, T_SPIN };
+static const char *state_names[] = { "free", "stopped", "runnable", "waiting", "parked", "dead", "busy", "spinning" };
 
 typedef struct {
     int state;
@@ -46,6 +46,7 @@ typedef struct {
     uint32_t locals_sp;         /* its port_locals_sp while it doesn't run (PORT_MOVABLE) */
     uint64_t clock;             /* how far its own work has got (ns) */
     uint64_t busy_until;        /* T_BUSY: host_now_ns() it may resume at */
+    uint32_t spin_irqs;         /* T_SPIN: host_irqs when it began to wait */
 } HThread;
 
 static HThread threads[PORT_MAX_THREADS];
@@ -172,7 +173,7 @@ void host_thread_stop(uint32_t key) {
     if (t == cur) {
         t->state = T_STOPPED;
         to_loop();
-    } else if (t->state == T_RUNNABLE || t->state == T_WAITING) {
+    } else if (t->state == T_RUNNABLE || t->state == T_WAITING || t->state == T_SPIN) {
         t->state = T_STOPPED;
     }
 }
@@ -242,6 +243,30 @@ void host_yield(void) {
     to_loop();
 }
 
+/* A busy-wait (port_game.h's port_spin_wait): on the N64 the thread spins
+   until an interrupt changes what it reads, and nothing of lower priority
+   runs meanwhile.  Here it waits for the next interrupt the loop delivers
+   (host_irq_cost counts them), holding the CPU against lower priorities
+   as the spin did; equal and higher ones run. */
+static uint32_t host_irqs;
+
+void port_spin_wait(void) {
+    if (!cur || CHECKING())
+        return;
+    cur->state = T_SPIN;
+    cur->spin_irqs = host_irqs;
+    cur->seq = seq_counter++;
+    to_loop();
+}
+
+/* whether a thread spins, with no interrupt since it began */
+int host_spinning(void) {
+    for (int i = 0; i < PORT_MAX_THREADS; i++)
+        if (threads[i].state == T_SPIN && threads[i].spin_irqs == host_irqs)
+            return 1;
+    return 0;
+}
+
 /* ---- the CPU's time ---------------------------------------------------------- */
 
 uint32_t __port_icount;                     /* MIPS instructions: the translated code */
@@ -298,6 +323,7 @@ void host_recv_charge(uint32_t key, uint32_t n) {
 /* an interrupt's handling (libultra's exception handler, the dispatch):
    it takes the CPU from whatever is computing */
 void host_irq_cost(uint32_t n) {
+    host_irqs++;
     uint64_t ns = (uint64_t)(n * host_ns_per_instr);
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (threads[i].state == T_BUSY) {
@@ -316,14 +342,23 @@ uint64_t host_busy_wake(void) {
 
 int host_run_one(void) {
     HThread *best = NULL;
+    int spin_pri = -1;          /* the highest priority spinning with no interrupt yet */
     for (int i = 0; i < PORT_MAX_THREADS; i++) {
         HThread *t = &threads[i];
+        if (t->state == T_SPIN) {
+            if (t->spin_irqs == host_irqs) {
+                if (t->pri > spin_pri)
+                    spin_pri = t->pri;
+                continue;
+            }
+            t->state = T_RUNNABLE;          /* an interrupt came: it tests again */
+        }
         if (t->state != T_RUNNABLE && t->state != T_BUSY)
             continue;
         if (!best || t->pri > best->pri || (t->pri == best->pri && t->seq < best->seq))
             best = t;
     }
-    if (!best)
+    if (!best || best->pri < spin_pri)
         return 0;
     if (best->state == T_BUSY) {
         /* still computing: nothing below it may run */
