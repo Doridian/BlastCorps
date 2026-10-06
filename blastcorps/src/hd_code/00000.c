@@ -2289,6 +2289,9 @@ u8 func_8024B4B8(void) {
         case 16:
             return func_802D0B90();
     }
+#ifdef TARGET_PC
+    return 0;   /* (no case for 0 and 12: what was left in $v0) */
+#endif
 }
 
 void func_8024B5E8(void) {

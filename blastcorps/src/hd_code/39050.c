@@ -390,6 +390,9 @@ f32 func_8027E228(u8 arg0) {
     default:
         func_8029A7E4("DIGGER WEIGHT NOT SET\n");
     }
+#ifdef TARGET_PC
+    return 0.0f;    /* (what was left in $f0) */
+#endif
 }
 
 void func_8027E344(s32 arg0) {

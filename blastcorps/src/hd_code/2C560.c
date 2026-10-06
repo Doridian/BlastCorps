@@ -482,5 +482,5 @@ s32 func_80271F48(OSMesgQueue *mq, OSMesg msg, s32 flag) {
     sp28 = D_8036BF38 + 391250 - osGetTime();
     sp20 = osGetTime();
     sp1C = 0;
-    osSendMesg(mq, msg, flag);
+    return osSendMesg(mq, msg, flag);
 }

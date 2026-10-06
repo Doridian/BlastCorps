@@ -425,16 +425,15 @@ s32 func_801F60C8(void) {
 }
 
 /*
- * func_801F6160, func_801F61C8 and func_801F6ED4 return nothing, but the pak
- * thread stores what they leave in $v0, so they are int functions with no
- * return statement.
+ * func_801F6160, func_801F61C8 and func_801F6ED4: the pak thread stores
+ * their result, the libultra call's.
  */
 s32 func_801F6160(u8 arg0) {
-    osPfsAllocateFile(&D_8039B630, PAK_COMPANY_CODE, PAK_GAME_CODE, D_8020C000, D_8020C014, 0xE00, &D_8039B698[arg0]);
+    return osPfsAllocateFile(&D_8039B630, PAK_COMPANY_CODE, PAK_GAME_CODE, D_8020C000, D_8020C014, 0xE00, &D_8039B698[arg0]);
 }
 
 s32 func_801F61C8(s32 arg0) {
-    osPfsDeleteFile(&D_8039B630, PAK_COMPANY_CODE, PAK_GAME_CODE, D_8020C000, D_8020C014);
+    return osPfsDeleteFile(&D_8039B630, PAK_COMPANY_CODE, PAK_GAME_CODE, D_8020C000, D_8020C014);
 }
 
 s32 func_801F6210(u8 arg0) {
@@ -680,7 +679,7 @@ s32 func_801F6CA4(u8 arg0, u8 arg1, u8 arg2) {
 }
 
 s32 func_801F6ED4(u8 arg0) {
-    osPfsFileState(&D_8039B630, arg0, &D_80218B20[D_80218D28]);
+    return osPfsFileState(&D_8039B630, arg0, &D_80218B20[D_80218D28]);
 }
 
 #ifdef VERSION_JP

@@ -5059,11 +5059,22 @@ the same in C):
 
 Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
 
-- `hd_code/26570.c`: `func_8026BBD0` is `void`, but its callers use the
-  result, which on the N64 is `v0` left over from `func_8026BCE0`; the port
-  returns that.  Two string copies whose unsequenced `a[i] = b[i++]` IDO
-  evaluates with the old index.
+- `hd_code/26570.c`: `func_8026BBD0` has no return statement, but its
+  callers use the result, which on the N64 is `v0` left over from
+  `func_8026BCE0`; the port returns that.  Two string copies whose
+  unsequenced `a[i] = b[i++]` IDO evaluates with the old index.
 - `hd_code/168B0.c`: the same unsequenced copy.
+- `hd_code/00000.c`, `39050.c`, `3E4C0.c`: three non-void functions that
+  can fall off the end, where the N64 returns what was left in `v0` or
+  `f0`, return 0 there: `func_8024B4B8` (the player's vehicle's, with no
+  case for types 0 and 12), `func_8027E228` (a vehicle's weight, "DIGGER
+  WEIGHT NOT SET" for the crane, the train, the barges and the others it
+  has no case for) and `func_80284ADC` (an angle by quadrant, which covers
+  them all).  None of the three falls off in the TAS or the quick tier.
+  (The four others that fell off the end, the pak thread's `func_801F6160`,
+  `func_801F61C8` and `func_801F6ED4` and the scheduler's `func_80271F48`,
+  return their last call's result in every build, which IDO compiles the
+  same.)
 - `hd_code/2E490.c`: `func_80272C5C` tells the host which textures an
   icon's picture is (`port_icon_texture`, "Model icons").
 - `hd_code/37530.c`: the vehicles' tyre marks (`func_8027C4C8`) are
@@ -5317,9 +5328,7 @@ writable, as the N64 has it.
   their frames are all loading.  The boot before hd_code (IPL3, init's
   inflate of hd_code) isn't run or charged; by the scheduler's count the
   N64 logo comes 14 retraces later than in mupen64plus and the title 22.
-  Rendering: no anti-aliasing (see "Graphics").  Non-void functions that fall off the
-  end (`func_8024B4B8`, `func_80271F48`, `func_8027E164`, `func_801F6160`,
-  `func_801F61C8`, `func_801F6ED4`) return whatever the host leaves.
+  Rendering: no anti-aliasing (see "Graphics").
 
 ## What's left for the port
 
