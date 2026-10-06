@@ -5702,6 +5702,160 @@
    ],
    "note": "Vtx[179], the carrier's explosion's dome: 39050.c's segment 6 for D_80300A68's G_VTXs"
   },
+  "asm_D_803059F0": {
+   "size": 12,
+   "align": 4,
+   "header": "(tools/inventory.py ASM_DATA_LAYOUTS)",
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "unk4",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 8,
+     "name": "unk8",
+     "type": "u32",
+     "count": 1
+    }
+   ],
+   "note": "{level (0xFFFF: any), building kind, a bit per vehicle type}, to a zero mask: port/engine 56040.c's BuildingRule, 77E20.c's Immune"
+  },
+  "asm_D_80306E70": {
+   "size": 80,
+   "align": 4,
+   "header": "(tools/inventory.py ASM_DATA_LAYOUTS)",
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "unk4",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 8,
+     "name": "unk8",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 12,
+     "name": "unkC",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 16,
+     "name": "unk10",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 20,
+     "name": "unk14",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 24,
+     "name": "unk18",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 28,
+     "name": "unk1C",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 32,
+     "name": "unk20",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 36,
+     "name": "unk24",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 40,
+     "name": "unk28",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 44,
+     "name": "unk2C",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 48,
+     "name": "unk30",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 52,
+     "name": "unk34",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 56,
+     "name": "unk38",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 60,
+     "name": "unk3C",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 64,
+     "name": "unk40",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 68,
+     "name": "unk44",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 72,
+     "name": "unk48",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 76,
+     "name": "unk4C",
+     "type": "u32",
+     "count": 1
+    }
+   ],
+   "note": "OSViMode[]: u8 type, then the common and the two fields' registers (2C560.c's osViSetMode(&D_80306E70[mode]))"
+  },
   "asm_D_8020C0AA": {
    "size": 22,
    "align": 4,
@@ -6375,61 +6529,6 @@
    ],
    "header": "(tools/fieldscan.py)",
    "note": "a list walked with a pointer: the first record's fields, repeated"
-  },
-  "asm_D_8030480C": {
-   "size": 644,
-   "align": 4,
-   "fields": [
-    {
-     "off": 248,
-     "name": "unkF8",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 250,
-     "name": "unkFA",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 260,
-     "name": "unk104",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 262,
-     "name": "unk106",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 272,
-     "name": "unk110",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 274,
-     "name": "unk112",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 300,
-     "name": "unk12C",
-     "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 302,
-     "name": "unk12E",
-     "type": "u16",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
   },
   "asm_D_80305C58": {
    "size": 12,
@@ -17101,6 +17200,3500 @@
    "storage": "asm/data/hd_code/BAF70.data.s",
    "derived": "the port's access-width profiler"
   },
+  "D_803059F0": {
+   "type": "asm_D_803059F0",
+   "count": 35,
+   "storage": "asm/data/hd_code/56040.data.s",
+   "derived": "the port's access-width profiler"
+  },
+  "D_80306E70": {
+   "type": "asm_D_80306E70",
+   "count": 28,
+   "storage": "asm/data/hd_code/C26B0.data.s",
+   "derived": "the port's access-width profiler"
+  },
+  "D_80301098": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BAF70.data.s",
+   "derived": "text in the 0x0FFE-terminated u16 encoding, as BC8E0's (26570.c)"
+  },
+  "D_80305C10": {
+   "type": "ptr",
+   "count": 9,
+   "storage": "asm/data/hd_code/60F60.data.s",
+   "derived": "the animations kept in the effects' heap, 0 at the end (port/engine 60F60.c)",
+   "to": "void"
+  },
+  "D_80305C34": {
+   "type": "bytes",
+   "count": 20,
+   "storage": "asm/data/hd_code/60F60.data.s",
+   "derived": "a C string (port/engine 60F60.c)"
+  },
+  "D_80305C50": {
+   "type": "f64",
+   "count": 1,
+   "storage": "asm/data/hd_code/62740.data.s",
+   "derived": "a constant of the height search (port/engine 62740.c)"
+  },
+  "D_80305CB0": {
+   "type": "bytes",
+   "count": 1,
+   "storage": "asm/data/hd_code/69BB0.data.s",
+   "derived": "its parts' collision, read as bytes (port/engine 69BB0.c, 56040's func_8029A800)"
+  },
+  "D_80305D40": {
+   "type": "bytes",
+   "count": 32,
+   "storage": "asm/data/hd_code/72B80.data.s",
+   "derived": "a C string (port/engine 72B80.c)"
+  },
+  "D_803063F0": {
+   "type": "bytes",
+   "count": 16,
+   "storage": "asm/data/hd_code/80280.data.s",
+   "derived": "the share of the groups a medal wants, by medal (port/engine 80280.c)"
+  },
+  "D_802FF730": {
+   "type": "gfx",
+   "count": 2,
+   "storage": "asm/data/hd_code/BAF70.data.s",
+   "derived": "a display list: gsSPEndDisplayList()"
+  },
+  "__osHwIntTable": {
+   "type": "ptr",
+   "count": 12,
+   "storage": "asm/data/init/2330.data.s",
+   "derived": "libultra's interrupt handlers (the port's libultra has its own)",
+   "to": "void"
+  },
+  "D_803C2B80": {
+   "type": "u64",
+   "count": 1,
+   "storage": "asm/data/hd_code/5FD50.bss.s",
+   "derived": "the effects' task's output size (port/engine 5FD50.c: output_buff_size)"
+  },
+  "D_803C4F70": {
+   "type": "Mtx",
+   "count": 16,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' matrices, one frame's (port/engine 60F60.c), as D_803C5370"
+  },
+  "D_803C8770": {
+   "type": "Vtx",
+   "count": 256,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' vertices, one frame's (port/engine 60F60.c), as D_803C9770"
+  },
+  "D_803CA770": {
+   "type": "bytes",
+   "count": 65536,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' texture cells, one frame's (port/engine 60F60.c)"
+  },
+  "D_803DA770": {
+   "type": "bytes",
+   "count": 65536,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the other frame's"
+  },
+  "D_803EA770": {
+   "type": "bytes",
+   "count": 4096,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' cells, 0x100 bytes per slot (port/engine 60F60.c)"
+  },
+  "D_803F2ED0": {
+   "type": "Mtx",
+   "count": 40,
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "derived": "the falling groups' matrices, one frame's (port/engine 77E20.c), as D_803F24D0"
+  },
+  "D_8020F49C": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4A0": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4A4": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4A8": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4AC": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F788": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, \" \" (YoshiEntry.text)"
+  },
+  "D_8020FD90": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, \" \" (YoshiEntry.text)"
+  },
+  "D_8020FDE4": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, \" \" (YoshiEntry.text)"
+  },
+  "D_803010A0": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803010A8": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803010BC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803010C0": {
+   "type": "u16",
+   "count": 484,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301488": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301498": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803014B0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803014C4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803014DC": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803014FC": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301518": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301530": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301534": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301538": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030153C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301540": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301558": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301570": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301588": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803015A4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803015A8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803015AC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803015B0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803015C8": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803015E4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301600": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301620": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301634": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301638": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030163C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301640": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030165C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301674": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301694": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803016AC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803016C4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803016C8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803016CC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803016D0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803016E4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301700": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030171C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301720": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301724": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301728": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301744": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301760": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030177C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301780": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301784": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301788": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030178C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301790": {
+   "type": "u16",
+   "count": 516,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301B98": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BA0": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BA8": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BB4": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BC0": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BCC": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BD4": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BE0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301BF4": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C04": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C14": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C24": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C30": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C40": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C50": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C64": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C70": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C78": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C8C": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301C9C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301CB0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301CC8": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301CE8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301CEC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301CF0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301CF4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D08": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D24": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D38": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D3C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D40": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D44": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D48": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D64": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D7C": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301D8C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301DA4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301DC0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301DC4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301DE0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301DF4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E0C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E20": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E38": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E3C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E40": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E44": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E48": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E60": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E7C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E94": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E98": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301E9C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EA0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EA4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EC0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301ED8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EF0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EF4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EF8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301EFC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F00": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F14": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F28": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F38": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F3C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F40": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F54": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F6C": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301F8C": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301FA8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301FAC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301FB0": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301FD0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80301FE8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302000": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302004": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302008": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030200C": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030202C": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030204C": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302068": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302088": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030208C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302090": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803020AC": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803020CC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803020E4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803020E8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803020EC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302104": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302124": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302140": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030215C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302174": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302178": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030217C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302194": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803021B0": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803021CC": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803021EC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803021F0": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030220C": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030222C": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030224C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302264": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302280": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302284": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302288": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803022A8": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803022C8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803022E0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803022F4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803022F8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803022FC": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302310": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302328": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302340": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030235C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302360": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302364": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302380": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803023A0": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803023C0": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803023DC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803023E0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803023E4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803023FC": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302410": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302424": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030243C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302440": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302460": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030247C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302494": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803024AC": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803024CC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803024D0": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803024F0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302504": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030251C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302534": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302538": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302550": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302554": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030256C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302584": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302588": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030258C": {
+   "type": "u16",
+   "count": 22,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803025B8": {
+   "type": "u16",
+   "count": 18,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803025DC": {
+   "type": "u16",
+   "count": 18,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302600": {
+   "type": "u16",
+   "count": 22,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030262C": {
+   "type": "u16",
+   "count": 18,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302650": {
+   "type": "u16",
+   "count": 30,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030268C": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302698": {
+   "type": "u16",
+   "count": 20,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803026C0": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803026CC": {
+   "type": "u16",
+   "count": 22,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803026F8": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302704": {
+   "type": "u16",
+   "count": 24,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302734": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302748": {
+   "type": "u16",
+   "count": 22,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302774": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302790": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803027AC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803027C4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803027E0": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302800": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302820": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302840": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030285C": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302878": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030288C": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803028AC": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803028C8": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803028E8": {
+   "type": "u16",
+   "count": 16,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302908": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302918": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302930": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302934": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302940": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302954": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302968": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302974": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302978": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030298C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029A0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029B4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029B8": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029C8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029CC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029D0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029D4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029E8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029EC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803029F0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A00": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A14": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A28": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A3C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A50": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A60": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A64": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A68": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A7C": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A8C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302A90": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AA4": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AB4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AB8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AD0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AE4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AE8": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302AFC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B0C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B10": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B24": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B34": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B4C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B50": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B64": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B7C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302B94": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BA8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BAC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BB0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BB4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BCC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BE4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BE8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BEC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BF0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302BF4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C08": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C20": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C2C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C30": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C34": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C4C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C64": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C68": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C7C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C94": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302C98": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CA8": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CBC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CC0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CD4": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CE4": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CF0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302CF4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D08": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D14": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D28": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D2C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D40": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D58": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D70": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D84": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302D9C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302DB4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302DCC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302DE4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302DFC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E14": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E28": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E2C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E30": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E34": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E40": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E58": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E70": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E74": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E88": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302E9C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302EB0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302EC8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302EE0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302EF4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F08": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F1C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F30": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F44": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F54": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F64": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F74": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F8C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302F90": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302FA0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302FB0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302FB4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302FCC": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302FE0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80302FF0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303004": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303014": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030302C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303040": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303058": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303070": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303084": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303098": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030309C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803030B4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803030CC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803030E4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803030F8": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030310C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303124": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303138": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030314C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303160": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303174": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303184": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303188": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303198": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803031B0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803031C8": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803031D8": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803031EC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803031FC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030320C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303220": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303234": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303248": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030325C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303270": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303288": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030329C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803032B4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803032C8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803032E0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803032E4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803032F8": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303304": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303318": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030331C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303320": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303324": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303338": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030334C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303360": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303378": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030338C": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030339C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803033B0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803033C0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803033D0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803033E4": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803033F0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303400": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303410": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303420": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303424": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303428": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303438": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030343C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303450": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030345C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303470": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303488": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803034A0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803034B8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803034D0": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803034DC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803034EC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803034FC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303514": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303520": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303534": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303544": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030355C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303574": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030358C": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303594": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803035A0": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803035AC": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803035B4": {
+   "type": "u16",
+   "count": 4,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803035BC": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803035C8": {
+   "type": "u16",
+   "count": 662,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303AF4": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303B00": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303B10": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303B24": {
+   "type": "u16",
+   "count": 60,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303B9C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303BB4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303BC8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303BCC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303BD0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303BE4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303BF8": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C14": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C18": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C2C": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C48": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C4C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C50": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C5C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C70": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C74": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C78": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C88": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303C98": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303CAC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303CB0": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303CC0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303CD8": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303CF0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303CF4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D0C": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D28": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D40": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D44": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D58": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D70": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D80": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303D98": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DA4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DA8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DAC": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DC0": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DDC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DE0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DE4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303DFC": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E14": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E18": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E30": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E48": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E60": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E70": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E84": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E88": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303E8C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303EA0": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303EB8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303EBC": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303ED0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303EE4": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303EF4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303EF8": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F14": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F18": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F1C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F20": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F24": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F28": {
+   "type": "u16",
+   "count": 6,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F34": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F4C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F50": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F54": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F6C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F84": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F88": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F8C": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303F9C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FB0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FB4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FB8": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FD4": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FF0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FF4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FF8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80303FFC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304000": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304004": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030401C": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030402C": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304030": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304034": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030404C": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304064": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304080": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304084": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304094": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040A4": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040A8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040AC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040B0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040B4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040CC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040DC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040E0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040E4": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803040F4": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304108": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304118": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030411C": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304138": {
+   "type": "u16",
+   "count": 14,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304154": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304164": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304168": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030417C": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_80304190": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803041A8": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803041AC": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803041B0": {
+   "type": "u16",
+   "count": 2,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803041B4": {
+   "type": "u16",
+   "count": 758,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803047A0": {
+   "type": "u16",
+   "count": 10,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803047B4": {
+   "type": "u16",
+   "count": 12,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803047CC": {
+   "type": "u16",
+   "count": 8,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_803047DC": {
+   "type": "u16",
+   "count": 24,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
+  "D_8030480C": {
+   "type": "u16",
+   "count": 322,
+   "storage": "asm/data/hd_code/BC8E0.data.s",
+   "derived": "the menus' Japanese text, which only jp shows (26570.c's D_803010A0 on; yoshi.h's YoshiEntry.unk10)"
+  },
   "D_8020F480": {
    "type": "bytes",
    "count": 12,
@@ -18245,12 +21838,6 @@
    "type": "asm_D_80300A68",
    "count": 99,
    "storage": "asm/data/hd_code/BAF70.data.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_8030480C": {
-   "type": "asm_D_8030480C",
-   "count": 1,
-   "storage": "asm/data/hd_code/BC8E0.data.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
   "D_80305C58": {
