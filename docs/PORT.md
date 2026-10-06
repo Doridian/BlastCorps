@@ -1712,6 +1712,66 @@ are the executable's own sections at N64 addresses, initialized by the
 loader, and the C's are swapped by constructors before `main` has the ROM;
 see docs/DISTRIBUTION.md.
 
+### The scattered layout (`PORT_SCATTER`)
+
+Every build so far keeps each N64-named variable at its N64 address, and
+the game's C and the engine C rely on that in places: a field read
+through a name of its own (`D_803156C4` for `Sched.frameCount`), a `T
+x[1]` that is really bigger, a loop from one label to the next, a range
+cleared by address.  `-DPORT_SCATTER=SEED` (a movable build) is the
+oracle that breaks all of that where it shows: port-arena gives every
+N64-named variable of RDRAM an address after the data without N64
+addresses instead, in an order the seed shuffles, keeping its N64
+address's offset in 16 bytes, with padding before it of 16 to 2,048
+bytes plus the size of the one before (up to 16 KB, so that an index the
+N64 had room for lands in padding).  About 2,270 variables in us.v10
+(1,010 with the asm data per file), to about `0x840000`.
+
+- **The unit.**  A C variable is its own.  The asm data is split per
+  global label (`asm2ll.py --split`; `-DPORT_SCATTER_ASM=label`, the
+  default), each from its label to the next; `-DPORT_SCATTER_ASM=file`
+  places each file whole, which hides the walks from one label into the
+  next (the engine's per-wheel bytes, begin and end pointers to the next
+  label).  A bin (no labels inside) moves whole.
+- **Names inside another variable** (a declaration whose N64 address is
+  inside something placed: not a label) get room of their own, so the
+  C's view through them parts from the container's.  But for a name
+  inside a data file placed whole or a bin, or another name of an asm
+  object's start: those go with it.
+- **What stays**: the front end's variables (`port/src/overlay.c` restores
+  its `.data` and clears its `.bss` by address; `-DPORT_SCATTER_FE=ON`
+  moves them too), and the fixed buffers (the framebuffers, the level
+  pool, the heap at `D_803FF600`, the front end's area as the level's),
+  which are addresses, not variables.
+- **What nothing should touch**: the N64 places the variables left, the
+  padding and the aliases' rooms (`__port_scatter_bad`) are filled with
+  `PORT_SCATTER_POISON` (a byte, default `0xA5`, so a pointer read there
+  is off the arena).
+- **The host** names variables by `PORT_N64_` (`n64_syms.h`); the
+  arena's header has the scattered addresses first, and a name only the
+  host uses goes where it is inside of.
+- It carries its data (no `PORT_ROM_DATA`), and the default builds are
+  unchanged (the same code and arena image; only the debug info moves).
+
+`-DPORT_SCATTER_CHECK=ON` adds the check: every load, store and
+pointer argument of the N64 side calls `port_scatter_check(address,
+size, site)` (memsets and copies are done by `port_scatter_mem`), which
+reports the first access of each site (function, file and line) to each
+such place, `scatter: SITE: N bytes at A reach WHAT`, and then takes it
+where the N64's layout has what it meant (an alias into its container, a
+byte of padding as the nearer neighbour's N64 place, an N64 place to the
+variable's new one), so the game plays on and the next one shows
+(`PORT_SCATTER_REDIRECT=0` doesn't).  An access off the arena stops the
+port with its site.  `gen/scatter_report.txt` lists what was placed where
+and every name inside another variable with the lines that use it, and
+`port/tools/scatter_list.py` makes the two into the list of what
+depends on the layout, by kind: docs/LAYOUT.md, the input for removing
+those dependencies.  (`PORT_EA_GUARD` is the translated code's, which no
+default build has: it doesn't apply.)
+
+What it found, us.v10, seeds 1 and 2, each unit, the quick tier's
+scenarios and the TAS: see docs/LAYOUT.md.
+
 ## Resource packs
 
 The port can take a resource pack instead of the ROM: a zip of the ROM's

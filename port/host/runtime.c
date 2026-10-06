@@ -87,6 +87,170 @@ extern const struct arena_reloc __port_arena_relocs[];
 extern const uint32_t __port_arena_relocs_n;
 extern const uint32_t __port_arena_data_end;
 
+#ifdef PORT_SCATTER
+/* The scattered layout (PORT_SCATTER, docs/PORT.md "The scattered
+   layout"): where nothing should be any more (an N64 place a variable
+   left, the padding between them, the room of a name that is inside
+   another variable), from the arena link.  It is filled with
+   PORT_SCATTER_POISON (a byte, default 0xA5: a pointer read from it is
+   off the arena).  With PORT_SCATTER_CHECK every access of the game's C
+   that reaches it is reported, once a site and a place, and goes where
+   the N64's layout would have had it (unless PORT_SCATTER_REDIRECT=0),
+   so that the game plays on and the next one shows. */
+struct scatter_bad {
+    uint32_t start, len, kind;  /* 1 an N64 place left, 2 padding, 3 an alias's room */
+    uint32_t n64a, n64b, now;   /* (Arena.cpp's Bad) */
+    const char *desc;
+};
+extern const struct scatter_bad __port_scatter_bad[];
+extern const uint32_t __port_scatter_bad_n;
+
+#ifdef PORT_SCATTER_CHECK
+extern const char *const __port_scatter_sites[];
+static uint16_t *scatter_map;       /* a byte's range, + 1 */
+static uint32_t scatter_map_end;
+static uint64_t scatter_seen[1 << 16];
+static int scatter_redirect = 1;
+
+/* "scatter: SITE: N bytes at ADDR reach WHAT": the room of an alias or an
+   N64 place left (+ the offset into it), or the padding, as +n after the
+   variable before it or -n before the one after it, whichever is nearer */
+static void scatter_report(uint32_t site, uint32_t size, uint32_t off, uint32_t r) {
+    const struct scatter_bad *b = &__port_scatter_bad[r - 1];
+    uint32_t o = off - b->start;
+    uint64_t key = (uint64_t)site << 32 | r;
+    uint32_t h = (uint32_t)((key * 0x9E3779B97F4A7C15ull) >> 48);
+    for (uint32_t n = 0; n < (1u << 16); n++, h = (h + 1) & 0xFFFF) {
+        if (scatter_seen[h] == key + 1)
+            return;
+        if (!scatter_seen[h]) {
+            scatter_seen[h] = key + 1;
+            break;
+        }
+    }
+    fprintf(stderr, "scatter: %s: %u bytes at %08X reach ", __port_scatter_sites[site], size, 0x80000000u | off);
+    const char *bar = b->kind == 2 ? strchr(b->desc, '|') : NULL;
+    if (!bar)
+        fprintf(stderr, "%s, +0x%X\n", b->desc, o);
+    else if (o < b->len - o)
+        fprintf(stderr, "padding, +0x%X after %.*s\n", o, (int)(bar - b->desc), b->desc);
+    else
+        fprintf(stderr, "padding, -0x%X before %s\n", b->len - o, bar + 1);
+}
+
+/* where the N64's layout has what a byte of range r stands for: an N64
+   place's new address, an alias's place in what it is inside of, the
+   padding's as the nearer neighbour has it; 0: nowhere */
+static uint32_t scatter_where(uint32_t off, uint32_t r) {
+    const struct scatter_bad *b = &__port_scatter_bad[r - 1];
+    uint32_t o = off - b->start, y;
+    if (b->kind == 1)
+        return b->now + o;
+    if (b->kind == 3)
+        y = b->n64a + o;
+    else if (o < b->len - o)
+        y = b->n64a ? b->n64a + o : 0;
+    else
+        y = b->n64b ? b->n64b - (b->len - o) : 0;
+    if (!y)
+        return 0;
+    if (y < scatter_map_end && scatter_map[y] && __port_scatter_bad[scatter_map[y] - 1].kind == 1)
+        return scatter_where(y, scatter_map[y]);
+    return y;
+}
+
+uint32_t port_scatter_check(uint32_t addr, uint32_t size, uint32_t site) {
+    uint32_t off = addr & 0x1FFFFFFFu, first = 0;
+    if (off >= PORT_ARENA_SIZE)
+        host_fatal("scatter: %s: %u bytes at %08X, off the arena", __port_scatter_sites[site], size, addr);
+    if (off >= scatter_map_end)
+        return addr;
+    uint32_t end = size > scatter_map_end - off ? scatter_map_end : off + (size ? size : 1);
+    for (uint32_t o = off; o < end; o++) {
+        uint32_t r = scatter_map[o];
+        if (!r)
+            continue;
+        if (!first)
+            first = r;
+        scatter_report(site, size, o, r);
+        o = __port_scatter_bad[r - 1].start + __port_scatter_bad[r - 1].len - 1;   /* (the rest of it) */
+    }
+    if (!first || !scatter_redirect || scatter_map[off] != first)
+        return addr;
+    uint32_t w = scatter_where(off, first);
+    return w ? (addr & ~0x1FFFFFFFu) | w : addr;
+}
+
+/* a byte's address, redirected as port_scatter_check does it */
+static uint8_t *scatter_byte(uint32_t off, uint32_t len, uint32_t site) {
+    if (off < scatter_map_end && scatter_map[off]) {
+        scatter_report(site, len, off, scatter_map[off]);
+        uint32_t w = scatter_redirect ? scatter_where(off, scatter_map[off]) : 0;
+        if (w)
+            return port_arena + (w & 0x1FFFFFFFu);
+    }
+    return port_arena + off;
+}
+
+static int scatter_clean(uint32_t off, uint32_t len) {
+    if (off >= scatter_map_end)
+        return 1;
+    uint32_t end = len > scatter_map_end - off ? scatter_map_end : off + len;
+    for (uint32_t o = off; o < end; o++)
+        if (scatter_map[o])
+            return 0;
+    return 1;
+}
+
+/* the game's C's memsets (kind 0, v the byte) and copies (kind 1, v the source) */
+void port_scatter_mem(uint32_t dst, uint32_t v, uint32_t len, uint32_t kind, uint32_t site) {
+    uint32_t d = dst & 0x1FFFFFFFu, s = v & 0x1FFFFFFFu;
+    if (!len)
+        return;
+    if (scatter_clean(d, len) && (kind == 0 || scatter_clean(s, len))) {
+        if (kind == 0)
+            memset(port_arena + d, (int)v, len);
+        else
+            memmove(port_arena + d, port_arena + s, len);
+        return;
+    }
+    if (kind == 0) {
+        for (uint32_t k = 0; k < len; k++)
+            *scatter_byte(d + k, len, site) = (uint8_t)v;
+    } else if (d <= s) {
+        for (uint32_t k = 0; k < len; k++)
+            *scatter_byte(d + k, len, site) = *scatter_byte(s + k, len, site);
+    } else {
+        for (uint32_t k = len; k-- > 0;)
+            *scatter_byte(d + k, len, site) = *scatter_byte(s + k, len, site);
+    }
+}
+#endif
+
+static void port_scatter_init(void) {
+    const char *e = getenv("PORT_SCATTER_POISON");
+    int poison = e ? (int)strtol(e, NULL, 0) : 0xA5;
+    uint32_t end = 0;
+    for (uint32_t i = 0; i < __port_scatter_bad_n; i++) {
+        const struct scatter_bad *b = &__port_scatter_bad[i];
+        memset(port_arena + b->start, poison, b->len);
+        if (b->start + b->len > end)
+            end = b->start + b->len;
+    }
+#ifdef PORT_SCATTER_CHECK
+    e = getenv("PORT_SCATTER_REDIRECT");
+    scatter_redirect = !e || atoi(e);
+    scatter_map_end = end;
+    scatter_map = calloc(end, sizeof *scatter_map);
+    if (!scatter_map || __port_scatter_bad_n >= 0xFFFF)
+        host_fatal("the scattered layout's map");
+    for (uint32_t i = 0; i < __port_scatter_bad_n; i++)
+        for (uint32_t o = 0; o < __port_scatter_bad[i].len; o++)
+            scatter_map[__port_scatter_bad[i].start + o] = (uint16_t)(i + 1);
+#endif
+}
+#endif
+
 /* The arena: memory of the host's choosing, at an offset into its page
    (PORT_ARENA_OFFSET, default 0x5670) so that nothing can rely on its
    alignment beyond 16 bytes, filled as the arena link says. */
@@ -122,6 +286,9 @@ void port_arena_init(void) {
         }
     }
     port_arena = a;
+#ifdef PORT_SCATTER
+    port_scatter_init();
+#endif
     if (host_verbose)
         host_log("the arena at %p (%u relocations)\n", (void *)a, __port_arena_relocs_n);
 }
