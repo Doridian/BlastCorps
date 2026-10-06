@@ -92,6 +92,18 @@ static cl::opt<bool> NoRuns("port-arena-no-runs",
                                      "the host makes them from the ROM (PORT_ROM_DATA, tools/rom_data.py)"));
 static cl::opt<std::string> SymsHeader("port-arena-header",
                                        cl::desc("where the moved variables went, as a header (SYM_, PORT_N64_)"));
+/* the scattered layout (PORT_SCATTER, docs/PORT.md "The scattered layout") */
+static cl::opt<std::string> Scatter("port-arena-scatter",
+                                    cl::desc("SEED: every N64-named variable at a shuffled address after RDRAM, "
+                                             "with padding between, instead of its N64 address"));
+static cl::opt<bool> ScatterFE("port-arena-scatter-fe", cl::desc("... the front end's variables too"));
+static cl::opt<bool> ScatterSplit("port-arena-scatter-split",
+                                  cl::desc("the asm data is split per label (asm2ll.py --split): a name inside "
+                                           "a label's span is an alias, not followed"));
+static cl::opt<bool> ScatterCheck("port-arena-scatter-check",
+                                  cl::desc("every mapped access calls port_scatter_check(address, size, site)"));
+static cl::opt<std::string> ScatterReport("port-arena-scatter-report",
+                                          cl::desc("where the names inside other variables are, and who uses them"));
 
 namespace {
 
@@ -226,6 +238,8 @@ struct Arena : PassInfoMixin<Arena> {
                 extra.push_back(g);
             }
         }
+        if (!Scatter.empty())
+            scatterPick(extra, room);
         for (GlobalVariable *g : extra) {
             uint64_t align = std::max<uint64_t>(g->getAlign() ? g->getAlign()->value() : 1,
                                                 DL->getABITypeAlign(g->getValueType()).value());
@@ -234,6 +248,8 @@ struct Arena : PassInfoMixin<Arena> {
             extraEnd += DL->getTypeAllocSize(g->getValueType());
         }
         extraEnd = (extraEnd + 15) & ~15ull;
+        if (!Scatter.empty())
+            scatterPlace(decls);
         /* the moved ones, for the translated code (SYM_) and the host
            (PORT_N64_), whose own tables have the N64's addresses */
         if (!SymsHeader.empty()) {
@@ -248,6 +264,9 @@ struct Arena : PassInfoMixin<Arena> {
                     os << "#define SYM_" << p.g->getName() << " 0x" << format_hex_no_prefix(K0 | p.addr, 8)
                        << "u\n#define PORT_N64_" << p.g->getName() << " 0x"
                        << format_hex_no_prefix(K0 | p.addr, 8) << "u\n";
+            for (auto &h : scatterHeader)
+                os << "#define SYM_" << h.first << " 0x" << format_hex_no_prefix(K0 | h.second, 8)
+                   << "u\n#define PORT_N64_" << h.first << " 0x" << format_hex_no_prefix(K0 | h.second, 8) << "u\n";
         }
         /* PORT_ARENA_MAP=FILE: where everything went, "address size name" */
         if (const char *mp = getenv("PORT_ARENA_MAP")) {
@@ -273,9 +292,392 @@ struct Arena : PassInfoMixin<Arena> {
         for (auto &p : placed)
             p.g->replaceAllUsesWith(addrConst(K0 | p.addr, p.g->getType()));
         for (GlobalVariable *g : decls) {
-            g->replaceAllUsesWith(addrConst(syms[g->getName().str()].first, g->getType()));
+            auto sd = scatterDecl.find(g);
+            g->replaceAllUsesWith(addrConst(sd != scatterDecl.end() ? K0 | sd->second : syms[g->getName().str()].first,
+                                            g->getType()));
             g->eraseFromParent();
         }
+    }
+
+    /* ---- the scattered layout (-port-arena-scatter) -------------------
+       The oracle for the code that depends on where the N64 put things:
+       every N64-named variable of RDRAM (the C's, and the asm data's, per
+       file or per label) is laid out after the rest of the data instead,
+       in an order the seed shuffles, at an address with the N64's one's
+       offset in 16 bytes, after padding of 16 to 2,048 bytes and as many
+       as the one before has (up to 16 KB: so that an access past the end
+       of one, by an index the N64 had room for, lands in padding).  A
+       name the N64 link has inside one of them (a declaration: a field
+       read through a name of its own, a table's second half) gets room of
+       its own there ("alias"), but for a name inside a data file placed
+       whole or inside a bin (which has no labels to split it by), or
+       another name of an asm object's start, which goes with it
+       ("follow").  The front end's variables stay (port/src/overlay.c
+       restores them by address) unless -port-arena-scatter-fe.  What
+       nothing should touch any more (the N64 places left behind, the
+       padding, the aliases' own room) is listed in __port_scatter_bad:
+       the host fills it with a pattern (PORT_SCATTER_POISON) and, with
+       -port-arena-scatter-check, reports the accesses that reach it and
+       takes them where the N64's layout has what they meant
+       (port_scatter_check, port_scatter_mem: host/runtime.c). */
+    struct ScItem {
+        GlobalVariable *g;
+        uint64_t n64, n64size, size;
+        bool alias;
+        std::string what;
+        uint64_t addr = 0;
+        size_t cont = 0;    /* an alias's: what it is inside of, and where */
+        uint64_t off = 0;
+    };
+    std::vector<ScItem> scItems;
+    std::map<GlobalVariable *, uint64_t> scatterDecl;
+    std::vector<std::pair<std::string, uint64_t>> scatterHeader;
+    struct Bad {
+        uint64_t start, len;
+        unsigned kind;      /* 1 an N64 place left, 2 padding ("before|after"), 3 an alias's room */
+        std::string desc;
+        /* what its first byte stands for in the N64's layout (padding: the
+           N64 end of the variable before it, n64b the start of the one
+           after), and an N64 place's new address */
+        uint64_t n64a = 0, n64b = 0, now = 0;
+    };
+    std::vector<Bad> bad;
+    uint64_t rng = 0;
+
+    uint64_t next() {       /* splitmix64 */
+        uint64_t z = (rng += 0x9E3779B97F4A7C15ull);
+        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
+        z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
+        return z ^ (z >> 31);
+    }
+
+    static bool frontEnd(uint64_t a) { return a >= 0x1E7000 && a < 0x21ED00; }
+
+    template <typename Room> void scatterPick(std::vector<GlobalVariable *> &extra, Room &room) {
+        std::vector<Placed> keep;
+        for (auto &p : placed) {
+            if (!ScatterFE && frontEnd(p.addr)) {
+                keep.push_back(p);
+                continue;
+            }
+            uint64_t n = DL->getTypeAllocSize(p.g->getValueType());
+            scItems.push_back({p.g, p.addr, n, n, false, ""});
+        }
+        placed = keep;
+        std::vector<GlobalVariable *> stay;
+        for (GlobalVariable *g : moved) {
+            uint64_t a = syms[g->getName().str()].first & MASK;
+            if (!ScatterFE && frontEnd(a)) {
+                stay.push_back(g);
+                continue;
+            }
+            uint64_t n = DL->getTypeAllocSize(g->getValueType());
+            scItems.push_back({g, a, std::min(n, room(g->getName().str(), a)), n, false, ""});
+            extra.erase(std::find(extra.begin(), extra.end(), g));
+        }
+        moved = stay;
+    }
+
+    static bool asmData(GlobalVariable *g) { return g->hasSection() && g->getSection() == "port.asmdata"; }
+
+    /* where a value is used: "function (file:line)", or a variable's initializer */
+    void users(Value *v, std::set<std::string> &out, int depth = 0) {
+        for (User *u : v->users()) {
+            if (auto *i = dyn_cast<Instruction>(u)) {
+                out.insert(where(i));
+            } else if (auto *g = dyn_cast<GlobalVariable>(u)) {
+                out.insert("initializer of " + g->getName().str());
+            } else if (depth < 8) {
+                users(u, out, depth + 1);
+            }
+        }
+    }
+
+    static std::string where(Instruction *i) {
+        std::string s = i->getFunction()->getName().str();
+        if (const DebugLoc &dl = i->getDebugLoc()) {
+            DILocation *l = dl.get();
+            while (l->getInlinedAt())   /* the outermost: the function's own line */
+                l = l->getInlinedAt();
+            StringRef f = l->getFilename();
+            for (const char *root : {"/blastcorps/src/", "/port/"}) {
+                size_t k = f.find(root);
+                if (k != StringRef::npos) {
+                    f = f.substr(k + 1);
+                    break;
+                }
+            }
+            s += " (" + f.str() + ":" + std::to_string(l->getLine()) + ")";
+        }
+        return s;
+    }
+
+    void scatterPlace(std::vector<GlobalVariable *> &decls) {
+        for (char c : Scatter.getValue())
+            rng = rng * 131 + (uint8_t)c;
+        /* the containers, by N64 address */
+        std::vector<size_t> byAddr(scItems.size());
+        for (size_t k = 0; k < byAddr.size(); k++)
+            byAddr[k] = k;
+        std::sort(byAddr.begin(), byAddr.end(), [&](size_t a, size_t b) { return scItems[a].n64 < scItems[b].n64; });
+        auto container = [&](uint64_t a) -> long {
+            long best = -1;
+            for (size_t k : byAddr) {
+                const ScItem &it = scItems[k];
+                if (it.n64 > a)
+                    break;
+                if (a < it.n64 + std::max<uint64_t>(it.n64size, 1))
+                    best = (long)k;
+            }
+            return best;
+        };
+        std::vector<std::pair<GlobalVariable *, std::pair<size_t, uint64_t>>> follows;
+        std::string report;
+        raw_string_ostream rs(report);
+        size_t nItems = scItems.size();
+        for (GlobalVariable *g : decls) {
+            uint64_t a = syms[g->getName().str()].first;
+            if (a - K0 >= RDRAM)
+                continue;
+            a &= MASK;
+            long c = container(a);
+            if (c < 0)
+                continue;
+            ScItem &ct = scItems[c];
+            std::set<std::string> us;
+            users(g, us);
+            /* (a data file placed whole, a bin, which has no labels inside,
+               or another name for an asm object's start: it goes with it) */
+            bool follow = asmData(ct.g) && (!ScatterSplit || a == ct.n64 || ct.g->getName().ends_with("_bin"));
+            rs << (follow ? "follow " : "alias ") << g->getName() << " " << format_hex_no_prefix(K0 | a, 8) << " "
+               << ct.g->getName() << "+0x" << format_hex_no_prefix(a - ct.n64, 1) << " "
+               << (asmData(ct.g) ? "asm" : "c") << " " << DL->getTypeAllocSize(g->getValueType());
+            for (auto &u : us)
+                rs << " | " << u;
+            rs << "\n";
+            if (follow) {
+                follows.push_back({g, {(size_t)c, a - ct.n64}});
+                continue;
+            }
+            uint64_t n = DL->getTypeAllocSize(g->getValueType());
+            auto ss = symSize.find(g->getName().str());
+            if (ss != symSize.end())
+                n = std::max(n, ss->second);
+            n = alignTo(std::max<uint64_t>(n, 4), 4);
+            std::string what = g->getName().str() + " (" + ct.g->getName().str() + "+0x" +
+                               utohexstr(a - ct.n64) + ")";
+            scItems.push_back({g, a, 0, n, true, what, 0, (size_t)c, a - ct.n64});
+        }
+        /* the shuffle, and the layout from after the data without N64 addresses */
+        std::vector<size_t> order(scItems.size());
+        for (size_t k = 0; k < order.size(); k++)
+            order[k] = k;
+        for (size_t k = order.size(); k > 1; k--)
+            std::swap(order[k - 1], order[next() % k]);
+        uint64_t cur = alignTo(extraEnd, 16);
+        std::string prev = "(the data without N64 addresses)";
+        uint64_t prevEnd = 0, prevSize = 0;
+        for (size_t k : order) {
+            ScItem &it = scItems[k];
+            uint64_t align = it.alias ? 4 : std::max<uint64_t>(it.g->getAlign() ? it.g->getAlign()->value() : 1, 1);
+            uint64_t at = alignTo(cur + 16 * (1 + next() % 128) + std::min<uint64_t>(prevSize, 0x4000), 16) + it.n64 % 16;
+            at = alignTo(at, align);
+            bad.push_back({cur, at - cur, 2, prev + "|" + it.g->getName().str(), prevEnd, it.n64});
+            it.addr = at;
+            cur = at + it.size;
+            prev = it.g->getName().str();
+            prevEnd = it.n64 + (it.alias ? it.size : it.n64size);
+            prevSize = it.size;
+            if (it.alias) {
+                bad.push_back({at, it.size, 3, it.what, it.n64});
+                scatterDecl[it.g] = at;
+            } else {
+                placed.push_back({it.g, at});
+                if (it.n64size)
+                    bad.push_back({it.n64, it.n64size, 1, it.g->getName().str() + "'s N64 place", it.n64, 0, at});
+            }
+            if (!it.alias)
+                scatterHeader.push_back({it.g->getName().str(), at});
+        }
+        /* (the host's PORT_N64_ of an alias is its room, as the C has it;
+           with the check, which takes the C's accesses where the N64 has
+           them, where the N64 has it) */
+        for (ScItem &it : scItems)
+            if (it.alias)
+                scatterHeader.push_back({it.g->getName().str(), ScatterCheck ? scItems[it.cont].addr + it.off : it.addr});
+        uint64_t end = alignTo(cur + 256 + std::min<uint64_t>(prevSize, 0x4000), 16);
+        bad.push_back({cur, end - cur, 2, prev + "|(the end)", prevEnd});
+        extraEnd = end;
+        for (auto &f : follows) {
+            uint64_t at = scItems[f.second.first].addr + f.second.second;
+            scatterDecl[f.first] = at;
+            scatterHeader.push_back({f.first->getName().str(), at});
+        }
+        /* the names the module doesn't use, for the host (PORT_N64_):
+           where they are inside what moved */
+        std::set<std::string> seen;
+        for (auto &h : scatterHeader)
+            seen.insert(h.first);
+        for (auto &s : syms) {
+            if (seen.count(s.first) || s.second.second != 'D' || s.second.first - K0 >= RDRAM ||
+                s.first.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_") !=
+                    std::string::npos)
+                continue;
+            uint64_t a = s.second.first & MASK;
+            long c = container(a);
+            if (c < 0 || (size_t)c >= nItems)
+                continue;
+            scatterHeader.push_back({s.first, scItems[c].addr + (a - scItems[c].n64)});
+            rs << "host " << s.first << " " << format_hex_no_prefix(K0 | a, 8) << " " << scItems[c].g->getName()
+               << "+0x" << format_hex_no_prefix(a - scItems[c].n64, 1) << "\n";
+        }
+        for (ScItem &it : scItems)
+            if (!it.alias)
+                rs << "item " << it.g->getName() << " " << format_hex_no_prefix(K0 | it.n64, 8) << " "
+                   << format_hex_no_prefix(it.n64size, 1) << " " << format_hex_no_prefix(K0 | it.addr, 8) << " "
+                   << format_hex_no_prefix(it.size, 1) << " " << (asmData(it.g) ? "asm" : "c") << "\n";
+        if (!ScatterReport.empty()) {
+            std::error_code ec;
+            raw_fd_ostream os(ScatterReport, ec);
+            if (ec)
+                fail("can't write " + ScatterReport);
+            os << "# port-arena -port-arena-scatter=" << Scatter << (ScatterSplit ? " (asm data per label)" : "")
+               << (ScatterFE ? " (the front end too)" : "") << "\n"
+               << "# alias NAME N64 CONTAINER+OFF c|asm SIZE | users...: a name inside another variable, given its own room\n"
+               << "# follow ...: a name inside a data file placed whole or a bin, or another name of its start, which goes with it\n"
+               << "# host NAME N64 CONTAINER+OFF: a name only the host may use (PORT_N64_), where it went\n"
+               << "# item NAME N64 N64SIZE ADDRESS SIZE c|asm: a variable placed\n"
+               << rs.str();
+        }
+    }
+
+    /* __port_scatter_bad, for the host: {start, length, kind, n64a, n64b, now, description} */
+    void writeBad() {
+        Type *i32 = Type::getInt32Ty(*C);
+        PointerType *ptr = PointerType::get(*C, 0);
+        StructType *st = StructType::get(*C, {i32, i32, i32, i32, i32, i32, ptr});
+        std::vector<Constant *> rows;
+        for (auto &b : bad) {
+            if (!b.len)
+                continue;
+            Constant *s = ConstantDataArray::getString(*C, b.desc);
+            auto *g = new GlobalVariable(*M, s->getType(), true, GlobalValue::PrivateLinkage, s, "__port_scatter_desc");
+            rows.push_back(ConstantStruct::get(
+                st, {ConstantInt::get(i32, b.start), ConstantInt::get(i32, b.len), ConstantInt::get(i32, b.kind),
+                     ConstantInt::get(i32, b.n64a), ConstantInt::get(i32, b.n64b), ConstantInt::get(i32, b.now), g}));
+        }
+        ArrayType *at = ArrayType::get(st, rows.size());
+        new GlobalVariable(*M, at, true, GlobalValue::ExternalLinkage, ConstantArray::get(at, rows), "__port_scatter_bad");
+        new GlobalVariable(*M, i32, true, GlobalValue::ExternalLinkage, ConstantInt::get(i32, rows.size()),
+                           "__port_scatter_bad_n");
+    }
+
+    /* -port-arena-scatter-check: the sites, "function (file:line) what" */
+    std::vector<std::string> sites;
+    std::map<std::string, unsigned> siteIndex;
+    unsigned siteOf(Instruction *i, const std::string &what) {
+        std::string s = where(i) + " " + what;
+        auto it = siteIndex.find(s);
+        if (it != siteIndex.end())
+            return it->second;
+        siteIndex[s] = sites.size();
+        sites.push_back(s);
+        return sites.size() - 1;
+    }
+
+    /* the access's address as port_scatter_check gives it back: where the
+       N64's layout would have had it (PORT_SCATTER_REDIRECT), or as it is */
+    Value *checkAccess(Instruction *i, unsigned op, Value *p) {
+        IRBuilder<> b(i);
+        Type *i32 = Type::getInt32Ty(*C);
+        Value *size;
+        std::string what;
+        if (auto *ld = dyn_cast<LoadInst>(i)) {
+            size = ConstantInt::get(i32, DL->getTypeStoreSize(ld->getType()));
+            what = "load";
+        } else if (auto *st = dyn_cast<StoreInst>(i)) {
+            size = ConstantInt::get(i32, DL->getTypeStoreSize(st->getValueOperand()->getType()));
+            what = "store";
+        } else if (auto *rmw = dyn_cast<AtomicRMWInst>(i)) {
+            size = ConstantInt::get(i32, DL->getTypeStoreSize(rmw->getValOperand()->getType()));
+            what = "atomic";
+        } else if (auto *cx = dyn_cast<AtomicCmpXchgInst>(i)) {
+            size = ConstantInt::get(i32, DL->getTypeStoreSize(cx->getNewValOperand()->getType()));
+            what = "atomic";
+        } else if (auto *mi = dyn_cast<MemIntrinsic>(i)) {
+            size = b.CreateZExtOrTrunc(mi->getLength(), i32);
+            what = isa<MemSetInst>(mi) ? "memset" : op == 0 ? "copy to" : "copy from";
+        } else {
+            auto *cb = cast<CallBase>(i);
+            if (cb->paramHasAttr(op, Attribute::ByVal)) {
+                size = ConstantInt::get(i32, DL->getTypeAllocSize(cb->getParamByValType(op)));
+                what = "by value";
+            } else {
+                size = ConstantInt::get(i32, 1);
+                what = "to " + (cb->getCalledFunction() ? cb->getCalledFunction()->getName().str() : std::string("?"));
+            }
+        }
+        Value *q = p;
+        if (q->getType()->getPointerAddressSpace() != 0)
+            q = b.CreateAddrSpaceCast(q, PointerType::get(*C, 0));
+        FunctionCallee chk = M->getOrInsertFunction("port_scatter_check", FunctionType::get(i32, {i32, i32, i32}, false));
+        Value *r = b.CreateCall(chk, {b.CreateTrunc(b.CreatePtrToInt(q, IP), i32), size,
+                                      ConstantInt::get(i32, siteOf(i, what))});
+        return b.CreateIntToPtr(b.CreateZExt(r, IP), PointerType::get(*C, 0));
+    }
+
+    /* a memset, memcpy or memmove of the game's memory is done by the host,
+       byte by byte where it reaches what nothing should
+       (port_scatter_mem(dst, src or value, length, kind, site): kind 0 a
+       memset, 1 a copy) */
+    void checkMemOps(std::vector<std::pair<Instruction *, unsigned>> &ops) {
+        std::set<Instruction *> done;
+        Type *i32 = Type::getInt32Ty(*C);
+        FunctionCallee mem = M->getOrInsertFunction(
+            "port_scatter_mem", FunctionType::get(Type::getVoidTy(*C), {i32, i32, i32, i32, i32}, false));
+        for (auto &o : ops) {
+            auto *mi = dyn_cast<MemIntrinsic>(o.first);
+            if (!mi || done.count(mi))
+                continue;
+            auto *mt = dyn_cast<MemTransferInst>(mi);
+            Value *d = mi->getRawDest(), *src = mt ? mt->getRawSource() : nullptr;
+            if (host(d) || isa<ConstantPointerNull>(d) || (src && (host(src) || isa<ConstantPointerNull>(src))))
+                continue;
+            done.insert(mi);
+        }
+        for (Instruction *i : done) {
+            auto *mi = cast<MemIntrinsic>(i);
+            IRBuilder<> b(mi);
+            auto addr = [&](Value *v) {
+                if (v->getType()->getPointerAddressSpace())
+                    v = b.CreateAddrSpaceCast(v, PointerType::get(*C, 0));
+                return b.CreateTrunc(b.CreatePtrToInt(v, IP), i32);
+            };
+            Value *second;
+            if (auto *ms = dyn_cast<MemSetInst>(mi))
+                second = b.CreateZExt(ms->getValue(), i32);
+            else
+                second = addr(cast<MemTransferInst>(mi)->getRawSource());
+            bool set = isa<MemSetInst>(mi);
+            b.CreateCall(mem, {addr(mi->getRawDest()), second, b.CreateZExtOrTrunc(mi->getLength(), i32),
+                               ConstantInt::get(i32, set ? 0 : 1),
+                               ConstantInt::get(i32, siteOf(mi, set ? "memset" : "copy"))});
+        }
+        ops.erase(std::remove_if(ops.begin(), ops.end(), [&](auto &o) { return done.count(o.first); }), ops.end());
+        for (Instruction *i : done)
+            i->eraseFromParent();
+    }
+
+    void writeSites() {
+        PointerType *ptr = PointerType::get(*C, 0);
+        std::vector<Constant *> rows;
+        for (auto &s : sites) {
+            Constant *c = ConstantDataArray::getString(*C, s);
+            rows.push_back(new GlobalVariable(*M, c->getType(), true, GlobalValue::PrivateLinkage, c, "__port_scatter_site"));
+        }
+        ArrayType *at = ArrayType::get(ptr, rows.size());
+        new GlobalVariable(*M, at, true, GlobalValue::ExternalLinkage, ConstantArray::get(at, rows),
+                           "__port_scatter_sites");
     }
 
     void removeFromUsed(StringRef name) {
@@ -767,6 +1169,8 @@ struct Arena : PassInfoMixin<Arena> {
                     o.first = n;
             mi->eraseFromParent();
         }
+        if (ScatterCheck)
+            checkMemOps(ops);
         for (auto &o : ops) {
             Value *p = o.first->getOperand(o.second);
             if (host(p) || isa<ConstantPointerNull>(p))
@@ -779,6 +1183,8 @@ struct Arena : PassInfoMixin<Arena> {
             if (p->getType()->getPointerAddressSpace() != 0 && !isa<LoadInst>(o.first) &&
                 !isa<StoreInst>(o.first) && !vararg)
                 fail(Twine("a 32-bit pointer operand of ") + o.first->getOpcodeName() + " in " + f.getName());
+            if (ScatterCheck)
+                p = checkAccess(o.first, o.second, p);
             o.first->setOperand(o.second, map(b, p, arena));
         }
     }
@@ -1291,6 +1697,8 @@ struct Arena : PassInfoMixin<Arena> {
         functions();
         layout();
         writeImage();
+        if (!Scatter.empty())
+            writeBad();
         writeFns();
         PointerType *ptr = PointerType::get(*C, 0);
         base = m.getGlobalVariable("port_arena");
@@ -1301,6 +1709,8 @@ struct Arena : PassInfoMixin<Arena> {
                 function(f);
                 indirectCalls(f);
             }
+        if (ScatterCheck)
+            writeSites();
         replayCallers();
         defineUndef();
         if (getenv("PORT_ARENA_STATS"))
