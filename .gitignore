@@ -20,3 +20,4 @@ permuter/
 !port/port_fixed.ld
 vgcore.*
 .emsdk/
+.vscode/
