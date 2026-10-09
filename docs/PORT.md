@@ -1885,9 +1885,10 @@ depends on the layout, by kind: docs/LAYOUT.md, the input for removing
 those dependencies.  (`PORT_EA_GUARD` is the translated code's, which no
 default build has: it doesn't apply.)
 
-What it found (us.v10, seeds 1 and 2, the quick tier's scenarios and the
-whole TAS, which both check builds play through with 57 platinum): see
-docs/LAYOUT.md.
+What it found (us.v10, seeds 1 to 3, the quick tier's scenarios and the
+whole TAS, which every check build plays through with 57 platinum and the
+reference's gameplay digest): nothing now; docs/LAYOUT.md has how it was
+made and how the first list's rows went.
 
 ## Resource packs
 
