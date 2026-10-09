@@ -427,7 +427,7 @@ void func_8027A7DC(Gfx **gfxp, s32 arg1, s32 arg2) {
     s32 unused;
 
     gfx = *gfxp;
-    gDPLoadTextureBlock(gfx++, D_8036D170 + arg1 + 0x80000000, G_IM_FMT_RGBA, G_IM_SIZ_16b, 120, 15, 0, G_TX_CLAMP,
+    gDPLoadTextureBlock(gfx++, K0_TO_PHYS_ADD(D_8036D170 + arg1), G_IM_FMT_RGBA, G_IM_SIZ_16b, 120, 15, 0, G_TX_CLAMP,
                         G_TX_CLAMP, 0, 0, 0, 0);
     gSP1Triangle(gfx++, arg2, arg2 + 1, arg2 + 2, 0);
     gSP1Triangle(gfx++, arg2, arg2 + 2, arg2 + 3, 0);

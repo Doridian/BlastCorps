@@ -318,8 +318,15 @@ void osInvalDCache(void *p, s32 n) { }
 void osInvalICache(void *p, s32 n) { }
 void osMapTLBRdb(void) { }
 void osUnmapTLBAll(void) { }
+/* the identity, as K0_TO_PHYS (PR/R4300.h has why); the N64's in the
+   engine check build */
+#ifdef PORT_ENGINE_CHECK
 u32 osVirtualToPhysical(void *p) { return (u32)p & 0x1FFFFFFF; }
 void *osPhysicalToVirtual(u32 a) { return (void *)(a | 0x80000000); }
+#else
+u32 osVirtualToPhysical(void *p) { return (u32)p; }
+void *osPhysicalToVirtual(u32 a) { return (void *)a; }
+#endif
 
 /* ---- PI: the cartridge ------------------------------------------------------------- */
 

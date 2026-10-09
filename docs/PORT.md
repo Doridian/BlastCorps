@@ -350,8 +350,11 @@ exactly, and adapts the host to that, rather than the other way round:
 - **RDRAM at `0x80000000`.**  The first 4 MB of the address space is the
   image's `.rdram` section (`tools/gen_ld.py`), so a KSEG0 address *is* the
   host address.  The translated code's `rdram + (addr & 0x1FFFFFFF)` with
-  `rdram = 0x80000000` is the identity; `K0_TO_PHYS`, `PHYS_TO_K0`,
-  `osVirtualToPhysical` and segment addresses round-trip; the game's fixed
+  `rdram = 0x80000000` is the identity.  The N64 side's `K0_TO_PHYS`,
+  `OS_K0_TO_PHYSICAL`, `osVirtualToPhysical` and their inverses are the
+  identity too (`PR/R4300.h`, outside the engine check build), so display
+  lists, segment bases and audio commands hold KSEG0 addresses; what reads
+  them masks to physical, as the RSP ignores the top bits.  The game's fixed
   buffers (framebuffers at `0x80000400`, the level pool from `0x8004B400`,
   the heap after `.bss` at `0x803FF600`) are where it expects them.  The
   hardware registers (`0xA4000000`) are mapped as plain memory, and the

@@ -309,10 +309,12 @@ static inline float max_f(float x, float y) {
 #endif
 
 /* A segmented address is a segment (bits 24..27) and a 24-bit offset, and
-   the RSP ignores the top nibble.  But the game's C keeps its locals on the
-   fibers' host stacks at 0x90000000 (port.h), whose physical addresses
-   (K0_TO_PHYS, osVirtualToPhysical) are 0x10xxxxxx: bit 28 is the only
-   thing telling them from RDRAM, so it stays, here and in a segment's base.
+   the RSP ignores the top nibble.  The port's lists hold KSEG0 addresses
+   where the N64's hold physical ones (its K0_TO_PHYS is the identity:
+   PR/R4300.h), and both mask to the same physical address here.  But the
+   game's C keeps its locals on the fibers' host stacks at 0x90000000
+   (port.h), physical 0x10xxxxxx: bit 28 is the only thing telling them
+   from RDRAM, so it stays, here and in a segment's base.
    (func_8024B8F4's visibility test loads its box from its stack; without
    the bit its vertices were read from RDRAM at 0x800EFCC0, whatever the
    build had there, and drawn.)  Any other top nibble (a KSEG0 or KSEG1

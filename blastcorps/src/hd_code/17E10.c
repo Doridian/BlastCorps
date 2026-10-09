@@ -170,7 +170,7 @@ Gfx *func_8025C878(Gfx *arg0, s32 arg1, u8 arg2, s32 *arg3) {
                 gDPSetCombineMode(gfx++, G_CC_SHADE, G_CC_SHADE);
                 gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH);
                 gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
-                gSPVertex(gfx++, (u32)D_802FA8B0[arg2] + 0x80000000, 4, 0);
+                gSPVertex(gfx++, K0_TO_PHYS_ADD(D_802FA8B0[arg2]), 4, 0);
                 gSP1Triangle(gfx++, 0, 1, 2, 0);
                 gSP1Triangle(gfx++, 0, 2, 3, 0);
                 for (i = 0; i < 4; i++) {
@@ -578,7 +578,7 @@ void func_8025E67C(Gfx **gfxp, s32 arg1, u8 arg2) {
                     gDPSetCombineMode(gfx++, G_CC_SHADE, G_CC_SHADE);
                     gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH);
                     gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
-                    gSPVertex(gfx++, (u32)D_802FA8B0[arg2] + 0x80000000, 4, 0);
+                    gSPVertex(gfx++, K0_TO_PHYS_ADD(D_802FA8B0[arg2]), 4, 0);
                     gSP1Triangle(gfx++, 0, 1, 2, 0);
                     gSP1Triangle(gfx++, 0, 2, 3, 0);
                     gDPPipeSync(gfx++);

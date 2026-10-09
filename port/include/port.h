@@ -40,7 +40,7 @@ extern "C" {
 /* RDRAM: the N64's 4 MB, mapped at its KSEG0 address.  The port's own
    image is linked right above it (0x80400000), so every address the game
    sees, whether a fixed RDRAM buffer or one of its variables, is a KSEG0
-   address, and K0_TO_PHYS/PHYS_TO_K0 round-trip. */
+   address (K0_TO_PHYS is the identity: PR/R4300.h). */
 #define PORT_RDRAM_BASE 0x80000000u
 #define PORT_RDRAM_SIZE 0x00400000u
 /* hardware registers (KSEG1 0xA4000000-0xA4900000): plain memory, so the
