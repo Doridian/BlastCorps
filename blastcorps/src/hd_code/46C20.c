@@ -1,5 +1,6 @@
 #include "common.h"
 #include "game/game.h"
+#include "game/memmap.h"
 #include "functions.h"
 
 extern u32 D_803FFFF8;
@@ -23,10 +24,10 @@ void func_8028B3E0(void) {
     sp24 = *D_802FDB34 - *D_802FDB30;
     osViBlack(1);
     if (D_80370C50 == 0) {
-        osInvalDCache((void *) 0x801E7000, 0x37D00);
-        osInvalICache((void *) 0x801E7000, 0x37D00);
-        func_8028B4C4(*D_802FDB30, (u8 *) 0x801E7000, &sp24, 13, 10, 1);
-        bzero((u8 *) 0x801E7000 + sp24, 0x37D00 - sp24);
+        osInvalDCache((void *) MEM_FRONT_END, 0x37D00);
+        osInvalICache((void *) MEM_FRONT_END, 0x37D00);
+        func_8028B4C4(*D_802FDB30, (u8 *) MEM_FRONT_END, &sp24, 13, 10, 1);
+        bzero((u8 *) MEM_FRONT_END + sp24, 0x37D00 - sp24);
         D_80370C50 = 1;
         func_801F57B0();
         func_8029A7E4("got front end\n");
@@ -42,7 +43,7 @@ void func_8028B4C4(u32 arg0, u8 *PTR32 arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg
 
     sp38 = arg1;
     if (arg3 != 0 || arg4 != 0) {
-        sp3C = (u8 *) 0x8021ED00;
+        sp3C = (u8 *) MEM_INIT_AREA;
     } else {
         sp3C = arg1;
     }
@@ -60,18 +61,18 @@ void func_8028B4C4(u32 arg0, u8 *PTR32 arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg
     switch (arg5) {
         case 1:
             if (arg3 != 0) {
-                func_8025C230(&sp3C, &arg1, (void *) 0x8004B400);
+                func_8025C230(&sp3C, &arg1, (void *) MEM_POOL);
             }
             if (arg4 != 0) {
-                func_8025C230(&sp3C, &arg1, (void *) 0x8004B400);
+                func_8025C230(&sp3C, &arg1, (void *) MEM_POOL);
             }
             break;
         case 2:
             if (arg3 != 0) {
-                func_802C4070(&sp3C, &arg1, (void *) 0x8004B400, arg3);
+                func_802C4070(&sp3C, &arg1, (void *) MEM_POOL, arg3);
             }
             if (arg4 != 0) {
-                func_802C4070(&sp3C, &arg1, (void *) 0x8004B400, arg4);
+                func_802C4070(&sp3C, &arg1, (void *) MEM_POOL, arg4);
             }
             break;
     }

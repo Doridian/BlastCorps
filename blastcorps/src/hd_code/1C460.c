@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/sched.h"
 #include "game/game.h"
+#include "game/memmap.h"
 #include "game/audio.h"
 #include "game/level.h"
 #include "game/player.h"
@@ -286,13 +287,13 @@ void func_80261588(void) {
 
     alHeapInit(&D_80367718, D_80370C80, AUDIO_HEAP_SIZE);
     size = size2 = D_003539A0 - D_00350950;
-    func_8028B4C4((s32)D_00350950, (u8 *)0x8004B400, &size, 0xD, 0, 2);
+    func_8028B4C4((s32)D_00350950, (u8 *)MEM_POOL, &size, 0xD, 0, 2);
     musicBankFile = alHeapAlloc(&D_80367718, 1, size);
     func_8028B4C4((s32)D_00350950, (u8 *)musicBankFile, &size2, 0xD, 0, 2);
     alBnkfNew(musicBankFile, D_003539A0);
     D_8036773C = musicBankFile->bankArray[0];
     size = size2 = D_003A48C0 - D_003A1920;
-    func_8028B4C4((s32)D_003A1920, (u8 *)0x8004B400, &size, 0xD, 0, 2);
+    func_8028B4C4((s32)D_003A1920, (u8 *)MEM_POOL, &size, 0xD, 0, 2);
     sfxBankFile = alHeapAlloc(&D_80367718, 1, size);
     func_8028B4C4((s32)D_003A1920, (u8 *)sfxBankFile, &size2, 0xD, 0, 2);
     alBnkfNew(sfxBankFile, D_003A48C0);

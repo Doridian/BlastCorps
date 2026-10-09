@@ -5,6 +5,7 @@
 #include "game/camera.h"
 #include "game/vehicle.h"
 #include "game/game.h"
+#include "game/memmap.h"
 #include "game/sched.h"
 #include "game/yoshi.h"
 #include "game/level.h"
@@ -491,6 +492,9 @@ extern u8 D_803C7B70[];
 extern void *PTR32 D_803F7820;
 extern void *PTR32 D_803F7824;
 extern u8 D_803FF600[];
+#ifdef TARGET_PC
+extern u8 D_803FFFF8[];
+#endif
 
 void func_80244870(void *);
 void func_80244930(void *);
@@ -4541,7 +4545,11 @@ void func_80255DC8(void) {
     osViBlack(TRUE);
     D_80364A70 = func_80261A44(D_80364A98);
     osWritebackDCacheAll();
+#ifdef TARGET_PC
+    osInvalDCache(NULL, 0x400000);   /* all of RDRAM: a no-op here */
+#else
     osInvalDCache((void *)0x80000000, 0x400000);
+#endif
     D_803649F4 = 0;
     D_80358068 = 0;
     D_80358064 = 0;
@@ -4555,11 +4563,16 @@ void func_80255DC8(void) {
     D_8035806C = D_803FF600;
     func_8028B4C4(D_00787F40, D_803FF600, &sp24, 10, 0, 2);
     sp2C = D_803FF600 + (D_00788000 - D_00787F40);
+#ifdef TARGET_PC
+    /* debug output: the room is up to init's hand-over words */
+    func_8029A7E4("Static end = 0x%x, space=0x%x (%d) bytes\n", sp2C, (u32)(D_803FFFF8 - sp2C), (u32)(D_803FFFF8 - sp2C));
+#else
     func_8029A7E4("Static end = 0x%x, space=0x%x (%d) bytes\n", sp2C, 0x80400000 - (u32)sp2C, 0x80400000 - (u32)sp2C);
+#endif
     D_80358078 = 0;
     func_802558C8(D_803156F8[D_8035805C].unk48B0, &D_80358078);
     func_802559F8(D_803156F8[D_8035805C].unk48B0, &D_80358078);
-    D_80358070 = (u8 *)0x8004B400;
+    D_80358070 = (u8 *)MEM_POOL;
     func_80257490((s32 *)&D_80358070, 16);
     D_8036E694 = (u64 *)D_80358070;
     D_80358070 += 0xA000;
@@ -5063,7 +5076,12 @@ void func_80256A34(s32 arg0) {
     if (D_803669B4 != 0) {
         func_8025BD98();
     }
+#ifdef TARGET_PC
+    /* debug output: init's area is the module's load address, the pool ends where it starts */
+    func_8029A7E4("Level %d: mem_pool=0x%x, code seg=0x%x, space=%d bytes\n", D_802E8BDC, D_80358070, D_8021ED00 + PORT_REGION_SIZE_D_8021ED00, (u32)(D_8004B400 + PORT_REGION_SIZE_D_8004B400 - D_80358070));
+#else
     func_8029A7E4("Level %d: mem_pool=0x%x, code seg=0x%x, space=%d bytes\n", D_802E8BDC, D_80358070, 0x802447C0, 0x8021ED00 - (u32)D_80358070);
+#endif
     if (D_8039CAB7 != 0) {
         func_802979E0(D_802E8BDC);
     }

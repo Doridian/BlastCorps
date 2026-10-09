@@ -4,6 +4,7 @@
 #include "game/vehicle.h"
 #include "game/frame.h"
 #include "game/game.h"
+#include "game/memmap.h"
 #include "functions.h"
 
 /* A recorded replay frame: 0x14 bytes. */
@@ -73,8 +74,8 @@ UnkStruct_802FF150 D_802FF150[1] = {
 };
 
 void func_80294E30(void) {
-    D_8039CA68[0] = (UnkStruct_8039CA68 *) 0x80055400;
-    D_8039CA68[1] = (UnkStruct_8039CA68 *) 0x80065400;
+    D_8039CA68[0] = (UnkStruct_8039CA68 *) MEM_GHOST0;
+    D_8039CA68[1] = (UnkStruct_8039CA68 *) MEM_GHOST1;
     D_8039CA88 = func_80286038(0xFFFF) - 1;
     D_8039CA7D = 0;
 }
