@@ -12,7 +12,8 @@ s32 func_80267FE0(s32 addr, s32 len, void *state);
 
 extern s32 D_80000300;
 extern s32 osViClock;
-extern u64 D_802E6820[];
+/* rspboot, 0xD0 bytes; the microcode after it starts where it ends. */
+extern u64 D_802E6820[0xD0 / sizeof(u64)];
 extern u64 D_802E68F0[];
 extern u64 D_8030EB90[];
 
@@ -221,7 +222,11 @@ void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo) {
     t->list.t.data_size = (cmdp - D_80368070.ACMDList[D_802F3AF8]) * sizeof(Acmd);
     t->list.t.type = M_AUDTASK;
     t->list.t.ucode_boot = D_802E6820;
+#ifdef TARGET_PC
+    t->list.t.ucode_boot_size = sizeof(D_802E6820);
+#else
     t->list.t.ucode_boot_size = (s32)D_802E68F0 - (s32)D_802E6820;
+#endif
     t->list.t.flags = 0;
     t->list.t.ucode = D_802E68F0;
     t->list.t.ucode_data = D_8030EB90;

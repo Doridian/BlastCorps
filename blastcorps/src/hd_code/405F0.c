@@ -10,7 +10,8 @@ extern u16 D_80000400[][320 * 240];
 extern u64 D_80207090[];
 extern u64 D_80210690[];
 extern u64 D_802E53F0[];
-extern u64 D_802E6820[];
+/* rspboot, 0xD0 bytes; the microcode after it starts where it ends. */
+extern u64 D_802E6820[0xD0 / sizeof(u64)];
 extern u64 D_802E68F0[];
 extern u64 D_8030E390[];
 extern OSMesgQueue D_803153D8;
@@ -50,7 +51,11 @@ void func_80284E54(Gfx *arg0, s32 arg1, u8 arg2, u8 arg3, s32 arg4, u8 arg5) {
         t->list.t.flags = 0;
     }
     t->list.t.ucode_boot = D_802E6820;
+#ifdef TARGET_PC
+    t->list.t.ucode_boot_size = sizeof(D_802E6820);
+#else
     t->list.t.ucode_boot_size = (u8 *)D_802E68F0 - (u8 *)D_802E6820;
+#endif
     t->list.t.ucode = D_8036E660[arg2];
     t->list.t.ucode_data = D_8036E678[arg2];
     t->list.t.ucode_size = 0x1000;

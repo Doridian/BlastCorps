@@ -100,7 +100,7 @@ extern u32 D_803C3244;          /* ... the one it blends into */
 extern u16 D_803C3248;          /* game frames before the walk's next step */
 extern u8 D_803C324A;           /* the animation blends */
 extern u8 D_803C324B;           /* ... by this much */
-extern u8 D_802E6820[], D_802E68F0[], D_802E77B0[], D_8030EE60[];
+extern u8 D_802E6820[0xD0], D_802E68F0[], D_802E77B0[], D_8030EE60[];
 extern u64 D_8036AFB0[];
 extern OSMesgQueue D_803153D8;
 extern SchedClient D_803156D8;
@@ -204,7 +204,7 @@ static s32 box_visible(Gfx *dl, Vtx *vtx, s32 size) {
             return 1;
         }
     }
-    t->list.t.ucode_boot_size = D_802E68F0 - D_802E6820;
+    t->list.t.ucode_boot_size = sizeof(D_802E6820);
     t->list.t.type = M_GFXTASK;
     t->list.t.flags = 0;
     t->list.t.ucode_boot = (u64 *)D_802E6820;
