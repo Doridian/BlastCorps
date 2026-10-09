@@ -33,7 +33,7 @@ extern u8 D_00004CE0[];                     /* the texture table's ROM address *
 
 #define TABLE_ROM ((u32)D_00004CE0)
 #define TABLE_SIZE 0x8000                   /* the table's bytes */
-#define PHYS(p) ((u32)(p) - 0x80000000)
+#define PHYS(p) K0_TO_PHYS((u32)(p))
 #define G_SETTIMG_OP 0xFD                   /* F3D's G_SETTIMG */
 #define INVAL_DECODED 0x1000    /* the bytes of cache invalidated for a
                                    texture to decode */

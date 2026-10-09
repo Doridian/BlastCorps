@@ -1660,7 +1660,7 @@ static s32 slope_angle(s32 d, s32 span, s32 neg) {
     s32 q, a;
 
     if (span == 0)
-        engine_break(0x802A8B74, 7);
+        engine_break(N64_PC(0x802A8B74), 7);
     if (d >= 0) {
         q = (s32)((u32)d << 16) / span;
         a = (u32)func_802ACF64(q) >> 4;
@@ -1751,7 +1751,7 @@ s32 func_802A9710(s32 i, s32 *h, s32 *state, s32 *ground, s32 g, s32 y) {
         if (D_803ED40B != 0)
             func_80260650(D_80367738, 0xC, NULL);
         if (LAND_BOUNCE_DIV == 0)
-            engine_break(0x802A98F0, 7);
+            engine_break(N64_PC(0x802A98F0), 7);
         y = (u32)y / LAND_BOUNCE_DIV;
         func_802A9540(i, h, state, ground, g, y);
     } else {
@@ -2037,7 +2037,7 @@ void func_802A8768(s32 x, s32 z, s32 *px, s32 *pz, s32 *py, s32 type, s32 t9, s3
         else if ((s8)air[i] == 0)
             func_802A93B0(i, v1, a1, a2, a3, x, z, heading, hist, type, vs, across);
         else
-            engine_syscall(0x802A87FC);
+            engine_syscall(N64_PC(0x802A87FC));
     }
     for (w = 0; w < 3; w++) {
         air[w] = WHEEL_AIRBORNE(w);

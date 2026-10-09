@@ -637,7 +637,7 @@ static void walk(VS *vs) {
         SUIT_STATE(vs) = SUIT_CURL;
         func_802A0360(2, 0, CS, 0.0f);
         if (SUIT_LEG(vs) > 2)
-            engine_trap(0x802D1984);
+            engine_trap(N64_PC(0x802D1984));
         leg = leg_part[SUIT_LEG(vs)];
         func_8029F9D4(leg, 2, CS);
         func_802A02E4(leg, CS);
@@ -646,7 +646,7 @@ static void walk(VS *vs) {
         return;
     }
     if (SUIT_LEG(vs) > 2)
-        engine_trap(0x802D1A94);
+        engine_trap(N64_PC(0x802D1A94));
     for (leg = leg_part[SUIT_LEG(vs)];;) {
         if (part(leg, &a0, NULL) != 0) {
             s = VS_SPEED(vs);
@@ -784,7 +784,7 @@ void func_802D1360(VS *vs) {
         }
         break;
     default:
-        engine_trap(0x802D1398);
+        engine_trap(N64_PC(0x802D1398));
         break;
     }
 }

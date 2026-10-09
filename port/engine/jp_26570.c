@@ -740,11 +740,11 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                 tick = D_803156C4 * 60 / 60;
                 sp8D = D_8036BA48[e->unk14];
                 if (icon->unk26 == 0) {
-                    engine_break(0x8026E16C, 7);
+                    engine_break(N64_PC(0x8026E16C), 7);
                 }
                 q = tick / icon->unk26;
                 if (icon->unk1A == 0) {
-                    engine_break(0x8026E198, 7);
+                    engine_break(N64_PC(0x8026E198), 7);
                 }
                 sp8C = D_8036BA48[e->unk14] = q % icon->unk1A;
                 if (sp8C != sp8D) {

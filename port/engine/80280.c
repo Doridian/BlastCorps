@@ -897,7 +897,7 @@ void func_802C61F0(VS *vs) {
         jbomb_slamming(vs, p);
         break;
     default:
-        engine_trap(0x802C67E8);
+        engine_trap(N64_PC(0x802C67E8));
         break;
     }
     func_802C7544(vs);
@@ -966,7 +966,7 @@ s32 func_802C6FD8(VS *vs) {
         top = JBOMB_JET_TOP_PUSH;
     } else {
         if (JB_HIGH - JB_LOW == 0)
-            engine_break(0x802C70C4, 7);
+            engine_break(N64_PC(0x802C70C4), 7);
         top = JBOMB_JET_TOP_PUSH - (s32)((u32)((Y - JB_LOW) * JBOMB_JET_TOP_PUSH) / (u32)(JB_HIGH - JB_LOW));
     }
     return now - last + top;
@@ -1044,8 +1044,8 @@ void func_802C7410(void) {
     } else {
         a = Y - JB_LOW;
         d = JB_HIGH - JB_LOW;
-        D_8036444C = idiv(a * -0x960, d, 0x802C746C, 0x802C7484) + 0xD48;
-        D_80364450 = idiv(a * 0x960, d, 0x802C74BC, 0x802C74D4) + 0x258;
+        D_8036444C = idiv(a * -0x960, d, N64_PC(0x802C746C), N64_PC(0x802C7484)) + 0xD48;
+        D_80364450 = idiv(a * 0x960, d, N64_PC(0x802C74BC), N64_PC(0x802C74D4)) + 0x258;
     }
 }
 
@@ -1236,7 +1236,7 @@ s32 func_802C7DFC(VS *vs) {
     if (mode == JB_WALK || mode == JB_LANDED)
         return engine_cvt_w_s((f32)VS_SPEED(vs) / JBOMB_STEER_DIV);
     if (mode < JB_FLY || mode > JB_SLAM)
-        engine_trap(0x802C7E38);
+        engine_trap(N64_PC(0x802C7E38));
     v = STICK_X;
     if (v <= JBOMB_AIR_STICK && v >= -JBOMB_AIR_STICK) {
         D_803F7C3C = JBOMB_AIR_STEER;

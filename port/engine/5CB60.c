@@ -54,7 +54,6 @@
 #define BE16U(p) ((u32)(((u8 *)(p))[0] << 8 | ((u8 *)(p))[1]))
 
 #define GBI_DL 0x06             /* F3D's G_DL: a display list call */
-#define KSEG0 0x80000000        /* a cached address minus this is physical */
 #define LIST_END (-1)           /* the end of the run-time tables' lists */
 
 /* the tables func_802A2D68 empties */
@@ -250,7 +249,7 @@ void func_802A2D68(u32 h_) {
 REGS(t0)
 void func_802A1C88(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
-    u32 base = (u32)LEVEL_PTR(h, displayLists[0]) - KSEG0;
+    u32 base = K0_TO_PHYS((u32)LEVEL_PTR(h, displayLists[0]));
     u32 *p = (u32 *)LEVEL_PTR(h, displayLists[6]);
     u32 *end = (u32 *)LEVEL_PTR(h, displayLists[3]);
 
@@ -1007,8 +1006,11 @@ extern u8 D_8036EB93;
 extern u8 D_803EFED0[], D_803F0900[], D_803F1BE0[];
 extern s16 D_803F767C, D_803F767E, D_803F7680;
 
-#define INIT_AREA 0x8021ED00    /* init's memory: where models are DMA'd before inflating */
-#define GZIP_WINDOW 0x8004B400
+/* init's memory (where models are DMA'd before inflating) and the pool's
+   start (the gzip window): port_regions.h's regions */
+extern u8 D_8021ED00[], D_8004B400[];
+#define INIT_AREA D_8021ED00
+#define GZIP_WINDOW D_8004B400
 #define MODEL_TABLE_SIZE 0x800
 
 /* a model file of `size` bytes at ROM `rom`: DMA'd to init's memory, its
@@ -1018,11 +1020,11 @@ extern s16 D_803F767C, D_803F767E, D_803F7680;
 static u32 load_gz_model(u32 rom, u32 size) {
     u32 src, dst;
 
-    osInvalDCache((void *)INIT_AREA, size);
-    osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, rom, (void *)INIT_AREA, size, &D_803150A0);
+    osInvalDCache(INIT_AREA, size);
+    osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, rom, INIT_AREA, size, &D_803150A0);
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
-    src = func_802C4108(INIT_AREA, (u32)D_80358070, GZIP_WINDOW, &dst);
-    src = func_802C4108(src, dst, GZIP_WINDOW, &dst);
+    src = func_802C4108((u32)INIT_AREA, (u32)D_80358070, (u32)GZIP_WINDOW, &dst);
+    src = func_802C4108(src, dst, (u32)GZIP_WINDOW, &dst);
     return func_802A44E4(dst);
 }
 
@@ -1655,7 +1657,7 @@ void func_802A350C(u32 h_) {
         else if (type == VEHICLE_STARSKI) RUN_SETUP(func_802CF6A0);
         else if (type == VEHICLE_MINIMAGOO) RUN_SETUP(func_802D07E0);
         else {
-            engine_trap(0x802A380C);
+            engine_trap(N64_PC(0x802A380C));
         }
 #undef RUN_SETUP
     }

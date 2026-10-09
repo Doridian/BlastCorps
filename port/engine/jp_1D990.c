@@ -418,11 +418,11 @@ no_timer:
         Gfx *g;
 
         if (icon->unk26 == 0) {
-            engine_break(0x80264170, 7);
+            engine_break(N64_PC(0x80264170), 7);
         }
         q = D_803156C4 / icon->unk26;
         if (icon->unk1A == 0) {
-            engine_break(0x80264180, 7);
+            engine_break(N64_PC(0x80264180), 7);
         }
         r = q % icon->unk1A;
         g = func_80272ED8(gfx, icon->unk1B[r] + D_80367BD4 - 1, 0x18, D_80367BD8 + 0xC, alpha, 1, 1.0f);
@@ -434,11 +434,11 @@ no_timer:
         Gfx *g;
 
         if (icon->unk26 == 0) {
-            engine_break(0x80264208, 7);
+            engine_break(N64_PC(0x80264208), 7);
         }
         q = D_803156C4 / icon->unk26;
         if (icon->unk1A == 0) {
-            engine_break(0x80264218, 7);
+            engine_break(N64_PC(0x80264218), 7);
         }
         r = q % icon->unk1A;
         g = func_80272ED8(gfx, icon->unk1B[r] + D_80367BD5 - 1, 0x18, D_80367BD8 + 0xC, alpha, 1, 1.0f);

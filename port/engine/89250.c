@@ -123,7 +123,7 @@ void func_802CDD74(Building *b, Piece *p, s32 damage) {
         return;
     g = p->group;
     if (M_STRENGTH(B_MODEL(b)) == 0) {
-        engine_break(0x802CDE40, 7);
+        engine_break(N64_PC(0x802CDE40), 7);
     }
     d = B_DAMAGE(b)[g - 1] + (s32)engine_divu(damage, M_STRENGTH(B_MODEL(b)));
     if (d >= 100) {

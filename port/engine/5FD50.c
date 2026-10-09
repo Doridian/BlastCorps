@@ -636,7 +636,7 @@ static void dl_calls(u32 *out, u32 *p, u32 *end) {
             break;
         }
         out[0] = G_DL_W0;
-        out[1] = (u32)p - 0x80000000;   /* KSEG0 to physical */
+        out[1] = K0_TO_PHYS((u32)p);   /* KSEG0 to physical */
         out += 2;
         do {
             p += 2;

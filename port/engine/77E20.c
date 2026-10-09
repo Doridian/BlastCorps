@@ -1030,17 +1030,17 @@ void func_802BDDB4(Building *b, AnimTex *a, AnimTex *end) {
             a->hi = t;
             a->blend = engine_divu((u32)t * 255, n);
             if (n == 0) {
-                engine_break(0x802BE1DC, 7);
+                engine_break(N64_PC(0x802BE1DC), 7);
             }
         } else if (a->kind == 1) {
             /* a random frame, every `lo` sixteenths of D_803649D8 */
             t = (u32)D_803649D8 >> 4;
             if (a->lo == 0) {
-                engine_break(0x802BE140, 7);
+                engine_break(N64_PC(0x802BE140), 7);
             }
             if (engine_remu(t, a->lo) == 0) {
                 if (a->n == 0) {
-                    engine_break(0x802BE160, 7);
+                    engine_break(N64_PC(0x802BE160), 7);
                 }
                 a->cur = engine_remu((u32)t >> 8, a->n);
             }
@@ -1058,7 +1058,7 @@ void func_802BDDB4(Building *b, AnimTex *a, AnimTex *end) {
                     goto final;
                 t = engine_divu((u32)(h - lo) * (a->n - 1) * 255, hi - lo);
                 if (hi - lo == 0) {
-                    engine_break(0x802BE028, 7);
+                    engine_break(N64_PC(0x802BE028), 7);
                 }
                 a->cur = (u32)t / 255;
                 a->blend = (u32)t % 255;
@@ -1075,7 +1075,7 @@ void func_802BDDB4(Building *b, AnimTex *a, AnimTex *end) {
                 }
                 t = engine_divu((u32)t * (a->n - 1) * 255, span + hi);
                 if (span + hi == 0) {
-                    engine_break(0x802BE0CC, 7);
+                    engine_break(N64_PC(0x802BE0CC), 7);
                 }
                 a->cur = (u32)t / 255;
                 a->blend = (u32)t % 255;
@@ -2060,7 +2060,7 @@ divide:
     D_8036CB2A = d;
     d = engine_divu(d, strength);
     if (strength == 0) {
-        engine_break(0x802C0244, 7);
+        engine_break(N64_PC(0x802C0244), 7);
     }
     D_8036CB2C = d;
 out:
@@ -2183,7 +2183,7 @@ void func_802C0574(void) {
         kinds = D_80306270[FX_B(fx, FX_KIND)];
         k = kinds[1 + engine_remu((u32)D_803649D8 >> 4, kinds[0])];
         if (kinds[0] == 0) {
-            engine_break(0x802C0638, 7);
+            engine_break(N64_PC(0x802C0638), 7);
         }
         big = 1;
         if (FX_B(fx, FX_KIND) != FX_KIND_SPARK) {
@@ -2524,9 +2524,9 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
         }
         func_8026A454(s->x, s->y, s->z, sz, s->heading, m);
         g0[0] = DL_SEGMENT(9);          /* the model's textures */
-        g0[1] = s->textures - 0x80000000;
+        g0[1] = K0_TO_PHYS(s->textures);
         g1[0] = DL_SEGMENT(9);
-        g1[1] = s->textures - 0x80000000;
+        g1[1] = K0_TO_PHYS(s->textures);
         g0[2] = DL_CALL;
         g0[3] = K0(s->dl0);
         g1[2] = DL_CALL;
@@ -2631,7 +2631,7 @@ void func_802C18D4(s32 r, s32 x, s32 y, s32 z, s32 amount) {
         for (g = 1, n = B_NGROUPS(b), d = B_DAMAGE(b); n != 0; g++, n--, d++) {
             if (*d != 100) {
                 if (M_STRENGTH(B_MODEL(b)) == 0) {
-                    engine_break(0x802C19B4, 7);
+                    engine_break(N64_PC(0x802C19B4), 7);
                 }
                 a = engine_divu(amount, M_STRENGTH(B_MODEL(b)));
                 func_802BC888(a, g, b);

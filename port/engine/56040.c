@@ -529,7 +529,7 @@ void func_8029DD54(u32 *to) {
 /* ---- the animated textures' slots ----------------------------------------- */
 
 /* the physical address of a slot's texture, as a G_SETTIMG takes it */
-#define SLOT_PHYS(s) ((u32)(s)->data - 0x80000000)
+#define SLOT_PHYS(s) K0_TO_PHYS((u32)(s)->data)
 
 /* the slot holding this texture kind for this animation: its refs
    cleared; its texture's physical address, 0 if none */
@@ -1167,7 +1167,7 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
         if (k >= n - 1) {
             /* past the last key */
             if (n - 1 == 0) {
-                engine_break(0x8029F21C, 7);
+                engine_break(N64_PC(0x8029F21C), 7);
             }
             c = a->loops + (s32)((u32)k / (u32)(n - 1));
             lim = a->limit;
@@ -1186,14 +1186,14 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
             } else {
                 if (mode != ANIM_WRAP) {
                     if (mode != ANIM_BOUNCE) {
-                        engine_syscall(0x8029F27C);
+                        engine_syscall(N64_PC(0x8029F27C));
                     }
                     t = 1.0f;
                     back = 1;
                     k = n - 2;
                 } else {
                     if (n - 1 == 0) {
-                        engine_break(0x8029F298, 7);
+                        engine_break(N64_PC(0x8029F298), 7);
                     }
                     k = (u32)k % (u32)(n - 1);
                 }
@@ -1211,7 +1211,7 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
             c = a->loops + back;
             lim = a->limit;
             if (n == 0) {
-                engine_break(0x8029F328, 7);
+                engine_break(N64_PC(0x8029F328), 7);
             }
             a->loops = c;
             stop = 0;
@@ -1228,14 +1228,14 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
             } else {
                 if (mode != ANIM_WRAP) {
                     if (mode != ANIM_BOUNCE) {
-                        engine_syscall(0x8029F374);
+                        engine_syscall(N64_PC(0x8029F374));
                     }
                     t = 0.0f;
                     back = 0;
                     k = 0;
                 } else {
                     if (n - 1 == 0) {
-                        engine_break(0x8029F394, 7);
+                        engine_break(N64_PC(0x8029F394), 7);
                     }
                     k = (u32)(-k) % (u32)(n - 1);
                     if (k != 0) {
@@ -1292,7 +1292,7 @@ void func_8029E5AC(Anim *a, u8 *base) {
             func_8029EF80((Key *)rec->keys + k, (s32 *)dst, t, interp);
         } else {
             if (interp != ANIM_SPLINE) {
-                engine_syscall(0x8029E6C0);
+                engine_syscall(N64_PC(0x8029E6C0));
             }
             func_8029E730(rec, (s32 *)dst, t);
         }
@@ -1778,11 +1778,11 @@ void func_8029D56C(CollisionTri *t) {
     num = (s64)((u64)ax << 16);
     len = engine_cvt_l_d(__builtin_sqrt((f64)(s64)((u64)az * (u64)az + (u64)ax * (u64)ax)));
     if (len == 0) {
-        engine_break(0x8029D70C, 7);
+        engine_break(N64_PC(0x8029D70C), 7);
     }
     if (len == -1) {
         if ((u64)num == (u64)1 << 63) {
-            engine_break(0x8029D728, 6);
+            engine_break(N64_PC(0x8029D728), 6);
         }
     }
     h = func_802AD7FC((u32)(num / len));
@@ -2492,7 +2492,7 @@ s32 func_8029CB04(s32 kind, u32 v, VS *vs) {
     d = vs->unkA0;
     if (d != 1) {
         if (d == 0) {
-            engine_break(0x8029CB3C, 7);
+            engine_break(N64_PC(0x8029CB3C), 7);
         }
         v /= (u32)d;
     }
@@ -2507,7 +2507,7 @@ s32 func_8029CF04(s32 kind, u32 v, VS *vs) {
         d = vs->unkA0;
         if (d != 1) {
             if (d == 0) {
-                engine_break(0x8029CF3C, 7);
+                engine_break(N64_PC(0x8029CF3C), 7);
             }
             v /= (u32)d;
         }

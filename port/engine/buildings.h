@@ -301,7 +301,9 @@ extern s8 *PTR32 D_803A7408;                    /* the kinds that turn the camer
 static inline u32 engine_divu(u32 n, u32 d) { return d != 0 ? n / d : 0xFFFFFFFFu; }
 static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }
 
-#define K0(p) ((u32)(p) - 0x80000000)
+/* a KSEG0 address as the display lists hold it (the SDK's K0_TO_PHYS: the
+   identity in the port, the N64's physical word in the engine check) */
+#define K0(p) K0_TO_PHYS((u32)(p))
 
 /* the display list commands 77E20 and 8A2E0 write */
 #define DL_SEGMENT(seg) (0xBC000006 | (seg) * 4 << 8)  /* G_MOVEWORD: segment seg's address */

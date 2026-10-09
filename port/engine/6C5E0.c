@@ -368,7 +368,7 @@ static void walk(VS *vs) {
             func_802A02E4(1, P);
         } else {
             if (MAGOO_LEG(vs) != 1)
-                engine_trap(0x802B1EB0);
+                engine_trap(N64_PC(0x802B1EB0));
             func_8029F9D4(5, 2, P);
             func_802A02E4(5, P);
         }
@@ -379,7 +379,7 @@ static void walk(VS *vs) {
     if (((u32)D_803649D8 >> 8 & 0x2F) == 0)
         func_802A6274(T(D_802C2984), 0xEA60, 1, VEHICLE_MAGOO, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     if (MAGOO_LEG(vs) != 0 && MAGOO_LEG(vs) != 1)
-        engine_trap(0x802B1FCC);
+        engine_trap(N64_PC(0x802B1FCC));
     for (leg = MAGOO_LEG(vs) == 0 ? 1 : 5;; ) {
         if (part(leg, &a0, NULL) != 0) {
             leg_speed(leg);
@@ -514,7 +514,7 @@ void func_802B18F4(VS *vs) {
         }
         break;
     default:
-        engine_trap(0x802B192C);
+        engine_trap(N64_PC(0x802B192C));
         break;
     }
 }

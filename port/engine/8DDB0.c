@@ -80,7 +80,7 @@ void func_802D2570(u8 *model) {
         func_802A0360(2, 0, PARTS, 0.0f);
     } else {
         if (D_803FCD75 != 0)
-            engine_trap(0x802D2750);
+            engine_trap(N64_PC(0x802D2750));
         /* its engine running */
         func_80260650(D_80367738, 0x6A, &D_803FCD64);
         func_80260AB8(D_803FCD64, 8, 0);

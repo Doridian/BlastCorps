@@ -687,7 +687,7 @@ void func_802B8D04(void) {
         }
         break;
     default:
-        engine_trap(0x802B8D58);
+        engine_trap(N64_PC(0x802B8D58));
         break;
     }
     if (D_803EF32C == CHOPPER_LAND || D_803EF32C == CHOPPER_DOWN)

@@ -99,13 +99,13 @@ s32 func_802AEC3C(s32 d, VS *vs);
 /* where the shadow's frame saved its return address, in func_802AEEC8:
    each version's own (the shadow's heading) */
 #if defined(VERSION_US_V10)
-#define RA_SHADOW 0x802AEEBC
+#define RA_SHADOW N64_VALUE(0x802AEEBC)
 #elif defined(VERSION_JP)
-#define RA_SHADOW 0x802AF2C0
+#define RA_SHADOW N64_VALUE(0x802AF2C0)
 #elif defined(VERSION_EU)
-#define RA_SHADOW 0x802B18C0
+#define RA_SHADOW N64_VALUE(0x802B18C0)
 #else
-#define RA_SHADOW 0x802AEF50
+#define RA_SHADOW N64_VALUE(0x802AEF50)
 #endif
 
 /* The shadow's tilt (func_802582C4 keeps its low half as an angle): the
@@ -114,7 +114,7 @@ s32 func_802AEC3C(s32 d, VS *vs);
    of the TAS's 802 reads), the carrying's func_802AB714 its $ra (38), or
    func_802AEC3C its $t6 (2).  The first's low half for all of them: about
    83 degrees, the shadow drawn edge-on as nearly always. */
-#define SHADOW_TILT 0x803ED3B0
+#define SHADOW_TILT N64_VALUE(0x803ED3B0)
 
 
 /* part i's state: func_802A04BC's first result (and its sixth, the

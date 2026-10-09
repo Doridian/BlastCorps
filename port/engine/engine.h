@@ -87,6 +87,14 @@ void engine_leave(unsigned int reg, u32 value);
 /* a whole 64-bit GPR (Rare's dmult/dadd leave some) */
 void engine_leave64(unsigned int reg, u32 lo, u32 hi);
 
+/* A number that is not an address.  N64_PC: where an instruction of the
+   original sat (us.v11's address in every version), used only in the
+   report of a trap; never dereferenced.  N64_VALUE: a word the original
+   held that the game uses as data (a return address or stack address
+   that leaked into an angle), which has to stay the N64's number. */
+#define N64_PC(pc) ((u32)(pc))
+#define N64_VALUE(v) ((u32)(v))
+
 /* the original's `break` (IDO's division checks: code 7 for a zero
    divisor, 6 for an overflow): it stops the port as the translation's
    recomp_trap does.  pc is us.v11's address of the break, for the report. */
@@ -99,9 +107,9 @@ void engine_syscall(u32 pc) __attribute__((noreturn));
     do {                                                                    \
         s32 n_ = (n), d_ = (d);                                             \
         if (d_ == 0)                                                        \
-            engine_break(0x##bz, 7);                                        \
+            engine_break(N64_PC(0x##bz), 7);                                        \
         if (d_ == -1 && n_ == (s32)0x80000000)                              \
-            engine_break(0x##bov, 6);                                       \
+            engine_break(N64_PC(0x##bov), 6);                                       \
         (q) = n_ / d_;                                                      \
     } while (0)
 #define ENGINE_LEAVE64(gpr, v) engine_leave64((gpr), (u32)(v), (u32)((u64)(v) >> 32))

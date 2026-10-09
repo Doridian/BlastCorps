@@ -613,7 +613,7 @@ void func_802A68D4(u32 s_, u32 m_) {
 
     dl = (Gfx *PTR32 *)func_802A6EB8(s_);
     g = *dl;
-    ((u32 *)g)[1] = m_ & 0x1FFFFFFF;
+    ((u32 *)g)[1] = K0_TO_PHYS(m_);
     ((u32 *)g)[0] = 0x01040040;
     *dl = g + 1;
     scale = s->unk4;
