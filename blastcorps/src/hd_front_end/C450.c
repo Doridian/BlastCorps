@@ -7,8 +7,6 @@
 
 f32 sqrtf(f32);
 
-extern f32 D_8020BDE4;
-extern f32 D_8020BDEC;
 extern u16 D_8035807C;
 extern f32 D_8021A918;
 extern f32 D_8021A91C;

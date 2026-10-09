@@ -8,8 +8,6 @@
 
 f32 sqrtf(f32);
 
-extern f32 D_8020BDE4;
-extern f32 D_8020BDEC;
 extern f64 D_8020F090; /* 360.0 */
 extern f64 D_8020F098; /* 1800.0 */
 extern f32 D_80217A10[][4][4];

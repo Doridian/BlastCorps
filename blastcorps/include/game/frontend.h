@@ -18,8 +18,7 @@
         _g->words.w1 = (_SHIFTL(b, 8, 8) | (_SHIFTL(r, 24, 8) | _SHIFTL(g, 16, 8)) | _SHIFTL(a, 0, 8)); \
     }
 
-/* A node of the front end's object tree (D_8020BD30[7], C450.c's .data;
- * D_8020BE98 is its [6], reached as its own symbol). */
+/* A node of the front end's object tree (D_8020BD30[7], C450.c's .data). */
 typedef struct UnkStruct_8020BD30 {
     /* 0x00 */ f32 unk0;
     /* 0x04 */ f32 unk4;
@@ -49,7 +48,18 @@ typedef struct UnkStruct_80218270 {
 SIZE_CHECK(UnkStruct_80218270, 8);
 
 extern UnkStruct_8020BD30 D_8020BD30[7];
-extern UnkStruct_8020BD30 D_8020BE98; /* D_8020BD30[6] */
+/* D_8020BD30[6], and [3]'s unk0 and unk8: IDO adds an element's offset to
+ * D_8020BD30 in an instruction of its own, where the N64's code has their
+ * addresses in one lui/addiu, so they keep names of their own there. */
+#ifndef TARGET_PC
+extern UnkStruct_8020BD30 D_8020BE98;
+extern f32 D_8020BDE4;
+extern f32 D_8020BDEC;
+#else
+#define D_8020BE98 (D_8020BD30[6])
+#define D_8020BDE4 (D_8020BD30[3].unk0)
+#define D_8020BDEC (D_8020BD30[3].unk8)
+#endif
 extern UnkStruct_80218270 D_80218270[];
 
 extern Mtx D_802182D0[2];
