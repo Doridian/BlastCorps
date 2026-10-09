@@ -716,10 +716,19 @@ s32 func_801F6F18(void) {
             if (sp34 < 9) {
                 sprintf(D_80218740[sp44], "%s ", D_80218740[sp44]);
             }
+            /* (in the port, D_8020C488 as what it is: the text of D_8020C070[37] on) */
 #ifdef VERSION_EU
+#ifdef TARGET_PC
+            (&D_8020C070[FE_ENTRY(37) + D_80218D28].text)[D_80366F70_eu] = D_80218740[sp44];
+#else
             (&D_8020C488[D_80218D28].text)[D_80366F70_eu] = D_80218740[sp44];
+#endif
+#else
+#ifdef TARGET_PC
+            D_8020C070[FE_ENTRY(37) + D_80218D28].text = D_80218740[sp44];
 #else
             D_8020C488[D_80218D28].text = D_80218740[sp44];
+#endif
 #endif
             D_80218D28++;
         }

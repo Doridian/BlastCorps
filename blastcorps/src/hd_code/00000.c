@@ -4945,7 +4945,11 @@ void func_80256A34(s32 arg0) {
         if (D_8039C4B0 != 0) {
             func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "!pakBusy", "hd.c", LINE_EU(4162, 4185));
         }
-        if (D_80219F58 != 0) {
+#ifdef TARGET_PC
+        if (D_80219F50.validCount != 0) {
+#else
+        if (D_80219F58 != 0) {      /* (D_80219F50.validCount) */
+#endif
             func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "MQ_IS_EMPTY(&pakToGameMessageQ)", "hd.c", LINE_EU(4163, 4186));
         }
         osScRemoveClient(&D_80315440, &D_80218EE0);
