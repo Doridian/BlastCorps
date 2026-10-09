@@ -96,11 +96,8 @@ extern char D_80364456[], D_803643E0[], D_803643E4[], D_803643E8[], D_803643D9[]
 extern char D_8036EA70[], D_8036EB90[], D_8036EB92[], D_8036EB93[], D_803649F0[];
 extern char D_803F8B72[], D_803EDC00[];
 extern char D_80364460[], D_803649D0[];
-/* the buildings (hd_code 77E20's .bss, in D_803EFED0's blob): the array, and
-   the pointer past its last */
-extern char D_803EFED0[];
-#define BUILDINGS_OFF 0x4160
-#define BUILDINGS_END_OFF 0x7784
+/* the buildings (objects.h): the array, and the pointer past its last */
+extern char D_803F4030[], D_803F7654[];
 extern char D_8036BED8[], D_8039B070[], D_8039B610[], D_8039C550[], D_8039C710[], D_8039AF00[], D_8039B068[];
 /* the vehicle modules' states and positions (vehicle.h's table) */
 extern char D_803ED760[], D_803ED808[], D_803EDB40[], D_803EDBE8[], D_803EDF10[], D_803EDFB8[];
@@ -110,6 +107,7 @@ extern char D_803EFDF0[], D_803EFE98[], D_803F7B50[], D_803F7BF8[], D_803F8550[]
 extern char D_803F8AA0[], D_803F8B48[], D_803F8E80[], D_803F8F28[], D_803F9250[], D_803F92F8[];
 extern char D_803FC500[], D_803FC5A8[], D_803FC8D0[], D_803FC978[], D_803FCCA0[], D_803FCD48[];
 
+extern char D_803ED80C[], D_803ED810[], D_803EDBEC[], D_803EDBF0[], D_803EDFBC[], D_803EDFC0[], D_803EE390[], D_803EE394[], D_803EE76C[], D_803EE770[], D_803EEB3C[], D_803EEB40[], D_803EEF1C[], D_803EEF20[], D_803EF6E0[], D_803EF6E4[], D_803EFACC[], D_803EFAD0[], D_803EFE9C[], D_803EFEA0[], D_803F7BFC[], D_803F7C00[], D_803F8B4C[], D_803F8B50[], D_803F8F2C[], D_803F8F30[], D_803F92FC[], D_803F9300[], D_803FC5AC[], D_803FC5B0[], D_803FC97C[], D_803FC980[], D_803FCD4C[], D_803FCD50[];
 #define FRONT_END_MODES (0xC9FD8FE7DBFF8080ull | 0x4000 | 0x20000000 | 0x30)   /* hd.c's loop */
 
 /* ---- the line's fields, and what the last line had ------------------------ */
@@ -142,26 +140,27 @@ static void finish(void) {
 }
 
 /* one vehicle module's state: x,y,z,heading,heading2,speed */
-static void put_vehicle(const char *key, const char *vs, const char *pos) {
-    put(key, "%d,%d,%d,%u,%u,%d", (int32_t)g32(pos), (int32_t)g32(pos + 4), (int32_t)g32(pos + 8),
+static void put_vehicle3(const char *key, const char *vs, const char *pos, const char *py, const char *pz) {
+    put(key, "%d,%d,%d,%u,%u,%d", (int32_t)g32(pos), (int32_t)g32(py), (int32_t)g32(pz),
         g16(vs + 0x4C), g16(vs + 0x4E), (int16_t)g16(vs + 0x76));
 }
+#define put_vehicle(k, vs, pos) put_vehicle3(k, vs, pos, (pos) + 4, (pos) + 8)
 
 static void vehicles(void) {
     /* the types, and their modules' states and positions (vehicle.h's
        table; the addresses are the run's: PORT_VAR in the movable builds) */
     static const uint8_t types[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                                     0x09, 0x0A, 0x0D, 0x0E, 0x0F, 0x10, 0xFE, 0xFF};
-    const char *tab[][2] = {
-        {VAR(D_803ED760), VAR(D_803ED808)}, {VAR(D_803EDB40), VAR(D_803EDBE8)},
-        {VAR(D_803EDF10), VAR(D_803EDFB8)}, {VAR(D_803EE2E0), VAR(D_803EE38C)},
-        {VAR(D_803EE6C0), VAR(D_803EE768)}, {VAR(D_803EEA90), VAR(D_803EEB38)},
-        {VAR(D_803EFA20), VAR(D_803EFAC8)}, {VAR(D_803EFDF0), VAR(D_803EFE98)},
-        {VAR(D_803EEE70), VAR(D_803EEF18)}, {VAR(D_803F7B50), VAR(D_803F7BF8)},
-        {VAR(D_803F8AA0), VAR(D_803F8B48)}, {VAR(D_803F8E80), VAR(D_803F8F28)},
-        {VAR(D_803F9250), VAR(D_803F92F8)}, {VAR(D_803FC500), VAR(D_803FC5A8)},
-        {VAR(D_803FC8D0), VAR(D_803FC978)}, {VAR(D_803FCCA0), VAR(D_803FCD48)},
-        {VAR(D_803EF630), VAR(D_803EF6DC)},
+    const char *tab[][4] = {
+        {VAR(D_803ED760), VAR(D_803ED808), VAR(D_803ED80C), VAR(D_803ED810)}, {VAR(D_803EDB40), VAR(D_803EDBE8), VAR(D_803EDBEC), VAR(D_803EDBF0)},
+        {VAR(D_803EDF10), VAR(D_803EDFB8), VAR(D_803EDFBC), VAR(D_803EDFC0)}, {VAR(D_803EE2E0), VAR(D_803EE38C), VAR(D_803EE390), VAR(D_803EE394)},
+        {VAR(D_803EE6C0), VAR(D_803EE768), VAR(D_803EE76C), VAR(D_803EE770)}, {VAR(D_803EEA90), VAR(D_803EEB38), VAR(D_803EEB3C), VAR(D_803EEB40)},
+        {VAR(D_803EFA20), VAR(D_803EFAC8), VAR(D_803EFACC), VAR(D_803EFAD0)}, {VAR(D_803EFDF0), VAR(D_803EFE98), VAR(D_803EFE9C), VAR(D_803EFEA0)},
+        {VAR(D_803EEE70), VAR(D_803EEF18), VAR(D_803EEF1C), VAR(D_803EEF20)}, {VAR(D_803F7B50), VAR(D_803F7BF8), VAR(D_803F7BFC), VAR(D_803F7C00)},
+        {VAR(D_803F8AA0), VAR(D_803F8B48), VAR(D_803F8B4C), VAR(D_803F8B50)}, {VAR(D_803F8E80), VAR(D_803F8F28), VAR(D_803F8F2C), VAR(D_803F8F30)},
+        {VAR(D_803F9250), VAR(D_803F92F8), VAR(D_803F92FC), VAR(D_803F9300)}, {VAR(D_803FC500), VAR(D_803FC5A8), VAR(D_803FC5AC), VAR(D_803FC5B0)},
+        {VAR(D_803FC8D0), VAR(D_803FC978), VAR(D_803FC97C), VAR(D_803FC980)}, {VAR(D_803FCCA0), VAR(D_803FCD48), VAR(D_803FCD4C), VAR(D_803FCD50)},
+        {VAR(D_803EF630), VAR(D_803EF6DC), VAR(D_803EF6E0), VAR(D_803EF6E4)},
     };
     enum { N = sizeof types };
     int seen[N] = {0}, barge = 0;
@@ -184,7 +183,7 @@ static void vehicles(void) {
         if (seen[i]) {
             char key[8];
             snprintf(key, sizeof key, "v%X", types[i]);
-            put_vehicle(key, tab[i][0], tab[i][1]);
+            put_vehicle3(key, tab[i][0], tab[i][1], tab[i][2], tab[i][3]);
         }
     if (barge)
         for (i = 0; i < 3; i++) {
@@ -195,8 +194,7 @@ static void vehicles(void) {
 }
 
 static void buildings(void) {
-    uint32_t first = PORT_ADDR(D_803EFED0) + BUILDINGS_OFF,
-             end = g32(VAR(D_803EFED0) + BUILDINGS_END_OFF);
+    uint32_t first = PORT_ADDR(D_803F4030), end = g32(VAR(D_803F7654));
     if (end < first || end > first + 0x100 * 0xFC)
         end = first;
     for (uint32_t a = first, k = 0; a < end; a += 0xFC, k++) {
