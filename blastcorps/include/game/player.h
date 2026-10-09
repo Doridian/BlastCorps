@@ -140,7 +140,36 @@ SIZE_CHECK(EepromSave, 0x200);
  */
 extern u8 D_8039C4B0;           /* 1 once pfsHandler.c has the pak */
 extern s32 D_8039C4B4;
-extern u8 D_8039C538;           /* inside the u8[0x44] at D_8039C4F8 */
+/* pfsHandler.c's (E7B0.c) pak: its file numbers by player, and the save
+ * file's image, which stands in for the pak with D_802E8BF8 set. */
+typedef struct PakState {
+    u8 unk0[8];
+    OSPfs pfs;          /* 0x08 */
+    s32 fileNo[4];      /* 0x70 */
+    u8 unk80[8];
+    u8 file[0xE00];     /* 0x88 */
+} PakState;
+extern PakState D_8039B628;
+/* IDO adds a field's offset to &D_8039B628 in an instruction of its own,
+ * where the N64's code has each field's address in one lui/addiu. */
+#ifndef TARGET_PC
+extern OSPfs D_8039B630;
+extern s32 D_8039B698[4];
+extern u8 D_8039B6B0[0xE00];
+#else
+#define D_8039B630 (D_8039B628.pfs)
+#define D_8039B698 (D_8039B628.fileNo)
+#define D_8039B6B0 (D_8039B628.file)
+#endif
+/* D_8039C4F8[0x40]: the players below it get pak commands (E7B0.c sets 4
+ * and lowers it to a player whose pak is full, 1C40.c reads it); the 0x40
+ * before it a copy of D_8039C4B8 (hd_code 00000.c). */
+extern u8 D_8039C4F8[0x44];
+#ifndef TARGET_PC   /* the same for D_8039C4F8[0x40] */
+extern u8 D_8039C538;
+#else
+#define D_8039C538 (D_8039C4F8[0x40])
+#endif
 extern u8 D_8039C540;           /* a level to save, plus one (1C40.c) */
 extern u8 D_8039C541;
 

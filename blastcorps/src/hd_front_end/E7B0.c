@@ -23,10 +23,7 @@ s32 func_801F6ED4(u8);
 extern s32 D_8036BF10;
 extern OSThread D_80310BD0;
 
-extern s32 D_80370C00;
 extern OSMesgQueue D_80370BF8;
-extern OSPfs D_8039B630;
-extern s32 D_8039B698[];
 extern u32 D_8021A828;
 extern u8 D_8021A7E8[];
 
@@ -38,7 +35,6 @@ extern char D_8020FF70[];
 extern u8 D_80365060[];
 extern u8 D_8021A7D0[];
 extern u8 D_8021A8F0;
-extern u8 D_8039B6B0[];
 extern u8 D_8039C4B8[0x40];
 extern s32 D_802FA264;
 #ifdef VERSION_EU
@@ -387,7 +383,7 @@ s32 func_801F5FE4(void) {
     OSMesg sp1C;
 
     sp1C = NULL;
-    if (D_80370C00 != 0) {
+    if (D_80370BF8.validCount != 0) {
         func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "1==0", "pfsHandler.c", LINE_EU(0x190, 0x19A));
         osRecvMesg(&D_80370BF8, &sp1C, OS_MESG_NOBLOCK);
     }
