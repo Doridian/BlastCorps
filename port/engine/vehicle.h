@@ -77,6 +77,9 @@
 #define VS_TOP_MATERIAL(vs) ((vs)->unk9F)
 /* s8: the speed's sign when func_802A6FE4 last ran (+1, -1) */
 #define VS_SPEED_SIGN(vs) ((vs)->unkA5)
+/* s16: the speed the engine's sound was last set for (the chopper's and
+   the carrier's only) */
+#define VS_SOUND_SPEED(vs) ((vs)->unkA6)
 
 /* the gear table's rows (VS_GEARS) */
 #define GEAR_LO 0

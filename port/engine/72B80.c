@@ -37,7 +37,6 @@ extern u8 D_803EEF34;                           /* frames without the throttle a
 /* the chopper's */
 extern Part D_803EEF40[32];
 extern VS D_803EF240;
-extern s16 D_803EF2E6;                          /* the speed its sound was last set for */
 extern SndState *PTR32 D_803EF2E8;              /* its rotor's sound, while the player is near */
 extern s32 D_803EF2EC, D_803EF2F0, D_803EF2F4;  /* x, y, z */
 extern u8 *PTR32 D_803EF2F8;                    /* its model file */
@@ -404,7 +403,7 @@ void func_802B8480(u8 *model) {
     VS_MOVE_HEADING(vs) = 0;
     D_803EF32A = 0;
     VS_SPEED(vs) = CHOPPER_SLOW_SPEED;
-    D_803EF2E6 = 0;
+    VS_SOUND_SPEED(vs) = 0;
     D_803EF328 = 0;
     func_8029F85C(Q, CH_MODEL, CH_BUF0, CH_BUF1);
     func_802A039C(0, 100, Q);
@@ -708,10 +707,10 @@ s64 func_802B988C(void) {
    its body's lean (part 3) by its turn */
 REGS(gp)
 void func_802B98E0(VS *vs) {
-    s32 t = CHOPPER_TOP_SPEED - VS_SPEED(vs), last = D_803EF2E6;
+    s32 t = CHOPPER_TOP_SPEED - VS_SPEED(vs), last = VS_SOUND_SPEED(&D_803EF240);
     f32 tilt = (f32)t / (f32)0x140;
 
-    D_803EF2E6 = t;
+    VS_SOUND_SPEED(&D_803EF240) = t;
     if (last != t && D_803EF2E8 != NULL)
         func_80260AB8(D_803EF2E8, 0x10, f2i(0.8f + (f32)t * -0.004f));
     func_802A0360(2, 0, Q, tilt);

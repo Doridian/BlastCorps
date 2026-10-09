@@ -22,7 +22,6 @@
 /* the carrier's .bss (asm/data/hd_code/75490.bss.s) */
 extern Part D_803EF330[32];
 extern VS D_803EF630;
-extern s16 D_803EF6D6;                          /* the speed its sound was last set for */
 extern SndState *PTR32 D_803EF6D8;              /* its engine's sound, while the player is near */
 extern s32 D_803EF6DC, D_803EF6E0, D_803EF6E4;  /* x, y, z */
 extern s32 D_803EF6E8, D_803EF6EC;              /* how far it goes before D_803EF710, D_803EF711 */
@@ -208,7 +207,7 @@ void func_802B9C50(u8 *model, s32 x, s32 z, s32 heading, s32 dist, s32 speed) {
     speed = func_802BA3E8_jp(speed);
 #endif
     D_803EF6FC = speed;
-    D_803EF6D6 = 0;
+    VS_SOUND_SPEED(vs) = 0;
     D_803EF6F0 = dist;
     func_802A754C(vs);
     VS_MOVE_HEADING(vs) = heading;
@@ -363,10 +362,10 @@ void func_802BA638(void) {
    heading, in thirds) and its drive shaft's (part 1, by its speed) */
 REGS(gp)
 void func_802BA6AC(VS *vs) {
-    s32 s = VS_SPEED(vs), last = D_803EF6D6;
+    s32 s = VS_SPEED(vs), last = VS_SOUND_SPEED(&D_803EF630);
     u32 h;
 
-    D_803EF6D6 = s;
+    VS_SOUND_SPEED(&D_803EF630) = s;
     if (last != s && D_803EF6D8 != NULL)
         func_80260AB8(D_803EF6D8, 0x10, f2i(1.5f + (f32)s * -0.004f));
     h = (u16)D_80364452 + ANGLE_HALF;
