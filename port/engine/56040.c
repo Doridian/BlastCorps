@@ -133,7 +133,10 @@ typedef struct MtxCopy {
 SIZE_CHECK(MtxCopy, 0xC);
 #define MTX_COPIES 0x78
 extern MtxCopy D_803B7FC8[MTX_COPIES];
-extern MtxCopy *PTR32 D_803B8568;       /* the last one in use */
+/* [0] the last one in use; [1] a word no code here names, which
+   func_8029DD54's walk past the end takes for a record's `to` */
+extern MtxCopy *PTR32 D_803B8568[2];
+#define MTX_LAST D_803B8568[0]
 
 /* D_803059F0: which building kinds each vehicle type collides with, on
    which level (0xFFFF: all), to a zero mask */
@@ -394,7 +397,7 @@ void func_8029DC80(void) {
     MtxCopy *c = D_803B7FC8;
     s32 n;
 
-    D_803B8568 = c;
+    MTX_LAST = c;
     for (n = MTX_COPIES;; n--, c++) {
         if (n == 0)
             break;
@@ -505,21 +508,21 @@ s32 func_8029DB7C(u8 *pairs, s32 n, Anim *parts) {
    D_803B8568 back) */
 REGS(s2)
 void func_8029DD54(u32 *to) {
-    /* (sic: the original's end is D_803B8568's address, the word after the
-       records, not its value: the loop goes one record past the last, onto
-       the pointer and the word after it) */
-    MtxCopy *c, *end = (MtxCopy *)&D_803B8568;
+    MtxCopy *c;
 
-    for (c = D_803B7FC8;; c++) {
-        if (end < c)
-            break;
+    for (c = D_803B7FC8; c != D_803B7FC8 + MTX_COPIES; c++) {
         if (c->to != to)
             continue;
         c->from = NULL;
         c->to = NULL;
-        if (c == end) {
-            D_803B8568 = c - 1;
-        }
+    }
+    /* (sic: the original's end is D_803B8568's address, the word after the
+       records, not its value: the loop goes one record past the last, onto
+       D_803B8568, its `from`, and its second word, its `to`; cleared there,
+       the last one in use is the last record, as that record's `c - 1`) */
+    if ((u32 *)D_803B8568[1] == to) {
+        D_803B8568[1] = NULL;
+        MTX_LAST = &D_803B7FC8[MTX_COPIES - 1];
     }
 }
 
@@ -601,8 +604,8 @@ void func_8029DCD4(u32 *from, u32 *to) {
     c->from = from;
     c->to = to;
     c->frame = D_8035805C ^ 1;
-    if (D_803B8568 < c) {
-        D_803B8568 = c;
+    if (MTX_LAST < c) {
+        MTX_LAST = c;
     }
 }
 
@@ -643,7 +646,7 @@ void func_8029C0DC(u8 *t, s32 x, s32 y, s32 z) {
 /* the matrix copies due this frame (frame D_8035805C) made and freed;
    D_803B8568 left at the last one still waiting */
 void func_8029DDC8(void) {
-    MtxCopy *c = D_803B7FC8, *end = D_803B8568, *last = c;
+    MtxCopy *c = D_803B7FC8, *end = MTX_LAST, *last = c;
     u32 frame = D_8035805C;
 
     for (;; c++) {
@@ -659,7 +662,7 @@ void func_8029DDC8(void) {
         c->from = NULL;
         c->to = NULL;
     }
-    D_803B8568 = last;
+    MTX_LAST = last;
 }
 
 /* whether two spheres meet: centres (x1, y1, z1) and (x2, y2, z2), radii
@@ -2112,7 +2115,7 @@ static void a800(s32 x, s32 y, s32 z, u8 *kinds, s32 a2, s32 hit_fx, s32 fx_len,
     func_802BCBD8();
 }
 
-extern u8 D_803B67C0[], D_803B37C0[], D_803B4FC0[];  /* a blend's data, built and its copies */
+extern u8 D_803B67C0[0x1800], D_803B37C0[0x1800], D_803B4FC0[0x1800];  /* a blend's data, built and its copies */
 #define BLEND_SIZE 0x1800
 
 /* the frame of an animation (spline: func_8029FFA0; keys: func_802A0118)
