@@ -32,6 +32,10 @@ own.  A label inside another variable's type (D_8020C070[]'s, which runs
 over the labels splat made inside it) is no variable: in the builds at
 fixed addresses it is an alias, `.set` at its offset; the movable build's
 arena link resolves its name to its N64 address, which is where it is.
+A name the N64 link has inside a file with no label there (a data
+island's, the strings the game's C names in the menus' text) is a label
+that starts a variable of its own (n64_labels), so that the code reaches
+what it names as a variable, not as an alias of an offset into another.
 Where the code reads one table across several labels (a record per wheel,
 a walk into the next label: LABEL_TYPES), the first label's type runs
 over the others, which are names inside it.
@@ -309,6 +313,7 @@ class Blob:
         self.val, self.dirw, self.dstart, self.dkind = [], [], [], []
         self.syms = {}          # offset -> symbol
         self.labels = []        # [(offset, name)]
+        self.named = set()      # the labels the N64 link names (n64_labels)
         self.breaks = set()     # offsets where asm2x86 started a new run (labels, symbols)
 
     def data(self, bs, width, kind):
@@ -464,6 +469,31 @@ def parse_bin(path, label):
     blob.label(label)
     blob.data(list(data), 1, "byte")
     return blob
+
+
+def n64_labels(blob, nm):
+    """The names the N64 link has inside the blob that its file has no
+    label for, as labels: a data island's (splat keeps it as bytes, the code
+    names what it reads in it), and what the game's C names inside an asm
+    data file (module_syms_auto: the menus' Japanese strings, a text after a
+    display list).  Each starts a variable (Gen.partition): the code that
+    names it reads it as a thing of its own, so it is one in the port, not a
+    name for an offset into the variable before it."""
+    base = next((nm[n][0] - o for o, n in blob.labels if n in nm), None)
+    if base is None:
+        return
+    have = {n for _, n in blob.labels}
+    end = base + len(blob)
+    for name, (a, fn) in sorted(nm.items(), key=lambda kv: kv[1][0]):
+        if base <= a < end and not fn and name.startswith("D_") and name not in have:
+            off = a - base
+            if off == 0:
+                # (an island's own name, where one of the code's is: the code's)
+                blob.labels = [(o, n) for o, n in blob.labels if o or not n.endswith("_bin")]
+            blob.labels.append((off, name))
+            blob.breaks.add(off)
+            blob.named.add(name)
+    blob.labels.sort(key=lambda x: x[0])
 
 
 # ---- the native-endian units (what asm2x86.py --native wrote) -------------------
@@ -776,12 +806,16 @@ class Gen:
         label (then it is the next one's alias); each runs to the next"""
         inv = inventory()["symbols"]
         labels = sorted(blob.labels, key=lambda x: x[0])
+        # (u16 text: a string a label, wherever the inventory's count, which
+        # is us.v11's, runs)
+        text = bool(rel) and rel.endswith(HALF_FILES)
         n = len(blob)
         vars_, pending = [], []
         cur, cur_end = None, 0
         for k, (off, name) in enumerate(labels):
             nxt = next((o for o, _ in labels[k + 1:] if o > off), n)
-            if cur is not None and (off < cur_end or off >= n):
+            if cur is not None and (off < cur_end or off >= n) and \
+                    not (off < n and (name in blob.named or text)):
                 cur.inner.append((off - cur.off, name))
                 continue
             if off >= n:
@@ -1080,6 +1114,7 @@ def main():
         if "=" in a:
             label, path = a.split("=", 1)
             b = parse_bin(path, label)
+            n64_labels(b, nm)
             resolve(b, None, blob_layout=BLOBS.get(label, []))
             files.append((f"{label}.c", None, [b], path))
             continue
@@ -1089,6 +1124,7 @@ def main():
         if mm:
             label = f"{mm.group(1)}_{mm.group(2)}_bin"
         b = parse_s(a, rel, label)
+        n64_labels(b, nm)
         resolve(b, rel, island=ISLANDS.get(os.path.basename(a)) if a.endswith(".bin.s") else None)
         files.append((out_name(a), rel, [b], a))
 
