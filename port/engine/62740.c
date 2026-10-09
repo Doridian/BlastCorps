@@ -820,20 +820,18 @@ void func_802A7B3C(s16 *speed, s16 *rows, s32 brake, VS *vs) {
 
 /* ---- the wheels' bookkeeping ------------------------------------------------- */
 
-/* per wheel (three bytes or words from each name): */
-extern u8 D_803ED3EE, D_803ED3EF;       /* in the air (1) this frame */
-extern u8 D_803ED3F2, D_803ED3F3, D_803ED3F4; /* the material under it */
-extern u8 D_803ED3EA, D_803ED3EB, D_803ED3EC; /* the moving object it stands on (0: none) */
-extern s32 D_803ED398, D_803ED39C, D_803ED3A0; /* its height */
-extern s32 D_803ED3A8[];                /* the ground's height under it */
-extern s32 D_803ED3AC, D_803ED3B0;
+/* per wheel, wheel i's at [i] (each one variable: asm2c.py's LABEL_TYPES) */
+extern u8 D_803ED3EE[4];                /* in the air (1) this frame */
+extern u8 D_803ED3F2[3];                /* the material under it */
+extern u8 D_803ED3EA[4];                /* the moving object it stands on (0: none) */
+extern s32 D_803ED398[4];               /* its height */
+extern s32 D_803ED3A8[4];               /* the ground's height under it */
 extern u8 D_803BE738;                   /* the level is lost (1D990.c) */
 extern u8 D_803ED410;                   /* the vehicle is one point (all its wheel offsets 0) */
-#define WHEEL_BYTE(base, i) (*(u8 *)((u32)&(base) + (i)))
-#define WHEEL_AIRBORNE(i) WHEEL_BYTE(D_803ED3EE, i)
-#define WHEEL_MATERIAL(i) WHEEL_BYTE(D_803ED3F2, i)
-#define WHEEL_OBJECT(i) WHEEL_BYTE(D_803ED3EA, i)
-#define WHEEL_HEIGHT(i) (*(s32 *)((u32)&D_803ED398 + 4 * (i)))
+#define WHEEL_AIRBORNE(i) D_803ED3EE[i]
+#define WHEEL_MATERIAL(i) D_803ED3F2[i]
+#define WHEEL_OBJECT(i) D_803ED3EA[i]
+#define WHEEL_HEIGHT(i) D_803ED398[i]
 
 /* the vehicle's gravity a frame (the level's, LevelHeader.gravity, times
    the vehicle's factor: its camera function sets it), and how hard a
@@ -871,12 +869,12 @@ void func_802A9038(VS *vs) {
     s32 k;
 
     WHEEL_AIRBORNE(1) = WHEEL_AIRBORNE(2) = WHEEL_AIRBORNE(0);
-    D_803ED39C = D_803ED3A0 = D_803ED398;
-    D_803ED3AC = D_803ED3B0 = D_803ED3A8[0];
+    WHEEL_HEIGHT(1) = WHEEL_HEIGHT(2) = WHEEL_HEIGHT(0);
+    D_803ED3A8[1] = D_803ED3A8[2] = D_803ED3A8[0];
     for (k = 0; k < 9; k += 3)
         VS_WHEEL_FALL(vs)[k + 1] = VS_WHEEL_FALL(vs)[k + 2] = VS_WHEEL_FALL(vs)[k];
-    D_803ED3F3 = D_803ED3F4 = D_803ED3F2;
-    D_803ED3EB = D_803ED3EC = D_803ED3EA;
+    WHEEL_MATERIAL(1) = WHEEL_MATERIAL(2) = WHEEL_MATERIAL(0);
+    WHEEL_OBJECT(1) = WHEEL_OBJECT(2) = WHEEL_OBJECT(0);
 }
 
 /* D_803ED410: whether all three of a set of wheel offsets are 0 */
@@ -898,13 +896,13 @@ REGS(s0, t8, gp)
 void func_802A9164(u8 *flags, s32 type, VS *vs) {
     s32 m = 0;
 
-    VS_GRIP(vs) = (u32)(grip_part(D_803ED3F2) + grip_part(D_803ED3F3) + grip_part(D_803ED3F4)) / 3;
-    if (m < D_803ED3F2)
-        m = D_803ED3F2;
-    if (m < D_803ED3F3)
-        m = D_803ED3F3;
-    if (m < D_803ED3F4)
-        m = D_803ED3F4;
+    VS_GRIP(vs) = (u32)(grip_part(WHEEL_MATERIAL(0)) + grip_part(WHEEL_MATERIAL(1)) + grip_part(WHEEL_MATERIAL(2))) / 3;
+    if (m < WHEEL_MATERIAL(0))
+        m = WHEEL_MATERIAL(0);
+    if (m < WHEEL_MATERIAL(1))
+        m = WHEEL_MATERIAL(1);
+    if (m < WHEEL_MATERIAL(2))
+        m = WHEEL_MATERIAL(2);
     VS_TOP_MATERIAL(vs) = m;
     D_803ED40D = m;
     if (D_803ED40D == MATERIAL_DEADLY_ALWAYS && flags[0] != 1)
@@ -1168,9 +1166,9 @@ static u8 *wheel_record(s32 self) {
 static void wheel_record_set(s32 self) {
     u8 *p = wheel_record(self);
 
-    p[1] = D_803ED3EA;
-    p[2] = D_803ED3EB;
-    p[3] = D_803ED3EC;
+    p[1] = WHEEL_OBJECT(0);
+    p[2] = WHEEL_OBJECT(1);
+    p[3] = WHEEL_OBJECT(2);
 }
 
 /* The three wheels (pts: VS_WHEELS, turned by *a, from (x, z)) put on the
@@ -1196,7 +1194,7 @@ s32 *func_802A992C(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
     }
     back = (u32)(out[3] + out[6]) >> 1;
     *avg = back;
-    VS_GRIP(vs) = (u32)(D_803ED3F2 + D_803ED3F3 + D_803ED3F4) / 3;
+    VS_GRIP(vs) = (u32)(WHEEL_MATERIAL(0) + WHEEL_MATERIAL(1) + WHEEL_MATERIAL(2)) / 3;
     wheel_record_set(self);
     *avg_out = back;
     return out;
@@ -1219,7 +1217,7 @@ s32 *func_802A9A60(s16 *pts, s32 y, s32 x, s32 z, s32 *out, s32 *avg, s16 *a, s3
         WHEEL_MATERIAL(i) = mat;
     }
     *avg = (u32)(out[3] + out[6]) >> 1;
-    VS_GRIP(vs) = (u32)(D_803ED3F2 + D_803ED3F3 + D_803ED3F4) / 3;
+    VS_GRIP(vs) = (u32)(WHEEL_MATERIAL(0) + WHEEL_MATERIAL(1) + WHEEL_MATERIAL(2)) / 3;
     D_803ED390[0] = 0;
     D_803ED390[2] = 0;
     return out + 9;
