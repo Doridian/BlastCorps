@@ -4,8 +4,6 @@
 
 extern u8 D_006A8DA0[];
 extern u8 D_006A9F10[];
-extern s8 D_80370C32;
-extern s8 D_80370C33;
 
 Gfx *func_8029700C(Gfx *gfx, s16 arg1, s16 arg2);
 
@@ -115,8 +113,8 @@ Gfx *func_80295EFC(s32 arg0, Gfx *arg1, s16 arg2, s16 arg3, u8 arg4) {
     } while (++sp118 < 16);
     gDPPipeSync(gfx++);
     gDPSetPrimColor(gfx++, 0, 0, 0xDC, 0xDC, 0xDC, arg4);
-    gSPScisTextureRectangle(gfx++, (arg2 + D_80370C32 / 18 + 35) << 2, (arg3 - D_80370C33 / 18 + 40) << 2,
-                            (arg2 + D_80370C32 / 18 + 46) << 2, (arg3 - D_80370C33 / 18 + 49) << 2,
+    gSPScisTextureRectangle(gfx++, (arg2 + D_80370C30.unk2 / 18 + 35) << 2, (arg3 - D_80370C30.unk3 / 18 + 40) << 2,
+                            (arg2 + D_80370C30.unk2 / 18 + 46) << 2, (arg3 - D_80370C30.unk3 / 18 + 49) << 2,
                             G_TX_RENDERTILE, 0, 0, 1 << 10, 1 << 10);
     gDPPipeSync(gfx++);
     gDPSetTexturePersp(gfx++, G_TP_PERSP);

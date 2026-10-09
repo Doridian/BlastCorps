@@ -16,8 +16,6 @@ extern u8 D_803643D6;
 extern u8 D_803643DB;
 extern u8 D_80364A50;
 extern s16 D_8036BB1C;
-extern s8 D_80370C32;
-extern s8 D_80370C33;
 
 /* A recording file: a header, 0x400 input records, then a variable-length tail. */
 typedef struct {
@@ -219,8 +217,8 @@ void func_8025BEF8(void) {
         }
     } else {
         D_80370C30.unk0 = (D_803669AC[D_80366994].unk0 << 8) + D_803669AC[D_80366994].unk1;
-        D_80370C32 = D_803669AC[D_80366994].unk3;
-        D_80370C33 = D_803669AC[D_80366994].unk4;
+        D_80370C30.unk2 = D_803669AC[D_80366994].unk3;
+        D_80370C30.unk3 = D_803669AC[D_80366994].unk4;
         if (--D_803669A0 < 0) {
             D_80366994++;
             D_803669A0 = D_803669AC[D_80366994].unk2;
