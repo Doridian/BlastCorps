@@ -89,13 +89,18 @@ static uint32_t gptr(const void *p) {
 }
 
 #define VAR(sym) PORT_VAR(sym)
-extern char D_80364A90[], D_802E8BDC[], D_80358064[], D_80358060[], D_8036B968[], D_803156C4[], D_803156C0[];
+extern char D_80364A90[], D_802E8BDC[], D_80358064[], D_80358060[], D_8036B968[];
+#include "sched_vars.h"
 extern char D_80364AF0[], D_80364AE8[];
-extern char D_80364456[], D_803643E0[], D_803643D9[], D_803643DA[];
+extern char D_80364456[], D_803643E0[], D_803643E4[], D_803643E8[], D_803643D9[], D_803643DA[];
 extern char D_8036EA70[], D_8036EB90[], D_8036EB92[], D_8036EB93[], D_803649F0[];
 extern char D_803F8B72[], D_803EDC00[];
 extern char D_80364460[], D_803649D0[];
-extern char D_803F4030[], D_803F7654[];
+/* the buildings (hd_code 77E20's .bss, in D_803EFED0's blob): the array, and
+   the pointer past its last */
+extern char D_803EFED0[];
+#define BUILDINGS_OFF 0x4160
+#define BUILDINGS_END_OFF 0x7784
 extern char D_8036BED8[], D_8039B070[], D_8039B610[], D_8039C550[], D_8039C710[], D_8039AF00[], D_8039B068[];
 /* the vehicle modules' states and positions (vehicle.h's table) */
 extern char D_803ED760[], D_803ED808[], D_803EDB40[], D_803EDBE8[], D_803EDF10[], D_803EDFB8[];
@@ -190,7 +195,8 @@ static void vehicles(void) {
 }
 
 static void buildings(void) {
-    uint32_t first = PORT_ADDR(D_803F4030), end = g32(VAR(D_803F7654));
+    uint32_t first = PORT_ADDR(D_803EFED0) + BUILDINGS_OFF,
+             end = g32(VAR(D_803EFED0) + BUILDINGS_END_OFF);
     if (end < first || end > first + 0x100 * 0xFC)
         end = first;
     for (uint32_t a = first, k = 0; a < end; a += 0xFC, k++) {
@@ -227,11 +233,11 @@ static void bits(const char *key, const char *base, uint32_t n, uint32_t stride,
 
 static void level(void) {
     const char *st = VAR(D_8036EA70);
-    put("t", "%u", g32(VAR(D_803156C0)));
+    put("t", "%u", g32(SCHED_LEVEL_TIME));
     put("fc", "%u", g32(VAR(D_80358060)));
     put("pv", "%X", g8(VAR(D_80364456)));
-    put("p", "%d,%d,%d", (int32_t)g32(VAR(D_803643E0)), (int32_t)g32(VAR(D_803643E0) + 4),
-        (int32_t)g32(VAR(D_803643E0) + 8));
+    put("p", "%d,%d,%d", (int32_t)g32(VAR(D_803643E0)), (int32_t)g32(VAR(D_803643E4)),
+        (int32_t)g32(VAR(D_803643E8)));
     put("won", "%u", g8(VAR(D_803643DA)));
     put("lost", "%u", g8(VAR(D_803643D9)));
     put("st", "%u,%u,%u,%u,%u", g32(st), g8(st + 8), g8(st + 9), g16(st + 0xC), g8(st + 0xA));
@@ -297,7 +303,7 @@ void host_digest_poll(unsigned poll) {
 
     ncur = 0;
     put("rng", "%08X", g32(VAR(D_8036B968)));
-    put("clk", "%u", g32(VAR(D_803156C4)));
+    put("clk", "%u", g32(SCHED_FRAMECOUNT));
     {
         uint8_t who = g8(VAR(D_80364AE8));
         const char *pl = VAR(D_80364AF0) + 0x100 * (who & 3);

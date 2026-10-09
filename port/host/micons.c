@@ -918,10 +918,7 @@ uint32_t micons_part(int h, float x0, float y0, float x1, float y1, int shadow, 
 #define GLOBE_RADIUS 250.0f             /* the globe's (its shadow a little above) */
 #define GLOBE_SHADOW 0x60               /* its shadow's alpha */
 
-extern char D_803156C4[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_803156C4 PORT_VAR(D_803156C4)
-#endif
+#include "sched_vars.h"
 
 static Spec chopper = { { 0, 0 }, -1, "chopper", 0, 0, { 0 }, 0 };
 
@@ -1130,7 +1127,7 @@ uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t
     Model *m = &chopper.model;
     if (!m->ok || dot3(c, c) < 1)
         return 0;
-    uint32_t now = port_var32(D_803156C4);
+    uint32_t now = port_var32(SCHED_FRAMECOUNT);
     float dt = (float)(uint32_t)(now - globe.clock);
     if (globe.live && dt > 120)                     /* (back on the map after a while) */
         globe.live = 0;

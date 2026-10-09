@@ -570,9 +570,9 @@ static void queue_account(double late_ms, double work_ms, double pms) {
 
 void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
 /* the scheduler's retrace count, the game's frame count and the mode */
-extern char D_803156C4[], D_80358064[], D_80364A90[];
+#include "sched_vars.h"
+extern char D_80358064[], D_80364A90[];
 #ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_803156C4 PORT_VAR(D_803156C4)
 #define D_80358064 PORT_VAR(D_80358064)
 #define D_80364A90 PORT_VAR(D_80364A90)
 #endif
@@ -600,7 +600,7 @@ void host_controller_poll(void) {
     }
 #endif
     if (pace)
-        fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(D_803156C4),
+        fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(SCHED_FRAMECOUNT),
                 port_be32(D_80358064), port_be32(D_80364A90),
                 port_be32(D_80364A90 + 4), (unsigned long long)host_audio_samples());
     if (!spec)

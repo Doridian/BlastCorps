@@ -60,17 +60,19 @@
 
 /* the scheduler's retrace count, the game's frame count, the mode and the
    random number generator's state */
-extern char D_803156C4[], D_80358064[], D_80364A90[], D_8036B968[];
+#include "sched_vars.h"
+extern char D_80358064[], D_80364A90[], D_8036B968[];
 #ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_803156C4 PORT_VAR(D_803156C4)
 #define D_80358064 PORT_VAR(D_80358064)
 #define D_80364A90 PORT_VAR(D_80364A90)
 #define D_8036B968 PORT_VAR(D_8036B968)
 #endif
 /* the player's position */
-extern char D_803643E0[];
+extern char D_803643E0[], D_803643E4[], D_803643E8[];
 #ifdef PORT_MOVABLE      /* where the variables are (port.h) */
 #define D_803643E0 PORT_VAR(D_803643E0)
+#define D_803643E4 PORT_VAR(D_803643E4)
+#define D_803643E8 PORT_VAR(D_803643E8)
 #endif
 
 typedef struct {
@@ -429,7 +431,7 @@ void host_replay_read_started(void) {
         }
         if (reads >= from && reads <= to)
             host_log("replay: read %u: mode %016llX frame %u retraces %u, the log's read %d (pad %08X)\n", reads,
-                     (unsigned long long)mode, frames, port_be32(D_803156C4), found + 1,
+                     (unsigned long long)mode, frames, port_be32(SCHED_FRAMECOUNT), found + 1,
                      found >= 0 ? log_reads[found].pad : 0);
     }
     if (mode != last_mode) {
@@ -489,7 +491,7 @@ void host_replay_read_started(void) {
     if (has_pos && (mode == 4 || mode == 0x4000)) {
         int32_t p[3];
         for (int i = 0; i < 3; i++)
-            p[i] = (int32_t)port_be32(D_803643E0 + 4 * i);
+            p[i] = (int32_t)port_be32(i == 0 ? D_803643E0 : i == 1 ? D_803643E4 : D_803643E8);
         if (p[0] != cur_read->pos[0] || p[1] != cur_read->pos[1] || p[2] != cur_read->pos[2]) {
             if (pos_diffs++ < 5 || host_verbose > 1)
                 host_log("replay: read %u (the log's %d, mode %016llX frame %u): the player at %d,%d,%d, "
@@ -509,10 +511,6 @@ void host_replay_read_started(void) {
    function, not by order in the frame: IDO and clang load a global a
    different number of times; within a function and a frame the movie's
    values nearly always agree.) */
-extern char D_803156C0[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_803156C0 PORT_VAR(D_803156C0)
-#endif
 unsigned int port_counter(int timer, const char *func) {
     static const char *free_funcs = (const char *)1;    /* PORT_REPLAY_FREE_FUNCS=f,...: these read their own */
     if (free_funcs == (const char *)1)
@@ -541,7 +539,7 @@ unsigned int port_counter(int timer, const char *func) {
             host_log("replay: the log's read %d: %s reads the %s, which the log's frame doesn't\n", matched + 1,
                      func, timer ? "level timer" : "retrace count");
     }
-    return port_be32(timer ? D_803156C0 : D_803156C4);
+    return port_be32(timer ? SCHED_LEVEL_TIME : SCHED_FRAMECOUNT);
 }
 
 /* The port's own functions by address (its symbol table, from
@@ -751,9 +749,9 @@ void port_replay_mode_switch(void) {
        of it are the movie's (port_counter). */
     static uint32_t level_start;
     if (log_reads && (want == 0x2000 || want == 0x800))
-        level_start = port_be32(D_803156C0);
+        level_start = port_be32(SCHED_LEVEL_TIME);
     if (log_reads && mode_now() == 4 && want != 4) {
-        uint32_t t = port_be32(D_803156C0) - level_start;
+        uint32_t t = port_be32(SCHED_LEVEL_TIME) - level_start;
         host_log("replay: level %u ends at the log's read %d: %u frames, %u retraces, time %u.%u s\n",
                  port_be32(D_802E8BDC), matched + 1, port_be32(D_80358064), t, t / PORT_RETRACE_HZ, t * 10 / PORT_RETRACE_HZ % 10);
     }

@@ -1025,7 +1025,7 @@ def n64_names():
 
 
 # names port_game.h makes macros of (the game's reads of the scheduler's counts)
-MACROS = ("D_803156C4", "D_803156C0", "sinf", "cosf", "bcopy", "bzero", "sprintf", "memcpy", "strlen", "strchr")
+MACROS = ("sinf", "cosf", "bcopy", "bzero", "sprintf", "memcpy", "strlen", "strchr")
 
 
 def out_name(src):

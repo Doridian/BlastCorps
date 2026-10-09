@@ -341,10 +341,10 @@ int host_quit_requested(void) { return quit || host_replay_done(); }
 
 
 /* the scheduler's retrace count and the mode, where the version has them */
-extern char D_803156C4[], D_80364A90[], D_802E8BDC[];
+#include "sched_vars.h"
+extern char D_80364A90[], D_802E8BDC[];
 #ifdef PORT_MOVABLE      /* where the variables are (port.h) */
 #define D_802E8BDC PORT_VAR(D_802E8BDC)
-#define D_803156C4 PORT_VAR(D_803156C4)
 #define D_80364A90 PORT_VAR(D_80364A90)
 #endif
 
@@ -391,12 +391,12 @@ static uint16_t scripted_buttons(int *sy) {
             port_wg32(D_802E8BDC, (uint32_t)atoi(lv));
         if (in_level) {
             *sy = 80;
-            if (*s == '3' && (int)port_be32(D_803156C4) % 120 < 4)
+            if (*s == '3' && (int)port_be32(SCHED_FRAMECOUNT) % 120 < 4)
                 return B_A;
             return 0;
         }
     }
-    int f = *s >= '2' ? (int)port_be32(D_803156C4) : frame;
+    int f = *s >= '2' ? (int)port_be32(SCHED_FRAMECOUNT) : frame;
     /* nothing for the first half second: a button held at the game's first
        read asks to erase the save (00000.c's mode 0x40000000000000), and
        the first read is at once now that the controllers' power-on wait is
