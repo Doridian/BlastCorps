@@ -39,7 +39,7 @@ extern u8 D_80365060[];
 extern u8 D_8021A7D0[];
 extern u8 D_8021A8F0;
 extern u8 D_8039B6B0[];
-extern u8 D_8039C4B8[];
+extern u8 D_8039C4B8[0x40];
 extern s32 D_802FA264;
 #ifdef VERSION_EU
 extern u8 D_80366F70_eu; /* the language: which of text, text2, text3 */
@@ -60,11 +60,7 @@ char D_80218740[0x10][0x50];
 #else
 char D_80218740[0x10][0x28];
 #endif
-u8 D_802189C0[1][0x11];
-u8 D_802189D1[1];
-u8 D_802189D2[2];
-u8 D_802189D4[4];
-u8 D_802189D8[0xF8];
+u8 D_802189C0[0x10][0x11];
 u8 D_80218AD0[0x10][5];
 OSPfsState D_80218B20[0x10];
 u8 D_80218D20[4];

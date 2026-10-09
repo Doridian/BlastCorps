@@ -97,7 +97,7 @@ f32 D_8021AB64;
 Gfx *D_8021AB68;
 Gfx *D_8021AB6C;
 
-extern f32 D_802E8C84[];
+extern f32 D_802E8C84[2];
 extern s32 D_802FA264;
 extern OSMesgQueue D_80315180;
 extern FrameGame D_803156F8[];

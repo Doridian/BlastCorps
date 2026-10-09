@@ -53,7 +53,7 @@ extern char D_8020F270[];
 extern char D_8020F2C8[];
 extern s32 D_802FA264;
 extern s32 D_80218EF0;
-extern u8 D_802189C0[][0x11];
+extern u8 D_802189C0[0x10][0x11];
 extern u8 D_80218AD0[][5];
 extern char D_80218740[][0x28];
 extern char D_80219F90[];

@@ -5,7 +5,7 @@
 
 extern OSMesgQueue D_80219EF8;
 extern OSMesgQueue D_80219F50;
-extern u8 D_8039C4B8[];
+extern u8 D_8039C4B8[0x40];
 
 s32 func_80201E80(void) {
     u8 i;
