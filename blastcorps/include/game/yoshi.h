@@ -16,8 +16,8 @@
  * use; the front end builds sorted lists of entries at D_8036BB24
  * (func_801F7FF4 compares two).  "Entry" is our name, not Rare's.
  *
- * The same tables are also reached through labels that fall inside them:
- * D_802F8BF4 is &D_802F8BDC[0].unk18, D_8020C488 &D_8020C070[37].text.
+ * The same tables are also reached through a label that falls inside one:
+ * D_8020C488 is &D_8020C070[37].text.
  */
 
 typedef struct YoshiEntry {
@@ -118,7 +118,25 @@ SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
 #define YOSHI_WINDOWS 0x6C
 #endif
 extern YoshiWindow D_802F8BDC[YOSHI_WINDOWS];
-extern ColorPair D_802F47B0[0x17];
+/*
+ * An entry's colours (YoshiEntry.unk18, unk19) index D_802F47B0, and some
+ * reach past its 0x17 pairs into the three tables after it: a window by
+ * level kind (D_802F4868, D_802F4870: the windows' indices in D_802F8BDC)
+ * and the icon by level kind (D_802F4878).  The port has those in
+ * D_802F47B0, so that the colours read through it are the N64's.
+ */
+#ifdef TARGET_PC
+#define COLOR_PAIRS (0x17 + 3)
+#define D_802F4868 ((u8 *) &D_802F47B0[0x17])
+#define D_802F4870 ((u8 *) &D_802F47B0[0x18])
+#define D_802F4878 ((u8 *) &D_802F47B0[0x19])
+#else
+#define COLOR_PAIRS 0x17
+extern u8 D_802F4868[8];
+extern u8 D_802F4870[8];
+extern u8 D_802F4878[8];
+#endif
+extern ColorPair D_802F47B0[COLOR_PAIRS];
 extern UnkStruct_8020C488 D_8020C488[];
 extern YoshiIcon D_802F49F4[0x4B];
 /*
@@ -149,8 +167,16 @@ extern YoshiIcon D_802F49F4[0x4B];
 #define YOSHI_COUNT(first, n) (YOSHI_ENTRY((first) + (n)) - YOSHI_ENTRY(first))
 #define FE_COUNT(first, n) (FE_ENTRY((first) + (n)) - FE_ENTRY(first))
 
+/* D_8020C070 runs to the end of hd_front_end's 25070 .data (padding
+ * after it); eu's has four more entries at the end. */
+#ifdef VERSION_EU
+#define FE_ENTRIES 219
+#else
+#define FE_ENTRIES FE_ENTRY(215)
+#endif
+
 extern YoshiEntry D_802F5804[YOSHI_ENTRIES];
-extern YoshiEntry D_8020C070[];
+extern YoshiEntry D_8020C070[FE_ENTRIES];
 extern YoshiEntry *D_8036BB10;
 extern YoshiEntry *D_8036BB24;
 

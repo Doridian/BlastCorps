@@ -544,7 +544,6 @@ void func_80244870(void *arg0) {
 extern OSMesgQueue D_80219EF8;
 extern OSMesgQueue D_80219F50;
 extern u64 D_8021A830;
-extern u8 D_802F4868[];
 extern u16 D_803047A0[];
 extern u16 D_803047B4[];
 extern u16 D_803047CC[];
@@ -1225,7 +1224,6 @@ void func_80244930(void *arg0) {
         }
     }
 }
-extern u8 D_802F4870[];
 extern s32 D_802FA268;
 /* .bss, defined here so the osGetTime() store shares one lui (see D_80364A90). */
 extern u16 D_80367BC8;
@@ -3292,17 +3290,11 @@ void func_802502EC(void) {
 }
 
 typedef struct {
-    /* 0x00 */ u16 unk0;
-    /* 0x02 */ u8 unk2[0x1A];
-} UnkStruct_802F8BF4; /* size = 0x1C */
-
-typedef struct {
     /* 0x0 */ s16 unk0;
     /* 0x2 */ s16 unk2;
     /* 0x4 */ s16 unk4;
 } UnkStruct_8036C794; /* size = 0x6 */
 
-extern UnkStruct_802F8BF4 D_802F8BF4[];
 extern u8 D_8036B8B0;
 extern s32 D_8036B8B4;
 extern s32 D_8036B8B8;
@@ -3374,7 +3366,7 @@ void func_802507C8(Mtx *arg0, LookAt *arg1, Mtx *arg2) {
         D_8036B965 = 0;
     }
     sp95 = D_80364AC1 != 0 && ((D_80364A90 & 0x940) != 0 || D_8036B965 != 0);
-    if (D_80364A90 == 8 || (D_8036BB18 == 0x4B && D_8036BB1C == 2 && D_802F8BF4[D_8036BB18].unk0 == YOSHI_ENTRY(0x14D))) {
+    if (D_80364A90 == 8 || (D_8036BB18 == 0x4B && D_8036BB1C == 2 && D_802F8BDC[D_8036BB18].unk18 == YOSHI_ENTRY(0x14D))) {
         if (D_8030F668 == 0) {
             sp8B = 1;
         }
@@ -3385,7 +3377,7 @@ void func_802507C8(Mtx *arg0, LookAt *arg1, Mtx *arg2) {
         }
         D_8030F668 = 0;
     }
-    if (D_8036BB18 == 0x49 && D_8036BB1C == 2 && D_802F8BF4[D_8036BB18].unk0 == YOSHI_ENTRY(0x130)) {
+    if (D_8036BB18 == 0x49 && D_8036BB1C == 2 && D_802F8BDC[D_8036BB18].unk18 == YOSHI_ENTRY(0x130)) {
         if (D_8030F66A == 0) {
             sp8B = 1;
         }
@@ -3396,7 +3388,7 @@ void func_802507C8(Mtx *arg0, LookAt *arg1, Mtx *arg2) {
         }
         D_8030F66A = 0;
     }
-    if (D_8036BB18 == 0x4D && D_8036BB1C == 2 && D_802F8BF4[D_8036BB18].unk0 != YOSHI_ENTRY(0x164)) {
+    if (D_8036BB18 == 0x4D && D_8036BB1C == 2 && D_802F8BDC[D_8036BB18].unk18 != YOSHI_ENTRY(0x164)) {
         if (D_8030F669 == 0) {
             sp8B = 1;
         }

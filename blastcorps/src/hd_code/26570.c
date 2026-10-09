@@ -21,7 +21,6 @@ extern u16 D_802E8C98[];
 extern u16 D_802E8C9C[];
 extern u16 D_803C30A8[];
 extern s32 D_803F7684;
-extern u8 D_802F499A[];
 /* eu's timings are PAL's (50 Hz); FRAMES_F is a float that is written out for each. */
 #ifdef VERSION_EU
 #define REFRESH_RATE 50
@@ -47,21 +46,11 @@ char D_8036B9E8[0x20];
 char D_8036BA08[0x20];
 char D_8036BA28[0x20];
 u8 D_8036BA48[0x50];
-#ifdef TARGET_PC
 /* The icons' frames (D_8036BA98, by YoshiIcon index: up to 75) run over the
-   hints' flags after them (D_8036BAA2, by hint), as on the N64: one object
-   here, so that no build's compiler takes an index past 0xA for impossible */
+   hints' flags after them (D_8036BAA2, by hint): one object, as on the N64 */
 u8 D_8036BA98[0x64];
 #define D_8036BAA2 (D_8036BA98 + 0xA)
 #define D_8036BAE8 (D_8036BA98 + 0x50)
-#else
-u8 D_8036BA98[0xa];
-u8 D_8036BAA2[3];
-u8 D_8036BAA5[1];
-u8 D_8036BAA6[2];
-u8 D_8036BAA8[0x40];
-u8 D_8036BAE8[0x14];
-#endif
 u32 D_8036BAFC;
 u32 D_8036BB00;
 u16 D_8036BB04;
@@ -524,7 +513,7 @@ extern u16 D_803035B4[];
 extern u16 D_803035BC[];
 extern u16 D_803035C8[];
 /* .data, 0x802F47B0-0x802F99C0 (tools/data_c.py) */
-ColorPair D_802F47B0[0x17] = {
+ColorPair D_802F47B0[COLOR_PAIRS] = {
     { 0, 0, 0, 255, 0, 0, 0, 255 },
     { 90, 90, 220, 255, 90, 90, 220, 255 },
     { 0, 255, 0, 255, 0, 255, 0, 255 },
@@ -548,10 +537,18 @@ ColorPair D_802F47B0[0x17] = {
     { 255, 0, 255, 255, 255, 0, 0, 255 },
     { 255, 180, 0, 255, 255, 120, 0, 255 },
     { 0, 255, 0, 255, 255, 255, 0, 255 },
+#ifdef TARGET_PC
+    /* the three window tables after it (yoshi.h), which an entry's colour reaches */
+    { 15, 16, 16, 16, 16, 16, 16, 16 },
+    { 6, 7, 7, 7, 7, 7, 7, 7 },
+    { 13, 25, 14, 23, 16, 0, 16, 14 },
+#endif
 };
+#ifndef TARGET_PC
 u8 D_802F4868[8] = { 15, 16, 16, 16, 16, 16, 16, 16 };
 u8 D_802F4870[8] = { 6, 7, 7, 7, 7, 7, 7, 7 };
 u8 D_802F4878[8] = { 13, 25, 14, 23, 16, 0, 16, 14 };
+#endif
 u16 D_802F4880[0x28] = { 0xFFF };
 UnkStruct_802F48D0 D_802F48D0[8] = {
     { 0, { 87, 84, 85, 80, 76, 83, 74, 77, 78, 79, 73, 75, -1 } },
@@ -3020,7 +3017,7 @@ u8 func_8026AD30(s16 arg0) {
         if (sp2C->unk0 == D_802E8BDC) {
             for (sp20 = 0; sp20 < 16 && sp2B == 0 && sp2C->unk2[sp20] != -1; sp20++) {
                 if (sp2C->unk2[sp20] == arg0) {
-                    sp1C = D_80364AF0[D_80364AE8].unk54[0x34 + arg0] < D_802F499A[arg0];
+                    sp1C = D_80364AF0[D_80364AE8].unk54[0x34 + arg0] < D_802F49E0[arg0 - 70];
                     sp18 = D_802E8BDC == 0;
                     if (D_8036BAA2[arg0] == 0 && (sp18 || sp1C)) {
                         if (sp1C && !sp18) {
@@ -3073,9 +3070,6 @@ u16 func_8026B10C(void) {
     return D_8036BB14;
 }
 
-#ifndef TARGET_PC
-extern u8 D_8036BAE8[];
-#endif
 extern s16 D_8036BB0C;
 extern s8 D_8036BB0E;
 extern u16 D_8036BB16;
@@ -3447,9 +3441,17 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                     func_80260650(D_80367738, sp13A, 0);
                 }
                 if (!(sp14C->unk8 & 0x400)) {
+#ifdef TARGET_PC
+                    /* The N64 tests the entry's flags first, so it reads the entry after the window's last
+                       (past the table's end for the table's last window); either order stops there. */
+                    for (sp138 = sp14C->first; sp138 < sp14C->first + sp14C->count && !(D_8036BB10[sp138].flags & 1);
+                         sp138++) {
+                    }
+#else
                     for (sp138 = sp14C->first; !(D_8036BB10[sp138].flags & 1) && sp138 < sp14C->first + sp14C->count;
                          sp138++) {
                     }
+#endif
                     sp14C->unk18 = sp138;
                 }
                 for (sp138 = sp14C->first; sp138 < sp14C->first + sp14C->count; sp138++) {

@@ -27,7 +27,6 @@ extern u16 D_802E8C98[];
 extern u16 D_802E8C9C[];
 extern u16 D_803C30A8[];
 extern s32 D_803F7684;
-extern u8 D_802F499A[];
 
 
 /*

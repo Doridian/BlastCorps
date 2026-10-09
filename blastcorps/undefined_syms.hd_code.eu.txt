@@ -9,7 +9,6 @@ D_8030C694 = 0x8030E334;
 D_8030C698 = 0x8030E338;
 D_8030C6A8 = 0x8030E348;
 D_8030C6B8 = 0x8030E358;
-D_802F499A = 0x802F679A;
 D_00487050 = 0x00487190;
 D_00489E70 = 0x00489FB0;
 D_0048F5A0 = 0x0048F6E0;
@@ -121,9 +120,6 @@ D_8020ED00 = 0x8020ED00; /* fixed */
    the last two words below 0x80400000, and 46C20's .data points there. */
 D_803FFFF8 = 0x803FFFF8; /* fixed */
 D_803FFFFC = 0x803FFFFC; /* fixed */
-/* named only by C, now that no asm .data labels it: a field inside another
-   object's .data variable */
-D_802F8BF4 = 0x802FB9C0;
 /* named only by C: fields of LevelStats variables in 409D0.c (stats_perm.c) */
 D_8036EA89 = 0x80374449;
 D_8036EA99 = 0x80374459;
