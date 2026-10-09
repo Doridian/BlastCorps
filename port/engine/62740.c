@@ -579,7 +579,7 @@ s64 func_802ABCDC(s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2) {
 }
 
 /* the level's lights: level_tables.h's LevelLight */
-extern u8 D_80364A6E[];                 /* the level's ambient light */
+extern u8 D_80364A6E;                 /* the level's ambient light */
 
 /* does this light, d away, light this type? */
 static s32 light_reaches(LevelLight *p, s64 d, s32 type) {
@@ -600,7 +600,7 @@ REGS(a3, t3, t4, t5)
 void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
     LevelLight *p;
     s64 d = 0;
-    s32 r = D_80364A6E[0], amb, level, radius;
+    s32 r = D_80364A6E, amb, level, radius;
     Vehicle *v;
 
     for (p = D_803BDFD8; p != D_803BDFD4; p++) {
@@ -609,7 +609,7 @@ void func_802ABD54(s32 type, s32 x, s32 y, s32 z) {
             continue;
         radius = p->radius;
         level = p->shade;
-        amb = D_80364A6E[0];
+        amb = D_80364A6E;
         if (level == 0)
             r = p->full == 1 ? 0xFF : 0xFF - amb - (s32)((u32)((0xFF - amb) * (u32)d) / (u32)radius) + amb;
         else
