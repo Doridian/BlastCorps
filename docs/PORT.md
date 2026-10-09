@@ -1782,14 +1782,18 @@ game's.
 - **What code walks across.**  Every variable is still at its N64
   address (`gen_ld.py`'s script, port-arena's placement), which keeps the
   tables that a walk runs off into the next label working as on the N64.
-  For the day the variables aren't at fixed addresses, the files where the
-  code does that are one struct each (`FILE_STRUCTS`), the labels its
-  members in their N64 order: hd_code 77E20's `.data` (the chance records
-  of `D_80306344`, `D_80306350` and `D_803063D4`, walked into
-  `D_803063E0`), 75490's `.data` (`D_80305D74`'s records into
-  `D_80305DF0`) and 77E20's `.bss` (`D_803F3910`'s pairs into
-  `D_803F3968[0]`).  The struct is named after the file's first label,
-  which is where it is placed.  `D_8020C070[]` (`YoshiEntry`, hd_front_end
+  For the day the variables aren't at fixed addresses, a table the code
+  reads across labels is one variable (`LABEL_TYPES`): the first label's
+  type runs over the others, which are names inside it.  So the chance
+  records of `D_80306344`, `D_80306350` and `D_803063D4`, walked into
+  `D_803063E0` (hd_code 77E20's `.data`), `D_803F3910`'s pairs, which run
+  into their end pointer and `D_803F3968[0]` (77E20's `.bss`), the
+  wheels' words and bytes (62740's `D_803ED398`, `D_803ED3A8`,
+  `D_803ED3EA`, `D_803ED3EE`, `D_803ED3F2`), the barges' (83910's
+  `D_803F8748`...) and the visibility task with its stack (5FD50's
+  `D_803BE740`); the engine reads them through that variable.  (75490's
+  `D_80305D74` needs none: its walk stops at the 0xFFFF inside it.)
+  `D_8020C070[]` (`YoshiEntry`, hd_front_end
   25070) is one array to its file's end already, over the labels splat
   made inside it.
 - **Names inside a variable** (a struct's members but the first, the
@@ -1836,11 +1840,11 @@ N64 had room for lands in padding).  2,166 variables in us.v10, to about
 `0x910000`.
 
 - **The unit** is a C variable, the asm data's included ("The asm data
-  as C": a label each, the three files the code walks across one struct
-  each), so a walk from one label into the next breaks unless its file
-  is one of those structs.  (Before the asm data was C, a
+  as C": a label each, a table the code reads across labels one variable,
+  `LABEL_TYPES`), so a walk from one label into the next breaks unless
+  its labels are one of those.  (Before the asm data was C, a
   `PORT_SCATTER_ASM=file` placed each data file whole; it only hid those
-  walks, and the structs now keep together the files that need it.)
+  walks.)
 - **Names inside another variable** (a declaration whose N64 address is
   inside something placed: a field's own name, a label inside a typed
   array, a struct's members but the first) get room of their own, to the

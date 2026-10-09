@@ -32,8 +32,9 @@ own.  A label inside another variable's type (D_8020C070[]'s, which runs
 over the labels splat made inside it) is no variable: in the builds at
 fixed addresses it is an alias, `.set` at its offset; the movable build's
 arena link resolves its name to its N64 address, which is where it is.
-Files whose tables the code walks across (FILE_STRUCTS) are one struct
-each, the labels its members, so that their order is C's to keep.
+Where the code reads one table across several labels (a record per wheel,
+a walk into the next label: LABEL_TYPES), the first label's type runs
+over the others, which are names inside it.
 
 A symbolic .word is a pointer initializer (`&D_X`, a cast where the
 field's type is another, or `(u8 *)&D_X + n` into a variable), and every
@@ -74,6 +75,13 @@ def inventory():
     global _inv
     if _inv is None:
         _inv = json.load(open(INVENTORY))
+        # (LABEL_TYPES over the inventory's types for those labels)
+        for name, (t, count) in LABEL_TYPES.items():
+            sym = _inv["symbols"].get(name)
+            if sym is None or "storage" not in sym:
+                continue
+            _inv["symbols"][name] = {"type": t, "count": count, "storage": sym["storage"],
+                                     "derived": "asm2c.py's LABEL_TYPES"}
     return _inv
 
 
@@ -217,20 +225,33 @@ HALF_FILES = ("hd_code/BC8E0.data.s",)
 # segments are kept: aspmain.c reads the audio microcode's resampling table.)
 RSP_TEXT = {"hd_code_A0C30_bin", "hd_front_end_20090_bin"}
 
-# Files whose tables the code walks across, over a label into the next
-# (docs/PORT.md, "The asm data as C"): each one struct, the labels its
-# members, so that C keeps their order wherever the variables go.
-FILE_STRUCTS = {
+# Labels the code reads as one table, over the labels splat made inside it
+# (docs/LAYOUT.md, "label"): {first label: (type, count)}, the others names
+# inside it, so that the access goes through the variable it is in, wherever
+# the variables go (PORT_SCATTER).
+LABEL_TYPES = {
+    # 62740's wheels' bookkeeping, three of each, wheel i at [i]:
+    "D_803ED398": ("s32", 3),       # .. D_803ED3A0: the wheel's height
+    "D_803ED3A8": ("s32", 3),       # .. D_803ED3B0: the ground's height under it
+    "D_803ED3EA": ("bytes", 3),     # .. D_803ED3EC: the moving object it stands on
+    "D_803ED3EE": ("bytes", 3),     # .. D_803ED3F0: in the air
+    "D_803ED3F2": ("bytes", 3),     # .. D_803ED3F4: the material under it
+    # 83910's barges, three of each (barge n's at [n], its position at [3n])
+    "D_803F8748": ("s32", 9),
+    "D_803F876C": ("ptr", 3),
+    "D_803F8778": ("ptr", 6),
+    "D_803F8790": ("bytes", 3),
+    # 5FD50's visibility task: a SchedTask (0x60 bytes) whose last 0x20
+    # bytes are the first of its DRAM stack, D_803BE780
+    "D_803BE740": ("u64", 0x88),
     # func_802BF978 and func_802BFDAC walk the 12-byte chance records of
     # D_80306344, D_80306350 and D_803063D4 until a number is below a
-    # threshold, and at 100 run off their end into D_803063E0
-    "hd_code/77E20.data.s",
-    # func_8029A6A0's walk of D_80305D74's records ends at D_80305DF0's
-    # 0xFF (the records' count would take its first two bytes)
-    "hd_code/75490.data.s",
+    # threshold, and at 100 run off their end into D_803063E0 (kept
+    # big-endian, as bytes)
+    "D_80306344": ("bytes", 0xAC),
     # the list at D_803F3910 (ten pairs of words, func_802BEA30) runs over
-    # its end into D_803F3968[0]
-    "hd_code/77E20.bss.s",
+    # its end into its end pointer D_803F3960, D_803F3964 and D_803F3968[0]
+    "D_803F3910": ("bytes", 0x6E8),
 }
 
 
@@ -1082,45 +1103,17 @@ def main():
                 v.cname = v.name
                 v.addr = nm[v.name][0] if v.name in nm else None
             fvars += vs
-        group = None
-        if rel and rel[len("asm/data/"):] in FILE_STRUCTS and len(fvars) > 1:
-            first = fvars[0]
-            members = [(v.off - first.off, v.name, v.ctype) for v in fvars]
-            tname = "asmdata_" + re.sub(r"\W", "_", rel[len("asm/data/"):-2])
-            st = Struct(tname, members, fvars[-1].end - first.off)
-            g.types.order.append(st)
-            group = Var(first.blob, first.off, fvars[-1].end, first.name)
-            group.ctype, group.wrapped, group.cname, group.addr = st, False, first.name, first.addr
-            group.members = fvars
-            for v in fvars:
-                v.cname = f"{first.name}.{v.name}"
-                if v is not first:
-                    group.inner.append((v.off - first.off, v.name))
-                group.inner += [(v.off - first.off + o, n) for o, n in v.inner]
-            fvars_top = [group]
-        else:
-            fvars_top = fvars
         for v in fvars:
-            if v.wrapped and not group:
+            if v.wrapped:
                 v.cname = f"{v.name}.{v.name}"
-        per_file.append((out, rel, src, fvars_top, fvars))
-        g.vars += fvars_top
+        per_file.append((out, rel, src, fvars, fvars))
+        g.vars += fvars
     g.var_at_name = {}
     for out, rel, src, top, allv in per_file:
         for v in allv:
             g.var_at_name[v.name] = v
         for v in top:
             g.var_at_name.setdefault(v.name, v)
-    # (a pointer to a member of a file's struct: the member)
-    for out, rel, src, top, allv in per_file:
-        for v in top:
-            if hasattr(v, "members"):
-                for mv in v.members:
-                    g.var_at_name[mv.name] = mv
-    for v in g.vars:
-        if hasattr(v, "members"):
-            for mv in v.members:
-                mv.addr = v.addr + (mv.off - v.off) if v.addr is not None else None
 
     # the C files
     defined = set()

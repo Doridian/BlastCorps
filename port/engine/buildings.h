@@ -194,6 +194,22 @@ typedef struct HitPair {
     s32 group;                  /* 1-based */
 } HitPair;
 
+/* the list, its end and what follows it, one variable (asm2c.py's
+   LABEL_TYPES): the list's adds (func_802BEA30) don't stop at its ten, and
+   an eleventh and later run over its end into the rest, as on the N64 */
+typedef struct HitList {
+    /* 0x000 */ HitPair pairs[10];
+    /* 0x050 */ HitPair *PTR32 end;      /* (D_803F3960) one past the last */
+    /* 0x054 */ u8 *PTR32 fall_mtx;      /* (D_803F3964) this frame's matrices for falling groups */
+    /* 0x058 */ u8 fx[NFX][FX_SIZE];     /* (D_803F3968) the effect records */
+} HitList;
+SIZE_CHECK(HitList, 0x6E8);
+extern HitList D_803F3910;
+#define HIT_PAIRS D_803F3910.pairs
+#define HIT_END D_803F3910.end
+#define FALL_MTX D_803F3910.fall_mtx
+#define FX_RECORDS D_803F3910.fx
+
 /* a smoke cloud (D_803F0900[4]): a group's look copied, fading */
 typedef struct Smoke {
     /* 0x000 */ u32 dl[0x12C];

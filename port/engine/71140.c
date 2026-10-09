@@ -51,8 +51,6 @@ extern Part *PTR32 D_803F77D0;
 extern u8 D_80305D20[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 extern u8 D_802C2208[], D_802C226C[];           /* the front wheels (56040's list) */
-extern u8 *PTR32 D_803F3910[];                  /* the objects it is carrying, to D_803F3960 */
-extern u8 *PTR32 *PTR32 D_803F3960;
 extern u16 D_8036E4C8;
 extern u8 D_803BE738;
 
@@ -433,12 +431,12 @@ void func_802B7240(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B72DC(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803EEA90, (u32 *)&D_803EEB38);
+    vehicle_save(dst, (u8 *)&D_803EEA90, (u32 *)&D_803EEB38, (u32 *)&D_803EEB3C, (u32 *)&D_803EEB40);
 }
 
 /* and back */
 void func_802B7308(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803EEA90, (u32 *)&D_803EEB38);
+    vehicle_restore(src, (u8 *)&D_803EEA90, (u32 *)&D_803EEB38, (u32 *)&D_803EEB3C, (u32 *)&D_803EEB40);
 }
 
 /* ---- 679E0's, which only the truck calls ---- */
@@ -462,14 +460,15 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
         return;
     func_8029A800(x, y, z, a1, 1, 0, 0, 0, 0, 0, type, vs);
     func_802BE77C(type, vs);
-    if (D_803F3910 == D_803F3960)
+    if (HIT_PAIRS == HIT_END)
         return;
     if (D_8036E4C8 == 0) {
         D_803BE738 = 1;
         return;
     }
     func_80260650(D_80367738, 0x3D, NULL);
-    for (q = D_803F3910; q != D_803F3960; q += 2) {
+    /* (the objects it is carrying: the pairs' first words) */
+    for (q = (u8 *PTR32 *)HIT_PAIRS; q != (u8 *PTR32 *)HIT_END; q += 2) {
         o = q[0];
         *(s32 *)(o + 0x38) = 1;
         *(s32 *)(o + 0x40) = -1;

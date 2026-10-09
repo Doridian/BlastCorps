@@ -43,16 +43,12 @@ typedef struct Immune {
     u32 types;                  /* a bit per vehicle type */
 } Immune;
 
-extern u8 D_803F3968[NFX][FX_SIZE];     /* the effect records */
 extern u8 D_803F3FF8[FX_SIZE];          /* the one being made */
 extern DelayedHit D_803F7690[NDELAYED];
 extern u8 *PTR32 D_803F77D4;            /* the part numbers hit this frame (D_803F77D8...) */
 extern u8 D_803F77D8[];
 extern u8 *PTR32 D_803F77E4;            /* and last frame's (D_803F77E8...) */
 extern u8 D_803F77E8[];
-extern HitPair *PTR32 D_803F3960;       /* (building, group) pairs hit this frame */
-extern HitPair D_803F3910[];
-extern u8 *PTR32 D_803F3964;            /* this frame's matrices for falling groups */
 extern u8 D_803F24D0[], D_803F2ED0[];   /* (one per frame) */
 extern s32 D_803F38D0[16];              /* a matrix being made */
 extern Mtx *PTR32 D_803F7658;           /* the falling groups' shadows' matrices */
@@ -101,7 +97,13 @@ extern u8 D_80305E50[];
 extern u32 D_80305E10[];
 extern s16 D_80305E38[];
 extern u8 D_8030633C[];
-extern u8 D_80306344[], D_80306350[], D_803063D4[], D_803063E0[];
+/* the chance tables, one variable (asm2c.py's LABEL_TYPES): their walks
+   (func_802BF978, func_802BFDAC) run on from one table into the next */
+extern u8 D_80306344[0xAC];
+#define CHANCES_HIT D_80306344                  /* (D_80306344) */
+#define CHANCES_DESTROYED (D_80306344 + 0xC)    /* (D_80306350) */
+#define CHANCES_LANDED (D_80306344 + 0x90)      /* (D_803063D4) */
+#define DEBRIS_COUNTS (D_80306344 + 0x9C)       /* (D_803063E0) */
 extern u8 *PTR32 D_80306270[];
 extern u32 D_802C3FFC[];
 extern u8 D_8036DCD4, D_8036DCD7;
@@ -748,9 +750,9 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
     func_802C08C4((u32 *)g6);
     func_802C0CBC((u32 *)g7);
     if (D_8035805C != 0) {
-        D_803F3964 = D_803F24D0;
+        FALL_MTX = D_803F24D0;
     } else {
-        D_803F3964 = D_803F2ED0;
+        FALL_MTX = D_803F2ED0;
     }
     visible_cells_mark();
     end = D_803F7654;
@@ -1187,12 +1189,12 @@ u32 *func_802BE3C8(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src
    physical address. */
 REGS(v0, a3, s6 -> s5)
 u32 func_802BE574(Building *b, s32 g, s32 fall) {
-    s32 *m = (s32 *)D_803F3964;
+    s32 *m = (s32 *)FALL_MTX;
     u32 t = B_FALL_T(b)[g];
     s32 ax, ay, az, cx, cy, cz;
     u16 *c;
 
-    D_803F3964 = (u8 *)m + 0x40;
+    FALL_MTX = (u8 *)m + 0x40;
     ax = (s32)(t * (u32)B_SPIN_X(b)[g]);
     if (ax < 0) {
         ax += 0xFFF;
@@ -1303,17 +1305,17 @@ s32 func_802BE944(Building *b, s32 type) {
 /* the list of (building, group) pairs hit this frame emptied */
 REGS()
 void func_802BE9F8(void) {
-    D_803F3960 = D_803F3910;
+    HIT_END = HIT_PAIRS;
 }
 
 /* (b, group) added to it */
 REGS(t3, t9)
 void func_802BEA30(s32 group, Building *b) {
-    HitPair *p = D_803F3960;
+    HitPair *p = HIT_END;
 
     p->b = b;
     p->group = group;
-    D_803F3960 = p + 1;
+    HIT_END = p + 1;
 }
 
 /* whether (b, group) is in it */
@@ -1321,7 +1323,7 @@ REGS(t3, t9 -> t7)
 s32 func_802BEA70(s32 group, Building *b) {
     HitPair *p;
 
-    for (p = D_803F3910; p != D_803F3960; p++) {
+    for (p = HIT_PAIRS; p != HIT_END; p++) {
         if (p->b != b)
             continue;
         if (p->group != group)
@@ -1789,14 +1791,14 @@ void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
     s32 roll, n, k, sp;
 
     roll = func_802BFB50(0, 100);
-    for (t = D_803063E0; t[0] < roll; t += 2) {
+    for (t = DEBRIS_COUNTS; t[0] < roll; t += 2) {
     }
     n = t[1];
     for (k = 0; k != n; k++) {
         if (damage >= 100) {
-            t = D_80306350;
+            t = CHANCES_DESTROYED;
         } else {
-            t = D_80306344;
+            t = CHANCES_HIT;
             if (D_803F77FE < FX_STRONG_HIT)
                 return;
         }
@@ -1893,7 +1895,7 @@ void func_802BFDAC(Building *b, s32 group) {
     s32 x = c[0], y = b->y, z = c[2], roll;
 
     roll = func_802BFB50(0, 100);
-    for (t = D_803063D4; !(roll < CHANCE(t)); t += 0xC) {
+    for (t = CHANCES_LANDED; !(roll < CHANCE(t)); t += 0xC) {
     }
     fx = D_803F3FF8;
     FX_W(fx, FX_X) = x << 16;
@@ -2143,7 +2145,7 @@ void func_802C049C(void) {
     s32 i;
 
     for (i = 0; i < NFX; i++) {
-        FX_B(D_803F3968[i], FX_DONE) = 1;
+        FX_B(FX_RECORDS[i], FX_DONE) = 1;
     }
 }
 
@@ -2153,9 +2155,9 @@ void func_802C04F0(u8 *src) {
     s32 i;
 
     for (i = 0; i < NFX; i++) {
-        if (FX_B(D_803F3968[i], FX_DONE) != 0) {
+        if (FX_B(FX_RECORDS[i], FX_DONE) != 0) {
             /* (fourteen words: the copy's loop) */
-            __builtin_memcpy(D_803F3968[i], src, FX_SIZE);
+            __builtin_memcpy(FX_RECORDS[i], src, FX_SIZE);
             break;
         }
     }
@@ -2170,7 +2172,7 @@ void func_802C0574(void) {
     s32 i, t, k, big, started;
 
     for (i = 0; i < NFX; i++) {
-        fx = D_803F3968[i];
+        fx = FX_RECORDS[i];
         if (FX_B(fx, FX_DONE) != 0)
             continue;
         t = FX_H(fx, FX_DELAY);
