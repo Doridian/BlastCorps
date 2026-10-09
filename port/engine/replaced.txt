@@ -199,8 +199,8 @@ func_802AC4C4
 func_802AC544
 func_802AC61C
 func_802AC6FC
-func_802AC7DC
-func_802AC85C
+func_802AC7DC inlined
+func_802AC85C inlined
 func_802AC8CC
 func_802ACA60
 func_802ACAC4

@@ -824,12 +824,12 @@ void func_802D249C(void) {
 /* its state and position saved to dst (0xB2 bytes; Thunderfist's
    func_802B295C, but nothing calls it) */
 void func_802D24F8(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978);
+    vehicle_save(dst, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978, (u32 *)&D_803FC97C, (u32 *)&D_803FC980);
 }
 
 /* and back */
 void func_802D2524(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978);
+    vehicle_restore(src, (u8 *)&D_803FC8D0, (u32 *)&D_803FC978, (u32 *)&D_803FC97C, (u32 *)&D_803FC980);
 }
 
 /* an mtc0 of its argument to COP0's Compare, which the port has no timer

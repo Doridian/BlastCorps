@@ -124,28 +124,30 @@ typedef struct {
     u32 v;
 } __attribute__((packed)) UnalignedWord;
 
-/* 0xA6 bytes from src, then three words, to dst (0xB2 bytes) */
-REGS(a0, a1, a2)
-void func_802AC7DC(u8 *dst, u8 *src, u32 *words) {
+/* func_802AC7DC: 0xA6 bytes from src, then three words, to dst (0xB2
+   bytes).  (The original takes one pointer to the words, a vehicle's x, y
+   and z, which are three variables: here a pointer to each, so the
+   original's a0, a1, a2 aren't these; replaced.txt has it `inlined`.) */
+void vehicle_save(u8 *dst, u8 *src, u32 *x, u32 *y, u32 *z) {
     s32 n;
 
     for (n = 0; n < 0xA6; n++)
         *dst++ = *src++;
-    ((UnalignedWord *)dst)[0].v = words[0];
-    ((UnalignedWord *)dst)[1].v = words[1];
-    ((UnalignedWord *)dst)[2].v = words[2];
+    ((UnalignedWord *)dst)[0].v = *x;
+    ((UnalignedWord *)dst)[1].v = *y;
+    ((UnalignedWord *)dst)[2].v = *z;
 }
 
-/* the reverse: 0xA6 bytes from src to dst, then three words to `words` */
-REGS(a0, a1, a2)
-void func_802AC85C(u8 *src, u8 *dst, u32 *words) {
+/* func_802AC85C, the reverse: 0xA6 bytes from src to dst, then three
+   words to x, y, z */
+void vehicle_restore(u8 *src, u8 *dst, u32 *x, u32 *y, u32 *z) {
     s32 n;
 
     for (n = 0; n < 0xA6; n++)
         *dst++ = *src++;
-    words[0] = ((UnalignedWord *)src)[0].v;
-    words[1] = ((UnalignedWord *)src)[1].v;
-    words[2] = ((UnalignedWord *)src)[2].v;
+    *x = ((UnalignedWord *)src)[0].v;
+    *y = ((UnalignedWord *)src)[1].v;
+    *z = ((UnalignedWord *)src)[2].v;
 }
 
 /* A 16.16 matrix in place to the RSP's Mtx: the integer halves of the 16

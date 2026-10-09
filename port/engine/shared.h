@@ -259,10 +259,9 @@ s32 func_802AC4C4(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3);
 void func_802AC544(s32 x, s32 y, s32 z);
 void func_802AC61C(s32 x, s32 y, s32 z, s32 kind, s32 t1);
 void func_802AC6FC(s32 x, s32 y, s32 z, s32 kind, s32 t1);
-REGS(a0, a1, a2)
-void func_802AC7DC(u8 *dst, u8 *src, u32 *words);
-REGS(a0, a1, a2)
-void func_802AC85C(u8 *src, u8 *dst, u32 *words);
+/* func_802AC7DC and func_802AC85C, a pointer to each of the three words */
+void vehicle_save(u8 *dst, u8 *src, u32 *x, u32 *y, u32 *z);
+void vehicle_restore(u8 *src, u8 *dst, u32 *x, u32 *y, u32 *z);
 REGS(s2)
 void func_802AC8CC(u32 *m);
 REGS(t0, t1, t2, t3)

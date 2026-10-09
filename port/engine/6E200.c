@@ -424,12 +424,12 @@ void func_802B3180(s32 carrier) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B40A8(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803EE2E0, (u32 *)&D_803EE38C);
+    vehicle_save(dst, (u8 *)&D_803EE2E0, (u32 *)&D_803EE38C, (u32 *)&D_803EE390, (u32 *)&D_803EE394);
 }
 
 /* and back */
 void func_802B40D4(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803EE2E0, (u32 *)&D_803EE38C);
+    vehicle_restore(src, (u8 *)&D_803EE2E0, (u32 *)&D_803EE38C, (u32 *)&D_803EE390, (u32 *)&D_803EE394);
 }
 
 /* ---- Ramdozer ------------------------------------------------------------- */
@@ -785,12 +785,12 @@ void func_802B5814(VS *vs) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B589C(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768);
+    vehicle_save(dst, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768, (u32 *)&D_803EE76C, (u32 *)&D_803EE770);
 }
 
 /* and back */
 void func_802B58C8(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768);
+    vehicle_restore(src, (u8 *)&D_803EE6C0, (u32 *)&D_803EE768, (u32 *)&D_803EE76C, (u32 *)&D_803EE770);
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier, and back

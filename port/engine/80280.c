@@ -1272,10 +1272,10 @@ void func_802C7F28(VS *vs) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802C8074(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803F7B50, (u32 *)&D_803F7BF8);
+    vehicle_save(dst, (u8 *)&D_803F7B50, (u32 *)&D_803F7BF8, (u32 *)&D_803F7BFC, (u32 *)&D_803F7C00);
 }
 
 /* and back */
 void func_802C80A0(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803F7B50, (u32 *)&D_803F7BF8);
+    vehicle_restore(src, (u8 *)&D_803F7B50, (u32 *)&D_803F7BF8, (u32 *)&D_803F7BFC, (u32 *)&D_803F7C00);
 }

@@ -303,10 +303,10 @@ void func_802B0CE8(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802B0D44(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803EDB40, (u32 *)&D_803EDBE8);
+    vehicle_save(dst, (u8 *)&D_803EDB40, (u32 *)&D_803EDBE8, (u32 *)&D_803EDBEC, (u32 *)&D_803EDBF0);
 }
 
 /* and back */
 void func_802B0D70(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803EDB40, (u32 *)&D_803EDBE8);
+    vehicle_restore(src, (u8 *)&D_803EDB40, (u32 *)&D_803EDBE8, (u32 *)&D_803EDBEC, (u32 *)&D_803EDBF0);
 }

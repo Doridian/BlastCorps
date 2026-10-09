@@ -480,12 +480,12 @@ void func_802CB5D8(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802CB634(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803F8AA0, (u32 *)&D_803F8B48);
+    vehicle_save(dst, (u8 *)&D_803F8AA0, (u32 *)&D_803F8B48, (u32 *)&D_803F8B4C, (u32 *)&D_803F8B50);
 }
 
 /* and back */
 void func_802CB660(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803F8AA0, (u32 *)&D_803F8B48);
+    vehicle_restore(src, (u8 *)&D_803F8AA0, (u32 *)&D_803F8B48, (u32 *)&D_803F8B4C, (u32 *)&D_803F8B50);
 }
 
 /* 62740's carrying (shared.h): where it stands on its carrier, and back

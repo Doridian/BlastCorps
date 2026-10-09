@@ -34,7 +34,7 @@ extern u8 D_803ED827;                           /* getting out (func_802AE888) *
 extern u8 D_803ED828;                           /* the side it gets out on: 0 +z, 1 -z, 2 +x, 3 -x */
 extern u8 *PTR32 D_803ED82C;                    /* two 0xC80-byte buffers, one per frame */
 extern u8 *PTR32 D_803ED830;
-extern s32 D_803ED3A8[];
+extern s32 D_803ED3A8[4];
 
 extern u8 D_80305CB0[];                         /* its parts' collision (56040's func_8029A800) */
 extern s8 D_80305CB1[];                         /* where to get out of a vehicle: level, vehicle, side, distance, a test */
@@ -515,10 +515,10 @@ void func_802AFBA0(void) {
 
 /* its state and position saved to dst (0xB2 bytes) */
 void func_802AFBFC(u8 *dst) {
-    func_802AC7DC(dst, (u8 *)&D_803ED760, (u32 *)&D_803ED808);
+    vehicle_save(dst, (u8 *)&D_803ED760, (u32 *)&D_803ED808, (u32 *)&D_803ED80C, (u32 *)&D_803ED810);
 }
 
 /* and back */
 void func_802AFC28(u8 *src) {
-    func_802AC85C(src, (u8 *)&D_803ED760, (u32 *)&D_803ED808);
+    vehicle_restore(src, (u8 *)&D_803ED760, (u32 *)&D_803ED808, (u32 *)&D_803ED80C, (u32 *)&D_803ED810);
 }
