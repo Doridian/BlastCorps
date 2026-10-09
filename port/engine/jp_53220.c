@@ -17,7 +17,12 @@ extern u8 D_8039CAB6;
 extern u8 D_8039CAD0;
 extern u8 D_802FF180[6];
 extern UnkStruct_802FF188 D_802FF188[7][20];
-extern u8 D_802FF5E8[14][5];
+typedef struct {
+    /* 0x00 */ u8 unk0[7][5];
+    /* 0x23 */ u8 pad23;
+    /* 0x24 */ u8 unk24[7][5];
+} UnkStruct_802FF5E8;
+extern UnkStruct_802FF5E8 D_802FF5E8; /* 53220.c */
 
 /* the window of 21 (D_802F8BDC[21]): the entries of table D_8039CAD0, the
    first that func_80297EF8 says is free from D_8039CAB6 on and isn't arg's
@@ -74,9 +79,8 @@ void func_802979E0(u8 arg) {
         if (text16 != NULL) {
             count++;
             e->flags = 0x1020;
-            /* (jp's table of the selectable rows is D_802FF5E8's from
-               0x24 on) */
-            if (((u8 *)D_802FF5E8)[0x24 + D_8039CAD0 * 5 + sel] == i) {
+            /* (jp's selectable rows are the second table) */
+            if (D_802FF5E8.unk24[D_8039CAD0][sel] == i) {
                 e->flags |= 1;
                 sel++;
             }
@@ -109,7 +113,7 @@ void func_802979E0(u8 arg) {
     icon = &D_802F49F4[e->unk14];
     e->unk1A = func_80272C5C(icon->unk6, 0, icon->unk4, icon->unk2C, icon->unk2D | 4, 1.0f);
     w->count = count + 1;
-    w->unk18 = D_802FF5E8[D_8039CAD0][0];
+    w->unk18 = D_802FF5E8.unk0[D_8039CAD0][0];
     r = func_80297EF8(arg);
     if (r == 0) {
         n--;
