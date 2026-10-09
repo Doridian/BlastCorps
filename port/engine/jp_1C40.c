@@ -166,7 +166,6 @@ extern char D_80215470[];
 extern u8 D_80215902[];
 extern s16 D_80215910[];
 extern u8 D_80215914;
-extern u8 D_80364B81[][0x100];
 
 /* the medal screen's cups (two players: the two of them) and, for one, the
    time to beat for the next medal, with its shadow */
@@ -185,13 +184,13 @@ Gfx *func_801EC770(Gfx *arg0, s32 arg1, s32 *arg2) {
         if (D_80215902[1] == 5) {
             medal = 1;
         } else {
-            if (D_80364B81[D_80364AE8][0] < 12) {
+            if (D_80364AF0[D_80364AE8].gameState < 12) {
                 a = 3;
             } else {
                 a = 4;
             }
             if (a < D_80215902[1] + 1) {
-                if (D_80364B81[D_80364AE8][0] < 12) {
+                if (D_80364AF0[D_80364AE8].gameState < 12) {
                     b = 3;
                 } else {
                     b = 4;

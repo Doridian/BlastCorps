@@ -17,8 +17,6 @@ typedef struct {
 } UnkStruct_8020D7E4_jp; /* size = 0x30 */
 
 extern UnkStruct_8020D7E4_jp D_8020D7E4[];
-extern u8 D_80364B80[][0x100];
-extern u8 D_80364B81[][0x100];
 extern u8 D_802FDA60[0x10];
 extern char D_8036EBA0[0x60];
 extern u16 D_80301260[];
@@ -30,16 +28,16 @@ void func_802860F0(void) {
     s32 kind, i, j, found;
     u8 open;
 
-    if (D_80364B81[D_80364AE8][0] == 0xD)
+    if (D_80364AF0[D_80364AE8].gameState == 0xD)
         goto out;
-    if (D_80364B81[D_80364AE8][0] == 8)
+    if (D_80364AF0[D_80364AE8].gameState == 8)
         goto out;
-    if (D_80364B81[D_80364AE8][0] == 1)
+    if (D_80364AF0[D_80364AE8].gameState == 1)
         goto out;
     D_80364A98 = 0x800000000000;
     func_80255DC8();
-    func_80200714(D_802FDA60[D_80364B81[D_80364AE8][0]]);
-    kind = D_80364B81[D_80364AE8][0];
+    func_80200714(D_802FDA60[D_80364AF0[D_80364AE8].gameState]);
+    kind = D_80364AF0[D_80364AE8].gameState;
     if (kind == 4) {
         open = 0;
         i = 0;
@@ -49,7 +47,7 @@ void func_802860F0(void) {
             do {
                 if (D_802E8F38[j].level == i) {
                     found = 1;
-                    if (!(D_80364B80[D_80364AE8][0] & (1 << j))) {
+                    if (!(D_80364AF0[D_80364AE8].unk90 & (1 << j))) {
                         open = 1;
                     }
                 }
@@ -70,7 +68,7 @@ void func_802860F0(void) {
             func_801ECC8C();
         }
     }
-    func_8026AF6C((D_80364B81[D_80364AE8][0] + 0x16) | 0x8000);
+    func_8026AF6C((D_80364AF0[D_80364AE8].gameState + 0x16) | 0x8000);
 out:
 }
 

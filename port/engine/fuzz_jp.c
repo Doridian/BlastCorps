@@ -53,8 +53,6 @@ extern FrameBuf D_803156F8[2];
 extern u8 D_802189C0[][0x11];
 extern char D_80218740[0x10][0x50];
 extern u16 D_80219F00_jp[0x20];
-extern u8 D_80364B80[][0x100];
-extern u8 D_80364B81[][0x100];
 extern u8 D_8039CAB6;
 extern u8 D_80215902[];
 extern s16 D_80215910[];
@@ -108,7 +106,7 @@ static void fuzz_8025B498(FuzzRng *r) {
 
 /* 53220: the window of 21's entries */
 static void fuzz_802979E0(FuzzRng *r) {
-    D_80364B80[D_80364AE8][0] = (u8)fuzz_u32(r);
+    D_80364AF0[D_80364AE8].unk90 = (u8)fuzz_u32(r);
     D_8039CAB6 = fuzz_int(r, 0, 5);
     func_802979E0(FUZZ_PICK(r, 4, 0xA, 0xD, 0x21, 0xE, 0x11, 0, 1, 0x3F));
 }
@@ -118,7 +116,7 @@ static void fuzz_801EC770(FuzzRng *r) {
     s32 n = fuzz_int(r, 0, 100);
     D_80364AA8 = FUZZ_PICK(r, 1, 1, 0, 2, 0x40);
     D_80215902[1] = fuzz_int(r, 0, 6);
-    D_80364B81[D_80364AE8][0] = fuzz_int(r, 0, 15);
+    D_80364AF0[D_80364AE8].gameState = fuzz_int(r, 0, 15);
     D_80215910[1] = fuzz_int(r, -300, 300);
     D_80215914 = fuzz_int(r, 0, 0x40);
     D_802E8BDC = fuzz_int(r, 0, 59);

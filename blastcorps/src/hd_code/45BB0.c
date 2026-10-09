@@ -7,7 +7,6 @@
 #include "functions.h"
 
 
-extern s32 D_80364BE0[][0x40];
 extern s32 D_80358064;
 
 void func_8028ADF0(u8, u8, u16 *, s8 *, s8 *);
@@ -198,7 +197,7 @@ void func_8028A470(void) {
             D_803F7C34 = 0;
             if (D_80364A90 & 0x440) {
                 sp3C = D_80370C40;
-            } else if (D_80364BE0[D_80364AE8][0] & (1 << D_80364456)) {
+            } else if (D_80364AF0[D_80364AE8].unkF0 & (1 << D_80364456)) {
                 sp3C = 1;
             } else {
                 sp3C = 0;
@@ -507,7 +506,7 @@ void func_8028B240(void) {
     D_802F5804[YOSHI_ENTRY(422)].text = sp24[sp18];
     D_802F5804[YOSHI_ENTRY(422)].unk6 = 0x13;
 #endif
-    if ((D_80364BE0[D_80364AE8][0] ^ 0x10205) & (1 << D_80364456)) {
+    if ((D_80364AF0[D_80364AE8].unkF0 ^ 0x10205) & (1 << D_80364456)) {
         D_802F8BDC[88].unk18 = YOSHI_ENTRY(0x1A8);
     } else {
         D_802F8BDC[88].unk18 = YOSHI_ENTRY(0x1A7);

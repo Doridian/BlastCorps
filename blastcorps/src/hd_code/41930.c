@@ -16,9 +16,6 @@ typedef struct {
 
 extern UnkStruct_8020D7E4 D_8020D7E4[];
 
-extern u8 D_80364B80[][0x100];
-extern u8 D_80364B81[][0x100];
-
 /* .bss, 0x8036EBA0-0x8036EC00 (tools/bss_c.py) */
 char D_8036EBA0[0x60];
 
@@ -35,18 +32,18 @@ void func_802860F0(void) {
     s32 sp2C;
     s32 sp28;
 
-    if (D_80364B81[D_80364AE8][0] != 0xD && D_80364B81[D_80364AE8][0] != 8 && D_80364B81[D_80364AE8][0] != 1) {
+    if (D_80364AF0[D_80364AE8].gameState != 0xD && D_80364AF0[D_80364AE8].gameState != 8 && D_80364AF0[D_80364AE8].gameState != 1) {
         D_80364A98 = 0x800000000000;
         func_80255DC8();
-        func_80200714(D_802FDA60[D_80364B81[D_80364AE8][0]]);
-        switch (D_80364B81[D_80364AE8][0]) {
+        func_80200714(D_802FDA60[D_80364AF0[D_80364AE8].gameState]);
+        switch (D_80364AF0[D_80364AE8].gameState) {
             case 4:
                 sp37 = 0;
                 for (sp30 = 0; sp30 < 60 && sp37 == 0; sp30++) {
                     for (sp2C = 0, sp28 = 0; sp2C < 6 && sp28 == 0; sp2C++) {
                         if (D_802E8F38[sp2C].level == sp30) {
                             sp28 = 1;
-                            if (!(D_80364B80[D_80364AE8][0] & (1 << sp2C))) {
+                            if (!(D_80364AF0[D_80364AE8].unk90 & (1 << sp2C))) {
                                 sp37 = 1;
                             }
                         }
@@ -63,21 +60,19 @@ void func_802860F0(void) {
                 func_801ECC8C();
                 break;
         }
-        func_8026AF6C((D_80364B81[D_80364AE8][0] + 0x16) | 0x8000);
+        func_8026AF6C((D_80364AF0[D_80364AE8].gameState + 0x16) | 0x8000);
     }
 }
 #endif
 
 void func_802862DC(void) {
     if (D_80358060 == 0) {
-        func_80260C20(D_802FDA70[D_80364B81[D_80364AE8][0]], 1.0f);
+        func_80260C20(D_802FDA70[D_80364AF0[D_80364AE8].gameState], 1.0f);
     }
 }
 
-extern u8 D_80364AF8[][0x100];
-
 void func_80286330(void) {
-    switch (D_80364B81[D_80364AE8][0]) {
+    switch (D_80364AF0[D_80364AE8].gameState) {
         case 2:
         case 3:
         case 4:
@@ -91,7 +86,7 @@ void func_80286330(void) {
             if (D_802E8BDC != 50) {
                 func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "levelno==50", "academy.c", LINE_EU(140, 141));
             }
-            if (D_80364AF8[D_80364AE8][0] != 50) {
+            if (D_80364AF0[D_80364AE8].levelno != 50) {
                 func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "players[playerNumber].levelno==50", "academy.c", LINE_EU(141, 142));
             }
             if (D_80370C50 == 0) {

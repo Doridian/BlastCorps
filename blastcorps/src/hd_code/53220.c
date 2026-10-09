@@ -15,7 +15,6 @@ typedef struct {
 #endif
 } UnkStruct_802FF188; /* size = 0x8, eu 0x10 */
 
-extern u8 D_80364B80[][0x100];
 extern u8 D_8039CAB6;
 
 /* The second line of each entry, in the data after gzip's. */
@@ -579,7 +578,7 @@ u8 func_80297EF8(u8 arg0) {
     u8 sp26;
 
     sp26 = func_8029766C(arg0, &sp27);
-    return (sp26 != 0 && (D_80364B80[D_80364AE8][0] & (1 << sp27))) ? 1 : 0;
+    return (sp26 != 0 && (D_80364AF0[D_80364AE8].unk90 & (1 << sp27))) ? 1 : 0;
 }
 
 u8 func_80297F74(void) {
@@ -587,7 +586,7 @@ u8 func_80297F74(void) {
     s32 sp0 = 6;
 
     for (sp4 = 0; sp4 < 6; sp4++) {
-        if (D_80364B80[D_80364AE8][0] & (1 << sp4)) {
+        if (D_80364AF0[D_80364AE8].unk90 & (1 << sp4)) {
             sp0--;
         }
     }
