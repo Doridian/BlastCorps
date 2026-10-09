@@ -23,7 +23,13 @@ extern FrameBuf D_803156F8[];
 extern s32 D_80358078;
 extern u16 D_8035807C;
 extern char D_8036B980[];
+#ifdef TARGET_PC
+/* the last of the stats window's five texts (409D0.c), which the N64 reaches
+   from the first */
+extern char D_8036BA28[];
+#else
 extern char D_8036B9A8[];
+#endif
 
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_front_end/7800/func_801EE800.s")
@@ -167,7 +173,11 @@ u8 func_801EEDB4(u8 arg0, u8 arg1, u8 arg2) {
         sp6C = 0x480;
     }
     func_80264A34(sp34, D_8036EA70.tc, 0);
+#ifdef TARGET_PC
+    sprintf(D_8036BA28, "****%s*", sp34);
+#else
     sprintf(D_8036B9A8 + 0x80, "****%s*", sp34);
+#endif
     if (arg1) {
         sp54 = &D_8020C070[FE_ENTRY(25)];
         D_8020C070[FE_ENTRY(25)].flags = sp6C;

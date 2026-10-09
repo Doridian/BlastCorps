@@ -12,9 +12,21 @@ typedef struct {
     /* 0x00 */ u64 unk0;
 } UnkStruct_8039C4B8;
 
-extern UnkStruct_8039C4B8 D_8039C4B8[];
+extern UnkStruct_8039C4B8 D_8039C4B8[8];     /* 48D00.c's u8[0x40] */
 extern s32 D_80358064;
+#ifdef TARGET_PC
+/* Five buffers (26570.c), the texts of the stats window's entries, which
+   point at each; the N64 writes them as one array from the first. */
+extern char D_8036B9A8[0x20];
+extern char D_8036B9C8[0x20];
+extern char D_8036B9E8[0x20];
+extern char D_8036BA08[0x20];
+extern char D_8036BA28[0x20];
+#define STATS_TEXT(i, name) (name)
+#else
 extern char D_8036B9A8[][0x20];
+#define STATS_TEXT(i, name) D_8036B9A8[i]
+#endif
 extern OSMesgQueue D_80219F50;
 
 /* .bss, 0x8036EA60-0x8036EBA0 (tools/bss_c.py) */
@@ -74,12 +86,12 @@ u32 func_802852EC(void) {
     } else {
         sp54 = 100;
     }
-    sprintf(D_8036B9A8[0], "***%2d (%d%c)*", D_8036EA70.bd, sp5C, '%');
-    sprintf(D_8036B9A8[1], "***$%d*", D_8036EA70.ip);
-    sprintf(D_8036B9A8[2], "***%2d (%d%c)*", D_8036EA70.cr, sp58, '%');
-    sprintf(D_8036B9A8[3], "***%2d (%d%c)*", D_8036EA70.rt, sp54, '%');
+    sprintf(STATS_TEXT(0, D_8036B9A8), "***%2d (%d%c)*", D_8036EA70.bd, sp5C, '%');
+    sprintf(STATS_TEXT(1, D_8036B9C8), "***$%d*", D_8036EA70.ip);
+    sprintf(STATS_TEXT(2, D_8036B9E8), "***%2d (%d%c)*", D_8036EA70.cr, sp58, '%');
+    sprintf(STATS_TEXT(3, D_8036BA08), "***%2d (%d%c)*", D_8036EA70.rt, sp54, '%');
     func_80264A34(sp24, D_8036EA70.tc, 0);
-    sprintf(D_8036B9A8[4], "***%s*", sp24);
+    sprintf(STATS_TEXT(4, D_8036BA28), "***%s*", sp24);
     for (i = 18; i < 23; i++) {
         D_802F5804[i].flags = 0x400;
     }
