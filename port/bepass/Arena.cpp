@@ -12,8 +12,10 @@
  *     (-port-arena-syms, gen_syms.py table) in RDRAM is at its N64 address,
  *     every other definition is laid out after RDRAM, and a declaration
  *     with an N64 name (another module's variable, a ROM offset, a fixed
- *     address) is that name's value.  Every reference becomes the constant.
- *     What is left is the host's (-port-arena-host names more);
+ *     address) is that name's value; a fixed buffer's name (a region,
+ *     -port-arena-regions: port/include/port_regions.h) is where its
+ *     region is.  Every reference becomes the constant.  What is left is
+ *     the host's (-port-arena-host names more);
  *   - writes the arena's initial contents (__port_arena_runs), from the
  *     initializers, in the build's byte order: big-endian (what BEPass's
  *     __bepass_fixup did at run time), or native with 64-bit scalars' words
@@ -102,6 +104,12 @@ static cl::opt<bool> ScatterCheck("port-arena-scatter-check",
                                   cl::desc("every mapped access calls port_scatter_check(address, size, site)"));
 static cl::opt<std::string> ScatterReport("port-arena-scatter-report",
                                           cl::desc("where the names inside other variables are, and who uses them"));
+static cl::opt<std::string> RegionsFile("port-arena-regions",
+                                        cl::desc("the fixed buffers (gen_syms.py regions): "
+                                                 "name tag address size parent offset moves"));
+static cl::opt<std::string> ScatterRegions("port-arena-scatter-regions",
+                                           cl::desc("TAG,...: the scattered layout moves these regions too "
+                                                    "(those port_regions.h doesn't move by default: pool)"));
 
 namespace {
 
@@ -155,6 +163,87 @@ struct Arena : PassInfoMixin<Arena> {
             if (p.size() > 3 && !p[3].getAsInteger(16, n))
                 symSize[p[0].str()] = n;
         }
+    }
+
+    /* ---- the regions: the fixed buffers (port/include/port_regions.h) ----
+       A region is memory the N64 side uses by address, not a variable: it
+       has a name, an N64 place and a size, and is where its N64 place is
+       but in the scattered layout, which gives the ones that move room of
+       their own (scatterRegions).  A sub-region is a name inside one, which
+       goes where its region goes. */
+    struct Region {
+        std::string name, tag;
+        uint64_t n64, size;     /* physical */
+        long parent;            /* -1: a region of its own */
+        uint64_t off;
+        bool moves;
+        uint64_t addr;          /* physical: where it is */
+    };
+    std::vector<Region> regions;
+    std::map<std::string, size_t> regionIndex;
+
+    void readRegions() {
+        if (RegionsFile.empty())
+            return;
+        auto buf = MemoryBuffer::getFile(RegionsFile);
+        if (!buf)
+            fail("can't read " + RegionsFile);
+        SmallVector<StringRef, 0> lines;
+        (*buf)->getBuffer().split(lines, '\n', -1, false);
+        for (StringRef l : lines) {
+            SmallVector<StringRef, 8> p;
+            l.split(p, ' ', -1, false);
+            if (p.size() != 7)
+                continue;
+            Region r;
+            r.name = p[0].str();
+            r.tag = p[1].str();
+            uint64_t a, moves;
+            if (p[2].getAsInteger(16, a) || p[3].getAsInteger(16, r.size) || p[5].getAsInteger(16, r.off) ||
+                p[6].getAsInteger(10, moves))
+                fail("a bad line in " + RegionsFile + ": " + l);
+            r.n64 = a & MASK;
+            r.addr = r.n64;
+            r.moves = moves != 0;
+            r.parent = -1;
+            if (p[4] != "-") {
+                auto it = regionIndex.find(p[4].str());
+                if (it == regionIndex.end())
+                    fail("the region " + r.name + "'s parent " + p[4] + " isn't above it");
+                r.parent = (long)it->second;
+            }
+            if (a - K0 >= RDRAM || r.n64 + r.size > RDRAM)
+                fail("the region " + r.name + " isn't in RDRAM");
+            /* (the N64 link's name, where it has one, is the region's) */
+            auto s = syms.find(r.name);
+            if (s != syms.end() && s->second.first != a)
+                fail("the region " + r.name + " isn't where the N64 link has it");
+            if (s == syms.end())
+                syms[r.name] = {a, 'D'};
+            regionIndex[r.name] = regions.size();
+            regions.push_back(r);
+        }
+        SmallVector<StringRef, 4> tags;
+        StringRef(ScatterRegions).split(tags, ',', -1, false);
+        for (StringRef t : tags) {
+            bool found = false;
+            for (Region &r : regions)
+                if (r.tag == t && r.parent < 0) {
+                    r.moves = true;
+                    found = true;
+                }
+            if (!found)
+                fail("-port-arena-scatter-regions: no region " + t);
+        }
+        for (Region &r : regions)
+            if (r.parent >= 0)
+                r.moves = regions[r.parent].moves;
+    }
+
+    /* a name's region, or null */
+    const Region *region(StringRef name) const {
+        auto it = regionIndex.find(name.str());
+        return it == regionIndex.end() ? nullptr : &regions[it->second];
     }
 
     /* functions of the host (port/host, libc) the game's C calls with
@@ -219,6 +308,8 @@ struct Arena : PassInfoMixin<Arena> {
                     decls.push_back(g);
                 continue;
             }
+            if (region(g->getName()))
+                fail(g->getName() + " is a region (port_regions.h): it has no definition");
             bool portSrc = g->hasSection() && (g->getSection().starts_with(".data.port.") ||
                                                g->getSection().starts_with(".bss.port."));
             if (!portSrc && it != syms.end() && it->second.first - K0 < RDRAM) {
@@ -271,6 +362,10 @@ struct Arena : PassInfoMixin<Arena> {
             for (auto &p : placed)
                 os << format_hex_no_prefix(K0 | p.addr, 8) << " " << DL->getTypeAllocSize(p.g->getValueType()) << " "
                    << p.g->getName() << "\n";
+            /* (a fourth word: not a variable) */
+            for (const Region &r : regions)
+                os << format_hex_no_prefix(K0 | r.addr, 8) << " " << r.size << " " << r.name << " region:" << r.tag
+                   << (r.addr != r.n64 ? ",moved" : "") << "\n";
         }
         if (extraEnd > STACKS)
             fail("the N64 side's data without N64 addresses doesn't fit below the stacks");
@@ -289,7 +384,10 @@ struct Arena : PassInfoMixin<Arena> {
             p.g->replaceAllUsesWith(addrConst(K0 | p.addr, p.g->getType()));
         for (GlobalVariable *g : decls) {
             auto sd = scatterDecl.find(g);
-            g->replaceAllUsesWith(addrConst(sd != scatterDecl.end() ? K0 | sd->second : syms[g->getName().str()].first,
+            const Region *r = region(g->getName());
+            g->replaceAllUsesWith(addrConst(r                         ? K0 | r->addr
+                                            : sd != scatterDecl.end() ? K0 | sd->second
+                                                                      : syms[g->getName().str()].first,
                                             g->getType()));
             g->eraseFromParent();
         }
@@ -308,7 +406,8 @@ struct Arena : PassInfoMixin<Arena> {
        its own there ("alias"); a struct's members but the first in the
        asm data (asm2c.py's FILE_STRUCTS) are such names too.  The front
        end's variables stay (port/src/overlay.c restores them by address)
-       unless -port-arena-scatter-fe.  What
+       unless -port-arena-scatter-fe.  The regions that move go after
+       the variables (scatterRegions).  What
        nothing should touch any more (the N64 places left behind, the
        padding, the aliases' own room) is listed in __port_scatter_bad:
        the host fills it with a pattern (PORT_SCATTER_POISON) and, with
@@ -337,6 +436,9 @@ struct Arena : PassInfoMixin<Arena> {
         uint64_t n64a = 0, n64b = 0, now = 0;
     };
     std::vector<Bad> bad;
+    /* the moved regions' N64 places: first, so that a variable's N64 place
+       inside one (the front end's, in the pool) is the variable's */
+    std::vector<Bad> regionPlaces;
     uint64_t rng = 0;
 
     uint64_t next() {       /* splitmix64 */
@@ -440,7 +542,7 @@ struct Arena : PassInfoMixin<Arena> {
         size_t nItems = scItems.size();
         for (GlobalVariable *g : decls) {
             uint64_t a = syms[g->getName().str()].first;
-            if (a - K0 >= RDRAM)
+            if (a - K0 >= RDRAM || region(g->getName()))
                 continue;
             a &= MASK;
             long c = container(a);
@@ -508,6 +610,7 @@ struct Arena : PassInfoMixin<Arena> {
             if (!it.alias)
                 scatterHeader.push_back({it.g->getName().str(), at});
         }
+        scatterRegions(cur, prev, prevEnd, prevSize, rs);
         /* (the host's PORT_N64_ of an alias is its room, as the C has it;
            with the check, which takes the C's accesses where the N64 has
            them, where the N64 has it) */
@@ -527,6 +630,8 @@ struct Arena : PassInfoMixin<Arena> {
         std::set<std::string> seen;
         for (auto &h : scatterHeader)
             seen.insert(h.first);
+        for (const Region &r : regions)
+            seen.insert(r.name);
         for (auto &s : syms) {
             if (seen.count(s.first) || s.second.second != 'D' || s.second.first - K0 >= RDRAM ||
                 s.first.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_") !=
@@ -555,7 +660,62 @@ struct Arena : PassInfoMixin<Arena> {
                << "# alias NAME N64 CONTAINER+OFF c|asm SIZE | users...: a name inside another variable, given its own room\n"
                << "# host NAME N64 CONTAINER+OFF: a name only the host may use (PORT_N64_), where it went\n"
                << "# item NAME N64 N64SIZE ADDRESS SIZE c|asm: a variable placed\n"
+               << "# region NAME TAG N64 SIZE ADDRESS: a fixed buffer (port_regions.h), moved or not\n"
                << rs.str();
+        }
+    }
+
+    /* the regions that move, after the variables: shuffled, padded as they
+       are, each at an address with its N64 one's offset in 4 KB (the
+       framebuffers' 64-byte alignment, and the pool's 16 its allocator
+       keeps); the N64 place each leaves is an N64 place left, as a
+       variable's (the redirect takes an access there to the new one).
+       Each sub-region goes where its region goes.  (After the variables'
+       shuffle, so theirs is the layout it was.) */
+    void scatterRegions(uint64_t &cur, std::string &prev, uint64_t &prevEnd, uint64_t &prevSize, raw_ostream &rs) {
+        std::vector<size_t> order;
+        for (size_t k = 0; k < regions.size(); k++)
+            if (regions[k].parent < 0 && regions[k].moves)
+                order.push_back(k);
+        for (size_t k = order.size(); k > 1; k--)
+            std::swap(order[k - 1], order[next() % k]);
+        std::vector<std::pair<uint64_t, uint64_t>> stay;
+        for (auto &p : placed)
+            if (p.addr < RDRAM)
+                stay.push_back({p.addr, p.addr + DL->getTypeAllocSize(p.g->getValueType())});
+        std::sort(stay.begin(), stay.end());
+        for (size_t k : order) {
+            Region &r = regions[k];
+            uint64_t at = alignTo(cur + 16 * (1 + next() % 128) + std::min<uint64_t>(prevSize, 0x4000), 16);
+            at += (r.n64 - at) & 0xFFF;
+            bad.push_back({cur, at - cur, 2, prev + "|" + r.name, prevEnd, r.n64});
+            /* (but for the variables still there: the front end's, in the
+               pool, unless they move too) */
+            uint64_t from = r.n64, to = r.n64 + r.size;
+            for (auto &v : stay) {
+                if (v.first >= to || v.second <= from)
+                    continue;
+                if (v.first > from)
+                    regionPlaces.push_back({from, v.first - from, 1, r.name + "'s N64 place (" + r.tag + ")", from, 0,
+                                            at + (from - r.n64)});
+                from = std::max(from, v.second);
+            }
+            if (to > from)
+                regionPlaces.push_back(
+                    {from, to - from, 1, r.name + "'s N64 place (" + r.tag + ")", from, 0, at + (from - r.n64)});
+            r.addr = at;
+            cur = at + r.size;
+            prev = r.name;
+            prevEnd = r.n64 + r.size;
+            prevSize = r.size;
+        }
+        for (Region &r : regions) {
+            if (r.parent >= 0)
+                r.addr = regions[r.parent].addr + r.off;
+            if (r.addr != r.n64)
+                scatterHeader.push_back({r.name, r.addr});
+            rs << "region " << r.name << " " << r.tag << " " << format_hex_no_prefix(K0 | r.n64, 8) << " "
+               << format_hex_no_prefix(r.size, 1) << " " << format_hex_no_prefix(K0 | r.addr, 8) << "\n";
         }
     }
 
@@ -565,7 +725,9 @@ struct Arena : PassInfoMixin<Arena> {
         PointerType *ptr = PointerType::get(*C, 0);
         StructType *st = StructType::get(*C, {i32, i32, i32, i32, i32, i32, ptr});
         std::vector<Constant *> rows;
-        for (auto &b : bad) {
+        std::vector<Bad> all = regionPlaces;
+        all.insert(all.end(), bad.begin(), bad.end());
+        for (auto &b : all) {
             if (!b.len)
                 continue;
             Constant *s = ConstantDataArray::getString(*C, b.desc);
@@ -1697,6 +1859,7 @@ struct Arena : PassInfoMixin<Arena> {
         DL = &m.getDataLayout();
         IP = IntegerType::get(*C, DL->getPointerSizeInBits(0));
         readSyms();
+        readRegions();
         callFix();
         if (X86FpToInt)
             x86FpToInt();

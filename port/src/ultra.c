@@ -19,9 +19,11 @@
 
 /* ---- globals libultra defines ------------------------------------------ */
 
-/* osTvType, osRomBase, osResetType and osMemSize live at their fixed
-   places in low RDRAM (0x80000300...), as the boot code leaves them. */
-#define BOOT_WORD(off) (*(volatile u32 *)(0x80000300 + (off)))
+/* osTvType, osRomBase, osResetType and osMemSize live in the boot code's
+   words, as it leaves them: the region D_80000300 (port_regions.h), where
+   the game reads osTvType as D_80000300. */
+extern u8 D_80000300[];
+#define BOOT_WORD(off) (*(volatile u32 *)(D_80000300 + (off)))
 
 /* ---- messages ------------------------------------------------------------ */
 

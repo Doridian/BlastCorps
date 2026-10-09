@@ -172,14 +172,14 @@ if(PORT_ROM_DATA)
 endif()
 
 # Addresses that differ between versions, from the version's N64 link: the
-# end of hd_code's .bss, where the heap starts (D_803FF600 there,
-# port_fixed.ld.in), and the front end's .data and .bss (src/overlay.c)
+# end of hd_code's .bss, where segment 1's static data starts (D_803FF600,
+# a region: below), and the front end's .data and .bss (src/overlay.c)
 execute_process(COMMAND ${N64_NM} ${BLAST}/build/hd_code.${PORT_VERSION}.elf
     OUTPUT_VARIABLE HD_CODE_NM COMMAND_ERROR_IS_FATAL ANY)
 if(NOT HD_CODE_NM MATCHES "([0-9a-f]+) B D_803FF600\n")
     message(FATAL_ERROR "no D_803FF600 in hd_code.${PORT_VERSION}.elf")
 endif()
-set(PORT_HEAP_START 0x${CMAKE_MATCH_1})
+set(PORT_STATIC_START 0x${CMAKE_MATCH_1})
 execute_process(COMMAND ${N64_READELF} -SW ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
     OUTPUT_VARIABLE FE_SECTIONS COMMAND_ERROR_IS_FATAL ANY)
 foreach(sec data bss)
@@ -189,14 +189,20 @@ foreach(sec data bss)
     endif()
     set(PORT_FE_${SEC} 0x${CMAKE_MATCH_1})
 endforeach()
-configure_file(port_fixed.ld.in ${GEN}/port_fixed.ld @ONLY)
+# The fixed buffers' regions (include/port_regions.h), for the version:
+# port-arena's table and the fixed builds' absolute symbols
+file(MAKE_DIRECTORY ${GEN})
+execute_process(COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py regions
+        ${GEN}/port_regions.txt ${GEN}/port_fixed.ld COMMAND_ERROR_IS_FATAL ANY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
 # the type inventory: the version's own where its layouts differ (eu's)
 if(EXISTS ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
     set(PORT_INVENTORY ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
 else()
     set(PORT_INVENTORY ${BLAST}/include/game/inventory.json)
 endif()
-message(STATUS "${PORT_VERSION}: heap from ${PORT_HEAP_START}, front end .data ${PORT_FE_DATA}, .bss ${PORT_FE_BSS}")
+message(STATUS "${PORT_VERSION}: static data from ${PORT_STATIC_START}, front end .data ${PORT_FE_DATA}, .bss ${PORT_FE_BSS}")
 
 # ---- BEPass (a host LLVM plugin, 64-bit) ------------------------------------
 find_program(LLVM_CONFIG llvm-config HINTS ${CLANG_BINDIR} REQUIRED)
@@ -799,7 +805,7 @@ if(PORT_MOVABLE)
         set(LLC_RELOC -relocation-model=static)
     endif()
     set(ARENA_FLAGS -port-arena-syms=${GEN}/n64_syms.txt -port-arena-header=${GEN}/arena_syms.h
-        -port-arena-fn-values=${GEN}/fn_values.txt)
+        -port-arena-fn-values=${GEN}/fn_values.txt -port-arena-regions=${GEN}/port_regions.txt)
     if(PORT_NATIVE_ENDIAN)
         list(APPEND ARENA_FLAGS -port-arena-native)
     endif()
@@ -831,7 +837,7 @@ if(PORT_MOVABLE)
         COMMAND ${LLVM_LLC} -O2 -filetype=obj -data-sections ${LLC_RELOC} ${GEN}/n64.bc -o ${GEN}/n64.o
         DEPENDS game_c ${LIBAUDIO_TARGETS} port_n64 $<TARGET_OBJECTS:game_c> ${LIBAUDIO_OBJECTS} $<TARGET_OBJECTS:port_n64> ${ENGINE_OBJECTS} BEPass
                 game_data $<TARGET_OBJECTS:game_data> ${GEN}/n64_syms.txt
-                ${GEN}/fn_values.txt
+                ${GEN}/fn_values.txt ${GEN}/port_regions.txt
         COMMAND_EXPAND_LISTS)
     add_custom_target(n64_link DEPENDS ${GEN}/n64.o ${GEN}/arena_syms.h)
     if(PORT_ROM_DATA)
@@ -862,7 +868,7 @@ add_custom_command(OUTPUT ${GEN}/port_syms.ld
             "${N64_OBJECTS}" "$<TARGET_OBJECTS:game_data>"
             "$<TARGET_OBJECTS:recomp>" "$<TARGET_OBJECTS:host>"
     DEPENDS ${N64_OBJECTS_DEPENDS} game_data recomp host $<TARGET_OBJECTS:game_data>
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h
     COMMAND_EXPAND_LISTS)
 add_custom_command(OUTPUT ${GEN}/port_rdram.ld
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py script ${GEN}/port_rdram.ld
