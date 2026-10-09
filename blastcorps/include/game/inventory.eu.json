@@ -3172,6 +3172,129 @@
    ],
    "header": "include/game/player.h"
   },
+  "PakState": {
+   "size": 3720,
+   "align": 4,
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "u8",
+     "count": 8
+    },
+    {
+     "off": 8,
+     "name": "pfs",
+     "type": "OSPfs",
+     "count": 1
+    },
+    {
+     "off": 112,
+     "name": "fileNo",
+     "type": "s32",
+     "count": 4
+    },
+    {
+     "off": 128,
+     "name": "unk80",
+     "type": "u8",
+     "count": 8
+    },
+    {
+     "off": 136,
+     "name": "file",
+     "type": "u8",
+     "count": 3584
+    }
+   ],
+   "header": "include/game/player.h"
+  },
+  "OSPfs": {
+   "size": 104,
+   "align": 4,
+   "fields": [
+    {
+     "off": 0,
+     "name": "status",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "queue",
+     "type": "ptr",
+     "count": 1,
+     "to": "OSMesgQueue"
+    },
+    {
+     "off": 8,
+     "name": "channel",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 12,
+     "name": "id",
+     "type": "u8",
+     "count": 32
+    },
+    {
+     "off": 44,
+     "name": "label",
+     "type": "u8",
+     "count": 32
+    },
+    {
+     "off": 76,
+     "name": "version",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 80,
+     "name": "dir_size",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 84,
+     "name": "inode_table",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 88,
+     "name": "minode_table",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 92,
+     "name": "dir_table",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 96,
+     "name": "inode_start_page",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 100,
+     "name": "banks",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 101,
+     "name": "activebank",
+     "type": "u8",
+     "count": 1
+    }
+   ],
+   "header": "include/2.0I/PR/os.h"
+  },
   "Model": {
    "size": 96,
    "align": 4,
@@ -5730,6 +5853,160 @@
    ],
    "note": "Vtx[179], the carrier's explosion's dome: 39050.c's segment 6 for D_80300A68's G_VTXs"
   },
+  "asm_D_803059F0": {
+   "size": 12,
+   "align": 4,
+   "header": "(tools/inventory.py ASM_DATA_LAYOUTS)",
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "unk4",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 8,
+     "name": "unk8",
+     "type": "u32",
+     "count": 1
+    }
+   ],
+   "note": "{level (0xFFFF: any), building kind, a bit per vehicle type}, to a zero mask: port/engine 56040.c's BuildingRule, 77E20.c's Immune"
+  },
+  "asm_D_80306E70": {
+   "size": 80,
+   "align": 4,
+   "header": "(tools/inventory.py ASM_DATA_LAYOUTS)",
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "unk4",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 8,
+     "name": "unk8",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 12,
+     "name": "unkC",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 16,
+     "name": "unk10",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 20,
+     "name": "unk14",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 24,
+     "name": "unk18",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 28,
+     "name": "unk1C",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 32,
+     "name": "unk20",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 36,
+     "name": "unk24",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 40,
+     "name": "unk28",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 44,
+     "name": "unk2C",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 48,
+     "name": "unk30",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 52,
+     "name": "unk34",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 56,
+     "name": "unk38",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 60,
+     "name": "unk3C",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 64,
+     "name": "unk40",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 68,
+     "name": "unk44",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 72,
+     "name": "unk48",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 76,
+     "name": "unk4C",
+     "type": "u32",
+     "count": 1
+    }
+   ],
+   "note": "OSViMode[]: u8 type, then the common and the two fields' registers (2C560.c's osViSetMode(&D_80306E70[mode]))"
+  },
   "asm_D_8020C0AA": {
    "size": 30,
    "align": 4,
@@ -7079,110 +7356,6 @@
     }
    ],
    "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_80306E70": {
-   "size": 2240,
-   "align": 4,
-   "fields": [
-    {
-     "off": 1248,
-     "name": "unk4E0",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1252,
-     "name": "unk4E4",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1256,
-     "name": "unk4E8",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1260,
-     "name": "unk4EC",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1264,
-     "name": "unk4F0",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1268,
-     "name": "unk4F4",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1272,
-     "name": "unk4F8",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1276,
-     "name": "unk4FC",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1280,
-     "name": "unk500",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1284,
-     "name": "unk504",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1288,
-     "name": "unk508",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1292,
-     "name": "unk50C",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1296,
-     "name": "unk510",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1300,
-     "name": "unk514",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1304,
-     "name": "unk518",
-     "type": "u32",
-     "count": 1
-    },
-    {
-     "off": 1308,
-     "name": "unk51C",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)",
-   "note": "read at two widths: +0x500 as 1/2/4"
   },
   "asm_D_80307754": {
    "size": 4,
@@ -15722,8 +15895,7 @@
    "count": 101,
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
-   "to": "void",
-   "note": "LevelHeader.playerCollisionXZ (func_802A3DF8)"
+   "to": "void"
   },
   "D_803BE6E0": {
    "type": "ptr",
@@ -16556,34 +16728,6 @@
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
-  "D_802158A8": {
-   "type": "u16",
-   "count": 1,
-   "declared": "src/hd_front_end/1C40.c",
-   "placeholder": true,
-   "note": "declared u16[1]: only its first element is named; see the uses for the real count"
-  },
-  "D_802158AA": {
-   "type": "bytes",
-   "count": 2,
-   "declared": "src/hd_front_end/1C40.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_802158AC": {
-   "type": "bytes",
-   "count": 4,
-   "declared": "src/hd_front_end/1C40.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_802158B0": {
-   "type": "bytes",
-   "count": 80,
-   "declared": "src/hd_front_end/1C40.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
   "D_80215900": {
    "type": "bytes",
    "count": 2,
@@ -16640,34 +16784,6 @@
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
-  "D_80215A88": {
-   "type": "Vtx",
-   "count": 1,
-   "declared": "src/hd_front_end/9570.c",
-   "placeholder": true,
-   "note": "declared Vtx[1]: only its first element is named; see the uses for the real count"
-  },
-  "D_80215A98": {
-   "type": "bytes",
-   "count": 6128,
-   "declared": "src/hd_front_end/9570.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_80218270": {
-   "type": "UnkStruct_80218270",
-   "count": 1,
-   "declared": "src/hd_front_end/C450.c",
-   "placeholder": true,
-   "note": "declared UnkStruct_80218270[1]: only its first element is named; see the uses for the real count"
-  },
-  "D_80218278": {
-   "type": "bytes",
-   "count": 48,
-   "declared": "src/hd_front_end/C450.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
   "D_802182AA": {
    "type": "bytes",
    "count": 2,
@@ -16693,34 +16809,6 @@
    "type": "bytes",
    "count": 768,
    "declared": "src/hd_front_end/DE70.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_802189D1": {
-   "type": "bytes",
-   "count": 1,
-   "declared": "src/hd_front_end/E7B0.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_802189D2": {
-   "type": "bytes",
-   "count": 2,
-   "declared": "src/hd_front_end/E7B0.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_802189D4": {
-   "type": "bytes",
-   "count": 4,
-   "declared": "src/hd_front_end/E7B0.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_802189D8": {
-   "type": "bytes",
-   "count": 248,
-   "declared": "src/hd_front_end/E7B0.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
@@ -16871,13 +16959,6 @@
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
-  "D_80364A6E": {
-   "type": "bytes",
-   "count": 1,
-   "declared": "src/hd_code/00000.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
   "D_80364AAC": {
    "type": "bytes",
    "count": 4,
@@ -16955,30 +17036,9 @@
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
-  "D_80365588": {
-   "type": "UnkStruct_80365588",
-   "count": 1,
-   "declared": "src/hd_code/17210.c",
-   "placeholder": true,
-   "note": "declared UnkStruct_80365588[1]: only its first element is named; see the uses for the real count"
-  },
-  "D_8036558D": {
+  "D_80366988": {
    "type": "bytes",
-   "count": 1,
-   "declared": "src/hd_code/17210.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036558E": {
-   "type": "bytes",
-   "count": 2,
-   "declared": "src/hd_code/17210.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_80365590": {
-   "type": "bytes",
-   "count": 5116,
+   "count": 4,
    "declared": "src/hd_code/17210.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
@@ -17125,42 +17185,7 @@
   },
   "D_8036BA98": {
    "type": "bytes",
-   "count": 10,
-   "declared": "src/hd_code/26570.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036BAA2": {
-   "type": "bytes",
-   "count": 3,
-   "declared": "src/hd_code/26570.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036BAA5": {
-   "type": "bytes",
-   "count": 1,
-   "declared": "src/hd_code/26570.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036BAA6": {
-   "type": "bytes",
-   "count": 2,
-   "declared": "src/hd_code/26570.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036BAA8": {
-   "type": "bytes",
-   "count": 64,
-   "declared": "src/hd_code/26570.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036BAE8": {
-   "type": "bytes",
-   "count": 20,
+   "count": 100,
    "declared": "src/hd_code/26570.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
@@ -17207,52 +17232,10 @@
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
-  "D_8036C810": {
-   "type": "bytes",
-   "count": 64,
-   "declared": "src/hd_code/30C70.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
   "D_8036D308": {
    "type": "bytes",
    "count": 128,
    "declared": "src/hd_code/34430.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036DCE0": {
-   "type": "UnkStruct_8036DCE0",
-   "count": 1,
-   "declared": "src/hd_code/39050.c",
-   "placeholder": true,
-   "note": "declared UnkStruct_8036DCE0[1]: only its first element is named; see the uses for the real count"
-  },
-  "D_8036DCEC": {
-   "type": "bytes",
-   "count": 4,
-   "declared": "src/hd_code/39050.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036DCF0": {
-   "type": "bytes",
-   "count": 128,
-   "declared": "src/hd_code/39050.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8036E380": {
-   "type": "UnkStruct_8036E380",
-   "count": 1,
-   "declared": "src/hd_code/39050.c",
-   "placeholder": true,
-   "note": "declared UnkStruct_8036E380[1]: only its first element is named; see the uses for the real count"
-  },
-  "D_8036E3D0": {
-   "type": "bytes",
-   "count": 240,
-   "declared": "src/hd_code/39050.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
@@ -17329,13 +17312,6 @@
   "D_8039B624": {
    "type": "bytes",
    "count": 4,
-   "declared": "src/hd_code/48D00.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8039B628": {
-   "type": "bytes",
-   "count": 3720,
    "declared": "src/hd_code/48D00.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
@@ -17480,6 +17456,158 @@
    "count": 179,
    "storage": "asm/data/hd_code/BAF70.data.s",
    "derived": "the port's access-width profiler"
+  },
+  "D_803059F0": {
+   "type": "asm_D_803059F0",
+   "count": 35,
+   "storage": "asm/data/hd_code/56040.data.s",
+   "derived": "the port's access-width profiler"
+  },
+  "D_80306E70": {
+   "type": "asm_D_80306E70",
+   "count": 28,
+   "storage": "asm/data/hd_code/C26B0.data.s",
+   "derived": "the port's access-width profiler"
+  },
+  "D_80305C10": {
+   "type": "ptr",
+   "count": 9,
+   "storage": "asm/data/hd_code/60F60.data.s",
+   "derived": "the animations kept in the effects' heap, 0 at the end (port/engine 60F60.c)",
+   "to": "void"
+  },
+  "D_80305C34": {
+   "type": "bytes",
+   "count": 20,
+   "storage": "asm/data/hd_code/60F60.data.s",
+   "derived": "a C string (port/engine 60F60.c)"
+  },
+  "D_80305C50": {
+   "type": "f64",
+   "count": 1,
+   "storage": "asm/data/hd_code/62740.data.s",
+   "derived": "a constant of the height search (port/engine 62740.c)"
+  },
+  "D_80305CB0": {
+   "type": "bytes",
+   "count": 1,
+   "storage": "asm/data/hd_code/69BB0.data.s",
+   "derived": "its parts' collision, read as bytes (port/engine 69BB0.c, 56040's func_8029A800)"
+  },
+  "D_80305D40": {
+   "type": "bytes",
+   "count": 32,
+   "storage": "asm/data/hd_code/72B80.data.s",
+   "derived": "a C string (port/engine 72B80.c)"
+  },
+  "D_803063F0": {
+   "type": "bytes",
+   "count": 16,
+   "storage": "asm/data/hd_code/80280.data.s",
+   "derived": "the share of the groups a medal wants, by medal (port/engine 80280.c)"
+  },
+  "D_802FF730": {
+   "type": "gfx",
+   "count": 2,
+   "storage": "asm/data/hd_code/BAF70.data.s",
+   "derived": "a display list: gsSPEndDisplayList()"
+  },
+  "__osHwIntTable": {
+   "type": "ptr",
+   "count": 12,
+   "storage": "asm/data/init/2330.data.s",
+   "derived": "libultra's interrupt handlers (the port's libultra has its own)",
+   "to": "void"
+  },
+  "D_803C2B80": {
+   "type": "u64",
+   "count": 1,
+   "storage": "asm/data/hd_code/5FD50.bss.s",
+   "derived": "the effects' task's output size (port/engine 5FD50.c: output_buff_size)"
+  },
+  "D_803C4F70": {
+   "type": "Mtx",
+   "count": 16,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' matrices, one frame's (port/engine 60F60.c), as D_803C5370"
+  },
+  "D_803C8770": {
+   "type": "Vtx",
+   "count": 256,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' vertices, one frame's (port/engine 60F60.c), as D_803C9770"
+  },
+  "D_803CA770": {
+   "type": "bytes",
+   "count": 65536,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' texture cells, one frame's (port/engine 60F60.c)"
+  },
+  "D_803DA770": {
+   "type": "bytes",
+   "count": 65536,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the other frame's"
+  },
+  "D_803EA770": {
+   "type": "bytes",
+   "count": 4096,
+   "storage": "asm/data/hd_code/60F60.bss.s",
+   "derived": "the effects' sprites' cells, 0x100 bytes per slot (port/engine 60F60.c)"
+  },
+  "D_803F2ED0": {
+   "type": "Mtx",
+   "count": 40,
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "derived": "the falling groups' matrices, one frame's (port/engine 77E20.c), as D_803F24D0"
+  },
+  "D_8020F49C": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4A0": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4A4": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4A8": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F4AC": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, empty (YoshiEntry.text)"
+  },
+  "D_8020F788": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, \" \" (YoshiEntry.text)"
+  },
+  "D_8020FD90": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, \" \" (YoshiEntry.text)"
+  },
+  "D_8020FDE4": {
+   "type": "bytes",
+   "count": 4,
+   "storage": "asm/data/hd_front_end/28480.rodata.s",
+   "derived": "a C string, \" \" (YoshiEntry.text)"
   },
   "D_8020F480": {
    "type": "bytes",
@@ -19663,12 +19791,6 @@
    "type": "asm_D_80306480",
    "count": 6,
    "storage": "asm/data/hd_code/C1CC0.data.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_80306E70": {
-   "type": "asm_D_80306E70",
-   "count": 1,
-   "storage": "asm/data/hd_code/C26B0.data.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
   "D_80307754": {
@@ -32029,6 +32151,14 @@
     4
    ]
   },
+  "OSMesgQueue": {
+   "__osEnqueueThread": [
+    0
+   ],
+   "__osPopThread": [
+    4
+   ]
+  },
   "OSThread": {
    "__osDispatchThread": [
     16,
@@ -35975,21 +36105,24 @@
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "OSMesgQueue+0x0"
   },
   {
    "where": "*(D_8039B628+0xC)+0x4",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "OSMesgQueue+0x4"
   },
   {
    "where": "*(D_8039B628+0xC)+0x14",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "OSMesgQueue+0x14"
   },
   {
    "where": "*(D_8039C4B4+0x0)+0x4",
@@ -38194,14 +38327,16 @@
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "OSThread+0x0"
   },
   {
    "where": "*(*(D_8039B628+0xC)+0x4)+0x8",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "OSThread+0x8"
   },
   {
    "where": "*(*(D_8039C4B4+0x0)+0x4)+0x0",
@@ -40664,21 +40799,24 @@
    "evidence": [
     "ptr",
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C0AA+0xE",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C0AA+0x12",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C0C1+0xF",
@@ -40686,70 +40824,80 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C0C1+0x13",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C0C1+0x17",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C0C1+0x33",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C0C1+0x37",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C0C1+0x3B",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C0C1+0x57",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C0C1+0x5B",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C0C1+0x5F",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C140+0x0",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x0",
@@ -40757,238 +40905,272 @@
    "evidence": [
     "ptr",
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x24",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x28",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x48",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x4C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x6C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x70",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x74",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C194+0x78",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x18"
   },
   {
    "where": "D_8020C194+0x90",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x94",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x98",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C194+0xB4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0xB8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0xBC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C194+0xD8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0xDC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0xE0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C194+0xFC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x100",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x104",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C194+0x1B0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C194+0x1B4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C194+0x1B8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C194+0x1BC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x18"
   },
   {
    "where": "D_8020C31C+0x24",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C31C+0x28",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C31C+0x2C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020C31C+0x144",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C31C+0x148",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C31C+0x168",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C31C+0x16C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C46C+0x0",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x0",
@@ -40996,7 +41178,7 @@
    "evidence": [
     "ptr"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x240",
@@ -41004,7 +41186,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x264",
@@ -41012,7 +41194,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x288",
@@ -41020,7 +41202,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x2AC",
@@ -41028,7 +41210,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x2B0",
@@ -41036,7 +41218,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x2D0",
@@ -41044,7 +41226,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x2D4",
@@ -41052,7 +41234,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x2F4",
@@ -41060,7 +41242,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x2F8",
@@ -41068,7 +41250,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x318",
@@ -41076,7 +41258,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x31C",
@@ -41084,7 +41266,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x33C",
@@ -41092,7 +41274,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x340",
@@ -41100,7 +41282,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x360",
@@ -41108,7 +41290,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x364",
@@ -41116,7 +41298,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x384",
@@ -41124,7 +41306,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x388",
@@ -41132,7 +41314,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x3A8",
@@ -41140,7 +41322,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x3AC",
@@ -41148,7 +41330,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x3CC",
@@ -41156,7 +41338,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x3D0",
@@ -41164,7 +41346,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x3F0",
@@ -41172,7 +41354,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x3F4",
@@ -41180,7 +41362,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x414",
@@ -41188,7 +41370,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x418",
@@ -41196,7 +41378,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x45C",
@@ -41204,7 +41386,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x460",
@@ -41212,7 +41394,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x480",
@@ -41220,7 +41402,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x484",
@@ -41228,7 +41410,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x4A4",
@@ -41236,7 +41418,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x4A8",
@@ -41244,7 +41426,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x4C8",
@@ -41252,7 +41434,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x4CC",
@@ -41260,7 +41442,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x4EC",
@@ -41268,7 +41450,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x4F0",
@@ -41276,7 +41458,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x558",
@@ -41284,7 +41466,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x55C",
@@ -41292,7 +41474,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x57C",
@@ -41300,7 +41482,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x580",
@@ -41308,7 +41490,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x5A0",
@@ -41316,7 +41498,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x5A4",
@@ -41324,7 +41506,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x630",
@@ -41332,7 +41514,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x634",
@@ -41340,7 +41522,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x654",
@@ -41348,7 +41530,7 @@
    "evidence": [
     "ptr"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x6C0",
@@ -41356,7 +41538,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x6C4",
@@ -41364,7 +41546,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x6E4",
@@ -41372,7 +41554,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x6E8",
@@ -41380,7 +41562,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x708",
@@ -41388,7 +41570,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x70C",
@@ -41396,7 +41578,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x72C",
@@ -41404,7 +41586,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x730",
@@ -41412,7 +41594,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x750",
@@ -41420,7 +41602,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x754",
@@ -41428,7 +41610,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x774",
@@ -41436,7 +41618,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x778",
@@ -41444,7 +41626,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x798",
@@ -41452,7 +41634,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x79C",
@@ -41460,7 +41642,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x7BC",
@@ -41468,7 +41650,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x7C0",
@@ -41476,7 +41658,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x7E0",
@@ -41484,7 +41666,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x7E4",
@@ -41492,7 +41674,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x804",
@@ -41500,7 +41682,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x808",
@@ -41508,7 +41690,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x8B8",
@@ -41516,7 +41698,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x8BC",
@@ -41524,7 +41706,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x8DC",
@@ -41532,7 +41714,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x8E0",
@@ -41540,7 +41722,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x900",
@@ -41548,7 +41730,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x904",
@@ -41556,7 +41738,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x924",
@@ -41564,7 +41746,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x928",
@@ -41572,7 +41754,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x9D8",
@@ -41580,7 +41762,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x9DC",
@@ -41588,7 +41770,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x9FC",
@@ -41596,7 +41778,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xA00",
@@ -41604,7 +41786,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xA20",
@@ -41612,7 +41794,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xA24",
@@ -41620,7 +41802,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xA44",
@@ -41628,7 +41810,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xA48",
@@ -41636,7 +41818,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xA68",
@@ -41644,7 +41826,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xA6C",
@@ -41652,7 +41834,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xA8C",
@@ -41660,7 +41842,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xA90",
@@ -41668,7 +41850,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xAB0",
@@ -41676,7 +41858,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xAB4",
@@ -41684,7 +41866,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xAD4",
@@ -41692,7 +41874,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xAD8",
@@ -41700,7 +41882,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xAF8",
@@ -41708,7 +41890,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xAFC",
@@ -41716,7 +41898,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xB1C",
@@ -41724,7 +41906,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xB20",
@@ -41732,7 +41914,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xB40",
@@ -41740,7 +41922,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xB44",
@@ -41748,7 +41930,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xB64",
@@ -41756,7 +41938,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xB68",
@@ -41764,7 +41946,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xB88",
@@ -41772,7 +41954,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xB8C",
@@ -41780,7 +41962,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xC18",
@@ -41788,7 +41970,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xC1C",
@@ -41796,7 +41978,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xC3C",
@@ -41804,7 +41986,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xC40",
@@ -41812,7 +41994,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xC60",
@@ -41820,7 +42002,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xC64",
@@ -41828,7 +42010,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xC84",
@@ -41836,7 +42018,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xC88",
@@ -41844,7 +42026,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xD14",
@@ -41852,7 +42034,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xD18",
@@ -41860,7 +42042,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xD38",
@@ -41868,7 +42050,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xD3C",
@@ -41876,7 +42058,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xD5C",
@@ -41884,7 +42066,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xD60",
@@ -41892,7 +42074,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xD80",
@@ -41900,7 +42082,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xD84",
@@ -41908,7 +42090,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xDA4",
@@ -41916,7 +42098,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xDA8",
@@ -41924,7 +42106,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xDC8",
@@ -41932,7 +42114,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xDCC",
@@ -41940,7 +42122,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xDEC",
@@ -41948,7 +42130,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xDF0",
@@ -41956,7 +42138,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xE10",
@@ -41964,7 +42146,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xE14",
@@ -41972,7 +42154,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xE34",
@@ -41980,7 +42162,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xE38",
@@ -41988,7 +42170,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xE58",
@@ -41996,7 +42178,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xE5C",
@@ -42004,7 +42186,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xE7C",
@@ -42012,7 +42194,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xE80",
@@ -42020,7 +42202,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xEA0",
@@ -42028,7 +42210,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xEA4",
@@ -42036,7 +42218,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xEC4",
@@ -42044,7 +42226,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xEC8",
@@ -42052,7 +42234,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xEE8",
@@ -42060,7 +42242,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xEEC",
@@ -42068,7 +42250,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xF78",
@@ -42076,7 +42258,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xF7C",
@@ -42084,7 +42266,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xF9C",
@@ -42092,7 +42274,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xFA0",
@@ -42100,7 +42282,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xFC0",
@@ -42108,7 +42290,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xFC4",
@@ -42116,7 +42298,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0xFE4",
@@ -42124,7 +42306,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0xFE8",
@@ -42132,7 +42314,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1008",
@@ -42140,7 +42322,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x100C",
@@ -42148,7 +42330,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x102C",
@@ -42156,7 +42338,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1030",
@@ -42164,7 +42346,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1050",
@@ -42172,7 +42354,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1054",
@@ -42180,7 +42362,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1074",
@@ -42188,7 +42370,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1078",
@@ -42196,7 +42378,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1128",
@@ -42204,7 +42386,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x112C",
@@ -42212,7 +42394,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x114C",
@@ -42220,7 +42402,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1150",
@@ -42228,7 +42410,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1170",
@@ -42236,7 +42418,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1174",
@@ -42244,7 +42426,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1194",
@@ -42252,7 +42434,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1198",
@@ -42260,7 +42442,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x11B8",
@@ -42268,7 +42450,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x11BC",
@@ -42276,7 +42458,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x11DC",
@@ -42284,7 +42466,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x11E0",
@@ -42292,7 +42474,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1200",
@@ -42300,7 +42482,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1204",
@@ -42308,7 +42490,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1224",
@@ -42316,7 +42498,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1228",
@@ -42324,7 +42506,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1248",
@@ -42332,7 +42514,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x124C",
@@ -42340,7 +42522,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1320",
@@ -42348,7 +42530,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1324",
@@ -42356,7 +42538,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020C488+0x1344",
@@ -42364,7 +42546,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x0"
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020C488+0x1348",
@@ -42372,7 +42554,7 @@
    "evidence": [
     "reloc"
    ],
-   "field": "UnkStruct_8020C488+0x4"
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020CBF4_eu+0x0",
@@ -42380,56 +42562,64 @@
    "evidence": [
     "ptr",
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020CBF4_eu+0x4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020CBF4_eu+0x8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020CC3C_eu+0x24",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020CC3C_eu+0x30",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x18"
   },
   {
    "where": "D_8020D008_eu+0x0",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D4B8+0x0",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D4B8+0x6C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D4B8+0x70",
@@ -42437,35 +42627,40 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D4B8+0x74",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D4B8+0x90",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D4B8+0x94",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D4B8+0x98",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x14",
@@ -42473,70 +42668,80 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x18",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x1C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x38",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x3C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x40",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x5C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x60",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x64",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x80",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x84",
@@ -42544,70 +42749,80 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x88",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0xA4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0xA8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0xAC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0xC8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0xCC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0xD0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0xEC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0xF0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x110",
@@ -42615,7 +42830,8 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x114",
@@ -42623,49 +42839,56 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x134",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x138",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x13C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x158",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x15C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x17C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x180",
@@ -42673,7 +42896,8 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x1A0",
@@ -42681,49 +42905,56 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x1A4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x1C4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x1C8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x1CC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x1E8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x1EC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x1F0",
@@ -42731,7 +42962,8 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x20C",
@@ -42739,7 +42971,8 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x210",
@@ -42747,42 +42980,48 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x230",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x234",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x254",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x258",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x278",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x27C",
@@ -42790,7 +43029,8 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x29C",
@@ -42798,182 +43038,208 @@
    "evidence": [
     "reloc",
     "dump:ptr"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x2A0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x2C0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x2C4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x2E4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x2E8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x308",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x30C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x32C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x330",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x350",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x354",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x374",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x378",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x398",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x39C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x3A0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x3BC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x3C0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x3C4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x3E0",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x3E4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x3E8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D530+0x404",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020D530+0x408",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020D530+0x40C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020D810[0x38]+0x4",
@@ -43004,133 +43270,152 @@
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x28",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0x48",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x4C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0x6C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x70",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0x90",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x94",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0xB4",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0xB8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0xD8",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0xDC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0xFC",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x100",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0x120",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x124",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0x144",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0xC"
   },
   {
    "where": "D_8020E3B8_eu+0x148",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x10"
   },
   {
    "where": "D_8020E3B8_eu+0x14C",
    "kind": "ptr (initialized data)",
    "evidence": [
     "reloc"
-   ]
+   ],
+   "field": "YoshiEntry+0x14"
   },
   {
    "where": "D_8020E3D8+0xB8",
@@ -48048,7 +48333,8 @@
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "PakState+0xC"
   },
   {
    "where": "D_8039C4B4+0x0",
