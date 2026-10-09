@@ -137,6 +137,10 @@ extern u8 D_802F4870[8];
 extern u8 D_802F4878[8];
 #endif
 extern ColorPair D_802F47B0[COLOR_PAIRS];
+#ifdef TARGET_PC
+/* D_802F47B0[i] for any u8 i: past its tables, the .data that follows (26570.c) */
+ColorPair port_color_pair(u8 i);
+#endif
 extern UnkStruct_8020C488 D_8020C488[];
 extern YoshiIcon D_802F49F4[0x4B];
 /*

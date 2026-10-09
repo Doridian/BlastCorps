@@ -3339,7 +3339,7 @@ static u8 port_yoshi_data_byte(u32 o) {
     return ((u8 *) icon)[r];
 }
 
-static ColorPair port_color_pair(u8 i) {
+ColorPair port_color_pair(u8 i) {
     ColorPair c;
     u32 k;
 

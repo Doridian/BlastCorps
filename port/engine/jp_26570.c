@@ -832,8 +832,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                     }
                     s3 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30);
                     s0 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30 + e->unk8);
-                    SDIV(a, alpha_of(D_8036BB20, D_802F47B0[e->unk19].a0, s3), 2);
-                    SDIV(b, alpha_of(D_8036BB20, D_802F47B0[e->unk19].a0, s0), 2);
+                    SDIV(a, alpha_of(D_8036BB20, port_color_pair(e->unk19).a0, s3), 2);
+                    SDIV(b, alpha_of(D_8036BB20, port_color_pair(e->unk19).a0, s0), 2);
                     func_80259DC8(arg1, sp144, sp140, e->flags & 8, 0, e->x - sp136 - 3, s1 + (e->y - sp134) + 3,
                                   e->unk6, e->unk8, 1, 0, 0, 0, a, 0, 0, 0, b);
                 } else {
@@ -848,8 +848,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                     }
                     s3 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30);
                     s0 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30 + e->unk8);
-                    SDIV(a, alpha_of(D_8036BB20, D_802F47B0[e->unk18].a0, s3), 2);
-                    SDIV(b, alpha_of(D_8036BB20, D_802F47B0[e->unk18].a0, s0), 2);
+                    SDIV(a, alpha_of(D_8036BB20, port_color_pair(e->unk18).a0, s3), 2);
+                    SDIV(b, alpha_of(D_8036BB20, port_color_pair(e->unk18).a0, s0), 2);
                     func_80259DC8(arg1, sp144, sp140, e->flags & 8, 0, e->x - sp136 - 3, s1 + (e->y - sp134) + 3,
                                   e->unk6, e->unk8, 1, 0, 0, 0, a, 0, 0, 0, b);
                 }
@@ -866,6 +866,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
             s32 s1;
             u8 s3, s0;
             ColorPair *c;
+            ColorPair cp;
 
             e = &D_8036BB10[i];
             sp140 = NULL;
@@ -892,7 +893,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                 }
                 s3 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30);
                 s0 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30 + e->unk8);
-                c = &D_802F47B0[e->unk19];
+                cp = port_color_pair(e->unk19);
+                c = &cp;
                 func_80259DC8(arg1, sp144, sp140, e->flags & 8, 0, e->x - sp136, s1 + (e->y - sp134), e->unk6,
                               e->unk8, 1, c->r0, c->g0, c->b0, alpha_of(D_8036BB20, c->a0, s3), c->r1, c->g1, c->b1,
                               alpha_of(D_8036BB20, c->a1, s0));
@@ -908,7 +910,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                 }
                 s3 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30);
                 s0 = func_8026F644((UnkStruct_8026F644 *) w, &e->flags, e->y - sp134 + D_8036BB30 + e->unk8);
-                c = &D_802F47B0[e->unk18];
+                cp = port_color_pair(e->unk18);
+                c = &cp;
                 func_80259DC8(arg1, sp144, sp140, e->flags & 8, 0, e->x - sp136, s1 + (e->y - sp134), e->unk6,
                               e->unk8, 1, c->r0, c->g0, c->b0, alpha_of(D_8036BB20, c->a0, s3), c->r1, c->g1, c->b1,
                               alpha_of(D_8036BB20, c->a1, s0));
