@@ -76,9 +76,17 @@ typedef struct TexAnim {        /* 8 + 4 n bytes */
 #define TERRAIN_GROUPS  0       /* unkA0[0..4]: four lists' groups */
 #define TERRAIN_SPANS   4       /* unkA0[4..8]: and spans */
 
-extern u8 D_803BE740[0x40];     /* the visibility task: a SchedTask whose last
-                                   0x20 bytes run into its DRAM stack */
-extern u64 D_803BE780[0x80];    /* that stack */
+/* the visibility task and its DRAM stack (D_803BE780), one variable
+   (asm2c.py's LABEL_TYPES): a SchedTask whose last 0x20 bytes are the
+   stack's first */
+typedef union VisTask {
+    SchedTask task;
+    struct {
+        u8 head[0x40];
+        u64 stack[0x80];
+    } s;
+} VisTask;
+extern VisTask D_803BE740;
 extern u32 D_803BEB80[0x1000];  /* the task's output */
 extern u32 D_803C2B80;          /* ... its size */
 extern QuadNode *PTR32 D_803C2B88;      /* the node stack's top */
@@ -188,7 +196,7 @@ static void node_box(LevelHeader *h, const QuadNode *nd, Vtx *v, s32 lo, s32 hi)
 /* (802A4B0C) the RSP's test of the box in `vtx` (drawn by `dl`, `size`
    bytes): whether any of it is on screen.  A 1 x 1 grid always is. */
 static s32 box_visible(Gfx *dl, Vtx *vtx, s32 size) {
-    SchedTask *t = (SchedTask *)D_803BE740;
+    SchedTask *t = &D_803BE740.task;
     s32 drawn;
 
     if ((s16)D_803BE714 == 1) {
@@ -204,8 +212,8 @@ static s32 box_visible(Gfx *dl, Vtx *vtx, s32 size) {
     t->list.t.ucode_size = 0x1000;   /* SP_UCODE_SIZE */
     t->list.t.ucode_data = (u64 *)D_8030EE60;
     t->list.t.ucode_data_size = 0x800;   /* SP_UCODE_DATA_SIZE */
-    t->list.t.dram_stack = D_803BE780;
-    t->list.t.dram_stack_size = sizeof(D_803BE780);
+    t->list.t.dram_stack = D_803BE740.s.stack;
+    t->list.t.dram_stack_size = sizeof(D_803BE740.s.stack);
     t->list.t.output_buff = (u64 *)D_803BEB80;
     t->list.t.output_buff_size = (u64 *)&D_803C2B80;
     t->list.t.yield_data_ptr = D_8036AFB0;
@@ -218,7 +226,7 @@ static s32 box_visible(Gfx *dl, Vtx *vtx, s32 size) {
     t->msgQ = &D_803153D8;
     t->client = &D_803156D8;
     osWritebackDCache(vtx, 8 * sizeof(Vtx));
-    osWritebackDCache(t, sizeof(D_803BE740));
+    osWritebackDCache(t, sizeof(D_803BE740.s.head));
     osInvalDCache(D_803BEB80, VIS_OUT_CHECKED);
     osSendMesg(&D_80315440.interruptQ, (OSMesg)t, OS_MESG_BLOCK);
     func_80285110(VIS_TASK_MSG);        /* waits for it */
