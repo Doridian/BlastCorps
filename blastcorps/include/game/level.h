@@ -249,7 +249,8 @@ extern void *PTR32 D_803BDB04;  /* that model + its unk14: segment 6 */
 extern void *PTR32 D_803BDB08;  /* that model + its unk24: a display list */
 extern void *PTR32 D_803BDB10[102];   /* LevelHeader.terrain: one pointer per group (func_802A4464) */
 extern void *PTR32 D_803BDCA8[102];   /* LevelHeader.collisionXZ: one per group (func_802A3D54) */
-extern void *PTR32 D_803BDE40[102];   /* LevelHeader.playerCollisionXZ (func_802A3DF8) */
+extern void *PTR32 D_803BDE40[101];   /* LevelHeader.playerCollisionXZ (func_802A3DF8): one
+                                         short of the others, the lights' end D_803BDFD4 after it */
 extern Gfx *PTR32 D_803BE6E0;   /* level display lists (LevelHeader.displayLists) hd.c draws */
 extern Gfx *PTR32 D_803BE6E4;
 extern Gfx *PTR32 D_803BE6E8;

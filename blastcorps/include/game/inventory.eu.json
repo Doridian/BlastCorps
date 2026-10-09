@@ -15719,7 +15719,7 @@
   },
   "D_803BDE40": {
    "type": "ptr",
-   "count": 102,
+   "count": 101,
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
    "to": "void",
