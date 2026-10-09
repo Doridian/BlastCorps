@@ -650,7 +650,15 @@ u16 func_801E9528(void) {
     if (D_802154DC == D_802154EC) {
         D_802154E8 = 0;
     }
-    for (sp4 = 1; sp4 <= ((D_80364AF0[D_80364AE8].gameState >= 12) ? 4 : 3); sp4++) {
+#ifdef TARGET_PC
+    /* With the player select's cursor past the four slots (17990.c),
+       D_80364AE8 is 4 and the N64 reads players[4].gameState: past
+       D_80364EF0, byte 0x11 of D_80364F70, the low byte of its [8]. */
+#define CUR_GAME_STATE (D_80364AE8 == 4 ? (u8)D_80364F70[8] : D_80364AF0[D_80364AE8].gameState)
+#else
+#define CUR_GAME_STATE D_80364AF0[D_80364AE8].gameState
+#endif
+    for (sp4 = 1; sp4 <= ((CUR_GAME_STATE >= 12) ? 4 : 3); sp4++) {
         if (D_80215508[sp4] == D_802154DC) {
             D_802154F0[sp4] = 0;
         }
