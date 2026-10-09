@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write the type and pointer inventory: blastcorps/include/game/inventory.json.
 
-    tools/inventory.py [--version us.v11] [--dumps rdram_*.bin] [--check]
+    tools/inventory.py [--version us.v11] [--out FILE] [--dumps rdram_*.bin] [--check]
 
 What the 64-bit port needs to know about the game's memory, in one file
 (the format is described in docs/TYPES.md):
@@ -1047,9 +1047,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--version", default="us.v11")
     ap.add_argument("--dumps", nargs="*", default=[])
-    ap.add_argument("--out", default=os.path.join(GAME_INC, "inventory.json"))
+    ap.add_argument("--out", help="default: inventory.<version>.json where the version has one, else inventory.json"
+                    " (the one asm2c.py, gen_romtab.py and the port's CMakeLists read)")
     ap.add_argument("--check", action="store_true")
     args = ap.parse_args()
+    if args.out is None:
+        args.out = os.path.join(GAME_INC, "inventory.%s.json" % args.version)
+        if not os.path.exists(args.out):
+            args.out = os.path.join(GAME_INC, "inventory.json")
     VERSION_DEFINE[:] = ["-DVERSION_" + args.version.upper().replace(".", "_")]
     tmp = os.path.join(BLAST, "build", "fieldscan")
     os.makedirs(tmp, exist_ok=True)
