@@ -115,8 +115,6 @@ OSMesgQueue *osScGetCmdQ(Sched *sc) {
     return &sc->cmdQ;
 }
 
-extern OSMesgQueue *PTR32 D_8036BF90;
-extern OSMesg D_8036BF94;
 void func_802712B4(Sched *, SchedTask *);
 void func_802712FC(Sched *);
 void __scHandleRetrace(Sched *);
@@ -168,7 +166,7 @@ void __scMain(void *arg) {
                 __scHandleRDP(sc);
                 break;
             case 0x29F:
-                osSendMesg(D_8036BF90, D_8036BF94, OS_MESG_BLOCK);
+                osSendMesg(D_8036BF78.mq, D_8036BF78.msg, OS_MESG_BLOCK);
                 break;
             case 0x29D:
                 for (client = sc->clientList; client != NULL; client = client->next) {
