@@ -847,6 +847,15 @@ void func_802807D8(u8 arg0) {
     }
 }
 
+/* sx and sz below are never read.  Rare indexes D_802FC494 by the quad
+   there (up to 12), not by D_8036E370, which reads past its four entries;
+   the port leaves those dead reads out. */
+#ifdef TARGET_PC
+#define FC494_SPAN(i, hi, lo) 0
+#else
+#define FC494_SPAN(i, hi, lo) (D_802FC494[i].hi - D_802FC494[i].lo)
+#endif
+
 void func_80280F34(Gfx **arg0, u8 arg1) {
     Gfx *gfx = *arg0;
     s32 i;
@@ -873,19 +882,19 @@ void func_80280F34(Gfx **arg0, u8 arg1) {
             D_8036DCE0[i].unk4 = D_803F9324 >> 5;
             if (D_8036DCE0[i].unk2 > D_802FC494[D_8036E370].unk6) {
                 D_8036DCE0[i].unk2 = D_802FC494[D_8036E370].unk2;
-                sx -= D_802FC494[i].unk6 - D_802FC494[i].unk2;
+                sx -= FC494_SPAN(i, unk6, unk2);
             }
             if (D_8036DCE0[i].unk2 < D_802FC494[D_8036E370].unk2) {
                 D_8036DCE0[i].unk2 = D_802FC494[D_8036E370].unk6;
-                sx += D_802FC494[i].unk6 - D_802FC494[i].unk2;
+                sx += FC494_SPAN(i, unk6, unk2);
             }
             if (D_8036DCE0[i].unk4 > D_802FC494[D_8036E370].unk8) {
                 D_8036DCE0[i].unk4 = D_802FC494[D_8036E370].unk4;
-                sz -= D_802FC494[i].unk8 - D_802FC494[i].unk4;
+                sz -= FC494_SPAN(i, unk8, unk4);
             }
             if (D_8036DCE0[i].unk4 < D_802FC494[D_8036E370].unk4) {
                 D_8036DCE0[i].unk4 = D_802FC494[D_8036E370].unk8;
-                sz += D_802FC494[i].unk8 - D_802FC494[i].unk4;
+                sz += FC494_SPAN(i, unk8, unk4);
             }
             D_8036DD70[arg1][i][0].v.ob[0] = D_8036DCE0[i].unk2 - D_8036DCE0[i].unk6;
             D_8036DD70[arg1][i][0].v.ob[2] = D_8036DCE0[i].unk4 - D_8036DCE0[i].unk8;
