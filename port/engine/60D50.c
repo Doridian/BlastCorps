@@ -57,12 +57,12 @@ void func_802A5510(LevelHeader *h) {
     }
 }
 
-/* func_802A5604 (72B80's): the same for the position at D_803EF2EC, from
+/* func_802A5604 (72B80's): the same for the position D_803EF2EC..F4 (x and z), from
    bounds44's boxes, into D_803EF304 */
 void func_802A5604(LevelHeader *h) {
     HeightBox *b = (HeightBox *)((u8 *)h + h->bounds44);
     HeightBox *end = (HeightBox *)((u8 *)h + h->unk48);
-    s32 x = (u32)(&D_803EF2EC)[0] >> 5, z = (u32)(&D_803EF2EC)[2] >> 5;
+    s32 x = (u32)D_803EF2EC >> 5, z = (u32)D_803EF2F4 >> 5;
 
     D_803EF304 = highest_box(b, end, x, z) << 5;
 }

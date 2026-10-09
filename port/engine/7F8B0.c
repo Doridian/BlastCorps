@@ -19,7 +19,7 @@ extern u8 *PTR32 D_803F7834;
 extern s16 D_803F7840;          /* the engine sound's last speed */
 extern SndState *PTR32 D_803F7844;      /* the engine sound */
 extern SndState *PTR32 D_803F7848;      /* the second one, while D_80370C1A/B */
-extern u8 D_803F784C;           /* whether that one is wanted */
+extern u8 D_803F784C[4];        /* [0] whether that one is wanted */
 extern s32 D_80364AB0_word __asm__("D_80364AB0");   /* set: restart the engine's pitch */
 extern u8 D_80370C1A;
 extern u8 D_80370C1B;
@@ -163,7 +163,8 @@ void func_802C4584(s32 speed) {
 REGS(a1)
 void func_802C4310(s32 id) {
     D_803F7840 = -1;
-    *(s16 *)&D_803F784C = 0;
+    D_803F784C[0] = 0;                  /* (a halfword store: [1] too) */
+    D_803F784C[1] = 0;
     func_80260650(D_80367738, id, &D_803F7844);
     func_802C4584(0);
 }
@@ -185,8 +186,8 @@ void func_802C4724(s32 id) {
     u8 want = D_80370C1A | D_80370C1B;
     SndState *snd = D_803F7848;
 
-    if (D_803F784C != want) {
-        D_803F784C = want;
+    if (D_803F784C[0] != want) {
+        D_803F784C[0] = want;
         if (want != 0) {
             if (snd == NULL) {
                 func_80260650(D_80367738, id, &D_803F7848);
