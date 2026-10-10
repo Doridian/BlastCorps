@@ -144,8 +144,14 @@ void func_801F57B0(void) {
 }
 #endif
 
-/* The Controller Pak thread (commands from D_80219EF8, replies on D_80219F50). */
+/* The Controller Pak thread (commands from D_80219EF8, replies on D_80219F50).
+ * osCreateThread's entry takes an argument, which the original's doesn't
+ * declare (IDO's code for one that does is another). */
+#ifdef TARGET_PC
+void func_801F58E8(void *arg) {
+#else
 void func_801F58E8(void) {
+#endif
     OSMesg sp3C;
     s32 sp38;
     s32 sp34;

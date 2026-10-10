@@ -14,7 +14,7 @@ typedef struct {
 
 
 void func_802597D8(u8 *arg0, u8 *arg1, s32 arg2);
-s32 func_80259814(u16 *arg0, u16 *arg1);
+s32 func_80259814(void *arg0, void *arg1);
 void func_8025946C(Gfx **arg0, Frame *arg1);
 void func_80259824(Gfx **arg0, Frame *arg1);
 
@@ -100,8 +100,9 @@ void func_802597D8(u8 *arg0, u8 *arg1, s32 arg2) {
     }
 }
 
-s32 func_80259814(u16 *arg0, u16 *arg1) {
-    return *arg0 - *arg1;
+/* (func_802595E0's comparator: two u16) */
+s32 func_80259814(void *arg0, void *arg1) {
+    return *(u16 *)arg0 - *(u16 *)arg1;
 }
 
 void func_80259824(Gfx **arg0, Frame *arg1) {
@@ -112,7 +113,7 @@ void func_80259824(Gfx **arg0, Frame *arg1) {
     sp54 = NULL;
     gfx = *arg0;
     func_802595E0((u8 *)&D_80365340[D_802E8C70], D_802E8C74 - D_802E8C70, sizeof(UnkStruct_80365340),
-                  (s32(*)(void *, void *))func_80259814);
+                  func_80259814);
     for (sp4C = D_802E8C70; sp4C < D_802E8C74; sp4C++) {
         if (D_80365340[sp4C].unk8 != sp54) {
             sp54 = D_80365340[sp4C].unk8;

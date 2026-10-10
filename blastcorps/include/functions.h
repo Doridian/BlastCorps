@@ -103,7 +103,7 @@ Gfx *func_801F2E20(void);
 
 /* hd_front_end C450.c */
 Gfx *func_801F3450(Gfx *, u8 *);
-s32 func_801F36B0(s32 *, s32 *);
+s32 func_801F36B0(void *, void *);
 void func_801F374C(struct UnkStruct_8020BD30 *);
 Gfx *func_801F3964(Gfx *, u8 *, struct UnkStruct_8020BD30 *, f32);
 Gfx *func_801F4110(Gfx *, u8 *, struct UnkStruct_8020BD30 *, f32);
@@ -118,7 +118,11 @@ void func_801F55D8(void);
 
 /* hd_front_end E7B0.c */
 void func_801F57B0(void);
+#ifdef TARGET_PC
+void func_801F58E8(void *);
+#else
 void func_801F58E8(void);
+#endif
 s32 func_801F6BD0(u8, u64 *);
 s32 func_801F6F18(void);
 s32 func_801F73FC(void);
@@ -134,7 +138,7 @@ s32 func_801F76E4(u8 *, s32);
 /* hd_front_end 10850.c */
 void func_801F7850(void);
 s32 func_801F7F74(u8);
-s32 func_801F7FF4(struct YoshiEntry *, struct YoshiEntry *);
+s32 func_801F7FF4(void *, void *);
 void func_801F803C(void);
 s32 func_801F81B4(u8);
 void func_801F8228(void);
