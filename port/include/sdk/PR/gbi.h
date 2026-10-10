@@ -19,7 +19,9 @@
 
 /* A word of a display list holding a pointer: in the LP64 port through a
    32-bit pointer, so that the conversion is the game's 32-bit address */
-#if defined(PORT_LP64)
+#if defined(PORT_WIDE_GFX)
+#define _GBI_W(x) ((__UINTPTR_TYPE__)(x))     /* (the wide switch: as wide as a pointer) */
+#elif defined(PORT_LP64)
 #define _GBI_W(x) ((unsigned int)(void *PTR32)(x))
 #else
 #define _GBI_W(x) ((unsigned int)(x))
@@ -167,9 +169,16 @@ typedef struct {
 
 /* ---- the display list ----------------------------------------------------------- */
 
+/* (PORT_WIDE_GFX, the LP64 port's switch while display lists take
+   pointers: words as wide as a pointer, 16-byte commands) */
 typedef struct {
+#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
+    __UINTPTR_TYPE__ w0;
+    __UINTPTR_TYPE__ w1;
+#else
     unsigned int w0;
     unsigned int w1;
+#endif
 } Gwords;
 
 typedef union {

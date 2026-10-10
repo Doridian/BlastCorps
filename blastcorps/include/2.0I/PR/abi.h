@@ -211,8 +211,13 @@ typedef struct {
  */
 
 typedef struct {
+#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
+	__UINTPTR_TYPE__ w0;	/* (the LP64 port's switch: pointer-wide words) */
+	__UINTPTR_TYPE__ w1;
+#else
 	unsigned int w0;
 	unsigned int w1;
+#endif
 } Awords;
 
 typedef union {
