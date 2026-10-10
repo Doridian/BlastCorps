@@ -308,7 +308,11 @@ void port_arena_init(void) {
 }
 
 /* the functions the N64 side uses as values, by their N64 addresses
-   (bepass/Arena.cpp), sorted */
+   (bepass/Arena.cpp), sorted: 30 functions and 16 calls through one in
+   us.v10's mn32 build, 40 and 19 in mlp64 (PORT_ARENA_STATS=1).  The
+   function pointer types are the C's own since P7; a value is an N64
+   address because every pointer value in game memory is one in the
+   movable builds, which P10's arena ends, and this table with it. */
 struct port_fn_entry { uint32_t addr; void *fn; };
 extern const struct port_fn_entry __port_fns[];
 extern const uint32_t __port_fns_n;
@@ -329,7 +333,7 @@ void *port_fn(uint32_t addr) {
 
 /* -port-arena-typed-calls (WebAssembly): the function at addr as the type
    the call has, its thunk if that isn't its own (bepass/Arena.cpp);
-   sorted by address, then type */
+   sorted by address, then type (us.v10: 7 types, 204 thunks) */
 struct port_fn_typed_entry { uint32_t addr, type; void *fn; };
 extern const struct port_fn_typed_entry __port_fns_typed[];
 extern const uint32_t __port_fns_typed_n;
