@@ -34,7 +34,7 @@ extern u8 D_803F3FF8[];                         /* a debris record being made (7
 
 /* 5CB60's: model n, loaded */
 REGS(t3 -> s2)
-u32 func_802A396C(u32 type);
+u8 *func_802A396C(u32 type);
 /* 60F60's */
 REGS()
 void func_802A5E60(void);
@@ -82,7 +82,7 @@ void func_802CEAA0(u8 *level) {
     p = (LevelCommPoint *)(level + *(s32 *)(level + 0x28));
     end = (LevelCommPoint *)(level + *(s32 *)(level + 0x2C));
     if (p != end) {
-        D_803FBBD8 = (u8 *)(__UINTPTR_TYPE__)func_802A396C(0x96);
+        D_803FBBD8 = func_802A396C(0x96);
         for (c = D_803FBBB0; p != end; c++, p++) {
             c->x = p->x << 5;
             c->y = p->y << 5;

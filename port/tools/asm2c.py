@@ -336,7 +336,8 @@ POINTERS = {
     "D_803B8D40": ("struct TexCacheEntry", 1), "D_803B8D44": ("struct TextureEntry", 1),
     "D_803BD300": ("struct CollisionTri", 1), "D_803BD304": ("struct TriSwitch", 1),
     "D_803BD308": ("struct CollisionTri", 1), "D_803BD30C": ("struct CollisionTri", 1),
-    "D_803BDFD4": ("struct LevelLight", 1), "D_803BE6F8": ("void", 1), "D_803BE704": ("u8", 1),
+    "D_803BDFD4": ("struct LevelLight", 1), "D_803BE6F4": ("u8", 1), "D_803BE6F8": ("void", 1),
+    "D_803BE704": ("u8", 1),
     "D_803BE708": ("u8", 1),
     # the level's grids (game/level.h): D_803BDE40's cells and their end
     # need 102, the N64's 102nd is D_803BDFD4 (set after): the port has one

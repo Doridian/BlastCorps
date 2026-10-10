@@ -114,7 +114,7 @@ extern Wall D_803BD310[];
    0x52 from $t2, 0x56 from $t7, 0x55 from $gp, 0x4F, 0x50, 0x57 and 0x58
    from $t9, $v0, $t6 and $s1.  Returns $t4 advanced past it. */
 REGS(t4, t5, t2, t7, gp, t9, v0, t6, s1 -> t4)
-u32 func_802A41B0(u32 t, u32 src, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50, u32 b57,
-                  u32 b58);
+struct CollisionTri *func_802A41B0(struct CollisionTri *t, u8 *src, u32 h52, u32 b56, u32 b55, u32 b4f,
+                                   u32 b50, u32 b57, u32 b58);
 
 #endif

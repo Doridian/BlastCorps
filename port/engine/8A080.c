@@ -119,7 +119,7 @@ void func_802CE9C8(LevelCollisionTri *tris, u8 n, u8 arg2) {
         /* (0x4F, 0x50, 0x57, 0x58: what $t9, $v0, $t6 and $s1 held in the
            original; 0 here: nothing reads them for the holes' triangles,
            5CB60.c's LEVEL_TRI_BYTES) */
-        t = (CollisionTri *)func_802A41B0((u32)t, (u32)tris, arg2, tris->unk14, 0, 0, 0, 0, 0);
+        t = func_802A41B0(t, (u8 *)tris, arg2, tris->unk14, 0, 0, 0, 0, 0);
     }
     D_803FB8B0 = t;
 }

@@ -260,7 +260,7 @@ extern Gfx *D_803BE6E4;
 extern Gfx *D_803BE6E8;
 extern Gfx *D_803BE6EC;
 extern u32 *D_803BE6F0;         /* the model table (DMA'd, func_802A2BB0) */
-extern s32 D_803BE6F4;          /* func_802A1674's second argument */
+extern u8 *D_803BE6F4;         /* func_802A1674's second argument: the Controller Pak's */
 extern struct LevelUnk58 *D_803BE6FC;  /* LevelHeader.unk58 (game/objects.h) ... */
 extern struct LevelUnk58 *D_803BE700;  /* ... to LevelHeader.buildings */
 extern void *D_803BE6F8;        /* LevelHeader.vehicles: the vehicles' records, read as their start points */

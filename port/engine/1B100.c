@@ -27,7 +27,7 @@
 
 /* 5CB60: model n loaded; a vehicle's record from its model */
 REGS(t3 -> s2)
-u32 func_802A396C(u32 type);
+u8 *func_802A396C(u32 type);
 REGS(a0, a1, v0, v1, s2)
 void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model);
 /* 56040 */
@@ -49,7 +49,7 @@ void func_80202100(s32 type, void *rec, u8 **bufs, Gfx **dls) {
     u8 *heap;
     s32 o1, o2;
 
-    model = (Model *)(__UINTPTR_TYPE__)func_802A396C(type);
+    model = (Model *)func_802A396C(type);
     *(Model **)rec = model;
     heap = D_80358070;
     bufs[0] = heap;

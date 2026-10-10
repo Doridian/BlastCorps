@@ -4981,7 +4981,7 @@ void func_80256A34(u8 *arg0) {
     func_802CE840();
     func_8029A7E4("enter initlevel game_mode=%d loop_done=%d\n", func_8026F92C(D_80364A90), func_8026F92C(D_80364A98));
     sp3C = D_80358070;
-    func_802A1674(D_80358074, (s32)(uintptr_t)arg0);
+    func_802A1674(D_80358074, arg0);
     func_8029A7E4("exit initlevel allocated %d bytes, %x\n", D_80358070 - sp3C, D_80358070);
     func_80257234();
     if (D_80364A98 != 2) {

@@ -585,7 +585,7 @@ void func_802A1040(u16, u8 *, u8 *);
 
 /* hd_code 5CB60, handwritten (port/engine/5CB60.c) */
 u32 func_802A1320(void);
-void func_802A1674(struct LevelHeader *, s32);
+void func_802A1674(struct LevelHeader *, u8 *);
 
 /* hd_code 5FD50, handwritten (port/engine/5FD50.c) */
 void func_802A45D4(s32);

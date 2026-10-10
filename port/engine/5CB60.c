@@ -42,7 +42,7 @@
    (tools/recomp/native_sites.txt's x3): in native-endian memory it is at
    the address ^ 3; and a halfword it keeps big-endian (`be`) */
 #ifdef PORT_NATIVE_ENDIAN
-#define X3(p) (*(u8 *)((u32)(p) ^ 3))
+#define X3(p) (*(u8 *)((uintptr_t)(p) ^ 3))
 #define STORE_BE16(p, v) (*(u16 *)(p) = (u16)__builtin_bswap16((u16)(v)))
 #else
 #define X3(p) (*(u8 *)(p))
@@ -176,8 +176,7 @@ extern u8 D_80364A6E;           /* the level's ambient light */
 /* func_802A2D68: the header's grids and constants; the run-time tables
    emptied */
 REGS(t0)
-void func_802A2D68(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A2D68(LevelHeader *h) {
     s32 i;
     s16 *b;
 
@@ -242,9 +241,8 @@ void func_802A2D68(u32 h_) {
 /* func_802A1C88: the level's display lists: their G_DL addresses made
    physical, and the four the C draws */
 REGS(t0)
-void func_802A1C88(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
-    u32 base = K0_TO_PHYS((u32)LEVEL_PTR(h, displayLists[0]));
+void func_802A1C88(LevelHeader *h) {
+    u32 base = K0_TO_PHYS((u32)(uintptr_t)LEVEL_PTR(h, displayLists[0]));
     u32 *p = (u32 *)LEVEL_PTR(h, displayLists[6]);
     u32 *end = (u32 *)LEVEL_PTR(h, displayLists[3]);
 
@@ -263,8 +261,7 @@ void func_802A1C88(u32 h_) {
    terrain: each a big-endian offset from the section to the next, then
    its data), and one past the last */
 REGS(t0)
-void func_802A4464(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A4464(LevelHeader *h) {
     s32 n = (s16)h->unk8[0] * (s16)h->unk8[1];
     u8 *base = LEVEL_PTR(h, terrain);
     u8 *p = base;
@@ -277,11 +274,11 @@ void func_802A4464(u32 h_) {
     *out = p + 4;
 }
 
-/* func_802A44E4: a size rounded up to 8, if it isn't a multiple of 4 */
+/* func_802A44E4: an address rounded up to 8, if it isn't a multiple of 4 */
 REGS(a1 -> a1)
-u32 func_802A44E4(u32 a) {
-    if (a & 3) {
-        a = (a & ~7) + 8;
+u8 *func_802A44E4(u8 *a) {
+    if ((uintptr_t)a & 3) {
+        a = (u8 *)(((uintptr_t)a & ~(uintptr_t)7) + 8);
     }
     return a;
 }
@@ -310,8 +307,7 @@ void func_802A1934(void) {
    light's byte, then records of four big-endian u16, two bytes, n types
    and two bytes) into D_803BDFD8 */
 REGS(t0)
-void func_802A2C54(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A2C54(LevelHeader *h) {
     u8 *p = LEVEL_PTR(h, unk60);
     u8 *end = LEVEL_PTR(h, unk64);
     LevelLight *l;
@@ -370,8 +366,7 @@ static void mtx_identity(u8 *t) {
    many bytes as its first word says, each), and its groups' moving
    triangles after them (D_803F7828..D_803F782C) */
 REGS(t0)
-void func_802A1A9C(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A1A9C(LevelHeader *h) {
     u8 *src = LEVEL_PTR(h, unk74);
     u32 size = *(u32 *)src;
     u8 *t = D_80358070;
@@ -431,10 +426,8 @@ void func_802A1A9C(u32 h_) {
    (the original's $t9, $v0, $t2 (a halfword), $gp, $t7, $t6 and $s1).
    Returns `t` + 1. */
 REGS(t4, t5, t2, t7, gp, t9, v0, t6, s1 -> t4)
-u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50, u32 b57,
-                  u32 b58) {
-    CollisionTri *t = (CollisionTri *)t_;
-    u8 *src = (u8 *)src_;
+CollisionTri *func_802A41B0(CollisionTri *t, u8 *src, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
+                            u32 b57, u32 b58) {
     s32 x0, y0, z0, x1, y1, z1, x2, y2, z2;
     s32 dy1, dz1, dx1, dy2, dz2, dx2;
     s64 nx, ny, nz, ax, ay, az, nzz1;
@@ -508,7 +501,7 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
     }
     t->side = 0;
     t->heading = src[0x12] << 8 | src[0x13];
-    return (u32)(t + 1);
+    return t + 1;
 }
 
 /* func_802A3D54 / func_802A3DF8: a grid of triangle lists (LevelHeader's
@@ -529,7 +522,7 @@ static void tri_grid(LevelHeader *h, u8 *base, CollisionTri **table) {
         for (p += 4; p != end; p += sizeof(LevelCollisionTri)) {
             LevelCollisionTri *f = (LevelCollisionTri *)p;
 
-            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, cells, f->unk14, 0, 0, 0, (u32)end, 0);
+            t = func_802A41B0(t, p, cells, f->unk14, 0, 0, 0, (u32)(uintptr_t)end, 0);
             t[-1].unk59 = f->unk15;
         }
     } while (--cells != 0);
@@ -538,15 +531,13 @@ static void tri_grid(LevelHeader *h, u8 *base, CollisionTri **table) {
 }
 
 REGS(t0)
-void func_802A3D54(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A3D54(LevelHeader *h) {
 
     tri_grid(h, LEVEL_PTR(h, collisionXZ), D_803BDCA8);
 }
 
 REGS(t0)
-void func_802A3DF8(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A3DF8(LevelHeader *h) {
 
     tri_grid(h, LEVEL_PTR(h, playerCollisionXZ), D_803BDE40);
 }
@@ -595,8 +586,7 @@ void func_802A3E9C(u32 h_) {
                an address's low byte, the N64's where pointers are 4 bytes;
                nothing reads it for a wall's triangles, whose 0x55 is 1:
                func_8029B614) */
-            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, (u32)(__UINTPTR_TYPE__)&w->tris[k + 1],
-                                              1, 0, 0, n - 1 - k, 0);
+            t = func_802A41B0(t, p, (u32)(uintptr_t)end, (u32)(uintptr_t)&w->tris[k + 1], 1, 0, 0, n - 1 - k, 0);
             p += WALL_TRI_SIZE;
         }
     }
@@ -628,11 +618,10 @@ static s32 tri_id_used(u32 id, CollisionTri *end) {
    which is what func_802A3F80 left there, the end of the level's switch
    triangles (an address in D_803B9890).  Only the palette types (60F60's
    4 and 5) use it, as the original's colours: kept, as a value. */
-static u32 tex_param;
+static u8 *tex_param;
 
 REGS(t0)
-void func_802A3F80(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A3F80(LevelHeader *h) {
     u8 *p = LEVEL_PTR(h, trainStops);
     u8 *end = LEVEL_PTR(h, collisionXZ);
     TriSwitch *r;
@@ -693,7 +682,7 @@ void func_802A3F80(u32 h_) {
             id = p[0x14];
             *ids++ = id;
             if (!tri_id_used(id, tris)) {
-                t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, last, 1, 0, id, n, 0);
+                t = func_802A41B0(t, p, (u32)(uintptr_t)end, last, 1, 0, id, n, 0);
             }
             p += STOP_TRI_SIZE;
         }
@@ -708,15 +697,15 @@ void func_802A3F80(u32 h_) {
     }
     D_803BD304 = r;
     D_803BD300 = tris;
-    tex_param = (u32)tris;
+    tex_param = (u8 *)tris;
 }
 
 /* ---- the buildings' parts and the textures ---------------------------- */
 
 REGS(t6, fp -> s0)
-u32 func_802A0CFC(u32 id, u32 param);
+u32 func_802A0CFC(u32 id, u8 *param);
 REGS(s0, s1)
-void func_802A08E4(u32 dl, u32 end);
+void func_802A08E4(u32 *dl, u32 *end);
 
 extern u8 D_802D30D0[], D_802D3194[], D_802D32A0[], D_802D331C[], D_802D33C8[], D_802D3444[],
     D_802D3538[], D_802D3614[], D_802D36C0[], D_802D3784[], D_802D3890[], D_802D393C[],
@@ -770,9 +759,7 @@ void func_802A1EC8(void) {
 /* func_802A20F4: in game mode 0x800, a model's vertex colours (from 0x50
    to Model.unk1C) set to red, if `flag` */
 REGS(t4, s0)
-void func_802A20F4(u32 m_, u32 flag) {
-    u8 *m = (u8 *)m_;
-
+void func_802A20F4(u8 *m, u32 flag) {
     if (flag != 0 && (D_80364A98 == MODE_RED_VERTICES)) {
         Vtx *v = (Vtx *)(m + 0x50), *end = (Vtx *)MODEL_PTR(m, unk1C);
 
@@ -786,9 +773,7 @@ void func_802A20F4(u32 m_, u32 flag) {
 
 /* func_802A2164: in level 0x31, model 0x24's unk4 is 2 */
 REGS(t3, s0)
-void func_802A2164(u32 n, u32 m_) {
-    Model *m = (Model *)m_;
-
+void func_802A2164(u32 n, Model *m) {
     if (D_802E8BDC == LEVEL_END_SEQUENCE && (n == 0x24)) {
         m->unk4 = 2;
     }
@@ -797,8 +782,8 @@ void func_802A2164(u32 n, u32 m_) {
 /* func_802A23E0: a building's model's effects (Model.unk30..unk38): byte
    0x31 through D_8030631F */
 REGS(v1)
-void func_802A23E0(u32 b_) {
-    u8 *m = (u8 *)((Building *)b_)->model;
+void func_802A23E0(Building *b) {
+    u8 *m = (u8 *)b->model;
     ModelEffect *e = (ModelEffect *)MODEL_PTR(m, unk30);
     ModelEffect *end = (ModelEffect *)MODEL_PTR(m, unk38);
 
@@ -810,9 +795,8 @@ void func_802A23E0(u32 b_) {
 /* func_802A2458: a building's centre in x and z (unk28, unk2C), from its
    model's box (Model.unk1C: four corners) */
 REGS(v1, t4)
-void func_802A2458(u32 b_, u32 m_) {
-    Building *b = (Building *)b_;
-    s16 (*box)[3] = (s16 (*)[3])MODEL_PTR(m_, unk1C);
+void func_802A2458(Building *b, u8 *m) {
+    s16 (*box)[3] = (s16 (*)[3])MODEL_PTR(m, unk1C);
 
     b->unk28 = ((box[0][0] + box[1][0]) >> 1) << 5;
     b->unk2C = ((box[0][2] + box[2][2]) >> 1) << 5;
@@ -821,10 +805,9 @@ void func_802A2458(u32 b_, u32 m_) {
 /* func_802A2608: a model's animated textures loaded (Model.unk28..unk2C),
    each number replaced by its physical address */
 REGS(t4)
-void func_802A2608(u32 m_) {
-    u8 *m = (u8 *)m_;
+void func_802A2608(u8 *m) {
     u8 *a = MODEL_PTR(m, unk28), *end = MODEL_PTR(m, unk2C);
-    u32 fp = tex_param;
+    u8 *fp = tex_param;
 
     while (a != end) {
         ModelAnimTex *at = (ModelAnimTex *)a;
@@ -843,14 +826,12 @@ void func_802A2608(u32 m_) {
 /* func_802A24BC: the three buildings 0xBA..0xBC get texture 0xF81
    (D_80365330) and a collision object (89250's func_802CE6F8) */
 REGS(v1)
-void func_802A24BC(u32 b_) {
-    Building *b = (Building *)b_;
-
+void func_802A24BC(Building *b) {
     if (b->unk30 != 0xBA && (b->unk30 != 0xBB) &&
         (b->unk30 != 0xBC)) {
         return;
     }
-    D_80365330 = (u8 *)(__UINTPTR_TYPE__)func_802A0CFC(0xF81, tex_param);
+    D_80365330 = (u8 *)(uintptr_t)func_802A0CFC(0xF81, tex_param);
     b->unk44 = func_802CE6F8(b->x, b->z, b->y);
 }
 
@@ -868,8 +849,7 @@ static void be16_add(u8 *p, s32 d) {
    (unkE, the behaviour, 0), its collision triangles (unk48..unk4C), its
    effects (unk30..unk38, made 16.16) and the points of unk2C..unk30 */
 REGS(t4, t5, t6, t7)
-void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
-    u8 *m = (u8 *)m_;
+void func_802A26A8(u8 *m, s32 dx, s32 dy, s32 dz) {
     s32 i;
 
     {
@@ -964,12 +944,11 @@ void func_802A26A8(u32 m_, s32 dx, s32 dy, s32 dz) {
    (LevelHeader.animTextures).  Leaves $s0 the last address and $s1
    0x80000000. */
 REGS(t0)
-void func_802A1C20(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A1C20(LevelHeader *h) {
     u8 *a = LEVEL_PTR(h, animTextures), *end = LEVEL_PTR(h, terrain);
     /* (the palette param: 0, the original's $fp in all but 4 of the TAS's
        105 calls; the others an earlier function's working) */
-    u32 fp = 0;
+    u8 *fp = NULL;
 
     while (a != end) {
         LevelAnimTex *at = (LevelAnimTex *)a;
@@ -990,10 +969,9 @@ void func_802A1C20(u32 h_) {
    [displayLists[0], displayLists[3])); $s1 the end, the first collision
    triangles' byte 0x58 */
 REGS(t0)
-void func_802A3008(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A3008(LevelHeader *h) {
 
-    func_802A08E4((u32)LEVEL_PTR(h, displayLists[0]), (u32)LEVEL_PTR(h, displayLists[3]));
+    func_802A08E4((u32 *)LEVEL_PTR(h, displayLists[0]), (u32 *)LEVEL_PTR(h, displayLists[3]));
 }
 
 /* ---- the buildings ------------------------------------------------------ */
@@ -1017,7 +995,7 @@ extern u8 D_8021ED00[], D_8004B400[];
    two gzip members inflated onto the heap; returns the heap's new top
    (rounded up).  (802A2A98's code: 802A396C and 802A32CC are the
    same.) */
-static u32 load_gz_model(u32 rom, u32 size) {
+static u8 *load_gz_model(u32 rom, u32 size) {
     u8 *src, *dst;
 
     osInvalDCache(INIT_AREA, size);
@@ -1025,7 +1003,7 @@ static u32 load_gz_model(u32 rom, u32 size) {
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
     src = func_802C4108(INIT_AREA, D_80358070, (struct huft *)GZIP_WINDOW, &dst);
     src = func_802C4108(src, dst, (struct huft *)GZIP_WINDOW, &dst);
-    return func_802A44E4((u32)dst);
+    return func_802A44E4(dst);
 }
 
 /* func_802A2BB0: the model table onto the heap */
@@ -1044,16 +1022,15 @@ void func_802A2BB0(void) {
 /* func_802A2A98: model `n` of the model table, loaded onto the heap.
    Returns it (the original's $s0). */
 REGS(t3 -> s0)
-u32 func_802A2A98(u32 n) {
+u8 *func_802A2A98(u32 n) {
     u32 *table = D_803BE6F0;
     u32 start = table[n], size = table[n + 1] - start;
-    u32 top;
-    u8 *m;
+    u8 *top, *m;
 
     top = load_gz_model((u32)D_006EC4C0 + start, size);
     m = D_80358070;
-    D_80358070 = (u8 *)top;
-    return (u32)m;
+    D_80358070 = top;
+    return m;
 }
 
 
@@ -1061,14 +1038,12 @@ u32 func_802A2A98(u32 n) {
    unk34: the next Building, its collision triangles (the model's
    BuildingTris) on the heap */
 REGS(t4, t3, t5, t6, t7, s0, t9)
-void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
-    u8 *m = (u8 *)m_;
-    Building *b;
+void func_802A21AC(u8 *m, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {    Building *b;
     u32 k, ngroups, cell, a0;
     BuildingTri *src, *end;
     CollisionTri *t;
 
-    func_802A2608((u32)m);
+    func_802A2608(m);
     if (n == 0x38) {                    /* model 0x38: its place kept */
         D_803F767C = x;
         D_803F767E = y;
@@ -1076,7 +1051,7 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     }
     b = D_803F7654;
     D_803F7654 = b + 1;
-    func_802A2458((u32)b, (u32)m);
+    func_802A2458(b, m);
     b->unk34 = unk34;
     b->unk38 = 0;
     b->unk3C = 0;
@@ -1102,15 +1077,15 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
         b->fall_t[k] = 0;
     }
     if (D_803BE704 != NULL && (flag != 0)) {
-        *(u32 *)D_803BE704 = (u32)b;
+        *(u32 *)D_803BE704 = (u32)(uintptr_t)b;     /* (a word of the level's data: P7) */
         D_803BE704 += GROUP_SIZE;
     }
     /* the object grid's cell it is in */
     a0 = (u32)D_803BE70C >> 5;
     cell = z / ((u32)D_803BE710 >> 5) * D_803BE714 + x / a0;
     b->unkE8 = cell;
-    func_802A24BC((u32)b);
-    func_802A23E0((u32)b);
+    func_802A24BC(b);
+    func_802A23E0(b);
     src = (BuildingTri *)MODEL_PTR(m, unk48);
     end = (BuildingTri *)MODEL_PTR(m, unk4C);
     t = (CollisionTri *)D_80358070;
@@ -1125,8 +1100,8 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
            $t9 and $v0; the N64's where D_803F7654 is where the N64 has
            it, not in the LP64 builds, where it moved.  Nothing reads a
            piece's id: only the objects' triangles' (56040)) */
-        t = (CollisionTri *)func_802A41B0((u32)t, (u32)src, src->group, src->unk14, src->unk18, unk34,
-                                          (u32)(__UINTPTR_TYPE__)&D_803F7654, src->group2, src->pushes);
+        t = func_802A41B0(t, (u8 *)src, src->group, src->unk14, src->unk18, unk34,
+                          (u32)(uintptr_t)&D_803F7654, src->group2, src->pushes);
     }
     b->unk8 = t;
     D_80358070 = (u8 *)t;
@@ -1140,8 +1115,7 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
 /* func_802A1D54: the buildings (LevelHeader.buildings), after the
    destruction tables are reset and the model table is in */
 REGS(t0)
-void func_802A1D54(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A1D54(LevelHeader *h) {
     FileBuilding *p, *end;
     u8 *q;
     s32 i;
@@ -1169,18 +1143,18 @@ void func_802A1D54(u32 h_) {
         u8 *m;
 
         n = BE16U(p->model);
-        m = (u8 *)func_802A2A98(n);
-        func_802A2164(n, (u32)m);
-        func_802A08E4((u32)MODEL_PTR(m, unk10), (u32)MODEL_PTR(m, unk14));
+        m = func_802A2A98(n);
+        func_802A2164(n, (Model *)m);
+        func_802A08E4((u32 *)MODEL_PTR(m, unk10), (u32 *)MODEL_PTR(m, unk14));
         ((Model *)m)->unkE = p->behavior;
         x = BE16U(p->x);
         y = BE16U(p->y);
         z = BE16U(p->z);
-        func_802A26A8((u32)m, x, y, z);
-        func_802A20F4((u32)m, p->unk8);
+        func_802A26A8(m, x, y, z);
+        func_802A20F4(m, p->unk8);
         ((Model *)m)->unk6 = p->unk9;
         D_8036EB93 += p->unk9;
-        func_802A21AC((u32)m, n, x, y, z, p->unk8, p->speed);
+        func_802A21AC(m, n, x, y, z, p->unk8, p->speed);
     }
 }
 
@@ -1265,7 +1239,7 @@ extern u8 D_0048FE90[], D_004903C0[], D_00490AC0[], D_00491E00[], D_004929D0[], 
     D_0049BCE0[], D_0049C480[], D_0049E8E0[], D_0049F7A0[], D_0049FF70[], D_004A0720[],
     D_004A1000[], D_004A1690[], D_004A4120[], D_004A5660[];
 REGS(s0, s1, s2)
-void func_8029DF78(u32 dl, u32 end, u32 type);
+void func_8029DF78(u32 *dl, u32 *end, u32 type);
 
 /* the model file's ROM range */
 #define ROM_RANGE(s, e) (start = (u32)(s), end = (u32)(e))
@@ -1274,9 +1248,9 @@ void func_8029DF78(u32 dl, u32 end, u32 type);
    the shuttle's, the comm point's or the scientist's): returns it ($s2),
    its display list's textures put in (8029DF78 and 802A08E4) */
 REGS(t3 -> s2)
-u32 func_802A396C(u32 type) {
-    u32 start, end, top;
-    u8 *m;
+u8 *func_802A396C(u32 type) {
+    u32 start, end;
+    u8 *top, *m;
 
     if (type == VEHICLE_DRIVER) ROM_RANGE(D_00491E00, D_004929D0);
     else if (type == VEHICLE_SIDESWIPE) ROM_RANGE(D_004929D0, D_00494390);
@@ -1306,18 +1280,18 @@ u32 func_802A396C(u32 type) {
     }
     top = load_gz_model(start, end - start);
     m = D_80358070;
-    D_80358070 = (u8 *)top;
-    func_8029DF78((u32)VMODEL_PTR(m, unk1C), (u32)VMODEL_PTR(m, unk20), type);
-    func_802A08E4((u32)VMODEL_PTR(m, unk1C), (u32)VMODEL_PTR(m, unk20));
-    return (u32)m;
+    D_80358070 = top;
+    func_8029DF78((u32 *)VMODEL_PTR(m, unk1C), (u32 *)VMODEL_PTR(m, unk20), type);
+    func_802A08E4((u32 *)VMODEL_PTR(m, unk1C), (u32 *)VMODEL_PTR(m, unk20));
+    return m;
 }
 
 /* func_802A32CC: the carrier's cargo model `type` (the vehicles 3, 4, 5, 8,
    9, 10, 13, 14, 15): returns it ($s2), its display list's textures put in */
 REGS(t3 -> s2)
-u32 func_802A32CC(u32 type) {
-    u32 start, end, top;
-    u8 *m;
+u8 *func_802A32CC(u32 type) {
+    u32 start, end;
+    u8 *top, *m;
 
     if (type == VEHICLE_BUGGY) ROM_RANGE(D_00490AC0, D_00491E00);
     else if (type == VEHICLE_BULLDOZER) ROM_RANGE(D_00496AD0, D_00497AF0);
@@ -1333,9 +1307,9 @@ u32 func_802A32CC(u32 type) {
     }
     top = load_gz_model(start, end - start);
     m = D_80358070;
-    D_80358070 = (u8 *)top;
-    func_802A08E4((u32)VMODEL_PTR(m, unk1C), (u32)VMODEL_PTR(m, unk20));
-    return (u32)m;
+    D_80358070 = top;
+    func_802A08E4((u32 *)VMODEL_PTR(m, unk1C), (u32 *)VMODEL_PTR(m, unk20));
+    return m;
 }
 
 #undef ROM_RANGE
@@ -1347,8 +1321,7 @@ extern u8 D_803643D4;
 extern u8 D_803BE73A;
 
 REGS(t0)
-void func_802A3824(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A3824(LevelHeader *h) {
     FileVehicle *r = (FileVehicle *)LEVEL_PTR(h, vehicles), *end;
     s32 x, y, z;
 
@@ -1420,12 +1393,12 @@ REGS()
 void func_802BC840(void);
 REGS()
 void func_802C049C(void);
-void func_802A303C(u32 h_);
+void func_802A303C(LevelHeader *h);
 void func_802A30DC(void);
-void func_802A3134(u32 h_);
+void func_802A3134(LevelHeader *h);
 void func_802A3198(void);
 void func_802A19F4(void);
-void func_802A350C(u32 h_);
+void func_802A350C(LevelHeader *h);
 
 extern u8 D_8039CA61, D_8039CA7E, D_8039CAB7;  /* the level's extras: a carrier model's, its number; another */
 extern s16 D_8039CAB0, D_8039CAB2, D_8039CAB4;  /* ... the other's offset */
@@ -1437,8 +1410,8 @@ extern u8 D_80364AC1, D_803643DB, D_803643DC;
 /* hd.c's: the level at h loaded into the run-time tables, its vehicles set
    up, and (status non-zero, not the attract modes) its status from the
    Controller Pak's (func_802C4BF0) */
-void func_802A1674(LevelHeader *hp, s32 status) {
-    u32 h = (u32)hp;
+void func_802A1674(LevelHeader *hp, u8 *status) {
+    LevelHeader *h = hp;
     u64 mode;
 
     D_803BE6F4 = status;
@@ -1450,7 +1423,7 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     func_8029DEA0();
     func_802A3D54(h);
     func_802A3DF8(h);
-    func_802A3E9C(h);
+    func_802A3E9C((u32)(uintptr_t)h);
     func_802A3F80(h);
     func_802A4464(h);
     func_802A1A9C(h);
@@ -1487,14 +1460,14 @@ void func_802A1674(LevelHeader *hp, s32 status) {
     func_802A19F4();
     D_803BE6FC = (struct LevelUnk58 *)LEVEL_PTR(hp, unk58);
     D_803BE700 = (struct LevelUnk58 *)LEVEL_PTR(hp, buildings);
-    func_8026FBB0(LEVEL_PTR(hp, rdus), LEVEL_PTR(hp, tntCrates));
-    func_8028D4C0(LEVEL_PTR(hp, tntCrates), LEVEL_PTR(hp, blocks));
-    func_8028C190(LEVEL_PTR(hp, ammoBoxes), LEVEL_PTR(hp, collisionFixes));
+    func_8026FBB0((struct LevelRdu *)LEVEL_PTR(hp, rdus), (struct LevelRdu *)LEVEL_PTR(hp, tntCrates));
+    func_8028D4C0((struct LevelTntCrate *)LEVEL_PTR(hp, tntCrates), (struct LevelTntCrate *)LEVEL_PTR(hp, blocks));
+    func_8028C190((struct LevelAmmoBox *)LEVEL_PTR(hp, ammoBoxes), (struct LevelAmmoBox *)LEVEL_PTR(hp, collisionFixes));
     D_80370C50 = 0;
     mode = D_80364A98;
     if (mode != 2 && (mode != 0x100000000000ULL) &&
         (D_803BE6F4 != 0)) {
-        func_802C4BF0((u8 *)(__UINTPTR_TYPE__)(u32)D_803BE6F4);
+        func_802C4BF0(D_803BE6F4);
     }
 }
 
@@ -1506,7 +1479,7 @@ void func_802A19F4(void) {
         u8 *m;
         Vtx *v, *end;
 
-        m = (u8 *)(__UINTPTR_TYPE__)func_802A396C(VEHICLE_SCIENTIST);
+        m = func_802A396C(VEHICLE_SCIENTIST);
         v = (Vtx *)VMODEL_PTR(m, unk14);
         D_8039CAC0 = v;
         end = (Vtx *)VMODEL_PTR(m, unk18);
@@ -1521,15 +1494,15 @@ void func_802A19F4(void) {
 
 /* the missile carrier (LevelHeader.carrier) */
 REGS(t0)
-void func_802A303C(u32 h_) {
-    FileCarrier *r = (FileCarrier *)LEVEL_PTR((LevelHeader *)h_, carrier);
+void func_802A303C(LevelHeader *h) {
+    FileCarrier *r = (FileCarrier *)LEVEL_PTR(h, carrier);
     s32 speed = r->speed;
 
     if (speed != 0) {
-        u32 m;
+        u8 *m;
 
         m = func_802A396C(VEHICLE_CMO);
-        func_802B9C50((u8 *)(__UINTPTR_TYPE__)m, BE16S(r->x) << 5, BE16S(r->z) << 5, BE16S(r->heading),
+        func_802B9C50(m, BE16S(r->x) << 5, BE16S(r->z) << 5, BE16S(r->heading),
                       BE16S(r->distance) << 5, speed);
         D_803643DB = 1;
     }
@@ -1542,25 +1515,25 @@ void func_802A30DC(void) {
 
     has = func_80268EE8(D_802E8BDC);
     if (has != 0) {
-        u32 m;
+        u8 *m;
 
         D_80364AC1 = 1;
         m = func_802A396C(VEHICLE_SHUTTLE);
-        func_802D2570((u8 *)(__UINTPTR_TYPE__)m);
+        func_802D2570(m);
     }
 }
 
 /* the BCT chopper, where there is a carrier and outside the attract
    modes */
 REGS(t0)
-void func_802A3134(u32 h_) {
-    FileCarrier *r = (FileCarrier *)LEVEL_PTR((LevelHeader *)h_, carrier);
+void func_802A3134(LevelHeader *h) {
+    FileCarrier *r = (FileCarrier *)LEVEL_PTR(h, carrier);
 
     if (r->speed != 0 && (D_80364AA8 != ATTRACT_DEMO2)) {
-        u32 m;
+        u8 *m;
 
         m = func_802A396C(VEHICLE_CHOPPER);
-        func_802B8480((u8 *)(__UINTPTR_TYPE__)m);
+        func_802B8480(m);
         D_803643DC = 1;
     }
 }
@@ -1575,7 +1548,7 @@ void func_802A3198(void) {
         u8 *m, *heap;
         s32 n, *src, *w, *wend;
 
-        m = (u8 *)(__UINTPTR_TYPE__)func_802A32CC(D_8039CA7E);
+        m = func_802A32CC(D_8039CA7E);
         D_803BDAFC = m;
         D_803BDB04 = VMODEL_PTR(m, unk14);
         D_803BDB08 = VMODEL_PTR(m, unk24[0]);
@@ -1602,17 +1575,17 @@ void func_802A3198(void) {
    its setup run; the Sideswipe's record is the vehicle the player chose
    outside the attract modes */
 REGS(t0)
-void func_802A350C(u32 h_) {
+void func_802A350C(LevelHeader *h) {
     FileVehicle *r, *end;
     u8 *m;
     u32 type;
     s32 x, y, z, heading;
 
-    func_802A3824(h_);
+    func_802A3824(h);
     D_803ED3F5 = 0;
     D_803ED40F = 0;
-    r = (FileVehicle *)LEVEL_PTR((LevelHeader *)h_, vehicles);
-    end = (FileVehicle *)LEVEL_PTR((LevelHeader *)h_, carrier);
+    r = (FileVehicle *)LEVEL_PTR(h, vehicles);
+    end = (FileVehicle *)LEVEL_PTR(h, carrier);
     for (; r != end; r++) {
         type = r->type;
         if (type == VEHICLE_SIDESWIPE && (D_80364AA8 != ATTRACT_DEMO) &&
@@ -1630,7 +1603,7 @@ void func_802A350C(u32 h_) {
         y = BE16S(r->y) << 5;
         z = BE16S(r->z) << 5;
         heading = BE16S(r->heading);
-        m = (u8 *)(__UINTPTR_TYPE__)func_802A396C(type);
+        m = func_802A396C(type);
 
         /* the type's setup */
 #define RUN_SETUP(f) f(m, x, y, z, heading)
