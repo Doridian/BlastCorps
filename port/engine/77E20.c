@@ -483,11 +483,11 @@ s32 func_802BCDE0(s32 kind) {
    target building, an empty hole, or an object to destroy that isn't yet;
    its kind (1, 2, 3; 0 none) in D_803F7808 and its outline in
    D_8036C790. */
-s32 func_802BCE40(void) {
+void *func_802BCE40(void) {
     Building *b;
     s32 px = D_803643E0, py = D_803643E4, pz = D_803643E8;
     s64 best = 9999999, d;
-    u32 found = 0;
+    void *found = NULL;
     void *outline;
     s32 kind = 0, n, down;
     UnkStruct_8039C800 *h;
@@ -505,7 +505,7 @@ s32 func_802BCE40(void) {
         if (down)
             continue;
         best = d;
-        found = (u32)b;
+        found = b;
         kind = 1;
     }
     for (n = D_8039C940, h = D_8039C800; n != 0; n--, h++) {
@@ -513,7 +513,7 @@ s32 func_802BCE40(void) {
             d = func_802ABCDC(h->x, h->y, h->z, px, py, pz);
             if (d < best) {
                 kind = 2;
-                found = (u32)h;
+                found = h;
                 best = d;
             }
         }
@@ -524,7 +524,7 @@ s32 func_802BCE40(void) {
             if (d < best) {
                 if (!obj_destroyed(o)) {
                     kind = 3;
-                    found = (u32)o;
+                    found = o;
                     best = d;
                 }
             }
@@ -586,20 +586,20 @@ s32 func_802BD064(Building *next) {
 
 /* the distance from the carrier (D_803EF6DC, D_803EF6E4) to target t (of
    kind D_803F7809) in x and z, over D_803EF6FC: into D_8036C7C8 (30C70.c) */
-void func_802BD10C(s32 t_) {
+void func_802BD10C(void *t) {
     s32 x, z;
     s64 d;
 
     if (D_803F7809 == 2) {
-        x = ((UnkStruct_8039C800 *)t_)->x;
-        z = ((UnkStruct_8039C800 *)t_)->z;
+        x = ((UnkStruct_8039C800 *)t)->x;
+        z = ((UnkStruct_8039C800 *)t)->z;
     } else {
         if (D_803F7809 == 3) {
-            x = ((TargetObj *)t_)->x;
-            z = ((TargetObj *)t_)->z;
+            x = ((TargetObj *)t)->x;
+            z = ((TargetObj *)t)->z;
         } else {
-            x = ((Building *)t_)->x;
-            z = ((Building *)t_)->z;
+            x = ((Building *)t)->x;
+            z = ((Building *)t)->z;
         }
     }
     d = func_802ABCDC(x, 0, z, D_803EF6DC, 0, D_803EF6E4);
@@ -1779,7 +1779,7 @@ void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
     s16 *c = (s16 *)(B_SECTION(b, MS_CENTRES) + (group - 1) * 8);
     /* (with no debris, the sound's record is whatever $s7 held: the
        model's byte 5, as an address) */
-    u8 *t, *fx = (u8 *)(u32)M_DEBRIS(model);
+    u8 *t, *fx = (u8 *)(uintptr_t)M_DEBRIS(model);
     s32 x = c[0] << 16, y = c[1] << 16, z = c[2] << 16;
     s32 roll, n, k, sp;
 
@@ -2559,7 +2559,7 @@ void func_802C1438(s32 group, Building *b) {
                 break;
         }
     }
-    s->textures = (u32)M_TEXTURES(model);
+    s->textures = (u32)(uintptr_t)M_TEXTURES(model);
     d0 = s->dl0;
     d1 = s->dl1;
     d0[0] = DL_MTX_PUSH;                /* its matrix */

@@ -10,7 +10,7 @@ void func_80276D1C(Mtx *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 *arg5,
 /* .bss, 0x8036C790-0x8036C8D0 (tools/bss_c.py) */
 UnkStruct_8036C7A0 *D_8036C790;
 UnkStruct_8036C7A0 *D_8036C794;
-s32 D_8036C798;
+void *D_8036C798;
 UnkStruct_8036C7A0 *D_8036C7A0[10];
 s32 D_8036C7C8;
 u8 D_8036C7CC;
@@ -48,7 +48,7 @@ extern FrameBuf D_02000000;
 extern u16 D_8035807C;
 extern u8 D_803643DB;
 extern UnkStruct_8036C7A0 *D_8036C7A0[10];
-extern s32 D_8036C798;
+extern void *D_8036C798;
 extern s32 D_8036C7C8;
 extern u8 D_803F7808;
 extern u8 D_803F7809;
@@ -83,7 +83,7 @@ void func_80275478(Frame *arg0, Gfx **arg1, u8 arg2) {
     u8 g;
     s16 t;
     UnkStruct_8036C7A0 *p;
-    s32 sp50;
+    void *sp50;
 
     vtxIdx = 16;
     gfx = *arg1;

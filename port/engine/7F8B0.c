@@ -54,16 +54,14 @@ static u32 lzss_bits(LzssIn *in, u32 top) {
 /* func_802C41C0: inflate *src into *dst through `window` (1 << index_bits
    bytes); both are left at the ends (the input's rounded up to even) */
 REGS(a0, a1, a2, a3 -> a0, a1)
-u32 func_802C41C0(u32 src_, u32 dst_, u32 window_, s32 index_bits, u32 *dst_end) {
-    u8 *dst = (u8 *)dst_;
-    u8 *window = (u8 *)window_;
+u8 *func_802C41C0(u8 *src, u8 *dst, u8 *window, s32 index_bits, u8 **dst_end) {
     LzssIn in;
     u32 wmask = (1 << index_bits) - 1;
     u32 pos_top = 1 << (index_bits - 1);
     u32 len_top = 1 << (15 - index_bits);
     u32 wp = 1;
 
-    in.src = (u8 *)src_;
+    in.src = src;
     in.cur = 0;
     in.mask = 0x80;
     for (;;) {
@@ -103,20 +101,20 @@ u32 func_802C41C0(u32 src_, u32 dst_, u32 window_, s32 index_bits, u32 *dst_end)
             } while ((s32)n >= (s32)k);
         }
     }
-    if ((u32)in.src & 1) {
+    if ((uintptr_t)in.src & 1) {
         in.src++;
     }
-    *dst_end = (u32)dst;
-    return (u32)in.src;
+    *dst_end = dst;
+    return in.src;
 }
 
 /* func_802C4070 (46C20.c's): inflate *src into *dst and advance both */
 void func_802C4070(u8 **src, u8 **dst, void *window, u8 index_bits) {
-    u32 end, s;
+    u8 *end, *s;
 
-    s = func_802C41C0((u32)*src, (u32)*dst, (u32)window, index_bits, &end);
-    *src = (u8 *)s;
-    *dst = (u8 *)end;
+    s = func_802C41C0(*src, *dst, window, index_bits, &end);
+    *src = s;
+    *dst = end;
 }
 
 /* func_802C4108: the model loaders' gzip (func_8025C230): src and dst as

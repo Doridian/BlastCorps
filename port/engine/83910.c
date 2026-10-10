@@ -111,7 +111,7 @@ static void barge_frame(s32 n) {
     s32 type = barge_type[n], *pos = &D_803F8748[3 * n], step = 0, x, z;
     f32 rate;
 
-    func_802A75DC((u8 *)parts, &pos[0], &pos[1], &pos[2], (u8 *)vs);
+    func_802A75DC(parts, &pos[0], &pos[1], &pos[2], vs);
     func_802C4724(0x71);
     func_802C9B30();
     func_802C4584((u32)iabs(VS_SPEED(vs)) >> 5);
@@ -135,8 +135,8 @@ static void barge_frame(s32 n) {
     if (D_803A7424 == 0) {
         D_803F8790[n] = 0;
     } else if (D_803F8790[n] == 0) {
-        func_802A768C((u8 *)parts, &pos[0], &pos[1], &pos[2], (u32 *)OTHER_BUF(BUF0(n), BUF1(n)),
-                      (u32 *)FRAME_BUF(BUF0(n), BUF1(n)), 0x800, (u8 *)vs);
+        func_802A768C(parts, &pos[0], &pos[1], &pos[2], (u32 *)OTHER_BUF(BUF0(n), BUF1(n)),
+                      (u32 *)FRAME_BUF(BUF0(n), BUF1(n)), 0x800, vs);
         func_802C95D8(vs);
         D_803F8790[n] = 1;
         barge_draw_fn[n](vs);

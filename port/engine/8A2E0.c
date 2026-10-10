@@ -169,7 +169,7 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
         gfx[2] = DL_CALL;               /* the display list below */
         gfx[3] = K0(dl);
         dl[0] = 0x04700080;             /* its box: 8 vertices */
-        dl[1] = (u32)&D_803FBAB0[i * 0x40];
+        dl[1] = (u32)(uintptr_t)&D_803FBAB0[i * 0x40];
         dl[2] = 0xBE000000;             /* culled by them */
         dl[3] = 0x140;
         gfx += 4;

@@ -214,7 +214,7 @@ void func_802B30B0(void) {
 static void bounce_back(VS *vs, Part *parts, s32 *x, s32 *y, s32 *z, u8 *buf0, u8 *buf1, u8 *off_frames, s32 min) {
     s32 v;
 
-    func_802A768C((u8 *)parts, x, y, z, (u32 *)OTHER_BUF(buf0, buf1), (u32 *)FRAME_BUF(buf0, buf1), 0x800, (u8 *)vs);
+    func_802A768C(parts, x, y, z, (u32 *)OTHER_BUF(buf0, buf1), (u32 *)FRAME_BUF(buf0, buf1), 0x800, vs);
     *off_frames = SKYFALL_HIT_FRAMES;
     v = VS_SPEED(vs);
     if (v >= 0) {
@@ -230,12 +230,12 @@ static void bounce_back(VS *vs, Part *parts, s32 *x, s32 *y, s32 *z, u8 *buf0, u
 static void skyfall_frame(void) {
     VS *vs = &D_803EE2E0;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     func_802B30B0();
-    func_802A75DC((u8 *)SKY, &SKY_X, &SKY_Y, &SKY_Z, (u8 *)vs);
+    func_802A75DC(SKY, &SKY_X, &SKY_Y, &SKY_Z, vs);
     if (VS_IN_SETUP(vs) == 0)
         func_802B37B0(vs);
     if (D_80367BFF != 0)
@@ -609,8 +609,8 @@ static void ramdozer_bounce(VS *vs) {
     s32 v;
 
     D_803EE789 = 0;
-    func_802A768C((u8 *)RAM, &RAM_X, &RAM_Y, &RAM_Z, (u32 *)OTHER_BUF(RAM_BUF0, RAM_BUF1),
-                  (u32 *)FRAME_BUF(RAM_BUF0, RAM_BUF1), 0x800, (u8 *)vs);
+    func_802A768C(RAM, &RAM_X, &RAM_Y, &RAM_Z, (u32 *)OTHER_BUF(RAM_BUF0, RAM_BUF1),
+                  (u32 *)FRAME_BUF(RAM_BUF0, RAM_BUF1), 0x800, vs);
     D_803EE78A = RAMDOZER_HIT_FRAMES;
     v = VS_SPEED(vs);
     if (v >= 0) {
@@ -631,12 +631,12 @@ static void ramdozer_bounce(VS *vs) {
 static void ramdozer_frame(void) {
     VS *vs = &D_803EE6C0;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     func_802B47D4();
-    func_802A75DC((u8 *)RAM, &RAM_X, &RAM_Y, &RAM_Z, (u8 *)vs);
+    func_802A75DC(RAM, &RAM_X, &RAM_Y, &RAM_Z, vs);
     func_802C4724(0x8F);
     if (VS_IN_SETUP(vs) == 0)
         func_802B4EF8(vs);

@@ -221,8 +221,8 @@ static void truck_bounce(VS *vs) {
     s32 v;
 
     D_803EEB60 = 0;
-    func_802A768C((u8 *)PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x800,
-                  (u8 *)vs);
+    func_802A768C(PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x800,
+                  vs);
     v = VS_SPEED(vs);
     if (v >= 0) {
         if (v < TRUCK_HIT_MIN_SPEED)
@@ -241,7 +241,7 @@ void func_802B6294(void) {
     f32 rate;
 
     func_802B60BC();
-    func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
+    func_802A75DC(PARTS, &X, &Y, &Z, vs);
     if (VS_IN_SETUP(vs) == 0)
         func_802B6C28(vs);
     if (D_80367BFF != 0)

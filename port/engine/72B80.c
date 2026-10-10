@@ -236,8 +236,8 @@ static void hotrod_bounce(VS *vs) {
     s32 v;
 
     D_803EEF33 = 0;
-    func_802A768C((u8 *)P, &HR_X, &HR_Y, &HR_Z, (u32 *)OTHER_BUF(HR_BUF0, HR_BUF1), (u32 *)FRAME_BUF(HR_BUF0, HR_BUF1),
-                  0x100, (u8 *)vs);
+    func_802A768C(P, &HR_X, &HR_Y, &HR_Z, (u32 *)OTHER_BUF(HR_BUF0, HR_BUF1), (u32 *)FRAME_BUF(HR_BUF0, HR_BUF1),
+                  0x100, vs);
     D_803EEF34 = HOTROD_HIT_FRAMES;
     v = VS_SPEED(vs);
     if (v >= 0) {
@@ -254,12 +254,12 @@ static void hotrod_bounce(VS *vs) {
 void func_802B7A88(void) {
     VS *vs = &D_803EEE70;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     func_802B78B0();
-    func_802A75DC((u8 *)P, &HR_X, &HR_Y, &HR_Z, (u8 *)vs);
+    func_802A75DC(P, &HR_X, &HR_Y, &HR_Z, vs);
     func_802C4724(0xA4);
     if (VS_IN_SETUP(vs) == 0)
         func_802B7F98(vs);

@@ -156,8 +156,8 @@ static void van_bounce(VS *vs) {
     s32 v;
 
     D_803F9313 = 0;
-    func_802A768C((u8 *)PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x100,
-                  (u8 *)vs);
+    func_802A768C(PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x100,
+                  vs);
     D_803F9314 = VAN_HIT_FRAMES;
     v = VS_SPEED(vs);
     if (v >= 0) {
@@ -174,13 +174,13 @@ static void van_bounce(VS *vs) {
 void func_802CD068(void) {
     VS *vs = &D_803F9250;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802CCE90();
-    func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
+    func_802A75DC(PARTS, &X, &Y, &Z, vs);
     func_802C4724(0x54);
     if (VS_IN_SETUP(vs) == 0)
         func_802CD578(vs);

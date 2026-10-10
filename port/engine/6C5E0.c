@@ -219,7 +219,7 @@ void func_802B14E8(void) {
 void func_802B152C(void) {
     VS *vs = &D_803EDF10;
     s32 step = 0, x, z, rate_i, turn, h;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 

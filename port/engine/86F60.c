@@ -170,8 +170,8 @@ static void police_bounce(VS *vs) {
     s32 v;
 
     D_803F8F43 = 0;
-    func_802A768C((u8 *)PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x100,
-                  (u8 *)vs);
+    func_802A768C(PARTS, &X, &Y, &Z, (u32 *)OTHER_BUF(BUF0, BUF1), (u32 *)FRAME_BUF(BUF0, BUF1), 0x100,
+                  vs);
     D_803F8F44 = POLICE_HIT_FRAMES;
     v = VS_SPEED(vs);
     if (v >= 0) {
@@ -188,12 +188,12 @@ static void police_bounce(VS *vs) {
 void func_802CBEF0(void) {
     VS *vs = &D_803F8E80;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     func_802CBD18();
-    func_802A75DC((u8 *)PARTS, &X, &Y, &Z, (u8 *)vs);
+    func_802A75DC(PARTS, &X, &Y, &Z, vs);
     func_802C4724(VEHICLE_POLICE);
     if (VS_IN_SETUP(vs) == 0)
         func_802CC400(vs);

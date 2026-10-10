@@ -185,15 +185,14 @@ void func_802A754C(VS *vs) {
 /* the current vehicle's parts, state (0xA6 bytes) and position to
    D_803EB7A0 */
 REGS(v0, v1, a0, a1, gp)
-void func_802A75DC(u8 *parts_, s32 *x, s32 *y, s32 *z, u8 *vs) {
+void func_802A75DC(Part *parts, s32 *x, s32 *y, s32 *z, VS *vs) {
     VehicleSave *d = &D_803EB7A0;
-    Part *parts = (Part *)parts_;
     s32 n;
 
     for (n = 0; n < 32; n++)
         d->parts[n] = parts[n];
     for (n = 0; n < SAVED_STATE_SIZE; n++)
-        d->state[n] = vs[n];
+        d->state[n] = ((u8 *)vs)[n];
     d->pos[0].v = *x;
     d->pos[1].v = *y;
     d->pos[2].v = *z;
@@ -201,15 +200,14 @@ void func_802A75DC(u8 *parts_, s32 *x, s32 *y, s32 *z, u8 *vs) {
 
 /* ... and back, with `n` bytes from src to dst (in doublewords) */
 REGS(v0, v1, a0, a1, a2, a3, t0, gp)
-void func_802A768C(u8 *parts_, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n, u8 *vs) {
+void func_802A768C(Part *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n, VS *vs) {
     VehicleSave *s = &D_803EB7A0;
-    Part *parts = (Part *)parts_;
     s32 k;
 
     for (k = 0; k < 32; k++)
         parts[k] = s->parts[k];
     for (k = 0; k < SAVED_STATE_SIZE; k++)
-        vs[k] = s->state[k];
+        ((u8 *)vs)[k] = s->state[k];
     for (; n != 0; n -= 8, src += 2, dst += 2) {
         dst[0] = src[0];
         dst[1] = src[1];
@@ -270,7 +268,7 @@ s32 func_802A7AAC(s32 x, s16 *rows) {
    with D_803ED40C); 0 if none.  The rows pointer is left past the last
    row looked at. */
 REGS(t2, s1, gp -> t4, s1)
-s32 func_802A7C28(s32 x, s16 *rows, VS *vs, u32 *rows_out) {
+s32 func_802A7C28(s32 x, s16 *rows, VS *vs, s16 **rows_out) {
     s32 n, r = 0;
 
     n = VS_GRIP(vs) == 1 ? GEAR_ROWS : 7 - VS_GRIP(vs);
@@ -283,7 +281,7 @@ s32 func_802A7C28(s32 x, s16 *rows, VS *vs, u32 *rows_out) {
             break;
         }
     }
-    *rows_out = (u32)rows;
+    *rows_out = rows;
     return r;
 }
 
@@ -341,7 +339,7 @@ extern s8 D_803649EE;
    the turn, and the stick's x and its address as the original leaves them
    for its callers. */
 REGS(s3, s4 -> s3, t0, t2)
-s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick) {
+s32 func_802A7E70(s32 rate, u16 *h, s8 **stick_addr, s32 *stick) {
     s32 x = STICK_X, t = *h;
 
     if (D_80367C10 != 0)
@@ -361,7 +359,7 @@ s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick) {
         t = D_803ED408;
     *h = t;
     D_80370C70 = t;
-    *stick_addr = (u32)&STICK_X;
+    *stick_addr = &STICK_X;
     *stick = x;
     return rate;
 }
@@ -746,7 +744,7 @@ static s32 brake_to_zero(s32 v, s32 sign, s32 brake) {
 REGS(t3, t6, t7, s0, s1, s2, gp -> t2, t3)
 s32 func_802A785C(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, VS *vs, s32 *step_out) {
     s32 t2, g;
-    u32 rows2;
+    s16 *rows2;
 
     if (PAD_Z != 0) {
         t2 = D_803ED400;
@@ -796,13 +794,13 @@ done:
 }
 
 REGS(s3, s4 -> s3, t0, t2)
-s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick);
+s32 func_802A7E70(s32 rate, u16 *h, s8 **stick_addr, s32 *stick);
 
 /* the steering, then the speed: a turn and the gears in one */
 REGS(t3, t6, t7, s0, s1, s2, s3, s4, gp -> t2, t3, s3)
 s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, s32 rate, u16 *h, VS *vs,
                   s32 *step_out, s32 *turn_out) {
-    u32 sa;
+    s8 *sa;
     s32 st;
 
     *turn_out = func_802A7E70(rate, h, &sa, &st);
@@ -816,7 +814,7 @@ s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brak
 REGS(t6, s1, s2, gp)
 void func_802A7B3C(s16 *speed, s16 *rows, s32 brake, VS *vs) {
     s32 v, g;
-    u32 rows2;
+    s16 *rows2;
 
     if (PAD_Z != 0) {
         if (D_803ED400 != 0)
@@ -1603,7 +1601,7 @@ void func_802AABE4(s32 id, u16 *data, u8 *base, s32 s1, s32 s2) {
         w = (s32 *)r;
         for (k = 0; k < 9; k += 3) {
             h[k] = t[k], h[k + 1] = t[k + 1], h[k + 2] = t[k + 2];
-            x = func_802AA890(t[k], t[k + 1], t[k + 2], n, offs, base, (u32)r, s1, s2, &y, &z, &s1, &s2);
+            x = func_802AA890(t[k], t[k + 1], t[k + 2], n, offs, base, (u32)(uintptr_t)r, s1, s2, &y, &z, &s1, &s2);
             w[k] = x, w[k + 1] = y, w[k + 2] = z;
         }
     }

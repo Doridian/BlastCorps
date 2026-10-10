@@ -695,8 +695,8 @@ void func_802BBEB8(void);
 /* hd_code 77E20, handwritten (port/engine/77E20.c) */
 void func_802BC5E0(void);
 void func_802BCA2C(void);
-s32 func_802BCE40(void);
-void func_802BD10C(s32);
+void *func_802BCE40(void);
+void func_802BD10C(void *);
 void func_802BD1F8(Gfx *, Gfx *, Gfx *, Gfx *, Mtx *, Mtx *, Gfx *, Gfx *);
 void func_802C0574(void);
 s32 func_802C1AA0(void);

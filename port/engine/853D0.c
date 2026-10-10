@@ -248,13 +248,13 @@ static void bike_bounce(VS *vs) {
 void func_802CA4E0(void) {
     VS *vs = &D_803F8AA0;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802CA308();
-    func_802A75DC((u8 *)BK, &X, &Y, &Z, (u8 *)vs);
+    func_802A75DC(BK, &X, &Y, &Z, vs);
     if (VS_IN_SETUP(vs) == 0)
         func_802CAAFC(vs);
     if (D_80367BFF != 0)

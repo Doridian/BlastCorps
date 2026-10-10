@@ -232,8 +232,8 @@ static void starski_bounce(VS *vs) {
     s32 v;
 
     D_803FC5C3 = 0;
-    func_802A768C((u8 *)SK, &SK_X, &SK_Y, &SK_Z, (u32 *)OTHER_BUF(SK_BUF0, SK_BUF1),
-                  (u32 *)FRAME_BUF(SK_BUF0, SK_BUF1), 0x100, (u8 *)vs);
+    func_802A768C(SK, &SK_X, &SK_Y, &SK_Z, (u32 *)OTHER_BUF(SK_BUF0, SK_BUF1),
+                  (u32 *)FRAME_BUF(SK_BUF0, SK_BUF1), 0x100, vs);
     D_803FC5C4 = STARSKI_HIT_FRAMES;
     v = VS_SPEED(vs);
     if (v >= 0) {
@@ -250,13 +250,13 @@ static void starski_bounce(VS *vs) {
 void func_802CFDE8(void) {
     VS *vs = &D_803FC500;
     s32 step = 0, x, z, rate_i;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
     /* (its $fp as it found it: 5CB60.c and the other vehicles read it from the context) */
     func_802CFC10();
-    func_802A75DC((u8 *)SK, &SK_X, &SK_Y, &SK_Z, (u8 *)vs);
+    func_802A75DC(SK, &SK_X, &SK_Y, &SK_Z, vs);
     func_802C4724(0x76);
     if (VS_IN_SETUP(vs) == 0)
         func_802D02F8(vs);
@@ -497,7 +497,7 @@ void func_802D0F54(void) {
 void func_802D0F98(void) {
     VS *vs = &D_803FC8D0;
     s32 step = 0, x, z, rate_i, turn, h;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 

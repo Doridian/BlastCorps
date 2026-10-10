@@ -173,9 +173,9 @@ void func_802A746C(s32 turn, VS *vs);
 REGS(gp)
 void func_802A754C(VS *vs);
 REGS(v0, v1, a0, a1, gp)
-void func_802A75DC(u8 *parts, s32 *x, s32 *y, s32 *z, u8 *vs);
+void func_802A75DC(Part *parts, s32 *x, s32 *y, s32 *z, VS *vs);
 REGS(v0, v1, a0, a1, a2, a3, t0, gp)
-void func_802A768C(u8 *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n, u8 *vs);
+void func_802A768C(Part *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n, VS *vs);
 REGS(a0, a1, a2)
 void func_802A7764(u32 *a, u32 *b, s32 n);
 REGS(gp)
@@ -185,13 +185,13 @@ s32 func_802A7A1C(s32 x, s16 *rows);
 REGS(t2, s1 -> t4)
 s32 func_802A7AAC(s32 x, s16 *rows);
 REGS(t2, s1, gp -> t4, s1)
-s32 func_802A7C28(s32 x, s16 *rows, VS *vs, u32 *rows_out);
+s32 func_802A7C28(s32 x, s16 *rows, VS *vs, s16 **rows_out);
 REGS(v1, gp -> v0)
 s32 func_802A7CB0(s32 range, VS *vs);
 REGS(t7, s0 -> t3)
 s32 func_802A7D68(s32 mode, u8 *flags);
 REGS(s3, s4 -> s3, t0, t2)
-s32 func_802A7E70(s32 rate, u16 *h, u32 *stick_addr, s32 *stick);
+s32 func_802A7E70(s32 rate, u16 *h, s8 **stick_addr, s32 *stick);
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)
 s32 func_802AA460(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3);
 REGS(t0, t1, s1, s3, s4, s6, s7, t9 -> v0)

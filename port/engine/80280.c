@@ -539,7 +539,7 @@ void func_802C5A14(s32 carrier) {
 static void jbomb_frame(void) {
     VS *vs = &D_803F7B50;
     s32 step = 0, x, z, rate_i, sel, mode;
-    u32 stick_addr;
+    s8 *stick_addr;
     s32 stick;
     f32 rate;
 
