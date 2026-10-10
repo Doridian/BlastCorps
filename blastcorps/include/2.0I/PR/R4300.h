@@ -62,7 +62,11 @@
 
 #define	K0_TO_K1(x)	((u32)(x)|0xA0000000)	/* kseg0 to kseg1 */
 #define	K1_TO_K0(x)	((u32)(x)&0x9FFFFFFF)	/* kseg1 to kseg0 */
+#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+#define	K0_TO_PHYS(x)	((u32)(x))
+#else
 #define	K0_TO_PHYS(x)	((u32)(x)&0x1FFFFFFF)	/* kseg0 to physical */
+#endif
 #define	K1_TO_PHYS(x)	((u32)(x)&0x1FFFFFFF)	/* kseg1 to physical */
 #define	KDM_TO_PHYS(x)	((u32)(x)&0x1FFFFFFF)	/* direct mapped to physical */
 #define	PHYS_TO_K0(x)	((u32)(x)|0x80000000)	/* physical to kseg0 */
