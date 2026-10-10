@@ -1,9 +1,10 @@
 /*
  * The port's libaudio's blocks in the audio heap (docs/PORT.md, "libaudio"):
  * the sizes the reference allocates them at, and the structures this code
- * keeps in them.  port/libaudio's (audio_private.h includes it), and in the
- * LP64 build game/audio.h's, whose AUDIO_HEAP_SIZE grows by what the
- * blocks grow by there (AL_SYN_HEAP_GROWTH, AL_CSP_HEAP_GROWTH).
+ * keeps in them.  port/libaudio's (audio_private.h includes it), and the
+ * port's game/audio.h's, whose AUDIO_HEAP_SIZE grows by what the blocks
+ * grow by where pointers are wider than 4 bytes (AL_SYN_HEAP_GROWTH,
+ * AL_CSP_HEAP_GROWTH: 0 where they are 4).
  *
  * The heap's layout is the reference's where pointers are 4 bytes: the
  * RSP's state blocks are allocated in it and their addresses are in the
@@ -37,11 +38,8 @@
    structure, which is n64 bytes exactly where pointers are 4, asserted
    below) */
 #define HEAP_BLOCK(T, n64) (sizeof(T) > (n64) ? (s32)sizeof(T) : (n64))
-#if __SIZEOF_POINTER__ == 4
-#define N64_BLOCK(T, n64) _Static_assert(sizeof(T) == (n64), #T " is its N64 block")
-#else
-#define N64_BLOCK(T, n64) _Static_assert(sizeof(T) >= (n64), #T " is at least its N64 block")
-#endif
+#define N64_BLOCK(T, n64) \
+    _Static_assert(sizeof(void *) == 4 ? sizeof(T) == (n64) : sizeof(T) >= (n64), #T " is its N64 block")
 
 /* how much more n blocks of T take than n of n64 bytes did (each
    alHeapAlloc is rounded up to 16) */
@@ -191,10 +189,8 @@ N64_BLOCK(PVoice *, BLOCK_PTR);
 N64_BLOCK(ALChanState, BLOCK_CHANSTATE);
 N64_BLOCK(ALVoiceState, BLOCK_VOICESTATE);
 N64_BLOCK(ALEventListItem, BLOCK_EVENT);
-#if __SIZEOF_POINTER__ == 4
 /* (the game is given its address: the oracle's log has it) */
-_Static_assert(__builtin_offsetof(PVoice, dma_state) == 0x44, "PVoice.dma_state");
-#endif
+_Static_assert(sizeof(void *) != 4 || __builtin_offsetof(PVoice, dma_state) == 0x44, "PVoice.dma_state");
 /* aLoadADPCM'd from its block: 8-byte aligned */
 _Static_assert(__builtin_offsetof(LowPass, coef) == 8, "LowPass.coef");
 
