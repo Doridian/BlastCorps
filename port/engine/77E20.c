@@ -1780,9 +1780,9 @@ void func_802BF898(s32 group, s32 damage, Building *b) {
 REGS(v0, t3, t5, t9)
 void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
     s16 *c = (s16 *)(B_SECTION(b, MS_CENTRES) + (group - 1) * 8);
-    /* (with no debris, the sound's record is whatever $s7 held: the
-       model's byte 5, as an address) */
-    u8 *t, *fx = (u8 *)(uintptr_t)M_DEBRIS(model);
+    /* (the counts are 1 to 3, and a weak hit returns before the first
+       record, so the sound's record is always the last one made) */
+    u8 *t, *fx = NULL;
     s32 x = c[0] << 16, y = c[1] << 16, z = c[2] << 16;
     s32 roll, n, k, sp;
 
