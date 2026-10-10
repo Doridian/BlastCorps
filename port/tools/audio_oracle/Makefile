@@ -6,7 +6,9 @@
 # orig.so is the decompiled original (blastcorps/src/libultra/audio, through
 # the hd_code objects that include it), port.so the port's own
 # (port/libaudio); both compiled as the port compiles the game's C, less
-# BEPass.
+# BEPass.  port.so parses the bank files into objects of its own and
+# exports their map (alog_bank_map, under PORT_AUDIO_ORACLE), which the
+# replay translates through.
 
 ROOT := $(abspath ../../..)
 BLAST := $(ROOT)/blastcorps
@@ -36,7 +38,7 @@ ORIG_O := $(ORIG_OBJS:%=$(OUT)/orig/%.o)
 PORT_SRC := $(wildcard $(PORT)/libaudio/*.c)
 PORT_O := $(PORT_SRC:$(PORT)/libaudio/%.c=$(OUT)/port/%.o)
 
-all: $(OUT)/replay $(OUT)/orig.so $(if $(PORT_SRC),$(OUT)/port.so $(OUT)/banktest.so)
+all: $(OUT)/replay $(OUT)/orig.so $(if $(PORT_SRC),$(OUT)/port.so)
 
 # game/types.h's ROM addresses (port/tools/gen_syms.py romaddrs, from a
 # stage 2 of the version): libaudio names none, so an empty header does
@@ -44,7 +46,7 @@ $(OUT)/gen/rom_addrs.h:
 	@mkdir -p $(dir $@)
 	echo "/* (the libaudio oracle: no ROM addresses) */" > $@
 
-$(ORIG_O) $(PORT_O) $(OUT)/banktest/banktest.o: | $(OUT)/gen/rom_addrs.h
+$(ORIG_O) $(PORT_O): | $(OUT)/gen/rom_addrs.h
 
 $(OUT)/replay: replay.c $(PORT)/include/audio_log.h
 	@mkdir -p $(dir $@)
@@ -64,24 +66,10 @@ $(OUT)/port/%.o: $(PORT)/libaudio/%.c $(wildcard $(PORT)/libaudio/*.h) $(wildcar
 $(OUT)/port.so: $(PORT_O)
 	$(CC) $(ARCH) -shared -o $@ $^
 
-# port.so with its banks' objects copied out of the file (banktest.c): the
-# replay's bank-object translation at work, while port/libaudio relocates
-# in place
-$(OUT)/banktest/core.o: $(OUT)/port/core.o
-	@mkdir -p $(dir $@)
-	objcopy --redefine-sym alBnkfNew=port_alBnkfNew $< $@
-
-$(OUT)/banktest/banktest.o: banktest.c $(PORT)/include/audio_log.h
-	@mkdir -p $(dir $@)
-	$(CC) $(N64_CFLAGS) $(PORT_INC) -c -o $@ $<
-
-$(OUT)/banktest.so: $(filter-out $(OUT)/port/core.o,$(PORT_O)) $(OUT)/banktest/core.o $(OUT)/banktest/banktest.o
-	$(CC) $(ARCH) -shared -o $@ $^
-
 clean:
 	rm -rf $(OUT)
 
 # the headers each object read
--include $(ORIG_O:.o=.d) $(PORT_O:.o=.d) $(OUT)/banktest/banktest.d
+-include $(ORIG_O:.o=.d) $(PORT_O:.o=.d)
 
 .PHONY: all clean

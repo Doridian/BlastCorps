@@ -205,16 +205,20 @@ typedef struct {
 } ALKeyMap;
 
 typedef struct {
-    ALADPCMloop *PTR32 loop;
-    ALADPCMBook *PTR32 book;
+    ALADPCMloop *loop;
+    ALADPCMBook *book;
 } ALADPCMWaveInfo;
 
 typedef struct {
-    ALRawLoop *PTR32 loop;
+    ALRawLoop *loop;
 } ALRAWWaveInfo;
 
 typedef struct ALWaveTable_s {
-    u8          *PTR32 base;    /* ptr to start of wave data    */
+#ifdef TARGET_PC
+    u32         base;           /* the samples' ROM address (port/include/sdk) */
+#else
+    u8          *base;    /* ptr to start of wave data    */
+#endif
     s32         len;            /* length of data in bytes      */
     u8          type;           /* compression type             */
     u8          flags;          /* offset/address flags         */
@@ -225,9 +229,9 @@ typedef struct ALWaveTable_s {
 } ALWaveTable;
 
 typedef struct ALSound_s {
-    ALEnvelope  *PTR32 envelope;
-    ALKeyMap    *PTR32 keyMap;
-    ALWaveTable *PTR32 wavetable;     /* offset to wavetable struct           */
+    ALEnvelope  *envelope;
+    ALKeyMap    *keyMap;
+    ALWaveTable *wavetable;     /* offset to wavetable struct           */
     ALPan       samplePan;
     u8          sampleVolume;
     u8          flags;
@@ -248,7 +252,7 @@ typedef struct {
     u8          vibDelay;       /* the delay for the tremelo osc        */
     s16         bendRange;      /* pitch bend range in cents            */
     s16         soundCount;     /* number of sounds in this array       */
-    ALSound     *PTR32 soundArray[1];
+    ALSound     *soundArray[1];
 } ALInstrument;
 
 typedef struct ALBank_s {
@@ -256,17 +260,23 @@ typedef struct ALBank_s {
     u8                  flags;
     u8                  pad;
     s32                 sampleRate;     /* e.g. 44100, 22050, etc...       */
-    ALInstrument        *PTR32 percussion;    /* default percussion for GM       */
-    ALInstrument        *PTR32 instArray[1];  /* ARRAY of instruments            */
+    ALInstrument        *percussion;    /* default percussion for GM       */
+    ALInstrument        *instArray[1];  /* ARRAY of instruments            */
 } ALBank;
 
 typedef struct {                /* Note: sizeof won't be correct        */
     s16         revision;       /* format revision of this file         */
     s16         bankCount;      /* number of banks                      */
-    ALBank      *PTR32 bankArray[1];  /* ARRAY of bank offsets                */
+    ALBank      *bankArray[1];  /* ARRAY of bank offsets                */
 } ALBankFile;
 
+#ifdef TARGET_PC
+/* (the port's: port/include/sdk/PR/libaudio.h) */
+void    alBnkfNew(ALBankFile *f, u32 table, s32 len);
+ALBank  *alBnkfBank(ALBankFile *f, s32 i);
+#else
 void    alBnkfNew(ALBankFile *f, u8 *table);
+#endif
 
 /***********************************************************************
  * Sequence Files
@@ -274,7 +284,11 @@ void    alBnkfNew(ALBankFile *f, u8 *table);
 #define AL_SEQBANK_VERSION    'S1'
 
 typedef struct {
-    u8          *PTR32 offset;
+#ifdef TARGET_PC
+    u32         offset;         /* a ROM address (port/include/sdk) */
+#else
+    u8          *offset;
+#endif
     s32         len;
 } ALSeqData;
 
@@ -284,7 +298,11 @@ typedef struct {                /* Note: sizeof won't be correct        */
     ALSeqData   seqArray[1];    /* ARRAY of sequence info               */
 } ALSeqFile;
 
+#ifdef TARGET_PC
+void    alSeqFileNew(ALSeqFile *f, u32 base);
+#else
 void    alSeqFileNew(ALSeqFile *f, u8 *base);
+#endif
 
 /***********************************************************************
  * Synthesis driver stuff

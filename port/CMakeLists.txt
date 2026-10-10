@@ -765,6 +765,10 @@ add_library(host OBJECT ${HOST_C} ${GZIP124_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/h
 if(PORT_AUDIO_RECORD)
     target_compile_definitions(host PRIVATE PORT_AUDIO_RECORD)
 endif()
+if(PORT_LIBAUDIO_ORIGINAL)
+    # (host/native.c: the original relocates a bank file's records in place)
+    target_compile_definitions(host PRIVATE PORT_LIBAUDIO_ORIGINAL)
+endif()
 # the game's threads' context switch (host/fiber.h): ucontext on the one OS
 # thread, or a host thread each, one running at a time.  ucontext is the
 # cheaper switch; macOS has deprecated it and WebAssembly has none.  Where

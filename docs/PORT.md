@@ -2858,18 +2858,20 @@ loops' shape doesn't matter to the timing.
   `--hashes`, `--dump-mem`).  Only exact object starts are translated;
   `--translations FILE` lists each one and the summary counts them.  The
   bank files' own bytes are the library's after `alBnkfNew` and are left
-  out of the hashes.  A library without the map relocates in place and
-  nothing is translated.  `banktest.so` (`banktest.c`) is `port.so` with
-  its banks' objects copied out of the file and the file's pointers
-  poisoned: replaying into it with no mismatch shows the translation
-  reaches everything the library is handed.
+  out of the hashes.  `port.so` is such a library (`port/libaudio`
+  parses the bank files); `orig.so` relocates in place, has no map, and
+  nothing is translated.  The logs are the original's, whose loader puts
+  a bank file's records in host order for it (`host/native.c`, under
+  `PORT_LIBAUDIO_ORIGINAL`): before a parsing library's `alBnkfNew` the
+  replay puts them back in the ROM's order, as the port's loader leaves
+  them.
 - **Running it.**  `oracle.py record --version V --refs DIR` builds the
   recorder (`build/oracle-rec-V`) and records test.py's attract (4,000
   frames), auto1-3 and attract.long (12,000) into `DIR/V-<scenario>.alog`,
   the same runs as `test.py quick`'s, checking each run's wav against the
   scenario's reference hash (the original library has to give the
   reference's sound).  `oracle.py replay --version V --refs DIR [--lib
-  port orig banktest]` builds the replay and the libraries
+  port orig]` builds the replay and the libraries
   (`build/audio_oracle/V`) and replays every log of the version: it
   passes with no mismatch in any.  `--lock FILE` holds an flock around the
   runs.  The logs are large (us.v10's five 340 MB, eu's 510 MB) and are

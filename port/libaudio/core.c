@@ -3,7 +3,10 @@
  * sequence bank files.
  */
 #include "audio_private.h"
+#include <stddef.h>
+
 #include "port.h"
+#include "bankfile.h"
 
 /* ---- the heap ------------------------------------------------------------------ */
 
@@ -181,80 +184,279 @@ f32 alCents2Ratio(s32 cents) {
     return ratio;
 }
 
-/* ---- the bank and sequence bank files: offsets in the file become pointers ---- */
+/* ---- the sequence bank file: its offsets become ROM addresses, in place ---- */
 
-#define RELOC(p, base) ((p) = (void *)((u8 *)(p) + (s32)(base)))
-
-void alSeqFileNew(ALSeqFile *f, u8 *base) {
+void alSeqFileNew(ALSeqFile *f, u32 base) {
     s32 i;
 
     for (i = 0; i < f->seqCount; i++)
-        RELOC(f->seqArray[i].offset, base);
+        f->seqArray[i].offset += base;
 }
 
-/* each object once: its flags say it's done (they're shared within a file) */
-static void reloc_wave(ALWaveTable *w, u8 *file, u8 *rom) {
-    if (w->flags)
-        return;
+/* ---- bank files: parsed into objects (bankfile.h) --------------------------- */
+
+/*
+ * The objects live in a pool here, on the N64 side (their addresses are
+ * the game's to hold: in the sound player's states, in the events it
+ * queues), not in the audio heap, whose layout the command lists'
+ * addresses depend on: the file stays in its heap block as the ROM has it.
+ * An object is never bigger than its record with each 4-byte offset made
+ * a pointer, plus a pointer's rounding; the smallest record has 8 bytes.
+ * So AL_BANK_RECORD_BYTES of records (the bank files' bytes less their
+ * leaves) need at most 3/8 of a pointer's size a byte, plus a bank list
+ * for each file (one with no bank has a 4-byte record).  The game's two
+ * files have 0x1D54 and 0x1C70 bytes of records (738 of them; the files
+ * 0x4B08 and 0x4BB8 bytes, the same in all four versions), which take
+ * 0x39C4 bytes of the pool with 4-byte pointers and 0x6598 with 8; a
+ * small target can set the bound lower, a resource pack's bigger banks
+ * higher.
+ */
+#ifndef AL_BANK_RECORD_BYTES
+#define AL_BANK_RECORD_BYTES 0x8000
+#endif
+#ifndef AL_BANK_FILES
+#define AL_BANK_FILES 4                 /* the game has two: the music's and the effects' */
+#endif
+#define AL_BANK_POOL_BYTES (AL_BANK_RECORD_BYTES / 8 * 3 * sizeof(void *) + AL_BANK_FILES * sizeof(ALBankFile))
+#define AL_BANK_OBJECTS (AL_BANK_RECORD_BYTES / 12)     /* a mapped record has at least 12 */
+
+static void *bank_pool[AL_BANK_POOL_BYTES / sizeof(void *)];
+static u32 bank_pool_used;
+
+/* the files parsed, the newest at an address winning */
+static struct {
+    ALBankFile *file;
+    ALBankFile *parsed;
+} bank_files[AL_BANK_FILES];
+
+/* the file being parsed, and its records made so far (each once: they're
+   shared, a wave table by sounds, a sound by instruments) */
+static BankFileIn bank_in;
+static u32 bank_table;
+static struct {
+    u32 off;                    /* the record in the file */
+    void *obj;
+} bank_made[AL_BANK_OBJECTS];
+static u32 bank_nmade;
+
+#ifdef PORT_AUDIO_ORACLE
+/* the oracle's map (audio_log.h, ALOG_BANK_MAP): every object built, by
+   its record's address (replay builds only: i386, addresses of 32 bits) */
+#include "audio_log.h"
+static AlogBankObj bank_map[AL_BANK_FILES * AL_BANK_OBJECTS];
+static u32 bank_nmap;
+
+u32 alog_bank_map(const AlogBankObj **objs) {
+    *objs = bank_map;
+    return bank_nmap;
+}
+#endif
+
+static void bank_fail(const char *what, u32 off) {
+    host_fatal("libaudio: the bank file at offset 0x%X: %s (the file has 0x%X bytes)", off, what,
+               bank_in.len);
+}
+
+/* a record or leaf of size bytes at off, aligned to align */
+static void bank_check(u32 off, u32 size, u32 align, const char *what) {
+    if (off == 0 || off % align != 0 || off > bank_in.len || size > bank_in.len - off)
+        bank_fail(what, off);
+}
+
+static void *bank_alloc(u32 size) {
+    u32 n = (size + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
+    void *p;
+
+    if (n > sizeof(bank_pool) - bank_pool_used)
+        host_fatal("libaudio: the bank files' objects need more than the pool's 0x%X bytes "
+                   "(AL_BANK_RECORD_BYTES)", (u32)sizeof(bank_pool));
+    p = (u8 *)bank_pool + bank_pool_used;
+    bank_pool_used += n;
+    return p;
+}
+
+static void *bank_find(u32 off) {
+    u32 i;
+
+    for (i = 0; i < bank_nmade; i++)
+        if (bank_made[i].off == off)
+            return bank_made[i].obj;
+    return NULL;
+}
+
+/* a new object for the record at off, zeroed */
+static void *bank_new(u32 off, u32 size) {
+    u8 *p = bank_alloc(size);
+    u32 i;
+
+    for (i = 0; i < size; i++)
+        p[i] = 0;
+    if (bank_nmade == AL_BANK_OBJECTS)
+        host_fatal("libaudio: the bank file has more than %d records (AL_BANK_RECORD_BYTES)", AL_BANK_OBJECTS);
+    bank_made[bank_nmade].off = off;
+    bank_made[bank_nmade].obj = p;
+    bank_nmade++;
+#ifdef PORT_AUDIO_ORACLE
+    if (bank_nmap < AL_BANK_FILES * AL_BANK_OBJECTS) {
+        bank_map[bank_nmap].file = (u32)(uintptr_t)(bank_in.base + off);
+        bank_map[bank_nmap].native = (u32)(uintptr_t)p;
+        bank_nmap++;
+    }
+#endif
+    return p;
+}
+
+/* a leaf (no offsets in it): where it is in the file */
+static void *bank_leaf(u32 off, u32 size, u32 align, const char *what) {
+    bank_check(off, size, align, what);
+    return (u8 *)bank_in.base + off;
+}
+
+static ALWaveTable *bank_wave(u32 off) {
+    ALWaveTable *w = bank_find(off);
+    u32 loop, book;
+
+    if (w != NULL)
+        return w;
+    bank_check(off, BF_WAVE_SIZE, 4, "a wave table out of the file");
+    w = bank_new(off, sizeof(ALWaveTable));
+    w->base = bf_u32(&bank_in, off + BF_WAVE_BASE) + bank_table;
+    w->len = (s32)bf_u32(&bank_in, off + BF_WAVE_LEN);
+    w->type = bf_u8(&bank_in, off + BF_WAVE_TYPE);
     w->flags = 1;
-    RELOC(w->base, rom);
+    loop = bf_u32(&bank_in, off + BF_WAVE_LOOP);
     if (w->type == AL_ADPCM_WAVE) {
-        RELOC(w->waveInfo.adpcmWave.book, file);
-        if (w->waveInfo.adpcmWave.loop != NULL)
-            RELOC(w->waveInfo.adpcmWave.loop, file);
+        ALADPCMBook *b;
+        u32 room;
+
+        book = bf_u32(&bank_in, off + BF_WAVE_BOOK);
+        b = bank_leaf(book, BF_BOOK_HEADER, 4, "an ADPCM book out of the file");
+        room = (bank_in.len - book - BF_BOOK_HEADER) / BF_BOOK_ENTRY;
+        if (b->order < 0 || b->npredictors < 0 ||
+            (b->npredictors != 0 && (u32)b->order > room / (u32)b->npredictors))
+            bank_fail("an ADPCM book past the file's end", book);
+        w->waveInfo.adpcmWave.book = b;
+        if (loop != 0)
+            w->waveInfo.adpcmWave.loop = bank_leaf(loop, BF_ADPCMLOOP_SIZE, 4, "an ADPCM loop out of the file");
     } else if (w->type == AL_RAW16_WAVE) {
-        if (w->waveInfo.rawWave.loop != NULL)
-            RELOC(w->waveInfo.rawWave.loop, file);
+        if (loop != 0)
+            w->waveInfo.rawWave.loop = bank_leaf(loop, BF_RAWLOOP_SIZE, 4, "a loop out of the file");
     }
+    return w;
 }
 
-static void reloc_sound(ALSound *s, u8 *file, u8 *rom) {
-    if (s->flags)
-        return;
+static ALSound *bank_sound(u32 off) {
+    ALSound *s = bank_find(off);
+
+    if (s != NULL)
+        return s;
+    bank_check(off, BF_SOUND_SIZE, 4, "a sound out of the file");
+    s = bank_new(off, sizeof(ALSound));
+    s->envelope = bank_leaf(bf_u32(&bank_in, off + BF_SOUND_ENVELOPE), BF_ENVELOPE_SIZE, 4,
+                            "an envelope out of the file");
+    s->keyMap = bank_leaf(bf_u32(&bank_in, off + BF_SOUND_KEYMAP), BF_KEYMAP_SIZE, 1,
+                          "a key map out of the file");
+    s->wavetable = bank_wave(bf_u32(&bank_in, off + BF_SOUND_WAVETABLE));
+    s->samplePan = bf_u8(&bank_in, off + BF_SOUND_PAN);
+    s->sampleVolume = bf_u8(&bank_in, off + BF_SOUND_VOLUME);
     s->flags = 1;
-    RELOC(s->envelope, file);
-    RELOC(s->keyMap, file);
-    RELOC(s->wavetable, file);
-    reloc_wave(s->wavetable, file, rom);
+    return s;
 }
 
-static void reloc_inst(ALInstrument *in, u8 *file, u8 *rom) {
-    s32 i;
+static ALInstrument *bank_inst(u32 off) {
+    ALInstrument *in = bank_find(off);
+    s32 i, n;
 
-    if (in->flags)
-        return;
+    if (in != NULL)
+        return in;
+    bank_check(off, BF_INST_SOUNDS, 4, "an instrument out of the file");
+    n = (s16)bf_u16(&bank_in, off + BF_INST_COUNT);
+    if (n < 0 || (u32)n > (bank_in.len - off - BF_INST_SOUNDS) / 4)
+        bank_fail("an instrument's sounds past the file's end", off);
+    in = bank_new(off, MAX(sizeof(ALInstrument), offsetof(ALInstrument, soundArray) + n * sizeof(ALSound *)));
+    in->volume = bf_u8(&bank_in, off + BF_INST_VOLUME);
+    in->pan = bf_u8(&bank_in, off + BF_INST_PAN);
+    in->priority = bf_u8(&bank_in, off + BF_INST_PRIORITY);
     in->flags = 1;
-    for (i = 0; i < in->soundCount; i++) {
-        RELOC(in->soundArray[i], file);
-        reloc_sound(in->soundArray[i], file, rom);
-    }
+    in->tremType = bf_u8(&bank_in, off + BF_INST_TREM + 0);
+    in->tremRate = bf_u8(&bank_in, off + BF_INST_TREM + 1);
+    in->tremDepth = bf_u8(&bank_in, off + BF_INST_TREM + 2);
+    in->tremDelay = bf_u8(&bank_in, off + BF_INST_TREM + 3);
+    in->vibType = bf_u8(&bank_in, off + BF_INST_VIB + 0);
+    in->vibRate = bf_u8(&bank_in, off + BF_INST_VIB + 1);
+    in->vibDepth = bf_u8(&bank_in, off + BF_INST_VIB + 2);
+    in->vibDelay = bf_u8(&bank_in, off + BF_INST_VIB + 3);
+    in->bendRange = (s16)bf_u16(&bank_in, off + BF_INST_BEND);
+    in->soundCount = n;
+    for (i = 0; i < n; i++)
+        in->soundArray[i] = bank_sound(bf_u32(&bank_in, off + BF_INST_SOUNDS + 4 * i));
+    return in;
 }
 
-static void reloc_bank(ALBank *b, u8 *file, u8 *rom) {
-    s32 i;
+static ALBank *bank_bank(u32 off) {
+    ALBank *b = bank_find(off);
+    u32 perc;
+    s32 i, n;
 
-    if (b->flags)
-        return;
+    if (b != NULL)
+        return b;
+    bank_check(off, BF_BANK_INSTS, 4, "a bank out of the file");
+    n = (s16)bf_u16(&bank_in, off + BF_BANK_COUNT);
+    if (n < 0 || (u32)n > (bank_in.len - off - BF_BANK_INSTS) / 4)
+        bank_fail("a bank's instruments past the file's end", off);
+    b = bank_new(off, MAX(sizeof(ALBank), offsetof(ALBank, instArray) + n * sizeof(ALInstrument *)));
+    b->instCount = n;
     b->flags = 1;
-    if (b->percussion != NULL) {
-        RELOC(b->percussion, file);
-        reloc_inst(b->percussion, file, rom);
+    b->pad = bf_u8(&bank_in, off + BF_BANK_PAD);
+    b->sampleRate = (s32)bf_u32(&bank_in, off + BF_BANK_RATE);
+    perc = bf_u32(&bank_in, off + BF_BANK_PERCUSSION);
+    if (perc != 0)
+        b->percussion = bank_inst(perc);
+    for (i = 0; i < n; i++) {
+        u32 in = bf_u32(&bank_in, off + BF_BANK_INSTS + 4 * i);
+        if (in != 0)
+            b->instArray[i] = bank_inst(in);
     }
-    for (i = 0; i < b->instCount; i++) {
-        RELOC(b->instArray[i], file);
-        if (b->instArray[i] != NULL)
-            reloc_inst(b->instArray[i], file, rom);
-    }
+    return b;
 }
 
-void alBnkfNew(ALBankFile *f, u8 *table) {
-    s32 i;
+void alBnkfNew(ALBankFile *f, u32 table, s32 len) {
+    ALBankFile *parsed;
+    s32 i, n, slot;
 
-    if (f->revision != AL_BANK_VERSION)
-        return;
-    for (i = 0; i < f->bankCount; i++) {
-        RELOC(f->bankArray[i], f);
-        if (f->bankArray[i] != NULL)
-            reloc_bank(f->bankArray[i], (u8 *)f, table);
+    bank_in.base = (const u8 *)f;
+    bank_in.len = len < 0 ? 0 : (u32)len;
+    bank_table = table;
+    if (bank_in.len < BF_FILE_BANKS || bf_u16(&bank_in, BF_FILE_REVISION) != AL_BANK_VERSION)
+        return;         /* (not a bank file: the reference leaves it alone too) */
+    n = (s16)bf_u16(&bank_in, BF_FILE_COUNT);
+    if (n < 0 || (u32)n > (bank_in.len - BF_FILE_BANKS) / 4)
+        bank_fail("the bank list past the file's end", 0);
+    for (slot = 0; slot < AL_BANK_FILES; slot++)
+        if (bank_files[slot].file == NULL || bank_files[slot].file == f)
+            break;
+    if (slot == AL_BANK_FILES)
+        host_fatal("libaudio: more than %d bank files (AL_BANK_FILES)", AL_BANK_FILES);
+    bank_nmade = 0;
+    parsed = bank_alloc(MAX(sizeof(ALBankFile), offsetof(ALBankFile, bankArray) + n * sizeof(ALBank *)));
+    parsed->revision = AL_BANK_VERSION;
+    parsed->bankCount = n;
+    for (i = 0; i < n; i++) {
+        u32 b = bf_u32(&bank_in, BF_FILE_BANKS + 4 * i);
+        parsed->bankArray[i] = b != 0 ? bank_bank(b) : NULL;
     }
+    bank_files[slot].file = f;
+    bank_files[slot].parsed = parsed;
+}
+
+ALBank *alBnkfBank(ALBankFile *f, s32 i) {
+    s32 slot;
+
+    for (slot = 0; slot < AL_BANK_FILES; slot++)
+        if (bank_files[slot].file == f) {
+            if (i < 0 || i >= bank_files[slot].parsed->bankCount)
+                host_fatal("libaudio: bank %d of a bank file with %d", i, bank_files[slot].parsed->bankCount);
+            return bank_files[slot].parsed->bankArray[i];
+        }
+    host_fatal("libaudio: a bank of a file alBnkfNew didn't take (not a bank file)");
 }

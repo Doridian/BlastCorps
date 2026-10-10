@@ -8,9 +8,10 @@
  * programming manual's audio chapters and function reference) and from what
  * the game uses; every layout here is checked against the game's own by the
  * build (the offsets in comments) and by the libaudio oracle
- * (port/tools/audio_oracle).  The bank and sequence bank files' pointers
- * are 32 bits in every build (PTR32: the files' layout, also in the LP64
- * port); the rest is C's, laid out as the host lays it out.
+ * (port/tools/audio_oracle).  Every structure is C's, laid out as the host
+ * lays it out: a bank file is parsed into objects of these types
+ * (alBnkfNew), not used in place, and a sequence bank file holds no
+ * pointer.
  */
 #ifndef PORT_SDK_LIBAUDIO_H
 #define PORT_SDK_LIBAUDIO_H
@@ -104,7 +105,13 @@ s32 alHeapCheck(ALHeap *hp);
 typedef u8 ALFxId;
 typedef void *ALFxRef;
 
-/* ---- bank files (.ctl): offsets in the file until alBnkfNew ------------------- */
+/* ---- bank files (.ctl), parsed by alBnkfNew ---------------------------------- */
+
+/* A bank file's records (the file's, the bank, its instruments, their
+   sounds and wave tables) hold offsets in the file; alBnkfNew builds an
+   object of the type below for each, once, and the game gets a bank with
+   alBnkfBank.  The leaves (books, loops, envelopes, key maps) have no
+   offsets in them: the objects point at them where they are in the file. */
 
 #define AL_BANK_VERSION 0x4231  /* "B1" */
 
@@ -147,19 +154,19 @@ typedef struct {
 } ALKeyMap;
 
 typedef struct {
-    ALADPCMloop *PTR32 loop;
-    ALADPCMBook *PTR32 book;
+    ALADPCMloop *loop;
+    ALADPCMBook *book;
 } ALADPCMWaveInfo;
 
 typedef struct {
-    ALRawLoop *PTR32 loop;
+    ALRawLoop *loop;
 } ALRAWWaveInfo;
 
 typedef struct ALWaveTable_s {
-    u8 *PTR32 base;             /* the samples' ROM address */
+    u32 base;                   /* the samples' ROM address (the .tbl's, plus the file's offset) */
     s32 len;                    /* bytes */
     u8 type;                    /* AL_ADPCM_WAVE, AL_RAW16_WAVE */
-    u8 flags;                   /* set once relocated */
+    u8 flags;                   /* 1: parsed */
     union {
         ALADPCMWaveInfo adpcmWave;
         ALRAWWaveInfo rawWave;
@@ -167,9 +174,9 @@ typedef struct ALWaveTable_s {
 } ALWaveTable;
 
 typedef struct ALSound_s {
-    ALEnvelope *PTR32 envelope;
-    ALKeyMap *PTR32 keyMap;
-    ALWaveTable *PTR32 wavetable;
+    ALEnvelope *envelope;
+    ALKeyMap *keyMap;
+    ALWaveTable *wavetable;
     ALPan samplePan;
     u8 sampleVolume;
     u8 flags;
@@ -190,7 +197,7 @@ typedef struct {
     u8 vibDelay;
     s16 bendRange;              /* cents */
     s16 soundCount;
-    ALSound *PTR32 soundArray[1];   /* by key range, then velocity range */
+    ALSound *soundArray[1];     /* by key range, then velocity range */
 } ALInstrument;
 
 typedef struct ALBank_s {
@@ -198,24 +205,32 @@ typedef struct ALBank_s {
     u8 flags;
     u8 pad;
     s32 sampleRate;
-    ALInstrument *PTR32 percussion;
-    ALInstrument *PTR32 instArray[1];
+    ALInstrument *percussion;
+    ALInstrument *instArray[1];
 } ALBank;
 
+/* the file as loaded, which alBnkfNew and alBnkfBank take: the original
+   library made its bankArray pointers in place; this one leaves the file
+   as it is (its words are offsets), and alBnkfBank gives its banks */
 typedef struct {
     s16 revision;               /* AL_BANK_VERSION */
     s16 bankCount;
-    ALBank *PTR32 bankArray[1];
+    ALBank *bankArray[1];
 } ALBankFile;
 
-void alBnkfNew(ALBankFile *f, u8 *table);
+/* table: the ROM address of the file's sample data (.tbl); len: the
+   file's length (the port's: it checks every offset against it) */
+void alBnkfNew(ALBankFile *f, u32 table, s32 len);
+/* bank i of a file alBnkfNew has parsed (the port's: the game read the
+   file's bankArray[i], which alBnkfNew had made a pointer in place) */
+ALBank *alBnkfBank(ALBankFile *f, s32 i);
 
 /* ---- sequence bank files (.sbk) ------------------------------------------------- */
 
 #define AL_SEQBANK_VERSION 'S1'
 
 typedef struct {
-    u8 *PTR32 offset;
+    u32 offset;                 /* the sequence's ROM address once alSeqFileNew has added the base */
     s32 len;
 } ALSeqData;
 
@@ -225,7 +240,8 @@ typedef struct {
     ALSeqData seqArray[1];
 } ALSeqFile;
 
-void alSeqFileNew(ALSeqFile *f, u8 *base);
+/* base: the file's ROM address */
+void alSeqFileNew(ALSeqFile *f, u32 base);
 
 /* ---- the synthesizer --------------------------------------------------------- */
 
