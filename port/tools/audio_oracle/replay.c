@@ -26,6 +26,19 @@
  *   --dump-acmd N FILE   write audio frame N's command list
  *   --dump-mem N FILE    write the shared memory after call N (addr, len, bytes)
  *   --stop N       stop after call N
+ *   --translations FILE  every bank-object address translated (below)
+ *
+ * A library that builds its own bank objects instead of relocating the
+ * file's in place exports its map from the file's objects to its own
+ * (audio_log.h, ALOG_BANK_MAP).  After each alBnkfNew the replay takes it:
+ * a word of the log that is a mapped object's file address (a call's
+ * argument, a 4-aligned word the game writes, outside the bank files) is
+ * given to the library as its object, and a word the library gives back
+ * (a structure, a result, a callback's argument) that is one of its
+ * objects is compared as the file's.  The bank files' own bytes are the
+ * library's business after alBnkfNew (relocated or not), and are left out
+ * of --hashes and masked in --dump-mem.  Without the symbol nothing is
+ * translated.
  */
 #define _GNU_SOURCE
 #define _FILE_OFFSET_BITS 64
@@ -201,15 +214,154 @@ static void find_handlers(void) {
         handler_words[nhandlers++] = p + 8;
 }
 
+/* ---- the bank objects' map (audio_log.h, ALOG_BANK_MAP) ------------------- */
+
+typedef u32 (*BankMapFn)(const AlogBankObj **objs);
+static BankMapFn bank_map_fn;
+static AlogBankObj *by_file, *by_native;
+static u32 nmap;
+static Span bankfiles[64];      /* the bank files alBnkfNew had */
+static int nbankfiles;
+static Span allocs[1024];       /* the game's last heap blocks, to size them */
+static int nallocs;
+static long nxlate_arg, nxlate_mem, nxlate_back;
+static FILE *xlog;
+
+static int cmp_file(const void *a, const void *b) {
+    u32 x = ((const AlogBankObj *)a)->file, y = ((const AlogBankObj *)b)->file;
+    return x < y ? -1 : x > y;
+}
+
+static int cmp_native(const void *a, const void *b) {
+    u32 x = ((const AlogBankObj *)a)->native, y = ((const AlogBankObj *)b)->native;
+    return x < y ? -1 : x > y;
+}
+
+/* the library's object for a file address, or the word as it is */
+static u32 to_native(u32 w) {
+    AlogBankObj key, *o;
+    if (nmap == 0)
+        return w;
+    key.file = w;
+    o = bsearch(&key, by_file, nmap, sizeof(*o), cmp_file);
+    return o ? o->native : w;
+}
+
+/* the file's object for one of the library's, or the word as it is */
+static u32 to_file(u32 w) {
+    AlogBankObj key, *o;
+    if (nmap == 0)
+        return w;
+    key.native = w;
+    o = bsearch(&key, by_native, nmap, sizeof(*o), cmp_native);
+    return o ? o->file : w;
+}
+
+static int in_bankfile(u32 a) {
+    int i;
+    for (i = 0; i < nbankfiles; i++)
+        if (a - bankfiles[i].addr < bankfiles[i].len)
+            return 1;
+    return 0;
+}
+
+static void note_alloc(u32 addr, u32 len) {
+    allocs[nallocs % 1024].addr = addr;
+    allocs[nallocs % 1024].len = len;
+    nallocs++;
+}
+
+/* after alBnkfNew(file): the file's extent (the game's heap block it is
+   at the start of) and the library's map */
+static void bank_file_new(u32 file) {
+    int i, n = nallocs < 1024 ? nallocs : 1024;
+    const AlogBankObj *objs;
+    u32 len = 0, k;
+
+    for (i = 0; i < n; i++)
+        if (allocs[i].addr == file)
+            len = allocs[i].len;
+    for (i = 0; i < nbankfiles; i++)
+        if (bankfiles[i].addr == file)
+            break;
+    if (len == 0)
+        fprintf(stderr, "replay: the bank file at %08X isn't a block the game allocated: its bytes stay "
+                        "in the hashes\n", file);
+    else if (i < nbankfiles)
+        bankfiles[i].len = len;
+    else if (nbankfiles < 64) {
+        bankfiles[nbankfiles].addr = file;
+        bankfiles[nbankfiles].len = len;
+        nbankfiles++;
+    }
+    if (bank_map_fn == NULL)
+        return;
+    nmap = bank_map_fn(&objs);
+    by_file = realloc(by_file, (nmap ? nmap : 1) * sizeof(*by_file));
+    by_native = realloc(by_native, (nmap ? nmap : 1) * sizeof(*by_native));
+    memcpy(by_file, objs, nmap * sizeof(*objs));
+    memcpy(by_native, objs, nmap * sizeof(*objs));
+    qsort(by_file, nmap, sizeof(*by_file), cmp_file);
+    qsort(by_native, nmap, sizeof(*by_native), cmp_native);
+    for (k = 1; k < nmap; k++)
+        if (by_file[k].file == by_file[k - 1].file || by_native[k].native == by_native[k - 1].native) {
+            fprintf(stderr, "replay: the library's bank map maps an address twice (near %08X -> %08X)\n",
+                    by_file[k].file, by_file[k].native);
+            exit(2);
+        }
+    if (!quiet)
+        fprintf(stderr, "replay: the library's bank map: %u objects\n", nmap);
+}
+
+/* the game's bytes at addr: its words that are file objects become the
+   library's */
+static void game_writes(u32 addr, u32 len) {
+    u32 a, e = addr + len;
+    if (nmap == 0)
+        return;
+    for (a = (addr + 3) & ~3u; a + 4 <= e && a + 4 > a; a += 4) {
+        u32 w = *(u32 *)mem(a), n;
+        if (in_bankfile(a) || (n = to_native(w)) == w)
+            continue;
+        *(u32 *)mem(a) = n;
+        nxlate_mem++;
+        if (xlog)
+            fprintf(xlog, "call %ld: memory %08X: %08X -> %08X\n", ncalls, a, w, n);
+    }
+}
+
+/* the memory at addr as the original's objects would have it: the
+   library's objects' addresses in 4-aligned words as the file's */
+static const u8 *as_file(u32 addr, u32 len) {
+    static u8 *buf;
+    static u32 cap;
+    u32 a, e = addr + len;
+    if (nmap == 0)
+        return mem(addr);
+    if (len > cap) {
+        cap = len;
+        buf = realloc(buf, cap);
+    }
+    memcpy(buf, mem(addr), len);
+    for (a = (addr + 3) & ~3u; a + 4 <= e && a + 4 > a; a += 4) {
+        u32 w, f;
+        memcpy(&w, buf + (a - addr), 4);
+        if ((f = to_file(w)) != w)
+            memcpy(buf + (a - addr), &f, 4);
+    }
+    return buf;
+}
+
 static uint64_t mem_hash(void) {
     uint64_t h = 0xcbf29ce484222325ull;
     int i, j;
     find_handlers();
     for (i = 0; i < ntracked; i++) {
         u32 a = tracked[i].addr, e = a + tracked[i].len;
+        const u8 *v = as_file(a, tracked[i].len);
         for (; a < e; a++) {
-            u8 b = *(u8 *)mem(a);
-            if (masked(a))
+            u8 b = v[a - tracked[i].addr];
+            if (masked(a) || in_bankfile(a))
                 continue;
             for (j = 0; j < nhandlers; j++)
                 if (a - handler_words[j] < 4)
@@ -227,9 +379,15 @@ static void dump_mem(const char *path) {
     for (i = 0; i < ntracked; i++) {
         fwrite(&tracked[i].addr, 4, 1, f);
         fwrite(&tracked[i].len, 4, 1, f);
-        fwrite(mem(tracked[i].addr), 1, tracked[i].len, f);
+        fwrite(as_file(tracked[i].addr, tracked[i].len), 1, tracked[i].len, f);
     }
-    /* then the masks: internal blocks and handler words */
+    /* then the masks: internal blocks, the bank files and handler words */
+    for (i = 0; i < nbankfiles; i++) {
+        u32 z = 0xFFFFFFFFu;
+        fwrite(&z, 4, 1, f);
+        fwrite(&bankfiles[i].addr, 4, 1, f);
+        fwrite(&bankfiles[i].len, 4, 1, f);
+    }
     for (i = 0; i < ninternal; i++) {
         u32 z = 0xFFFFFFFFu;
         fwrite(&z, 4, 1, f);
@@ -307,7 +465,7 @@ static u32 callback(u32 kind, u32 a0, u32 a1, u32 a2, u32 *extra) {
     next();
     {
         u32 k = next(), b0 = next(), b1 = next(), b2 = next();
-        if (k != kind || b0 != a0 || b1 != a1 || b2 != a2)
+        if (k != kind || b0 != to_file(a0) || b1 != to_file(a1) || b2 != to_file(a2))
             desync("callback kind %u (%08X %08X %08X), the original's was kind %u (%08X %08X %08X)",
                    kind, a0, a1, a2, k, b0, b1, b2);
     }
@@ -316,6 +474,7 @@ static u32 callback(u32 kind, u32 a0, u32 a1, u32 a2, u32 *extra) {
         if (t == ALOG_MEM) {
             u32 addr = next(), len = next();
             memcpy(mem(addr), take_bytes(len), len);
+            game_writes(addr, len);
         } else if (t == ALOG_CALL) {
             pos--;
             run_call();
@@ -386,6 +545,16 @@ static void run_call(void) {
     cur_call = my_call;
     top = saved_fn == 0;
     (void)top;
+    if (fn != ALOG_alBnkfNew && fn != ALOG_alSeqFileNew && fn != ALOG_alHeapInit && fn != ALOG_alHeapDBAlloc)
+        for (i = 0; i < 6; i++) {
+            u32 n = to_native(a[i]);
+            if (n != a[i]) {
+                nxlate_arg++;
+                if (xlog)
+                    fprintf(xlog, "call %ld %s: argument %d: %08X -> %08X\n", my_call, fn_names[fn], i, a[i], n);
+                a[i] = n;
+            }
+        }
 
     while (peek() == ALOG_IN || peek() == ALOG_UNTRACK) {
         u32 addr, len;
@@ -397,6 +566,7 @@ static void run_call(void) {
         addr = next();
         len = next();
         memcpy(mem(addr), take_bytes(len), len);
+        game_writes(addr, len);
     }
     if (heap_addr != 0)
         heap_before = *(u32 *)mem(heap_addr + 4);
@@ -404,10 +574,16 @@ static void run_call(void) {
     switch (fn) {
     case ALOG_alHeapInit:
         heap_addr = a[0];
+        nbankfiles = 0;     /* (a new heap: nothing of the old is a bank file) */
         ((void (*)(u32, u32, s32))fnp[fn])(a[0], a[1], (s32)a[2]);
         break;
     case ALOG_alHeapDBAlloc:
         ret = ((u32 (*)(u32, s32, u32, s32, s32))fnp[fn])(a[0], (s32)a[1], a[2], (s32)a[3], (s32)a[4]);
+        note_alloc(ret, a[3] * a[4]);
+        break;
+    case ALOG_alBnkfNew:
+        ((V_pp)fnp[fn])(a[0], a[1]);
+        bank_file_new(a[0]);
         break;
     case ALOG_alInit:
         /* the config's DMA routine is the game's: ours stands in */
@@ -495,13 +671,18 @@ static void run_call(void) {
             len = next();
             want = take_bytes(len);
             if (memcmp(mem(addr), want, len) != 0) {
-                char buf[1024];
-                int o = 0;
-                u32 k;
-                for (k = 0; k < len && o < 900; k++)
-                    if (((u8 *)mem(addr))[k] != want[k])
-                        o += sprintf(buf + o, " +%X:%02X/%02X", k, ((u8 *)mem(addr))[k], want[k]);
-                mismatch("the structure at %08X (%u bytes) differs (here/original):%s", addr, len, buf);
+                const u8 *got = as_file(addr, len);
+                if (memcmp(got, want, len) == 0)
+                    nxlate_back++;
+                else {
+                    char buf[1024];
+                    int o = 0;
+                    u32 k;
+                    for (k = 0; k < len && o < 900; k++)
+                        if (got[k] != want[k])
+                            o += sprintf(buf + o, " +%X:%02X/%02X", k, got[k], want[k]);
+                    mismatch("the structure at %08X (%u bytes) differs (here/original):%s", addr, len, buf);
+                }
             }
         } else if (t == ALOG_ACMD) {
             u32 len, lo, hi;
@@ -526,7 +707,7 @@ static void run_call(void) {
             u32 v;
             next();
             v = next();
-            if (v != ret && fn != ALOG_alHeapInit)
+            if (v != ret && v != to_file(ret) && fn != ALOG_alHeapInit)
                 mismatch("returned %08X, the original %08X", ret, v);
             break;
         } else if (t == ALOG_CBENTER) {
@@ -568,7 +749,7 @@ int main(int argc, char **argv) {
     }
     if (argc < 3) {
         fprintf(stderr, "usage: replay LIB.so LOG [-k] [-q] [--hashes FILE] [--dump-acmd N FILE] "
-                        "[--dump-mem N FILE] [--stop N]\n");
+                        "[--dump-mem N FILE] [--stop N] [--translations FILE]\n");
         return 2;
     }
     for (i = 3; i < argc; i++) {
@@ -586,6 +767,8 @@ int main(int argc, char **argv) {
             dump_mem_path = argv[++i];
         } else if (!strcmp(argv[i], "--stop") && i + 1 < argc)
             stop_call = atol(argv[++i]);
+        else if (!strcmp(argv[i], "--translations") && i + 1 < argc)
+            xlog = fopen(argv[++i], "w");
         else {
             fprintf(stderr, "replay: unknown option %s\n", argv[i]);
             return 2;
@@ -612,6 +795,7 @@ int main(int argc, char **argv) {
             return 2;
         }
     }
+    bank_map_fn = (BankMapFn)dlsym(lib, ALOG_BANK_MAP);
 
     logf = fopen(argv[2], "rb");
     if (logf == NULL) {
@@ -653,6 +837,11 @@ int main(int argc, char **argv) {
     }
     printf("replay: %ld calls, %ld audio frames, %ld callbacks, %ld mismatches\n", ncalls, nframes,
            ncallbacks, nmismatch);
+    if (bank_map_fn != NULL)
+        printf("replay: bank objects: %u mapped; translated %ld arguments, %ld memory words; %ld structures "
+               "the same as the file's\n", nmap, nxlate_arg, nxlate_mem, nxlate_back);
+    if (xlog)
+        fclose(xlog);
     if (hashes)
         fclose(hashes);
     return nmismatch ? 1 : 0;

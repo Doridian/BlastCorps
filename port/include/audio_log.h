@@ -52,6 +52,28 @@ enum { ALOG_FN_NONE, ALOG_FUNCS(ALOG_ENUM) ALOG_FN_COUNT };
 /* the callbacks (CBENTER's kind) */
 enum { ALOG_CB_HANDLER = 1, ALOG_CB_DMANEW, ALOG_CB_DMA };
 
+/*
+ * The bank objects' map (for the replay): a library that builds its own
+ * objects for a bank file's (each ALBank, ALInstrument, ALSound and
+ * ALWaveTable, instead of relocating the file's in place) exports, under
+ * PORT_AUDIO_ORACLE,
+ *
+ *   uint32_t alog_bank_map(const AlogBankObj **objs);
+ *
+ * which points *objs at every object it has built so far and returns how
+ * many: each one's address in the file (what the original's pointers
+ * hold, so the log's) and its own.  After each alBnkfNew the replay takes
+ * the map and translates the log's words that are a mapped object's
+ * address (call arguments, the game's memory writes) to the library's,
+ * and the library's back where it compares them.  A library without the
+ * symbol relocates in place, and nothing is translated.
+ */
+typedef struct {
+    uint32_t file;      /* the object in the bank file */
+    uint32_t native;    /* the library's own */
+} AlogBankObj;
+#define ALOG_BANK_MAP "alog_bank_map"
+
 #ifndef ALOG_NO_HOST
 /* port/host/audiolog.c (addresses are N64 addresses) */
 int host_alog_started(void);

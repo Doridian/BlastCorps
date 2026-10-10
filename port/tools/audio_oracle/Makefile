@@ -36,7 +36,7 @@ ORIG_O := $(ORIG_OBJS:%=$(OUT)/orig/%.o)
 PORT_SRC := $(wildcard $(PORT)/libaudio/*.c)
 PORT_O := $(PORT_SRC:$(PORT)/libaudio/%.c=$(OUT)/port/%.o)
 
-all: $(OUT)/replay $(OUT)/orig.so $(if $(PORT_SRC),$(OUT)/port.so)
+all: $(OUT)/replay $(OUT)/orig.so $(if $(PORT_SRC),$(OUT)/port.so $(OUT)/banktest.so)
 
 $(OUT)/replay: replay.c $(PORT)/include/audio_log.h
 	@mkdir -p $(dir $@)
@@ -56,10 +56,24 @@ $(OUT)/port/%.o: $(PORT)/libaudio/%.c $(wildcard $(PORT)/libaudio/*.h) $(wildcar
 $(OUT)/port.so: $(PORT_O)
 	$(CC) $(ARCH) -shared -o $@ $^
 
+# port.so with its banks' objects copied out of the file (banktest.c): the
+# replay's bank-object translation at work, while port/libaudio relocates
+# in place
+$(OUT)/banktest/core.o: $(OUT)/port/core.o
+	@mkdir -p $(dir $@)
+	objcopy --redefine-sym alBnkfNew=port_alBnkfNew $< $@
+
+$(OUT)/banktest/banktest.o: banktest.c $(PORT)/include/audio_log.h
+	@mkdir -p $(dir $@)
+	$(CC) $(N64_CFLAGS) $(PORT_INC) -c -o $@ $<
+
+$(OUT)/banktest.so: $(filter-out $(OUT)/port/core.o,$(PORT_O)) $(OUT)/banktest/core.o $(OUT)/banktest/banktest.o
+	$(CC) $(ARCH) -shared -o $@ $^
+
 clean:
 	rm -rf $(OUT)
 
 # the headers each object read
--include $(ORIG_O:.o=.d) $(PORT_O:.o=.d)
+-include $(ORIG_O:.o=.d) $(PORT_O:.o=.d) $(OUT)/banktest/banktest.d
 
 .PHONY: all clean

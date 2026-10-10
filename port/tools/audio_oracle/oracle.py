@@ -2,7 +2,7 @@
 """The libaudio oracle's runner (docs/PORT.md, "The libaudio oracle").
 
   oracle.py record --version V --refs DIR [--rom ROM] [--build DIR] [--no-build]
-  oracle.py replay --version V --refs DIR [--lib port|orig|both] [--out DIR] [--no-build]
+  oracle.py replay --version V --refs DIR [--lib port orig banktest] [--out DIR] [--no-build]
 
 record: configures and builds the recorder (a native-endian ILP32 port
 with the original libaudio and PORT_AUDIO_RECORD, in build/oracle-rec-V
@@ -16,8 +16,10 @@ one of the reference tree.
 
 replay: builds the replay and the two libraries for i386 (make -C
 port/tools/audio_oracle, into build/audio_oracle/V unless --out says
-otherwise) and replays every DIR/V-*.alog into port.so (and orig.so with
---lib both or orig).  Passes with no mismatch in any.
+otherwise) and replays every DIR/V-*.alog into port.so, or the libraries
+--lib names: orig.so too, banktest.so (port.so with its bank objects out
+of the file: banktest.c, the replay's bank-object translation at work).
+Passes with no mismatch in any.
 
 --lock FILE holds an flock on FILE for the runs and the replays (the
 builds run outside it).  --scenarios picks some of them.
@@ -48,6 +50,7 @@ SCENARIOS = ["attract", "auto1", "auto2", "auto3", "attract.long"]
 RECORDER = ["-DPORT_64BIT=ON", "-DPORT_NATIVE_ENDIAN=ON", "-DPORT_AUDIO_RECORD=ON",
             "-DPORT_LIBAUDIO_ORIGINAL=ON"]
 SUMMARY = re.compile(r"replay: (\d+) calls, (\d+) audio frames, (\d+) callbacks, (\d+) mismatches")
+BANKMAP = re.compile(r"replay: bank objects: .*")
 
 
 @contextlib.contextmanager
@@ -134,7 +137,7 @@ def replay(a):
     if not logs:
         print(f"oracle: no {a.version}-*.alog in {a.refs}")
         return 1
-    libs = ["port", "orig"] if a.lib == "both" else [a.lib]
+    libs = a.lib
     jobs = [(lib, p) for p in logs for lib in libs]
 
     def one(job):
@@ -147,9 +150,11 @@ def replay(a):
     with locked(a.lock), cf.ThreadPoolExecutor(a.jobs) as ex:
         for (lib, p), r, text in ex.map(one, jobs):
             m = SUMMARY.search(text)
+            x = BANKMAP.search(text)
             what = f"{lib}.so {os.path.basename(p)}"
             if r == 0 and m and m.group(4) == "0":
-                print(f"PASS  {what}: {m.group(1)} calls, {m.group(2)} audio frames, no mismatch")
+                print(f"PASS  {what}: {m.group(1)} calls, {m.group(2)} audio frames, no mismatch"
+                      + (f" ({x.group(0)[len('replay: '):]})" if x else ""))
             else:
                 rc = 1
                 lines = [x for x in text.splitlines() if x.startswith(("MISMATCH", "DIVERGED", "replay:"))]
@@ -172,7 +177,7 @@ def main():
     r.add_argument("--rom", help="the ROM (baserom.V.z64)")
     r.add_argument("--build", help="the recorder's build directory (build/oracle-rec-V)")
     p = sub.choices["replay"]
-    p.add_argument("--lib", default="port", choices=["port", "orig", "both"])
+    p.add_argument("--lib", nargs="+", default=["port"], choices=["port", "orig", "banktest"])
     p.add_argument("--out", help="the replay's build directory (build/audio_oracle/V)")
     p.add_argument("-j", "--jobs", type=int, default=4)
     a = ap.parse_args()
