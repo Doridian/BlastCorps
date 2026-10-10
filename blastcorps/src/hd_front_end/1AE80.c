@@ -16,7 +16,7 @@ s32 func_80201E80(void) {
     for (i = 0; i < 60 && ret == 0; i++) {
         if (!(i & 1)) {
             osSendMesg(&D_80219EF8, (OSMesg)((i << 8) | 0xA | (D_80364AE8 << 16) | 0x01000000), OS_MESG_BLOCK);
-            osRecvMesg(&D_80219F50, (OSMesg *)&ret, OS_MESG_BLOCK);
+            osRecvMesgInt(&D_80219F50, ret, OS_MESG_BLOCK);
         }
         if (((D_80364AF0[D_80364AE8].medal[i] > 0 && D_80364AF0[D_80364AE8].medal[i] < 6) ? TRUE : FALSE) &&
             !DUMMY_LEVELS(i) && ret == 0) {

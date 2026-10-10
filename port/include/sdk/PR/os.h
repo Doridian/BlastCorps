@@ -39,10 +39,10 @@ typedef struct {
 } __OSThreadContext;
 
 typedef struct OSThread_s {
-    struct OSThread_s *PTR32 next;          /* in a run or message queue */
+    struct OSThread_s *next;          /* in a run or message queue */
     OSPri priority;
-    struct OSThread_s *PTR32 *PTR32 queue;  /* the queue it waits on */
-    struct OSThread_s *PTR32 tlnext;        /* all threads */
+    struct OSThread_s **queue;  /* the queue it waits on */
+    struct OSThread_s *tlnext;        /* all threads */
     u16 state;                              /* OS_STATE_* */
     u16 flags;
     OSId id;
@@ -60,15 +60,15 @@ typedef struct OSThread_s {
 typedef u32 OSEvent;
 typedef u32 OSIntMask;
 typedef u32 OSPageMask;
-typedef void *PTR32 OSMesg;
+typedef void *OSMesg;
 
 typedef struct OSMesgQueue_s {
-    OSThread *PTR32 mtqueue;                /* threads waiting to receive */
-    OSThread *PTR32 fullqueue;              /* threads waiting to send */
+    OSThread *mtqueue;                /* threads waiting to receive */
+    OSThread *fullqueue;              /* threads waiting to send */
     s32 validCount;                         /* messages in it */
     s32 first;                              /* the oldest one's index */
     s32 msgCount;                           /* its size */
-    OSMesg *PTR32 msg;
+    OSMesg *msg;
 } OSMesgQueue;
 
 #define MQ_GET_COUNT(mq) ((mq)->validCount)
@@ -143,8 +143,8 @@ typedef struct OSMesgQueue_s {
 /* the 64DD's transfer state, part of a PI handle's layout */
 typedef struct {
     u32 errStatus;
-    void *PTR32 dramAddr;
-    void *PTR32 C2Addr;
+    void *dramAddr;
+    void *C2Addr;
     u32 sectorSize;
     u32 C1ErrNum;
     u32 C1ErrSector[4];
@@ -162,7 +162,7 @@ typedef struct {
 } __OSTranxInfo;
 
 typedef struct OSPiHandle_s {
-    struct OSPiHandle_s *PTR32 next;
+    struct OSPiHandle_s *next;
     u8 type;
     u8 latency;
     u8 pageSize;
@@ -178,24 +178,24 @@ typedef struct {
     u16 type;                               /* OS_MESG_TYPE_* */
     u8 pri;                                 /* OS_MESG_PRI_* */
     u8 status;
-    OSMesgQueue *PTR32 retQueue;            /* told when it's done */
+    OSMesgQueue *retQueue;            /* told when it's done */
 } OSIoMesgHdr;
 
 typedef struct {
     OSIoMesgHdr hdr;
-    void *PTR32 dramAddr;
+    void *dramAddr;
     u32 devAddr;
     u32 size;
-    OSPiHandle *PTR32 piHandle;
+    OSPiHandle *piHandle;
 } OSIoMesg;
 
 /* a device manager (the PI's), whose state the game reads */
 typedef struct {
     s32 active;
-    OSThread *PTR32 thread;
-    OSMesgQueue *PTR32 cmdQueue;
-    OSMesgQueue *PTR32 evtQueue;
-    OSMesgQueue *PTR32 acsQueue;
+    OSThread *thread;
+    OSMesgQueue *cmdQueue;
+    OSMesgQueue *evtQueue;
+    OSMesgQueue *acsQueue;
     s32 (*PTR32 dma)(s32, u32, void *, u32);
     s32 (*PTR32 edma)(OSPiHandle *, s32, u32, void *, u32);
 } OSDevMgr;
@@ -280,11 +280,11 @@ extern OSViMode osViModeTable[];
 typedef u64 OSTime;
 
 typedef struct OSTimer_s {
-    struct OSTimer_s *PTR32 next;
-    struct OSTimer_s *PTR32 prev;
+    struct OSTimer_s *next;
+    struct OSTimer_s *prev;
     OSTime interval;                        /* 0: once */
     OSTime value;                           /* until it fires */
-    OSMesgQueue *PTR32 mq;
+    OSMesgQueue *mq;
     OSMesg msg;
 } OSTimer;
 
@@ -315,7 +315,7 @@ typedef struct {
 } OSContPad;
 
 typedef struct {
-    void *PTR32 address;
+    void *address;
     u8 databuffer[32];
     u8 addressCrc;
     u8 dataCrc;
@@ -378,7 +378,7 @@ typedef struct {
 /* the Controller Pak's file system */
 typedef struct {
     int status;
-    OSMesgQueue *PTR32 queue;
+    OSMesgQueue *queue;
     int channel;
     u8 id[32];
     u8 label[32];

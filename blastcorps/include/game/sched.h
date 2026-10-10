@@ -22,17 +22,17 @@ typedef struct SchedClient {
 SIZE_CHECK_C(SchedClient, 0x10);
 
 typedef struct SchedTask {
-    /* 0x00 */ struct SchedTask *PTR32 next;
+    /* 0x00 */ struct SchedTask *next;
     /* 0x04 */ s32 state;          /* 1 on the RSP, 2 queued or done, RSP_STATE_SUSPENDED */
     /* 0x08 */ u32 flags;
-    /* 0x0C */ void *PTR32 framebuffer;
+    /* 0x0C */ void *framebuffer;
     /* 0x10 */ OSTask list;
-    /* 0x50 */ SchedClient *PTR32 client; /* the client that sent it (the audio thread sets its own) */
-    /* 0x54 */ OSMesgQueue *PTR32 msgQ;
+    /* 0x50 */ SchedClient *client; /* the client that sent it (the audio thread sets its own) */
+    /* 0x54 */ OSMesgQueue *msgQ;
     /* 0x58 */ OSMesg msg;
     /* 0x5C */ u32 unk5C;
 } SchedTask;
-SIZE_CHECK(SchedTask, 0x60);
+SIZE_CHECK_C(SchedTask, 0x60);
 
 /* __scYield's assert "sc->curRSPTask->state != RSP_STATE_SUSPENDED" tests 3. */
 #define RSP_STATE_SUSPENDED 3
@@ -43,20 +43,20 @@ typedef struct Sched {
     /* 0x058 */ OSMesgQueue cmdQ;
     /* 0x070 */ OSMesg cmdMsgBuf[16];
     /* 0x0B0 */ OSThread thread;
-    /* 0x260 */ SchedClient *PTR32 clientList;
-    /* 0x264 */ SchedTask *PTR32 audioListHead;
-    /* 0x268 */ SchedTask *PTR32 gfxListHead;
-    /* 0x26C */ SchedTask *PTR32 audioListTail;
-    /* 0x270 */ SchedTask *PTR32 gfxListTail;
-    /* 0x274 */ SchedTask *PTR32 curRSPTask;
-    /* 0x278 */ SchedTask *PTR32 curRDPTask;
+    /* 0x260 */ SchedClient *clientList;
+    /* 0x264 */ SchedTask *audioListHead;
+    /* 0x268 */ SchedTask *gfxListHead;
+    /* 0x26C */ SchedTask *audioListTail;
+    /* 0x270 */ SchedTask *gfxListTail;
+    /* 0x274 */ SchedTask *curRSPTask;
+    /* 0x278 */ SchedTask *curRDPTask;
     /* 0x27C */ s32 unk27C;
     /* 0x280 */ u32 unk280;       /* retraces while the game isn't paused (D_802E8BD0): hd.c prints the difference as "TIME IN LEVEL=%d"; D_803156C0 */
     /* 0x284 */ u32 frameCount;   /* retraces, as in SGI's; D_803156C4 */
     /* 0x288 */ OSTime unk288;
     /* 0x290 */ OSTime unk290;
 } Sched;
-SIZE_CHECK(Sched, 0x298);
+SIZE_CHECK_C(Sched, 0x298);
 
 extern Sched D_80315440;
 extern SchedClient D_803156D8; /* the game's own client */

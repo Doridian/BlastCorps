@@ -91,7 +91,7 @@ void func_80285110(u32 arg0) {
     u32 msg;
 
     do {
-        osRecvMesg(&D_803153D8, (OSMesg *)&msg, OS_MESG_BLOCK);
+        osRecvMesgInt(&D_803153D8, msg, OS_MESG_BLOCK);
         D_8036E68C[msg >> 16] = 0;
         msg &= 0xFFFF;
         if (msg != arg0) {

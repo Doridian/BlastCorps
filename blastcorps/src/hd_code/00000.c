@@ -635,7 +635,7 @@ void func_80244930(void *arg0) {
                     func_8025D184();
                     func_80200714(1);
                     osSendMesg(&D_80219EF8, (OSMesg)0x0100000F, OS_MESG_BLOCK);
-                    osRecvMesg(&D_80219F50, (OSMesg *)&sp5C, OS_MESG_BLOCK);
+                    osRecvMesgInt(&D_80219F50, sp5C, OS_MESG_BLOCK);
                     if (sp5C != 0 || D_8039C541 != 0) {
                         D_802E8BF8 = 1;
                     } else {
@@ -649,12 +649,12 @@ void func_80244930(void *arg0) {
                         D_80364AE8 = 0;
                         D_80364AE9 = 0;
                         D_80364AEA = 0; osSendMesg(&D_80219EF8, (OSMesg)0x01000010, OS_MESG_BLOCK);
-                        osRecvMesg(&D_80219F50, (OSMesg *)&D_8039C4B4, OS_MESG_BLOCK);
+                        osRecvMesgInt(&D_80219F50, D_8039C4B4, OS_MESG_BLOCK);
                         if (D_8039C4B4 == 0) {
                             func_8029A7E4("NO EE PRESENT! - USING DUMMY EE\n");
                         }
                         osSendMesg(&D_80219EF8, (OSMesg)0x01000006, OS_MESG_BLOCK);
-                        osRecvMesg(&D_80219F50, (OSMesg *)&sp5C, OS_MESG_BLOCK);
+                        osRecvMesgInt(&D_80219F50, sp5C, OS_MESG_BLOCK);
                         if (sp5C == 0) {
                             sp5C = func_80201E80();
                         }
@@ -1116,7 +1116,7 @@ void func_80244930(void *arg0) {
                 case 0x40000000000000:
                     func_80255DC8();
                     osSendMesg(&D_80219EF8, (OSMesg)0x01000010, OS_MESG_BLOCK);
-                    osRecvMesg(&D_80219F50, (OSMesg *)&D_8039C4B4, OS_MESG_BLOCK);
+                    osRecvMesgInt(&D_80219F50, D_8039C4B4, OS_MESG_BLOCK);
                     if (D_8039C4B4 != 0) {
                         func_8025D184();
                         func_80200714(1);

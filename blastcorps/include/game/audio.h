@@ -14,16 +14,16 @@
 
 /* The sample audio manager's AudioInfo: one per output buffer. */
 typedef struct AudioInfo {
-    /* 0x00 */ s16 *PTR32 data;
+    /* 0x00 */ s16 *data;
     /* 0x04 */ s16 frameSamples;
     /* 0x08 */ SchedTask task;
 } AudioInfo;
-SIZE_CHECK(AudioInfo, 0x68);
+SIZE_CHECK_C(AudioInfo, 0x68);
 
 /* The sample audio manager's AMAudioMgr. */
 typedef struct AMAudioMgr {
     /* 0x000 */ Acmd *PTR32 ACMDList[2];
-    /* 0x008 */ AudioInfo *PTR32 audioInfo[3];
+    /* 0x008 */ AudioInfo *audioInfo[3];
     /* 0x018 */ OSThread thread;
     /* 0x1C8 */ OSMesgQueue audioFrameMsgQ;
     /* 0x1E0 */ OSMesg audioFrameMsgBuf[8];
@@ -50,11 +50,11 @@ SIZE_CHECK(AMDMAState, 0xC);
 /* OSIoMesg from before 2.0I added piHandle. */
 typedef struct IoMesg {
     /* 0x00 */ OSIoMesgHdr hdr;
-    /* 0x08 */ void *PTR32 dramAddr;
+    /* 0x08 */ void *dramAddr;
     /* 0x0C */ u32 devAddr;
     /* 0x10 */ u32 size;
 } IoMesg;
-SIZE_CHECK(IoMesg, 0x14);
+SIZE_CHECK_C(IoMesg, 0x14);
 
 /* ALSynConfig, with a u8 fxType. */
 typedef struct SynConfig {
@@ -161,6 +161,16 @@ typedef struct SndStateLists {
 #else
 #define AUDIO_HEAP_SIZE 0x2A280
 #define NUM_DMA_MESSAGES 0x48
+#endif
+/* The heap is exactly full on the N64.  In the LP64 port AudioInfo (three of
+ * them are allocated in it) is bigger, so the heap gets that much more. */
+#if defined(TARGET_PC) && defined(PORT_LP64)
+#undef AUDIO_HEAP_SIZE
+#ifdef VERSION_EU
+#define AUDIO_HEAP_SIZE (0x24540 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15))
+#else
+#define AUDIO_HEAP_SIZE (0x2A280 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15))
+#endif
 #endif
 
 extern SndState *PTR32 D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */

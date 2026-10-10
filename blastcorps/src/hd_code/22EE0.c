@@ -147,7 +147,7 @@ void func_80267A9C(void *arg) {
     osScAddClient(&D_80315440, &D_803682F8, &D_80368070.audioFrameMsgQ, NUM_FIELDS, 2);
     osSendMesg(&D_80368070.audioFrameMsgQ, (OSMesg)5, OS_MESG_NOBLOCK);
     while (!done) {
-        osRecvMesg(&D_80368070.audioFrameMsgQ, (OSMesg *)&msg, OS_MESG_BLOCK);
+        osRecvMesgInt(&D_80368070.audioFrameMsgQ, msg, OS_MESG_BLOCK);
         switch (msg) {
             case 5:
                 if (D_80315440.audioListHead != NULL) {

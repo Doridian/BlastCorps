@@ -48,6 +48,16 @@ typedef u32 RomAddr;
 typedef u32 AssetOffset;
 typedef u32 SegAddr;
 
+/* osRecvMesg into an integer variable.  OSMesg is a pointer, so in the port
+   (where it is as wide as the host's) the message goes through one and is then
+   narrowed; for IDO it is the original's cast. */
+#ifdef TARGET_PC
+#define osRecvMesgInt(mq, var, flag) ({ OSMesg msg_ = 0; s32 r_ = osRecvMesg(mq, &msg_, flag); \
+    if (r_ == 0) (var) = (__typeof__(var))(__UINTPTR_TYPE__)msg_; r_; })
+#else
+#define osRecvMesgInt(mq, var, flag) osRecvMesg(mq, (OSMesg *)&(var), flag)
+#endif
+
 /* A compile-time check that a struct has its N64 size. */
 #define SIZE_CHECK(type, size) typedef char type##_size_check[(sizeof(type) == (size)) ? 1 : -1]
 /* The same for a struct only the C uses, with its own pointers: the LP64

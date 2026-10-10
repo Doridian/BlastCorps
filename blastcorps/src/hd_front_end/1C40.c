@@ -794,7 +794,7 @@ void func_801EA278(void) {
 
     for (sp1C = 0; sp1C < 4; sp1C++) {
         osSendMesg(&D_80219EF8, (OSMesg)((sp1C << 16) | 6 | 0x01000000), OS_MESG_BLOCK);
-        osRecvMesg(&D_80219F50, (OSMesg *)&sp18, OS_MESG_BLOCK);
+        osRecvMesgInt(&D_80219F50, sp18, OS_MESG_BLOCK);
         if (sp18 == 0) {
             if (func_8025B3F0((u8 *)&D_80364AF0[sp1C], (u8 *)"NEW GAME")) {
                 D_80365060[sp1C] = 1;
@@ -804,7 +804,7 @@ void func_801EA278(void) {
         } else if (sp18 != 0x6E382) {
             if (sp1C < D_8039C538) {
                 osSendMesg(&D_80219EF8, (OSMesg)((sp1C << 16) | 3 | 0x01000000), OS_MESG_BLOCK);
-                osRecvMesg(&D_80219F50, (OSMesg *)&sp18, OS_MESG_BLOCK);
+                osRecvMesgInt(&D_80219F50, sp18, OS_MESG_BLOCK);
             }
             if (sp18 != 0 || sp1C >= D_8039C538) {
                 D_80365060[sp1C] = 0;
