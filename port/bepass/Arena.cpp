@@ -181,6 +181,8 @@ struct Arena : PassInfoMixin<Arena> {
     };
     std::vector<Region> regions;
     std::map<std::string, size_t> regionIndex;
+    /* the front end's area (the region tagged front_end) */
+    uint64_t feStart = 0x1E7000, feEnd = 0x21ED00;
 
     void readRegions() {
         if (RegionsFile.empty())
@@ -235,6 +237,11 @@ struct Arena : PassInfoMixin<Arena> {
             if (!found)
                 fail("-port-arena-scatter-regions: no region " + t);
         }
+        for (Region &r : regions)
+            if (r.tag == "front_end") {
+                feStart = r.n64;
+                feEnd = r.n64 + r.size;
+            }
         for (Region &r : regions)
             if (r.parent >= 0)
                 r.moves = regions[r.parent].moves;
@@ -327,6 +334,8 @@ struct Arena : PassInfoMixin<Arena> {
         }
         if (!Scatter.empty())
             scatterPick(extra, room);
+        if (!Scatter.empty() && ScatterFE)
+            feTableMake(extra);
         for (GlobalVariable *g : extra) {
             uint64_t align = std::max<uint64_t>(g->getAlign() ? g->getAlign()->value() : 1,
                                                 DL->getABITypeAlign(g->getValueType()).value());
@@ -335,8 +344,10 @@ struct Arena : PassInfoMixin<Arena> {
             extraEnd += DL->getTypeAllocSize(g->getValueType());
         }
         extraEnd = (extraEnd + 15) & ~15ull;
-        if (!Scatter.empty())
+        if (!Scatter.empty()) {
             scatterPlace(decls);
+            feTableFill();
+        }
         /* the moved ones, for the translated code (SYM_) and the host
            (PORT_N64_), whose own tables have the N64's addresses */
         if (!SymsHeader.empty()) {
@@ -405,10 +416,10 @@ struct Arena : PassInfoMixin<Arena> {
        read through a name of its own, a table's second half) gets room of
        its own there ("alias"); a struct's members but the first in the
        asm data (asm2c.py's FILE_STRUCTS) are such names too.  The front
-       end's variables stay (port/src/overlay.c restores them by address)
-       unless -port-arena-scatter-fe.  The regions that move go after
-       the variables (scatterRegions).  What
-       nothing should touch any more (the N64 places left behind, the
+       end's variables stay unless -port-arena-scatter-fe (then
+       port/src/overlay.c restores them from __port_fe_vars: feTableMake).
+       The regions that move go after the variables (scatterRegions).
+       What nothing should touch any more (the N64 places left behind, the
        padding, the aliases' own room) is listed in __port_scatter_bad:
        the host fills it with a pattern (PORT_SCATTER_POISON) and, with
        -port-arena-scatter-check, reports the accesses that reach it and
@@ -448,7 +459,67 @@ struct Arena : PassInfoMixin<Arena> {
         return z ^ (z >> 31);
     }
 
-    static bool frontEnd(uint64_t a) { return a >= 0x1E7000 && a < 0x21ED00; }
+    bool frontEnd(uint64_t a) const { return a >= feStart && a < feEnd; }
+
+    /* -port-arena-scatter-fe: the front end's variables, for
+       port/src/overlay.c, which puts each back as it was at startup when
+       the game loads the front end (its .data as it was, its .bss zeros):
+       __port_fe_vars, {address, N64 address, size, N64 size, offset in
+       __port_fe_snap} a variable, by N64 address, then a row of zeros;
+       __port_fe_snap, room for a copy of them all.  Made here when the
+       module declares them (overlay.c does with PORT_SCATTER_FE), filled
+       once the variables are placed (feTableFill). */
+    GlobalVariable *feVars = nullptr;
+    std::vector<size_t> feItems;
+
+    void feTableMake(std::vector<GlobalVariable *> &extra) {
+        GlobalVariable *d = M->getNamedGlobal("__port_fe_vars"), *s = M->getNamedGlobal("__port_fe_snap");
+        if (!d && !s)
+            return;
+        if (!d || !s || !d->isDeclaration() || !s->isDeclaration())
+            fail("__port_fe_vars and __port_fe_snap are port-arena's (declarations, both)");
+        for (size_t k = 0; k < scItems.size(); k++)
+            if (!scItems[k].alias && scItems[k].size && frontEnd(scItems[k].n64))
+                feItems.push_back(k);
+        std::sort(feItems.begin(), feItems.end(), [&](size_t a, size_t b) { return scItems[a].n64 < scItems[b].n64; });
+        uint64_t total = 0;
+        for (size_t k : feItems)
+            total += alignTo(scItems[k].size, 4);
+        Type *i32 = Type::getInt32Ty(*C);
+        StructType *row = StructType::get(*C, {PointerType::get(*C, 0), i32, i32, i32, i32});
+        ArrayType *at = ArrayType::get(row, feItems.size() + 1);
+        feVars = new GlobalVariable(*M, at, true, GlobalValue::ExternalLinkage, ConstantAggregateZero::get(at));
+        feVars->takeName(d);
+        d->replaceAllUsesWith(feVars);
+        d->eraseFromParent();
+        ArrayType *st = ArrayType::get(Type::getInt8Ty(*C), std::max<uint64_t>(total, 1));
+        auto *snap = new GlobalVariable(*M, st, false, GlobalValue::ExternalLinkage, ConstantAggregateZero::get(st));
+        snap->setAlignment(Align(4));
+        snap->takeName(s);
+        s->replaceAllUsesWith(snap);
+        s->eraseFromParent();
+        extra.push_back(feVars);
+        extra.push_back(snap);
+    }
+
+    void feTableFill() {
+        if (!feVars)
+            return;
+        Type *i32 = Type::getInt32Ty(*C);
+        auto *at = cast<ArrayType>(feVars->getValueType());
+        auto *row = cast<StructType>(at->getElementType());
+        std::vector<Constant *> rows;
+        uint64_t snap = 0;
+        for (size_t k : feItems) {
+            const ScItem &it = scItems[k];
+            rows.push_back(ConstantStruct::get(
+                row, {addrConst(K0 | it.addr, row->getElementType(0)), ConstantInt::get(i32, K0 | it.n64),
+                      ConstantInt::get(i32, it.size), ConstantInt::get(i32, it.n64size), ConstantInt::get(i32, snap)}));
+            snap += alignTo(it.size, 4);
+        }
+        rows.push_back(Constant::getNullValue(row));
+        feVars->setInitializer(ConstantArray::get(at, rows));
+    }
 
     template <typename Room> void scatterPick(std::vector<GlobalVariable *> &extra, Room &room) {
         std::vector<Placed> keep;
