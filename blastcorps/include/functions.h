@@ -166,9 +166,9 @@ Gfx *func_80201364(s32, Gfx *);
 s32 func_80201E80(void);
 
 /* hd_front_end 1B100, handwritten (port/engine/1B100.c) */
-void func_80202100(s32, u32 *, u32 *, u32 *);
+void func_80202100(s32, void *, u8 **, Gfx **);
 void func_802021FC(struct UnkStruct_803ED460 *, u8 *, u8 *);
-void func_80202270(u8 *, u32 *, struct UnkStruct_803ED460 *);
+void func_80202270(u8 *, u8 **, struct UnkStruct_803ED460 *);
 void func_802022EC(struct UnkStruct_803ED460 *, s32, s32, s32, f32, s32, s32);
 void func_80202380(s32);
 void func_802025D0(u8, u32);

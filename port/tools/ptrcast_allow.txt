@@ -19,13 +19,13 @@ P8-gbi blastcorps/src/hd_code/43A60.c 8 8 8 8
 P8-gbi blastcorps/src/hd_code/479D0.c 2 2 2 2
 P8-gbi blastcorps/src/hd_code/48D00.c 4 4 4 4
 P8-gbi blastcorps/src/hd_code/4B5E0.c 1 1 1 1
-P8-gbi blastcorps/src/hd_front_end/00000.c 2 2 2 2
+P8-gbi blastcorps/src/hd_front_end/00000.c 3 3 3 3
 P8-gbi blastcorps/src/hd_front_end/11530.c 2 2 2 2
 P8-gbi blastcorps/src/hd_front_end/1A240.c 1 1 1 1
 P8-gbi blastcorps/src/hd_front_end/1C40.c 1 1 1 1
 P8-gbi blastcorps/src/hd_front_end/9570.c 1 1 1 1
 P8-gbi blastcorps/src/hd_front_end/C450.c 1 1 1 1
-P8-gbi blastcorps/src/hd_front_end/DE70.c 5 5 5 5
+P8-gbi blastcorps/src/hd_front_end/DE70.c 6 6 6 6
 P8-gbi port/engine/56040.c 2 2 2 2
 P8-gbi port/engine/5BF40.c 2 2 2 2
 P8-gbi port/engine/5CB60.c 1 1 1 1
@@ -45,7 +45,7 @@ P7-rom blastcorps/src/hd_front_end/9570.c 1 1 1 1
 P7-rom blastcorps/src/hd_front_end/DE70.c 3 3 3 3
 P7-rom port/engine/5BF40.c 2 2 2 2
 P7-rom port/engine/5CB60.c 34 34 34 34
-P7-rebase blastcorps/src/hd_front_end/DE70.c 8 8 8 8
+P7-rebase blastcorps/src/hd_front_end/DE70.c 10 10 10 10
 P7-rebase port/engine/5CB60.c 6 6 6 6
 P7-libaudio port/libaudio/core.c 13 13 13 13
 P7-libaudio port/libaudio/reverb.c 1 1 1 1
@@ -78,7 +78,6 @@ P6-game blastcorps/src/hd_front_end/1AE80.c 3 3 3 3
 P6-game blastcorps/src/hd_front_end/1C40.c 27 27 27 27
 P6-game blastcorps/src/hd_front_end/6790.c 8 8 0 8
 P6-game blastcorps/src/hd_front_end/E7B0.c 7 7 6 7
-P6-engine port/engine/1B100.c 12 12 12 12
 P6-engine port/engine/56040.c 9 9 9 9
 P6-engine port/engine/5BF40.c 12 12 12 12
 P6-engine port/engine/5CB60.c 69 69 69 69

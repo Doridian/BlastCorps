@@ -39,30 +39,30 @@ void func_8029E558(Part *parts, u8 *buf, u8 *other);
 /* the moving parts' keys: the truck's two, the bulldozer's three */
 extern u8 D_802C2208[], D_802C226C[], D_802C2190[], D_802C21A4[], D_802C21B8[];
 
-/* Vehicle model `type` loaded: the model into *rec, two PART_BUF_SIZE
-   part buffers from the heap into bufs[0..1], and the model's two display
-   list sections (Model.unk1C, unk2C) into dls[0] and dls[2] with their
-   places in the second buffer (dls[1], dls[3]); then its Vehicle record
-   (5CB60). */
-void func_80202100(s32 type, u32 *rec, u32 *bufs, u32 *dls) {
+/* Vehicle model `type` loaded: the model into *rec (the front end's
+   pointer to it, whatever its type there), two PART_BUF_SIZE part buffers
+   from the heap into bufs[0..1], and the model's two display list sections
+   (Model.unk1C, unk2C) into dls[0] and dls[2] with their places in the
+   second buffer (dls[1], dls[3]); then its Vehicle record (5CB60). */
+void func_80202100(s32 type, void *rec, u8 **bufs, Gfx **dls) {
     Model *model;
     u8 *heap;
     s32 o1, o2;
 
     model = (Model *)(__UINTPTR_TYPE__)func_802A396C(type);
-    rec[0] = (u32)model;
+    *(Model **)rec = model;
     heap = D_80358070;
-    bufs[0] = (u32)heap;
-    bufs[1] = (u32)(heap + PART_BUF_SIZE);
+    bufs[0] = heap;
+    bufs[1] = heap + PART_BUF_SIZE;
     heap += PART_BUF_SIZE * 2;
     D_80358070 = heap;
     o1 = (s32)model->unk1C;
     o2 = (s32)model->unk2C;
-    dls[0] = (u32)((u8 *)model + o1);
-    dls[1] = (u32)heap;
-    dls[2] = (u32)((u8 *)model + o2);
-    dls[3] = (u32)(heap + o2 - o1);
-    func_802A1388(type, 0, (u8 *)bufs[0], (u8 *)bufs[1], (u8 *)rec[0]);
+    dls[0] = (Gfx *)((u8 *)model + o1);
+    dls[1] = (Gfx *)heap;
+    dls[2] = (Gfx *)((u8 *)model + o2);
+    dls[3] = (Gfx *)(heap + o2 - o1);
+    func_802A1388(type, 0, bufs[0], bufs[1], (u8 *)model);
 }
 
 /* the parts stepped a frame (from the buffer `buf`, `other` the next) */
@@ -71,8 +71,8 @@ void func_802021FC(Part *parts, u8 *buf, u8 *other) {
 }
 
 /* the parts set up from the model in the two buffers */
-void func_80202270(u8 *model, u32 *bufs, Part *parts) {
-    func_8029F85C(parts, model, (u8 *)bufs[0], (u8 *)bufs[1]);
+void func_80202270(u8 *model, u8 **bufs, Part *parts) {
+    func_8029F85C(parts, model, bufs[0], bufs[1]);
 }
 
 /* part i's settings */
