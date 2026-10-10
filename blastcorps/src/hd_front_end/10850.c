@@ -189,6 +189,10 @@ void func_801F7850(void) {
         sp74->x = -0x20;
         sp74->y = 0x28;
         sp74->unk14 = 0xD;
+#ifdef TARGET_PC
+        /* its colours, which the N64 leaves as the heap held them (26570.c) */
+        sp74->unk18 = sp74->unk19 = 7;
+#endif
         sp74->unk16 = sp74->unk1A = 0;
         sp78->count = sp68 * 4 + 1;
     } else {

@@ -52,11 +52,10 @@ went in these ways:
 - **The host reads the game through its variables** (`port/host/sched_vars.h`
   for the scheduler's frame count and level time; the player's and the
   vehicles' coordinates by their own names).
-- **Reads past an end that the N64 makes too** stay what they read there,
-  through the variable that holds it: `func_8026BCE0` draws an entry
-  whose colour indices were never set (stale bytes, up to 0xFF), and
-  `port_color_pair` (26570.c) reads the N64's bytes past `D_802F47B0`'s
-  tables from `D_802F49F4` and its neighbours.
+- **Reads past an end that the N64 makes too** are fixed where they
+  were found: `func_8026BCE0` drew two entries whose colour indices were
+  never set (stale bytes, up to 0xFF); the entries get theirs now, and
+  `port_color_pair` (26570.c) gives no colour past `D_802F47B0`'s pairs.
 
 ## The kinds
 
@@ -93,7 +92,8 @@ line (code the compiler made for several).
   default: they move, and the level pool with them, `port/src/overlay.c`
   restoring each from port-arena's list).
 - The other versions: jp's `func_8026BCE0` is its own C
-  (`port/engine/jp_26570.c`) and still indexes past `D_802F47B0`.
+  (`port/engine/jp_26570.c`), reading the colours through
+  `port_color_pair` too.
 
 ## Summary
 

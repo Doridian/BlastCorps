@@ -568,6 +568,10 @@ void func_802979E0(u8 arg0) {
     sp48->x = -0x20;
     sp48->y = 0x26;
     sp48->unk14 = 0x18;
+#ifdef TARGET_PC
+    /* its colours, which the N64 leaves as the heap held them (26570.c) */
+    sp48->unk18 = sp48->unk19 = 7;
+#endif
     sp48->unk1A = 0;
     sp48->unk16 = (u8)sp48->unk1A;
     sp44 = &D_802F49F4[sp48->unk14];

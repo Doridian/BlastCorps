@@ -110,6 +110,7 @@ void func_802979E0(u8 arg) {
     e->x = -0x20;
     e->y = 0x26;
     e->unk14 = 0x18;
+    e->unk18 = e->unk19 = 7;    /* (the N64 leaves what the heap held: 26570.c) */
     e->unk1A = 0;
     e->unk16 = e->unk1A;
     icon = &D_802F49F4[e->unk14];

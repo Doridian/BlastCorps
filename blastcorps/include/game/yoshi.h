@@ -119,27 +119,15 @@ SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
 #define YOSHI_WINDOWS 0x6C
 #endif
 extern YoshiWindow D_802F8BDC[YOSHI_WINDOWS];
-/*
- * An entry's colours (YoshiEntry.unk18, unk19) index D_802F47B0, and some
- * reach past its 0x17 pairs into the three tables after it: a window by
- * level kind (D_802F4868, D_802F4870: the windows' indices in D_802F8BDC)
- * and the icon by level kind (D_802F4878).  The port has those in
- * D_802F47B0, so that the colours read through it are the N64's.
- */
-#ifdef TARGET_PC
-#define COLOR_PAIRS (0x17 + 3)
-#define D_802F4868 ((u8 *) &D_802F47B0[0x17])
-#define D_802F4870 ((u8 *) &D_802F47B0[0x18])
-#define D_802F4878 ((u8 *) &D_802F47B0[0x19])
-#else
-#define COLOR_PAIRS 0x17
+/* window by level kind (D_802F4868, D_802F4870: the windows' indices in
+ * D_802F8BDC) and the icon by level kind (D_802F4878), after D_802F47B0 */
 extern u8 D_802F4868[8];
 extern u8 D_802F4870[8];
 extern u8 D_802F4878[8];
-#endif
+#define COLOR_PAIRS 0x17
 extern ColorPair D_802F47B0[COLOR_PAIRS];
 #ifdef TARGET_PC
-/* D_802F47B0[i] for any u8 i: past its tables, the .data that follows (26570.c) */
+/* D_802F47B0[i], an entry's colour: none (all 0) past the pairs (26570.c) */
 ColorPair port_color_pair(u8 i);
 #endif
 #ifndef TARGET_PC

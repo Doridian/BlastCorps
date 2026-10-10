@@ -537,18 +537,10 @@ ColorPair D_802F47B0[COLOR_PAIRS] = {
     { 255, 0, 255, 255, 255, 0, 0, 255 },
     { 255, 180, 0, 255, 255, 120, 0, 255 },
     { 0, 255, 0, 255, 255, 255, 0, 255 },
-#ifdef TARGET_PC
-    /* the three window tables after it (yoshi.h), which an entry's colour reaches */
-    { 15, 16, 16, 16, 16, 16, 16, 16 },
-    { 6, 7, 7, 7, 7, 7, 7, 7 },
-    { 13, 25, 14, 23, 16, 0, 16, 14 },
-#endif
 };
-#ifndef TARGET_PC
 u8 D_802F4868[8] = { 15, 16, 16, 16, 16, 16, 16, 16 };
 u8 D_802F4870[8] = { 6, 7, 7, 7, 7, 7, 7, 7 };
 u8 D_802F4878[8] = { 13, 25, 14, 23, 16, 0, 16, 14 };
-#endif
 u16 D_802F4880[0x28] = { 0xFFF };
 UnkStruct_802F48D0 D_802F48D0[8] = {
     { 0, { 87, 84, 85, 80, 76, 83, 74, 77, 78, 79, 73, 75, -1 } },
@@ -3294,62 +3286,22 @@ extern s8 D_80370C13;
 extern s8 D_80370C14;
 
 /*
- * An entry's colours index D_802F47B0 with a u8, and the entries the game
- * builds itself can hold more than its pairs and the three tables after it
- * (COLOR_PAIRS, yoshi.h): the TAS draws entries with 0x58 and 0xFF.  The
- * N64 reads those eight bytes from the .data that follows, which a u8
- * index can't take past D_802F49F4 (index 0xFF is its 0x5B4th byte), and
- * draws with them.  The port reads the same bytes, each through the
- * variable it is in, its scalars by value so that the native-endian build
- * gets the N64's bytes too.
+ * An entry's colours (unk18, unk19) index D_802F47B0's pairs.  The two
+ * entries the game builds with an icon and no text (53220.c's window 21
+ * and hd_front_end 10850.c's best times) never get theirs: they hold
+ * whatever the heap did (0xAF, 0x58, 0xFF in the TAS), and the N64 reads
+ * the .data after the pairs.  The port sets those two to 7, and an index
+ * past the pairs is no colour (all 0: transparent); an entry without text
+ * isn't drawn anyway (func_80259EC4 returns at once), so nothing shows.
  */
 #ifdef TARGET_PC
-static u8 port_yoshi_data_byte(u32 o) {
-    YoshiIcon *icon;
-    u32 r;
-
-    if (o < sizeof(D_802F47B0)) {
-        return ((u8 *) D_802F47B0)[o];
-    }
-    o -= sizeof(D_802F47B0);
-    if (o < sizeof(D_802F4880)) {
-        return D_802F4880[o / 2] >> ((o & 1) ? 0 : 8);
-    }
-    o -= sizeof(D_802F4880);
-    if (o < sizeof(D_802F48D0)) {
-        r = o % sizeof(UnkStruct_802F48D0);
-        if (r < 2) {
-            return ((u8 *) &D_802F48D0[o / sizeof(UnkStruct_802F48D0)])[r];
-        }
-        return (u16) D_802F48D0[o / sizeof(UnkStruct_802F48D0)].unk2[(r - 2) / 2] >> ((r & 1) ? 0 : 8);
-    }
-    o -= sizeof(D_802F48D0);
-    if (o < sizeof(D_802F49E0)) {
-        return D_802F49E0[o];
-    }
-    o -= sizeof(D_802F49E0);
-    icon = &D_802F49F4[o / sizeof(YoshiIcon)];
-    r = o % sizeof(YoshiIcon);
-    if (r < 4) {
-        return (u16) (r < 2 ? icon->unk0 : icon->unk2) >> ((r & 1) ? 0 : 8);
-    }
-    if (r - 0x28 < 4) {
-        return *(u32 *) &icon->unk28 >> (8 * (3 - (r - 0x28)));
-    }
-    return ((u8 *) icon)[r];
-}
-
 ColorPair port_color_pair(u8 i) {
-    ColorPair c;
-    u32 k;
+    static const ColorPair none;
 
     if (i < COLOR_PAIRS) {
         return D_802F47B0[i];
     }
-    for (k = 0; k < sizeof(c); k++) {
-        ((u8 *) &c)[k] = port_yoshi_data_byte(i * sizeof(c) + k);
-    }
-    return c;
+    return none;
 }
 #define COLOR_PAIR(i) port_color_pair(i)
 #else
