@@ -8,9 +8,15 @@
 #include "functions.h"
 
 /* Saved sequence state: a copy of the player's 16 channel states, the
- * sequence position and tempo, and the song number. */
+ * sequence position and tempo, and the song number.  (The game copies the
+ * channel states as 0x40 words, which they are where pointers are 4 bytes;
+ * the port copies them as what they are.) */
 typedef struct {
+#ifdef TARGET_PC
+    /* 0x000 */ ALChanState chanState[0x10];
+#else
     /* 0x000 */ u32 chanState[0x40];
+#endif
     /* 0x100 */ ALCSeqMarker marker;
     /* 0x1EC */ s32 tempo;
     /* 0x1F0 */ u8 unk1F0;
@@ -185,9 +191,15 @@ void func_80261068(void) {
             if ((func_802D4E10(D_80367734) == 1) && (sp28.lastTicks != 0)) {
                 alCSeqSetLoc(&D_80367518[D_802E8D84], &D_80367400->marker);
                 alCSPSetTempo(D_80367734, D_80367400->tempo);
+#ifdef TARGET_PC
+                for (sp114 = 0; sp114 < 0x10; sp114++) {
+                    D_80367734->chanState[sp114] = D_80367400->chanState[sp114];
+                }
+#else
                 for (sp114 = 0; sp114 < 0x40; sp114++) {
                     ((u32 *)D_80367734->chanState)[sp114] = D_80367400->chanState[sp114];
                 }
+#endif
                 D_80367728 = 0;
                 if (D_80367714 != 1.0) {
                     func_80261570(1.0f);
@@ -215,9 +227,15 @@ void func_80261284(void) {
             if (func_802D4E10(D_80367734) == 1) {
                 alCSeqGetLoc(&D_80367518[D_802E8D84], &D_80367400->marker);
                 D_80367400->tempo = alCSPGetTempo(D_80367734);
+#ifdef TARGET_PC
+                for (sp24 = 0; sp24 < 0x10; sp24++) {
+                    D_80367400->chanState[sp24] = D_80367734->chanState[sp24];
+                }
+#else
                 for (sp24 = 0; sp24 < 0x40; sp24++) {
                     D_80367400->chanState[sp24] = ((u32 *)D_80367734->chanState)[sp24];
                 }
+#endif
                 func_802D76C0(D_80367734);
                 D_80367400++;
                 D_80367729 = 2;

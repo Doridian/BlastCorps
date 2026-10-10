@@ -36,16 +36,16 @@ typedef struct AMDMABuffer {
     /* 0x00 */ ALLink node;
     /* 0x08 */ u32 startAddr;
     /* 0x0C */ u32 lastFrame;
-    /* 0x10 */ char *PTR32 ptr;
+    /* 0x10 */ char *ptr;
 } AMDMABuffer;
-SIZE_CHECK(AMDMABuffer, 0x14);
+SIZE_CHECK_C(AMDMABuffer, 0x14);
 
 typedef struct AMDMAState {
     /* 0x0 */ u8 initialized;
-    /* 0x4 */ AMDMABuffer *PTR32 firstUsed;
-    /* 0x8 */ AMDMABuffer *PTR32 firstFree;
+    /* 0x4 */ AMDMABuffer *firstUsed;
+    /* 0x8 */ AMDMABuffer *firstFree;
 } AMDMAState;
-SIZE_CHECK(AMDMAState, 0xC);
+SIZE_CHECK_C(AMDMAState, 0xC);
 
 /* OSIoMesg from before 2.0I added piHandle. */
 typedef struct IoMesg {
@@ -62,13 +62,20 @@ typedef struct SynConfig {
     /* 0x04 */ s32 maxPVoices;
     /* 0x08 */ s32 maxUpdates;
     /* 0x0C */ s32 maxFXbusses;
-    /* 0x10 */ void *PTR32 dmaproc;
-    /* 0x14 */ ALHeap *PTR32 heap;
+    /* 0x10 */ void *dmaproc;
+    /* 0x14 */ ALHeap *heap;
     /* 0x18 */ s32 outputRate;
     /* 0x1C */ u8 fxType;
-    /* 0x20 */ s32 *PTR32 params;
+    /* 0x20 */ s32 *params;
 } SynConfig;
-SIZE_CHECK(SynConfig, 0x24);
+SIZE_CHECK_C(SynConfig, 0x24);
+#ifdef TARGET_PC
+/* (it is handed to alInit as one) */
+_Static_assert(sizeof(SynConfig) == sizeof(ALSynConfig) &&
+               __builtin_offsetof(SynConfig, fxType) == __builtin_offsetof(ALSynConfig, fxType) &&
+               __builtin_offsetof(SynConfig, params) == __builtin_offsetof(ALSynConfig, params),
+               "SynConfig is an ALSynConfig");
+#endif
 
 /* The custom reverb's parameter block (ALFxId AL_FX_CUSTOM). */
 typedef struct FxParams {
@@ -100,11 +107,11 @@ extern SndBank *D_80367738;
  * ALSndPlayer, with changes). */
 typedef struct SndState {
     /* 0x00 */ ALLink node;
-    /* 0x08 */ ALSound *PTR32 sound;
+    /* 0x08 */ ALSound *sound;
     /* 0x0C */ ALVoice voice;
     /* 0x28 */ f32 unk28;
     /* 0x2C */ f32 pitch;
-    /* 0x30 */ struct SndState **PTR32 unk30;  /* its handle (func_80260650): cleared when it ends */
+    /* 0x30 */ struct SndState **unk30;  /* its handle (func_80260650): cleared when it ends */
     /* 0x34 */ s16 unk34;
     /* 0x36 */ u8 unk36;
     /* 0x38 */ s32 unk38;
@@ -113,21 +120,28 @@ typedef struct SndState {
     /* 0x3E */ u8 unk3E;
     /* 0x3F */ u8 unk3F;
 } SndState;
-SIZE_CHECK(SndState, 0x40);
+SIZE_CHECK_C(SndState, 0x40);
 
 typedef struct SndEvent {
     /* 0x00 */ u16 type;
-    /* 0x04 */ SndState *PTR32 state;
+    /* 0x04 */ SndState *state;
     /* 0x08 */ s32 param;
-    /* 0x0C */ void *PTR32 unkC;
+    /* 0x0C */ void *unkC;
 } SndEvent; /* an ALEvent */
-SIZE_CHECK(SndEvent, 0x10);
+SIZE_CHECK_C(SndEvent, 0x10);
+#ifdef TARGET_PC
+/* alEvtqPostEvent copies an ALEvent from it, and the sound player reads its
+   queue's ALEvents as SndEvents: the payload where ALEvent's union is */
+_Static_assert(sizeof(SndEvent) == sizeof(ALEvent) &&
+               __builtin_offsetof(SndEvent, state) == __builtin_offsetof(ALEvent, msg),
+               "SndEvent is an ALEvent");
+#endif
 
 typedef struct SndConfig {
     /* 0x00 */ u32 maxSounds;
     /* 0x04 */ s32 maxEvents;
     /* 0x08 */ s32 unk8;
-    /* 0x0C */ ALHeap *PTR32 heap;
+    /* 0x0C */ ALHeap *heap;
     /* 0x10 */ u16 unk10;
 } SndConfig;
 
@@ -135,10 +149,10 @@ typedef struct SndPlayer {
     /* 0x00 */ ALPlayer node;
     /* 0x14 */ ALEventQueue evtq;
     /* 0x28 */ ALEvent nextEvent;
-    /* 0x38 */ ALSynth *PTR32 drvr;
+    /* 0x38 */ ALSynth *drvr;
     /* 0x3C */ s32 unk3C;
-    /* 0x40 */ SndState *PTR32 unk40;
-    /* 0x44 */ SndState *PTR32 unk44;
+    /* 0x40 */ SndState *unk40;
+    /* 0x44 */ SndState *unk44;
     /* 0x48 */ s32 unk48;
     /* 0x4C */ ALMicroTime frameTime;
     /* 0x50 */ ALMicroTime nextDelta;
@@ -147,9 +161,9 @@ typedef struct SndPlayer {
 
 /* D_802E8CE0: the sound states in use and the free ones. */
 typedef struct SndStateLists {
-    /* 0x0 */ SndState *PTR32 head;
-    /* 0x4 */ SndState *PTR32 tail;
-    /* 0x8 */ SndState *PTR32 freeList;
+    /* 0x0 */ SndState *head;
+    /* 0x4 */ SndState *tail;
+    /* 0x8 */ SndState *freeList;
 } SndStateLists;
 
 /* The audio heap (D_80370C80, 46F60.c's; 1C460's alHeapInit) and the
@@ -162,17 +176,29 @@ typedef struct SndStateLists {
 #define AUDIO_HEAP_SIZE 0x2A280
 #define NUM_DMA_MESSAGES 0x48
 #endif
-/* The heap is exactly full on the N64.  In the LP64 port AudioInfo (three of
- * them are allocated in it) is bigger, so the heap gets that much more, and
- * 15 bytes, which alHeapInit takes off a buffer that isn't 16-aligned (the
- * port's image may give it 8). */
+/* The heap is exactly full on the N64.  In the LP64 port what is allocated
+ * in it with pointers in it is bigger, and the heap gets that much more
+ * (port/include/libaudio_heap.h; alHeapAlloc stops the port where it runs
+ * out): AudioInfo (22EE0.c, three), the synthesizer's blocks (1C460.c's
+ * synConfig: 0x18 voices, 0x80 updates; 22EE0.c's reverb, D_802F3AFC: 8
+ * sections, one with a chorus, four with a low-pass filter), the sequence
+ * player and its blocks (1C460.c's seqConfig: 0x10 channels, 0x18 voices,
+ * 0x20 events) and the sound player's (sndConfig: 0x20 sounds, 0x40 events);
+ * and 15 bytes, which alHeapInit takes off a buffer that isn't 16-aligned
+ * (the port's image may give it 8). */
 #if defined(TARGET_PC) && defined(PORT_LP64)
+#include "libaudio_heap.h"
 #undef AUDIO_HEAP_SIZE
 #ifdef VERSION_EU
-#define AUDIO_HEAP_SIZE (0x24540 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15) + 15)
+#define AUDIO_HEAP_N64 0x24540
 #else
-#define AUDIO_HEAP_SIZE (0x2A280 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15) + 15)
+#define AUDIO_HEAP_N64 0x2A280
 #endif
+#define AUDIO_HEAP_SIZE                                                              \
+    (AUDIO_HEAP_N64 + 15 + 3 * AL_HEAP_GROWTH(1, AudioInfo, 0x68) +                  \
+     AL_SYN_HEAP_GROWTH(0x18, 0x80, 8, 1, 4) +                                       \
+     AL_HEAP_GROWTH(1, ALCSPlayer, 0x7C) + AL_CSP_HEAP_GROWTH(0x10, 0x18, 0x20) +   \
+     AL_HEAP_GROWTH(0x20, SndState, 0x40) + AL_HEAP_GROWTH(0x40, ALEventListItem, 0x1C))
 #endif
 
 extern SndState *D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */

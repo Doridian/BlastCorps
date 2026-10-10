@@ -49,7 +49,7 @@ void al_reverb_init(Reverb *r, ALSynConfig *c, ALHeap *hp) {
     r->nsections = p[0];
     r->len = p[1];
     p += 2;
-    r->sections = alHeapAlloc(hp, r->nsections, BLOCK_DELAY);
+    r->sections = alHeapAlloc(hp, r->nsections, HEAP_BLOCK(Section, BLOCK_DELAY));
     r->line = alHeapAlloc(hp, r->len, sizeof(s16));
     r->pos = r->line;
     for (i = 0; i < r->len; i++)
@@ -67,7 +67,7 @@ void al_reverb_init(Reverb *r, ALSynConfig *c, ALHeap *hp) {
             s->mod_depth = (f32)((f32)p[6] / CENTS_PER_LN2 * (s->out - s->in));
             s->mod_phase = 1.0f;
             s->drift = 0;
-            s->chorus = alHeapAlloc(hp, 1, BLOCK_RESAMPLER);
+            s->chorus = alHeapAlloc(hp, 1, HEAP_BLOCK(Chorus, BLOCK_RESAMPLER));
             s->chorus->state = alHeapAlloc(hp, 1, sizeof(RESAMPLE_STATE));
             s->chorus->frac = 0.0f;
             s->chorus->first = 1;
@@ -75,7 +75,7 @@ void al_reverb_init(Reverb *r, ALSynConfig *c, ALHeap *hp) {
             s->chorus = NULL;
         }
         if (p[7] != 0) {
-            s->lp = alHeapAlloc(hp, 1, BLOCK_LOWPASS);
+            s->lp = alHeapAlloc(hp, 1, HEAP_BLOCK(LowPass, BLOCK_LOWPASS));
             s->lp->state = alHeapAlloc(hp, 1, sizeof(POLEF_STATE));
             s->lp->fc = p[7];
             lowpass_init(s->lp);
@@ -161,7 +161,7 @@ static Acmd *read_out_tap(Reverb *r, Section *s, s32 dmem, s32 n, Acmd *cmd) {
         ch->frac = want - (f32)nin;
 
         at = r->pos - (s32)(s->out - s->drift);
-        skew = ((s32)at & 7) >> 1;      /* samples before it to an 8-byte boundary */
+        skew = (s32)((uintptr_t)at & 7) >> 1;      /* samples before it to an 8-byte boundary */
         cmd = line_load(r, at - skew, DMEM_TEMP2, nin + skew, cmd);
         aSetBuffer(cmd++, 0, DMEM_TEMP2 + (skew << 1), dmem, n << 1);
         aResample(cmd++, ch->first, (s32)(ratio * PITCH_ONE), phys(ch->state));
