@@ -48,8 +48,9 @@ static void chan_instrument(ALChanState *c, ALInstrument *inst) {
 }
 
 /* every channel to the bank's first instrument; channel 9 to its
-   percussion, if any (and the channel state just past the last one is
-   reset then, as the reference does) */
+   percussion, if any.  (The reference also resets the channel state just
+   past the last one then, which is the first voice state's link and
+   synthesizer voice: not done.) */
 static void use_bank(ALCSPlayer *p, ALBank *b) {
     ALInstrument *first = NULL;
     s32 i;
@@ -60,10 +61,8 @@ static void use_bank(ALCSPlayer *p, ALBank *b) {
         chan_defaults(&p->chanState[i]);
         chan_instrument(&p->chanState[i], first);
     }
-    if (b->percussion != NULL) {
-        chan_defaults(&p->chanState[i]);
+    if (b->percussion != NULL)
         chan_instrument(&p->chanState[9], b->percussion);
-    }
 }
 
 /* the microseconds a tick lasts at this tempo (microseconds a quarter note) */
