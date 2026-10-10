@@ -22,7 +22,8 @@
  * A command is the N64 side's Gfx: two words, w0 (the opcode and its
  * fields) and w1 (a field, or an address), each 4 bytes in game memory's
  * order, or, where the N64 side's Gfx has pointer-wide words
- * (PORT_WIDE_GFX, the LP64 builds), 8 bytes in the host's: gfx_cmd is its
+ * (PORT_WIDE_GFX, the LP64 builds), 8 bytes, a 64-bit scalar of game
+ * memory's (port.h: two of its words, the high one first): gfx_cmd is its
  * size, from port_layout (8 or 16), and gfx_w0/gfx_w1 read its words.
  *
  * Every address the renderer holds (a list, the images, a vertex load's,
@@ -38,17 +39,21 @@
  * both are compared in one domain. */
 typedef uintptr_t GfxAddr;
 extern unsigned gfx_cmd;        /* a command's bytes: 8, or 16 (gfx_wide) */
-extern int gfx_wide;            /* its words are 8 bytes, pointers in the host's order */
+extern int gfx_wide;            /* its words are 8 bytes (64-bit scalars: gfx_g64) */
 extern int gfx_strict;          /* PORT_GFX_STRICT=1: a malformed list is fatal (gfx.c) */
 void gfx_layout_init(void);     /* gfx_cmd and gfx_wide from port_layout (idempotent) */
 
+/* a 64-bit scalar of game memory (port.h: the high word first) */
+static inline uint64_t gfx_g64(const uint8_t *p) { return (uint64_t)port_g32(p) << 32 | port_g32(p + 4); }
+static inline void gfx_wg64(uint8_t *p, uint64_t v) {
+    port_wg32(p, (uint32_t)(v >> 32));
+    port_wg32(p + 4, (uint32_t)v);
+}
+
 static inline uintptr_t gfx_word(const uint8_t *p) {
 #if UINTPTR_MAX > 0xFFFFFFFFu
-    if (gfx_wide) {
-        uint64_t v;
-        memcpy(&v, p, sizeof v);
-        return (uintptr_t)v;
-    }
+    if (gfx_wide)
+        return (uintptr_t)gfx_g64(p);
 #endif
     return port_g32(p);
 }
@@ -58,9 +63,8 @@ static inline uintptr_t gfx_w1(const uint8_t *c) { return gfx_word(c + gfx_cmd /
 static inline void gfx_put(uint8_t *c, uintptr_t w0, uintptr_t w1) {
 #if UINTPTR_MAX > 0xFFFFFFFFu
     if (gfx_wide) {
-        uint64_t a = w0, b = w1;
-        memcpy(c, &a, 8);
-        memcpy(c + 8, &b, 8);
+        gfx_wg64(c, w0);
+        gfx_wg64(c + 8, w1);
         return;
     }
 #endif
