@@ -334,6 +334,36 @@ struct BEPass : PassInfoMixin<BEPass> {
         }
     }
 
+    /* the accesses clang made to g (directly, or to a part of it)
+       claiming more alignment than g now has: to its alignment.  clang
+       emits them with the alignment it gave the variable (x86-64's 16 for
+       an array of 16 bytes or more), which fixGlobals then lowers; left
+       as they were, the backend uses the instructions that need it (the
+       LP64 build's movaps into 22EE0.c's D_8036A318, which port-arena
+       places 8-aligned) */
+    static void capAccesses(Value *v, Align a) {
+        for (User *u : v->users()) {
+            if (auto *ce = dyn_cast<ConstantExpr>(u)) {
+                if (ce->getOpcode() == Instruction::GetElementPtr || ce->isCast())
+                    capAccesses(ce, a);
+            } else if (isa<GetElementPtrInst>(u) || isa<CastInst>(u)) {
+                capAccesses(u, a);      /* (an element's: clang's claim came from g's) */
+            } else if (auto *ld = dyn_cast<LoadInst>(u)) {
+                if (ld->getPointerOperand() == v && ld->getAlign() > a)
+                    ld->setAlignment(a);
+            } else if (auto *st = dyn_cast<StoreInst>(u)) {
+                if (st->getPointerOperand() == v && st->getAlign() > a)
+                    st->setAlignment(a);
+            } else if (auto *mi = dyn_cast<MemIntrinsic>(u)) {
+                if (mi->getRawDest() == v && mi->getDestAlign() && *mi->getDestAlign() > a)
+                    mi->setDestAlignment(a);
+                if (auto *mt = dyn_cast<MemTransferInst>(mi))
+                    if (mt->getRawSource() == v && mt->getSourceAlign() && *mt->getSourceAlign() > a)
+                        mt->setSourceAlignment(a);
+            }
+        }
+    }
+
     void fixGlobals(Module &m, const DataLayout &dl, bool widths) {
         LLVMContext &c = m.getContext();
         Type *i32 = Type::getInt32Ty(c);
@@ -352,14 +382,21 @@ struct BEPass : PassInfoMixin<BEPass> {
                LP64 build's `&D_802F49F4[i]`, an array at ...944) */
             if (!g->hasInitializer()) {
                 Align natural = g->getValueType()->isSized() ? dl.getABITypeAlign(g->getValueType()) : Align(1);
-                if (g->getAlign().value_or(Align(1)) > natural)
+                if (g->getAlign().value_or(Align(1)) > natural) {
                     g->setAlignment(natural);
+                    capAccesses(g, natural);
+                }
                 continue;
             }
             /* no over-alignment (x86 wants arrays 16-aligned): the port
                places the game's variables at their N64 addresses */
-            if (!g->getMetadata("port.align"))      /* port-ilp32 did it */
-                g->setAlignment(dl.getABITypeAlign(g->getValueType()));
+            if (!g->getMetadata("port.align")) {    /* port-ilp32 did it */
+                Align natural = dl.getABITypeAlign(g->getValueType());
+                bool lowered = g->getAlign() && *g->getAlign() > natural;
+                g->setAlignment(natural);
+                if (lowered)
+                    capAccesses(g, natural);
+            }
             /* what it is now, which KeepAlign holds it to after the
                optimiser */
             g->setMetadata("port.align.set",
