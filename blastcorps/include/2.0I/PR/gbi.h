@@ -25,7 +25,9 @@
 /* A word of a display list: in the LP64 port through a 32-bit pointer, so
  * that an address in a static list is a 32-bit relocation (clang won't
  * truncate a 64-bit one in a constant). */
-#if defined(TARGET_PC) && defined(PORT_LP64)
+#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
+#define _GBI_W(x)	((__UINTPTR_TYPE__)(x))	/* (the wide switch: as wide as a pointer) */
+#elif defined(TARGET_PC) && defined(PORT_LP64)
 #define _GBI_W(x)	((unsigned int)(void *PTR32)(x))
 #else
 #define _GBI_W(x)	((unsigned int)(x))
@@ -1656,8 +1658,13 @@ typedef struct {
  * Generic Gfx Packet
  */
 typedef struct {
+#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
+	__UINTPTR_TYPE__ w0;	/* (the LP64 port's switch: pointer-wide words) */
+	__UINTPTR_TYPE__ w1;
+#else
 	unsigned int w0;
 	unsigned int w1;
+#endif
 } Gwords;
 
 /*

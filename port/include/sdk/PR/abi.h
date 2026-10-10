@@ -39,9 +39,15 @@
 #define A_MAIN 0x00
 #define A_MIX 0x10
 
+/* (PORT_WIDE_GFX: as gbi.h's Gwords) */
 typedef struct {
+#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
+    __UINTPTR_TYPE__ w0;
+    __UINTPTR_TYPE__ w1;
+#else
     unsigned int w0;
     unsigned int w1;
+#endif
 } Awords;
 
 typedef union {

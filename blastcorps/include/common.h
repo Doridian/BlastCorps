@@ -64,7 +64,9 @@ typedef u32 uintptr_t;
  * in places, an add of 0x80000000.  Both are the identity in the port, as
  * K0_TO_PHYS is (port/include/sdk/PR/R4300.h), but in its engine check build. */
 #if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
-#if defined(PORT_LP64)
+#if defined(PORT_WIDE_GFX)
+#define STATIC_K0_TO_PHYS(x) ((uintptr_t)(x))           /* (the wide switch: as gbi.h's _GBI_W) */
+#elif defined(PORT_LP64)
 #define STATIC_K0_TO_PHYS(x) ((u32)(void *PTR32)(x))    /* see gbi.h's _GBI_W */
 #else
 #define STATIC_K0_TO_PHYS(x) ((u32)(x))
