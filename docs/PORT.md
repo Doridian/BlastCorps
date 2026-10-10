@@ -846,7 +846,8 @@ What it showed (us.v10, the 32-bit build, main as of 2026-10-02):
   14 MB, 468 modes of which 232 run the level's frame, 106,922 level
   frames; `digest_cmp.py` takes a second over two of them, and the replay
   took its usual 21 minutes); so do two runs of a quick scenario.  The
-  TAS's gameplay hash is `7ec6ef73a5265afa`.
+  TAS's gameplay hash was `7ec6ef73a5265afa`; since the engine's arrays
+  have their room it is `2e9a3a7173fe4337` ("The engine's arrays").
 - The other variants give the same gameplay hashes as the 32-bit build in
   every quick scenario (`lp64`, `mn32` checked: native-endian memory,
   LP64 pointers, the movable layout).
