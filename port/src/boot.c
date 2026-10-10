@@ -17,9 +17,8 @@
 #include "port.h"
 
 /* the region (port_regions.h), and the original ROM's positions
-   (port_syms.ld: tools/gen_syms.py script) */
+   (rom_addrs.h: tools/gen_syms.py romaddrs) */
 extern u32 D_803FFFF8, D_803FFFFC;
-extern u8 hd_front_end_text_ROM_START[], trailer_ROM_START[];
 
 static OSThread boot_thread;
 static u64 boot_stack[0x400];
@@ -38,8 +37,8 @@ void port_boot(void) {
     port_native_fixups();
 #endif
     port_overlay_init();
-    D_803FFFF8 = (u32)(uintptr_t)hd_front_end_text_ROM_START;
-    D_803FFFFC = (u32)(uintptr_t)trailer_ROM_START;
+    D_803FFFF8 = ROM(hd_front_end_text_ROM_START);
+    D_803FFFFC = ROM(trailer_ROM_START);
     osCreateThread(&boot_thread, 0, boot_entry, NULL, &boot_stack[0x400], 127);
     osStartThread(&boot_thread);
 }

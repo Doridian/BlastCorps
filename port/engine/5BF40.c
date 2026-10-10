@@ -28,9 +28,7 @@ extern OSMesgQueue D_80315180;
 extern OSIoMesg D_80370C58;
 extern s32 D_80358080;                      /* DMAs in flight */
 extern s32 D_80358084;                      /* raw ones among them */
-extern u8 D_00004CE0[];                     /* the texture table's ROM address */
-
-#define TABLE_ROM ((u32)D_00004CE0)
+#define TABLE_ROM ROM(D_00004CE0)                /* the texture table's ROM address */
 #define TABLE_SIZE 0x8000                   /* the table's bytes */
 #define PHYS(p) K0_TO_PHYS((u32)(uintptr_t)(p))
 #define G_SETTIMG_OP 0xFD                   /* F3D's G_SETTIMG */

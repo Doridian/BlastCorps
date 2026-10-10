@@ -972,7 +972,6 @@ void func_802A3008(LevelHeader *h) {
 u8 *func_802C4108(u8 *src, u8 *dst, struct huft *heap, u8 **dst_end);
 extern OSMesgQueue D_803150A0;
 extern OSIoMesg D_80370C58;
-extern u8 D_006EC4C0[];         /* the model table's ROM address */
 extern u8 D_8036EB93;
 extern u8 D_803EFED0[], D_803F0900[], D_803F1BE0[];
 extern s16 D_803F767C, D_803F767E, D_803F7680;
@@ -1007,7 +1006,7 @@ void func_802A2BB0(void) {
     D_803BE6F0 = (u32 *)t;
     D_80358070 = t + MODEL_TABLE_SIZE;
     osInvalDCache(t, MODEL_TABLE_SIZE);
-    osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, (u32)D_006EC4C0, t, MODEL_TABLE_SIZE,
+    osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, ROM(D_006EC4C0), t, MODEL_TABLE_SIZE,
                  &D_803150A0);
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
 }
@@ -1020,7 +1019,7 @@ u8 *func_802A2A98(u32 n) {
     u32 start = table[n], size = table[n + 1] - start;
     u8 *top, *m;
 
-    top = load_gz_model((u32)D_006EC4C0 + start, size);
+    top = load_gz_model(ROM(D_006EC4C0) + start, size);
     m = D_80358070;
     D_80358070 = top;
     return m;
@@ -1227,22 +1226,18 @@ void func_802A133C(s32 x, s32 y, s32 z, s32 type, VS *vs) {
 
 /* ---- the vehicles' and the cargo's model files -------------------------- */
 
-extern u8 D_0048FE90[], D_004903C0[], D_00490AC0[], D_00491E00[], D_004929D0[], D_00494390[],
-    D_00496AD0[], D_00497AF0[], D_004989E0[], D_00499690[], D_0049AD20[], D_0049B630[],
-    D_0049BCE0[], D_0049C480[], D_0049E8E0[], D_0049F7A0[], D_0049FF70[], D_004A0720[],
-    D_004A1000[], D_004A1690[], D_004A4120[], D_004A5660[];
 REGS(s0, s1, s2)
 void func_8029DF78(u32 *dl, u32 *end, u32 type);
 
 /* the model file's ROM range */
-#define ROM_RANGE(s, e) (start = (u32)(s), end = (u32)(e))
+#define ROM_RANGE(s, e) (start = ROM(s), end = ROM(e))
 
 /* func_802A396C: vehicle model `type` (or the carrier's, the chopper's,
    the shuttle's, the comm point's or the scientist's): returns it ($s2),
    its display list's textures put in (8029DF78 and 802A08E4) */
 REGS(t3 -> s2)
 u8 *func_802A396C(u32 type) {
-    u32 start, end;
+    RomAddr start, end;
     u8 *top, *m;
 
     if (type == VEHICLE_DRIVER) ROM_RANGE(D_00491E00, D_004929D0);
@@ -1283,7 +1278,7 @@ u8 *func_802A396C(u32 type) {
    9, 10, 13, 14, 15): returns it ($s2), its display list's textures put in */
 REGS(t3 -> s2)
 u8 *func_802A32CC(u32 type) {
-    u32 start, end;
+    RomAddr start, end;
     u8 *top, *m;
 
     if (type == VEHICLE_BUGGY) ROM_RANGE(D_00490AC0, D_00491E00);
