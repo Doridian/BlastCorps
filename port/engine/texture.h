@@ -28,6 +28,7 @@ typedef struct TexDecode {
 } TexDecode;
 
 u32 func_802A57DC(TexDecode *req);
+u32 tex_phys(u32 id);           /* a loaded texture's physical address (5BF40) */
 extern TexDecode *D_803C4B50;   /* 60F60's queue of decodes: where the next goes */
 
 /* A resource pack's edited textures (port/host/pack.c, docs/PORT.md,

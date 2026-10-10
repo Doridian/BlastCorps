@@ -7,8 +7,8 @@
  * to the next entry's and decoded in place by its type (60F60's
  * func_802A57DC), straight away or (func_802A1074) when its DMA is in.
  * D_803B8570 lists what is loaded, by number and physical address, up to
- * D_803B8D40; display lists name textures by number in their G_SETTIMG
- * words, and func_802A08E4 puts the addresses in.
+ * D_803B8D40 (tex_phys looks one up); display lists name textures by number
+ * in their G_SETTIMG words, and func_802A08E4 puts the addresses in.
  */
 #include "engine.h"
 #include "texture.h"
@@ -187,6 +187,21 @@ u32 func_802A0CFC(u32 id, u8 *param) {
     size = tex_load_now(id, e, heap);
     D_80358070 += size;
     return phys;
+}
+
+/* texture `id`'s physical address, which func_802A0CFC gave when it loaded
+   it.  The animated textures' frames keep their numbers (5CB60's
+   func_802A2608 and func_802A1C20 load them), where the original put these
+   addresses over them; 5FD50 and 77E20 look them up when they draw. */
+u32 tex_phys(u32 id) {
+    TexCacheEntry *c;
+
+    for (c = D_803B8570; c != D_803B8D40; c++) {
+        if (c->id == id) {
+            return c->phys;
+        }
+    }
+    host_fatal("texture %u is not loaded", (unsigned)id);
 }
 
 /* func_802A0CC8 (the C's): the same */

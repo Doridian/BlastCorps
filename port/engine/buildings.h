@@ -21,6 +21,7 @@
 #include "shared.h"
 #include "game/objects.h"
 #include "collision.h"
+#include "texture.h"
 
 /* a piece: collision.h's CollisionTri, the same 0x60-byte triangle and
    plane (n.p + d = 0, s64, 16.16 by the >> 2 positions; |n| and |n|^2;
@@ -89,7 +90,7 @@ typedef struct GroupDls {
 
 /* MS_ANIMS: an animated texture */
 typedef struct AnimTex {
-    /* 0x00 */ u32 texture;      /* the G_SETTIMG address the display list has */
+    /* 0x00 */ u32 texture;      /* the number of the texture the display list's G_SETTIMG has */
     /* 0x04 */ u8 n;             /* its frames */
     /* 0x05 */ u8 cur;           /* the one shown */
     /* 0x06 */ u8 kind;          /* 0 runs through them, 1 at random, else by the camera's heading */
@@ -97,11 +98,11 @@ typedef struct AnimTex {
     /* 0x08 */ u32 blend;        /* 0..254 between the two (primitive colour) */
     /* 0x0C */ u16 lo;           /* kind 0: frames a step, 1: how often; else the headings' range */
     /* 0x0E */ u16 hi;           /* kind 0: the frames into this step */
-    /* 0x10 */ u32 frames[1];    /* frame f >= 1's texture at frames[f - 1] */
+    /* 0x10 */ u32 frames[1];    /* frame f >= 1's texture (its number) at frames[f - 1] */
 } AnimTex;
 #define ANIM_NEXT(a) ((AnimTex *)((u8 *)(a) + (a)->n * 4 + 0xC))
-/* frame f's texture (f >= 1) */
-#define ANIM_FRAME(a, f) (*(u32 *)((u8 *)(a) + (f) * 4 + 0xC))
+/* frame f's texture (f >= 1), its physical address */
+#define ANIM_FRAME(a, f) tex_phys(*(u32 *)((u8 *)(a) + (f) * 4 + 0xC))
 
 /* MS_SUPPORTS: {u8 group (1-based), strength, n; n x {u8 group, weight}} */
 #define SUP_NEXT(r) ((r) + (r)[2] * 2 + 3)

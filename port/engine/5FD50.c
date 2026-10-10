@@ -24,6 +24,7 @@
  * Code the original repeats is one helper here.
  */
 #include "engine.h"
+#include "texture.h"
 #include "game/game.h"
 #include "game/level.h"
 #include "game/sched.h"
@@ -60,11 +61,11 @@ typedef struct TexAnim {        /* 8 + 4 n bytes */
     /* 0x07 */ u8 lodFrac;      /* by this much, 0..ANIM_LOD_MAX */
     /* 0x08 */ u16 period;      /* game frames per animation frame */
     /* 0x0A */ u16 count;       /* game frames into the current one */
-    /* 0x0C */ u32 tex1[1];     /* frames 1 .. n - 1 (frame 0 is the list's own) */
+    /* 0x0C */ u32 tex1[1];     /* frames 1 .. n - 1, their numbers (frame 0 is the list's own) */
 } TexAnim;
 #define ANIM_LOD_MAX 0xFF
-/* frame i's texture (i >= 1: tex1[i - 1]) */
-#define ANIM_TEX(a, i) (*(u32 *)((u8 *)(a) + 8 + (i) * 4))
+/* frame i's texture (i >= 1: tex1[i - 1]), its physical address */
+#define ANIM_TEX(a, i) tex_phys(*(u32 *)((u8 *)(a) + 8 + (i) * 4))
 #define ANIM_NEXT(a) ((TexAnim *)((u8 *)(a) + 8 + (a)->n * 4))
 #define SPAN_NEXT(s) ((TerrainSpan *)((u8 *)(s) + 0x14 + (s)->n * 4))
 /* the level file at header offset `off` */

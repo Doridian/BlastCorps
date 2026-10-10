@@ -142,7 +142,8 @@ typedef struct ModelEffect {
 SIZE_CHECK(ModelEffect, 0x38);
 
 /* animated textures: a count of frames at 4 and the frames' numbers (the
-   loader makes them addresses); a model's (Model.unk28..unk2C) has its
+   loader loads them; the readers look their addresses up, tex_phys); a
+   model's (Model.unk28..unk2C) has its
    first frame at 0 and the rest from 0x10, the level's
    (LevelHeader.animTextures) the rest from 0xC */
 typedef struct ModelAnimTex {
@@ -793,8 +794,9 @@ void func_802A2458(Building *b, u8 *m) {
     b->unk2C = ((box[0][2] + box[2][2]) >> 1) << 5;
 }
 
-/* func_802A2608: a model's animated textures loaded (Model.unk28..unk2C),
-   each number replaced by its physical address */
+/* func_802A2608: a model's animated textures loaded (Model.unk28..unk2C).
+   (The original puts each one's physical address over its number; the
+   numbers stay, and 77E20's copy_dl looks the addresses up.) */
 REGS(t4)
 void func_802A2608(u8 *m) {
     u8 *a = MODEL_PTR(m, unk28), *end = MODEL_PTR(m, unk2C);
@@ -804,10 +806,10 @@ void func_802A2608(u8 *m) {
         ModelAnimTex *at = (ModelAnimTex *)a;
         s32 n, k;
 
-        at->frame0 = func_802A0CFC(at->frame0, fp);
+        func_802A0CFC(at->frame0, fp);
         n = at->nframes - 1;
         for (k = 0; k < n; k++) {
-            at->frames[k] = func_802A0CFC(at->frames[k], fp);
+            func_802A0CFC(at->frames[k], fp);
         }
         a = (u8 *)&at->frames[k];
     }
@@ -932,7 +934,9 @@ void func_802A26A8(u8 *m, s32 dx, s32 dy, s32 dz) {
 }
 
 /* func_802A1C20: the level's animated textures' frames loaded
-   (LevelHeader.animTextures).  Leaves $s0 the last address and $s1
+   (LevelHeader.animTextures).  (The original puts their physical
+   addresses over their numbers; the numbers stay, and 5FD50 looks the
+   addresses up.)  Leaves $s0 the last address and $s1
    0x80000000. */
 REGS(t0)
 void func_802A1C20(LevelHeader *h) {
@@ -947,10 +951,7 @@ void func_802A1C20(LevelHeader *h) {
 
         n = at->nframes - 1;
         for (k = 0; k < n; k++) {
-            u32 phys;
-
-            phys = func_802A0CFC(at->frames[k], fp);
-            at->frames[k] = phys;
+            func_802A0CFC(at->frames[k], fp);
         }
         a = (u8 *)&at->frames[k];
     }

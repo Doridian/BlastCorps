@@ -1093,7 +1093,7 @@ static u32 *copy_dl(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *sr
         if (w0 >> 24 == DL_SETTIMG) {
             /* a texture: one of the animated ones? */
             for (a = anim; a != anim_end; a = ANIM_NEXT(a)) {
-                if (w1 == a->texture)
+                if (w1 == tex_phys(a->texture))
                     break;
             }
             if (a != anim_end) {
