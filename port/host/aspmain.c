@@ -109,7 +109,8 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
 
 /* A command is the N64 side's Acmd (port_layout): two words, 4 bytes each
    in game memory's order, or 8 in the host's where its words are
-   pointer-wide (PORT_WIDE_GFX), as gfx.h's display lists.  An address in
+   pointer-wide (PORT_WIDE_GFX), as gfx.h's display lists (a 64-bit
+   scalar's two words, the high one first).  An address in
    one is then a pointer, or a segment's plus an offset (gfx_wide_segmented);
    in the narrow form, RDRAM through the segment table (bit 28, a host
    stack's, kept as in gfx.c's seg_to_k0). */
@@ -118,11 +119,8 @@ static int acmd_wide, acmd_strict;
 
 static inline uintptr_t acmd_word(const uint8_t *p) {
 #if UINTPTR_MAX > 0xFFFFFFFFu
-    if (acmd_wide) {
-        uint64_t v;
-        memcpy(&v, p, sizeof v);
-        return (uintptr_t)v;
-    }
+    if (acmd_wide)
+        return (uintptr_t)gfx_g64(p);           /* (gfx.h: a 64-bit scalar's words) */
 #endif
     return port_g32(p);
 }
