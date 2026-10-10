@@ -40,13 +40,10 @@ AMDMAState
 AmmoBox
 Anim
 Block
-Building
 Chorus
 D_80300A68_t
-DelayedHit
 EffectSlot
 GroupSet
-HitPair
 LowPass
 MtxCopy
 PVoice_s
@@ -66,4 +63,3 @@ TntCrate
 UnkStruct_803ED460
 Update
 Vehicle
-Wall

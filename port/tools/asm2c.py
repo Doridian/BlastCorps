@@ -83,6 +83,8 @@ def inventory():
     global _inv
     if _inv is None:
         _inv = json.load(open(INVENTORY))
+        # (the engine's structures, TYPES, beside the inventory's)
+        _inv["types"].update(TYPES)
         # (LABEL_TYPES over the inventory's types for those labels)
         for name, (t, count) in LABEL_TYPES.items():
             sym = _inv["symbols"].get(name)
@@ -257,9 +259,38 @@ LABEL_TYPES = {
     # threshold, and at 100 run off their end into D_803063E0 (kept
     # big-endian, as bytes)
     "D_80306344": ("bytes", 0xAC),
-    # the list at D_803F3910 (ten pairs of words, func_802BEA30) runs over
-    # its end into its end pointer D_803F3960, D_803F3964 and D_803F3968[0]
-    "D_803F3910": ("bytes", 0x6E8),
+    # the list at D_803F3910 (ten pairs, func_802BEA30) runs over its end
+    # into its end pointer D_803F3960, D_803F3964 and D_803F3968[0]
+    "D_803F3910": ("HitList", 1),
+    # the engine's types for the inventory's words (TYPES)
+    "D_803BD310": ("Wall", 8),
+    "D_803F7690": ("DelayedHit", 40),
+}
+
+
+def _fields(*fs):
+    out = []
+    for f in fs:
+        off, name, t = f[:3]
+        d = {"off": off, "name": name, "type": t, "count": f[3] if len(f) > 3 else 1}
+        if len(f) > 4:
+            d["to"] = f[4]
+        out.append(d)
+    return out
+
+
+# The engine's structures of the handwritten .bss whose pointers are
+# native (port/engine's buildings.h and collision.h), as inventory types
+# (offsets and sizes the N64's): what LABEL_TYPES gives their variables.
+TYPES = {
+    "HitPair": {"size": 8, "align": 4, "fields": _fields((0, "b", "ptr", 1, "struct Building"), (4, "group", "s32"))},
+    "HitList": {"size": 0x6E8, "align": 4, "fields": _fields(
+        (0, "pairs", "HitPair", 10), (0x50, "end", "ptr", 1, "struct HitPair"), (0x54, "fall_mtx", "ptr", 1, "u8"),
+        (0x58, "fx", "bytes", 30 * 0x38))},
+    "Wall": {"size": 0xFC, "align": 4, "fields": _fields(
+        (0, "nkinds", "u8"), (1, "kinds", "u8", 7), (8, "tris", "ptr", 0x3C, "struct CollisionTri"), (0xF8, "info", "u32"))},
+    "DelayedHit": {"size": 8, "align": 4, "fields": _fields(
+        (0, "b", "ptr", 1, "struct Building"), (4, "amount", "u16"), (6, "group", "u8"), (7, "frames", "u8"))},
 }
 
 
@@ -332,10 +363,10 @@ POINTERS = {
 
 # Pointers kept 4 bytes (PTR32) while the C's are: the sound handles
 # (func_80260650 stores through a SndState *PTR32 *: P6-D2), the inventory's
-# structures whose game header still has PTR32 (Part, D2; Building, D1), and
-# the display list's words (P8).
+# structures whose game header still has PTR32 (Part, D2), and the display
+# list's words (P8).
 PTR32_POINTEES = {"struct SndState"}
-PTR32_TYPES = {"UnkStruct_803ED460", "Building"}
+PTR32_TYPES = {"UnkStruct_803ED460"}
 PTR32_VARS = {"D_80300A68"}
 
 
@@ -769,6 +800,8 @@ class Types:
         self.forward = set()    # names only pointed to
 
     def pointee(self, to):
+        if to and to.startswith("struct ") and IDENT.match(to[7:]):
+            return to           # (by its tag: TYPES', whose definition may come after)
         if to in (None, "void") or not IDENT.match(to or ""):
             return "void"
         if to in C_SCALAR:

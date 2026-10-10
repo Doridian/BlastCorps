@@ -102,10 +102,10 @@ extern TriSwitch *D_803BD304;           /* one past the last */
 typedef struct Wall {
     /* 0x00 */ u8 nkinds;
     /* 0x01 */ u8 kinds[7];
-    /* 0x08 */ CollisionTri *PTR32 tris[0x3C];
+    /* 0x08 */ CollisionTri *tris[0x3C];
     /* 0xF8 */ u32 info;
 } Wall;
-SIZE_CHECK(Wall, 0xFC);
+SIZE_CHECK_C(Wall, 0xFC);
 extern Wall D_803BD310[];
 #define WALL_COUNT(w) ((w)->info >> 24)
 #define WALL_SIDED(w) (((w)->info >> 16) & 0xFF)

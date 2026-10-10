@@ -2331,7 +2331,7 @@ void func_8029B614(CollisionTri *t, s32 kind) {
 REGS(s0, t8, fp -> a1)
 s32 func_8029BB28(CollisionTri *t, s32 kind, s32 fp) {
     Wall *w = D_803BD310;
-    CollisionTri *PTR32 *pc;
+    CollisionTri **pc;
     u8 *k;
     u32 n;
     s32 s, cur, front;

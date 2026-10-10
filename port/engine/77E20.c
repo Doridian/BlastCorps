@@ -1307,8 +1307,7 @@ REGS(t3, t9)
 void func_802BEA30(s32 group, Building *b) {
     HitPair *p = HIT_END;
 
-    p->b = b;
-    p->group = group;
+    hit_pair_set(p, b, group);
     HIT_END = p + 1;
 }
 
@@ -1318,9 +1317,9 @@ s32 func_802BEA70(s32 group, Building *b) {
     HitPair *p;
 
     for (p = HIT_PAIRS; p != HIT_END; p++) {
-        if (p->b != b)
+        if (hit_pair_b(p) != b)
             continue;
-        if (p->group != group)
+        if (hit_pair_group(p) != group)
             continue;
         return 1;
     }

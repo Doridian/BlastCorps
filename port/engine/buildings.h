@@ -178,37 +178,113 @@ enum {
 
 /* the queued damage (D_803F7690[40]) */
 typedef struct DelayedHit {
-    /* 0x0 */ Building *PTR32 b;
+    /* 0x0 */ Building *b;
     /* 0x4 */ u16 amount;
     /* 0x6 */ u8 group;          /* 1-based */
     /* 0x7 */ u8 frames;         /* until it is done; 0 free */
 } DelayedHit;
-SIZE_CHECK(DelayedHit, 8);
+SIZE_CHECK_C(DelayedHit, 8);
 #define NDELAYED 40
 /* how long a queued hit waits: func_8026A8E0(1, DELAY_MAX) frames */
 #define DELAY_MAX 20
 
 /* this frame's (building, group) pairs hit (D_803F3910 to D_803F3960) */
 typedef struct HitPair {
-    Building *PTR32 b;
+    Building *b;
     s32 group;                  /* 1-based */
 } HitPair;
 
 /* the list, its end and what follows it, one variable (asm2c.py's
    LABEL_TYPES): the list's adds (func_802BEA30) don't stop at its ten, and
-   an eleventh and later run over its end into the rest, as on the N64 */
+   an eleventh and later run over its end into the rest, as on the N64
+   (hit_pair_set below) */
 typedef struct HitList {
     /* 0x000 */ HitPair pairs[10];
-    /* 0x050 */ HitPair *PTR32 end;      /* (D_803F3960) one past the last */
-    /* 0x054 */ u8 *PTR32 fall_mtx;      /* (D_803F3964) this frame's matrices for falling groups */
+    /* 0x050 */ HitPair *end;            /* (D_803F3960) one past the last */
+    /* 0x054 */ u8 *fall_mtx;            /* (D_803F3964) this frame's matrices for falling groups */
     /* 0x058 */ u8 fx[NFX][FX_SIZE];     /* (D_803F3968) the effect records */
 } HitList;
-SIZE_CHECK(HitList, 0x6E8);
+SIZE_CHECK_C(HitList, 0x6E8);
 extern HitList D_803F3910;
 #define HIT_PAIRS D_803F3910.pairs
 #define HIT_END D_803F3910.end
 #define FALL_MTX D_803F3910.fall_mtx
 #define FX_RECORDS D_803F3910.fx
+
+/* The pairs past the list's ten.  On the N64 the eleventh is `end` and
+   `fall_mtx`, and the next ones are the effect records' first words, two
+   to a pair, which the effect code then reads (the TAS has seventeen
+   pairs in a frame, in level 33).  Where pointers are 4 bytes the list is
+   the N64's and they simply run on.  Where they aren't (LP64), the
+   eleventh still lands on end (its b) and fall_mtx's low half (its
+   group), which is what the N64 reads back from them; the later ones are
+   kept as the N64 has them, two words at their N64 offset in the records,
+   b as the building's N64 address. */
+#define HIT_PAIRS_KEPT 11       /* the first pair kept in the records */
+/* D_803F4030's N64 address, each version's (a building's, in the words) */
+#if defined(VERSION_US_V10)
+#define N64_BUILDINGS N64_VALUE(0x803F3F80)
+#elif defined(VERSION_JP)
+#define N64_BUILDINGS N64_VALUE(0x803F4110)
+#elif defined(VERSION_EU)
+#define N64_BUILDINGS N64_VALUE(0x803F3CB0)
+#else
+#define N64_BUILDINGS N64_VALUE(0x803F4030)
+#endif
+#define N64_BUILDING_SIZE 0xFC
+
+/* pair p's two words in the records (p at HIT_PAIRS_KEPT or after) */
+static inline s32 *hit_pair_words(HitPair *p) {
+    u32 off = (u32)(p - HIT_PAIRS - HIT_PAIRS_KEPT) * 8;
+
+    return off + 8 <= sizeof(FX_RECORDS) ? (s32 *)((u8 *)FX_RECORDS + off) : NULL;
+}
+
+static inline s32 hit_pair_kept(HitPair *p) {
+    return sizeof(void *) != 4 && p >= &HIT_PAIRS[HIT_PAIRS_KEPT];
+}
+
+static inline void hit_pair_set(HitPair *p, Building *b, s32 group) {
+    s32 *w;
+
+    if (!hit_pair_kept(p)) {
+        p->b = b;
+        p->group = group;
+        return;
+    }
+    /* (past the records the N64's run on into D_803F3FF8 and the
+       buildings: not kept) */
+    w = hit_pair_words(p);
+    if (w != NULL) {
+        w[0] = N64_BUILDINGS + (u32)(b - D_803F4030) * N64_BUILDING_SIZE;
+        w[1] = group;
+    }
+}
+
+/* its building (NULL where the word is none's) and group */
+static inline Building *hit_pair_b(HitPair *p) {
+    s32 *w;
+    u32 off;
+
+    if (!hit_pair_kept(p))
+        return p->b;
+    w = hit_pair_words(p);
+    if (w == NULL)
+        return NULL;
+    off = (u32)w[0] - N64_BUILDINGS;
+    if (off % N64_BUILDING_SIZE != 0 || off / N64_BUILDING_SIZE >= (u32)(D_803F7654 - D_803F4030))
+        return NULL;
+    return &D_803F4030[off / N64_BUILDING_SIZE];
+}
+
+static inline s32 hit_pair_group(HitPair *p) {
+    s32 *w;
+
+    if (!hit_pair_kept(p))
+        return p->group;
+    w = hit_pair_words(p);
+    return w != NULL ? w[1] : 0;
+}
 
 /* a smoke cloud (D_803F0900[4]): a group's look copied, fading */
 typedef struct Smoke {

@@ -275,9 +275,9 @@ SIZE_CHECK(LevelBuilding, 0xE);
  * shadows.
  */
 typedef struct Building {
-    /* 0x00 */ struct Model *PTR32 model;  /* game/model.h */
-    /* 0x04 */ void *PTR32 unk4; /* its pieces (CollisionTri) on the heap, to unk8 (func_802A21AC) */
-    /* 0x08 */ void *PTR32 unk8;
+    /* 0x00 */ struct Model *model;  /* game/model.h */
+    /* 0x04 */ void *unk4;     /* its pieces (CollisionTri) on the heap, to unk8 (func_802A21AC) */
+    /* 0x08 */ void *unk8;
     /* 0x0C */ s32 unkC;
     /* 0x10 */ s32 x;            /* world position << 5 (13A70.c draws the shadow at x, unk44, z) */
     /* 0x14 */ s32 y;
@@ -307,7 +307,7 @@ typedef struct Building {
     /* 0xEB */ u8 unkEB;         /* one of the level's targets */
     /* 0xEC */ u8 damage[16];    /* per group (0-based), 0..100 */
 } Building;
-SIZE_CHECK(Building, 0xFC);
+SIZE_CHECK_C(Building, 0xFC);
 
 extern Building D_803F4030[];
 extern Building *D_803F7654;       /* one past the last */

@@ -468,7 +468,9 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
     func_80260650(D_80367738, 0x3D, NULL);
     /* (the buildings it is carrying: the pairs') */
     for (q = HIT_PAIRS; q != HIT_END; q++) {
-        o = q->b;
+        o = hit_pair_b(q);
+        if (o == NULL)
+            continue;           /* (a word the N64 would take as one: not kept) */
         o->unk38 = 1;
         o->unk40 = -1;
         dx = 0xBB80 - o->x;

@@ -582,13 +582,21 @@ void func_802A3E9C(u32 h_) {
         for (k = 0; k < n; k++) {
             /* (the TAS has walls of more than 0x3C triangles: tris[0x3C]
                is info, which the store overwrites, as the original does;
-               -fsanitize=array-bounds reports it) */
+               -fsanitize=array-bounds reports it.  With 8-byte pointers
+               tris[0x3C] is info and the padding after it, its low half
+               the N64's word, and tris[0x3D] on the next wall's first
+               bytes, which its scan (func_8029BB28, 0x80 of them by that
+               word) reads the same way; level 34's 96 triangles are the
+               only such wall, and the last) */
             w->tris[k] = t;
             /* 0x52 the section's end, 0x56 the next slot's address, 0x57
                the triangles left (what the original has in those
-               registers); 0x4F, 0x50, 0x58 0 (LEVEL_TRI_BYTES) */
-            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, (u32)&w->tris[k + 1], 1, 0, 0,
-                                              n - 1 - k, 0);
+               registers); 0x4F, 0x50, 0x58 0 (LEVEL_TRI_BYTES).  (0x56 is
+               an address's low byte, the N64's where pointers are 4 bytes;
+               nothing reads it for a wall's triangles, whose 0x55 is 1:
+               func_8029B614) */
+            t = (CollisionTri *)func_802A41B0((u32)t, (u32)p, (u32)end, (u32)(__UINTPTR_TYPE__)&w->tris[k + 1],
+                                              1, 0, 0, n - 1 - k, 0);
             p += WALL_TRI_SIZE;
         }
     }
@@ -1114,9 +1122,11 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
             t->active = 1;
         }
         /* (0x4F unk34, 0x50 the low byte of &D_803F7654: the original's
-           $t9 and $v0) */
+           $t9 and $v0; the N64's where D_803F7654 is where the N64 has
+           it, not in the LP64 builds, where it moved.  Nothing reads a
+           piece's id: only the objects' triangles' (56040)) */
         t = (CollisionTri *)func_802A41B0((u32)t, (u32)src, src->group, src->unk14, src->unk18, unk34,
-                                          (u32)&D_803F7654, src->group2, src->pushes);
+                                          (u32)(__UINTPTR_TYPE__)&D_803F7654, src->group2, src->pushes);
     }
     b->unk8 = t;
     D_80358070 = (u8 *)t;
