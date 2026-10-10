@@ -96,17 +96,24 @@ extern TriSwitch D_803BC1D0[];
 extern TriSwitch *D_803BD304;           /* one past the last */
 
 /* D_803BD310: the walls (func_802A3E9C): the kinds they stop, then their
-   triangles (D_803BD308's); the word at 0xF8 holds their count (its high
-   byte) and whether the wall has sides (the next), which native-endian
-   memory keeps as a word (native_sites.txt's x3) */
+   triangles (D_803BD308's); the word after them holds their count (its
+   high byte) and whether the wall has sides (the next), which
+   native-endian memory keeps as a word (native_sites.txt's x3).  On the
+   N64 a wall has room for 0x3C triangles, and level 34's one wall has 96:
+   the 61st is stored over the count and the flag (a count of 0x80 and a
+   flag the wall doesn't have), and the rest over the next wall.  Here a
+   wall has room for as many as its count can say (asm2c.py's GROWN:
+   gen_ld.py and port-arena place D_803BD310 after RDRAM). */
+#define NWALLS 8
+#define WALL_KINDS 7
+#define WALL_TRIS_MAX 0xFF
 typedef struct Wall {
     /* 0x00 */ u8 nkinds;
-    /* 0x01 */ u8 kinds[7];
-    /* 0x08 */ CollisionTri *tris[0x3C];
-    /* 0xF8 */ u32 info;
+    /* 0x01 */ u8 kinds[WALL_KINDS];
+    /* 0x08 */ CollisionTri *tris[WALL_TRIS_MAX];
+    u32 info;
 } Wall;
-SIZE_CHECK_C(Wall, 0xFC);
-extern Wall D_803BD310[];
+extern Wall D_803BD310[NWALLS];
 #define WALL_COUNT(w) ((w)->info >> 24)
 #define WALL_SIDED(w) (((w)->info >> 16) & 0xFF)
 

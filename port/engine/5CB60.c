@@ -550,8 +550,7 @@ void func_802A3DF8(LevelHeader *h) {
    the triangles' count and the triangles, a pointer to each in `tris`;
    and the record's first byte (WALL_SIDED) */
 REGS(t0)
-void func_802A3E9C(u32 h_) {
-    LevelHeader *h = (LevelHeader *)h_;
+void func_802A3E9C(LevelHeader *h) {
     u8 *p = LEVEL_PTR(h, unk64);
     u8 *end = LEVEL_PTR(h, trainStops);
     Wall *w;
@@ -560,6 +559,9 @@ void func_802A3E9C(u32 h_) {
     D_803BD308 = t;
     for (w = D_803BD310; p != end; w++) {
         u32 n, k;
+
+        if (w == &D_803BD310[NWALLS] || p[1] > WALL_KINDS)
+            host_fatal("level %d: more walls or kinds than D_803BD310 has room for", (int)D_802E8BDC);
 
         X3((u8 *)&w->info + 1) = p[0];      /* WALL_SIDED */
         n = p[1];
@@ -571,21 +573,12 @@ void func_802A3E9C(u32 h_) {
         n = *p++;
         X3((u8 *)&w->info) = n;             /* WALL_COUNT */
         for (k = 0; k < n; k++) {
-            /* (the TAS has walls of more than 0x3C triangles: tris[0x3C]
-               is info, which the store overwrites, as the original does;
-               -fsanitize=array-bounds reports it.  With 8-byte pointers
-               tris[0x3C] is info and the padding after it, its low half
-               the N64's word, and tris[0x3D] on the next wall's first
-               bytes, which its scan (func_8029BB28, 0x80 of them by that
-               word) reads the same way; level 34's 96 triangles are the
-               only such wall, and the last) */
             w->tris[k] = t;
             /* 0x52 the section's end, 0x56 the next slot's address, 0x57
                the triangles left (what the original has in those
                registers); 0x4F, 0x50, 0x58 0 (LEVEL_TRI_BYTES).  (0x56 is
-               an address's low byte, the N64's where pointers are 4 bytes;
-               nothing reads it for a wall's triangles, whose 0x55 is 1:
-               func_8029B614) */
+               an address's low byte, not the N64's here; nothing reads it
+               for a wall's triangles, whose 0x55 is 1: func_8029B614) */
             t = func_802A41B0(t, p, (u32)(uintptr_t)end, (u32)(uintptr_t)&w->tris[k + 1], 1, 0, 0, n - 1 - k, 0);
             p += WALL_TRI_SIZE;
         }
@@ -1423,7 +1416,7 @@ void func_802A1674(LevelHeader *hp, u8 *status) {
     func_8029DEA0();
     func_802A3D54(h);
     func_802A3DF8(h);
-    func_802A3E9C((u32)(uintptr_t)h);
+    func_802A3E9C(h);
     func_802A3F80(h);
     func_802A4464(h);
     func_802A1A9C(h);

@@ -1050,11 +1050,12 @@ the handwritten code stores words over it: those are kept as host-order
 words, and the smaller accesses go to the address ^ 2 or ^ 3, so that
 every access sees what it sees on the N64.  The effect records (a
 model's 0x30/0x34 records, `D_803F3FF8`, `D_803F3968[30]`) are fourteen
-words: the list at `D_803F3910` (ten pairs of words, `func_802BEA30`)
-runs over its end into `D_803F3968[0]`, and the effect code then reads
-the halves and bytes of what it stored.  The same goes for the count
-and flag at 0xF8/0xF9 of the walls (`D_803BD310`, 0xFC-byte records; a
-record's 61st wall is stored over them), the level `D_802E8BDC` that
+words: on the N64 the list at `D_803F3910` (ten pairs of words,
+`func_802BEA30`) runs over its end into `D_803F3968[0]`, and the effect
+code then reads the halves and bytes of what it stored (the port's list
+has the room now: "The engine's arrays", below).  The same goes for the
+count and flag after the walls' triangles (`D_803BD310`; on the N64 a
+wall's 61st triangle is stored over them), the level `D_802E8BDC` that
 `func_802AF4BC` reads with `lbu` (its high byte: 0 on the N64) and
 `D_803649E8`, which `func_802BC5E0` sets with `sb` and the C reads as
 an `s32`.
@@ -1216,7 +1217,9 @@ everywhere for the rest.
 **The variables that grew.**  `gen_ld.py` leaves a C variable to the host
 linker when it no longer fits where the N64 has it (its room up to the next
 sized N64 symbol, or its alignment): 120 in us.v10, pointers and the native
-structs' tables, listed in `gen/port_rdram_moved.txt`.  The translated
+structs' tables, listed in `gen/port_rdram_moved.txt`.  (In every build it
+also moves the engine's arrays that have more room than the N64's: "The
+engine's arrays", below.)  The translated
 code finds them through `SYM()` as before.  They live in the image, above
 RDRAM, so what reads game memory by address takes the whole KSEG0 window:
 the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
@@ -1813,8 +1816,7 @@ game's.
   reads across labels is one variable (`LABEL_TYPES`): the first label's
   type runs over the others, which are names inside it.  So the chance
   records of `D_80306344`, `D_80306350` and `D_803063D4`, walked into
-  `D_803063E0` (hd_code 77E20's `.data`), `D_803F3910`'s pairs, which run
-  into their end pointer and `D_803F3968[0]` (77E20's `.bss`), the
+  `D_803063E0` (hd_code 77E20's `.data`), the
   wheels' words and bytes (62740's `D_803ED398`, `D_803ED3A8`,
   `D_803ED3EA`, `D_803ED3EE`, `D_803ED3F2`), the barges' (83910's
   `D_803F8748`...) and the visibility task with its stack (5FD50's
@@ -5119,6 +5121,54 @@ buildings.h's `Piece` is now collision.h's `CollisionTri` (77E20's `p`,
 `unk20`, `unk24` are `v`, `nlen`, `nlen2`), and level_tables.h has the
 objects to destroy (`TargetObj`, D_80306480) and the lights
 (`LevelLight`, D_803BDFD8) once for 5CB60, 62740 and 77E20.
+
+### The engine's arrays
+
+Two of the handwritten engine's arrays are too small for what the game
+puts in them, and the original runs over their end.  The port's engine
+gives them the room instead (the same code in every build):
+
+- **The hit list** (`D_803F3910`, `buildings.h`): the (building, group)
+  pairs hit this frame, room for ten.  The TAS hits up to seventeen groups
+  in a frame, in level 33 (Tempest City: 32 frames within a second and a
+  half of one play of it).  On the N64 the eleventh pair is stored over
+  the list's end pointer (`D_803F3960`, which the add then sets again)
+  and the falling groups' matrix pointer (`D_803F3964`, set again before
+  anything reads it), and the twelfth and later over the first effect
+  record (`D_803F3968[0]`): its position, speed, velocity, fall and
+  ground, and with a seventeenth, its delay and damage radius.  Nothing
+  reaches `D_803F3FF8` or the buildings (that would take 222 pairs).  The
+  effect code reads what was stored: 19 times in the TAS that record
+  started its debris with words of the pairs in it, mostly at a
+  building's address (far off the level), and once (a seventeenth pair)
+  at once instead of after its delay, with a damage radius of 11 (a
+  group's number), which is most likely the extra damage the digest
+  shows below.  Now the list has room for `HIT_PAIRS_MAX` (128; an
+  add past that is dropped) and the record keeps its debris.
+- **The walls** (`D_803BD310`, `collision.h`): room for 0x3C triangles a
+  wall, and level 34's one wall has 96.  On the N64 the 61st is stored
+  over the wall's count and flag (a count of 0x80 and sides it doesn't
+  have) and the rest over the next wall's room; the wall's scan
+  (`func_8029BB28`) finds its triangles all the same, and the flag only
+  matters to a vehicle's hit, which the TAS never makes on it (only kind
+  201's).  Now a wall has room for 255 (its count is a byte), and a level
+  with more walls or kinds than the table has stops the port.
+
+Both variables are bigger than their room on the N64, so `asm2c.py`
+(`GROWN`) defines them with the engine's count, the N64 labels after them
+stay variables of their own, and `gen_ld.py` (in every build now, not
+only LP64's) and port-arena place them after RDRAM.  The translated code
+of the check build finds them through `SYM()` as before, but the
+original's stride and room are no longer the engine's: its calls of the
+walls' loader and scan and of the hit list's adds past ten don't compare.
+
+The TAS (us.v10, free timing; the 32-bit and the LP64 build alike): all
+125,297 reads, 57 platinum, the reference's save and the same level
+times, but the gameplay digest is `2e9a3a7173fe4337`: in Tempest City
+(the TAS's mode 131, level 33) from frame 381 building 28's group 11 has
+0x43 of damage, not 0x4C, and the random state differs from frame 431
+to the level's end.  The quick tier is as before (none of its runs plays
+level 33 or reaches the wall).
 
 ### Vehicles
 

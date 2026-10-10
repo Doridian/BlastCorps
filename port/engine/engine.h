@@ -101,6 +101,9 @@ void engine_leave64(unsigned int reg, u32 lo, u32 hi);
 void engine_break(u32 pc, u32 code) __attribute__((noreturn));
 /* and its `syscall` (Rare's "can't happen" in a switch) */
 void engine_syscall(u32 pc) __attribute__((noreturn));
+/* the port's own "can't happen": data past what an engine array has room
+   for (port/host) */
+void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
 /* q = n / d, as IDO's checked div: bz and bov name its two breaks (a zero
    divisor, the overflow of 0x80000000 / -1) for the report */
 #define ENGINE_DIV(q, n, d, bz, bov)                                        \

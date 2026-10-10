@@ -446,7 +446,7 @@ void func_802AC284(s32 *x, s32 *y, s32 *z) {
 }
 
 /* the level over (D_80364AA8 0x40): the parts' last frame and the
-   buildings', and whatever it carries (D_803F3910..D_803F3960) thrown far
+   buildings', and whatever it carries (the hit list's pairs) thrown far
    off, with a sound; with D_8036E4C8 clear, the level lost instead */
 REGS(v0, v1, a0, a1, t8, gp)
 void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
@@ -467,9 +467,7 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
     func_80260650(D_80367738, 0x3D, NULL);
     /* (the buildings it is carrying: the pairs') */
     for (q = HIT_PAIRS; q != HIT_END; q++) {
-        o = hit_pair_b(q);
-        if (o == NULL)
-            continue;           /* (a word the N64 would take as one: not kept) */
+        o = q->b;
         o->unk38 = 1;
         o->unk40 = -1;
         dx = 0xBB80 - o->x;

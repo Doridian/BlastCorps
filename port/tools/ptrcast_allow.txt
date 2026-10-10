@@ -50,5 +50,4 @@ P7-libaudio port/libaudio/reverb.c 1 1 1 1
 P7-libaudio port/libaudio/synth.c 1 1 1 1
 P10-host port/src/loads.c 19 19 19 19
 P10-host port/src/ultra.c 35 35 35 35
-P6-engine port/engine/5CB60.c 1 1 1 1
 P6-engine port/engine/jp_E7B0.c 0 0 1 0

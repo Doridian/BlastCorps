@@ -260,10 +260,9 @@ LABEL_TYPES = {
     # threshold, and at 100 run off their end into D_803063E0 (kept
     # big-endian, as bytes)
     "D_80306344": ("bytes", 0xAC),
-    # the list at D_803F3910 (ten pairs, func_802BEA30) runs over its end
-    # into its end pointer D_803F3960, D_803F3964 and D_803F3968[0]
-    "D_803F3910": ("HitList", 1),
     # the engine's types for the inventory's words (TYPES)
+    "D_803F3910": ("HitPair", 128),
+    "D_803F3968": ("bytes", 30 * 0x38),
     "D_803BD310": ("Wall", 8),
     "D_803F7690": ("DelayedHit", 40),
     "D_803A7440": ("TexSlot", 12),
@@ -275,6 +274,13 @@ LABEL_TYPES = {
     "D_803C4B70": ("EffectSlot", 16),
     "D_803EB7A0": ("VehicleSave", 1),
 }
+
+# The engine's arrays with more room than the N64's, where the original
+# runs over their end (port/engine's buildings.h, HIT_PAIRS_MAX; collision.h,
+# WALL_TRIS_MAX): a .bss variable of LABEL_TYPES' count whatever its N64
+# room, and the labels after it are variables of their own.  gen_ld.py and
+# port-arena place one that outgrew its room after RDRAM.
+GROWN = {"D_803F3910", "D_803BD310"}
 
 
 def _fields(*fs):
@@ -291,15 +297,13 @@ def _fields(*fs):
 # The engine's structures of the handwritten .bss whose pointers are
 # native (port/engine's buildings.h and collision.h, 56040's texture slots
 # and records, 60F60's sprite slots, 62740's saved vehicle), as inventory
-# types (offsets and sizes the N64's): what LABEL_TYPES gives their
-# variables.
+# types (offsets and sizes with 4-byte pointers; Wall's bigger than the
+# N64's, GROWN): what LABEL_TYPES gives their variables.
 TYPES = {
     "HitPair": {"size": 8, "align": 4, "fields": _fields((0, "b", "ptr", 1, "struct Building"), (4, "group", "s32"))},
-    "HitList": {"size": 0x6E8, "align": 4, "fields": _fields(
-        (0, "pairs", "HitPair", 10), (0x50, "end", "ptr", 1, "struct HitPair"), (0x54, "fall_mtx", "ptr", 1, "u8"),
-        (0x58, "fx", "bytes", 30 * 0x38))},
-    "Wall": {"size": 0xFC, "align": 4, "fields": _fields(
-        (0, "nkinds", "u8"), (1, "kinds", "u8", 7), (8, "tris", "ptr", 0x3C, "struct CollisionTri"), (0xF8, "info", "u32"))},
+    "Wall": {"size": 0x408, "align": 4, "fields": _fields(
+        (0, "nkinds", "u8"), (1, "kinds", "u8", 7), (8, "tris", "ptr", 0xFF, "struct CollisionTri"),
+        (0x404, "info", "u32"))},
     "DelayedHit": {"size": 8, "align": 4, "fields": _fields(
         (0, "b", "ptr", 1, "struct Building"), (4, "amount", "u16"), (6, "group", "u8"), (7, "frames", "u8"))},
     "TexSlot": {"size": 0x1010, "align": 4, "fields": _fields(
@@ -364,6 +368,7 @@ POINTERS = {
     "D_803EFADC": ("struct SndState", 1), "D_803EFAE0": ("struct SndState", 1), "D_803EFAE4": ("u8", 1),
     "D_803EFAE8": ("u8", 1), "D_803EFEA4": ("u8", 1), "D_803EFEA8": ("u8", 1), "D_803EFEAC": ("u8", 1),
     # 77E20
+    "D_803F3960": ("struct HitPair", 1), "D_803F3964": ("u8", 1),
     "D_803F7658": ("Mtx", 1), "D_803F765C": ("Mtx", 1), "D_803F77D0": ("UnkStruct_803ED460", 1),
     "D_803F77D4": ("u8", 1), "D_803F77E4": ("u8", 1), "D_803F7820": ("u8", 1), "D_803F7824": ("u8", 1),
     "D_803F7828": ("void", 1), "D_803F782C": ("void", 1),
@@ -1005,7 +1010,8 @@ class Gen:
             pending = []
             cur_end = nxt
             sym = inv.get(name)
-            if sym and sym.get("storage") == rel and "fieldscan" not in sym.get("derived", ""):
+            if sym and sym.get("storage") == rel and "fieldscan" not in sym.get("derived", "") and \
+                    name not in GROWN:
                 cur_end = max(nxt, min(off + type_size(sym["type"]) * sym.get("count", 1), n))
             vars_.append(cur)
         for a, b in zip(vars_, vars_[1:]):
@@ -1126,6 +1132,10 @@ class Gen:
                     Scalar(C_SCALAR[t]) if t in C_SCALAR else self.types.struct(t)
             except KeyError:
                 elem = None
+            if elem is not None and v.name in GROWN:
+                # (its own count, its room the engine's: GROWN)
+                self.stats["inventory"] += 1
+                return Array(elem, sym["count"]), False
             if elem is not None and elem.size <= span:
                 cnt = span // elem.size
                 tail = span - cnt * elem.size

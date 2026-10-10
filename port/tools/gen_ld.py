@@ -88,24 +88,28 @@ def script(out, objects):
             place.append((addr, obj, sec, name, size, align))
     place.sort()
     moved = []
-    if LP64:
-        # a variable of the C's the host made bigger than the N64's goes
-        # wherever the host linker puts it; the translated code finds it
-        # through SYM() all the same (the asm data's types keep the N64's
-        # layout, PTR32 pointers, and don't grow)
-        # (a symbol's N64 size isn't always the object's: up to the next
-        # sized N64 symbol is its room)
-        # (and never past the next variable placed: a data island's labels
-        # have no size)
-        sized = sorted(set(n64[k] for k, v in n64_sizes.items() if v and k in n64)) + [RDRAM_END]
-        placed = sorted(set(p[0] for p in place)) + [RDRAM_END]
-        keep = []
-        for p in place:
+    # a variable bigger than its room on the N64 goes wherever the host
+    # linker puts it; the translated code finds it through SYM() all the
+    # same.  In the LP64 build that is one of the C's the host lays out
+    # bigger (or aligns where the N64 address isn't); in every build, the
+    # engine's arrays with more room than the N64's (asm2c.py's GROWN).
+    # (in the LP64 build a symbol's N64 size isn't always the object's: up
+    # to the next sized N64 symbol is its room; elsewhere a variable of the
+    # C's may run over the N64 names after it, as its #ifdef TARGET_PC has
+    # it: 1D990.c's D_80367BDC)
+    # (and never past the next variable placed: a data island's labels have
+    # no size)
+    sized = sorted(set(n64[k] for k, v in n64_sizes.items() if v and k in n64)) + [RDRAM_END]
+    placed = sorted(set(p[0] for p in place)) + [RDRAM_END]
+    keep = []
+    for p in place:
+        room = RDRAM_END
+        if LP64:
             room = max(n64_sizes.get(p[3], 0), next(a for a in sized if a > p[0]) - p[0])
-            room = min(room, next(a for a in placed if a > p[0]) - p[0])
-            grew = p[4] > room or p[0] % max(p[5], 1)
-            (moved if grew else keep).append(p + (room,))
-        place = keep
+        room = min(room, next(a for a in placed if a > p[0]) - p[0])
+        grew = p[4] > room or (LP64 and p[0] % max(p[5], 1))
+        (moved if grew else keep).append(p + (room,))
+    place = keep
     with open(moved_path(out), "w") as f:
         for p in moved:     # name, N64 address, host size, its room on the N64
             f.write(f"{p[3]} {p[0]:08X} {p[4]:#x} {p[6]:#x}\n")
@@ -136,14 +140,14 @@ def script(out, objects):
         f.write("  .n64_rodata : { *src/hd_code/*(.rodata .rodata.*) *src/hd_front_end/*(.rodata .rodata.*)"
                 + merged + " }\n")
         f.write("}\nINSERT AFTER .data;\n")
-    print(f"gen_ld.py: {len(place)} sections placed" + (f", {len(moved)} moved (bigger than on the N64)" if LP64 else ""))
+    print(f"gen_ld.py: {len(place)} sections placed" + (f", {len(moved)} moved (bigger than on the N64)" if moved else ""))
 
 
 def check(exe):
     n64 = n64_symbols()
     moved = set()
     mp = moved_path(os.path.join(os.path.dirname(os.path.abspath(exe)), "gen", "x"))
-    if LP64 and os.path.exists(mp):
+    if os.path.exists(mp):
         moved = set(l.split()[0] for l in open(mp))
     out = subprocess.run(["nm", exe], capture_output=True, text=True, check=True).stdout
     bad = 0
