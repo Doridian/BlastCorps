@@ -140,9 +140,9 @@ def parse(text):
         name, spelled, canon, attrs = tm.group(1), tm.group(2), tm.group(3), tm.group(4)
         if not NAME.match(name) or begin is None or begin[0] is None:
             continue
-        if kind == "VarDecl" and depth > 0 and " extern" not in attrs:
+        if kind == "VarDecl" and depth > 0 and not re.search(r" extern\b", attrs):
             continue        # (a local)
-        storage = "def" if (kind == "VarDecl" and " extern" not in attrs) else "decl"
+        storage = "def" if (kind == "VarDecl" and not re.search(r" extern\b", attrs)) else "decl"
         if kind == "VarDecl":
             entry = [name, "var", norm(canon or spelled), begin[0], begin[1], storage]
             out.append(entry)

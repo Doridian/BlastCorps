@@ -443,10 +443,21 @@ struct Arena : PassInfoMixin<Arena> {
             }
         sized.push_back(RDRAM);
         std::sort(sized.begin(), sized.end());
+        /* (and never past the next variable defined: a data island's labels
+           have no size) */
+        std::vector<uint64_t> defined;
+        for (GlobalVariable *g : gs) {
+            auto it = syms.find(g->getName().str());
+            if (!g->isDeclaration() && it != syms.end() && it->second.first - K0 < RDRAM)
+                defined.push_back(it->second.first & MASK);
+        }
+        defined.push_back(RDRAM);
+        std::sort(defined.begin(), defined.end());
         auto room = [&](const std::string &name, uint64_t addr) {
             uint64_t next = *std::upper_bound(sized.begin(), sized.end(), addr);
             uint64_t n = symSize.count(name) ? symSize[name] : 0;
-            return std::max(n, next - addr);
+            uint64_t def = *std::upper_bound(defined.begin(), defined.end(), addr);
+            return std::min(std::max(n, next - addr), def - addr);
         };
         for (GlobalVariable *g : gs) {
             auto it = syms.find(g->getName().str());

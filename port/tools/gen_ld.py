@@ -95,10 +95,14 @@ def script(out, objects):
         # layout, PTR32 pointers, and don't grow)
         # (a symbol's N64 size isn't always the object's: up to the next
         # sized N64 symbol is its room)
+        # (and never past the next variable placed: a data island's labels
+        # have no size)
         sized = sorted(set(n64[k] for k, v in n64_sizes.items() if v and k in n64)) + [RDRAM_END]
+        placed = sorted(set(p[0] for p in place)) + [RDRAM_END]
         keep = []
         for p in place:
             room = max(n64_sizes.get(p[3], 0), next(a for a in sized if a > p[0]) - p[0])
+            room = min(room, next(a for a in placed if a > p[0]) - p[0])
             grew = p[4] > room or p[0] % max(p[5], 1)
             (moved if grew else keep).append(p + (room,))
         place = keep
