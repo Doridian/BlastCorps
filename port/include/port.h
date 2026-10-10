@@ -67,7 +67,10 @@ static inline void *port_ptr(uint32_t addr) {
 }
 /* a function value of the N64 side's, as the host calls it: in the movable
    build it is the function's N64 address (bepass/Arena.cpp), found by
-   port_fn (port/host/runtime.c) */
+   port_fn (port/host/runtime.c).  The N64 side's function pointers are
+   typed and native in every build (P7); what makes the value an address is
+   the arena, which keeps every pointer value an N64 address, so the table
+   goes with it (P10), not before. */
 #ifdef PORT_MOVABLE
 void *port_fn(uint32_t addr);
 #define PORT_FN(type, f) ((type)port_fn((uint32_t)(uintptr_t)(f)))
