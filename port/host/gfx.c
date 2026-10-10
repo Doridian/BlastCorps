@@ -2095,8 +2095,10 @@ static void hud_begin(uint32_t dl, int rdp) {
     if (!hud_task)
         return;
     hud_stamp++;
-    hud_txt[0] = port_g32(D_80365348);
-    hud_txt[1] = port_g32(D_80365348 + 4);
+    /* (its two pointers: as wide as the N64 side has them, port.h's host_layout) */
+    uint32_t w = host_layout(PORT_LAYOUT_PTR_D_80365348);
+    hud_txt[0] = port_game_ptr_n(D_80365348, w);
+    hud_txt[1] = port_game_ptr_n(D_80365348 + w, w);
     hud_txt_n = port_g32(D_80365350);
     if (hud_txt_n > 0x200)
         hud_txt_n = 0x200;

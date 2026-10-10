@@ -78,15 +78,13 @@ static uint16_t g16(const void *p) {
 #endif
 }
 static uint8_t g8(const void *p) { return *(const uint8_t *)p; }
-/* a pointer the game's C declares without PTR32 (8 bytes in the LP64
-   build): the N64 address it holds (port_game_ptr) */
-static uint32_t gptr(const void *p) {
-#ifdef PORT_LP64
-    return port_game_ptr(p);
-#else
-    return g32(p);
-#endif
-}
+/* where the game's structures have what is read here, and how wide its
+   pointer variables are: the N64 side's numbers (port.h's host_layout,
+   port/src/layout.c), not the N64's offsets, which the LP64 build's
+   native structures don't keep */
+#define L(x) host_layout(PORT_LAYOUT_##x)
+/* the pointer variable `sym`: the N64 address it holds */
+#define GPTR(sym) port_game_ptr_n(VAR(sym), L(PTR_##sym))
 
 #define VAR(sym) PORT_VAR(sym)
 extern char D_80364A90[], D_802E8BDC[], D_80358064[], D_80358060[], D_8036B968[];
@@ -142,7 +140,7 @@ static void finish(void) {
 /* one vehicle module's state: x,y,z,heading,heading2,speed */
 static void put_vehicle3(const char *key, const char *vs, const char *pos, const char *py, const char *pz) {
     put(key, "%d,%d,%d,%u,%u,%d", (int32_t)g32(pos), (int32_t)g32(py), (int32_t)g32(pz),
-        g16(vs + 0x4C), g16(vs + 0x4E), (int16_t)g16(vs + 0x76));
+        g16(vs + L(VSTATE_HEADING)), g16(vs + L(VSTATE_HEADING2)), (int16_t)g16(vs + L(VSTATE_SPEED)));
 }
 #define put_vehicle(k, vs, pos) put_vehicle3(k, vs, pos, (pos) + 4, (pos) + 8)
 
@@ -166,11 +164,12 @@ static void vehicles(void) {
     int seen[N] = {0}, barge = 0;
     unsigned i;
 
-    uint32_t first = PORT_ADDR(D_80364460), end = gptr(VAR(D_803649D0));
-    if (end < first || end > first + 12 * 0x74)
+    uint32_t size = L(VEHICLE_SIZE);
+    uint32_t first = PORT_ADDR(D_80364460), end = GPTR(D_803649D0);
+    if (end < first || end > first + 12 * size)
         end = first;
-    for (uint32_t a = first; a < end; a += 0x74) {
-        uint32_t type = g32((const char *)port_ptr(a) + 0x5C);
+    for (uint32_t a = first; a < end; a += size) {
+        uint32_t type = g32((const char *)port_ptr(a) + L(VEHICLE_TYPE));
         if (type == 0x0B || type == 0x11 || type == 0x12) {
             barge = 1;
             continue;
@@ -189,26 +188,27 @@ static void vehicles(void) {
         for (i = 0; i < 3; i++) {
             char key[8];
             snprintf(key, sizeof key, "vB.%u", i);
-            put_vehicle(key, VAR(D_803F8550) + 0xA8 * i, VAR(D_803F8748) + 12 * i);
+            put_vehicle(key, VAR(D_803F8550) + L(VSTATE_SIZE) * i, VAR(D_803F8748) + 12 * i);
         }
 }
 
 static void buildings(void) {
-    uint32_t first = PORT_ADDR(D_803F4030), end = g32(VAR(D_803F7654));
-    if (end < first || end > first + 0x100 * 0xFC)
+    uint32_t size = L(BUILDING_SIZE);
+    uint32_t first = PORT_ADDR(D_803F4030), end = GPTR(D_803F7654);
+    if (end < first || end > first + 0x100 * size)
         end = first;
-    for (uint32_t a = first, k = 0; a < end; a += 0xFC, k++) {
+    for (uint32_t a = first, k = 0; a < end; a += size, k++) {
         const char *b = (const char *)port_ptr(a);
         char key[8], dmg[2 * 0x10 + 1];
-        unsigned groups = g8(b + 0xE9), j;
+        unsigned groups = g8(b + L(BUILDING_GROUPS)), j;
         if (groups > 0x10)
             groups = 0x10;
         for (j = 0; j < groups; j++)
-            snprintf(dmg + 2 * j, 3, "%02X", g8(b + 0xEC + j));
+            snprintf(dmg + 2 * j, 3, "%02X", g8(b + L(BUILDING_DAMAGE) + j));
         dmg[2 * j] = 0;
         snprintf(key, sizeof key, "b%u", k);
-        put(key, "%u/%d,%d,%d/%s", g8(b + 0xEA), (int32_t)g32(b + 0x10), (int32_t)g32(b + 0x14),
-            (int32_t)g32(b + 0x18), dmg);
+        put(key, "%u/%d,%d,%d/%s", g8(b + L(BUILDING_GONE)), (int32_t)g32(b + L(BUILDING_X)),
+            (int32_t)g32(b + L(BUILDING_Y)), (int32_t)g32(b + L(BUILDING_Z)), dmg);
     }
 }
 
@@ -238,25 +238,27 @@ static void level(void) {
         (int32_t)g32(VAR(D_803643E8)));
     put("won", "%u", g8(VAR(D_803643DA)));
     put("lost", "%u", g8(VAR(D_803643D9)));
-    put("st", "%u,%u,%u,%u,%u", g32(st), g8(st + 8), g8(st + 9), g16(st + 0xC), g8(st + 0xA));
-    put("tc", "%u", g32(st + 4));
+    put("st", "%u,%u,%u,%u,%u", g32(st + L(STATS_IP)), g8(st + L(STATS_BD)), g8(st + L(STATS_CR)),
+        g16(st + L(STATS_RT)), g8(st + L(STATS_COIN)));
+    put("tc", "%u", g32(st + L(STATS_TC)));
     put("of", "%u,%u,%u", g8(VAR(D_8036EB92)), g8(VAR(D_8036EB93)), g16(VAR(D_8036EB90)));
     put("dmg", "%u", g32(VAR(D_803649F0)));
     put("ammo", "%d,%d", (int16_t)g16(VAR(D_803F8B72)), (int16_t)g16(VAR(D_803EDC00)));
     vehicles();
     buildings();
-    uint32_t n = g16(VAR(D_8036EB90)), rdus = gptr(VAR(D_8036BED8));
+    uint32_t n = g16(VAR(D_8036EB90)), rdus = GPTR(D_8036BED8);
     if (rdus && n)
-        bits("rdu", (const char *)port_ptr(rdus), n, 0x88, 6);
+        bits("rdu", (const char *)port_ptr(rdus), n, L(RDU_SIZE), L(RDU_COLLECTED));
     n = g32(VAR(D_8039B610));
     if (n <= 20) {
         char s[VALLEN];
         unsigned len = 0;
         s[0] = 0;
         for (uint32_t i = 0; i < n; i++) {
-            const char *c = VAR(D_8039B070) + 0x48 * i;
-            len += snprintf(s + len, sizeof s - len, "%s%u,%d,%d,%d,%d", i ? "/" : "", g8(c + 0x18),
-                            (int32_t)g32(c), (int32_t)g32(c + 4), (int32_t)g32(c + 8), (int16_t)g16(c + 0x10));
+            const char *c = VAR(D_8039B070) + L(TNT_SIZE) * i;
+            len += snprintf(s + len, sizeof s - len, "%s%u,%d,%d,%d,%d", i ? "/" : "", g8(c + L(TNT_ACTIVE)),
+                            (int32_t)g32(c + L(TNT_X)), (int32_t)g32(c + L(TNT_Y)), (int32_t)g32(c + L(TNT_Z)),
+                            (int16_t)g16(c + L(TNT_TIMER)));
         }
         if (n)
             put("tnt", "%s", s);
@@ -267,16 +269,16 @@ static void level(void) {
         unsigned len = 0;
         s[0] = 0;
         for (uint32_t i = 0; i < n; i++) {
-            const char *k = VAR(D_8039C550) + 0x38 * i;
-            len += snprintf(s + len, sizeof s - len, "%s%d,%d,%d,%u", i ? "/" : "", (int32_t)g32(k),
-                            (int32_t)g32(k + 4), (int32_t)g32(k + 8), g8(k + 0x11));
+            const char *k = VAR(D_8039C550) + L(BLOCK_SIZE) * i;
+            len += snprintf(s + len, sizeof s - len, "%s%d,%d,%d,%u", i ? "/" : "", (int32_t)g32(k + L(BLOCK_X)),
+                            (int32_t)g32(k + L(BLOCK_Y)), (int32_t)g32(k + L(BLOCK_Z)), g8(k + L(BLOCK_IN_HOLE)));
         }
         if (n)
             put("blk", "%s", s);
     }
     n = g32(VAR(D_8039B068));
     if (n && n <= 15)
-        bits("box", VAR(D_8039AF00), n, 0x18, 7);
+        bits("box", VAR(D_8039AF00), n, L(AMMOBOX_SIZE), L(AMMOBOX_COLLECTED));
 }
 
 void host_digest_poll(unsigned poll) {
@@ -304,13 +306,13 @@ void host_digest_poll(unsigned poll) {
     put("clk", "%u", g32(SCHED_FRAMECOUNT));
     {
         uint8_t who = g8(VAR(D_80364AE8));
-        const char *pl = VAR(D_80364AF0) + 0x100 * (who & 3);
+        const char *pl = VAR(D_80364AF0) + L(PLAYER_SIZE) * (who & 3);
         char med[2 * 60 + 1];
         for (int i = 0; i < 60; i++)
-            snprintf(med + 2 * i, 3, "%02X", g8(pl + 0x18 + i));
+            snprintf(med + 2 * i, 3, "%02X", g8(pl + L(PLAYER_MEDAL) + i));
         put("med", "%s", med);
-        put("units", "%u", g16(pl + 0xA));
-        put("gs", "%u", g8(pl + 0x91));
+        put("units", "%u", g16(pl + L(PLAYER_UNITS)));
+        put("gs", "%u", g8(pl + L(PLAYER_GAMESTATE)));
     }
     if (mode && !(mode & FRONT_END_MODES))
         level();

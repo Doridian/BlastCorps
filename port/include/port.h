@@ -199,6 +199,89 @@ static inline void port_wvar16(void *p, uint16_t v) {
 #define port_var32 port_be32    /* (all of it big-endian) */
 #endif
 
+/* ---- the game's layouts, as the host reads them ------------------------ */
+
+/* What the host reads inside the game's structures (port/host/digest.c,
+   sched_vars.h, gfx.c), as this build's N64 side lays them out:
+   port/src/layout.c's sizeof and offsetof, by the N64 side's own compiler,
+   so right in every variant (in the LP64 ones a struct without PTR32 has
+   native pointers, and its fields move).  The host doesn't include the
+   game's headers: it asks for a number by its name here (host_layout).  A
+   PTR_ entry is the size of one of the game's pointer variables (4, or 8
+   in the LP64 build where it isn't PTR32), for port_game_ptr_n. */
+enum PortLayout {
+    PORT_LAYOUT_VEHICLE_SIZE,           /* Vehicle (game/vehicle.h) */
+    PORT_LAYOUT_VEHICLE_TYPE,
+    PORT_LAYOUT_VSTATE_SIZE,            /* VehicleState */
+    PORT_LAYOUT_VSTATE_HEADING,         /* unk4C */
+    PORT_LAYOUT_VSTATE_HEADING2,        /* unk4E */
+    PORT_LAYOUT_VSTATE_SPEED,           /* unk76 */
+    PORT_LAYOUT_BUILDING_SIZE,          /* Building (game/objects.h) */
+    PORT_LAYOUT_BUILDING_X,
+    PORT_LAYOUT_BUILDING_Y,
+    PORT_LAYOUT_BUILDING_Z,
+    PORT_LAYOUT_BUILDING_GROUPS,        /* unkE9 */
+    PORT_LAYOUT_BUILDING_GONE,          /* unkEA */
+    PORT_LAYOUT_BUILDING_DAMAGE,        /* unkEC */
+    PORT_LAYOUT_TNT_SIZE,               /* TntCrate */
+    PORT_LAYOUT_TNT_X,
+    PORT_LAYOUT_TNT_Y,
+    PORT_LAYOUT_TNT_Z,
+    PORT_LAYOUT_TNT_TIMER,
+    PORT_LAYOUT_TNT_ACTIVE,
+    PORT_LAYOUT_BLOCK_SIZE,             /* Block */
+    PORT_LAYOUT_BLOCK_X,
+    PORT_LAYOUT_BLOCK_Y,
+    PORT_LAYOUT_BLOCK_Z,
+    PORT_LAYOUT_BLOCK_IN_HOLE,          /* unk11 */
+    PORT_LAYOUT_AMMOBOX_SIZE,           /* AmmoBox */
+    PORT_LAYOUT_AMMOBOX_COLLECTED,
+    PORT_LAYOUT_RDU_SIZE,               /* Rdu (game/level.h) */
+    PORT_LAYOUT_RDU_COLLECTED,
+    PORT_LAYOUT_PLAYER_SIZE,            /* PlayerInfo (game/player.h) */
+    PORT_LAYOUT_PLAYER_UNITS,
+    PORT_LAYOUT_PLAYER_MEDAL,
+    PORT_LAYOUT_PLAYER_GAMESTATE,
+    PORT_LAYOUT_STATS_IP,               /* LevelStats (game/level.h) */
+    PORT_LAYOUT_STATS_TC,
+    PORT_LAYOUT_STATS_BD,
+    PORT_LAYOUT_STATS_CR,
+    PORT_LAYOUT_STATS_COIN,
+    PORT_LAYOUT_STATS_RT,
+    PORT_LAYOUT_SCHED_UNK280,           /* Sched (game/sched.h): the level's retraces */
+    PORT_LAYOUT_SCHED_FRAMECOUNT,       /* the retraces */
+    PORT_LAYOUT_PTR_D_803649D0,         /* Vehicle *, past the level's last */
+    PORT_LAYOUT_PTR_D_803F7654,         /* Building *, past the last */
+    PORT_LAYOUT_PTR_D_8036BED8,         /* Rdu * */
+    PORT_LAYOUT_PTR_D_80365348,         /* Vtx *[2]'s element (hd_code 14B30.c) */
+    PORT_LAYOUT_COUNT
+};
+/* the N64 side's number (port/src/layout.c); 0 for an id it doesn't know */
+uint32_t port_layout(unsigned id);
+/* the host's copy, made at the first use (in each file that asks: one call
+   into the N64 side per entry, once) */
+static inline uint32_t host_layout(enum PortLayout id) {
+    static uint32_t v[PORT_LAYOUT_COUNT];
+    static int got;
+    unsigned i;
+    if (!got) {
+        for (i = 0; i < PORT_LAYOUT_COUNT; i++)
+            v[i] = port_layout(i);
+        got = 1;
+    }
+    return v[id];
+}
+/* one of the game's pointers, `size` bytes wide (a PTR_ entry): the N64
+   address it holds */
+static inline uint32_t port_game_ptr_n(const void *p, uint32_t size) {
+#ifdef PORT_LP64
+    if (size == 8)
+        return port_game_ptr(p);
+#endif
+    (void)size;
+    return port_var32(p);
+}
+
 /* ---- host services (port/host) ----------------------------------------- */
 
 void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
