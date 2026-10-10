@@ -2,7 +2,8 @@
 
 Every build of the port keeps each N64-named variable at its N64 address.
 The scattered layout (docs/PORT.md, "The scattered layout",
-`-DPORT_SCATTER`) moves every variable somewhere else, padded, and the
+`-DPORT_SCATTER`) moves every variable and every fixed buffer (the
+regions) somewhere else, padded, and the
 check build (`-DPORT_SCATTER_CHECK=ON`) reports each access that only
 works because of the N64's layout: a name or an address next to the data
 on the N64 instead of the variable the data is in.  This file is that
@@ -81,9 +82,13 @@ line (code the compiler made for several).
 
 ## Not covered
 
-- The host's other reads of game memory by address (the renderer's
-  display lists and textures, the audio, the loaders), which the check
-  doesn't see.
+- The host's own reads of game memory by address (the renderer's display
+  lists and textures, the audio, the loaders) the check doesn't see.  The
+  guard (docs/PORT.md, "The guard", `-DPORT_SCATTER_GUARD=ON`) does, for
+  the N64's places: with the fixed buffers and the front end's variables
+  moved, nothing is left in the first 4 MB, which faults, and the guard
+  build plays the quick tier and the TAS as the references.  An access by
+  the host from one moved variable into its new neighbour neither sees.
 - The front end's variables with `-DPORT_SCATTER_FE=OFF` (it is on by
   default: they move, and the level pool with them, `port/src/overlay.c`
   restoring each from port-arena's list).

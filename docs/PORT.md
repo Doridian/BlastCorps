@@ -350,21 +350,43 @@ exactly, and adapts the host to that, rather than the other way round:
 - **RDRAM at `0x80000000`.**  The first 4 MB of the address space is the
   image's `.rdram` section (`tools/gen_ld.py`), so a KSEG0 address *is* the
   host address.  The translated code's `rdram + (addr & 0x1FFFFFFF)` with
-  `rdram = 0x80000000` is the identity.  The N64 side's `K0_TO_PHYS`,
-  `OS_K0_TO_PHYSICAL`, `osVirtualToPhysical` and their inverses are the
-  identity too (`PR/R4300.h`, outside the engine check build), so display
-  lists, segment bases and audio commands hold KSEG0 addresses; what reads
-  them masks to physical, as the RSP ignores the top bits.  The game's fixed
-  buffers (framebuffers at `0x80000400`, the level pool from `0x8004B400`,
-  the heap after `.bss` at `0x803FF600`) are where it expects them.  The
-  hardware registers (`0xA4000000`) are mapped as plain memory, and the
-  fibers' host stacks sit at `0x90000000`, inside the KSEG0 window, so the
-  address of a local means the same to the translated code.  A 64-bit
+  `rdram = 0x80000000` is the identity.  The hardware registers
+  (`0xA4000000`) are mapped as plain memory, and the fibers' host stacks
+  sit at `0x90000000`, inside the KSEG0 window, so the address of a local
+  means the same to the translated code.  A 64-bit
   kernel puts the brk heap anywhere up to 1 GB above a non-PIE image (a
   32-bit program's within 32 MB), so in a 64-bit build it is, a few starts
   in a hundred, already in one of those two windows when `main` maps them;
   then the port runs itself again with `ADDR_NO_RANDOMIZE`, which puts the
   heap right above the image (`map_fixed`, `host/main.c`).
+- **The fixed buffers are regions.**  What the game uses by address
+  rather than as a variable is a table, `port/include/port_regions.h`: the
+  boot words at `0x80000300`, the two framebuffers from `0x80000400`, the
+  level pool from `0x8004B400` (and inside it the ghost's buffers, the
+  front end's area from `0x801E7000` and the effects heap's two limits),
+  init's area at `0x8021ED00` (the depth buffer, and where compressed
+  loads are staged), segment 1's static data after hd_code's `.bss`
+  (`D_803FF600`, the version's own) and the two hand-over words at
+  `0x803FFFF8`.  A region is a name (the address name), an N64 place and a
+  size, and the name is the only spelling of the address on the N64 side:
+  the game's C has it through `game/memmap.h` (`MEM_POOL` and the like,
+  the literals as they were for IDO), the engine and `port/src` by name.
+  The fixed builds put each name at its N64 place (`gen/port_fixed.ld`,
+  from `gen_syms.py regions`), the movable build resolves it there, and the
+  scattered layout moves it ("The scattered layout").
+- **No conversions.**  `K0_TO_PHYS`, `OS_K0_TO_PHYSICAL`,
+  `osVirtualToPhysical`, their inverses, `STATIC_K0_TO_PHYS`, Rare's adds
+  of `0x80000000` (`K0_TO_PHYS_ADD`) and the engine's own are the identity
+  on the N64 side (`PR/R4300.h`, `PR/os.h`, `common.h`), so display lists,
+  segment bases and audio commands hold KSEG0 addresses; what reads them
+  (the renderer's segments, the audio HLE, `port_ptr`) masks to physical,
+  as the RSP ignores the top bits.  The engine check build keeps the N64's
+  forms: its translations write the physical words the native code's are
+  compared with.  What looks like an address but is a number stays one,
+  marked: the trap PCs in the engine's messages (`N64_PC`) and the N64
+  values the game uses as data (`N64_VALUE`, 69BB0.c's return addresses
+  and dead stack read as angles).  The movable build fails on any other
+  ("No address literals").
 - **Every game variable at its N64 address.**  The decompiled C relies on
   the layout of the data, not just its contents: code reads fields through
   names of their own (other files read the scheduler's frame counter,
@@ -1320,8 +1342,9 @@ the browser.
 **What lives in the arena**, by physical (N64) address:
 
 - `0x000000-0x3FFFFF`: RDRAM, as now: every N64-named variable of the C
-  and of the asm data at its N64 address, the heap, the framebuffers, the
-  level pool, the boot globals at `0x80000300`.
+  and of the asm data at its N64 address, and the fixed buffers (the
+  regions: the framebuffers, the level pool, the static data, the boot
+  words at `0x80000300`).
 - from `0x400000`: the N64 side's data that has no N64 address but whose
   address escapes (string literals passed on, `__func__` for
   `port_counter`, `port/src`'s queues, threads and boot stack), and in the
@@ -1364,7 +1387,7 @@ What port-arena does, in order:
    inside islands: `gen_syms.py script`'s table) is its constant.  Every
    reference becomes the constant (`inttoptr`), and any data symbol left
    undefined is an error.  This replaces `gen_ld.py`'s script and check,
-   `port_syms.ld` and `port_fixed.ld` (`D_803FF600` is a constant).
+   `port_syms.ld` and `port_fixed.ld` (a region's name is a constant).
 2. **Build the arena image.**  The initializers of the arena's globals,
    serialized at their addresses in the build's byte order (big-endian:
    swapped at build time), pointers as N64 values, functions as their N64
@@ -1495,7 +1518,7 @@ address `a`, KSEG0 or KSEG1, is at `port_arena + (a & 0x1FFFFFFF)`
 (`port_arena.h`):
 
 - `0x000000`: RDRAM, every N64-named variable of the C and of the asm data
-  where the N64 has it;
+  where the N64 has it, and the regions;
 - `0x400000`: the N64 side's data that has no N64 address (string
   literals, statics, the switch tables, `port/src`'s own, which keeps
   its own place even where its names are N64 ones: `osViClock`,
@@ -1517,8 +1540,9 @@ make one object.  port-arena, over the whole program:
   version's names: `gen_syms.py table`, from the three ELFs) is at its
   N64 address, every other definition is laid out from `0x400000`, and a
   declaration with an N64 name (a variable of the asm or of another
-  module, a name inside a data island, a ROM offset, a fixed address such
-  as `D_803FF600`) is its value; every reference becomes the constant.
+  module, a name inside a data island, a ROM offset) is its value, and a
+  region's name (a fixed buffer, `-port-arena-regions`) is where its
+  region is; every reference becomes the constant.
   What is left is the host's (the port's own `__port_` variables),
   accessed where it is;
 - writes the arena's initial contents from the initializers, in host
@@ -1827,6 +1851,36 @@ game's.
   data, 8E910's per-level cells), and the RSP microcode's text (zeros,
   `RSP_TEXT`).
 
+### No address literals
+
+A pointer the N64 side makes from a number is an address it doesn't name,
+which nothing but the N64's layout can make right.  The movable build
+fails on one: before port-arena makes constants of its own (the layout's,
+the regions', `__port_fe_vars`), it walks every function and initializer
+of the N64 side (the game's C, `port/src`, libaudio, the engine, the asm
+data) for
+
+- a pointer made from a number in RDRAM: KSEG0 or KSEG1 (`0x80000000`,
+  `0xA0000000`, 8 MB) or physical (`0x1000` to 8 MB);
+- a pointer's value moved between them, by adding, subtracting, masking
+  or or-ing `0x80000000`, `0x1FFFFFFF` and the like: a conversion left;
+- a pointer's value compared with an RDRAM address,
+
+and names each, `port-arena: FUNCTION (FILE:LINE): a pointer made from
+0x8004B400`, then stops.  None is left, so there is no allow-list: the
+fixed buffers are regions ("Memory model"), whose names the pass resolves
+itself.  What passes is what never becomes a pointer: the trap PCs
+(`N64_PC`) and `N64_VALUE`s, masks of integers (`(s32)0x80000000`,
+`INT_MIN`, jp's bit tests), the hardware registers (`0xA4000000` up) and
+the `OSMesg` numbers below `0x1000` sent as messages (`(OSMesg)5`,
+`666`; `PORT_ARENA_STATS=1` counts them).  `-DPORT_ARENA_LITERALS=warn`
+lists without stopping, `=off` skips it.  It runs in every movable build
+(m64, mlp64, mn32, WebAssembly, the scattered ones); the fixed builds
+compile the same source, and the engine check build, which keeps the
+N64's conversions, is never movable.  It sees only what the compiler
+sees: an address read as a number from data, or one the host makes, is
+the guard's to catch ("The guard", below).
+
 ### The scattered layout (`PORT_SCATTER`)
 
 Every build so far keeps each N64-named variable at its N64 address, and
@@ -1858,9 +1912,22 @@ N64 had room for lands in padding).  2,166 variables in us.v10, to about
   them (`__port_fe_vars`) and `port/src/overlay.c` puts each back as it
   was at startup when the game loads the front end.  The level pool, whose
   tail is the front end's area, moves with them.
-- **What stays**: the fixed buffers (the framebuffers, the level pool
-  without `PORT_SCATTER_FE`, the heap at `D_803FF600`, the front end's area
-  as the level's), which are addresses, not variables.
+- **The fixed buffers** (the regions, "Memory model") move as well: each
+  gets room of its own after the variables, with padding before it and its
+  N64 address's offset in 4 KB kept (so the framebuffers' 64-byte
+  alignment too), and its N64 place joins what nothing should touch.  Its
+  sub-regions move with it.  The level pool moves only with
+  `PORT_SCATTER_FE` (`-port-arena-scatter-regions=pool`): without it the
+  front end's variables are inside its N64 range.  So with it, which is
+  the default, **nothing stays**: nothing of the game is in the arena's
+  first 4 MB, which "The guard" (below) makes inaccessible.
+- **The front end's area** (`D_801E7000`, the pool's tail) still gets
+  what the N64's load leaves there, the `.data` image and the cleared
+  `.bss` (`port/src/overlay.c`), though its variables are elsewhere.  That
+  image is made from the variables' startup values, each clipped to its
+  N64 room: in LP64 a variable can be bigger than on the N64, and the
+  area keeps the N64's size (the variables themselves are restored
+  whole), which is for native pointers to settle.
 - **What nothing should touch**: the N64 places the variables left, the
   padding and the aliases' rooms (`__port_scatter_bad`) are filled with
   `PORT_SCATTER_POISON` (a byte, default `0xA5`, so a pointer read there
@@ -1895,6 +1962,22 @@ What it found (us.v10, seeds 1 to 3, the quick tier's scenarios and the
 whole TAS, which every check build plays through with 57 platinum and the
 reference's gameplay digest): nothing now; docs/LAYOUT.md has how it was
 made and how the first list's rows went.
+
+### The guard (`PORT_SCATTER_GUARD`)
+
+The check sees only the N64 side's accesses: the host's reads of game
+memory by address (the renderer's display lists and textures, the audio
+HLE, the loaders) it can't.  `-DPORT_SCATTER_GUARD=ON` (a scattered
+build with `PORT_SCATTER_FE`, not WebAssembly) covers them: once the
+arena is filled and poisoned, `port_arena_init` makes the pages inside
+its first 4 MB `PROT_NONE` (`runtime.c`), so any access to the N64's
+RDRAM, from the game's C, the engine or the host, faults, and the crash
+handler names the N64 address and the code's (`guard: N64 address
+8004B400, ... reached at PC: addr2line -f -e ./blastcorps PC`,
+`main.c`).  It costs nothing, so the whole TAS runs at full speed.  The
+RDRAM dumps (`PORT_DUMP`, `PORT_REPLAY_DUMP`, the crash dump) write zeros
+there (`port_dump_rdram`).  `test.py variants` builds it as `guard`
+(mn32, seed 1), and its quick tier and TAS give the references' hashes.
 
 ## Resource packs
 
@@ -5150,10 +5233,11 @@ switching means `make clean` in both directories, stages 1 and 2 for the
 other version, and `make -C tools/recomp VERSION=<v>`; CMake refuses a
 stage 2 of another version.  What differs between versions in the port:
 
-- **Addresses from the version's link.**  CMake reads the heap start (the
-  end of hd_code's `.bss`, `D_803FF600`: `0x803FF600` in us.v11,
-  `0x803FF550` in us.v10, `0x803FF6E0` in jp) and the front end's `.data`
-  and `.bss` (`src/overlay.c`) out of the version's ELFs.  The generators
+- **Addresses from the version's link.**  `gen_syms.py regions` takes
+  segment 1's static data's start (the end of hd_code's `.bss`,
+  `D_803FF600`: `0x803FF600` in us.v11, `0x803FF550` in us.v10,
+  `0x803FF6E0` in jp), and CMake the front end's `.data` and `.bss`
+  (`src/overlay.c`), out of the version's ELFs.  The generators
   (`gen_ld.py`, `gen_syms.py`, `gen_romtab.py`, `liveness.py`, the
   replay's `n64_funcs.txt`) read the version's ELFs and link map; names
   are us.v11's in every version, so the rest of the port is the same.
