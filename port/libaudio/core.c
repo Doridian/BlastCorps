@@ -8,11 +8,18 @@
 /* ---- the heap ------------------------------------------------------------------ */
 
 void alHeapInit(ALHeap *hp, u8 *base, s32 len) {
-    s32 misalign = (s32)base & 15;
+    s32 misalign = (s32)((uintptr_t)base & 15);
 
-    /* blocks start on 16 bytes (the RSP's DMA); the length isn't reduced */
-    hp->base = misalign != 0 ? base + (16 - misalign) : base;
-    hp->cur = hp->base;
+    /* blocks start on 16 bytes (the RSP's DMA), and what that skips comes
+       off the length.  (The reference keeps the length, so that its heap
+       then ends past the buffer: never on the N64, whose buffer is
+       16-aligned, but the LP64 port's image can give it 8.) */
+    if (misalign != 0) {
+        base += 16 - misalign;
+        len -= 16 - misalign;
+    }
+    hp->base = base;
+    hp->cur = base;
     hp->len = len;
     hp->count = 0;
 }

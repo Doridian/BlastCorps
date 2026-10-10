@@ -163,13 +163,15 @@ typedef struct SndStateLists {
 #define NUM_DMA_MESSAGES 0x48
 #endif
 /* The heap is exactly full on the N64.  In the LP64 port AudioInfo (three of
- * them are allocated in it) is bigger, so the heap gets that much more. */
+ * them are allocated in it) is bigger, so the heap gets that much more, and
+ * 15 bytes, which alHeapInit takes off a buffer that isn't 16-aligned (the
+ * port's image may give it 8). */
 #if defined(TARGET_PC) && defined(PORT_LP64)
 #undef AUDIO_HEAP_SIZE
 #ifdef VERSION_EU
-#define AUDIO_HEAP_SIZE (0x24540 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15))
+#define AUDIO_HEAP_SIZE (0x24540 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15) + 15)
 #else
-#define AUDIO_HEAP_SIZE (0x2A280 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15))
+#define AUDIO_HEAP_SIZE (0x2A280 + 3 * ((sizeof(AudioInfo) - 0x68 + 15) & ~15) + 15)
 #endif
 #endif
 
