@@ -488,14 +488,14 @@ if(PORT_LP64)
     # a pointer to one type passed as a pointer to another is where a
     # 4-byte slot can meet an 8-byte pointer (docs/PORT.md, "The LP64
     # build"): errors, on the whole N64 side.  An explicit cast is allowed;
-    # ptrcast_scan.py counts those against its allow-list.  (The function
-    # pointers, a subgroup of the second, stay off: P7 types them.  The
-    # flags are taken out and put back in this order because CMake keeps
-    # only the first of two equal options.)
+    # ptrcast_scan.py counts those against its allow-list.  A function
+    # passed as a pointer to another type of function (clang's subgroup of
+    # the second) is one too.  (The flags are taken out and put back in
+    # this order because CMake keeps only the first of two equal options.)
     list(REMOVE_ITEM N64_FLAGS -Wno-error=incompatible-pointer-types -Wno-incompatible-pointer-types
         -Wno-error=int-conversion -Wno-int-conversion -Wno-incompatible-function-pointer-types)
     list(APPEND N64_FLAGS -Werror=int-conversion -Werror=incompatible-pointer-types
-        -Wno-incompatible-function-pointer-types)
+        -Werror=incompatible-function-pointer-types)
 endif()
 if(PORT_MOVABLE)
     list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link

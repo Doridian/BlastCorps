@@ -213,11 +213,12 @@ s32 func_801F7F74(u8 arg0) {
     return (D_80364AF0[D_80364AEA].unk10 & (1 << arg0)) ? 1 : 0;
 }
 
-s32 func_801F7FF4(YoshiEntry *arg0, YoshiEntry *arg1) {
-    if (ENTRY_TEXT(arg0) != 0 && ENTRY_TEXT(arg1) != 0) {
-        return arg0->unk16 - arg1->unk16;
+/* (func_802595E0's comparator: two YoshiEntry) */
+s32 func_801F7FF4(void *arg0, void *arg1) {
+    if (ENTRY_TEXT((YoshiEntry *)arg0) != 0 && ENTRY_TEXT((YoshiEntry *)arg1) != 0) {
+        return ((YoshiEntry *)arg0)->unk16 - ((YoshiEntry *)arg1)->unk16;
     }
-    if (ENTRY_TEXT(arg0) != 0) {
+    if (ENTRY_TEXT((YoshiEntry *)arg0) != 0) {
         return -1;
     }
     return 1;

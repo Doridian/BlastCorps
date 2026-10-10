@@ -133,14 +133,15 @@ Gfx *func_801F3450(Gfx *arg0, u8 *arg1) {
     return gfx;
 }
 
-s32 func_801F36B0(s32 *arg0, s32 *arg1) {
+/* (func_802595E0's comparator: two indices into D_8020BD30) */
+s32 func_801F36B0(void *arg0, void *arg1) {
     UnkStruct_8020BD30 *spC;
     UnkStruct_8020BD30 *sp8;
     UnkStruct_8020BD30 *sp4;
 
     spC = D_8020BD30;
-    sp8 = &spC[&spC[*arg0] - spC];
-    sp4 = &spC[&spC[*arg1] - spC];
+    sp8 = &spC[&spC[*(s32 *)arg0] - spC];
+    sp4 = &spC[&spC[*(s32 *)arg1] - spC];
     return sp4->unk38 - sp8->unk38;
 }
 
