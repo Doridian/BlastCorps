@@ -1777,6 +1777,18 @@ void func_802BF898(s32 group, s32 damage, Building *b) {
 #define CHANCE_LO(t) NE_BE32(*(u32 *)((t) + 4))
 #define CHANCE_HI(t) NE_BE32(*(u32 *)((t) + 8))
 
+/* the record a roll of 0..100 picks from chance table t: the first whose
+   chance is over the roll, the last (chance 100) for anything left.  (The
+   roll can be 100, func_8026A828 rounds; the N64 then walks past each
+   table's last record, on through the next tables and into the counts
+   after them, D_803063E0, where it takes a kind of 0x5502 and a speed
+   range from the bytes after the table.) */
+static u8 *chance_pick(u8 *t, s32 roll) {
+    while (!(roll < CHANCE(t)) && CHANCE(t) < 100)
+        t += 0xC;
+    return t;
+}
+
 /* Debris thrown up from group `group`'s centre: how many by a roll of
    D_803063E0's (chance, count) pairs; each of a kind from the chance
    table for the damage (D_80306344, or D_80306350 once destroyed; a hit
@@ -1805,8 +1817,7 @@ void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
                 return;
         }
         roll = func_802BFB50(0, 100);
-        for (; !(roll < CHANCE(t)); t += 0xC) {
-        }
+        t = chance_pick(t, roll);
         fx = D_803F3FF8;
         FX_W(fx, FX_X) = x;
         FX_W(fx, FX_Y) = y;
@@ -1897,8 +1908,7 @@ void func_802BFDAC(Building *b, s32 group) {
     s32 x = c[0], y = b->y, z = c[2], roll;
 
     roll = func_802BFB50(0, 100);
-    for (t = CHANCES_LANDED; !(roll < CHANCE(t)); t += 0xC) {
-    }
+    t = chance_pick(CHANCES_LANDED, roll);
     fx = D_803F3FF8;
     FX_W(fx, FX_X) = x << 16;
     FX_W(fx, FX_Y) = y << 11;
