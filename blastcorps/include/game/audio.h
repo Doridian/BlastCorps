@@ -62,7 +62,7 @@ typedef struct SynConfig {
     /* 0x04 */ s32 maxPVoices;
     /* 0x08 */ s32 maxUpdates;
     /* 0x0C */ s32 maxFXbusses;
-    /* 0x10 */ void *dmaproc;
+    /* 0x10 */ ALDMANew dmaproc;
     /* 0x14 */ ALHeap *heap;
     /* 0x18 */ s32 outputRate;
     /* 0x1C */ u8 fxType;

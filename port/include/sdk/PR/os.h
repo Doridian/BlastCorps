@@ -196,8 +196,8 @@ typedef struct {
     OSMesgQueue *cmdQueue;
     OSMesgQueue *evtQueue;
     OSMesgQueue *acsQueue;
-    s32 (*PTR32 dma)(s32, u32, void *, u32);
-    s32 (*PTR32 edma)(OSPiHandle *, s32, u32, void *, u32);
+    s32 (*dma)(s32, u32, void *, u32);
+    s32 (*edma)(OSPiHandle *, s32, u32, void *, u32);
 } OSDevMgr;
 
 /* ---- the video interface ------------------------------------------------------ */

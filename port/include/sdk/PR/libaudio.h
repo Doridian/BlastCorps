@@ -236,7 +236,7 @@ typedef struct {
     s32 maxPVoices;
     s32 maxUpdates;
     s32 maxFXbusses;
-    void *dmaproc;        /* an ALDMANew */
+    ALDMANew dmaproc;
     ALHeap *heap;
     s32 outputRate;
     ALFxId fxType;
@@ -619,21 +619,22 @@ typedef struct {
 #define NOTE_OFF_ERR_MASK 0x02
 #define NO_VOICE_ERR_MASK 0x04
 
+/* a sequence player's oscillators (tremolo, vibrato): none in the game */
+typedef ALMicroTime (*ALOscInit)(void **oscState, f32 *initVal, u8 oscType, u8 oscRate,
+                                 u8 oscDepth, u8 oscDelay);
+typedef ALMicroTime (*ALOscUpdate)(void *oscState, f32 *updateVal);
+typedef void (*ALOscStop)(void *oscState);
+
 typedef struct {
     s32 maxVoices;
     s32 maxEvents;
     u8 maxChannels;
     u8 debugFlags;
     ALHeap *heap;
-    void *initOsc;
-    void *updateOsc;
-    void *stopOsc;
+    ALOscInit initOsc;
+    ALOscUpdate updateOsc;
+    ALOscStop stopOsc;
 } ALSeqpConfig;
-
-typedef ALMicroTime (*ALOscInit)(void **oscState, f32 *initVal, u8 oscType, u8 oscRate,
-                                      u8 oscDepth, u8 oscDelay);
-typedef ALMicroTime (*ALOscUpdate)(void *oscState, f32 *updateVal);
-typedef void (*ALOscStop)(void *oscState);
 
 typedef struct {
     ALPlayer node;              /* first */
