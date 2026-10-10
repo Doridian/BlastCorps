@@ -123,8 +123,8 @@ typedef struct TntCrate {
     /* 0x2A */ s16 unk2A;
     /* 0x2C */ u8 *tex[4];       /* textures from func_802A0CC8 (TntCrateInfo.unkC..unk12) */
     /* 0x3C */ Vtx *vtx;         /* 8 vertices, 0x80 bytes from the heap */
-    /* 0x40 */ SndState *PTR32 unk40;  /* sound 0x73, started when it is lit (func_80260650's handle) */
-    /* 0x44 */ SndState *PTR32 unk44;  /* sound 7, while it is pushed */
+    /* 0x40 */ SndState *unk40;        /* sound 0x73, started when it is lit (func_80260650's handle) */
+    /* 0x44 */ SndState *unk44;        /* sound 7, while it is pushed */
 } TntCrate;
 SIZE_CHECK_C(TntCrate, 0x48);
 
@@ -201,7 +201,7 @@ typedef struct Block {
     /* 0x2C */ s16 unk2C;
     /* 0x2E */ s16 unk2E;
     /* 0x30 */ void *unk30;            /* texture (func_802A0CC8) */
-    /* 0x34 */ SndState *PTR32 unk34;  /* sound 7, while it is pushed */
+    /* 0x34 */ SndState *unk34;        /* sound 7, while it is pushed */
 } Block;
 SIZE_CHECK_C(Block, 0x38);
 

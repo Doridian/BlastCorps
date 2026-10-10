@@ -475,7 +475,7 @@ u8 func_80260634(SndState *state) {
     return 0;
 }
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState *PTR32 *handle) {
+SndState *func_80260650(SndBank *bank, s16 id, SndState **handle) {
     SndState *state;
     SndState *result;
     ALKeyMap *keyMap;

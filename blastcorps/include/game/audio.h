@@ -104,7 +104,7 @@ typedef struct SndState {
     /* 0x0C */ ALVoice voice;
     /* 0x28 */ f32 unk28;
     /* 0x2C */ f32 pitch;
-    /* 0x30 */ struct SndState *PTR32 *PTR32 unk30;
+    /* 0x30 */ struct SndState **PTR32 unk30;  /* its handle (func_80260650): cleared when it ends */
     /* 0x34 */ s16 unk34;
     /* 0x36 */ u8 unk36;
     /* 0x38 */ s32 unk38;
@@ -173,7 +173,7 @@ typedef struct SndStateLists {
 #endif
 #endif
 
-extern SndState *PTR32 D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */
+extern SndState *D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */
 
 /* 1C460.c's: the sequence player and the frame count (D_803156C4) it last started at. */
 extern ALCSPlayer *D_80367734;

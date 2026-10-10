@@ -37,7 +37,7 @@ extern u8 D_803EEF34;                           /* frames without the throttle a
 /* the chopper's */
 extern Part D_803EEF40[32];
 extern VS D_803EF240;
-extern SndState *PTR32 D_803EF2E8;              /* its rotor's sound, while the player is near */
+extern SndState *D_803EF2E8;                    /* its rotor's sound, while the player is near */
 extern s32 D_803EF2EC, D_803EF2F0, D_803EF2F4;  /* x, y, z */
 extern u8 *D_803EF2F8;                          /* its model file */
 extern u8 *D_803EF2FC;                          /* two 0x800-byte buffers, one per frame */

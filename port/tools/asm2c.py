@@ -387,10 +387,9 @@ POINTERS = {
     "D_802C4A20": ("struct UnkStruct_8036EC30", None),
 }
 
-# Pointers kept 4 bytes (PTR32) while the C's are: the sound handles
-# (func_80260650 stores through a SndState *PTR32 *: P6-D2) and the display
-# list's words (P8).
-PTR32_POINTEES = {"struct SndState"}
+# Pointers kept 4 bytes (PTR32) while the C's are: the display list's
+# words (P8).
+PTR32_POINTEES = set()
 PTR32_TYPES = set()
 PTR32_VARS = {"D_80300A68"}
 

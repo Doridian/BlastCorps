@@ -248,7 +248,7 @@ void func_8025E67C(Gfx **, s32, u8);
 /* hd_code 1A630.c */
 void func_8025EDF0(struct SndConfig *);
 u8 func_80260634(struct SndState *);
-struct SndState *func_80260650(struct SndBank *, s16, struct SndState *PTR32 *);
+struct SndState *func_80260650(struct SndBank *, s16, struct SndState **);
 void func_802608C8(struct SndState *);
 void func_802609D0(void);
 void func_802609F0(void);

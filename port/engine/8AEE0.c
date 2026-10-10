@@ -42,7 +42,7 @@ extern s32 D_803FC978, D_803FC97C, D_803FC980;  /* x, y, z */
 extern u8 *D_803FC984;                          /* its model file */
 extern u8 *D_803FC988;                          /* two 0x1400-byte buffers, one per frame */
 extern u8 *D_803FC98C;
-extern SndState *PTR32 D_803FC990;              /* its sound while it is in */
+extern SndState *D_803FC990;                    /* its sound while it is in */
 extern u16 D_803FC994;                          /* the heading it turns to against a wall (D_803A7425) */
 extern s16 D_803FC996;                          /* the step sounds' last frame */
 extern s8 D_803FC998;                           /* turning to it */

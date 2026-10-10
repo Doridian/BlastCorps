@@ -22,7 +22,7 @@
 /* the carrier's .bss (asm/data/hd_code/75490.bss.s) */
 extern Part D_803EF330[32];
 extern VS D_803EF630;
-extern SndState *PTR32 D_803EF6D8;              /* its engine's sound, while the player is near */
+extern SndState *D_803EF6D8;                    /* its engine's sound, while the player is near */
 extern s32 D_803EF6DC, D_803EF6E0, D_803EF6E4;  /* x, y, z */
 extern s32 D_803EF6E8, D_803EF6EC;              /* how far it goes before D_803EF710, D_803EF711 */
 extern s32 D_803EF6F0;                          /* how far it goes to win the level */
@@ -42,9 +42,9 @@ extern Part D_803EF720[32];
 extern VS D_803EFA20;
 extern s32 D_803EFAC8, D_803EFACC, D_803EFAD0;  /* x, y, z */
 extern u8 *D_803EFAD4;                          /* its model file */
-extern SndState *PTR32 D_803EFAD8;              /* its three sounds: the arm's, the turn's, the grab's */
-extern SndState *PTR32 D_803EFADC;
-extern SndState *PTR32 D_803EFAE0;
+extern SndState *D_803EFAD8;                    /* its three sounds: the arm's, the turn's, the grab's */
+extern SndState *D_803EFADC;
+extern SndState *D_803EFAE0;
 extern u8 *D_803EFAE4;                          /* two 0x800-byte buffers, one per frame */
 extern u8 *D_803EFAE8;
 
@@ -570,7 +570,7 @@ void func_802BB274(void) {
 }
 
 /* a sound on (into *h) if it isn't */
-static void sound_on(SndState *PTR32 *h, s16 id) {
+static void sound_on(SndState **h, s16 id) {
     if (*h == NULL)
         func_80260650(D_80367738, id, h);
 }

@@ -25,7 +25,7 @@
 /* Skyfall's .bss (asm/data/hd_code/6E200.bss.s) */
 extern Part D_803EDFE0[32];
 extern VS D_803EE2E0;
-extern SndState *PTR32 D_803EE388;              /* its boost's sound, while it plays */
+extern SndState *D_803EE388;                    /* its boost's sound, while it plays */
 extern s32 D_803EE38C, D_803EE390, D_803EE394;  /* x, y, z */
 extern u8 *D_803EE398;                          /* its model file */
 extern u8 *D_803EE39C;                          /* two 0x800-byte buffers, one per frame */

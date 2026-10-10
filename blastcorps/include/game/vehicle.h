@@ -324,6 +324,6 @@ extern u8 D_803FCD75;
 
 /* What the vehicle modules share (the handwritten code's .bss: 77E20, 7F8B0). */
 extern UnkStruct_803ED460 *D_803F77D0;   /* the player vehicle's parts */
-extern struct SndState *PTR32 D_803F7844; /* its engine (rolling) sound: a sound handle (func_80260650) */
+extern struct SndState *D_803F7844; /* its engine (rolling) sound: a sound handle (func_80260650) */
 
 #endif

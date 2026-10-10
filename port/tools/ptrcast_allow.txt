@@ -53,7 +53,7 @@ P7-libaudio port/libaudio/synth.c 1 1 1 1
 P10-host port/src/loads.c 19 19 19 19
 P10-host port/src/ultra.c 35 35 35 35
 P6-x3 port/engine/5CB60.c 8 8 8 8
-P6-game blastcorps/src/hd_code/00000.c 44 44 44 45
+P6-game blastcorps/src/hd_code/00000.c 40 40 40 41
 P6-game blastcorps/src/hd_code/14B30.c 2 2 0 2
 P6-game blastcorps/src/hd_code/17210.c 1 1 1 1
 P6-game blastcorps/src/hd_code/1D990.c 9 9 0 9
@@ -71,8 +71,8 @@ P6-game blastcorps/src/hd_code/48D00.c 4 4 4 4
 P6-game blastcorps/src/hd_code/4B5E0.c 5 5 5 5
 P6-game blastcorps/src/hd_front_end/00000.c 4 4 4 4
 P6-game blastcorps/src/hd_front_end/10850.c 1 1 1 1
-P6-game blastcorps/src/hd_front_end/11530.c 5 5 2 5
-P6-game blastcorps/src/hd_front_end/17990.c 12 12 12 12
+P6-game blastcorps/src/hd_front_end/11530.c 3 3 0 3
+P6-game blastcorps/src/hd_front_end/17990.c 11 11 11 11
 P6-game blastcorps/src/hd_front_end/196F0.c 2 2 2 2
 P6-game blastcorps/src/hd_front_end/1AE80.c 3 3 3 3
 P6-game blastcorps/src/hd_front_end/1C40.c 27 27 27 27

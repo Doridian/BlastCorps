@@ -189,8 +189,8 @@ extern s32 D_803F7BF8, D_803F7BFC, D_803F7C00;  /* x, y, z */
 extern u8 *D_803F7C04;                          /* its model file */
 extern u8 *D_803F7C08;                          /* two 0x1000-byte buffers, one per frame */
 extern u8 *D_803F7C0C;
-extern SndState *PTR32 D_803F7C18;              /* its jets' sound, while they play */
-extern SndState *PTR32 D_803F7C1C;              /* its flight's */
+extern SndState *D_803F7C18;                    /* its jets' sound, while they play */
+extern SndState *D_803F7C1C;                    /* its flight's */
 extern s32 D_803F7C20;                          /* frames since it was last dropping (mode 3) */
 extern s32 D_803F7C24;                          /* frames since it was last slamming (mode 4) */
 extern f32 D_803F7C28, D_803F7C2C;              /* parts 3's and 4's tilt, 0..1 */

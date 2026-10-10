@@ -48,7 +48,7 @@ char D_8021AB72[2];
 s16 D_8021AB74;
 s16 D_8021AB76;
 u8 D_8021AB78[4];
-s32 D_8021AB7C;
+SndState *D_8021AB7C;
 
 /* The game modes func_801E9718 draws the backdrop in, and the ones that wait
    for the Yoshi menus to finish: eu's language menu (0x200000000) waits,

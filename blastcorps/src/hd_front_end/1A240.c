@@ -17,7 +17,7 @@ u8 D_8021ABA0;
 u8 D_8021ABA1;
 u8 D_8021ABA2;
 s32 D_8021ABA4;
-s32 D_8021ABA8;
+SndState *D_8021ABA8;
 
 extern char D_803048CC[];
 extern char D_803048D8[];

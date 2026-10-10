@@ -18,7 +18,7 @@ extern VS D_803FCCA0;
 extern u8 *D_803FCD54;                          /* its model file */
 extern u8 *D_803FCD58;                          /* two 0x800-byte buffers, one per frame */
 extern u8 *D_803FCD5C;
-extern SndState *PTR32 D_803FCD64;              /* its engine's sound */
+extern SndState *D_803FCD64;                    /* its engine's sound */
 extern u8 D_803FCD72, D_803FCD73, D_803FCD74;   /* the three waypoints' sounds, played */
 extern u8 D_803FCD76, D_803FCD79;              /* frames until the next exhaust, the next smoke */
 extern u8 D_803FCD77;                           /* exhaust on */
