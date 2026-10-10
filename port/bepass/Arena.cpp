@@ -107,6 +107,9 @@ static cl::opt<std::string> ScatterReport("port-arena-scatter-report",
 static cl::opt<std::string> RegionsFile("port-arena-regions",
                                         cl::desc("the fixed buffers (gen_syms.py regions): "
                                                  "name tag address size parent offset moves"));
+static cl::opt<std::string> Literals("port-arena-literals", cl::init("error"),
+                                     cl::desc("error|warn|off: an N64 address the N64 side makes from a number "
+                                              "(literals(); docs/PORT.md \"No address literals\")"));
 static cl::opt<std::string> ScatterRegions("port-arena-scatter-regions",
                                            cl::desc("TAG,...: the scattered layout moves these regions too "
                                                     "(those port_regions.h doesn't move by default: pool)"));
@@ -261,6 +264,144 @@ struct Arena : PassInfoMixin<Arena> {
             return false;
         return n.starts_with("host_") || n == "memset" || n == "memmove" || n == "memcpy" ||
                n.starts_with("n64_") || n == "port_counter" || n == "vsprintf" || n == "sqrtf";
+    }
+
+    /* ---- no address literals (-port-arena-literals) --------------------
+       The N64 side names every address it uses: a variable, a region (the
+       fixed buffers), a local or a function.  Checked first, before the
+       pass makes constants of its own (the layout's, __port_fe_vars'), so
+       that every constant address seen here is the source's.  Reported:
+         - a pointer made from a number in RDRAM, KSEG0 or KSEG1
+           (0x80000000/0xA0000000, 8 MB) or physical (0x1000 to 8 MB): a
+           fixed buffer spelled as a literal instead of its region (below
+           0x1000 are the OSMesg numbers, osSendMesg(q, (OSMesg)5), which
+           nothing dereferences);
+         - a pointer's value moved between KSEG0, KSEG1 and physical by
+           +/- 0x80000000, & 0x1FFFFFFF and the like: a conversion left
+           (K0_TO_PHYS and its kind are the identity in the port);
+         - a pointer's value compared with an RDRAM address.
+       A number that only looks like an address (a trap PC, N64_PC; an
+       N64 value used as data, N64_VALUE; a mask on an integer) never
+       becomes a pointer and passes, as do the hardware registers (0xA4000000
+       up).  The engine-check build keeps the N64 form of the conversions
+       (port/include/sdk/PR/R4300.h) but is never movable. */
+    std::vector<std::string> literalsFound;
+    unsigned literalsSmall = 0;
+
+    static bool rdramAddr(uint64_t v) {
+        v &= 0xFFFFFFFFu;
+        return v - K0 < 0x800000u || v - 0xA0000000u < 0x800000u || v - 0x1000u < 0x800000u - 0x1000u;
+    }
+    static bool convConst(uint64_t v) {
+        v &= 0xFFFFFFFFu;
+        return v == K0 || v == MASK || v == 0x7FFFFFFFu || v == 0xE0000000u || v == 0xA0000000u ||
+               v == 0x60000000u || v == 0x20000000u;
+    }
+    /* a pointer's value as a number, through casts between widths */
+    static bool fromPtr(Value *v) {
+        for (;;) {
+            if (auto *op = dyn_cast<Operator>(v)) {
+                unsigned o = op->getOpcode();
+                if (o == Instruction::PtrToInt)
+                    return true;
+                if (o == Instruction::ZExt || o == Instruction::SExt || o == Instruction::Trunc) {
+                    v = op->getOperand(0);
+                    continue;
+                }
+            }
+            return false;
+        }
+    }
+    static std::string hex(uint64_t v) { return "0x" + utohexstr(v & 0xFFFFFFFFu, false, 8); }
+
+    /* a binary operation of a pointer's value with a conversion's constant */
+    static std::string conversion(Operator *op) {
+        switch (op->getOpcode()) {
+        case Instruction::Add:
+        case Instruction::Sub:
+        case Instruction::And:
+        case Instruction::Or:
+        case Instruction::Xor:
+            break;
+        default:
+            return "";
+        }
+        for (int k = 0; k < 2; k++) {
+            auto *c = dyn_cast<ConstantInt>(op->getOperand(k));
+            if (c && convConst(c->getZExtValue()) && fromPtr(op->getOperand(1 - k)))
+                return std::string("a conversion left: a pointer ") + Instruction::getOpcodeName(op->getOpcode()) +
+                       " " + hex(c->getZExtValue());
+        }
+        return "";
+    }
+
+    void literalConst(Constant *c, const std::string &at, std::set<Constant *> &seen) {
+        if (isa<GlobalValue>(c) || isa<ConstantData>(c) || !seen.insert(c).second)
+            return;
+        if (auto *ce = dyn_cast<ConstantExpr>(c)) {
+            if (ce->getOpcode() == Instruction::IntToPtr) {
+                if (auto *n = dyn_cast<ConstantInt>(ce->getOperand(0))) {
+                    uint64_t v = n->getZExtValue();
+                    if (rdramAddr(v))
+                        literalsFound.push_back(at + ": a pointer made from " + hex(v));
+                    else if (v && v < 0x1000)
+                        literalsSmall++;
+                }
+            }
+            std::string s = conversion(cast<Operator>(ce));
+            if (!s.empty())
+                literalsFound.push_back(at + ": " + s);
+        }
+        for (Value *o : c->operands())
+            if (auto *oc = dyn_cast<Constant>(o))
+                literalConst(oc, at, seen);
+    }
+
+    void literals() {
+        if (Literals == "off")
+            return;
+        if (Literals != "error" && Literals != "warn")
+            fail("-port-arena-literals: error, warn or off");
+        std::set<Constant *> seen;
+        for (GlobalVariable &g : M->globals())
+            if (g.hasInitializer() && !g.getName().starts_with("llvm."))
+                literalConst(g.getInitializer(), "the initializer of " + g.getName().str(), seen);
+        for (Function &f : *M)
+            for (BasicBlock &bb : f)
+                for (Instruction &i : bb) {
+                    if (auto *ip = dyn_cast<IntToPtrInst>(&i))
+                        if (auto *n = dyn_cast<ConstantInt>(ip->getOperand(0)); n && rdramAddr(n->getZExtValue()))
+                            literalsFound.push_back(where(&i) + ": a pointer made from " + hex(n->getZExtValue()));
+                    if (auto *op = dyn_cast<Operator>(&i)) {
+                        std::string s = conversion(op);
+                        if (!s.empty())
+                            literalsFound.push_back(where(&i) + ": " + s);
+                    }
+                    if (auto *cmp = dyn_cast<ICmpInst>(&i))
+                        for (int k = 0; k < 2; k++) {
+                            auto *n = dyn_cast<ConstantInt>(cmp->getOperand(k));
+                            if (n && rdramAddr(n->getZExtValue()) && fromPtr(cmp->getOperand(1 - k)))
+                                literalsFound.push_back(where(&i) + ": a pointer compared with " +
+                                                        hex(n->getZExtValue()));
+                        }
+                    for (Value *o : i.operands())
+                        if (auto *c = dyn_cast<Constant>(o))
+                            literalConst(c, where(&i), seen);
+                }
+        std::sort(literalsFound.begin(), literalsFound.end());
+        literalsFound.erase(std::unique(literalsFound.begin(), literalsFound.end()), literalsFound.end());
+        const char *st = getenv("PORT_ARENA_STATS");
+        if (st)
+            errs() << "port-arena: N64 addresses made from numbers: " << literalsFound.size()
+                   << "; pointers made from numbers below 0x1000 (OSMesg values): " << literalsSmall << "\n";
+        if (literalsFound.empty())
+            return;
+        for (auto &s : literalsFound)
+            errs() << "port-arena: " << s << "\n";
+        if (Literals == "error")
+            fail("N64 addresses made from numbers: " + Twine(literalsFound.size()) +
+                 " (name each: a variable, or a region of port/include/port_regions.h; "
+                 "-DPORT_ARENA_LITERALS=warn to go on)");
     }
 
     /* ---- the layout -------------------------------------------------- */
@@ -1931,6 +2072,7 @@ struct Arena : PassInfoMixin<Arena> {
         IP = IntegerType::get(*C, DL->getPointerSizeInBits(0));
         readSyms();
         readRegions();
+        literals();
         callFix();
         if (X86FpToInt)
             x86FpToInt();
