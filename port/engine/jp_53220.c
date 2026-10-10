@@ -80,7 +80,9 @@ void func_802979E0(u8 arg) {
             count++;
             e->flags = 0x1020;
             /* (jp's selectable rows are the second table) */
-            if (D_802FF5E8.unk24[D_8039CAD0][sel] == i) {
+            /* (a full row has no 0 after it: stop at its 5th, where the
+               N64 reads the next row's first byte, which never matches) */
+            if (sel < sizeof(D_802FF5E8.unk24[0]) && D_802FF5E8.unk24[D_8039CAD0][sel] == i) {
                 e->flags |= 1;
                 sel++;
             }

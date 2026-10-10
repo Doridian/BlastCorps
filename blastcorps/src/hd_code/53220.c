@@ -536,7 +536,14 @@ void func_802979E0(u8 arg0) {
         if (sp28 != NULL) {
             sp30++;
             sp48->flags = 0x1020;
+#ifdef TARGET_PC
+            /* a full row (5 entries) has no 0 after it: once all 5 are
+               found, look no further (the N64 reads the next row's first
+               byte, or the pad after the last row, which never match) */
+            if (sp34 < sizeof(D_802FF5E8.unk0[0]) && D_802FF5E8.unk0[D_8039CAD0][sp34] == sp3C) {
+#else
             if (D_802FF5E8.unk0[D_8039CAD0][sp34] == sp3C) {
+#endif
                 sp48->flags |= 1;
                 sp34++;
             }
