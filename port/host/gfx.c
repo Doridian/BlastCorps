@@ -24,7 +24,9 @@
  * renderer then draws those framebuffers on the host (WideFb).
  */
 #include <math.h>
+#include <stdarg.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -74,9 +76,9 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1) { (void)x0; (void)y0; (void)x
 void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) { (void)x0; (void)y0; (void)x1; (void)y1; }
 void gfx_gl_task_begin(void) {}
 void gfx_gl_task_end(void) {}
-void gfx_gl_texture_source(uint32_t addr) { (void)addr; }
+void gfx_gl_texture_source(GfxAddr addr) { (void)addr; }
 void gfx_gl_interp(int k) { (void)k; }
-unsigned gfx_gl_interp_swap(uint32_t fb) { (void)fb; return 0; }
+unsigned gfx_gl_interp_swap(GfxAddr fb) { (void)fb; return 0; }
 void gfx_gl_rec_reset(void) {}
 int gfx_gl_rec_state(int kind, int tile) { (void)kind; (void)tile; return -1; }
 void gfx_gl_rec_force(int id) { (void)id; }
@@ -86,15 +88,15 @@ int gfx_gl_scale;
 int gfx_gl_max_pixels;
 unsigned gfx_gl_window_flags(void) { return 0; }
 int gfx_gl_init(struct SDL_Window *win) { (void)win; return 0; }
-void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
+void gfx_gl_present(uintptr_t vi_fb, int vi_width, const char *shot, int twin) {
     (void)vi_fb; (void)vi_width; (void)shot; (void)twin;
 }
 #endif
 
 /* --hud edges (below, "the HUD at the sides"): what the RSP side records for it */
 static int hud_task;                    /* this task's HUD goes to the wide frame's sides */
-static uint32_t hud_proj;               /* the projection's address (the last G_MTX of one) */
-static uint32_t hud_vsrc[16];           /* each vertex's RDRAM address */
+static GfxAddr hud_proj;                /* the projection's address (the last G_MTX of one) */
+static GfxAddr hud_vsrc[16];            /* each vertex's address */
 static float hud_vx0[16], hud_vx1[16];  /* the screen extent of the load it came in */
 static int hud_proj_kind(void);
 static void hud_load(int v0, int n);
@@ -106,7 +108,7 @@ static int zb_w = 320, zb_off;  /* the z-buffer's row length, and where x 0 is i
 /* ---- widescreen, software renderer: the framebuffers drawn wide, on the host ---- */
 
 typedef struct {
-    uint32_t addr;
+    GfxAddr addr;
     int w;                      /* 320 + 2 * gfx_wide_off */
     uint16_t *px;               /* RGBA5551, host order */
 } WideFb;
@@ -119,7 +121,7 @@ static int wide_sides_drawn;    /* the color image's sides drawn since it was se
 /* a 320-wide 16-bit color image: a framebuffer, or the z image */
 static int wide_cimg(void) { return gfx_wide_off && gs.cimg_siz == 2 && gs.cimg_w == 320; }
 
-static WideFb *get_wfb(uint32_t addr) {
+static WideFb *get_wfb(GfxAddr addr) {
     for (int i = 0; i < nwfb; i++)
         if (wfb[i].addr == addr)
             return &wfb[i];
@@ -132,7 +134,7 @@ static WideFb *get_wfb(uint32_t addr) {
     f->addr = addr;
     f->w = 320 + 2 * gfx_wide_off;
     f->px = calloc((size_t)f->w * 240, 2);
-    const uint8_t *src = port_ptr(addr);             /* what was there, in the middle */
+    const uint8_t *src = (const uint8_t *)addr;      /* what was there, in the middle */
     for (int y = 0; y < 240; y++)
         for (int x = 0; x < 320; x++)
             f->px[y * f->w + gfx_wide_off + x] = port_be16(src + 2 * (y * 320 + x));
@@ -143,7 +145,7 @@ static WideFb *get_wfb(uint32_t addr) {
    framebuffer's twins, on the host (as wide as the WideFb, 320 at 4:3),
    each with a z-buffer of its own; RDRAM stays the first pass's */
 typedef struct {
-    uint32_t addr;
+    GfxAddr addr;
     uint16_t *px[GFX_TWINS];
     unsigned drawn;             /* the twins drawn since the frame in it was shown */
 } SwTwin;
@@ -162,14 +164,14 @@ static void free_twins(void) {
     ntwins = 0;
 }
 
-static SwTwin *find_twin(uint32_t addr) {
+static SwTwin *find_twin(GfxAddr addr) {
     for (int i = 0; i < ntwins; i++)
         if (twins[i].addr == addr)
             return &twins[i];
     return NULL;
 }
 
-static WideFb *get_twin(uint32_t addr, int k) {
+static WideFb *get_twin(GfxAddr addr, int k) {
     SwTwin *t = find_twin(addr);
     if (!t) {
         if (ntwins == 4) {                          /* recycle the oldest */
@@ -192,7 +194,7 @@ static WideFb *get_twin(uint32_t addr, int k) {
         if (f)
             memcpy(t->px[k], f->px, (size_t)w * 240 * 2);
         else {
-            const uint8_t *src = port_ptr(addr);
+            const uint8_t *src = (const uint8_t *)addr;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 320; x++)
                     t->px[k][y * w + gfx_wide_off + x] = port_be16(src + 2 * (y * 320 + x));
@@ -205,7 +207,7 @@ static WideFb *get_twin(uint32_t addr, int k) {
     return &twin_fb;
 }
 
-const uint16_t *gfx_sw_twin_frame(uint32_t fb, int k, int *w) {
+const uint16_t *gfx_sw_twin_frame(GfxAddr fb, int k, int *w) {
     SwTwin *t = find_twin(fb);
     if (!t || k < 0 || k >= GFX_TWINS || !t->px[k])
         return NULL;
@@ -247,19 +249,19 @@ void gfx_set_wide(int off) {
 /* a texture load from a wide framebuffer (none happens): its middle into
    RDRAM first, which the software renderer otherwise leaves alone there,
    as the GPU does */
-static void wfb_texture_source(uint32_t addr) {
+static void wfb_texture_source(GfxAddr addr) {
     for (int i = 0; i < nwfb; i++)
         if (addr >= wfb[i].addr && addr < wfb[i].addr + 320 * 240 * 2) {
-            uint8_t *dst = port_ptr(wfb[i].addr);
+            uint8_t *dst = (uint8_t *)wfb[i].addr;
             for (int y = 0; y < 240; y++)
                 for (int x = 0; x < 320; x++)
                     port_wbe16(dst + 2 * (y * 320 + x), wfb[i].px[y * wfb[i].w + gfx_wide_off + x]);
             if (host_verbose)
-                host_log("gfx: texture from wide framebuffer %08X: copied back\n", wfb[i].addr);
+                host_log("gfx: texture from wide framebuffer %08lX: copied back\n", (unsigned long)wfb[i].addr);
         }
 }
 
-const uint16_t *gfx_sw_wide_frame(uint32_t addr, int *w) {
+const uint16_t *gfx_sw_wide_frame(GfxAddr addr, int *w) {
     for (int i = 0; i < nwfb; i++)
         if (wfb[i].addr == addr) {
             *w = wfb[i].w;
@@ -300,6 +302,7 @@ static inline float max_f(float x, float y) {
    inlines a function called from one place whatever clang was told, so
    in WebAssembly run() calls them through pointers, CALL) */
 #define NOINLINE __attribute__((noinline))
+#define GFX_MAX_CMDS 1000000    /* a list longer than this doesn't end */
 #ifdef __EMSCRIPTEN__
 #define CALL(f) (*(__typeof__(&f) volatile *)&call_##f)
 #define CALL_VIA(f) static __typeof__(&f) call_##f = f;
@@ -308,7 +311,8 @@ static inline float max_f(float x, float y) {
 #define CALL_VIA(f)
 #endif
 
-/* A segmented address is a segment (bits 24..27) and a 24-bit offset, and
+/* The narrow form's addresses (gfx.h, "display-list commands"): a
+   segmented address is a segment (bits 24..27) and a 24-bit offset, and
    the RSP ignores the top nibble.  The port's lists hold KSEG0 addresses
    where the N64's hold physical ones (its K0_TO_PHYS is the identity:
    PR/R4300.h), and both mask to the same physical address here.  But the
@@ -332,7 +336,55 @@ static inline void *gfx_ptr(uint32_t a) {
 
 static uint32_t seg_to_k0(uint32_t a) {
     uint32_t seg = (a >> 24) & 0x0F;
-    return 0x80000000u | ((gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
+    return 0x80000000u | (((uint32_t)gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
+}
+
+unsigned gfx_cmd;
+int gfx_wide, gfx_strict;
+
+void gfx_layout_init(void) {
+    if (gfx_cmd)
+        return;
+    unsigned n = host_layout(PORT_LAYOUT_GFX_SIZE);
+    if (n != 8 && !(n == 16 && sizeof(uintptr_t) == 8))
+        host_fatal("gfx: the N64 side's Gfx is %u bytes: this host reads 8%s\n", n,
+                   sizeof(uintptr_t) == 8 ? " or 16" : "");
+    gfx_cmd = n;
+    gfx_wide = n == 16;
+    const char *e = getenv("PORT_GFX_STRICT");
+    gfx_strict = e && atoi(e) != 0;
+}
+
+/* the list being run and the command at, for strict mode's reports */
+static GfxAddr strict_list, strict_at;
+
+static void __attribute__((noreturn, format(printf, 1, 2))) strict_fail(const char *fmt, ...);
+
+/* the segment table's entry s, as a host address (no checks: also for the
+   renderer's own uses of segment 2) */
+static inline GfxAddr seg_base(int s) {
+    if (gfx_wide)
+        return gs.seg[s];
+    return (GfxAddr)gfx_ptr(0x80000000u | (uint32_t)gs.seg[s]);
+}
+
+/* G_MOVEWORD's segment: the narrow form's word masked (see seg_to_k0), the
+   wide one's a pointer, as it is */
+static inline void seg_set(int s, uintptr_t w1) {
+    gs.seg[s & 15] = gfx_wide ? w1 : (w1 & 0x1FFFFFFFu);
+}
+
+/* a command's word as an address (gfx.h) */
+static inline GfxAddr gfx_addr(uintptr_t w) {
+    if (!gfx_wide)
+        return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w));
+    if (!gfx_wide_segmented(w))
+        return w;
+    GfxAddr b = gs.seg[(w >> 24) & 15];
+    if (gfx_strict && !b)
+        strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w,
+                    (int)((w >> 24) & 15));
+    return b + (w & 0x00FFFFFFu);
 }
 
 /* PORT_SIMD: four-lane vectors (the compiler's vector extensions: SSE on
@@ -373,8 +425,8 @@ NOINLINE static void mtx_mul(float r[4][4], float a[4][4], float b[4][4]) {
 #endif
 }
 
-static void load_mtx(float m[4][4], uint32_t addr) {
-    const uint8_t *p = gfx_ptr(addr);
+static void load_mtx(float m[4][4], GfxAddr addr) {
+    const uint8_t *p = (const uint8_t *)addr;
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++) {
             int k = i * 4 + j;
@@ -411,13 +463,14 @@ typedef struct {
     float vp_scale[3], vp_trans[3];
     int sc[4];
     int tex_on, tex_tile, masks, cms;   /* (wide_2d reads the texture's tile's wrap) */
-    uint32_t timg_addr, cimg_addr, zimg_addr, seg2;
+    GfxAddr timg_addr, cimg_addr, zimg_addr;
+    uintptr_t seg2;
     int cimg_siz, cimg_w;
     int tri_state;                      /* the triangles' draw state (gfx_gl_rec_state), -1: none */
     int snap;                           /* rsnap's, for one made in a replay (-1: none) */
 } RCtx;
 static int recording;                   /* this first pass is recorded */
-static uint32_t *rec;                   /* the events, in order */
+static uintptr_t *rec;                  /* the events, in order (pointer-wide: addresses among them) */
 static int rec_n, rec_cap;
 static RCtx *rctx;
 static int rctx_n, rctx_cap;
@@ -472,7 +525,7 @@ NOINLINE static void rec_ctx(void) {
     c->tri_state = c->snap = -1;
     GROW(rec, rec_n, rec_cap, 2, 65536);
     rec[rec_n++] = R_CTX;
-    rec[rec_n++] = (uint32_t)(rctx_n - 1);
+    rec[rec_n++] = (uintptr_t)(rctx_n - 1);
 }
 
 static int rec_snap(void) {
@@ -484,26 +537,26 @@ static int rec_snap(void) {
     return rsnap_n++;
 }
 
-static inline uint32_t *rec_raw(int op, int n) {
+static inline uintptr_t *rec_raw(int op, int n) {
     GROW(rec, rec_n, rec_cap, n, 65536);
-    uint32_t *e = rec + rec_n;
+    uintptr_t *e = rec + rec_n;
     rec_n += n;
-    e[0] = (uint32_t)op;
+    e[0] = (uintptr_t)op;
     return e;
 }
 
-static inline uint32_t *rec_ev(int op, int n) {
+static inline uintptr_t *rec_ev(int op, int n) {
     if (rec_serial != gfx_state_serial || !rctx_n)
         rec_ctx();
     GROW(rec, rec_n, rec_cap, n, 65536);
-    uint32_t *e = rec + rec_n;
+    uintptr_t *e = rec + rec_n;
     rec_n += n;
-    e[0] = (uint32_t)op;
+    e[0] = (uintptr_t)op;
     return e;
 }
 
-static void rec_load(uint32_t a, int v0, int m) {
-    uint32_t *e = rec_ev(R_LOAD, 5);
+static void rec_load(GfxAddr a, int v0, int m) {
+    uintptr_t *e = rec_ev(R_LOAD, 5);
     GROW(rv, rv_n, rv_cap, m, 16384);
     memcpy(rv + rv_n, gs.v + v0, (size_t)m * sizeof *rv);
     e[1] = a;
@@ -519,7 +572,7 @@ static void rec_load(uint32_t a, int v0, int m) {
 }
 
 static inline void rec_tri(int i0, int i1, int i2, int flag) {
-    uint32_t *e = rec_ev(R_TRI, 2);
+    uintptr_t *e = rec_ev(R_TRI, 2);
     e[1] = (uint32_t)((i0 & 0xFF) | (i1 & 0xFF) << 8 | (i2 & 0xFF) << 16 | (uint32_t)(flag & 0xFF) << 24);
 }
 
@@ -545,7 +598,7 @@ static void rec_drawn(int kind, int tile) {
 }
 
 static void rec_rect(int op, uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc, int flip) {
-    uint32_t *e = rec_ev(op, 8);
+    uintptr_t *e = rec_ev(op, 8);
     e[1] = w0; e[2] = w1; e[3] = h2; e[4] = hc; e[5] = (uint32_t)flip;
     e[6] = 0xFFFFFFFFu;
     e[7] = gl_target() ? (uint32_t)rec_snap() : 0xFFFFFFFFu;
@@ -554,12 +607,13 @@ static void rec_rect(int op, uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc,
 
 /* ---- the RSP ----------------------------------------------------------------- */
 
-NOINLINE static void do_mtx(uint32_t w0, uint32_t w1) {
+NOINLINE static void do_mtx(uint32_t w0, uintptr_t w1) {
     int p = (w0 >> 16) & 0xFF;
     float m[4][4];
-    load_mtx(m, seg_to_k0(w1));
+    GfxAddr a = gfx_addr(w1);
+    load_mtx(m, a);
     if (p & 1) {                        /* projection */
-        hud_proj = seg_to_k0(w1);
+        hud_proj = a;
         if (recording && hud_task)
             rec_ev(R_PROJ, 2)[1] = hud_proj;
         if (p & 2)
@@ -608,13 +662,19 @@ static int iframe_partial;      /* a task of this frame had no in-between pass *
 static float interp_t = 0.5f;
 static int frame_k = -1, frame_d;   /* the frame being drawn: its twins (-1: not yet chosen), and hold */
 static int hold_last[2] = { 2, 2 }; /* the last two frames' holds, in retraces */
-static uint32_t shown_fb;           /* the frame the VI shows, */
+static GfxAddr shown_fb;            /* the frame the VI shows, */
 static int shown_k, shown_d;        /* its twins that are ready (0: none) and the hold they were made for, */
 static unsigned long long shown_at, n_presents; /* and the present before it showed */
 
 #define IHASH (1 << 16)
+/* what a load or rectangle is known by: a key and its kind (IK_*: an
+   address, an offset into segment 2's frame, a rectangle's hash), so that
+   no kind's keys can be taken for another's, wherever the host's memory is */
+enum { IK_ADDR, IK_FRAME, IK_RECT };
 typedef struct {
-    uint32_t addr, occ;
+    GfxAddr addr;
+    uint32_t occ;
+    int kind;
     int n;
     float p[16][4];
 } ILoad;
@@ -622,7 +682,7 @@ typedef struct {
     ILoad *l;
     int n, cap;
     int32_t hash[IHASH];                    /* index + 1 */
-    struct { uint32_t addr, cnt; } occ[IHASH];
+    struct { GfxAddr addr; int kind; uint32_t cnt; } occ[IHASH];
     uint32_t *used;                         /* the occ slots taken (hash's: one a load, found from l) */
     int nused, capused;
 } IFrame;
@@ -637,7 +697,8 @@ unsigned long long gfx_st_interp[8 + GFX_TWINS + 2];
 unsigned long long gfx_st_shown[3];         /* gfx.h */
 unsigned long long gfx_st_images;           /* gfx.h */
 
-static inline uint32_t ihash(uint32_t a, uint32_t b) {
+static inline uint32_t ihash(GfxAddr addr, uint32_t b) {
+    uint32_t a = gfx_addr_hash(addr);
     uint32_t h = a * 0x9E3779B1u ^ (b + 0x7F4A7C15u) * 0x85EBCA77u;
     return (h ^ (h >> 15)) & (IHASH - 1);
 }
@@ -652,30 +713,32 @@ static void iframe_reset(IFrame *f) {
         f->hash[h] = 0;
     }
     for (int i = 0; i < f->nused; i++)
-        f->occ[f->used[i]].addr = f->occ[f->used[i]].cnt = 0;
+        f->occ[f->used[i]].addr = f->occ[f->used[i]].cnt = 0, f->occ[f->used[i]].kind = 0;
     f->n = f->nused = 0;
 }
 
-static ILoad *ilookup(IFrame *f, uint32_t addr, uint32_t occ) {
+static ILoad *ilookup(IFrame *f, GfxAddr addr, int kind, uint32_t occ) {
     for (uint32_t h = ihash(addr, occ);; h = (h + 1) & (IHASH - 1)) {
         int32_t k = f->hash[h];
         if (!k)
             return NULL;
         ILoad *l = &f->l[k - 1];
-        if (l->addr == addr && l->occ == occ)
+        if (l->addr == addr && l->kind == kind && l->occ == occ)
             return l;
     }
 }
 
-/* the address a vertex load is known by: inside the frame buffer the game
-   is building (segment 2), the offset into it, so that the two buffers'
-   loads pair up */
-static uint32_t ikey(uint32_t w1) {
-    uint32_t a = seg_to_k0(w1);
+/* the key a vertex load at a is known by: inside the frame buffer the
+   game is building (segment 2), the offset into it (IK_FRAME), so that the
+   two buffers' loads pair up; else the address */
+static GfxAddr ikey(GfxAddr a, int *kind) {
+    *kind = IK_ADDR;
     if (gs.seg[2]) {
-        uint32_t fb = seg_to_k0(0x02000000u);
-        if (a >= fb && a < fb + 0x21498u)
-            return 0x02000000u | (a - fb);
+        GfxAddr fb = seg_base(2);
+        if (a >= fb && a < fb + host_layout(PORT_LAYOUT_FRAME_SIZE)) {
+            *kind = IK_FRAME;
+            return 0x02000000u | (a - fb);      /* (the value: as hashed before kinds) */
+        }
     }
     return a;
 }
@@ -690,10 +753,10 @@ static void tk_push(int k) {
 
 /* the first pass: remember where the n points of the thing known as addr
    went (a vertex load's vertices in clip space, a rectangle's corners) */
-static void irecord_at(uint32_t addr, const float (*pt)[4], int n) {
+static void irecord_at(GfxAddr addr, int kind, const float (*pt)[4], int n) {
     IFrame *f = ifr[icur];
     uint32_t h = ihash(addr, 0xFFFFFFFFu);
-    while (f->occ[h].cnt && f->occ[h].addr != addr)
+    while (f->occ[h].cnt && (f->occ[h].addr != addr || f->occ[h].kind != kind))
         h = (h + 1) & (IHASH - 1);
     uint32_t occ = f->occ[h].cnt;
     if (f->n >= IHASH / 2) {                /* full: not interpolated */
@@ -708,6 +771,7 @@ static void irecord_at(uint32_t addr, const float (*pt)[4], int n) {
         f->used[f->nused++] = h;
     }
     f->occ[h].addr = addr;
+    f->occ[h].kind = kind;
     f->occ[h].cnt = occ + 1;
     if (f->n == f->cap) {
         f->cap = f->cap ? f->cap * 2 : 4096;
@@ -716,6 +780,7 @@ static void irecord_at(uint32_t addr, const float (*pt)[4], int n) {
     ILoad *l = &f->l[f->n];
     l->addr = addr;
     l->occ = occ;
+    l->kind = kind;
     l->n = n;
     memcpy(l->p, pt, (size_t)n * sizeof pt[0]);
     uint32_t hh = ihash(addr, occ);
@@ -725,7 +790,7 @@ static void irecord_at(uint32_t addr, const float (*pt)[4], int n) {
     tk_push(f->n - 1);
 }
 
-static void irecord(uint32_t w1, int v0, int n) {
+static void irecord(GfxAddr a, int v0, int n) {
     float pt[16][4];
     for (int i = 0; i < n; i++) {
         pt[i][0] = gs.v[v0 + i].x;
@@ -733,7 +798,9 @@ static void irecord(uint32_t w1, int v0, int n) {
         pt[i][2] = gs.v[v0 + i].z;
         pt[i][3] = gs.v[v0 + i].w;
     }
-    irecord_at(ikey(w1), pt, n);
+    int kind;
+    GfxAddr k = ikey(a, &kind);
+    irecord_at(k, kind, pt, n);
 }
 
 /* an in-between pass: the previous frame's record of the thing the first
@@ -745,7 +812,7 @@ static const ILoad *iprev(int n) {
     if (k < 0)
         return NULL;
     const ILoad *c = &ifr[icur]->l[k];
-    const ILoad *p = ilookup(ifr[icur ^ 1], c->addr, c->occ);
+    const ILoad *p = ilookup(ifr[icur ^ 1], c->addr, c->kind, c->occ);
     return p && p->n >= n ? p : NULL;
 }
 
@@ -788,14 +855,14 @@ static void iblend(int v0, int n) {
     gfx_st_interp[3] += n;
 }
 
-/* after a vertex load (w1, at a) put m vertices at v0: --interpolate's
+/* after a vertex load (from a) put m vertices at v0: --interpolate's
    records and blends, the HUD's extents */
-static void vtx_tail(uint32_t w1, uint32_t a, int v0, int m) {
+static void vtx_tail(GfxAddr a, int v0, int m) {
     if (itrack) {
         if (ipass)
             iblend(v0, m);
         else
-            irecord(w1, v0, m);
+            irecord(a, v0, m);
     }
     if (hud_task) {
         for (int i = 0; i < m; i++)
@@ -909,13 +976,14 @@ NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3],
 }
 #endif
 
-static uint32_t vtx_addr;               /* the last vertex load's (the world map's chopper, below) */
+static GfxAddr vtx_addr;                /* the last vertex load's (the world map's chopper, below) */
 static unsigned vtx_gen;
 
-NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
+NOINLINE static void do_vtx(uint32_t w0, uintptr_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
-    const uint8_t *p = gfx_ptr(seg_to_k0(w1));
-    vtx_addr = seg_to_k0(w1);
+    GfxAddr a = gfx_addr(w1);
+    const uint8_t *p = (const uint8_t *)a;
+    vtx_addr = a;
     vtx_gen++;
     if (gs.mvp_dirty) {
         mtx_mul(gs.mvp, gs.mv[gs.mv_top], gs.proj);
@@ -992,15 +1060,15 @@ NOINLINE static void do_vtx(uint32_t w0, uint32_t w1) {
 #endif
     int m = n < 16 - v0 ? n : 16 - v0;
     if (recording)
-        rec_load(seg_to_k0(w1), v0, m);
-    vtx_tail(w1, seg_to_k0(w1), v0, m);
+        rec_load(a, v0, m);
+    vtx_tail(a, v0, m);
 }
 
 /* gSPModifyVertex (G_MW_POINTS): the RSP's vertex buffer is 40 bytes a
    vertex; the game rewrites texture coordinates this way */
 NOINLINE static void modify_vertex(int off, uint32_t val) {
     if (recording) {
-        uint32_t *e = rec_ev(R_MODV, 3);
+        uintptr_t *e = rec_ev(R_MODV, 3);
         e[1] = (uint32_t)off;
         e[2] = val;
     }
@@ -1071,8 +1139,8 @@ static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
 /* --hd-text: the RDRAM address each TMEM word was loaded from by a
    LoadBlock (0: not one), for the OpenGL renderer to recognize the font's
    glyphs by (hdtext.c) */
-uint32_t gfx_tmem_src[512];
-static void tmem_src_set(uint32_t dst, uint32_t src, uint32_t bytes) {
+GfxAddr gfx_tmem_src[512];
+static void tmem_src_set(uint32_t dst, GfxAddr src, uint32_t bytes) {
     for (uint32_t i = 0; i < bytes; i += 8)
         gfx_tmem_src[((dst + i) >> 3) & 511] = src ? src + i : 0;
 }
@@ -1087,7 +1155,7 @@ static void tmem_src_set(uint32_t dst, uint32_t src, uint32_t bytes) {
 typedef struct {
     uint8_t op;                 /* 0xF3 LoadBlock, 0xF4 LoadTile, 0xF0 LoadTLUT */
     uint32_t w0, w1;
-    uint32_t timg_addr;
+    GfxAddr timg_addr;
     int timg_siz, timg_w;
     int tmem, line;             /* the tile's, when the load ran */
     uint64_t words[8];          /* the TMEM words it writes (or may: a bit each) */
@@ -1104,9 +1172,9 @@ static void tload_copy(const TLoad *l) {
         int uls = (w0 >> 12) & 0xFFF, ult = w0 & 0xFFF, lrs = (w1 >> 12) & 0xFFF;
         uint32_t dxt = w1 & 0xFFF;
         uint32_t bytes = (uint32_t)(lrs - uls + 1) * bpt2 / 2;
-        uint32_t src = l->timg_addr + ((uint32_t)ult * l->timg_w + uls) * bpt2 / 2;
+        GfxAddr src = l->timg_addr + ((uint32_t)ult * l->timg_w + uls) * bpt2 / 2;
         uint32_t dst = l->tmem * 8;
-        const uint8_t *p = gfx_ptr(src);
+        const uint8_t *p = (const uint8_t *)src;
         if (bytes > 4096)
             bytes = 4096;
         PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
@@ -1139,7 +1207,7 @@ static void tload_copy(const TLoad *l) {
         if (hdtext_on)
             tmem_src_set(l->tmem * 8, 0, (uint32_t)(lrt - ult + 1) * l->line * 8);
         for (int y = ult; y <= lrt; y++) {
-            const uint8_t *p = gfx_ptr(l->timg_addr + ((uint32_t)y * l->timg_w + uls) * bpt2 / 2);
+            const uint8_t *p = (const uint8_t *)(l->timg_addr + ((uint32_t)y * l->timg_w + uls) * bpt2 / 2);
             int odd = (y - ult) & 1;
             uint32_t dst = l->tmem * 8 + (uint32_t)(y - ult) * l->line * 8;
             PORT_ACCESS_BYTES(p, rowbytes < 4096 ? rowbytes : 4096);
@@ -1152,7 +1220,7 @@ static void tload_copy(const TLoad *l) {
         }
     } else {
         int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
-        const uint8_t *p = gfx_ptr(l->timg_addr + (uint32_t)uls * 2);
+        const uint8_t *p = (const uint8_t *)(l->timg_addr + (uint32_t)uls * 2);
         uint32_t dst = l->tmem * 8;
         PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
         if (hdtext_on)
@@ -1236,7 +1304,7 @@ static void tload(uint8_t op, uint32_t w0, uint32_t w1) {
     st_loads[op == 0xF3 ? 0 : op == 0xF4 ? 1 : 2]++;
     st_loads[3] += ipass;
     if (recording) {
-        uint32_t *e = rec_raw(R_TLOAD, 9);
+        uintptr_t *e = rec_raw(R_TLOAD, 9);
         e[1] = op; e[2] = w0; e[3] = w1; e[4] = gs.timg_addr; e[5] = (uint32_t)gs.timg_siz;
         e[6] = (uint32_t)gs.timg_w; e[7] = (uint32_t)t->tmem; e[8] = (uint32_t)t->line;
     }
@@ -1582,7 +1650,7 @@ static void combine(const Inputs *in, float *out) {
 }
 
 static void read_pixel(int x, int y, float *c) {
-    uint8_t *p = port_ptr(gs.cimg_addr);
+    uint8_t *p = (uint8_t *)gs.cimg_addr;
     if (cur_wfb) {
         uint8_t o[4];
         rgba16(cur_wfb->px[y * cur_wfb->w + x + gfx_wide_off], o);
@@ -1600,7 +1668,7 @@ static void read_pixel(int x, int y, float *c) {
 }
 
 static void write_pixel(int x, int y, const float *c) {
-    uint8_t *p = port_ptr(gs.cimg_addr);
+    uint8_t *p = (uint8_t *)gs.cimg_addr;
     if (gs.cimg_siz == 1) {
         p[y * gs.cimg_w + x] = c[0];
     } else if (gs.cimg_siz == 3) {
@@ -1913,17 +1981,18 @@ extern char D_80364A90[], D_80365348[], D_80365350[];
 #endif
 
 enum { HUD_NO, HUD_FLAT, HUD_PERSP };
-static uint32_t hud_txt[2], hud_txt_n;          /* drawtext.c's vertex buffers, characters each */
+static GfxAddr hud_txt[2];                      /* drawtext.c's vertex buffers, */
+static uint32_t hud_txt_n;                      /* ... characters each */
 static uint32_t hud_stamp;                      /* per task, for the memo below */
 static struct { uint32_t stamp; float x0, x1; } hud_str[2][0x200];
 #define HUD_RECTS 256
 static struct { float x0, x1, y0, y1, gx0, gx1; int up; } hud_rect[HUD_RECTS];
 static int hud_nrects, hud_rect_i;
 
-static uint32_t hud_base(void) { return 0x80000000u | gs.seg[2]; }
+static GfxAddr hud_base(void) { return seg_base(2); }
 
 static int hud_proj_kind(void) {
-    uint32_t o = hud_proj - hud_base();
+    GfxAddr o = hud_proj - hud_base();
     return o == 0xC0 ? HUD_FLAT : o == 0x80 ? HUD_PERSP : HUD_NO;
 }
 
@@ -1963,8 +2032,8 @@ static void hud_load(int v0, int n) {
 }
 
 /* drawtext.c's character k of buffer base: its quad's corner, width and height */
-static void hud_char(uint32_t base, int k, int *x, int *y, int *w, int *h) {
-    const uint8_t *p = port_ptr(base + 64 * (uint32_t)k);
+static void hud_char(GfxAddr base, int k, int *x, int *y, int *w, int *h) {
+    const uint8_t *p = (const uint8_t *)(base + 64 * (uint32_t)k);
     *x = (int16_t)port_g16(p);
     *y = (int16_t)port_g16(p + 2);
     *w = (int16_t)port_g16(p + 16) - *x;
@@ -1974,7 +2043,7 @@ static void hud_char(uint32_t base, int k, int *x, int *y, int *w, int *h) {
 /* j and k are neighbours in one string: on one line, the same size, an
    advance or two apart (a space draws nothing; a right-aligned string is
    laid out backwards) */
-static int hud_same_string(uint32_t base, int j, int k) {
+static int hud_same_string(GfxAddr base, int j, int k) {
     int xj, yj, wj, hj, xk, yk, wk, hk;
     hud_char(base, j, &xj, &yj, &wj, &hj);
     hud_char(base, k, &xk, &yk, &wk, &hk);
@@ -1984,7 +2053,7 @@ static int hud_same_string(uint32_t base, int j, int k) {
 
 /* the screen extent of the string the character at address a is in; 0 if
    a isn't drawtext.c's */
-static int hud_text(uint32_t a, float *x0, float *x1) {
+static int hud_text(GfxAddr a, float *x0, float *x1) {
     int b = a - hud_txt[0] < hud_txt_n * 64 ? 0 : a - hud_txt[1] < hud_txt_n * 64 ? 1 : -1;
     if (b < 0)
         return 0;
@@ -1992,7 +2061,7 @@ static int hud_text(uint32_t a, float *x0, float *x1) {
     if (k >= 0x200)
         return 0;
     if (hud_str[b][k].stamp != hud_stamp) {
-        uint32_t base = hud_txt[b];
+        GfxAddr base = hud_txt[b];
         int lo = k, hi = k;
         while (lo > 0 && hud_same_string(base, lo - 1, lo))
             lo--;
@@ -2023,8 +2092,8 @@ static int hud_text(uint32_t a, float *x0, float *x1) {
 static float hud_tri_dx(int i0, int i1, int i2) {
     if (hud_proj_kind() == HUD_NO)
         return 0;
-    uint32_t a = hud_vsrc[i0 & 15];
-    if (a - hud_base() < 0x21498)           /* the frame's own: placed in the world */
+    GfxAddr a = hud_vsrc[i0 & 15];
+    if (a - hud_base() < host_layout(PORT_LAYOUT_FRAME_SIZE))   /* the frame's own: placed in the world */
         return 0;
     float x0, x1;
     if (!hud_text(a, &x0, &x1)) {
@@ -2050,18 +2119,20 @@ static int hud_find(int i) {
 /* the pass before the display list runs: its texture rectangles under the
    2D projection, in order, as groups of touching ones (the segments and
    the projection followed as run() follows them) */
-static void hud_scan(uint32_t dl, int depth, uint32_t *proj) {
-    for (int n = 0; n < 1000000; n++, dl += 8) {
-        const uint8_t *p = port_ptr(dl);
-        uint32_t w0 = port_g32(p), w1 = port_g32(p + 4);
+static void hud_scan(GfxAddr dl, int depth, GfxAddr *proj) {
+    for (int n = 0; n < GFX_MAX_CMDS; n++, dl += gfx_cmd) {
+        const uint8_t *p = (const uint8_t *)dl;
+        uint32_t w0 = (uint32_t)gfx_w0(p);
+        uintptr_t w1a = gfx_w1(p);
+        uint32_t w1 = (uint32_t)w1a;
         switch (w0 >> 24) {
         case 0x01:                                              /* G_MTX */
             if ((w0 >> 16) & 1)
-                *proj = seg_to_k0(w1);
+                *proj = gfx_addr(w1a);
             break;
         case 0x06:                                              /* G_DL */
             if (depth < 16) {
-                hud_scan(seg_to_k0(w1), depth + 1, proj);
+                hud_scan(gfx_addr(w1a), depth + 1, proj);
                 if ((w0 >> 16) & 1)
                     return;
             }
@@ -2070,7 +2141,7 @@ static void hud_scan(uint32_t dl, int depth, uint32_t *proj) {
             return;
         case 0xBC:                                              /* G_MOVEWORD: a segment */
             if ((w0 & 0xFF) == 0x06)
-                gs.seg[(((w0 >> 8) & 0xFFFF) / 4) & 15] = w1 & 0x1FFFFFFFu;
+                seg_set((int)(((w0 >> 8) & 0xFFFF) / 4), w1a);
             break;
         case 0xE4: case 0xE5:                                   /* texture rectangle */
             if (*proj - hud_base() == 0xC0 && hud_nrects < HUD_RECTS) {
@@ -2081,7 +2152,7 @@ static void hud_scan(uint32_t dl, int depth, uint32_t *proj) {
                 hud_rect[k].y1 = (w0 & 0xFFF) / 4.0f + 1;
                 hud_rect[k].up = k;
             }
-            dl += 16;
+            dl += 2 * gfx_cmd;
             break;
         default:
             break;
@@ -2089,7 +2160,7 @@ static void hud_scan(uint32_t dl, int depth, uint32_t *proj) {
     }
 }
 
-static void hud_begin(uint32_t dl, int rdp) {
+static void hud_begin(GfxAddr dl, int rdp) {
     uint64_t mode = (uint64_t)port_g32(D_80364A90) << 32 | port_g32(D_80364A90 + 4);
     hud_task = rdp && gfx_hud_edges && gfx_wide_off > 0 && (mode & HUD_MODES) && !(mode & (mode - 1));
     if (!hud_task)
@@ -2097,14 +2168,15 @@ static void hud_begin(uint32_t dl, int rdp) {
     hud_stamp++;
     /* (its two pointers: as wide as the N64 side has them, port.h's host_layout) */
     uint32_t w = host_layout(PORT_LAYOUT_PTR_D_80365348);
-    hud_txt[0] = port_game_ptr_n(D_80365348, w);
-    hud_txt[1] = port_game_ptr_n(D_80365348 + w, w);
+    hud_txt[0] = gfx_of_n64(port_game_ptr_n(D_80365348, w));
+    hud_txt[1] = gfx_of_n64(port_game_ptr_n(D_80365348 + w, w));
     hud_txt_n = port_g32(D_80365350);
     if (hud_txt_n > 0x200)
         hud_txt_n = 0x200;
     hud_proj = 0;
     hud_nrects = 0;
-    uint32_t seg[16], proj = 0;
+    uintptr_t seg[16];
+    GfxAddr proj = 0;
     memcpy(seg, gs.seg, sizeof seg);
     hud_scan(dl, 0, &proj);
     memcpy(gs.seg, seg, sizeof seg);
@@ -2155,8 +2227,8 @@ static void line_draw(int i0, int i1, int wd, int flag);
    made; the model is drawn in its place, by a display list of the
    renderer's own, run from the state the game's left and leaving it as it
    was (but TMEM: the game loads the textures it draws with again) */
-static void run(uint32_t dl, int depth);
-static uint32_t micon_addr = 0xFFFFFFFFu;
+static void run(GfxAddr dl, int depth);
+static GfxAddr micon_addr = ~(GfxAddr)0;
 static unsigned micon_serial;
 static int micon_h = -1;
 
@@ -2171,12 +2243,12 @@ static int micon_at(void) {
 
 static int micon_in;                    /* running one (its own draws aren't pictures) */
 
-static void micon_run(uint32_t dl) {
+static void micon_run(GfxAddr dl) {
     static GfxState save;
     save = gs;
-    uint32_t hp = hud_proj;
+    GfxAddr hp = hud_proj;
     int wsd = wide_sides_drawn;
-    uint32_t va = vtx_addr;
+    GfxAddr va = vtx_addr;
     unsigned vg = vtx_gen;
     micon_in = 1;
     run(dl, 1);
@@ -2197,8 +2269,8 @@ static void micon_run(uint32_t dl) {
 static void micon_draw(int h, float x0, float y0, float x1, float y1) {
     int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
     int shadow = ((gs.cc0 >> 20) & 0xF) != 1;       /* not TEXEL0 * ...: the drop shadow's colour */
-    uint32_t dl = micons_part(h, x0, y0, x1, y1, shadow, gs.prim, gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
-                              gs.zimg_addr, sc);
+    GfxAddr dl = micons_part(h, x0, y0, x1, y1, shadow, gs.prim, gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
+                             gs.zimg_addr, sc);
     if (dl)
         micon_run(dl);
 }
@@ -2213,7 +2285,7 @@ extern char D_80215A70[];
 #define D_80215A70 PORT_VAR(D_80215A70)
 #endif
 #define MODE_WORLD_MAP 0x4000u
-static uint32_t globe_tex[3];
+static GfxAddr globe_tex[3];
 static unsigned globe_gen;
 
 /* (D_80215A70's pointers: 8 bytes in the LP64 build) */
@@ -2225,14 +2297,18 @@ static unsigned globe_gen;
 #define game_ptr port_var32
 #endif
 
+/* (the frames' textures by their physical addresses, made host ones: the
+   texture image's, from gfx_addr, is KSEG0's whatever its word was) */
 static void globe_begin(void) {
     uint32_t hi = micons_on ? port_g32(D_80364A90) : 1, lo = micons_on ? port_g32(D_80364A90 + 4) : 0;
-    for (int k = 0; k < 3; k++)
-        globe_tex[k] = !hi && lo == MODE_WORLD_MAP ? game_ptr(D_80215A70 + GAME_PTR_SIZE * k) & 0x1FFFFFFFu : 0;
+    for (int k = 0; k < 3; k++) {
+        uint32_t phys = !hi && lo == MODE_WORLD_MAP ? game_ptr(D_80215A70 + GAME_PTR_SIZE * k) & 0x1FFFFFFFu : 0;
+        globe_tex[k] = phys ? gfx_of_n64(0x80000000u | phys) : 0;
+    }
 }
 
 static int globe_at(void) {
-    uint32_t a = gs.timg_addr & 0x1FFFFFFFu;
+    GfxAddr a = gs.timg_addr;
     return globe_tex[0] && (a == globe_tex[0] || a == globe_tex[1] || a == globe_tex[2]);
 }
 
@@ -2241,14 +2317,14 @@ static void globe_tri(void) {
     if (globe_gen == vtx_gen)
         return;
     globe_gen = vtx_gen;
-    const uint8_t *p = gfx_ptr(vtx_addr);
+    const uint8_t *p = (const uint8_t *)vtx_addr;
     float c[3] = { 0, 0, 0 };
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 3; j++)
             c[j] += (int16_t)port_g16(p + 16 * i + 2 * j) / 4.0f;
     int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
-    uint32_t dl = micons_globe(c, gs.mv[gs.mv_top], !ipass, gs.prim[3], gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
-                               gs.zimg_addr, sc);
+    GfxAddr dl = micons_globe(c, gs.mv[gs.mv_top], !ipass, gs.prim[3], gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
+                              gs.zimg_addr, sc);
     if (dl)
         micon_run(dl);
 }
@@ -2483,7 +2559,7 @@ static uint32_t rect_hash(const uint32_t *w, int n) {
 static void irect(uint32_t key, float *r) {
     if (!ipass) {
         const float pt[1][4] = { { r[0], r[1], r[2], r[3] } };
-        irecord_at(key, pt, 1);
+        irecord_at(key, IK_RECT, pt, 1);
         return;
     }
     const ILoad *p = iprev(1);
@@ -2507,7 +2583,7 @@ static void irect(uint32_t key, float *r) {
 /* a fill rectangle drawn in software, into the color image in RDRAM (or
    the software renderer's wide frame) */
 NOINLINE static void fill_sw(int ulx, int uly, int lrx, int lry, int cyc) {
-    uint8_t *p = port_ptr(gs.cimg_addr);
+    uint8_t *p = (uint8_t *)gs.cimg_addr;
     if (cyc == 3 && gs.cimg_siz == 2 && !cur_wfb && lrx > ulx) {
         /* 16-bit: the fill's two pixels, over and over; a row of them
            made once, as the memory holds them, and copied */
@@ -2643,7 +2719,8 @@ NOINLINE static void tex_rect(uint32_t w0, uint32_t w1, uint32_t h2, uint32_t hc
     }
     if (itrack) {
         const Tile *tl = &gs.tile[tile];
-        uint32_t k[] = { gs.timg_addr, (uint32_t)(tl->tmem | tl->fmt << 9 | tl->siz << 12 | tl->pal << 14 | flip << 18),
+        uint32_t k[] = { gfx_addr_hash(gs.timg_addr),
+                         (uint32_t)(tl->tmem | tl->fmt << 9 | tl->siz << 12 | tl->pal << 14 | flip << 18),
                          h2, hc, ((w0 >> 12) & 0xFFF) - ((w1 >> 12) & 0xFFF), (w0 & 0xFFF) - (w1 & 0xFFF) };
         float r[4] = { ulx, uly, lrx, lry };
         irect(IRECT_KEY(1, rect_hash(k, 6)), r);
@@ -2739,7 +2816,7 @@ static void replay_snap(int i) {
 }
 
 static void replay(void) {
-    const uint32_t *e = rec, *end = rec + rec_n;
+    const uintptr_t *e = rec, *end = rec + rec_n;
     int tri_state = -1;
     wide_sides_drawn = 0;
     while (e < end) {
@@ -2772,16 +2849,16 @@ static void replay(void) {
             memcpy(gs.v + v0, rv + e[3], (size_t)m * sizeof *rv);
             if (e[4] != 0xFFFFFFFFu)
                 memcpy(gs.mvp, rmvp[e[4]], sizeof gs.mvp);
-            vtx_tail(0, e[1], v0, m);
+            vtx_tail(e[1], v0, m);
             e += 5;
             break;
         }
         case R_MODV:
-            modify_vertex((int)e[1], e[2]);
+            modify_vertex((int)e[1], (uint32_t)e[2]);
             e += 3;
             break;
         case R_TRI:
-            tri(e[1] & 0xFF, (e[1] >> 8) & 0xFF, (e[1] >> 16) & 0xFF, (int)(e[1] >> 24));
+            tri((int)(e[1] & 0xFF), (int)((e[1] >> 8) & 0xFF), (int)((e[1] >> 16) & 0xFF), (int)(e[1] >> 24));
             e += 2;
             break;
         case R_FILL:
@@ -2795,14 +2872,15 @@ static void replay(void) {
                 gfx_gl_rec_force(-2);
             }
             if (e[0] == R_FILL)
-                fill_rect(e[1], e[2]);
+                fill_rect((uint32_t)e[1], (uint32_t)e[2]);
             else
-                tex_rect(e[1], e[2], e[3], e[4], (int)e[5]);
+                tex_rect((uint32_t)e[1], (uint32_t)e[2], (uint32_t)e[3], (uint32_t)e[4], (int)e[5]);
             gfx_gl_rec_force(tri_state);
             e += 8;
             break;
         case R_TLOAD: {
-            TLoad l = { (uint8_t)e[1], e[2], e[3], e[4], (int)e[5], (int)e[6], (int)e[7], (int)e[8], { 0 } };
+            TLoad l = { (uint8_t)e[1], (uint32_t)e[2], (uint32_t)e[3], e[4], (int)e[5], (int)e[6], (int)e[7],
+                        (int)e[8], { 0 } };
             tload_lazy(l);
             e += 9;
             break;
@@ -2824,11 +2902,47 @@ static void replay(void) {
 CALL_VIA(do_mtx) CALL_VIA(do_vtx) CALL_VIA(modify_vertex) CALL_VIA(load_tlut) CALL_VIA(load_block)
 CALL_VIA(load_tile) CALL_VIA(fill_rect) CALL_VIA(tex_rect) CALL_VIA(tri)
 
-static void run(uint32_t dl, int depth) {
-    for (int n = 0; n < 1000000; n++, dl += 8) {
-        const uint8_t *p = gfx_ptr(dl);
-        uint32_t w0 = port_g32(p), w1 = port_g32(p + 4);
+/* PORT_GFX_STRICT=1: what the renderer would pass over in a list is
+   fatal, with the list's start and the command's offset: an opcode it
+   doesn't know (or that F3D 2.0D hasn't), a w0 with bits above its 32
+   (the wide form: a pointer read as a command, a step of the narrow
+   form's 8 bytes into a wide list), a list that runs past GFX_MAX_CMDS
+   commands, a segment not set (gfx_addr), a host pointer in the segmented
+   range (host_gfx_task) */
+static void strict_fail(const char *fmt, ...) {
+    char msg[256];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(msg, sizeof msg, fmt, ap);
+    va_end(ap);
+    host_fatal("gfx (PORT_GFX_STRICT): %s, in the display list at %0*lX, offset %lX (command %lu, %u bytes "
+               "each)\n", msg, (int)(2 * sizeof(GfxAddr)), (unsigned long)strict_list,
+               (unsigned long)(strict_at - strict_list), (unsigned long)((strict_at - strict_list) / gfx_cmd), gfx_cmd);
+}
+
+static int strict_op_known(uint8_t op) {
+    return op == 0x01 || op == 0x03 || op == 0x04 || op == 0x06 || (op >= 0xB2 && op <= 0xC0) ||
+           (op >= 0xE4 && op <= 0xE9) || op == 0xED || op == 0xEF || op == 0xF0 || op >= 0xF2;
+}
+
+static void strict_cmd(GfxAddr list, GfxAddr at, uintptr_t w0) {
+    strict_list = list;
+    strict_at = at;
+    if ((uint64_t)w0 >> 32)
+        strict_fail("w0 %016llX has bits above its 32", (unsigned long long)w0);
+    if (!strict_op_known((uint8_t)(w0 >> 24)))
+        strict_fail("unknown opcode %02X (w0 %08X)", (unsigned)(uint8_t)(w0 >> 24), (unsigned)w0);
+}
+
+static void run(GfxAddr dl, int depth) {
+    GfxAddr list = dl;
+    for (int n = 0; n < GFX_MAX_CMDS; n++, dl += gfx_cmd) {
+        const uint8_t *p = (const uint8_t *)dl;
+        uintptr_t w0a = gfx_w0(p), w1a = gfx_w1(p);
+        uint32_t w0 = (uint32_t)w0a, w1 = (uint32_t)w1a;
         uint8_t op = w0 >> 24;
+        if (gfx_strict)
+            strict_cmd(list, dl, w0a);
         if (!ipass)
             host_gfx_stats[op]++;
         /* (what a draw's state can't depend on leaves it as it was) */
@@ -2837,14 +2951,14 @@ static void run(uint32_t dl, int depth) {
             gfx_state_serial++;
         if (rsp_only && op >= 0xE4) {                           /* the RDP's: written, not run */
             if (op == 0xE4 || op == 0xE5)
-                dl += 16;                                       /* and its two halves */
+                dl += 2 * gfx_cmd;                              /* and its two halves */
             continue;
         }
         switch (op) {
-        case 0x01: CALL(do_mtx)(w0, w1); break;                       /* G_MTX */
+        case 0x01: CALL(do_mtx)(w0, w1a); break;                      /* G_MTX */
         case 0x03: {                                            /* G_MOVEMEM */
             int idx = (w0 >> 16) & 0xFF;
-            const uint8_t *m = gfx_ptr(seg_to_k0(w1));
+            const uint8_t *m = (const uint8_t *)gfx_addr(w1a);
             if (idx == 0x80) {                                  /* viewport */
                 for (int i = 0; i < 3; i++) {
                     gs.vp_scale[i] = (int16_t)port_g16(m + 2 * i) / 4.0f;
@@ -2861,14 +2975,15 @@ static void run(uint32_t dl, int depth) {
             }
             break;
         }
-        case 0x04: CALL(do_vtx)(w0, w1); break;                       /* G_VTX */
+        case 0x04: CALL(do_vtx)(w0, w1a); break;                      /* G_VTX */
         case 0x06:                                              /* G_DL */
             if (depth < 16) {
                 if ((w0 >> 16) & 1) {
-                    run(seg_to_k0(w1), depth + 1);
+                    run(gfx_addr(w1a), depth + 1);
                     return;
                 }
-                run(seg_to_k0(w1), depth + 1);
+                run(gfx_addr(w1a), depth + 1);
+                strict_list = list;
             }
             break;
         case 0xB2: case 0xB3: case 0xB4: case 0xC0: break;      /* halves, nop */
@@ -2892,7 +3007,7 @@ static void run(uint32_t dl, int depth) {
         case 0xBC: {                                            /* G_MOVEWORD */
             int idx = w0 & 0xFF, off = (w0 >> 8) & 0xFFFF;
             if (idx == 0x06)
-                gs.seg[(off / 4) & 15] = w1 & 0x1FFFFFFFu;  /* see seg_to_k0 */
+                seg_set(off / 4, w1a);                          /* see seg_to_k0 */
             else if (idx == 0x02)
                 gs.nlights = (int)((w1 - 0x80000000u) / 32) - 1;
             else if (idx == 0x08) {                             /* G_MW_FOG */
@@ -2917,10 +3032,10 @@ static void run(uint32_t dl, int depth) {
             CALL(tri)(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10, w1 >> 24);
             break;
         case 0xE4: case 0xE5: {                                 /* texture rectangle */
-            const uint8_t *q = gfx_ptr(dl + 8);
-            uint32_t h2 = port_g32(q + 4), hc = port_g32(q + 12);
+            const uint8_t *q = p + gfx_cmd;                     /* (its two halves' w1s) */
+            uint32_t h2 = (uint32_t)gfx_w1(q), hc = (uint32_t)gfx_w1(q + gfx_cmd);
             CALL(tex_rect)(w0, w1, h2, hc, op == 0xE5);
-            dl += 16;
+            dl += 2 * gfx_cmd;
             break;
         }
         case 0xE6: case 0xE7: case 0xE8: break;                 /* syncs */
@@ -2960,7 +3075,7 @@ static void run(uint32_t dl, int depth) {
         case 0xFD:                                              /* G_SETTIMG */
             gs.timg_fmt = (w0 >> 21) & 7; gs.timg_siz = (w0 >> 19) & 3;
             gs.timg_w = (w0 & 0xFFF) + 1;
-            gs.timg_addr = seg_to_k0(w1);
+            gs.timg_addr = gfx_addr(w1a);
             if (ipass)                          /* (the first pass's did) */
                 break;
             if (gfx_gl_enabled)
@@ -2968,21 +3083,26 @@ static void run(uint32_t dl, int depth) {
             else if (nwfb)
                 wfb_texture_source(gs.timg_addr);
             break;
-        case 0xFE: gs.zimg_addr = seg_to_k0(w1); sw_target(); break;
+        case 0xFE: gs.zimg_addr = gfx_addr(w1a); sw_target(); break;
         case 0xFF:                                              /* G_SETCIMG */
             gs.cimg_siz = (w0 >> 19) & 3;
             gs.cimg_w = (w0 & 0xFFF) + 1;
-            gs.cimg_addr = seg_to_k0(w1);
+            gs.cimg_addr = gfx_addr(w1a);
             wide_sides_drawn = 0;
             sw_target();
             if (getenv("PORT_GFXLOG"))
-                host_log("cimg %08X w %d siz %d (w1 %08X)\n", gs.cimg_addr, gs.cimg_w, gs.cimg_siz, w1);
+                host_log("cimg %08lX w %d siz %d (w1 %08lX)\n", (unsigned long)gs.cimg_addr, gs.cimg_w, gs.cimg_siz,
+                         (unsigned long)w1a);
             break;
         default:
             break;
         }
     }
-    host_log("gfx: display list at %08X doesn't end\n", dl);
+    if (gfx_strict) {
+        strict_at = dl;
+        strict_fail("no G_ENDDL in %d commands", GFX_MAX_CMDS);
+    }
+    host_log("gfx: display list at %08lX doesn't end\n", (unsigned long)list);
 }
 
 static int gfx_tasks;
@@ -3025,8 +3145,7 @@ static void choose_twins(void) {
 
 int gfx_interp_twins_used(void) { return twins_used; }
 
-static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
-    (void)ucode;
+static int gfx_task(GfxAddr dl, uint32_t size, int rdp) {
     gfx_tasks++;
     rsp_only = !rdp;
     charge_tris = host_rdp_scaled() || host_verbose;
@@ -3141,19 +3260,27 @@ static int gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
        the geometry, so that both renderers see the same timeline */
     host_charge(500000 + (uint64_t)(covered * 30));
     if (host_verbose && (gfx_tasks < 5 || gfx_tasks % 300 == 0))
-        host_log("gfx task %d: dl %08X size %X%s\n", gfx_tasks, dl, size, gs.sync ? " (full sync)" : "");
+        host_log("gfx task %d: dl %08lX size %X%s\n", gfx_tasks, (unsigned long)dl, size,
+                 gs.sync ? " (full sync)" : "");
     return gs.sync;
 }
 
 /* on the loop's OS thread, which has the GL context (fiber.h) */
-struct gfx_call { uint32_t dl, size, ucode; int rdp, sync; };
+struct gfx_call { GfxAddr dl; uint32_t size; int rdp, sync; };
 static void gfx_task_call(void *p) {
     struct gfx_call *c = p;
-    c->sync = gfx_task(c->dl, c->size, c->ucode, c->rdp);
+    c->sync = gfx_task(c->dl, c->size, c->rdp);
 }
 
-int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
-    struct gfx_call c = { dl, size, ucode, rdp, 0 };
+/* (the microcode only tells ultra.c whether the RDP draws: rdp) */
+int host_gfx_task(const void *dl, uint32_t size, const void *ucode, int rdp) {
+    (void)ucode;
+    gfx_layout_init();
+    struct gfx_call c = { gfx_of_ptr(dl), size, rdp, 0 };
+    if (gfx_strict && gfx_wide && gfx_wide_segmented(c.dl)) {
+        strict_list = strict_at = c.dl;
+        strict_fail("a task's list at a host address a word can't hold (it would read as segmented)");
+    }
     fiber_call_on_loop(gfx_task_call, &c);
     return c.sync;
 }
@@ -3162,7 +3289,7 @@ int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp) {
    complete.  (Hooked here rather than in osViSwapBuffer: a call there would
    be counted as the game's CPU time.)  Its in-between images are shown
    first if every task of it had its passes. */
-void host_gfx_frame_shown(uint32_t fb) {
+void host_gfx_frame_shown(GfxAddr fb) {
     if (!gfx_interp || !ifr[0])
         return;
     unsigned drawn;
@@ -3205,15 +3332,15 @@ void host_gfx_frame_shown(uint32_t fb) {
 /* the image for a present `phase` retraces after the frame in fb first
    showed: twin j of K (at t = (j + 1) / (K + 1)) while j < K, spread over
    the retraces the twins were made for */
-static int pick_image(uint32_t fb, double phase) {
+static int pick_image(GfxAddr fb, double phase) {
     if (!gfx_interp || fb != shown_fb || shown_k <= 0 || phase < 0)
         return -1;
     int j = (int)floor(phase * (shown_k + 1) / shown_d + 1e-6);
     return j < shown_k ? j : -1;
 }
 
-int gfx_interp_image(uint32_t fb) {
-    static uint32_t last_fb;
+int gfx_interp_image(GfxAddr fb) {
+    static GfxAddr last_fb;
     n_presents++;
     int k = pick_image(fb, (double)(n_presents - shown_at - 1));
     gfx_st_shown[0]++;
@@ -3225,7 +3352,7 @@ int gfx_interp_image(uint32_t fb) {
 
 static unsigned long long st_between[2];        /* presents between retraces, in-between images among them */
 
-int gfx_interp_image_at(uint32_t fb, double phase) {
+int gfx_interp_image_at(GfxAddr fb, double phase) {
     int k = pick_image(fb, (double)(n_presents - shown_at - 1) + phase);
     st_between[0]++;
     st_between[1] += k >= 0;

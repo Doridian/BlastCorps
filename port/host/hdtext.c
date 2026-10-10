@@ -106,9 +106,9 @@ static int load_font(void) {
     return 1;
 }
 
-int hdtext_glyph_at(uint32_t addr) {
-    uint32_t base = PORT_ADDR(D_8039CAF0);
-    uint32_t off = addr - base;
+int hdtext_glyph_at(uintptr_t addr) {
+    uintptr_t base = (uintptr_t)PORT_VAR(D_8039CAF0);      /* (a host address, as gfx.c's) */
+    uintptr_t off = addr - base;
     if (off >= SLOTS * SLOT_BYTES || off % SLOT_BYTES)
         return -1;
     int tex = port_g16(D_803653B0 + 2 * (off / SLOT_BYTES));

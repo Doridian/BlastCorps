@@ -19,6 +19,8 @@ check build (PORT_ENGINE_CHECK) may compile or link any of the translated
 engine (tools/recomp's recomp_func_X): the engine is port/engine's.  A build that takes
 its data from the ROM (PORT_ROM_DATA, the movable ones by default) is also
 searched for the ROM's data (rom_scan.py), and must carry none.  An LP64
+build's runs are in the renderer's strict mode (PORT_GFX_STRICT=1: a
+malformed display list or audio command is fatal).  An LP64
 build (not the movable one) also runs P6's pointer checks against their
 allow-lists: ptr32_check.py (the structures still PTR32), decl_check.py
 (declarations that disagree about a pointer) and ptrcast_scan.py (the
@@ -572,6 +574,8 @@ def quick_run(build, jobs, scenarios):
             rom, why = pack_for(build.version, PACK_SCENARIOS[name])
             if rom is None:
                 return name, why, 0
+        if build.lp64:          # (a malformed display list or audio command is fatal: gfx.c)
+            env = dict(env, PORT_GFX_STRICT="1")
         rc, t = run_port(build, os.path.join(out, name), frames, autostart, args, env,
                          shots=True, exe=exe, rom=rom)
         return name, rc, t

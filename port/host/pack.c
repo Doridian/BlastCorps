@@ -453,9 +453,13 @@ static int tex_overrides, tex_warned;
    last (RDRAM address, texture), for the renderer */
 #define NHIRES 1024
 static struct {
-    uint32_t addr;
+    uintptr_t addr;                     /* (a host address, as the renderer's: gfx.h) */
     uint16_t id;
 } hires_at[NHIRES];
+
+static unsigned hires_hash(uintptr_t a) {
+    return ((uint32_t)a >> 3 ^ (uint32_t)((uint64_t)a >> 32)) * 2654435761u % NHIRES;
+}
 
 /* texture id's texels as the pack has them edited, or NULL (micons.c) */
 const uint8_t *host_tex_texels(uint32_t id, uint32_t *len) {
@@ -476,27 +480,28 @@ void host_tex_decoded(uint32_t id, uint32_t dst, uint32_t size) {
     }
     memcpy(port_ptr(dst), tex_override[id].texels, size);
     if (tex_override[id].hires) {
-        unsigned h = (dst >> 3) * 2654435761u % NHIRES;
-        while (hires_at[h].addr && hires_at[h].addr != dst)
+        uintptr_t a = (uintptr_t)port_ptr(dst);
+        unsigned h = hires_hash(a);
+        while (hires_at[h].addr && hires_at[h].addr != a)
             h = (h + 1) % NHIRES;
-        hires_at[h].addr = dst;
+        hires_at[h].addr = a;
         hires_at[h].id = (uint16_t)id;
     }
 }
 
 /* the higher-resolution image of the texture whose first image is w x h
-   texels at RDRAM address addr, if an edited one with such an image is
+   texels at addr (a host address: gfx.h), if an edited one with such an image is
    still there (gfx_gl.c); its scale in *k and its texture in *id */
-const uint8_t *host_tex_hires(uint32_t addr, int w, int h, int *k, int *id) {
+const uint8_t *host_tex_hires(uintptr_t addr, int w, int h, int *k, int *id) {
     if (!tex_overrides || !addr)
         return NULL;
-    unsigned i = (addr >> 3) * 2654435761u % NHIRES;
+    unsigned i = hires_hash(addr);
     for (; hires_at[i].addr; i = (i + 1) % NHIRES) {
         if (hires_at[i].addr != addr)
             continue;
         int t = hires_at[i].id;
         if (tex_override[t].w != w || tex_override[t].h != h ||
-            memcmp(port_ptr(addr), tex_override[t].texels, tex_override[t].len0) != 0)
+            memcmp((const void *)addr, tex_override[t].texels, tex_override[t].len0) != 0)
             return NULL;
         *k = tex_override[t].hires_k;
         *id = t;

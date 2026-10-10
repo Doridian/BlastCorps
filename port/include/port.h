@@ -254,6 +254,9 @@ enum PortLayout {
     PORT_LAYOUT_PTR_D_803F7654,         /* Building *, past the last */
     PORT_LAYOUT_PTR_D_8036BED8,         /* Rdu * */
     PORT_LAYOUT_PTR_D_80365348,         /* Vtx *[2]'s element (hd_code 14B30.c) */
+    PORT_LAYOUT_GFX_SIZE,               /* Gfx: a display-list command, two words (gfx.h) */
+    PORT_LAYOUT_ACMD_SIZE,              /* Acmd: an audio command (aspmain.c) */
+    PORT_LAYOUT_FRAME_SIZE,             /* Frame (game/frame.h): segment 2's buffer */
     PORT_LAYOUT_COUNT
 };
 /* the N64 side's number (port/src/layout.c); 0 for an id it doesn't know */
@@ -341,8 +344,9 @@ uint64_t host_take_rdp_ns(void);    /* the RDP time of the last graphics task */
 /* RSP/RDP */
 /* runs a graphics task; 1 if its display list ended in a full sync.  rdp
    0: the microcode writes the RDP's commands to memory, nothing is drawn */
-int host_gfx_task(uint32_t dl, uint32_t size, uint32_t ucode, int rdp);
-void host_vi_set_framebuffer(uint32_t fb, int width);
+int host_gfx_task(const void *dl, uint32_t size, const void *ucode, int rdp);
+/* the framebuffer the VI shows (NULL: black) */
+void host_vi_set_framebuffer(const void *fb, int width);
 
 /* input: N64 button bits and stick (written big-endian: the pointers are
    the N64 side's) */
@@ -375,9 +379,9 @@ void host_eeprom_write(int block, uint32_t src);
 
 /* audio: the RSP's audio task (port/host/aspmain.c) and the AI
    (port/host/audio.c) */
-void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data);
+void host_audio_task(const void *data_ptr, uint32_t data_size, const void *ucode_data);
 void host_ai_set_dacrate(uint32_t dacrate);
-int host_ai_submit(uint32_t addr, uint32_t len);
+int host_ai_submit(const void *buf, uint32_t len);
 uint32_t host_ai_length(void);
 uint32_t host_ai_status(void);
 

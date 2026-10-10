@@ -17,7 +17,7 @@ void hdtext_init(void);
 void hdtext_idle(void);
 /* the texture table index of the glyph whose texture is at addr (an N64
    address), or -1 */
-int hdtext_glyph_at(uint32_t addr);
+int hdtext_glyph_at(uintptr_t addr);
 /* the high-resolution coverage (32 * HDTEXT_K square, rows as the
    texture's) for glyph tex, whose game texture is rgba (32x32, as the
    renderer decoded it); NULL: draw the game's */

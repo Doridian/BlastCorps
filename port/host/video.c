@@ -34,7 +34,7 @@ static SDL_Window *win;
 static SDL_Renderer *ren;
 static SDL_Texture *tex;
 static SDL_GameController *pad;
-static uint32_t vi_fb;
+static GfxAddr vi_fb;                   /* (gfx.h: a host address; 0 black) */
 static int vi_width = 320;
 static int frame;
 static int quit;
@@ -49,10 +49,11 @@ static void sw_wide(void) {
     gfx_set_wide(gfx_wide_off_for(gfx_aspect_of(w, h)));
 }
 
-void host_vi_set_framebuffer(uint32_t fb, int width) {
+void host_vi_set_framebuffer(const void *p, int width) {
+    GfxAddr fb = gfx_of_ptr(p);
     /* a retrace that shows another buffer: the frame in it is complete (the
        next one's tasks wait for the RDP's thaw, after this) */
-    static uint32_t shown;
+    static GfxAddr shown;
     if (fb && fb != shown) {
         shown = fb;
         host_gfx_frame_shown(fb);
@@ -170,7 +171,7 @@ static int sw_present(int twin) {
         tex_w = fw;
         SDL_RenderSetLogicalSize(ren, fw > 320 ? fw : 0, fw > 320 ? 240 : 0);
     }
-    const uint8_t *src = vi_fb && !host ? port_ptr(vi_fb) : NULL;
+    const uint8_t *src = vi_fb && !host ? (const uint8_t *)vi_fb : NULL;
     memset(pixels, 0, sizeof pixels);
     for (int y = 0; (host || src) && y < 240; y++)
         for (int x = 0; x < fw; x++) {
@@ -217,7 +218,7 @@ static void title_fps(int new_image, int new_frame) {
 }
 
 static void count_image(int twin) {
-    static uint32_t last_fb;
+    static GfxAddr last_fb;
     static int last_twin = -2;
     int new_image = vi_fb != last_fb || twin != last_twin;
     if (new_image)
@@ -238,7 +239,7 @@ static void type_event(const SDL_Event *e);     /* (the name entry's typing, bel
    present. */
 static struct {
     int on, twin, shot;
-    uint32_t fb;
+    GfxAddr fb;
     int width;
     char path[512];
 } held;

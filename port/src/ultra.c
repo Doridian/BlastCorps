@@ -543,8 +543,12 @@ void port_irq_vi(void) {
     host_interrupt();
     if (vi_next_fb != NULL)
         vi_cur_fb = vi_next_fb;
-    host_vi_set_framebuffer(vi_black ? 0 : (u32)vi_cur_fb,
-                            vi_mode != NULL ? (int)(vi_mode->comRegs.width) : 320);
+    /* (black, NULL, as a call of its own: a pointer argument is mapped
+       into the arena in the movable build, a constant NULL isn't) */
+    if (vi_black || vi_cur_fb == NULL)
+        host_vi_set_framebuffer(NULL, vi_mode != NULL ? (int)(vi_mode->comRegs.width) : 320);
+    else
+        host_vi_set_framebuffer(vi_cur_fb, vi_mode != NULL ? (int)(vi_mode->comRegs.width) : 320);
     if (vi_mq != NULL && vi_retrace != 0 && ++vi_count >= vi_retrace) {
         vi_count = 0;
         if (osSendMesg(vi_mq, vi_msg, OS_MESG_NOBLOCK) == 0)
@@ -575,7 +579,7 @@ static u64 dp_held_ns;
    buffer it draws into is usually the one still on screen (the swap to
    the other takes effect at the next retrace); drawing it at once showed
    the new frame, then the old one, then the new one again. */
-static struct { u32 dl, size, ucode; } dp_pending[4];
+static struct { void *dl; u32 size; void *ucode; } dp_pending[4];
 static int dp_npending;
 
 /* Which graphics tasks the RDP draws.  func_802A467C's (hd_code 5FD50,
@@ -587,9 +591,9 @@ static int dp_npending;
    audio's; the frames' are 3), so the RDP never sees them. */
 extern u8 D_802E77B0[];
 
-static int gfx_rdp(u32 ucode) { return ucode != (u32)D_802E77B0; }
+static int gfx_rdp(void *ucode) { return ucode != (void *)D_802E77B0; }
 
-static void dp_run(u32 dl, u32 size, u32 ucode) {
+static void dp_run(void *dl, u32 size, void *ucode) {
     int sync = host_gfx_task(dl, size, ucode, gfx_rdp(ucode));
     u64 rdp = host_take_rdp_ns();
     host_raise(OS_EVENT_SP);
@@ -621,12 +625,12 @@ void osSpTaskLoad(OSTask *t) { sp_task = t; }
 void osSpTaskStartGo(OSTask *t) {
     if (t->t.type == M_GFXTASK) {
         if (dp_frozen && dp_npending < (int)(sizeof dp_pending / sizeof dp_pending[0])) {
-            dp_pending[dp_npending].dl = (u32)t->t.data_ptr;
+            dp_pending[dp_npending].dl = t->t.data_ptr;
             dp_pending[dp_npending].size = t->t.data_size;
-            dp_pending[dp_npending].ucode = (u32)t->t.ucode;
+            dp_pending[dp_npending].ucode = t->t.ucode;
             dp_npending++;
         } else {
-            int sync = host_gfx_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode, gfx_rdp((u32)t->t.ucode));
+            int sync = host_gfx_task(t->t.data_ptr, t->t.data_size, t->t.ucode, gfx_rdp(t->t.ucode));
             u64 rdp = host_take_rdp_ns();
             host_raise(OS_EVENT_SP);
             if (sync) {                 /* the RDP's full sync */
@@ -641,7 +645,7 @@ void osSpTaskStartGo(OSTask *t) {
     } else {
         /* the audio microcode, run at once */
         if (t->t.type == M_AUDTASK)
-            host_audio_task((u32)t->t.data_ptr, t->t.data_size, (u32)t->t.ucode_data);
+            host_audio_task(t->t.data_ptr, t->t.data_size, t->t.ucode_data);
         host_raise(OS_EVENT_SP);
     }
 }
@@ -665,7 +669,7 @@ s32 osAiSetFrequency(u32 f) {
 }
 
 s32 osAiSetNextBuffer(void *buf, u32 size) {
-    return host_ai_submit((u32)buf, size);
+    return host_ai_submit(buf, size);
 }
 
 u32 osAiGetLength(void) { return host_ai_length(); }

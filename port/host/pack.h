@@ -21,7 +21,7 @@ const uint8_t *pack_data_source(void);
 /* an edited texture's texels (len bytes, as the game decodes it), or NULL */
 const uint8_t *host_tex_texels(uint32_t id, uint32_t *len);
 /* an edited texture's higher-resolution image, for the renderer (gfx_gl.c) */
-const uint8_t *host_tex_hires(uint32_t addr, int w, int h, int *k, int *id);
+const uint8_t *host_tex_hires(uintptr_t addr, int w, int h, int *k, int *id);
 
 /* ---- pack_zip.c ------------------------------------------------------------ */
 
