@@ -22,7 +22,8 @@ searched for the ROM's data (rom_scan.py), and must carry none.  An LP64
 build (not the movable one) also runs P6's pointer checks against their
 allow-lists: ptr32_check.py (the structures still PTR32), decl_check.py
 (declarations that disagree about a pointer) and ptrcast_scan.py (the
-pointer/integer conversions), the last two for all four versions.  It also plays
+pointer/integer conversions and incompatible pointer types), the last two
+for all four versions.  It also plays
 from a resource pack made from the ROM (port/make_pack.py, into build/pack/):
 the same hashes as from the ROM; and from a copy with a texture painted over:
 the same save and sound, the screenshots changed only toward its colour.
