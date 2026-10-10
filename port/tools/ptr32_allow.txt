@@ -1,55 +1,59 @@
 # ptr32_check.py's allow-list: the structures (and unions) whose pointers
 # are still PTR32 in the LP64 build, a name a line (us.v10's build: asm2c's
-# D_X_t types are a version's own).  Each P6 packet takes out what it makes
-# native (B the OS and the scheduler, C gzip, E asm2c's and the pointer
-# variables, D1/D2 the buildings, vehicles and the rest); what is left at
-# the end is P7's (libaudio, the sound player, the audio manager) and P8's.
-# ptr32_check.py BUILD --update rewrites it.
-ALADPCMWaveInfo
-ALAuxBus_s
-ALBankFile
-ALBank_s
-ALCSPlayer
-ALCSeqMarker
-ALCSeq_s
-ALChanState
-ALHeap
-ALInstrument
-ALLink_s
-ALMainBus_s
-ALNoteEvent
-ALOscEvent
-ALPlayer_s
-ALRAWWaveInfo
-ALSeqData
-ALSeqMarker
-ALSeqpBankEvent
-ALSeqpConfig
-ALSeqpLoopEvent
-ALSeqpSeqEvent
-ALSound_s
-ALSynConfig
-ALSynth
-ALVoiceState_s
-ALVoice_s
-ALVolumeEvent
-ALWaveTable_s
-AMAudioMgr
-AMDMABuffer
-AMDMAState
-Chorus
-D_80300A68_t
-GroupSet
-LowPass
-PVoice_s
-Reverb
-Section
-SndBank
-SndConfig
-SndEvent
-SndInstrument
-SndPlayer
-SndState
-SndStateLists
-SynConfig
-Update
+# D_X_t types are a version's own; a union or structure with no name is
+# its container's name and member's, `Update.a`), each with the package
+# that makes it native.  P6 took out everything else; what is left is
+# P7's (libaudio, whose records are allocated and cast at the N64's sizes
+# and whose banks and sequences are ROM data; the sound player; the audio
+# DMA; the level's tables) and P8's (the display list and audio command
+# words).  P10 has none here (its host interface is ptrcast_scan.py's).
+# ptr32_check.py BUILD --update rewrites it, keeping each name's note.
+ALADPCMWaveInfo  # P7: libaudio
+ALAuxBus_s       # P7: libaudio
+ALBankFile       # P7: libaudio
+ALBank_s         # P7: libaudio
+ALCSPlayer       # P7: libaudio
+ALCSeqMarker     # P7: libaudio
+ALCSeq_s         # P7: libaudio
+ALChanState      # P7: libaudio
+ALHeap           # P7: libaudio
+ALInstrument     # P7: libaudio
+ALLink_s         # P7: libaudio
+ALMainBus_s      # P7: libaudio
+ALNoteEvent      # P7: libaudio
+ALOscEvent       # P7: libaudio
+ALPlayer_s       # P7: libaudio
+ALRAWWaveInfo    # P7: libaudio
+ALSeqData        # P7: libaudio
+ALSeqMarker      # P7: libaudio
+ALSeqpBankEvent  # P7: libaudio
+ALSeqpConfig     # P7: libaudio
+ALSeqpLoopEvent  # P7: libaudio
+ALSeqpSeqEvent   # P7: libaudio
+ALSound_s        # P7: libaudio
+ALSynConfig      # P7: libaudio
+ALSynth          # P7: libaudio
+ALVoiceState_s   # P7: libaudio
+ALVoice_s        # P7: libaudio
+ALVolumeEvent    # P7: libaudio
+ALWaveTable_s    # P7: libaudio
+AMAudioMgr       # P8: ACMDList, the audio command lists (Acmd, the RSP's words)
+AMDMABuffer      # P7: the audio DMA buffers, on libaudio's ALLink
+AMDMAState       # P7: the audio DMA state, on libaudio's ALLink
+Chorus           # P7: libaudio
+D_80300A68_t     # P8: asm2c's display list D_80300A68 (PTR32_VARS), its words
+GroupSet         # P7: the level's data tables (D_802D30D0...) hold its first word, 0x18 bytes a record
+LowPass          # P7: libaudio
+PVoice_s         # P7: libaudio
+Reverb           # P7: libaudio
+Section          # P7: libaudio
+SndBank          # P7: Rare's sound bank, ROM data (ROMPTR)
+SndConfig        # P7: Rare's sound player (SndState stays libaudio-shaped)
+SndEvent         # P7: Rare's sound player
+SndInstrument    # P7: Rare's sound bank, ROM data (ROMPTR)
+SndPlayer        # P7: Rare's sound player (an ALPlayer)
+SndState         # P7: Rare's sound player; unk30, a 4-byte field, points at a native handle slot
+SndStateLists    # P7: Rare's sound player
+SynConfig        # P7: audio.h's ALSynConfig
+Update           # P7: libaudio
+Update.a         # P7: libaudio

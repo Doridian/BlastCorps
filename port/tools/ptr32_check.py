@@ -11,12 +11,15 @@ pointer, or an array of them.  DWARF doesn't say __ptr32, so a pointer is
 taken as one by the room it has: less than 8 bytes to the next member (or
 the end), or an offset that isn't a multiple of 8; where it has 8 bytes on
 an 8-byte boundary (the last member, before padding) its declaration's
-line (or its typedef's) decides, by PTR32/__ptr32/ROMPTR.
+line (or its typedef's) decides, by PTR32/__ptr32/ROMPTR.  A structure or
+union with no name of its own (`union { ... } v;` inside another, as gzip's
+huft has) is checked like the rest, under its container's name and the
+member's (`huft.v`); one that is no member's type has its file and line.
 
-The allow-list (port/tools/ptr32_allow.txt) names a structure a line.  A
-structure with PTR32 members that isn't in it fails; one in it that the
-build has without any fails too (the list must shrink with each P6
-packet: what is left at the end is P7's and P8's).  A name the build
+The allow-list (port/tools/ptr32_allow.txt) names a structure a line, with
+the package that will make it native after a `#`.  A structure with PTR32
+members that isn't in it fails; one in it that the build has without any
+fails too (the list only shrinks: what P6 left is P7's and P8's).  A name the build
 doesn't have (another version's types) is passed over.  --list prints
 the members; --update writes the allow-list from the build.
 """
@@ -129,6 +132,26 @@ def structs(build):
     for off, d in dies.items():
         if d["tag"] == "DW_TAG_typedef" and ref(d) is not None:
             tdname.setdefault(ref(d), strip(d.get("DW_AT_name")))
+    # (an aggregate with no name: the member whose type it is, in which one)
+    holder = {}
+    for off, d in dies.items():
+        if d["tag"] in ("DW_TAG_structure_type", "DW_TAG_union_type"):
+            for k in d["kids"]:
+                m = dies[k]
+                if m["tag"] == "DW_TAG_member" and ref(m) is not None:
+                    holder.setdefault(ref(m), (off, strip(m.get("DW_AT_name")) or "(anonymous)"))
+
+    def name_of(off, depth=0):
+        d = dies[off]
+        n = strip(d.get("DW_AT_name")) or tdname.get(off)
+        if n:
+            return n
+        if off in holder and depth < 8:
+            outer, member = holder[off]
+            return f"{name_of(outer, depth + 1)}.{member}"
+        f = strip(d.get("DW_AT_decl_file"))
+        return f"({os.path.relpath(f, ROOT) if f else '?'}:{num(d.get('DW_AT_decl_line'))})"
+
     res, done = {}, set()
     for off, d in dies.items():
         if d["tag"] not in ("DW_TAG_structure_type", "DW_TAG_union_type"):
@@ -136,9 +159,7 @@ def structs(build):
         size = num(d.get("DW_AT_byte_size"))
         if size is None or not ours(strip(d.get("DW_AT_decl_file")), build):
             continue
-        name = strip(d.get("DW_AT_name")) or tdname.get(off)
-        if not name:
-            continue
+        name = name_of(off)
         key = (name, strip(d.get("DW_AT_decl_file")), d.get("DW_AT_decl_line"))
         if key in done:
             continue
@@ -193,7 +214,7 @@ def main():
             ms = with32[n]
             print(f"  {n}: " + ", ".join(f"{m}@{o:#x}" + (f" ({how})" if how != f"{4} bytes" else "")
                                          for m, o, k, how in ms if k == "ptr32"))
-    allow = set()
+    allow, note = set(), {}
     head = []
     if os.path.exists(a.allow):
         for line in open(a.allow):
@@ -202,12 +223,14 @@ def main():
             w = line.split("#", 1)[0].split()
             if w:
                 allow.add(w[0])
+                if "#" in line:
+                    note[w[0]] = line.split("#", 1)[1].strip()
     if a.update:
         keep = {n for n in allow if n not in res}      # (other versions' types)
         with open(a.allow, "w") as f:
             f.writelines(head)
             for n in sorted(set(with32) | keep):
-                f.write(n + "\n")
+                f.write(f"{n:16} # {note[n]}\n" if n in note else n + "\n")
         print(f"wrote {os.path.relpath(a.allow)} ({len(set(with32) | keep)} structures)")
         return 0
     new = sorted(set(with32) - allow)
