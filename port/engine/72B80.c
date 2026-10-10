@@ -502,12 +502,14 @@ void func_802B8AE4(void) {
     }
 }
 
-/* the ground's height under it (inside the level), and its shadow there */
+/* the ground's height under it (inside the level), and its shadow there.
+   Outside the level there is no ground to find: the shadow stays at the
+   last height found.  (The original takes its $t3 there, the model's
+   address func_802B9B4C leaves in it, as a height: a shadow at a height
+   that depends on where the model was loaded.) */
 REGS(gp)
 void func_802B8C18(VS *vs) {
-    /* (the original's $t3, the shadow's height outside the level: the
-       model's address func_802B9B4C leaves there) */
-    s32 x = CH_X, z = CH_Z, h = (s32)(uintptr_t)CH_MODEL;
+    s32 x = CH_X, z = CH_Z, h = D_803EF31C;
 
     if (x > 0 && z > 0 && x < D_803BE732 << 5 && z < D_803BE736 << 5)
         h = D_803EF31C = func_802A9B1C(0, x, z, D_803EF31C, VEHICLE_CHOPPER, vs, 0);
