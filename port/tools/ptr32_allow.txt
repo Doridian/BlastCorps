@@ -1,12 +1,12 @@
 # ptr32_check.py's allow-list: the structures (and unions) whose pointers
 # are still PTR32 in the LP64 build, a name a line (us.v10's build: asm2c's
 # D_X_t types are a version's own; a union or structure with no name is
-# its container's name and member's, `Update.a`), each with the package
-# that makes it native.  P6 took out everything else; what is left is
-# P7's (libaudio, whose records are allocated and cast at the N64's sizes
-# and whose banks and sequences are ROM data; the sound player; the audio
-# DMA; the level's tables) and P8's (the display list and audio command
-# words).  P10 has none here (its host interface is ptrcast_scan.py's).
+# its container's name and member's, `huft.v`), each with the package
+# that makes it native.  P6 and P7 took out everything else (P7: libaudio,
+# its banks parsed into native objects, the sound player, the audio DMA,
+# the level's group sets); what is left is P8's, the display list's and
+# the audio command list's words.  P10 has none here (its host interface
+# is ptrcast_scan.py's).
 # ptr32_check.py BUILD --update rewrites it, keeping each name's note.
 AMAudioMgr       # P8: ACMDList, the audio command lists (Acmd, the RSP's words)
 D_80300A68_t     # P8: asm2c's display list D_80300A68 (PTR32_VARS), its words
