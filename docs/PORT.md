@@ -1853,11 +1853,14 @@ N64 had room for lands in padding).  2,166 variables in us.v10, to about
   array, a struct's members but the first) get room of their own, to the
   container's end, so the C's view through them parts from the
   container's: 256 in us.v10, 241 of them in the asm data.
-- **What stays**: the front end's variables (`port/src/overlay.c` restores
-  its `.data` and clears its `.bss` by address; `-DPORT_SCATTER_FE=ON`
-  moves them too), and the fixed buffers (the framebuffers, the level
-  pool, the heap at `D_803FF600`, the front end's area as the level's),
-  which are addresses, not variables.
+- **The front end's variables** move too (`-DPORT_SCATTER_FE`, on by
+  default; `=OFF` leaves them at their N64 addresses): port-arena lists
+  them (`__port_fe_vars`) and `port/src/overlay.c` puts each back as it
+  was at startup when the game loads the front end.  The level pool, whose
+  tail is the front end's area, moves with them.
+- **What stays**: the fixed buffers (the framebuffers, the level pool
+  without `PORT_SCATTER_FE`, the heap at `D_803FF600`, the front end's area
+  as the level's), which are addresses, not variables.
 - **What nothing should touch**: the N64 places the variables left, the
   padding and the aliases' rooms (`__port_scatter_bad`) are filled with
   `PORT_SCATTER_POISON` (a byte, default `0xA5`, so a pointer read there

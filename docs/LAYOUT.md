@@ -84,11 +84,9 @@ line (code the compiler made for several).
 - The host's other reads of game memory by address (the renderer's
   display lists and textures, the audio, the loaders), which the check
   doesn't see.
-- The front end's variables, which stay where they are:
-  `port/src/overlay.c` restores its `.data` and clears its `.bss` by
-  address, and the game uses the front end's area as a buffer of its own
-  while it isn't loaded (42240.c `func_802873AC`, 60F60.c's pool), so
-  `-DPORT_SCATTER_FE=ON` doesn't work yet.
+- The front end's variables with `-DPORT_SCATTER_FE=OFF` (it is on by
+  default: they move, and the level pool with them, `port/src/overlay.c`
+  restoring each from port-arena's list).
 - The other versions: jp's `func_8026BCE0` is its own C
   (`port/engine/jp_26570.c`) and still indexes past `D_802F47B0`.
 
