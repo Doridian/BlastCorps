@@ -40,4 +40,20 @@ SIZE_CHECK(LevelLight, 0x24);
 extern LevelLight D_803BDFD8[];
 extern LevelLight *D_803BDFD4;          /* one past the last */
 
+/* D_803BE708: the level's group sets (5CB60's func_802A1EC8 picks one of
+   the tables D_802D30D0...; hd_code's .text island 8E910), a u32 count,
+   then these: the groups of a building whose destruction counts as the
+   building's (77E20's func_802BD064).  The ROM has 0 in `building`; the
+   level loader (func_802A21AC) gives the sets to the buildings flagged
+   for one, in order, at each load of the level.  (The original keeps the
+   building's address there.) */
+typedef struct GroupSet {
+    /* 0x00 */ u32 building;        /* GROUP_SET_KEY: the Building, + 1 (0: none) */
+    /* 0x04 */ u32 n;
+    /* 0x08 */ u8 groups[16];       /* 0-based */
+} GroupSet;
+SIZE_CHECK(GroupSet, 0x18);
+/* Building b's key in a group set: its index in D_803F4030, + 1 */
+#define GROUP_SET_KEY(b) ((u32)((b) - D_803F4030) + 1)
+
 #endif

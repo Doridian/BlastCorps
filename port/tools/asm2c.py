@@ -163,8 +163,9 @@ def symbol_widths(rel):
 # Rare's math routines.)
 def blob_8e910(data):
     """hd_code 8E910: a table per level (func_802A1EC8 picks one into
-    D_803BE708, func_802BD064 walks it): {u32 n; n x {u32 key (set at run
-    time), u32 count; u8 [16]}}, one after another"""
+    D_803BE708, func_802BD064 walks it): {u32 n; n x {u32 building (set at
+    run time: the building's index + 1, level_tables.h's GroupSet), u32
+    count; u8 [16]}}, one after another"""
     out, p = [], 0
     while p + 4 <= len(data):
         n = int.from_bytes(data[p:p + 4], "big")

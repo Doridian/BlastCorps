@@ -26,15 +26,7 @@
 
 /* (the level's objects to destroy, TargetObj: level_tables.h) */
 
-/* a set of the level's buildings' groups (D_803BE708: a count, then
-   these, 5CB60.c's func_802A1EC8) whose destruction counts as the
-   building's (func_802BD064) */
-typedef struct GroupSet {
-    /* 0x00 */ Building *PTR32 b;
-    /* 0x04 */ u32 n;
-    /* 0x08 */ u8 groups[16];    /* 0-based */
-} GroupSet;
-SIZE_CHECK(GroupSet, 0x18);
+/* (the level's group sets, GroupSet: level_tables.h) */
 
 /* the models a vehicle type can't harm (D_803059F0), to a mask of 0 */
 typedef struct Immune {
@@ -556,7 +548,7 @@ static GroupSet *group_set_of(Building *b) {
     if (sets == NULL)
         return NULL;
     for (n = *(u32 *)sets, s = (GroupSet *)(sets + 4); n != 0; n--, s++) {
-        if (s->b == b)
+        if (s->building == GROUP_SET_KEY(b))
             return s;
     }
     return NULL;

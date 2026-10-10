@@ -706,10 +706,8 @@ extern u8 D_802D30D0[], D_802D3194[], D_802D32A0[], D_802D331C[], D_802D33C8[], 
     D_802D3EB0[], D_802D3F74[];
 extern u8 D_8030631F[];
 
-#define GROUP_SIZE 0x18         /* a building group's record (D_803BE708) */
-
-/* func_802A1EC8: this level's table of building groups (D_803BE708, its
-   cursor D_803BE704 four bytes on), or none */
+/* func_802A1EC8: this level's table of group sets (D_803BE708, GroupSet;
+   its cursor D_803BE704 four bytes on), or none */
 REGS()
 void func_802A1EC8(void) {
     s32 level = D_802E8BDC;
@@ -1069,8 +1067,9 @@ void func_802A21AC(u8 *m, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {    
         b->fall_t[k] = 0;
     }
     if (D_803BE704 != NULL && (flag != 0)) {
-        *(u32 *)D_803BE704 = (u32)(uintptr_t)b;     /* (a word of the level's data: P7) */
-        D_803BE704 += GROUP_SIZE;
+        /* the level's next group set is this building's */
+        ((GroupSet *)D_803BE704)->building = GROUP_SET_KEY(b);
+        D_803BE704 += sizeof(GroupSet);
     }
     /* the object grid's cell it is in */
     a0 = (u32)D_803BE70C >> 5;

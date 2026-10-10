@@ -42,7 +42,6 @@ AMDMABuffer      # P7: the audio DMA buffers, on libaudio's ALLink
 AMDMAState       # P7: the audio DMA state, on libaudio's ALLink
 Chorus           # P7: libaudio
 D_80300A68_t     # P8: asm2c's display list D_80300A68 (PTR32_VARS), its words
-GroupSet         # P7: the level's data tables (D_802D30D0...) hold its first word, 0x18 bytes a record
 LowPass          # P7: libaudio
 PVoice_s         # P7: libaudio
 Reverb           # P7: libaudio
