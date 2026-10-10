@@ -26,10 +26,10 @@ typedef struct FrameBuf {
     /* 0x00000 */ Mtx mtx[0x78];
     /* 0x01E00 */ Vtx vtx[0x1E0];
     /* 0x03C00 */ LookAt lookAt;
-    /* 0x03C20 */ u8 unk3C20[0xC90];
+    /* 0x03C20 */ Gfx unk3C20[0x192];
     /* 0x048B0 */ Gfx dl[0x397D];
 } FrameBuf;
-SIZE_CHECK(FrameBuf, 0x21498);
+SIZE_CHECK_C(FrameBuf, 0x21498);
 
 /*
  * The gameplay view of the same buffer (hd.c and the gameplay drawing code:
@@ -50,14 +50,14 @@ typedef struct FrameGame {
     /* 0x03C00 */ LookAt unk3C00;
     /* 0x03C20 */ Gfx unk3C20[0x192];   /* 37530.c's display lists from [2] */
     /* 0x048B0 */ Gfx unk48B0[0xB5E];
-    /* 0x0A3A0 */ u8 unkA3A0[0x140];
+    /* 0x0A3A0 */ Gfx unkA3A0[0x28];
     /* 0x0A4E0 */ Gfx unkA4E0[20];
     /* 0x0A580 */ Gfx unkA580[115];
     /* 0x0A918 */ Gfx unkA918[0x2D5F];
     /* 0x21410 */ Gfx unk21410[13];
     /* 0x21478 */ Gfx unk21478[4];
 } FrameGame;
-SIZE_CHECK(FrameGame, 0x21498);
+SIZE_CHECK_C(FrameGame, 0x21498);
 
 /*
  * D_803156F8's element: the buffer in whichever of its two views the code
@@ -68,7 +68,7 @@ typedef union Frame {
     FrameBuf buf;
     FrameGame game;
 } Frame;
-SIZE_CHECK(Frame, 0x21498);
+SIZE_CHECK_C(Frame, 0x21498);
 
 extern Frame D_803156F8[];
 

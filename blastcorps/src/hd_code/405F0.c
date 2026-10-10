@@ -40,7 +40,7 @@ void func_80284E54(Gfx *arg0, s32 arg1, u8 arg2, u8 arg3, s32 arg4, u8 arg5) {
     SchedTask *t;
     s32 size;
 
-    size = arg1 * 8;
+    size = arg1 * sizeof(Gfx);
     t = &D_8036E698[arg2][D_8035805C];
     D_8036E68C[arg2] = 1;
     t->list.t.type = M_GFXTASK;

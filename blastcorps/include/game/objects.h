@@ -177,7 +177,7 @@ typedef struct BlockInfo {
     /* 0x288 */ s32 unk288;      /* the hole's depth */
     /* 0x28C */ s32 unk28C;
 } BlockInfo;
-SIZE_CHECK(BlockInfo, 0x290);
+SIZE_CHECK_C(BlockInfo, 0x290);
 
 /* The level's blocks, D_8039C550[BLOCK_MAX]; D_8039C710 counts them. */
 typedef struct Block {

@@ -428,9 +428,9 @@ void func_8027E344(s32 arg0) {
     D_8036DCA8[0] = (Vtx *)(D_80358070 += (D_802FC3F0[D_8036DCD6].unk1 + 1) * (D_802FC3F0[D_8036DCD6].unk2 + 1) * sizeof(Vtx));
     D_8036DCA8[1] = (Vtx *)(D_80358070 += 0x12C0);
     D_80358070 += 0x12C0;
-    size = D_802FC3F0[D_8036DCD6].unk1 * D_802FC3F0[D_8036DCD6].unk2 * 2 * 8;
-    size += ((D_802FC3F0[D_8036DCD6].unk1 / 8) + 1) * D_802FC3F0[D_8036DCD6].unk2 * 8;
-    size += 0x1C20;
+    size = D_802FC3F0[D_8036DCD6].unk1 * D_802FC3F0[D_8036DCD6].unk2 * 2 * sizeof(Gfx);
+    size += ((D_802FC3F0[D_8036DCD6].unk1 / 8) + 1) * D_802FC3F0[D_8036DCD6].unk2 * sizeof(Gfx);
+    size += 0x384 * sizeof(Gfx);
     D_8036DCC8[0] = (Gfx *)D_80358070;
     D_8036DCC8[1] = (Gfx *)(D_80358070 += size);
     D_80358070 += size;
