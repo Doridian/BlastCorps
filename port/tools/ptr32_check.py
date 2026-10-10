@@ -11,7 +11,7 @@ pointer, or an array of them.  DWARF doesn't say __ptr32, so a pointer is
 taken as one by the room it has: less than 8 bytes to the next member (or
 the end), or an offset that isn't a multiple of 8; where it has 8 bytes on
 an 8-byte boundary (the last member, before padding) its declaration's
-line (or its typedef's) decides, by PTR32/__ptr32/ROMPTR.  A structure or
+line (or its typedef's) decides, by PTR32/__ptr32.  A structure or
 union with no name of its own (`union { ... } v;` inside another, as gzip's
 huft has) is checked like the rest, under its container's name and the
 member's (`huft.v`); one that is no member's type has its file and line.
@@ -19,7 +19,7 @@ member's (`huft.v`); one that is no member's type has its file and line.
 The allow-list (port/tools/ptr32_allow.txt) names a structure a line, with
 the package that will make it native after a `#`.  A structure with PTR32
 members that isn't in it fails; one in it that the build has without any
-fails too (the list only shrinks: what P6 left is P7's and P8's).  A name the build
+fails too (the list only shrinks: what P6 and P7 left is P8's).  A name the build
 doesn't have (another version's types) is passed over.  --list prints
 the members; --update writes the allow-list from the build.
 """
@@ -31,7 +31,7 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ALLOW = os.path.join(ROOT, "port", "tools", "ptr32_allow.txt")
-PTR32_TEXT = re.compile(r"\bPTR32\b|__ptr32|\bROMPTR\b")
+PTR32_TEXT = re.compile(r"\bPTR32\b|__ptr32")
 
 
 def dies_of(exe):
