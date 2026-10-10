@@ -1691,6 +1691,12 @@ void func_802BF668(Building *b) {
             }
             sum = 0;
             for (n = r[2], s = r + 3; n != 0; n--, s += 2) {
+                /* group 0 is no group (as a piece's group2): it holds
+                   nothing up.  (The N64 reads damage[-1], B_TARGET, and
+                   falling[-1], a half of unk44: level 3's building 25
+                   lists one, with weight 0.) */
+                if (s[0] == 0)
+                    continue;
                 q = s[0] - 1;
                 if (B_DAMAGE(b)[q] != 100) {
                     if (B_FALLING(b)[q] == 0) {
