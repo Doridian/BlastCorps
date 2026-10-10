@@ -13,7 +13,7 @@
         Acmd *_a = (Acmd *)pkt;                                                                        \
                                                                                                        \
         _a->words.w0 = (_SHIFTL(A_POLEF, 24, 8) | _SHIFTL(f, 16, 8) | _SHIFTL(g, 0, 8));             \
-        _a->words.w1 = (unsigned int)(s);                                                              \
+        _a->words.w1 = _A_ADDR(s);                                                                     \
     }
 #endif
 

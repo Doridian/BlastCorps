@@ -22,7 +22,7 @@ SIZE_CHECK_C(AudioInfo, 0x68);
 
 /* The sample audio manager's AMAudioMgr. */
 typedef struct AMAudioMgr {
-    /* 0x000 */ Acmd *PTR32 ACMDList[2];
+    /* 0x000 */ Acmd *ACMDList[2];
     /* 0x008 */ AudioInfo *audioInfo[3];
     /* 0x018 */ OSThread thread;
     /* 0x1C8 */ OSMesgQueue audioFrameMsgQ;
@@ -156,15 +156,17 @@ typedef struct SndStateLists {
     /* 0x8 */ SndState *freeList;
 } SndStateLists;
 
-/* The audio heap (D_80370C80, 46F60.c's; 1C460's alHeapInit) and the
- * number of audio DMA buffers and messages (22EE0.c): eu's PAL frames are
- * longer and take more DMAs, and its heap is smaller. */
+/* The audio heap (D_80370C80, 46F60.c's; 1C460's alHeapInit), the number of
+ * audio DMA buffers and messages and the size of a command list (22EE0.c):
+ * eu's PAL frames are longer and take more DMAs, and its heap is smaller. */
 #ifdef VERSION_EU
 #define AUDIO_HEAP_N64 0x24540
 #define NUM_DMA_MESSAGES 0x5C
+#define MAX_RSP_CMDS 1950
 #else
 #define AUDIO_HEAP_N64 0x2A280
 #define NUM_DMA_MESSAGES 0x48
+#define MAX_RSP_CMDS 2750
 #endif
 /* The heap is exactly full on the N64.  In the port, what is allocated in
  * it with pointers in it is as big as the host makes it, and the heap grows
@@ -174,7 +176,9 @@ typedef struct SndStateLists {
  * updates; 22EE0.c's reverb, D_802F3AFC: 8 sections, one with a chorus,
  * four with a low-pass filter), the sequence player and its blocks
  * (1C460.c's seqConfig: 0x10 channels, 0x18 voices, 0x20 events) and the
- * sound player's (sndConfig: 0x20 sounds, 0x40 events).  A heap that grew
+ * sound player's (sndConfig: 0x20 sounds, 0x40 events), and the two command
+ * lists (22EE0.c: MAX_RSP_CMDS Acmds, 16 bytes each where the words are
+ * pointer-wide: the wide build).  A heap that grew
  * isn't at its N64 address, which is 16-aligned, and alHeapInit takes the
  * rounding to 16 off a buffer that isn't: up to 15 bytes more then. */
 #ifndef TARGET_PC
@@ -184,7 +188,8 @@ typedef struct SndStateLists {
 #define AUDIO_HEAP_GROWTH                                                              \
     (3 * AL_HEAP_GROWTH(1, AudioInfo, 0x68) + AL_SYN_HEAP_GROWTH(0x18, 0x80, 8, 1, 4) + \
      AL_HEAP_GROWTH(1, ALCSPlayer, 0x7C) + AL_CSP_HEAP_GROWTH(0x10, 0x18, 0x20) +     \
-     AL_HEAP_GROWTH(0x20, SndState, 0x40) + AL_HEAP_GROWTH(0x40, ALEventListItem, 0x1C))
+     AL_HEAP_GROWTH(0x20, SndState, 0x40) + AL_HEAP_GROWTH(0x40, ALEventListItem, 0x1C) +    \
+     2 * AL_HEAP_GROWTH(1, Acmd[MAX_RSP_CMDS], MAX_RSP_CMDS * 8))
 #define AUDIO_HEAP_SIZE (AUDIO_HEAP_N64 + AUDIO_HEAP_GROWTH + (AUDIO_HEAP_GROWTH != 0 ? 15 : 0))
 #endif
 

@@ -4,7 +4,7 @@
     acmd_diff.py A B [--context N]
 
 The lists are as the replay's i386 build has them: each command two
-little-endian words.
+little-endian words (8 bytes: the ILP32 recording only; the wide LP64 form is 16).
 """
 import argparse
 import struct

@@ -208,7 +208,7 @@ Acmd *alRaw16Pull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Acmd 
         nSam = f->loop.end - f->sample;
         nbytes = nSam<<1;
         if (nSam > 0){
-            dramLoc = (f->dma)(f->memin, nbytes, f->dmaState);
+            dramLoc = (s32)(f->dma)(f->memin, nbytes, f->dmaState);
             
             /*
              * Make sure enough is loaded into DMEM to take care
@@ -249,7 +249,7 @@ Acmd *alRaw16Pull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Acmd 
             /*
              * Do the next section, same as last.
              */
-            dramLoc = (f->dma)(f->memin, nbytes, f->dmaState);
+            dramLoc = (s32)(f->dma)(f->memin, nbytes, f->dmaState);
             
             /*
              * Make sure enough is loaded into DMEM to take care
@@ -296,7 +296,7 @@ Acmd *alRaw16Pull(void *filter, s16 *outp, s32 outCount, s32 sampleOffset, Acmd 
     if (overFlow < nbytes){
         if (outCount > 0){
             nbytes -= overFlow;
-            dramLoc = (f->dma)(f->memin, nbytes, f->dmaState);
+            dramLoc = (s32)(f->dma)(f->memin, nbytes, f->dmaState);
             
             /*
              * Make sure enough is loaded into DMEM to take care
@@ -426,7 +426,7 @@ Acmd *_decodeChunk(Acmd *ptr, ALLoadFilter *f, s32 tsam, s32 nbytes, s16 outp, s
         dramLoc;
     
     if (nbytes > 0){
-        dramLoc = (f->dma)(f->memin, nbytes, f->dmaState);
+        dramLoc = (s32)(f->dma)(f->memin, nbytes, f->dmaState);
         /*
          * Make sure enough is loaded into DMEM to take care
          * of 8 byte alignment

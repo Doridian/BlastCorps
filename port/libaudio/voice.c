@@ -19,10 +19,6 @@
 #define PITCH_ONE 0x8000
 #define PITCH_MAX 1.99996
 
-static u32 phys(void *p) {
-    return osVirtualToPhysical(p);
-}
-
 void al_voice_init(PVoice *pv, ALDMANew dmanew, ALHeap *hp) {
     pv->dec_state = alHeapAlloc(hp, 1, sizeof(ADPCM_STATE));
     pv->loop_state = alHeapAlloc(hp, 1, sizeof(ADPCM_STATE));
@@ -129,8 +125,8 @@ static void loop_done_once(PVoice *pv) {
    hold the 8 bytes before them (DMA is 8-byte aligned); returns how far
    into dmem they start */
 static s32 fetch(PVoice *pv, s32 nbytes, s32 dmem, Acmd **cmdp) {
-    s32 at = pv->dma(pv->rom, nbytes, pv->dma_state);
-    s32 skew = at & 7;
+    u8 *at = pv->dma(pv->rom, nbytes, pv->dma_state);
+    s32 skew = (uintptr_t)at & 7;
 
     nbytes += skew;
     aSetBuffer((*cmdp)++, 0, dmem, 0, nbytes + 8 - (nbytes & 7));
@@ -146,9 +142,9 @@ static Acmd *decode_frames(PVoice *pv, s32 nsamples, s32 nbytes, s16 out, s16 in
     if (nbytes > 0)
         skew = fetch(pv, nbytes, in, &cmd);
     if (flags & A_LOOP)
-        aSetLoop(cmd++, phys(pv->loop_state));
+        aSetLoop(cmd++, pv->loop_state);
     aSetBuffer(cmd++, 0, in + skew, out, nsamples << 1);
-    aADPCMdec(cmd++, flags, phys(pv->dec_state));
+    aADPCMdec(cmd++, flags, pv->dec_state);
     pv->dec_first = 0;
     return cmd;
 }
@@ -165,7 +161,7 @@ static Acmd *pull_adpcm(PVoice *pv, s16 *out, s32 n, Acmd *cmd) {
 
     if (n == 0)
         return cmd;
-    aLoadADPCM(cmd++, pv->book_bytes, phys(pv->table->waveInfo.adpcmWave.book->book));
+    aLoadADPCM(cmd++, pv->book_bytes, pv->table->waveInfo.adpcmWave.book->book);
 
     if ((u32)(n + pv->played) > pv->loop_end && loop_runs(pv)) {
         /* to the loop's end, then from its start as often as it takes */
@@ -273,8 +269,8 @@ static Acmd *pull_raw(PVoice *pv, s16 *out, s32 n, Acmd *cmd) {
             want = (u32)n < pv->loop_end - pv->loop_start ? (u32)n : pv->loop_end - pv->loop_start;
             nbytes = want << 1;
             {
-                s32 at = pv->dma(pv->rom, nbytes, pv->dma_state);
-                skew = at & 7;
+                u8 *at = pv->dma(pv->rom, nbytes, pv->dma_state);
+                skew = (uintptr_t)at & 7;
                 nbytes += skew;
                 dmem_skew = pos & 7 ? 8 - (pos & 7) : 0;
                 aSetBuffer(cmd++, 0, pos + dmem_skew, 0, nbytes + 8 - (nbytes & 7));
@@ -345,7 +341,7 @@ static Acmd *resample(PVoice *pv, s16 out, s32 n, Acmd *cmd) {
     pv->rs_frac = want - (f32)nin;
     cmd = pull_table(pv, &in, nin, cmd);
     aSetBuffer(cmd++, 0, in, out, n << 1);
-    aResample(cmd++, pv->rs_first, (s32)(pv->ratio * PITCH_ONE), phys(pv->rs_state));
+    aResample(cmd++, pv->rs_first, (s32)(pv->ratio * PITCH_ONE), pv->rs_state);
     pv->rs_first = 0;
     return cmd;
 }
@@ -404,9 +400,9 @@ static Acmd *mix(PVoice *pv, s16 *in, s16 dst, s32 n, Acmd *cmd) {
         aSetVolume(cmd++, A_LEFT | A_RATE, pv->target_l, pv->rate_l, pv->rate_l_frac);
         aSetVolume(cmd++, A_RIGHT | A_RATE, pv->target_r, pv->rate_r, pv->rate_r_frac);
         aSetVolume(cmd++, A_AUX, pv->dry, 0, pv->wet);
-        aEnvMixer(cmd++, A_INIT | A_AUX, phys(pv->env_state));
+        aEnvMixer(cmd++, A_INIT | A_AUX, pv->env_state);
     } else {
-        aEnvMixer(cmd++, A_CONTINUE | A_AUX, phys(pv->env_state));
+        aEnvMixer(cmd++, A_CONTINUE | A_AUX, pv->env_state);
     }
     *in += n << 1;
     return cmd;
