@@ -22,7 +22,7 @@ N64_CFLAGS := $(ARCH) -O2 -g -fPIC -std=gnu89 -fsigned-char -fno-strict-aliasing
     -fno-delete-null-pointer-checks -ftrivial-auto-var-init=zero -ffp-contract=off -fno-common \
     -fno-builtin -nostdinc -isystem $(RESOURCE) -include $(PORT)/include/port_game.h \
     -D_LANGUAGE_C -D_FINALROM -DTARGET_PC -D$(VDEF) -D_MIPS_SZLONG=32 -D_MIPS_SZINT=32 \
-    -DPORT_AUDIO_ORACLE -w -MMD -MP
+    -DPORT_AUDIO_ORACLE -w -MMD -MP -I$(OUT)/gen
 ORIG_INC := -I$(PORT)/include -I$(BLAST) -I$(BLAST)/include -I$(BLAST)/include/2.0I \
     -I$(BLAST)/include/2.0I/PR
 PORT_INC := -I$(PORT)/libaudio -I$(PORT)/include -I$(PORT)/include/sdk -I$(PORT)/include/sdk/PR \
@@ -37,6 +37,14 @@ PORT_SRC := $(wildcard $(PORT)/libaudio/*.c)
 PORT_O := $(PORT_SRC:$(PORT)/libaudio/%.c=$(OUT)/port/%.o)
 
 all: $(OUT)/replay $(OUT)/orig.so $(if $(PORT_SRC),$(OUT)/port.so $(OUT)/banktest.so)
+
+# game/types.h's ROM addresses (port/tools/gen_syms.py romaddrs, from a
+# stage 2 of the version): libaudio names none, so an empty header does
+$(OUT)/gen/rom_addrs.h:
+	@mkdir -p $(dir $@)
+	echo "/* (the libaudio oracle: no ROM addresses) */" > $@
+
+$(ORIG_O) $(PORT_O) $(OUT)/banktest/banktest.o: | $(OUT)/gen/rom_addrs.h
 
 $(OUT)/replay: replay.c $(PORT)/include/audio_log.h
 	@mkdir -p $(dir $@)
