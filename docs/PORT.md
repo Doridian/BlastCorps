@@ -2822,35 +2822,72 @@ loops' shape doesn't matter to the timing.
 
 - **Recording.**  `-DPORT_AUDIO_RECORD=ON` (a native-endian ILP32 build:
   `-DPORT_64BIT=ON -DPORT_NATIVE_ENDIAN=ON`, with
-  `-DPORT_LIBAUDIO_ORIGINAL=ON`) wraps every libaudio function the game
-  calls (`port/src/audio_record.c`), and `PORT_AUDIO_LOG=FILE` writes the
-  log (`port/host/audiolog.c`, format in `port/include/audio_log.h`):
-  each call's arguments and the structures handed over and back, its
-  result, each frame's command list (by hash), the library's calls back
-  into the game (the sound player's voice handler, the DMA routine) with
-  what they returned, and everything the game, the RSP and the PI changed
-  in the memory they share (the audio heap and the audio objects' data)
-  since the library last had it.  Interrupts are masked while the library
-  runs, so that no thread runs in the middle of a call.
+  `-DPORT_LIBAUDIO_ORIGINAL=ON`, which is refused with `PORT_LP64`: the
+  original's structures are the N64's, with 4-byte pointers) wraps every
+  libaudio function the game calls (`port/src/audio_record.c`), and
+  `PORT_AUDIO_LOG=FILE` writes the log (`port/host/audiolog.c`, format in
+  `port/include/audio_log.h`): each call's arguments and the structures
+  handed over and back, its result, each frame's command list (by hash),
+  the library's calls back into the game (the sound player's voice
+  handler, the DMA routine) with what they returned, and everything the
+  game, the RSP and the PI changed in the memory they share (the audio
+  heap and the audio objects' data) since the library last had it.
+  Interrupts are masked while the library runs, so that no thread runs in
+  the middle of a call.
 - **Replaying.**  `make -C port/tools/audio_oracle VERSION=...` builds
   `replay` and the two libraries for i386 (the N64's layouts) with the
   game's memory at its N64 addresses; `replay LIB.so LOG` plays the game's
   side from the log and checks everything the library gives back against
   the recording, stopping at the first difference (`-k` goes on).
   `--hashes FILE` writes a hash of the shared memory after each call (the
-  library's own heap blocks left out) for comparing two libraries;
-  `--dump-acmd N FILE` and `--dump-mem N FILE` write a frame's command list
-  or the memory after a call, which `acmd_diff.py` and `mem_diff.py`
-  compare; `alog_dump.py` prints a log.
+  library's own heap blocks and the bank files left out) for comparing two
+  libraries; `--dump-acmd N FILE` and `--dump-mem N FILE` write a frame's
+  command list or the memory after a call, which `acmd_diff.py` and
+  `mem_diff.py` compare; `alog_dump.py` prints a log.  The replay's
+  `osVirtualToPhysical` is the identity, as the port's is (the lists hold
+  KSEG0 addresses).
+- **Bank objects.**  A library that builds its own bank objects (each
+  `ALBank`, `ALInstrument`, `ALSound`, `ALWaveTable`) instead of
+  relocating the file's in place exports their map from the file's
+  addresses, which are what the log holds, to its own (`alog_bank_map`,
+  `audio_log.h`).  After each `alBnkfNew` the replay takes it, hands the
+  library its own object wherever the log has a mapped file address (a
+  call's argument, a 4-aligned word the game writes outside the bank
+  files), and compares the library's words that are its objects as the
+  file's (the structures it gives back, results, callbacks' arguments,
+  `--hashes`, `--dump-mem`).  Only exact object starts are translated;
+  `--translations FILE` lists each one and the summary counts them.  The
+  bank files' own bytes are the library's after `alBnkfNew` and are left
+  out of the hashes.  A library without the map relocates in place and
+  nothing is translated.  `banktest.so` (`banktest.c`) is `port.so` with
+  its banks' objects copied out of the file and the file's pointers
+  poisoned: replaying into it with no mismatch shows the translation
+  reaches everything the library is handed.
+- **Running it.**  `oracle.py record --version V --refs DIR` builds the
+  recorder (`build/oracle-rec-V`) and records test.py's attract (4,000
+  frames), auto1-3 and attract.long (12,000) into `DIR/V-<scenario>.alog`,
+  the same runs as `test.py quick`'s, checking each run's wav against the
+  scenario's reference hash (the original library has to give the
+  reference's sound).  `oracle.py replay --version V --refs DIR [--lib
+  port orig banktest]` builds the replay and the libraries
+  (`build/audio_oracle/V`) and replays every log of the version: it
+  passes with no mismatch in any.  `--lock FILE` holds an flock around the
+  runs.  The logs are large (us.v10's five 340 MB, eu's 510 MB) and are
+  kept out of the repository; a change to the libaudio or to what the game
+  hands it is checked against logs recorded once from the tree before it.
 
-Checked on 2026-10-01 (us.v10): the quick tier's four scenarios and the
-attract mode's 12,000 frames (8,940 audio frames, 359,000 calls) and the
-whole TAS (3,578,841 calls, 137,421 audio frames), the port's libaudio identical to the original in
-every frame's commands, every answer and every call's shared memory.
-What those runs never reach (line coverage of `port/libaudio` over them:
-86%) is what the game's data and calls don't use: 16-bit wave tables, unity
-pitch, loops with a count, oscillators, the sustain pedal and aftertouch,
-and the API the game doesn't call.
+Checked on 2026-10-10 (fd641e1's tree, us.v10 and eu): every audio frame's
+commands, every answer and every structure handed back the original's, for
+port.so and orig.so, in the five scenarios of both versions (us.v10:
+360,000 calls, 12,000 audio frames; eu: 720,000 calls, 24,000 audio
+frames), and banktest.so too; us.v10's auto2 also in the shared memory
+after every call, the same for all three.  Checked on 2026-10-01 (us.v10):
+the quick tier's four scenarios, the attract mode's 12,000 frames and the
+whole TAS (3,578,841 calls, 137,421 audio frames), with the shared memory
+after every call too.  What those runs never reach (line coverage of
+`port/libaudio` over them: 86%) is what the game's data and calls don't
+use: 16-bit wave tables, unity pitch, loops with a count, oscillators, the
+sustain pedal and aftertouch, and the API the game doesn't call.
 
 ## Graphics
 
