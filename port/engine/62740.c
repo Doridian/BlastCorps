@@ -1297,12 +1297,13 @@ s32 func_802ABFC8(s32 found, s32 x, s32 z, s32 y, u8 *model) {
    rectangle, as two triangles) with ground under it at or below y
    (func_802ABFC8) */
 s32 func_802ABEDC(s32 x, s32 y, s32 z) {
-    u8 *p, *model;
+    Building *p;
+    u8 *model;
     s16 *r;
     s32 found = 0, x1, z1, x2, z2;
 
-    for (p = (u8 *)D_803F4030; p != (u8 *)D_803F7654; p += 0xFC) {   /* the level's objects, 0xFC bytes each */
-        model = *(u8 *PTR32 *)p;
+    for (p = D_803F4030; p != D_803F7654; p++) {   /* the level's objects */
+        model = (u8 *)p->model;
         r = (s16 *)(model + *(s32 *)(model + 0x20));
         x1 = r[0] << 5, z1 = r[1] << 5, x2 = r[2] << 5, z2 = r[3] << 5;
         if (func_802AA5E0(x, z, x1, z1, x2, z2, x2, z1) || func_802AA5E0(x, z, x1, z1, x2, z2, x1, z2))

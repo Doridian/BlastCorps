@@ -276,7 +276,7 @@ SIZE_CHECK(LevelBuilding, 0xE);
  */
 typedef struct Building {
     /* 0x00 */ struct Model *PTR32 model;  /* game/model.h */
-    /* 0x04 */ void *PTR32 unk4; /* heap blocks (func_802A21AC) */
+    /* 0x04 */ void *PTR32 unk4; /* its pieces (CollisionTri) on the heap, to unk8 (func_802A21AC) */
     /* 0x08 */ void *PTR32 unk8;
     /* 0x0C */ s32 unkC;
     /* 0x10 */ s32 x;            /* world position << 5 (13A70.c draws the shadow at x, unk44, z) */
@@ -289,26 +289,23 @@ typedef struct Building {
     /* 0x2C */ s32 unk2C;
     /* 0x30 */ s32 unk30;        /* the model number (13A70.c treats 0xBA..0xBC apart) */
     /* 0x34 */ s32 unk34;
-    /* 0x38 */ s32 unk38;
+    /* 0x38 */ s32 unk38;        /* unk38..unk44: a moving building's state (4EBE0.c) */
     /* 0x3C */ s32 unk3C;
     /* 0x40 */ s32 unk40;
     /* 0x44 */ s32 unk44;        /* the ground under it, << 5; 77E20 also reads its low half */
-    /* 0x48 */ u16 unk48;
-    /* 0x4A */ u8 pad4A[0x1E];
-    /* 0x68 */ s16 unk68;        /* unk68, unk86, unkA6, unkC6: one halfword in each 0x20 bytes */
-    /* 0x6A */ u8 pad6A[0x1C];
-    /* 0x86 */ s16 unk86;
-    /* 0x88 */ u8 pad88[0x1E];
-    /* 0xA6 */ s16 unkA6;
-    /* 0xA8 */ u8 padA8[0x1E];
-    /* 0xC6 */ s16 unkC6;
-    /* 0xC8 */ u8 padC8[0x20];
-    /* 0xE8 */ u8 unkE8;
-    /* 0xE9 */ u8 unkE9;
-    /* 0xEA */ u8 unkEA;         /* 13A70.c only draws a shadow while it is 0 */
-    /* 0xEB */ u8 unkEB;
-    /* 0xEC */ u8 unkEC;
-    /* 0xED */ u8 padED[0xF];
+    /* per damage group (0-based): falling (nonzero), the frames it has
+       fallen, and its spin rates (12-bit angles a frame: x signed, y and z
+       read unsigned) */
+    /* 0x48 */ u16 falling[16];
+    /* 0x68 */ u16 fall_t[16];
+    /* 0x88 */ s16 spin_x[16];
+    /* 0xA8 */ u16 spin_y[16];
+    /* 0xC8 */ u16 spin_z[16];
+    /* 0xE8 */ u8 unkE8;         /* the grid cell it is drawn in */
+    /* 0xE9 */ u8 unkE9;         /* its damage groups */
+    /* 0xEA */ u8 unkEA;         /* destroyed; 13A70.c only draws a shadow while it is 0 */
+    /* 0xEB */ u8 unkEB;         /* one of the level's targets */
+    /* 0xEC */ u8 damage[16];    /* per group (0-based), 0..100 */
 } Building;
 SIZE_CHECK(Building, 0xFC);
 

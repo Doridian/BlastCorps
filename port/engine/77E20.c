@@ -769,7 +769,7 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
 
             m = D_803F765C;
             D_803F765C = (Mtx *)((u8 *)m + 0x40);
-            func_802933A0(b->unk1C, b->unk20, b->unk24, M_MOVES(model), m, (u8 *)b + 0x38, (Gfx *)g0,
+            func_802933A0(b->unk1C, b->unk20, b->unk24, M_MOVES(model), m, &b->unk38, (Gfx *)g0,
                           (Gfx *)g1, b->unk34, b->x, b->y, b->z);
             g0 += 2;
             g1 += 2;

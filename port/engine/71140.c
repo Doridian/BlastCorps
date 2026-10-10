@@ -451,8 +451,8 @@ void func_802AC284(s32 *x, s32 *y, s32 *z) {
    off, with a sound; with D_8036E4C8 clear, the level lost instead */
 REGS(v0, v1, a0, a1, t8, gp)
 void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
-    u8 *PTR32 *q;
-    u8 *o;
+    HitPair *q;
+    Building *o;
     s32 dx, dz;
 
     if (D_80364AA8 != 0x40)
@@ -466,16 +466,16 @@ void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs) {
         return;
     }
     func_80260650(D_80367738, 0x3D, NULL);
-    /* (the objects it is carrying: the pairs' first words) */
-    for (q = (u8 *PTR32 *)HIT_PAIRS; q != (u8 *PTR32 *)HIT_END; q += 2) {
-        o = q[0];
-        *(s32 *)(o + 0x38) = 1;
-        *(s32 *)(o + 0x40) = -1;
-        dx = 0xBB80 - *(s32 *)(o + 0x10);
-        *(s32 *)(o + 0x10) = 0xBB80;
-        dz = 0xBB80 - *(s32 *)(o + 0x18);
-        *(s32 *)(o + 0x18) = 0xBB80;
-        func_802BD99C((Building *)o, dx, 0, dz);
+    /* (the buildings it is carrying: the pairs') */
+    for (q = HIT_PAIRS; q != HIT_END; q++) {
+        o = q->b;
+        o->unk38 = 1;
+        o->unk40 = -1;
+        dx = 0xBB80 - o->x;
+        o->x = 0xBB80;
+        dz = 0xBB80 - o->z;
+        o->z = 0xBB80;
+        func_802BD99C(o, dx, 0, dz);
     }
 }
 

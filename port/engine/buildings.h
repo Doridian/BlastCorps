@@ -8,8 +8,8 @@
  * unk4..unk8 is a list of 0x60-byte pieces, the planes it collides with,
  * which the destruction switches off group by group.  The model file holds
  * offsets (from its start) to its sections (MS_ below); a section ends where
- * the next one starts.  A building's damage is a byte per group, 0..100,
- * from Building + 0xEC (group g at 0xEC + g - 1); 100 is destroyed.
+ * the next one starts.  A building's damage is a byte per group, 0..100
+ * (Building.damage, group g at damage[g - 1]); 100 is destroyed.
  *
  * Groups are numbered from 1 where the model's records and the pieces name
  * them, and from 0 where they index the building's arrays (B_DAMAGE and the
@@ -108,14 +108,14 @@ typedef struct AnimTex {
 
 /* ---- a building's state, past objects.h's fields -------------------------- */
 
-#define B_DAMAGE(b) ((u8 *)(b) + 0xEC)
+#define B_DAMAGE(b) ((b)->damage)
 /* per group (0-based): falling (nonzero), the frames it has fallen, and its
-   spin rates (12-bit angles a frame: x signed, y and z read unsigned) */
-#define B_FALLING(b) ((u16 *)((u8 *)(b) + 0x48))
-#define B_FALL_T(b) ((u16 *)((u8 *)(b) + 0x68))
-#define B_SPIN_X(b) ((s16 *)((u8 *)(b) + 0x88))
-#define B_SPIN_Y(b) ((u16 *)((u8 *)(b) + 0xA8))
-#define B_SPIN_Z(b) ((u16 *)((u8 *)(b) + 0xC8))
+   spin rates (objects.h) */
+#define B_FALLING(b) ((b)->falling)
+#define B_FALL_T(b) ((b)->fall_t)
+#define B_SPIN_X(b) ((b)->spin_x)
+#define B_SPIN_Y(b) ((b)->spin_y)
+#define B_SPIN_Z(b) ((b)->spin_z)
 #define B_RADIUS(b) ((b)->unkC)         /* its sphere, << 5 (func_8029CFA4) */
 #define B_ID(b) ((b)->unk30)            /* the model number */
 #define B_CELL(b) ((b)->unkE8)          /* the grid cell it is drawn in */

@@ -47,19 +47,19 @@ void func_802AC6FC(s32 x, s32 y, s32 z, s32 kind, s32 t1);
 
 /* ---- the functions --------------------------------------------------- */
 
-/* Each record at D_803F4030 within `radius` of (D_803EF6DC, ...) whose
-   byte 0xEA is clear gets func_802C18D4. */
+/* Each building within `radius` of (D_803EF6DC, ...) that isn't destroyed
+   (unkEA) gets func_802C18D4. */
 void func_802AC1A0(s32 radius) {
-    u8 *p, *end;
+    Building *p, *end;
     s32 x, y, z;
 
     radius <<= 5;
-    for (p = (u8 *)D_803F4030, end = (u8 *)D_803F7654; p != end; p += 0xFC) {   /* (0xFC-byte records) */
-        if (p[0xEA] != 0)
+    for (p = D_803F4030, end = D_803F7654; p != end; p++) {
+        if (p->unkEA != 0)
             continue;
-        x = *(s32 *)(p + 0x10);
-        y = *(s32 *)(p + 0x14);
-        z = *(s32 *)(p + 0x18);
+        x = p->x;
+        y = p->y;
+        z = p->z;
         if (func_802ABCDC(x, y, z, D_803EF6DC, D_803EF6E0, D_803EF6E4) < radius)
             func_802C18D4(10, x << 11, y << 11, z << 11, 100000);
     }

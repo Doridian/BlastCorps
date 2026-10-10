@@ -222,7 +222,7 @@ enum PortLayout {
     PORT_LAYOUT_BUILDING_Z,
     PORT_LAYOUT_BUILDING_GROUPS,        /* unkE9 */
     PORT_LAYOUT_BUILDING_GONE,          /* unkEA */
-    PORT_LAYOUT_BUILDING_DAMAGE,        /* unkEC */
+    PORT_LAYOUT_BUILDING_DAMAGE,        /* damage[] */
     PORT_LAYOUT_TNT_SIZE,               /* TntCrate */
     PORT_LAYOUT_TNT_X,
     PORT_LAYOUT_TNT_Y,

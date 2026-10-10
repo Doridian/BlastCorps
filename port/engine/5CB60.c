@@ -1057,7 +1057,6 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     u8 *m = (u8 *)m_;
     Building *b;
     u32 k, ngroups, cell, a0;
-    u16 *f48, *f68;
     BuildingTri *src, *end;
     CollisionTri *t;
 
@@ -1084,17 +1083,15 @@ void func_802A21AC(u32 m_, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {
     b->z = b->unk24 = z << 5;
     ngroups = ((Model *)m)->unk0;
     b->unkE9 = ngroups;
-    /* per group: a byte from 0xEC, halfwords from 0x48 and 0x68 */
+    /* per group: its damage, falling and the frames it has fallen */
     for (k = 0; k < ngroups; k++) {
-        (&b->unkEC)[k] = 0;
+        b->damage[k] = 0;
     }
-    f48 = &b->unk48;
     for (k = 0; k < ngroups; k++) {
-        f48[k] = 0;
+        b->falling[k] = 0;
     }
-    f68 = (u16 *)&b->unk68;
     for (k = 0; k < ngroups; k++) {
-        f68[k] = 0;
+        b->fall_t[k] = 0;
     }
     if (D_803BE704 != NULL && (flag != 0)) {
         *(u32 *)D_803BE704 = (u32)b;
