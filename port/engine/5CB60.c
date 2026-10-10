@@ -1064,8 +1064,15 @@ void func_802A21AC(u8 *m, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {    
     for (k = 0; k < ngroups; k++) {
         b->fall_t[k] = 0;
     }
-    if (D_803BE704 != NULL && (flag != 0)) {
-        /* the level's next group set is this building's */
+    /* the level's next group set is this building's.  The sets are
+       hd_code's (D_803BE708: a count, then the sets), the flags the level
+       file's: every level of the game's flags as many buildings as it has
+       sets, but a changed level file can flag more, and the original then
+       writes past the table (into the next level's, or the code after the
+       last).  A building past the last set gets none, as an unflagged one
+       has. */
+    if (D_803BE704 != NULL && (flag != 0) &&
+        D_803BE704 < D_803BE708 + 4 + *(u32 *)D_803BE708 * sizeof(GroupSet)) {
         ((GroupSet *)D_803BE704)->building = GROUP_SET_KEY(b);
         D_803BE704 += sizeof(GroupSet);
     }
