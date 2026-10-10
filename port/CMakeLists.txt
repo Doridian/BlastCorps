@@ -390,6 +390,11 @@ endforeach()
 # the libaudio oracle records with and replays into: the original as the
 # game's C, the port's own as the port's (libaudio_c, below).
 option(PORT_LIBAUDIO_ORIGINAL "the decompiled original libaudio, not the port's own (port/libaudio)" OFF)
+# (the oracle's reference: the original's structures as the N64 lays them
+# out, with 4-byte pointers, which LP64 can't give it)
+if(PORT_LIBAUDIO_ORIGINAL AND PORT_LP64)
+    message(FATAL_ERROR "PORT_LIBAUDIO_ORIGINAL is for the ILP32 builds, not PORT_LP64")
+endif()
 set(LIBAUDIO_ORIG
     hd_code/90390 hd_code/92350 hd_code/923B0 hd_code/926F0 hd_code/927B0 hd_code/92800
     hd_code/92A30 hd_code/92AD0 hd_code/92B60 hd_code/92BF0 hd_code/92C80 hd_code/92D20
