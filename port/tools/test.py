@@ -18,7 +18,11 @@ the plain run: the save and the sound must not change).  No build but the
 check build (PORT_ENGINE_CHECK) may compile or link any of the translated
 engine (tools/recomp's recomp_func_X): the engine is port/engine's.  A build that takes
 its data from the ROM (PORT_ROM_DATA, the movable ones by default) is also
-searched for the ROM's data (rom_scan.py), and must carry none.  It also plays
+searched for the ROM's data (rom_scan.py), and must carry none.  An LP64
+build (not the movable one) also runs P6's pointer checks against their
+allow-lists: ptr32_check.py (the structures still PTR32), decl_check.py
+(declarations that disagree about a pointer) and ptrcast_scan.py (the
+pointer/integer conversions), the last two for all four versions.  It also plays
 from a resource pack made from the ROM (port/make_pack.py, into build/pack/):
 the same hashes as from the ROM; and from a copy with a texture painted over:
 the same save and sound, the screenshots changed only toward its colour.
@@ -704,6 +708,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
     fails += no_translation(build)
     if build.rom_data:
         fails += rom_scan(build)
+    fails += pointer_checks(build)
     if update:
         refs.setdefault("quick", {})[build.version] = vref
     if update or known is not None:
@@ -752,6 +757,41 @@ def no_translation(build):
     say("PASS", label, "no translated function compiled" +
         (f", none in {', '.join(looked)}'s symbols" if looked else " (no symbols to look in)"))
     return 0
+
+
+POINTER_CHECKS = (
+    # (tool, arguments after the build, what it checks)
+    ("ptr32_check.py", [], "the structures still PTR32 are the allow-list's"),
+    ("decl_check.py", ["--version", "all"], "the declarations' pointer disagreements are the allow-list's"),
+    ("ptrcast_scan.py", ["--version", "all"], "the pointer/integer conversions are within the allow-list"),
+)
+
+
+def pointer_checks(build):
+    """the LP64 build (not the movable one, which has the same sources and
+    layouts): P6's checks of the pointers, against their allow-lists
+    (ptr32_check.py from the DWARF, decl_check.py and ptrcast_scan.py from
+    the N64 side's sources, for all four versions); the failures"""
+    if not build.lp64 or build.movable or build.wasm:
+        return 0
+    fails = 0
+    for tool, args, what in POINTER_CHECKS:
+        t = time.time()
+        label = f"{build.name} {os.path.splitext(tool)[0]}"
+        need = "llvm-dwarfdump" if tool == "ptr32_check.py" else "ninja"
+        if not shutil.which(need):
+            say("SKIP", label, f"no {need}")
+            continue
+        r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", tool), build.path] + args,
+                           capture_output=True, text=True)
+        label += f" ({time.time() - t:.0f}s)"
+        out = (r.stdout + r.stderr).strip()
+        if r.returncode == 0:
+            say("PASS", label, what + ": " + "; ".join(l for l in out.splitlines() if not l.startswith(" "))[:400])
+        else:
+            say("FAIL", label, out[-3000:])
+            fails += 1
+    return fails
 
 
 def rom_scan(build):
