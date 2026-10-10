@@ -14,6 +14,7 @@
 #include "game/player.h"
 #include "game/sched.h"
 #include "game/game.h"
+#include "game/frame.h"
 
 #define OFF(type, field) __builtin_offsetof(type, field)
 
@@ -62,7 +63,15 @@ static const u32 layout[PORT_LAYOUT_COUNT] = {
     [PORT_LAYOUT_PTR_D_803F7654] = sizeof(D_803F7654),
     [PORT_LAYOUT_PTR_D_8036BED8] = sizeof(D_8036BED8),
     [PORT_LAYOUT_PTR_D_80365348] = sizeof(D_80365348[0]),
+    [PORT_LAYOUT_GFX_SIZE] = sizeof(Gfx),
+    [PORT_LAYOUT_ACMD_SIZE] = sizeof(Acmd),
+    [PORT_LAYOUT_FRAME_SIZE] = sizeof(Frame),
 };
+/* (the host reads a command's words at its start and its middle) */
+_Static_assert(OFF(Gfx, words.w1) == sizeof(Gfx) / 2 && sizeof(Gfx) / 2 == sizeof(((Gfx *)0)->words.w0),
+               "Gfx: two words");
+_Static_assert(OFF(Acmd, words.w1) == sizeof(Acmd) / 2 && sizeof(Acmd) / 2 == sizeof(((Acmd *)0)->words.w0),
+               "Acmd: two words");
 
 u32 port_layout(unsigned id) {
     return id < PORT_LAYOUT_COUNT ? layout[id] : 0;

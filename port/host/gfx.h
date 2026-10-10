@@ -13,6 +13,70 @@
 #define GFX_H
 
 #include <stdint.h>
+#include <string.h>
+
+#include "port.h"
+
+/* ---- display-list commands and the addresses in them ---------------------------
+ *
+ * A command is the N64 side's Gfx: two words, w0 (the opcode and its
+ * fields) and w1 (a field, or an address), each 4 bytes in game memory's
+ * order, or, where the N64 side's Gfx has pointer-wide words
+ * (PORT_WIDE_GFX, the LP64 builds), 8 bytes in the host's: gfx_cmd is its
+ * size, from port_layout (8 or 16), and gfx_w0/gfx_w1 read its words.
+ *
+ * Every address the renderer holds (a list, the images, a vertex load's,
+ * the segment table's entries in the wide form) is a host pointer, as an
+ * integer: GfxAddr.  gfx_addr() makes one of a command's word: in the
+ * narrow form (32-bit words) the RSP's rule, a segment (bits 24..27) and
+ * an offset, resolved to KSEG0 and then to where the host has it
+ * (port_ptr, or the renderer's own memory, GFX_HOST_BASE); in the wide
+ * one a word below 0x10000000 is a segment's pointer plus the offset, and
+ * anything else the pointer itself.  An N64 address the game hands the
+ * host some other way (a texture it reports, a variable's) is made one
+ * with gfx_of_n64, a pointer of the N64 side's with gfx_of_ptr, so that
+ * both are compared in one domain. */
+typedef uintptr_t GfxAddr;
+extern unsigned gfx_cmd;        /* a command's bytes: 8, or 16 (gfx_wide) */
+extern int gfx_wide;            /* its words are 8 bytes, pointers in the host's order */
+extern int gfx_strict;          /* PORT_GFX_STRICT=1: a malformed list is fatal (gfx.c) */
+void gfx_layout_init(void);     /* gfx_cmd and gfx_wide from port_layout (idempotent) */
+
+static inline uintptr_t gfx_word(const uint8_t *p) {
+#if UINTPTR_MAX > 0xFFFFFFFFu
+    if (gfx_wide) {
+        uint64_t v;
+        memcpy(&v, p, sizeof v);
+        return (uintptr_t)v;
+    }
+#endif
+    return port_g32(p);
+}
+static inline uintptr_t gfx_w0(const uint8_t *c) { return gfx_word(c); }
+static inline uintptr_t gfx_w1(const uint8_t *c) { return gfx_word(c + gfx_cmd / 2); }
+/* a command of the renderer's own (micons.c) */
+static inline void gfx_put(uint8_t *c, uintptr_t w0, uintptr_t w1) {
+#if UINTPTR_MAX > 0xFFFFFFFFu
+    if (gfx_wide) {
+        uint64_t a = w0, b = w1;
+        memcpy(c, &a, 8);
+        memcpy(c + 8, &b, 8);
+        return;
+    }
+#endif
+    port_wg32(c, (uint32_t)w0);
+    port_wg32(c + 4, (uint32_t)w1);
+}
+/* A word of a wide list (or audio command) that is a segmented address,
+   not a pointer.  The one place that decides it: today the RSP's own
+   range, below 0x10000000, which no host pointer of the LP64 builds is in;
+   a host whose memory is low (a 32-bit one, PS2's, wasm's) needs a tag
+   here instead, and only here (gfx_addr, aspmain.c's ram). */
+static inline int gfx_wide_segmented(uintptr_t w) { return w < 0x10000000u; }
+static inline GfxAddr gfx_of_n64(uint32_t a) { return a ? (GfxAddr)port_ptr(a) : 0; }
+static inline GfxAddr gfx_of_ptr(const void *p) { return p ? gfx_of_n64(port_n64(p)) : 0; }
+/* a host address as an integer for a hash (its two halves folded) */
+static inline uint32_t gfx_addr_hash(GfxAddr a) { return (uint32_t)a ^ (uint32_t)((uint64_t)a >> 32); }
 
 typedef struct {
     int fmt, siz, line, tmem, pal;
@@ -21,7 +85,7 @@ typedef struct {
 } GfxTile;
 
 typedef struct {
-    uint32_t seg[16];
+    uintptr_t seg[16];          /* narrow: the N64 values (masked), wide: pointers */
     float mv[10][4][4];
     int mv_top;
     float proj[4][4];
@@ -38,11 +102,11 @@ typedef struct {
     float tex_s, tex_t;
     int tex_tile, tex_on, tex_levels;
     GfxTile tile[8];
-    uint32_t timg_addr;
+    GfxAddr timg_addr;
     int timg_fmt, timg_siz, timg_w;
-    uint32_t cimg_addr;
+    GfxAddr cimg_addr;
     int cimg_siz, cimg_w;
-    uint32_t zimg_addr;
+    GfxAddr zimg_addr;
     int sc_x0, sc_y0, sc_x1, sc_y1;
     float vp_scale[3], vp_trans[3];
     int nlights;
@@ -56,10 +120,10 @@ typedef struct {
 } GfxState;
 
 /* the renderer's own memory (micons.c, the models drawn for the game's
-   pictures of them): N64 addresses GFX_HOST_BASE.. that no game memory
-   has (above the fibers' stacks), reached through a segment the injected
-   display lists set; gfx.c reads display lists, vertices, matrices and
-   texels through gfx_ptr, which knows it */
+   pictures of them).  In the narrow form: N64 addresses GFX_HOST_BASE..
+   that no game memory has (above the fibers' stacks), reached through a
+   segment the injected display lists set (gfx_addr knows it); in the
+   wide form the lists hold its pointers */
 #define GFX_HOST_BASE 0x9E000000u
 #define GFX_HOST_SPAN 0x00800000u
 extern uint8_t *gfx_host_mem;
@@ -69,7 +133,7 @@ extern GfxState gs;
 extern uint32_t gfx_state_serial;
 extern uint8_t gfx_tmem[4096];
 /* --hd-text: each TMEM word's RDRAM source, by the LoadBlock that wrote it (0: none) */
-extern uint32_t gfx_tmem_src[512];
+extern GfxAddr gfx_tmem_src[512];
 /* TMEM brought up to date: the OpenGL renderer's in-between passes copy
    the loads only when something reads it (gfx.c, tload) */
 void gfx_tmem_sync(void);
@@ -112,7 +176,7 @@ static inline void gfx_wide_span(int x0, int x1, int *a, int *b) {
 }
 /* the software renderer's wide framebuffer at addr (RGBA5551, host order,
    *w pixels across, 240 lines), or NULL: what video.c shows */
-const uint16_t *gfx_sw_wide_frame(uint32_t addr, int *w);
+const uint16_t *gfx_sw_wide_frame(GfxAddr addr, int *w);
 
 /* shared helpers (gfx.c) */
 void gfx_cc_decode(uint8_t idx[2][8]);          /* [cycle][a b c d  Aa Ab Ac Ad] */
@@ -155,7 +219,7 @@ void gfx_gl_zclear(int x0, int y0, int x1, int y1);
 void gfx_gl_clear_rect(int x0, int y0, int x1, int y1);   /* black, whatever the draw state */
 void gfx_gl_task_begin(void);
 void gfx_gl_task_end(void);
-void gfx_gl_texture_source(uint32_t addr);      /* SETTIMG: read back a GPU target? */
+void gfx_gl_texture_source(GfxAddr addr);      /* SETTIMG: read back a GPU target? */
 /* --interpolate (gfx.c; docs/PORT.md, "Frame rate"): up to GFX_TWINS
    in-between images a frame, each drawn into a twin of the framebuffer.
    gfx_gl_interp(k) draws into twin k from now on (-1: the targets);
@@ -163,7 +227,7 @@ void gfx_gl_texture_source(uint32_t addr);      /* SETTIMG: read back a GPU targ
    (a mask) and starts over. */
 #define GFX_TWINS 7
 void gfx_gl_interp(int k);
-unsigned gfx_gl_interp_swap(uint32_t fb);
+unsigned gfx_gl_interp_swap(GfxAddr fb);
 /* the replays of the first pass (gfx.c): gfx_gl_rec_state(kind, tile) is
    the number of the draw state a draw of that kind would get now (kept
    until gfx_gl_rec_reset); gfx_gl_rec_force(n) draws with state n from
@@ -180,10 +244,10 @@ extern unsigned long long gfx_gl_rec_missed;
    frame itself (-1).  gfx_interp_image counts the retraces (once per VI
    present); gfx_interp_image_at is a present between retraces, `phase`
    retraces after the last one (host clock, --display-hz). */
-int gfx_interp_image(uint32_t fb);
-int gfx_interp_image_at(uint32_t fb, double phase);
+int gfx_interp_image(GfxAddr fb);
+int gfx_interp_image_at(GfxAddr fb, double phase);
 /* the software renderer's twin k of fb (as gfx_sw_wide_frame), or NULL */
-const uint16_t *gfx_sw_twin_frame(uint32_t fb, int k, int *w);
+const uint16_t *gfx_sw_twin_frame(GfxAddr fb, int k, int *w);
 extern unsigned long long gfx_st_shown[3];     /* presents, new frames among them, in-between ones */
 extern unsigned long long gfx_st_images;        /* retraces that showed another picture than the last */
 

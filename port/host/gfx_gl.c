@@ -77,7 +77,7 @@ static uint32_t frame_no;
 /* ---- targets ------------------------------------------------------------------ */
 
 typedef struct {
-    uint32_t addr;
+    GfxAddr addr;
     GLuint fbo, tex;
     int dirty;                  /* drawn since the last read-back */
     /* --interpolate: the twins the in-between passes draw into (each with
@@ -92,7 +92,7 @@ static int ntargets;
 static GLuint depth_rb, idepth_rb[GFX_TWINS];
 static int ipass_gl;            /* drawing in-between image ipass_gl - 1 (0: the frame) */
 static Target *cur_target;
-static uint32_t cur_cimg = 1;
+static GfxAddr cur_cimg = 1;
 static Target view;             /* RDRAM shown as it is */
 
 #define TW 320
@@ -208,9 +208,9 @@ static int px_x(int x) { return (x + wide_off) * scale; }
 
 /* RDRAM's RGBA5551 image at addr into t, scaled, in the middle of a wide target */
 static uint32_t upload_buf[TW * TH];
-static void upload_rdram(Target *t, uint32_t addr, int width) {
+static void upload_rdram(Target *t, GfxAddr addr, int width) {
     GLC_DIRTY();
-    const uint8_t *src = port_ptr(addr);
+    const uint8_t *src = (const uint8_t *)addr;
     for (int y = 0; y < TH; y++)
         for (int x = 0; x < TW; x++) {
             uint16_t c = port_be16(src + 2 * (y * width + x));
@@ -273,7 +273,7 @@ static GLuint target_fbo(Target *t) {
     return t->ifbo[k];
 }
 
-static Target *find_target(uint32_t addr) {
+static Target *find_target(GfxAddr addr) {
     for (int i = 0; i < ntargets; i++)
         if (targets[i].addr == addr)
             return &targets[i];
@@ -282,7 +282,7 @@ static Target *find_target(uint32_t addr) {
 
 static void flush(void);
 
-static Target *get_target(uint32_t addr) {
+static Target *get_target(GfxAddr addr) {
     Target *t = find_target(addr);
     if (t)
         return t;
@@ -308,7 +308,7 @@ static Target *get_target(uint32_t addr) {
     target_storage(t);
     upload_rdram(t, addr, TW);                      /* what was there */
     if (host_verbose)
-        host_log("gl: target %08X\n", addr);
+        host_log("gl: target %08lX\n", (unsigned long)addr);
     return t;
 }
 
@@ -392,7 +392,7 @@ static void read_back(Target *t) {
     GLC_DIRTY();
     glBindFramebuffer(GL_READ_FRAMEBUFFER, t->fbo);
     glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, rb_buf);
-    uint8_t *dst = port_ptr(t->addr);
+    uint8_t *dst = (uint8_t *)t->addr;
     for (int y = 0; y < TH; y++)
         for (int x = 0; x < TW; x++) {
             const uint8_t *p = rb_buf + 4 * ((size_t)(h - 1 - y * scale - scale / 2) * w + px_x(x) + scale / 2);
@@ -520,7 +520,7 @@ static int tile_glyph(const GfxTile *t, int w, int h) {
     if (!hdtext_on || t->fmt != 4 || t->siz != 0 || w != 32 || h != 32 || t->line != 2)
         return -1;
     int at = t->tmem & 511;
-    uint32_t src = gfx_tmem_src[at];
+    GfxAddr src = gfx_tmem_src[at];
     if (!src || at + 63 > 511 || gfx_tmem_src[at + 63] != src + 504)
         return -1;
     return hdtext_glyph_at(src);
@@ -1094,7 +1094,8 @@ typedef struct {
     uint8_t prim_lod;
     int tex_on, tex_tile, tex_levels;
     int sc[4];
-    uint32_t tmem_gen, tile_gen, cimg, zimg;
+    uint32_t tmem_gen, tile_gen;
+    GfxAddr cimg, zimg;
 } RawState;
 
 static RawState raw_last;
@@ -1506,14 +1507,14 @@ void gfx_gl_clear_rect(int x0, int y0, int x1, int y1) {
         cur_target->dirty = 1;
 }
 
-void gfx_gl_texture_source(uint32_t addr) {
+void gfx_gl_texture_source(GfxAddr addr) {
     for (int i = 0; i < ntargets; i++) {
         Target *t = &targets[i];
         if (addr >= t->addr && addr < t->addr + TW * TH * 2 && t->dirty) {
             flush();
             read_back(t);
             if (host_verbose)
-                host_log("gl: texture from target %08X: read back\n", t->addr);
+                host_log("gl: texture from target %08lX: read back\n", (unsigned long)t->addr);
         }
     }
 }
@@ -1543,7 +1544,7 @@ void gfx_gl_interp(int k) {
     ipass_gl = k + 1;
 }
 
-unsigned gfx_gl_interp_swap(uint32_t fb) {
+unsigned gfx_gl_interp_swap(GfxAddr fb) {
     Target *t = find_target(fb);
     if (!t)
         return 0;
@@ -1704,7 +1705,7 @@ static int adapt_scale(int want) {
     return adapt_cap < want ? adapt_cap : want;
 }
 
-void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *shot, int twin) {
+void gfx_gl_present(GfxAddr vi_fb, int vi_width, const char *shot, int twin) {
     frame_no++;
     GLC_DIRTY();
     int dw, dh;

@@ -22,9 +22,11 @@
  * sixteen samples before the loop start.
  */
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "host.h"
+#include "gfx.h"
 
 #define DMEM_BASE 0x5C0
 
@@ -40,8 +42,8 @@ enum {
 
 static uint8_t dmem[0x1000];
 static int16_t table[256];              /* A_LOADADPCM: codebook or filter */
-static uint32_t segments[16];
-static uint32_t loop_addr;
+static uintptr_t segments[16];          /* narrow: physical; wide: pointers */
+static uintptr_t loop_addr;
 static uint16_t in_, out_, count_;      /* A_SETBUFF */
 static uint16_t dry_right, wet_left, wet_right;
 static int16_t vol[2], target[2], dry, wet;
@@ -105,10 +107,36 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
         dmem[(d + i) & 0xFFF] = dmem[(s + i) & 0xFFF];
 }
 
-/* RDRAM, through the segment table (bit 28, a host stack's, kept as in
-   gfx.c's seg_to_k0) */
-static uint8_t *ram(uint32_t so) {
-    uint32_t a = segments[(so >> 24) & 0xF] + (so & 0xFFFFFF) + (so & 0xF0000000u);
+/* A command is the N64 side's Acmd (port_layout): two words, 4 bytes each
+   in game memory's order, or 8 in the host's where its words are
+   pointer-wide (PORT_WIDE_GFX), as gfx.h's display lists.  An address in
+   one is then a pointer, or a segment's plus an offset (gfx_wide_segmented);
+   in the narrow form, RDRAM through the segment table (bit 28, a host
+   stack's, kept as in gfx.c's seg_to_k0). */
+static unsigned acmd_size;
+static int acmd_wide, acmd_strict;
+
+static inline uintptr_t acmd_word(const uint8_t *p) {
+#if UINTPTR_MAX > 0xFFFFFFFFu
+    if (acmd_wide) {
+        uint64_t v;
+        memcpy(&v, p, sizeof v);
+        return (uintptr_t)v;
+    }
+#endif
+    return port_g32(p);
+}
+
+static uint8_t *ram(uintptr_t so) {
+    if (acmd_wide) {
+        if (!gfx_wide_segmented(so))
+            return (uint8_t *)so;
+        if (acmd_strict && !segments[(so >> 24) & 0xF])
+            host_fatal("audio (PORT_GFX_STRICT): address %08lX through segment %d, which isn't set\n",
+                       (unsigned long)so, (int)((so >> 24) & 0xF));
+        return (uint8_t *)(segments[(so >> 24) & 0xF] + (so & 0xFFFFFF));
+    }
+    uint32_t a = (uint32_t)segments[(so >> 24) & 0xF] + ((uint32_t)so & 0xFFFFFF) + ((uint32_t)so & 0xF0000000u);
     return port_ptr(PORT_RDRAM_BASE | (a & 0x1FFFFFFFu));      /* KSEG0, as gfx.c's */
 }
 /* game memory at its own widths (the codebooks, the loop state, the state
@@ -120,7 +148,7 @@ static void wram32(uint8_t *p, int i, int32_t v) { port_wg32(p + 4 * i, (uint32_
 
 /* ---- the decoder: 9-byte frames of 16 samples, a 2nd-order predictor --- */
 
-static void adpcm(int flags, uint32_t state) {
+static void adpcm(int flags, uintptr_t state) {
     uint8_t *st_ram = ram(state);
     int16_t last[16];
     uint32_t in = DMEM_BASE + in_, out = DMEM_BASE + out_;
@@ -167,7 +195,7 @@ static void adpcm(int flags, uint32_t state) {
 
 /* ---- the resampler: 4 taps, 64 phases, pitch in UQ1.15 ------------------- */
 
-static void resample(int flags, uint32_t pitch, uint32_t state) {
+static void resample(int flags, uint32_t pitch, uintptr_t state) {
     uint8_t *s = ram(state);
     uint32_t in = DMEM_BASE + in_ - 8, out = DMEM_BASE + out_;
     uint32_t frac = 0;
@@ -258,7 +286,7 @@ static inline __attribute__((always_inline)) void env_walk(int nout, int n, uint
 
 /* The volumes are 16.16 plus three bits: the rate is the step per eight
    samples (env.c: _getVol adds rate * samples / 8). */
-static void envmixer(int flags, uint32_t state) {
+static void envmixer(int flags, uintptr_t state) {
     uint8_t *s = ram(state);
     int64_t v[2], tgt[2];
     int32_t r[2];
@@ -324,7 +352,7 @@ static void envmixer(int flags, uint32_t state) {
 /* table[0..7]: the effect of y[-2] on the eight outputs, table[8..15]: of
    y[-1], which is also the response to an input sample (drvrnew.c's
    _init_lpfilter: fc^1 ... fc^8, Q14, with the gain applied to the input) */
-static void polef(int flags, int16_t gain, uint32_t state) {
+static void polef(int flags, int16_t gain, uintptr_t state) {
     uint8_t *s = ram(state);
     int16_t y2 = 0, y1 = 0;
     if (!(flags & F_INIT)) {
@@ -357,19 +385,23 @@ static void polef(int flags, int16_t gain, uint32_t state) {
 
 /* ---- the task ----------------------------------------------------------------- */
 
-static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data) {
-    const uint8_t *cmd = port_ptr(data_ptr);
-    resample_lut = (const uint8_t *)port_ptr(ucode_data) + 0xD0;
+static void audio_task(const uint8_t *cmd, uint32_t data_size, const uint8_t *ucode_data) {
+    resample_lut = ucode_data + 0xD0;
     for (int k = 0; k < 64 * 4; k++)
         taps[k / 4][k % 4] = (int16_t)port_be16(resample_lut + 2 * k);
-    for (uint32_t off = 0; off + 8 <= data_size; off += 8) {
-        uint32_t w0 = port_g32(cmd + off), w1 = port_g32(cmd + off + 4);
+    for (uint32_t off = 0; off + acmd_size <= data_size; off += acmd_size) {
+        uintptr_t w0a = acmd_word(cmd + off), w1a = acmd_word(cmd + off + acmd_size / 2);
+        uint32_t w0 = (uint32_t)w0a, w1 = (uint32_t)w1a;
         int op = w0 >> 24, flags = (w0 >> 16) & 0xFF;
+        if (acmd_strict && ((uint64_t)w0a >> 32 || op > A_SETLOOP))
+            host_fatal("audio (PORT_GFX_STRICT): command %016llX %016llX at offset %X of the list at %p: %s\n",
+                       (unsigned long long)w0a, (unsigned long long)w1a, off, (const void *)cmd,
+                       op > A_SETLOOP ? "an unknown opcode" : "w0 has bits above its 32");
         switch (op) {
         case A_SPNOOP:
             break;
         case A_ADPCM:
-            adpcm(flags, w1);
+            adpcm(flags, w1a);
             break;
         case A_CLEARBUFF: {
             uint32_t d = DMEM_BASE + (w0 & 0xFFFF), n = ((w1 & 0xFFFF) + 15) & ~15u;
@@ -381,10 +413,10 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         }
         case A_ENVMIXER:
-            envmixer(flags, w1);
+            envmixer(flags, w1a);
             break;
         case A_LOADBUFF: {
-            const uint8_t *src = ram(w1 & ~7u);
+            const uint8_t *src = ram(w1a & ~(uintptr_t)7);
             uint32_t d = (DMEM_BASE + in_) & ~7u, n = (count_ + 7) & ~7u;
             if (flat(d, n))
                 memcpy(dmem + (d & 0xFFF), src, n);
@@ -394,10 +426,10 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         }
         case A_RESAMPLE:
-            resample(flags, w0 & 0xFFFF, w1);
+            resample(flags, w0 & 0xFFFF, w1a);
             break;
         case A_SAVEBUFF: {
-            uint8_t *dst = ram(w1 & ~7u);
+            uint8_t *dst = ram(w1a & ~(uintptr_t)7);
             uint32_t s = (DMEM_BASE + out_) & ~7u, n = (count_ + 7) & ~7u;
             if (flat(s, n))
                 memcpy(dst, dmem + (s & 0xFFF), n);
@@ -407,7 +439,7 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         }
         case A_SEGMENT:
-            segments[(w1 >> 24) & 0xF] = w1 & 0x1FFFFFFF;
+            segments[(w1 >> 24) & 0xF] = acmd_wide ? w1a : (w1 & 0x1FFFFFFF);
             break;
         case A_SETBUFF:
             if (flags & F_AUX) {
@@ -440,7 +472,7 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         }
         case A_LOADADPCM: {
-            const uint8_t *src = ram(w1);
+            const uint8_t *src = ram(w1a);
             uint32_t n = (w0 & 0xFFFFFF) / 2;
             for (uint32_t i = 0; i < n && i < 256; i++)
                 table[i] = ram16(src, (int)i);
@@ -472,10 +504,10 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
             break;
         }
         case A_POLEF:
-            polef(flags, (int16_t)w0, w1);
+            polef(flags, (int16_t)w0, w1a);
             break;
         case A_SETLOOP:
-            loop_addr = w1;
+            loop_addr = w1a;
             break;
         default:
             if (host_verbose)
@@ -485,8 +517,18 @@ static void audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_dat
     }
 }
 
-void host_audio_task(uint32_t data_ptr, uint32_t data_size, uint32_t ucode_data) {
+/* (the pointers the N64 side's: a KSEG1 one is KSEG0's memory) */
+void host_audio_task(const void *data_ptr, uint32_t data_size, const void *ucode_data) {
+    if (!acmd_size) {
+        acmd_size = host_layout(PORT_LAYOUT_ACMD_SIZE);
+        if (acmd_size != 8 && !(acmd_size == 16 && sizeof(uintptr_t) == 8))
+            host_fatal("audio: the N64 side's Acmd is %u bytes: this host reads 8%s\n", acmd_size,
+                       sizeof(uintptr_t) == 8 ? " or 16" : "");
+        acmd_wide = acmd_size == 16;
+        const char *e = getenv("PORT_GFX_STRICT");
+        acmd_strict = e && atoi(e) != 0;
+    }
     host_perf_push(PERF_AUDIO);
-    audio_task(data_ptr, data_size, ucode_data);
+    audio_task(port_ptr(port_n64(data_ptr)), data_size, port_ptr(port_n64(ucode_data)));
     host_perf_pop();
 }

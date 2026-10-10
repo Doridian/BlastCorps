@@ -115,7 +115,7 @@ extern int gfx_gl_scale;            /* internal resolution factor, 0: the window
 extern int gfx_interp;              /* --interpolate: in-between frames (gfx.c) */
 extern int gfx_interp_hz;           /* --display-hz: the rate in-between images are made for (60) */
 void host_gfx_interp_report(void);
-void host_gfx_frame_shown(uint32_t fb);     /* the VI shows fb from this retrace on */
+void host_gfx_frame_shown(uintptr_t fb);    /* the VI shows fb (gfx.h: GfxAddr) from this retrace on */
 extern float gfx_aspect;            /* widescreen: 0 4:3, GFX_ASPECT_WINDOW, or width / height */
 #define GFX_ASPECT_WINDOW (-1.0f)
 extern int gfx_hud_edges;          /* --hud: 1 the HUD at a wide picture's sides, 0 in the 4:3 middle */
@@ -124,6 +124,6 @@ struct SDL_Window;
 unsigned gfx_gl_window_flags(void);
 int gfx_gl_init(struct SDL_Window *win);
 /* twin: the in-between image to show (gfx_interp_image), or -1 */
-void gfx_gl_present(uint32_t vi_fb, int vi_width, const char *screenshot, int twin);
+void gfx_gl_present(uintptr_t vi_fb, int vi_width, const char *screenshot, int twin);
 
 #endif

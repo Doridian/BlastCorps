@@ -11,7 +11,9 @@
  * renderer (gfx.c) asks here about every draw from a texture: a picture
  * listed below isn't drawn, and once its last row is, the model it shows
  * is, in the rectangle the picture covered, from a display list this file
- * makes in the renderer's own memory (gfx.h, GFX_HOST_BASE): the model's
+ * makes in the renderer's own memory (gfx.h, GFX_HOST_BASE; in the wide
+ * form, with the N64 side's 16-byte commands, a host buffer its words
+ * point into, and every command and list area twice the size): the model's
  * vertices, its textures (decoded from the ROM, or a resource pack's
  * edited ones) and its display list, behind a viewport, a projection that fits
  * the model in the rectangle and a clear of the z-buffer there.  The
@@ -80,8 +82,7 @@ static uint8_t *inflate_at(const uint8_t *src, size_t n, long *len, size_t *used
    run a frame's lists again, so a ring's worth of draws stays) */
 #define RING_SPAN 0x40000u
 #define STATIC_SPAN (GFX_HOST_SPAN - RING_SPAN)
-#define SEG_HOST 15                             /* the segment the lists reach it by */
-#define HADDR(off) ((uint32_t)SEG_HOST << 24 | (off))
+#define SEG_HOST 15                             /* the segment the narrow lists reach it by */
 static uint32_t mem_top = 0x10, ring_pos;
 
 static uint32_t mem_alloc(uint32_t n) {
@@ -94,17 +95,34 @@ static uint32_t mem_alloc(uint32_t n) {
 
 static uint8_t *mem(uint32_t off) { return gfx_host_mem + off; }
 
+/* the word for the address of off in that memory: narrow, through segment
+   SEG_HOST; wide, its pointer */
+static uintptr_t haddr(uint32_t off) {
+    return gfx_wide ? (uintptr_t)mem(off) : (uint32_t)SEG_HOST << 24 | off;
+}
+/* a segment's value for off: narrow, the N64 address's physical one (the
+   segment table's form); wide, its pointer */
+static uintptr_t seg_word(uint32_t off) {
+    return gfx_wide ? (uintptr_t)mem(off) : (GFX_HOST_BASE & 0x1FFFFFFFu) + off;
+}
+/* the word for the color or z image at a (gfx.h's host address): narrow,
+   its physical address, through segment 0 (0); wide, the pointer */
+static uintptr_t img_word(GfxAddr a) {
+    return gfx_wide ? a : port_n64((const void *)a) & 0x00FFFFFFu;
+}
+/* the bytes of n bytes of the ROM's 8-byte commands, as this build's */
+static uint32_t cmd_bytes(uint32_t n) { return gfx_wide ? n / 8 * gfx_cmd : n; }
+
 /* a display list being written */
 typedef struct {
     uint32_t start, at, end;
 } Dl;
 
-static void dl_cmd(Dl *d, uint32_t w0, uint32_t w1) {
-    if (d->at + 8 > d->end)
+static void dl_cmd(Dl *d, uint32_t w0, uintptr_t w1) {
+    if (d->at + gfx_cmd > d->end)
         return;
-    port_wg32(mem(d->at), w0);
-    port_wg32(mem(d->at + 4), w1);
-    d->at += 8;
+    gfx_put(mem(d->at), w0, w1);
+    d->at += gfx_cmd;
 }
 
 /* ---- textures ------------------------------------------------------------- */
@@ -194,7 +212,8 @@ static void model_cmd(Dl *d, int v, uint32_t w0, uint32_t w1) {
     uint8_t op = w0 >> 24;
     if (op == 0xFD) {                                   /* G_SETTIMG: a texture's number */
         uint32_t t = texture(w1 & 0xFFF);
-        w1 = HADDR(t);
+        dl_cmd(d, w0, haddr(t));
+        return;
     } else if (v != V_NORMAL && op == 0xFC) {           /* G_SETCOMBINE */
         w0 = (w0 & ~CC_ENV_ALPHA_M0) | CC_ENV_ALPHA_W0;
         w1 = (w1 & ~CC_ENV_ALPHA_M1) | CC_ENV_ALPHA_W1;
@@ -349,12 +368,12 @@ static void load_building(Model *m, int i) {
         cmds += (piece[p][1] - piece[p][0]) / 8;
     }
     for (int v = 0; v < NVARIANT; v++) {
-        uint32_t at = mem_alloc(cmds * 8);
+        uint32_t at = mem_alloc(cmds * gfx_cmd);
         if (!at) {
             free(f);
             return;
         }
-        Dl d = { at, at, at + cmds * 8 };
+        Dl d = { at, at, at + cmds * gfx_cmd };
         int shade = 0;
         fade_2cyc = 0;
         for (int p = 0; p < 4; p++)
@@ -425,19 +444,19 @@ static void load_vehicle(Model *m, const char *name) {
        own G_ENDDL and reach nothing outside it) */
     uint32_t n = (dl1 - dl0) & ~7u;
     for (int v = 0; v < NVARIANT; v++) {
-        uint32_t at = mem_alloc(n + 8);
+        uint32_t at = mem_alloc(cmd_bytes(n) + gfx_cmd);
         if (!at) {
             free(md);
             free(dd);
             return;
         }
-        Dl d = { at, at, at + n + 8 };
+        Dl d = { at, at, at + cmd_bytes(n) + gfx_cmd };
         fade_2cyc = 0;
         for (uint32_t o = 0; o < n; o += 8)
             model_cmd(&d, v, rd32(dd + o), rd32(dd + o + 4));
         dl_cmd(&d, 0xB8000000u, 0);
-        m->body[v] = at + (p0 - dl0);
-        m->body2[v] = at + (p2 - dl0);
+        m->body[v] = at + cmd_bytes(p0 - dl0);
+        m->body2[v] = at + cmd_bytes(p2 - dl0);
     }
     /* what its two passes draw */
     uint32_t pass[2] = { p0 - dl0, p2 - dl0 };
@@ -517,6 +536,7 @@ static Model *spec_model(int s) {
     Spec *p = &specs[s];
     if (!p->tried) {
         p->tried = 1;
+        gfx_layout_init();
         if (!gfx_host_mem && !(gfx_host_mem = calloc(1, GFX_HOST_SPAN)))
             return NULL;
         if (p->building >= 0)
@@ -533,7 +553,7 @@ static Model *spec_model(int s) {
 
 #define NPIC 128
 typedef struct {
-    uint32_t addr;
+    GfxAddr addr;                       /* (a host address, as gfx.c's: gfx.h) */
     int16_t spec;
     uint8_t row, rows;
     uint32_t group;                     /* the rows of one picture (one frame of an icon) */
@@ -543,17 +563,18 @@ static Pic pics[NPIC];
 static int npic;
 static uint32_t ngroup;
 
-static uint32_t texel_sum(uint32_t addr, uint32_t len) {
-    const uint8_t *p = port_ptr(addr);
+static uint32_t texel_sum(GfxAddr addr, uint32_t len) {
+    const uint8_t *p = (const uint8_t *)addr;
     uint32_t h = 2166136261u;
     for (uint32_t i = 0; i < len; i += 4)
         h = (h ^ (uint32_t)(p[i] | p[i + 1] << 8 | p[i + 2] << 16 | (uint32_t)p[i + 3] << 24)) * 16777619u;
     return h;
 }
 
-void port_icon_texture(unsigned int addr, int tex, int row, int rows, int flags) {
+void port_icon_texture(unsigned int n64, int tex, int row, int rows, int flags) {
     if (!micons_on)
         return;
+    GfxAddr addr = gfx_of_n64(n64);
     if (tex < 0) {
         npic = 0;
         micons_serial++;
@@ -581,7 +602,7 @@ void port_icon_texture(unsigned int addr, int tex, int row, int rows, int flags)
     micons_serial++;
 }
 
-int micons_lookup(uint32_t addr) {
+int micons_lookup(GfxAddr addr) {
     if (!micons_on)
         return -1;
     for (int i = 0; i < npic; i++)
@@ -697,15 +718,15 @@ static int shadow_hull(const Model *m, const uint8_t *use, const float rot[3][3]
 
 /* the display list drawing spec s's model over the rectangle r, with the
    picture's alpha prim[3], and its shadow in colour shadow (or none) */
-static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const uint8_t *shadow, uint32_t cimg,
-                          int cimg_siz, int cimg_w, uint32_t zimg, const int sc[4]) {
+static GfxAddr draw_list(int s, const float r[4], const uint8_t prim[4], const uint8_t *shadow, GfxAddr cimg,
+                         int cimg_siz, int cimg_w, GfxAddr zimg, const int sc[4]) {
     Model *m = spec_model(s);
     if (!m)
         return 0;
     Spec *sp = &specs[s];
-    uint32_t base = ring_alloc(0x400);
+    uint32_t base = ring_alloc(0x190 + cmd_bytes(0x270));
     uint32_t vp = base, proj = base + 0x10, mv = base + 0x50, sv = base + 0x90;
-    Dl d = { base + 0x190, base + 0x190, base + 0x400 };
+    Dl d = { base + 0x190, base + 0x190, base + 0x190 + cmd_bytes(0x270) };
 
     /* the view: turned about y by yaw, tilted toward the viewer by pitch,
        the box's middle at the origin, fitted to the rectangle */
@@ -759,15 +780,14 @@ static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const 
     port_wg16(v + 12, 0x1FF);
     port_wg16(v + 14, 0);
 
-    uint32_t host_phys = GFX_HOST_BASE & 0x1FFFFFFFu;
     dl_cmd(&d, 0xE7000000u, 0);
     dl_cmd(&d, 0xBC000006u, 0);                                         /* segment 0: physical */
-    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, host_phys);
+    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, seg_word(0));
     if (m->vehicle) {
-        dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, host_phys + m->vtx);
-        dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, host_phys + m->mtx);
+        dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, seg_word(m->vtx));
+        dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, seg_word(m->mtx));
     } else {
-        dl_cmd(&d, 0xBC000006u | (9 * 4) << 8, host_phys + m->vtx);
+        dl_cmd(&d, 0xBC000006u | (9 * 4) << 8, seg_word(m->vtx));
     }
     /* the z-buffer under the rectangle, cleared (as the game clears it) */
     int zx0 = (int)floorf(r[0]), zy0 = (int)floorf(r[1]), zx1 = (int)ceilf(r[2]), zy1 = (int)ceilf(r[3]);
@@ -777,13 +797,13 @@ static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const 
     if (zy1 > sc[3]) zy1 = sc[3];
     int zbuf = zimg && cimg_w == 320 && zx1 > zx0 && zy1 > zy0;
     if (zbuf) {
-        dl_cmd(&d, 0xFF000000u | 2u << 19 | (uint32_t)(cimg_w - 1), zimg & 0x00FFFFFFu);
+        dl_cmd(&d, 0xFF000000u | 2u << 19 | (uint32_t)(cimg_w - 1), img_word(zimg));
         dl_cmd(&d, 0xBA001402u, 3u << 20);                              /* fill */
         dl_cmd(&d, 0xF7000000u, 0xFFFCFFFCu);
         dl_cmd(&d, 0xF6000000u | (uint32_t)(zx1 - 1) << 14 | (uint32_t)(zy1 - 1) << 2,
                (uint32_t)zx0 << 14 | (uint32_t)zy0 << 2);
         dl_cmd(&d, 0xE7000000u, 0);
-        dl_cmd(&d, 0xFF000000u | (uint32_t)cimg_siz << 19 | (uint32_t)(cimg_w - 1), cimg & 0x00FFFFFFu);
+        dl_cmd(&d, 0xFF000000u | (uint32_t)cimg_siz << 19 | (uint32_t)(cimg_w - 1), img_word(cimg));
     }
     dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
     dl_cmd(&d, 0xB7000000u, (zbuf ? 0x1u : 0) | 0x4u | 0x200u | 0x2000u);   /* z, shade, smooth, cull back */
@@ -796,9 +816,9 @@ static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const 
     dl_cmd(&d, 0xBA000903u, 6u << 9);                                   /* filtered, not converted */
     dl_cmd(&d, 0xB9000002u, 0);                                         /* no alpha compare */
     dl_cmd(&d, 0xB9000201u, 0);                                         /* z from the pixel */
-    dl_cmd(&d, 0x03800010u, HADDR(vp));                                 /* the viewport */
-    dl_cmd(&d, 0x01030040u, HADDR(proj));                               /* projection: load */
-    dl_cmd(&d, 0x01020040u, HADDR(mv));                                 /* modelview: load */
+    dl_cmd(&d, 0x03800010u, haddr(vp));                                 /* the viewport */
+    dl_cmd(&d, 0x01030040u, haddr(proj));                               /* projection: load */
+    dl_cmd(&d, 0x01020040u, haddr(mv));                                 /* modelview: load */
     int16_t hull[SHADOW_MAX][3];
     int nh = 0;
     if (shadow) {
@@ -828,7 +848,7 @@ static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const 
         dl_cmd(&d, CC_SHADOW_W0, CC_SHADOW_W1);
         dl_cmd(&d, 0xFB000000u, (uint32_t)shadow[0] << 24 | (uint32_t)shadow[1] << 16 | (uint32_t)shadow[2] << 8 |
                                     shadow[3]);
-        dl_cmd(&d, 0x04000000u | (uint32_t)(nh - 1) << 20 | (uint32_t)(nh * 16), HADDR(sv));
+        dl_cmd(&d, 0x04000000u | (uint32_t)(nh - 1) << 20 | (uint32_t)(nh * 16), haddr(sv));
         for (int i = 1; i + 1 < nh; i++)
             dl_cmd(&d, 0xBF000000u, (uint32_t)(i * 10) << 8 | (uint32_t)((i + 1) * 10));
         dl_cmd(&d, 0xE7000000u, 0);
@@ -841,14 +861,14 @@ static uint32_t draw_list(int s, const float r[4], const uint8_t prim[4], const 
     if (a != 0xFF)
         dl_cmd(&d, 0xB900031Du, RM_FADE);
     int var = a != 0xFF ? V_FADE : V_NORMAL;
-    dl_cmd(&d, 0x06000000u, HADDR(m->body[var]));
+    dl_cmd(&d, 0x06000000u, haddr(m->body[var]));
     if (m->vehicle) {                                                   /* (its parts popped back to here) */
-        dl_cmd(&d, 0x01020040u, HADDR(mv));
-        dl_cmd(&d, 0x06000000u, HADDR(m->body2[var]));
+        dl_cmd(&d, 0x01020040u, haddr(mv));
+        dl_cmd(&d, 0x06000000u, haddr(m->body2[var]));
     }
     dl_cmd(&d, 0xE7000000u, 0);
     dl_cmd(&d, 0xB8000000u, 0);
-    return GFX_HOST_BASE + d.start;
+    return (GfxAddr)mem(d.start);
 }
 
 /* the rows of the picture being drawn, gathered: the shadow's and the
@@ -863,8 +883,8 @@ static struct {
     uint8_t col[4];
 } acc[2];
 
-uint32_t micons_part(int h, float x0, float y0, float x1, float y1, int shadow, const uint8_t prim[4],
-                     uint32_t cimg, int cimg_siz, int cimg_w, uint32_t zimg, const int scissor[4]) {
+GfxAddr micons_part(int h, float x0, float y0, float x1, float y1, int shadow, const uint8_t prim[4],
+                    GfxAddr cimg, int cimg_siz, int cimg_w, GfxAddr zimg, const int scissor[4]) {
     if (h < 0 || h >= npic)
         return 0;
     const Pic *p = &pics[h];
@@ -927,7 +947,7 @@ static struct {
     uint32_t clock;
     float anchor[3], pos[3], head[3];
     float radius, angle, rotor, bank, lean;
-    uint32_t dl;
+    GfxAddr dl;
 } globe;
 
 static float dot3(const float a[3], const float b[3]) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
@@ -1111,13 +1131,14 @@ static void globe_step(const float c[3], float dt) {
     memcpy(globe.anchor, c, sizeof globe.anchor);
 }
 
-uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t alpha, uint32_t cimg,
-                      int cimg_siz, int cimg_w, uint32_t zimg, const int sc[4]) {
+GfxAddr micons_globe(const float c[3], const float mv[4][4], int first, uint8_t alpha, GfxAddr cimg,
+                     int cimg_siz, int cimg_w, GfxAddr zimg, const int sc[4]) {
     if (!first)
         return globe.dl;
     globe.dl = 0;
     if (!chopper.tried) {
         chopper.tried = 1;
+        gfx_layout_init();
         if (!gfx_host_mem && !(gfx_host_mem = calloc(1, GFX_HOST_SPAN)))
             return 0;
         load_vehicle(&chopper.model, chopper.vehicle);
@@ -1188,9 +1209,9 @@ uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t
     }
 
     uint32_t total = (m->total + 15) & ~15u;
-    uint32_t base = ring_alloc(0x80 + 16 * SHADOW_MAX + total + 0x300);
+    uint32_t base = ring_alloc(0x80 + 16 * SHADOW_MAX + total + cmd_bytes(0x300));
     uint32_t mvo = base, smv = base + 0x40, sv = base + 0x80, mtx = sv + 16 * SHADOW_MAX;
-    Dl d = { mtx + total, mtx + total, mtx + total + 0x300 };
+    Dl d = { mtx + total, mtx + total, mtx + total + cmd_bytes(0x300) };
     put_mtx(mvo, full);
     memcpy(mem(mtx), mem(m->mtx), m->total);
     pose(m, mtx, 0, 0);                             /* at rest */
@@ -1199,22 +1220,21 @@ uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t
     pose(m, mtx, 3, 0.5f - 0.5f * GLOBE_BANK * globe.bank);
     pose(m, mtx, 1, globe.rotor);
 
-    uint32_t host_phys = GFX_HOST_BASE & 0x1FFFFFFFu;
     dl_cmd(&d, 0xE7000000u, 0);
     dl_cmd(&d, 0xBC000006u, 0);                                         /* segment 0: physical */
-    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, host_phys);
-    dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, host_phys + m->vtx);
-    dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, host_phys + mtx);
+    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, seg_word(0));
+    dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, seg_word(m->vtx));
+    dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, seg_word(mtx));
     /* the z-buffer, cleared (the world map draws nothing else with it) */
     int zbuf = zimg && cimg_w == 320 && sc[2] > sc[0] && sc[3] > sc[1];
     if (zbuf) {
-        dl_cmd(&d, 0xFF000000u | 2u << 19 | (uint32_t)(cimg_w - 1), zimg & 0x00FFFFFFu);
+        dl_cmd(&d, 0xFF000000u | 2u << 19 | (uint32_t)(cimg_w - 1), img_word(zimg));
         dl_cmd(&d, 0xBA001402u, 3u << 20);                              /* fill */
         dl_cmd(&d, 0xF7000000u, 0xFFFCFFFCu);
         dl_cmd(&d, 0xF6000000u | (uint32_t)(sc[2] - 1) << 14 | (uint32_t)(sc[3] - 1) << 2,
                (uint32_t)sc[0] << 14 | (uint32_t)sc[1] << 2);
         dl_cmd(&d, 0xE7000000u, 0);
-        dl_cmd(&d, 0xFF000000u | (uint32_t)cimg_siz << 19 | (uint32_t)(cimg_w - 1), cimg & 0x00FFFFFFu);
+        dl_cmd(&d, 0xFF000000u | (uint32_t)cimg_siz << 19 | (uint32_t)(cimg_w - 1), img_word(cimg));
     }
     dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
     dl_cmd(&d, 0xB7000000u, (zbuf ? 0x1u : 0) | 0x4u | 0x200u | 0x2000u);   /* z, shade, smooth, cull back */
@@ -1245,25 +1265,25 @@ uint32_t micons_globe(const float c[3], const float mv[4][4], int first, uint8_t
         dl_cmd(&d, 0xB900031Du, 0x00504A40u);                           /* G_RM_XLU_SURF */
         dl_cmd(&d, CC_SHADOW_W0, CC_SHADOW_W1);
         dl_cmd(&d, 0xFB000000u, (uint32_t)(GLOBE_SHADOW * alpha / 255));
-        dl_cmd(&d, 0x01020040u, HADDR(smv));
-        dl_cmd(&d, 0x04000000u | (uint32_t)(nhull - 1) << 20 | (uint32_t)(nhull * 16), HADDR(sv));
+        dl_cmd(&d, 0x01020040u, haddr(smv));
+        dl_cmd(&d, 0x04000000u | (uint32_t)(nhull - 1) << 20 | (uint32_t)(nhull * 16), haddr(sv));
         for (int i = 1; i + 1 < nhull; i++)
             dl_cmd(&d, 0xBF000000u, (uint32_t)(i * 10) << 8 | (uint32_t)((i + 1) * 10));
         dl_cmd(&d, 0xE7000000u, 0);
         dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
         dl_cmd(&d, 0xB7000000u, (zbuf ? 0x1u : 0) | 0x4u | 0x200u | 0x2000u);
     }
-    dl_cmd(&d, 0x01020040u, HADDR(mvo));                                /* modelview: load */
+    dl_cmd(&d, 0x01020040u, haddr(mvo));                                /* modelview: load */
     dl_cmd(&d, 0xFB000000u, 0xFFFFFF00u | alpha);
     if (alpha != 0xFF)
         dl_cmd(&d, 0xB900031Du, RM_FADE);
     int var = alpha != 0xFF ? V_FADE : V_NORMAL;
-    dl_cmd(&d, 0x06000000u, HADDR(m->body[var]));
-    dl_cmd(&d, 0x01020040u, HADDR(mvo));
-    dl_cmd(&d, 0x06000000u, HADDR(m->body2[var]));
+    dl_cmd(&d, 0x06000000u, haddr(m->body[var]));
+    dl_cmd(&d, 0x01020040u, haddr(mvo));
+    dl_cmd(&d, 0x06000000u, haddr(m->body2[var]));
     dl_cmd(&d, 0xE7000000u, 0);
     dl_cmd(&d, 0xB8000000u, 0);
-    globe.dl = GFX_HOST_BASE + d.start;
+    globe.dl = (GfxAddr)mem(d.start);
     return globe.dl;
 }
 
