@@ -44,29 +44,29 @@ enum VehicleType {
  * heap.  (The RDRAM snapshots agree: 0x00-0x54 always hold RAM addresses.)
  */
 typedef struct Vehicle {
-    /* 0x00 */ void *PTR32 unk0;  /* model + VehicleModel.unk14 */
-    /* 0x04 */ void *PTR32 unk4;  /* the model file (func_802A1388's $v0) */
-    /* 0x08 */ void *PTR32 unk8;  /* the display list file ($v1) */
-    /* 0x0C */ void *PTR32 unkC;  /* unkC..unk2C: model + VehicleModel.unk24..unk44 */
-    /* 0x10 */ void *PTR32 unk10;
-    /* 0x14 */ void *PTR32 unk14;
-    /* 0x18 */ void *PTR32 unk18;
-    /* 0x1C */ void *PTR32 unk1C;
-    /* 0x20 */ void *PTR32 unk20;
-    /* 0x24 */ void *PTR32 unk24;
-    /* 0x28 */ void *PTR32 unk28;
-    /* 0x2C */ void *PTR32 unk2C;
-    /* 0x30 */ void *PTR32 unk30; /* unk30..unk50: from unkC..unk2C (func_802A1388) */
-    /* 0x34 */ void *PTR32 unk34;
-    /* 0x38 */ void *PTR32 unk38; /* a display list */
-    /* 0x3C */ void *PTR32 unk3C;
-    /* 0x40 */ void *PTR32 unk40;
-    /* 0x44 */ void *PTR32 unk44;
-    /* 0x48 */ void *PTR32 unk48;
-    /* 0x4C */ void *PTR32 unk4C;
-    /* 0x50 */ void *PTR32 unk50;
-    /* 0x54 */ Gfx *PTR32 unk54;  /* model + VehicleModel.unk48 */
-    /* 0x58 */ void *PTR32 unk58; /* a heap block (hd.c's func_80278BF0) */
+    /* 0x00 */ void *unk0;  /* model + VehicleModel.unk14 */
+    /* 0x04 */ void *unk4;  /* the model file (func_802A1388's $v0) */
+    /* 0x08 */ void *unk8;  /* the display list file ($v1) */
+    /* 0x0C */ void *unkC;  /* unkC..unk2C: model + VehicleModel.unk24..unk44 */
+    /* 0x10 */ void *unk10;
+    /* 0x14 */ void *unk14;
+    /* 0x18 */ void *unk18;
+    /* 0x1C */ void *unk1C;
+    /* 0x20 */ void *unk20;
+    /* 0x24 */ void *unk24;
+    /* 0x28 */ void *unk28;
+    /* 0x2C */ void *unk2C;
+    /* 0x30 */ void *unk30; /* unk30..unk50: from unkC..unk2C (func_802A1388) */
+    /* 0x34 */ void *unk34;
+    /* 0x38 */ void *unk38; /* a display list */
+    /* 0x3C */ void *unk3C;
+    /* 0x40 */ void *unk40;
+    /* 0x44 */ void *unk44;
+    /* 0x48 */ void *unk48;
+    /* 0x4C */ void *unk4C;
+    /* 0x50 */ void *unk50;
+    /* 0x54 */ Gfx *unk54;  /* model + VehicleModel.unk48 */
+    /* 0x58 */ Gfx *unk58;  /* a heap block (hd.c's func_80278BF0) */
     /* 0x5C */ s32 type;          /* VehicleType; the one equal to D_80364456 is the player's */
     /* 0x60 */ s32 unk60;
     /* 0x64 */ s32 x;             /* world position << 5, as D_803643E0..E8 */
@@ -74,7 +74,7 @@ typedef struct Vehicle {
     /* 0x6C */ s32 z;
     /* 0x70 */ s32 unk70;
 } Vehicle;
-SIZE_CHECK(Vehicle, 0x74);
+SIZE_CHECK_C(Vehicle, 0x74);
 
 extern Vehicle D_80364460[12];
 extern Vehicle *D_803649D0;
@@ -149,7 +149,7 @@ SIZE_CHECK(VehicleModel, 0x4C);
  * isn't known.
  */
 typedef struct UnkStruct_803ED460 {
-    /* 0x00 */ void *PTR32 unk0;
+    /* 0x00 */ void *unk0;
     /* 0x04 */ f32 unk4;
     /* 0x08 */ f32 unk8;
     /* 0x0C */ s16 unkC;
@@ -162,7 +162,7 @@ typedef struct UnkStruct_803ED460 {
     /* 0x15 */ u8 unk15;
     /* 0x16 */ u8 pad16[2];
 } UnkStruct_803ED460;
-SIZE_CHECK(UnkStruct_803ED460, 0x18);
+SIZE_CHECK_C(UnkStruct_803ED460, 0x18);
 
 /*
  * A vehicle's physical state: hd_code 62740's functions take it in $gp, and

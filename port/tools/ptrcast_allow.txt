@@ -82,7 +82,7 @@ P6-engine port/engine/1B100.c 12 12 12 12
 P6-engine port/engine/56040.c 9 9 9 9
 P6-engine port/engine/5BF40.c 12 12 12 12
 P6-engine port/engine/5CB60.c 69 69 69 69
-P6-engine port/engine/60F60.c 56 56 56 56
+P6-engine port/engine/60F60.c 57 57 57 57
 P6-engine port/engine/62740.c 3 3 3 3
 P6-engine port/engine/679E0.c 1 1 1 1
 P6-engine port/engine/6C5E0.c 3 3 3 3

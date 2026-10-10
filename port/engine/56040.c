@@ -30,7 +30,7 @@
 /* A Part as the state of an animation (the same 0x18 bytes as vehicle.h's
    UnkStruct_803ED460; func_8029F1BC steps it) */
 typedef struct Anim {
-    /* 0x00 */ u8 *PTR32 data;      /* AnimData (key frames), or a TexAnim */
+    /* 0x00 */ u8 *data;            /* AnimData (key frames), or a TexAnim */
     /* 0x04 */ f32 t;               /* the fraction from key `key` to the next */
     /* 0x08 */ f32 tension;         /* the spline's (func_8029F110) */
     /* 0x0C */ s16 loops;           /* the times it went past an end */
@@ -43,7 +43,7 @@ typedef struct Anim {
     /* 0x15 */ u8 interp;           /* ANIM_KEYS or ANIM_SPLINE */
     /* 0x16 */ u8 pad16[2];
 } Anim;
-SIZE_CHECK(Anim, 0x18);
+SIZE_CHECK_C(Anim, 0x18);
 #define ANIM(p) ((Anim *)(p))
 
 #define ANIM_WRAP 0                     /* Anim.mode: start again */
@@ -102,7 +102,7 @@ typedef struct TexAnim {
 
 /* D_803A7440: the textures the texture animations have loaded */
 typedef struct TexSlot {
-    /* 0x0000 */ TexAnim *PTR32 owner;
+    /* 0x0000 */ TexAnim *owner;
     /* 0x0004 */ u16 kind;
     /* 0x0006 */ u8 used;
     /* 0x0007 */ u8 refs;           /* the animations that use it this frame */
@@ -110,29 +110,29 @@ typedef struct TexSlot {
     /* 0x0010 */ u8 data[0x1000];   /* (the texture; its physical address is
                                        what goes into the display list) */
 } TexSlot;
-SIZE_CHECK(TexSlot, 0x1010);
+SIZE_CHECK_C(TexSlot, 0x1010);
 #define TEX_SLOTS 12
 extern TexSlot D_803A7440[TEX_SLOTS];
 
 /* D_803B3500..D_803B35F0: where a model's display list loads an animated
    texture (a G_SETTIMG's word), by func_8029DF78 */
 typedef struct TexPatch {
-    /* 0x00 */ TexAnim *PTR32 anim;
+    /* 0x00 */ TexAnim *anim;
     /* 0x04 */ s32 off;             /* the G_SETTIMG's address word, from the list's start */
     /* 0x08 */ s32 idx;             /* which of the frame's textures */
 } TexPatch;
-SIZE_CHECK(TexPatch, 0xC);
+SIZE_CHECK_C(TexPatch, 0xC);
 extern TexPatch D_803B3500[];
 extern TexPatch *D_803B35F0;            /* one past the last */
 
 /* D_803B7FC8: the parts' matrices to copy from one frame's buffer to the
    other's (func_8029DDC8 does it when the frame comes round) */
 typedef struct MtxCopy {
-    /* 0x00 */ u32 *PTR32 from;      /* 0: free */
-    /* 0x04 */ u32 *PTR32 to;
+    /* 0x00 */ u32 *from;            /* 0: free */
+    /* 0x04 */ u32 *to;
     /* 0x08 */ u32 frame;           /* the D_8035805C to copy at */
 } MtxCopy;
-SIZE_CHECK(MtxCopy, 0xC);
+SIZE_CHECK_C(MtxCopy, 0xC);
 #define MTX_COPIES 0x78
 extern MtxCopy D_803B7FC8[MTX_COPIES];
 /* [0] the last one in use; [1] a word no code here names, which

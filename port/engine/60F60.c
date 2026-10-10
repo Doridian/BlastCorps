@@ -273,7 +273,7 @@ void func_802A57AC(void) {
    with its frames' texture cells (up to four of the 16 in D_803EB770, 0x100
    bytes each in D_803EA770). */
 typedef struct EffectSlot {
-    /* 0x00 */ u8 *PTR32 anim;      /* w at 2, h at 3, frames at 0xE, its texture at 0 */
+    /* 0x00 */ u8 *anim;            /* w at 2, h at 3, frames at 0xE, its texture at 0 */
     /* 0x04 */ s32 unk4;
     /* 0x08 */ s32 pos[3];          /* << 11 */
     /* 0x14 */ s32 unk14[3];

@@ -390,7 +390,7 @@ void func_80278318(void);
 void func_80278324(Gfx **, s32, u8);
 
 /* hd_code 34430.c */
-void func_80278BF0(Gfx *, Gfx *, Gfx *PTR32 *);
+void func_80278BF0(Gfx *, Gfx *, Gfx **);
 void func_80278E3C(void);
 void func_80278EB0(s32, f32, s32);
 void func_802794A4(void);

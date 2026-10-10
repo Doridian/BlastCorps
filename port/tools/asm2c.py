@@ -266,6 +266,14 @@ LABEL_TYPES = {
     # the engine's types for the inventory's words (TYPES)
     "D_803BD310": ("Wall", 8),
     "D_803F7690": ("DelayedHit", 40),
+    "D_803A7440": ("TexSlot", 12),
+    "D_803B3500": ("TexPatch", 20),
+    "D_803B35F8": ("UnkStruct_803ED460", 13),
+    "D_803FBBE0": ("UnkStruct_803ED460", 32),
+    "D_803FBEE0": ("UnkStruct_803ED460", 32),
+    "D_803B7FC8": ("MtxCopy", 0x78),
+    "D_803C4B70": ("EffectSlot", 16),
+    "D_803EB7A0": ("VehicleSave", 1),
 }
 
 
@@ -281,8 +289,10 @@ def _fields(*fs):
 
 
 # The engine's structures of the handwritten .bss whose pointers are
-# native (port/engine's buildings.h and collision.h), as inventory types
-# (offsets and sizes the N64's): what LABEL_TYPES gives their variables.
+# native (port/engine's buildings.h and collision.h, 56040's texture slots
+# and records, 60F60's sprite slots, 62740's saved vehicle), as inventory
+# types (offsets and sizes the N64's): what LABEL_TYPES gives their
+# variables.
 TYPES = {
     "HitPair": {"size": 8, "align": 4, "fields": _fields((0, "b", "ptr", 1, "struct Building"), (4, "group", "s32"))},
     "HitList": {"size": 0x6E8, "align": 4, "fields": _fields(
@@ -292,6 +302,21 @@ TYPES = {
         (0, "nkinds", "u8"), (1, "kinds", "u8", 7), (8, "tris", "ptr", 0x3C, "struct CollisionTri"), (0xF8, "info", "u32"))},
     "DelayedHit": {"size": 8, "align": 4, "fields": _fields(
         (0, "b", "ptr", 1, "struct Building"), (4, "amount", "u16"), (6, "group", "u8"), (7, "frames", "u8"))},
+    "TexSlot": {"size": 0x1010, "align": 4, "fields": _fields(
+        (0, "owner", "ptr", 1, "struct TexAnim"), (4, "kind", "u16"), (6, "used", "u8"), (7, "refs", "u8"),
+        (8, "pad8", "bytes", 8), (0x10, "data", "bytes", 0x1000))},
+    "TexPatch": {"size": 0xC, "align": 4, "fields": _fields(
+        (0, "anim", "ptr", 1, "struct TexAnim"), (4, "off", "s32"), (8, "idx", "s32"))},
+    "MtxCopy": {"size": 0xC, "align": 4, "fields": _fields(
+        (0, "from", "ptr", 1, "u32"), (4, "to", "ptr", 1, "u32"), (8, "frame", "u32"))},
+    "EffectSlot": {"size": 0x3C, "align": 4, "fields": _fields(
+        (0, "anim", "ptr", 1, "u8"), (4, "unk4", "s32"), (8, "pos", "s32", 3), (0x14, "unk14", "s32", 3),
+        (0x20, "vel", "s32", 3), (0x2C, "unk2C", "s32"), (0x30, "unk30", "u8"), (0x31, "unk31", "u8"),
+        (0x32, "frame", "u8"), (0x33, "active", "u8"), (0x34, "mode", "u8"), (0x35, "unk35", "u8"),
+        (0x36, "unk36", "u8"), (0x37, "cells", "u8", 4), (0x3B, "unk3B", "u8"))},
+    # (pos: three unaligned words, as bytes)
+    "VehicleSave": {"size": 0x3B8, "align": 4, "fields": _fields(
+        (0, "parts", "UnkStruct_803ED460", 32), (0x300, "state", "bytes", 0xA6), (0x3A6, "pos", "bytes", 12))},
 }
 
 
@@ -363,11 +388,10 @@ POINTERS = {
 }
 
 # Pointers kept 4 bytes (PTR32) while the C's are: the sound handles
-# (func_80260650 stores through a SndState *PTR32 *: P6-D2), the inventory's
-# structures whose game header still has PTR32 (Part, D2), and the display
+# (func_80260650 stores through a SndState *PTR32 *: P6-D2) and the display
 # list's words (P8).
 PTR32_POINTEES = {"struct SndState"}
-PTR32_TYPES = {"UnkStruct_803ED460"}
+PTR32_TYPES = set()
 PTR32_VARS = {"D_80300A68"}
 
 

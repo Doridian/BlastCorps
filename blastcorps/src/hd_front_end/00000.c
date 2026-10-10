@@ -6,6 +6,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/vehicle.h"
 #include "functions.h"
 
 typedef struct {
@@ -41,7 +42,7 @@ Mtx D_80211A28;
 s16 D_80211A68;
 s16 D_80211A6A;
 f32 D_80211A70[0x14];
-u8 D_80211AC0[0x13][0x300];
+UnkStruct_803ED460 D_80211AC0[0x13][32]; /* each model's parts */
 u8 D_802153C0[0x14];
 f32 D_802153D4;
 f32 D_802153D8;
@@ -79,7 +80,7 @@ extern Mtx D_80211A28;
 extern s16 D_80211A68;
 extern s16 D_80211A6A;
 extern f32 D_80211A70[];
-extern u8 D_80211AC0[][0x300];
+extern UnkStruct_803ED460 D_80211AC0[][32];
 extern u8 D_802153C0[];
 extern f32 D_802153D4;
 extern f32 D_802153D8;

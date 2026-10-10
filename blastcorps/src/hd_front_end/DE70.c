@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/frame.h"
 #include "game/game.h"
+#include "game/vehicle.h"
 #include "functions.h"
 
 /* A loaded asset's header: the fields are offsets from its start. */
@@ -34,7 +35,7 @@ Gfx *PTR32 D_80218360[4];
 Mtx D_80218370;
 Mtx D_802183B0;
 Mtx D_802183F0;
-u8 D_80218430[0x300];
+UnkStruct_803ED460 D_80218430[32]; /* the model's parts */
 u32 D_80218730;
 u16 D_80218734;
 

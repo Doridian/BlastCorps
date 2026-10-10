@@ -37,15 +37,11 @@ ALWaveTable_s
 AMAudioMgr
 AMDMABuffer
 AMDMAState
-AmmoBox
-Anim
 Block
 Chorus
 D_80300A68_t
-EffectSlot
 GroupSet
 LowPass
-MtxCopy
 PVoice_s
 Reverb
 Section
@@ -57,9 +53,5 @@ SndPlayer
 SndState
 SndStateLists
 SynConfig
-TexPatch
-TexSlot
 TntCrate
-UnkStruct_803ED460
 Update
-Vehicle
