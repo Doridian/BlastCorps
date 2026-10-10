@@ -690,13 +690,13 @@ void alCSPNew(ALCSPlayer *p, ALSeqpConfig *c) {
     p->nextEvent.type = AL_SEQP_API_EVT;       /* starts the idle tick */
 
     p->maxChannels = c->maxChannels;
-    p->chanState = alHeapAlloc(hp, c->maxChannels, BLOCK_CHANSTATE);
+    p->chanState = alHeapAlloc(hp, c->maxChannels, HEAP_BLOCK(ALChanState, BLOCK_CHANSTATE));
     for (i = 0; i < p->maxChannels; i++) {
         p->chanState[i].instrument = NULL;
         chan_defaults(&p->chanState[i]);
     }
 
-    vs = alHeapAlloc(hp, c->maxVoices, BLOCK_VOICESTATE);
+    vs = alHeapAlloc(hp, c->maxVoices, HEAP_BLOCK(ALVoiceState, BLOCK_VOICESTATE));
     p->vFreeList = NULL;
     for (i = 0; i < c->maxVoices; i++) {
         vs[i].next = p->vFreeList;
@@ -704,7 +704,7 @@ void alCSPNew(ALCSPlayer *p, ALSeqpConfig *c) {
     }
     p->vAllocHead = p->vAllocTail = NULL;
 
-    items = alHeapAlloc(hp, c->maxEvents, BLOCK_EVENT);
+    items = alHeapAlloc(hp, c->maxEvents, HEAP_BLOCK(ALEventListItem, BLOCK_EVENT));
     alEvtqNew(&p->evtq, items, c->maxEvents);
 
     p->node.next = NULL;

@@ -8,8 +8,9 @@
  * programming manual's audio chapters and function reference) and from what
  * the game uses; every layout here is checked against the game's own by the
  * build (the offsets in comments) and by the libaudio oracle
- * (port/tools/audio_oracle).  Pointers in shared structures are 32 bits in
- * every build (PTR32: the N64's layout, also in the LP64 port).
+ * (port/tools/audio_oracle).  The bank and sequence bank files' pointers
+ * are 32 bits in every build (PTR32: the files' layout, also in the LP64
+ * port); the rest is C's, laid out as the host lays it out.
  */
 #ifndef PORT_SDK_LIBAUDIO_H
 #define PORT_SDK_LIBAUDIO_H
@@ -58,8 +59,8 @@ typedef u8 ALPan;               /* 0 left, 64 centre, 127 right */
 
 /* a doubly linked list's node; a list is a node whose next is the head */
 typedef struct ALLink_s {
-    struct ALLink_s *PTR32 next;
-    struct ALLink_s *PTR32 prev;
+    struct ALLink_s *next;
+    struct ALLink_s *prev;
 } ALLink;
 
 void alUnlink(ALLink *element);
@@ -67,16 +68,16 @@ void alLink(ALLink *element, ALLink *after);
 
 /* sample data is fetched through the game's routine: given a ROM address
    and a length, it returns an RDRAM physical address holding them */
-typedef s32 (*PTR32 ALDMAproc)(s32 addr, s32 len, void *state);
-typedef ALDMAproc (*PTR32 ALDMANew)(void *state);
+typedef s32 (*ALDMAproc)(s32 addr, s32 len, void *state);
+typedef ALDMAproc (*ALDMANew)(void *state);
 
 void alCopy(void *src, void *dest, s32 len);
 
 /* ---- the heap: a bump allocator, 16-byte blocks ----------------------------- */
 
 typedef struct {
-    u8 *PTR32 base;
-    u8 *PTR32 cur;
+    u8 *base;
+    u8 *cur;
     s32 len;
     s32 count;
 } ALHeap;
@@ -228,25 +229,25 @@ void alSeqFileNew(ALSeqFile *f, u8 *base);
 
 /* ---- the synthesizer --------------------------------------------------------- */
 
-typedef ALMicroTime (*PTR32 ALVoiceHandler)(void *);
+typedef ALMicroTime (*ALVoiceHandler)(void *);
 
 typedef struct {
     s32 maxVVoices;             /* (unused) */
     s32 maxPVoices;
     s32 maxUpdates;
     s32 maxFXbusses;
-    void *PTR32 dmaproc;        /* an ALDMANew */
-    ALHeap *PTR32 heap;
+    void *dmaproc;        /* an ALDMANew */
+    ALHeap *heap;
     s32 outputRate;
     ALFxId fxType;
-    s32 *PTR32 params;          /* AL_FX_CUSTOM's */
+    s32 *params;          /* AL_FX_CUSTOM's */
 } ALSynConfig;
 
 /* a client of the synthesizer: its handler runs when its time comes, and
    returns the microseconds to its next call */
 typedef struct ALPlayer_s {
-    struct ALPlayer_s *PTR32 next;
-    void *PTR32 clientData;
+    struct ALPlayer_s *next;
+    void *clientData;
     ALVoiceHandler handler;
     ALMicroTime callTime;
     s32 samplesLeft;            /* the output sample of its next call */
@@ -255,9 +256,9 @@ typedef struct ALPlayer_s {
 /* a voice as its client holds it; pvoice is the synthesizer's */
 typedef struct ALVoice_s {
     ALLink node;
-    struct PVoice_s *PTR32 pvoice;
-    ALWaveTable *PTR32 table;
-    void *PTR32 clientPrivate;
+    struct PVoice_s *pvoice;
+    ALWaveTable *table;
+    void *clientPrivate;
     s16 state;
     s16 priority;
     s16 fxBus;
@@ -271,18 +272,18 @@ typedef struct ALVoiceConfig_s {
 } ALVoiceConfig;
 
 typedef struct {
-    ALPlayer *PTR32 head;
+    ALPlayer *head;
     ALLink pFreeList;           /* physical voices: free, */
     ALLink pAllocList;          /* in use, */
     ALLink pLameList;           /* released this frame */
     s32 paramSamples;           /* the sample time a client's changes take effect */
     s32 curSamples;             /* samples made so far */
     ALDMANew dma;
-    ALHeap *PTR32 heap;
-    struct ALParam_s *PTR32 paramList;
-    struct ALMainBus_s *PTR32 mainBus;
-    struct ALAuxBus_s *PTR32 auxBus;
-    struct ALFilter_s *PTR32 outputFilter;
+    ALHeap *heap;
+    struct Update *paramList;   /* the library's free updates */
+    struct ALMainBus_s *mainBus;
+    struct ALAuxBus_s *auxBus;
+    struct ALFilter_s *outputFilter;
     s32 numPVoices;
     s32 maxAuxBusses;
     s32 outputRate;
@@ -426,7 +427,7 @@ enum AL_MIDImeta {
 #define AL_CMIDI_CNTRL_LOOPCOUNT_BIG 105
 
 typedef struct {
-    u8 *PTR32 curPtr;
+    u8 *curPtr;
     s32 lastTicks;
     s32 curTicks;
     s16 lastStatus;
@@ -458,11 +459,11 @@ typedef struct {
 } ALEndEvent;
 
 typedef struct {
-    struct ALVoice_s *PTR32 voice;
+    struct ALVoice_s *voice;
 } ALNoteEvent;
 
 typedef struct {
-    struct ALVoice_s *PTR32 voice;
+    struct ALVoice_s *voice;
     ALMicroTime delta;
     u8 vol;
 } ALVolumeEvent;
@@ -472,8 +473,8 @@ typedef struct {
 } ALSeqpVolEvent;
 
 typedef struct {
-    ALSeqMarker *PTR32 start;
-    ALSeqMarker *PTR32 end;
+    ALSeqMarker *start;
+    ALSeqMarker *end;
     s32 count;
 } ALSeqpLoopEvent;
 
@@ -483,16 +484,16 @@ typedef struct {
 } ALSeqpPriorityEvent;
 
 typedef struct {
-    void *PTR32 seq;            /* an ALSeq or an ALCSeq */
+    void *seq;            /* an ALSeq or an ALCSeq */
 } ALSeqpSeqEvent;
 
 typedef struct {
-    ALBank *PTR32 bank;
+    ALBank *bank;
 } ALSeqpBankEvent;
 
 typedef struct {
-    struct ALVoiceState_s *PTR32 vs;
-    void *PTR32 oscState;
+    struct ALVoiceState_s *vs;
+    void *oscState;
     u8 chan;
 } ALOscEvent;
 
@@ -543,9 +544,9 @@ void alEvtqFlushType(ALEventQueue *evtq, s16 type);
 
 /* a sounding note */
 typedef struct ALVoiceState_s {
-    struct ALVoiceState_s *PTR32 next;
+    struct ALVoiceState_s *next;
     ALVoice voice;
-    ALSound *PTR32 sound;
+    ALSound *sound;
     ALMicroTime envEndTime;
     f32 pitch;
     f32 vibrato;
@@ -559,9 +560,9 @@ typedef struct ALVoiceState_s {
     u8 flags;                   /* 1: a tremolo oscillator, 2: a vibrato one */
 } ALVoiceState;
 
-/* a MIDI channel's state (the game copies these 16 bytes as four words) */
+/* a MIDI channel's state (the game saves and restores them, hd_code 1C460.c) */
 typedef struct {
-    ALInstrument *PTR32 instrument;
+    ALInstrument *instrument;
     s16 bendRange;
     ALFxId fxId;
     ALPan pan;
@@ -573,9 +574,9 @@ typedef struct {
 } ALChanState;
 
 typedef struct ALSeq_s {
-    u8 *PTR32 base;
-    u8 *PTR32 trackStart;
-    u8 *PTR32 curPtr;
+    u8 *base;
+    u8 *trackStart;
+    u8 *curPtr;
     s32 lastTicks;
     s32 len;
     f32 qnpt;
@@ -590,14 +591,14 @@ typedef struct {
 } ALCMidiHdr;
 
 typedef struct ALCSeq_s {
-    ALCMidiHdr *PTR32 base;
+    ALCMidiHdr *base;
     u32 validTracks;            /* a bit per track still going */
     f32 qnpt;                   /* quarter notes per tick */
     u32 lastTicks;              /* the tick of the last event read */
     u32 lastDeltaTicks;
     u32 deltaFlag;              /* the last delta isn't taken off the tracks' yet */
-    u8 *PTR32 curLoc[16];
-    u8 *PTR32 curBUPtr[16];     /* in a repeat: where it reads */
+    u8 *curLoc[16];
+    u8 *curBUPtr[16];     /* in a repeat: where it reads */
     u8 curBULen[16];            /* ... and how much is left */
     u8 lastStatus[16];          /* running status */
     u32 evtDeltaTicks[16];      /* each track's next event, in ticks from the last */
@@ -607,8 +608,8 @@ typedef struct {
     u32 validTracks;
     s32 lastTicks;
     u32 lastDeltaTicks;
-    u8 *PTR32 curLoc[16];
-    u8 *PTR32 curBUPtr[16];
+    u8 *curLoc[16];
+    u8 *curBUPtr[16];
     u8 curBULen[16];
     u8 lastStatus[16];
     u32 evtDeltaTicks[16];
@@ -623,23 +624,23 @@ typedef struct {
     s32 maxEvents;
     u8 maxChannels;
     u8 debugFlags;
-    ALHeap *PTR32 heap;
-    void *PTR32 initOsc;
-    void *PTR32 updateOsc;
-    void *PTR32 stopOsc;
+    ALHeap *heap;
+    void *initOsc;
+    void *updateOsc;
+    void *stopOsc;
 } ALSeqpConfig;
 
-typedef ALMicroTime (*PTR32 ALOscInit)(void **oscState, f32 *initVal, u8 oscType, u8 oscRate,
+typedef ALMicroTime (*ALOscInit)(void **oscState, f32 *initVal, u8 oscType, u8 oscRate,
                                       u8 oscDepth, u8 oscDelay);
-typedef ALMicroTime (*PTR32 ALOscUpdate)(void *oscState, f32 *updateVal);
-typedef void (*PTR32 ALOscStop)(void *oscState);
+typedef ALMicroTime (*ALOscUpdate)(void *oscState, f32 *updateVal);
+typedef void (*ALOscStop)(void *oscState);
 
 typedef struct {
     ALPlayer node;              /* first */
-    ALSynth *PTR32 drvr;
-    ALSeq *PTR32 target;
+    ALSynth *drvr;
+    ALSeq *target;
     ALMicroTime curTime;
-    ALBank *PTR32 bank;
+    ALBank *bank;
     s32 uspt;                   /* microseconds per tick */
     s32 nextDelta;
     s32 state;
@@ -650,25 +651,26 @@ typedef struct {
     ALEvent nextEvent;
     ALEventQueue evtq;
     ALMicroTime frameTime;
-    ALChanState *PTR32 chanState;
-    ALVoiceState *PTR32 vAllocHead;
-    ALVoiceState *PTR32 vAllocTail;
-    ALVoiceState *PTR32 vFreeList;
+    ALChanState *chanState;
+    ALVoiceState *vAllocHead;
+    ALVoiceState *vAllocTail;
+    ALVoiceState *vFreeList;
     ALOscInit initOsc;
     ALOscUpdate updateOsc;
     ALOscStop stopOsc;
-    ALSeqMarker *PTR32 loopStart;
-    ALSeqMarker *PTR32 loopEnd;
+    ALSeqMarker *loopStart;
+    ALSeqMarker *loopEnd;
     s32 loopCount;
 } ALSeqPlayer;
 
-/* the compact sequence player: ALSeqPlayer's layout up to stopOsc */
+/* the compact sequence player: ALSeqPlayer's layout up to stopOsc (the
+   offsets: where pointers are 4 bytes) */
 typedef struct {
     ALPlayer node;              /* 0x00 */
-    ALSynth *PTR32 drvr;        /* 0x14 */
-    ALCSeq *PTR32 target;       /* 0x18 */
+    ALSynth *drvr;        /* 0x14 */
+    ALCSeq *target;       /* 0x18 */
     ALMicroTime curTime;        /* 0x1C */
-    ALBank *PTR32 bank;         /* 0x20 */
+    ALBank *bank;         /* 0x20 */
     s32 uspt;                   /* 0x24 */
     s32 nextDelta;              /* 0x28 */
     s32 state;                  /* 0x2C */
@@ -679,10 +681,10 @@ typedef struct {
     ALEvent nextEvent;          /* 0x38 */
     ALEventQueue evtq;          /* 0x48 */
     ALMicroTime frameTime;      /* 0x5C */
-    ALChanState *PTR32 chanState;   /* 0x60 */
-    ALVoiceState *PTR32 vAllocHead; /* 0x64 */
-    ALVoiceState *PTR32 vAllocTail; /* 0x68 */
-    ALVoiceState *PTR32 vFreeList;  /* 0x6C */
+    ALChanState *chanState;   /* 0x60 */
+    ALVoiceState *vAllocHead; /* 0x64 */
+    ALVoiceState *vAllocTail; /* 0x68 */
+    ALVoiceState *vFreeList;  /* 0x6C */
     ALOscInit initOsc;          /* 0x70 */
     ALOscUpdate updateOsc;      /* 0x74 */
     ALOscStop stopOsc;          /* 0x78 */
@@ -740,16 +742,16 @@ void alCSPSetVol(ALCSPlayer *seqp, s16 vol);
 typedef struct {
     s32 maxSounds;
     s32 maxEvents;
-    ALHeap *PTR32 heap;
+    ALHeap *heap;
 } ALSndpConfig;
 
 typedef struct {
     ALPlayer node;
     ALEventQueue evtq;
     ALEvent nextEvent;
-    ALSynth *PTR32 drvr;
+    ALSynth *drvr;
     s32 target;
-    void *PTR32 sndState;
+    void *sndState;
     s32 maxSounds;
     ALMicroTime frameTime;
     ALMicroTime nextDelta;

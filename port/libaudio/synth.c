@@ -51,18 +51,18 @@ s32 al_usec_to_samples(ALSynth *s, s32 usec) {
 /* ---- updates ------------------------------------------------------------------ */
 
 Update *al_update_alloc(ALSynth *s) {
-    Update *u = (Update *)s->paramList;
+    Update *u = s->paramList;
 
     if (u != NULL) {
-        s->paramList = (struct ALParam_s *)u->next;
+        s->paramList = u->next;
         u->next = NULL;
     }
     return u;
 }
 
 void al_update_free(ALSynth *s, Update *u) {
-    u->next = (Update *)s->paramList;
-    s->paramList = (struct ALParam_s *)u;
+    u->next = s->paramList;
+    s->paramList = u;
 }
 
 /* a voice's update, at the time its client's handler runs, delayed while the
@@ -104,21 +104,21 @@ void alSynNew(ALSynth *s, ALSynConfig *c) {
     s->dma = (ALDMANew)c->dmaproc;
 
     /* the blocks in the reference's order */
-    out = alHeapAlloc(hp, 1, BLOCK_SAVE);
+    out = alHeapAlloc(hp, 1, HEAP_BLOCK(OutStage, BLOCK_SAVE));
     out->dram = 0;
     s->outputFilter = (struct ALFilter_s *)out;
 
-    aux = alHeapAlloc(hp, 1, BLOCK_AUXBUS);
+    aux = alHeapAlloc(hp, 1, HEAP_BLOCK(AuxBus, BLOCK_AUXBUS));
     s->auxBus = aux;
     s->maxAuxBusses = 1;
-    aux->voices = alHeapAlloc(hp, c->maxPVoices, 4);
+    aux->voices = alHeapAlloc(hp, c->maxPVoices, HEAP_BLOCK(PVoice *, BLOCK_PTR));
     aux->nvoices = 0;
     aux->maxvoices = c->maxPVoices;
     aux->fx.on = 0;
 
-    mainbus = alHeapAlloc(hp, 1, BLOCK_MAINBUS);
+    mainbus = alHeapAlloc(hp, 1, HEAP_BLOCK(MainBus, BLOCK_MAINBUS));
     s->mainBus = mainbus;
-    mainbus->sources = alHeapAlloc(hp, c->maxPVoices, 4);
+    mainbus->sources = alHeapAlloc(hp, c->maxPVoices, HEAP_BLOCK(void *, BLOCK_PTR));
     mainbus->nsources = 1;      /* the reverb, or the aux bus straight */
     mainbus->sources[0] = aux;
 
@@ -128,7 +128,7 @@ void alSynNew(ALSynth *s, ALSynConfig *c) {
     link_voice_list(&s->pFreeList);
     link_voice_list(&s->pLameList);
     link_voice_list(&s->pAllocList);
-    voices = alHeapAlloc(hp, c->maxPVoices, BLOCK_VOICE);
+    voices = alHeapAlloc(hp, c->maxPVoices, HEAP_BLOCK(PVoice, BLOCK_VOICE));
     for (i = 0; i < c->maxPVoices; i++) {
         PVoice *pv = &voices[i];
         alLink(&pv->node, &s->pFreeList);
@@ -138,7 +138,7 @@ void alSynNew(ALSynth *s, ALSynConfig *c) {
     }
 
     /* the update pool, as a stack */
-    updates = alHeapAlloc(hp, c->maxUpdates, BLOCK_UPDATE);
+    updates = alHeapAlloc(hp, c->maxUpdates, HEAP_BLOCK(Update, BLOCK_UPDATE));
     s->paramList = NULL;
     for (i = 0; i < c->maxUpdates; i++)
         al_update_free(s, &updates[i]);
