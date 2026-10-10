@@ -89,9 +89,9 @@ interrupt changes) calls `port_spin_wait()` in its body there: the port
 runs one thread at a time with no polls in loops, so without it the loop
 spins forever (docs/PORT.md, "Memory model").  Pointers in
 memory are native (8 bytes in the LP64 port); `T *PTR32 p` (4 bytes there,
-nothing to IDO) is only for what the ROM's data, libaudio or the display
-lists fix, and a variable's declarations all agree (docs/PORT.md, "The
-LP64 build").
+nothing to IDO) is only for the words of the display lists and the audio
+command lists, and a variable's declarations all agree (docs/PORT.md,
+"The LP64 build").
 
 The port's improvements for the player (`--interpolate` with
 `--display-hz auto`, `--hd-text`, `--model-icons`, and any added later) are

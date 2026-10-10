@@ -495,8 +495,8 @@ What port-ilp32 does to the i386 module:
   packed structs of the same size with explicit padding, `byval`/`sret`
   types become byte arrays; then the module gets the 64-bit triple and data
   layout (`-port-ilp32-triple`), and loses the i386 target attributes.
-- **Pointer arithmetic wraps at 32 bits**, as on the N64.  The game relies
-  on it: libaudio's `alBnkfNew` relocates a bank's offsets with
+- **Pointer arithmetic wraps at 32 bits**, as on the N64.  The game relied
+  on it: the original libaudio's `alBnkfNew` relocates a bank's offsets with
   `(u8 *)offset + (s32)base`, which on a 64-bit GEP sign-extends the
   KSEG0 base and lands below zero.  A GEP by a variable (or large) offset
   is computed on the 32-bit address; one by a small constant (a field)
@@ -956,7 +956,8 @@ So the stages are:
 2. BEPass without the swaps, with the C's punning sites fixed under
    `TARGET_PC`.
 3. Native LP64 structs where a struct's pointers are only the C's: those
-   the ROM's data or libaudio fix keep 32-bit fields (`PTR32`), and the
+   the display and audio command lists fix keep 32-bit fields (`PTR32`;
+   the ROM's data and libaudio did until P7), and the
    `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
    depends on them.  The first two are gone in the LP64 build ("The LP64
    build"); the fixed addresses are what's left.
@@ -1187,7 +1188,7 @@ layout table (below), and the translated code is only in the 32-bit
 check build (`PORT_ENGINE_CHECK`), where pointers are 4 bytes anyway.
 `port/tools/layout_cmp.py A B` lists every struct whose layout differs
 between two builds from their DWARF; against the native-endian 64-bit
-build (`n64`) the LP64 build has 59 (us.v10):
+build (`n64`) the LP64 build has 107 (us.v10):
 
 - the OS's and the scheduler's: `OSThread`, `OSMesgQueue`, `OSIoMesg`
   and its header, `OSPiHandle`, `__OSBlockInfo`, `__OSTranxInfo`,
@@ -1195,6 +1196,14 @@ build (`n64`) the LP64 build has 59 (us.v10):
   `AudioInfo`, `IoMesg`, `PakState`, `port/src/ultra.c`'s `Delay`, and
   `AMAudioMgr` (the thread and queues it holds; its command lists are
   still `PTR32`, below);
+- the sound (48, since P7): libaudio's structures (32 `AL*`: the players,
+  sequences, voices, events, the heap, and the bank objects it parses
+  the bank files into, "libaudio"), its private blocks in the audio heap
+  (`PVoice`, `Update`, `LowPass`, `Chorus`, `Section`, `Reverb`, and
+  `BankFileIn`, the parser's), Rare's sound player on it (`SndState`,
+  `SndEvent`, `SndPlayer`, `SndConfig`, `SndStateLists`, `SynConfig`), the
+  audio DMA's `AMDMABuffer`/`AMDMAState`, and `UnkStruct_80366C30`, which
+  keeps a copy of the sequence player's channel states;
 - the game's objects: `Vehicle`, `Building`, `TntCrate`, `Block`,
   `AmmoBox`, `Hole`, `YoshiEntry`, the part (`UnkStruct_803ED460`, the
   engine's `Anim`) and `VehicleSave`, and the front end's and the game's
@@ -1213,29 +1222,34 @@ pointers are 4 bytes.
 
 **What keeps `PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's
 `__ptr32 __uptr` in this build, nothing elsewhere, so IDO sees the same
-code) is what something other than the C fixes the layout of.
-`port/tools/ptr32_allow.txt` lists the 49 structures and the package
-that takes each:
+code) is what something other than the C fixes the layout of: the words
+of the display lists and of the audio command lists, which the RSP (and
+the renderer and the audio HLE for it) reads.  `port/tools/ptr32_allow.txt`
+lists the 2 structures, both P8's:
 
-- **P7** (the ROM's data and the sound): libaudio (36 types: its records
-  are allocated and cast at `sizeof(ALParam)` and the like, which holds
-  only in the N64's layout, and its banks and sequences are the ROM's
-  bytes), Rare's sound player on it (`SndState`, `SndEvent`, `SndPlayer`,
-  `SndConfig`, `SndStateLists`; `SndBank`/`SndInstrument` are ROM data,
-  `ROMPTR`), the audio DMA's `AMDMABuffer`/`AMDMAState` (on `ALLink`),
-  `SynConfig`, the engine's `GroupSet` (its first word is in the level's
-  tables, `D_802D30D0`..., 0x18 bytes a record), `OSDevMgr`'s two
-  function pointers, and the ROM addresses the C makes from symbols
-  (`(u32)D_00xxxxxx`: `RomAddr` constants there);
 - **P8** (the display lists): `AMAudioMgr.ACMDList` (`Acmd`), asm2c's
-  `D_80300A68` (its display list's words, `PTR32_VARS`), `gbi.h`'s
-  `_GBI_W` and `STATIC_K0_TO_PHYS`;
+  `D_80300A68` (its display list's words, `PTR32_VARS`); without a
+  structure, `gbi.h`'s `_GBI_W` and `STATIC_K0_TO_PHYS`;
 - **P10** (the host interface): no structure, but `port/src` hands the
   host N64 addresses as `u32` (`host_*((u32)p)`).
 
-A sound handle is native (`TntCrate`'s, `Block`'s, the vehicle modules'
-`SndState *` slots, `func_80260650`'s `SndState **`); only the field of
-`SndState` that points back at it, `unk30`, is still 4 bytes.
+P7 made the rest native: libaudio's structures and private blocks (a
+block in the audio heap is the bigger of the N64's size and its
+structure's, so the 32-bit builds keep the original's heap and the LP64
+one grows, by a formula, `libaudio_heap.h`), its function-pointer types (`ALDMAproc`,
+`ALDMANew`, `ALVoiceHandler`, the oscillators) and `OSDevMgr`'s two;
+the bank files parsed into objects of the port's own instead of
+relocated in place ("libaudio"), and the sound effects' bank an `ALBank`
+read through `SND_SOUND` (Rare's `SndBank`/`SndInstrument` and `ROMPTR`
+are gone); the sound player's structures, `SndState.unk30` (a plain
+`SndState **`) and the audio DMA's buffers; the ROM addresses, `RomAddr`
+constants from a generated header (`ROM(D_00xxxxxx)`, `types.h`); the
+front end's model file rebased by `ASSET_PTR`; and the data words that
+held addresses keep numbers: a group set (`GroupSet`, in the level's
+tables `D_802D30D0`..., 0x18 bytes a record) holds its building's index
+in `D_803F4030` (+ 1), the animated textures their texture numbers (the
+drawing looks the address up), and the effects' heap a piece by its
+animation's index.
 
 **The tools.**
 
@@ -1260,15 +1274,17 @@ A sound handle is native (`TntCrate`'s, `Block`'s, the vehicle modules'
   `-Wint-to-pointer-cast`, `-Wint-conversion`) and incompatible pointer
   types, classed by where they are and the macros they come through,
   counted per file and version against `ptrcast_allow.txt`; what is left
-  is P7's, P8's and P10's.
+  is P8's (the display lists' and the audio command lists' words) and
+  P10's (the host interface).
 - `port/tools/n64_tus.py`: the N64 side's translation units with the
   build's own commands, which the last two run with each version's
   `VERSION_` define, so one build answers for all four.
 - `port/tools/test.py quick` runs the three on an LP64 build (not the
   movable one, which has the same sources), and the LP64 builds compile
   the N64 side with `-Werror=int-conversion` and
-  `-Werror=incompatible-pointer-types` (`CMakeLists.txt`; the function
-  pointer subgroup stays a warning until P7).
+  `-Werror=incompatible-pointer-types` (`CMakeLists.txt`), the function
+  pointer subgroup (`-Werror=incompatible-function-pointer-types`)
+  included.
 
 **In the C.**
 
@@ -1503,10 +1519,11 @@ What port-arena does, in order:
 5. **Functions as values** become N64 addresses (the game's functions
    their vram; the port's own address-taken ones, `boot_entry` and the
    like, a reserved range), and an indirect call goes through
-   `port_fn(addr)`, a table the pass emits (33 address-taken functions
-   and 52 indirect calls in us.v10: libaudio's handlers, thread entries,
-   callbacks).  The host starts a thread through an N64-side trampoline,
-   so it never calls a game function itself.
+   `port_fn(addr)`, a table the pass emits (30 address-taken functions
+   and 16 indirect calls in us.v10's mn32 build, 40 and 19 in mlp64:
+   libaudio's handlers, thread entries, callbacks).  The host starts a
+   thread through an N64-side trampoline, so it never calls a game
+   function itself.
 6. **What the host linker did.**  The `--wrap`s (ld64 has none) are done
    by renaming in the module; the replay hooks' `__builtin_return_address`
    (WebAssembly has none) becomes a caller id the pass passes.
@@ -1684,8 +1701,12 @@ make one object.  port-arena, over the whole program:
 - makes a function used as a value its N64 address, the game's by its
   vram and the port's own from `0x7F000000`, and a call through a value a
   call through `port_fn(address)` (the pass's `__port_fns`, `runtime.c`):
-  30 functions and 50 calls in us.v10.  The host calls a thread's entry
-  the same way (`PORT_FN`, `threads.c`);
+  30 functions and 16 calls in us.v10 (mn32; mlp64 40 and 19,
+  `PORT_ARENA_STATS=1`, after P7).  The host calls a thread's entry
+  the same way (`PORT_FN`, `threads.c`).  The function pointer types are
+  the C's own since P7 (libaudio's, `OSDevMgr`'s); a value is an N64
+  address because every pointer value is one in the movable builds, so
+  the table goes with the arena (P10);
 - names the caller of the replay's hooks (`port_replay_set_caller`, which
   `replay.c` uses instead of looking the return address up in the port's
   symbol table, as the other builds do);
@@ -2541,7 +2562,8 @@ object.  Two more things port-arena does there:
   Each function used as a value gets a thunk per type it is called
   through (converting as the call repair does), and `port_fn_typed(address,
   type)` (`runtime.c`) picks it; `port_fn`'s table has the host's type,
-  `void(ptr)`: 30 functions, 8 types, 236 thunks in us.v10.
+  `void(ptr)`: 30 functions, 7 types, 204 thunks in us.v10 (206 at P7's
+  start, before libaudio's function pointers were typed).
 - `-port-arena-x86-fptoint`: a float to integer conversion out of range
   is poison to LLVM, and each target gives what its instruction does.
   x86's `cvtt*` give 0x80000000 (and i386's narrow and unsigned
@@ -2800,18 +2822,65 @@ It is exact: every audio frame's command list, every answer the game gets
 (`alCSPGetState`, `alCSeqGetLoc`, voice allocation, the events it reads
 back) and every byte of the memory the game shares with it are the
 original's.  What that takes:
-- the heap blocks in the original's order and sizes (the RSP's state
-  blocks' addresses are in the command list, and the game's own
-  allocations come after the library's), and the public structures' layouts
-  (the game copies `ALChanState`s as words and reads `ALCSPlayer.state`);
+- the heap blocks in the original's order and sizes where pointers are 4
+  bytes (the RSP's state blocks' addresses are in the command list, and
+  the game's own allocations come after the library's); where they are 8
+  (the LP64 builds), a block is the bigger of the original's size and its
+  structure's (`HEAP_BLOCK`, `port/include/libaudio_heap.h`), and the
+  game's audio heap grows by the sum, a formula of the counts the game
+  asks for (`AUDIO_HEAP_SIZE`, `game/audio.h`); a heap that runs out stops
+  the port with a message (`alHeapDBAlloc`), where the original returned
+  NULL;
+- the public structures' fields (the game reads `ALCSPlayer.state`, and
+  copies the sequence player's `ALChanState`s, as words for IDO and as
+  structures in the port);
 - the same float and double steps where the original rounds (the
   envelope's ramp, the resampler's pitch quantization, the tick and sample
   conversions, the reverb's chorus);
 - the original's corner cases, kept: a stolen voice's updates wait 512
-  samples, the percussion setup writes the channel state just past the
-  last, the reverb's "same tap" test compares with the previous section's
+  samples, the reverb's "same tap" test compares with the previous section's
   output tap ahead of the write position, a tempo change re-queues the note
-  offs in the order the original's relinking leaves them.
+  offs in the order the original's relinking leaves them.  One is fixed
+  instead: the original's bank change resets the channel state just past
+  the last when the bank has percussion, which is the first voice state's
+  link and voice (harmless while that voice is free); the port's doesn't
+  (the oracle compares the memory the game shares, not the library's own,
+  and the sound didn't move).
+
+**The bank files** (`.ctl`) are parsed, not relocated.  The original's
+`alBnkfNew` adds the file's address to every offset in it, in place, and
+the game reads the result as `ALBankFile`/`ALBank`/`ALInstrument`/
+`ALSound`/`ALWaveTable`, 4-byte pointers in the ROM's records.  The
+port's (`core.c`) reads the file through its own layout (`bankfile.h`:
+the records' offsets and sizes, their fields read a byte at a time, big
+endian, as the ROM has them in every build) and builds native objects of
+those types in a pool of its own, on the N64 side (not the audio heap,
+whose layout the command lists hold; not the host's `malloc`), each
+record once however many refer to it.  The pool is sized by a formula:
+`AL_BANK_RECORD_BYTES` (0x8000) of records, a record at most 3/8 of a
+pointer a byte once its offsets are pointers, and `AL_BANK_FILES` (4)
+bank lists; the game's two files have 0x1D54 and 0x1C70 bytes of records
+(738), 0x39C4 bytes of the pool with 4-byte pointers and 0x6598 with 8.
+A smaller target can set the bound lower, a resource pack with bigger
+banks higher.  The leaves, which hold no offset (the ADPCM books and
+loops, the raw loops, the envelopes, the key maps), stay in the file
+where they are, and the objects point at them: so the books' and loop
+states' addresses in the command lists are the original's, and the
+loader still puts their scalars in the order the library reads them
+(`host/native.c`; the records it leaves as they are, but for the
+original library, which reads them in place).  The file stays in its
+audio heap block, unrelocated.  Every offset is checked against the file
+(inside it, aligned, a count that fits), and a bad one, or a full pool,
+stops the port with a message (`host_fatal`) instead of reading wild: a
+pack can replace a bank.  A wave table's `base` and a sequence's
+`offset` (`alSeqFileNew`, which adds the ROM address to the offsets in
+place, as integers) are ROM addresses, `u32`s, not pointers.  The game
+gets its banks through `alBnkfBank(file, i)` (`1C460.c`, under
+`TARGET_PC`; a shim over `bankArray[i]` with
+`-DPORT_LIBAUDIO_ORIGINAL=ON`), and the sound effects' bank is an
+`ALBank` whose sounds `SND_SOUND(bank, id)` reads
+(`instArray[0]->soundArray[id - 1]`, which for IDO is the original's
+expression).
 
 Its work takes no time, as the rest of the game's does ("Timing"), so its
 loops' shape doesn't matter to the timing.
@@ -2877,6 +2946,17 @@ loops' shape doesn't matter to the timing.
   runs.  The logs are large (us.v10's five 340 MB, eu's 510 MB) and are
   kept out of the repository; a change to the libaudio or to what the game
   hands it is checked against logs recorded once from the tree before it.
+  P7's (recorded by P7-A with the original library, from the tree before
+  any of P7's libaudio changes) are kept beside the worktrees
+  (`blastcorps-wt/oracle-refs`), and each of its libaudio changes was
+  replayed against them with `--lib port orig`.
+
+Checked again after P7 (d3efc69's tree: the libaudio's run-time
+structures native, the bank files parsed), against those logs: no
+mismatch for port.so and orig.so in any of the five scenarios of us.v10
+(360,418 calls, 12,000 audio frames) and eu (719,577 calls, 24,000), with
+port.so's 738 bank objects mapped and 1,157 and 1,235 call arguments
+translated to them (and no memory word).
 
 Checked on 2026-10-10 (fd641e1's tree, us.v10 and eu): every audio frame's
 commands, every answer and every structure handed back the original's, for
@@ -5029,7 +5109,8 @@ level's status, 8AEE0 the hotrod and the Cyclone Suit, 83910 the barges,
   `FX_W/H/B`, whose halves and bytes native-endian memory keeps at their
   N64 places), the delayed-damage queue (`DelayedHit`), the smoke, dust and
   falling-shadow slots (`Smoke`, `Dust`, `FallShadow`), and in 77E20 the
-  target objects (`TargetObj`), the level's group sets (`GroupSet`) and the
+  target objects (`TargetObj`), the level's group sets (`GroupSet`: each
+  holds its building's index in `D_803F4030`, + 1, not its address) and the
   models a vehicle can't harm (`Immune`).  The display-list commands they
   write are `DL_*`.  Names only where the code shows the meaning (a field
   `unkXX` otherwise).

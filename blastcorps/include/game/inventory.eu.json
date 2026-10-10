@@ -23217,7 +23217,7 @@
    "rom": "music_ctl",
    "type": "ALBankFile",
    "count": 1,
-   "reloc": "alBnkfNew turns its offsets into pointers in place",
+   "reloc": "alBnkfNew turns its offsets into pointers in place (the N64's libaudio; the port's parses the file into objects of its own)",
    "dst": "0x8004B400"
   },
   {
@@ -23229,7 +23229,7 @@
    "rom": "music_ctl",
    "type": "ALBankFile",
    "count": 1,
-   "reloc": "alBnkfNew turns its offsets into pointers in place",
+   "reloc": "alBnkfNew turns its offsets into pointers in place (the N64's libaudio; the port's parses the file into objects of its own)",
    "dst": "ret(alHeapDBAlloc,v0)"
   },
   {
@@ -23241,7 +23241,7 @@
    "rom": "sfx_ctl",
    "type": "ALBankFile",
    "count": 1,
-   "reloc": "alBnkfNew turns its offsets into pointers in place",
+   "reloc": "alBnkfNew turns its offsets into pointers in place (the N64's libaudio; the port's parses the file into objects of its own)",
    "dst": "0x8004B400"
   },
   {
@@ -23253,7 +23253,7 @@
    "rom": "sfx_ctl",
    "type": "ALBankFile",
    "count": 1,
-   "reloc": "alBnkfNew turns its offsets into pointers in place",
+   "reloc": "alBnkfNew turns its offsets into pointers in place (the N64's libaudio; the port's parses the file into objects of its own)",
    "dst": "ret(alHeapDBAlloc,v0)"
   },
   {
@@ -23265,7 +23265,7 @@
    "rom": "sequences",
    "type": "ALSeqFile",
    "count": 1,
-   "reloc": "alSeqFileNew turns its offsets into pointers in place",
+   "reloc": "alSeqFileNew turns its offsets into pointers in place (the N64's libaudio; the port's adds the ROM address to them as integers)",
    "dst": "D_80367514"
   },
   {
@@ -23277,7 +23277,7 @@
    "rom": "sequences",
    "type": "ALSeqFile",
    "count": 1,
-   "reloc": "alSeqFileNew turns its offsets into pointers in place",
+   "reloc": "alSeqFileNew turns its offsets into pointers in place (the N64's libaudio; the port's adds the ROM address to them as integers)",
    "dst": "D_80367514"
   },
   {

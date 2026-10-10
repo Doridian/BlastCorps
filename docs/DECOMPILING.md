@@ -467,7 +467,7 @@ The game's structures have one definition each, in `blastcorps/include/game/`
 
 | header       | what's in it |
 | ---          | --- |
-| `types.h`    | the conventions below: `ROMPTR()`, `RomAddr`, `AssetOffset`, `SegAddr`, `SIZE_CHECK` |
+| `types.h`    | the conventions below: `RomAddr` (and `ROM(sym)`), `AssetOffset` (and `ASSET_PTR`), `SegAddr`, `SIZE_CHECK` |
 | `game.h`     | the shared game state: game mode words, the heap pointer, the frame index, the player's position, the controller buttons, `frontEndPresent` |
 | `player.h`   | `PlayerInfo` (pfsHandler.c's `playerInfo`, `players[playerNumber]`), the medal values, the best times, `saveIt`, the EEPROM and Controller Pak layouts (`EepromSave`, `PAK_*`) |
 | `level.h`    | the level numbers (`LEVEL_*`, `DUMMY_LEVELS`), `LevelInfo` (the per-level table), `LevelHeader` (the level file, ROM data), the level loader's run-time variables (grids, group tables, bounds), `LevelRdu`/`Rdu`, `LevelStats`, the front end's per-level table |
@@ -476,7 +476,7 @@ The game's structures have one definition each, in `blastcorps/include/game/`
 | `model.h`    | `Model` (the model table's models, ROM data) |
 | `yoshi.h`    | the window system (yoshi.c): `YoshiWindow`, `YoshiEntry`, `YoshiIcon`, `ColorPair`, `yoshiState`/`currentYoshiWindow` |
 | `sched.h`    | the scheduler: `Sched`, `SchedTask`, `SchedClient`, its functions and messages |
-| `audio.h`    | the audio manager (`AMAudioMgr`, `AudioInfo`, `AMDMABuffer`, ...), the old-libaudio `SynConfig`/`SndBank`, the sound player |
+| `audio.h`    | the audio manager (`AMAudioMgr`, `AudioInfo`, `AMDMABuffer`, ...), the old-libaudio `SynConfig`, the sound player (`SndState`, its bank an `ALBank` read through `SND_SOUND`) |
 | `frame.h`    | the per-frame buffer's two layouts (`FrameBuf` for the front end, `FrameGame` for gameplay) |
 | `camera.h`   | the camera's variables (separate globals in hd.c) |
 | `frontend.h` | hd_front_end-only structures and its `gDPSetPrimColorB` |
@@ -492,11 +492,15 @@ Conventions:
   is and why (`D_80364AE8` is academy.c's `playerNumber`). Renaming them is a
   separate step (symbols_known.txt, gen_symbols.py), and the port refers to a
   few of them by name.
-- Fields in data that comes from ROM at run time are marked: `ROMPTR(T *)`
-  for a pointer the loader relocates, `AssetOffset` for an offset from the
-  start of the asset, `RomAddr` for a cartridge address. They expand to the
-  N64 type, so they change no code; they are what a native port widens,
-  rebases or byteswaps on load. `.data`/`.bss` stay plain C.
+- Fields in data that comes from ROM at run time are marked: `AssetOffset`
+  for an offset from the start of the asset (added to its address with
+  `ASSET_PTR(base, off)`), `RomAddr` for a cartridge address (written
+  `ROM(D_00xxxxxx)`: the symbol's address for IDO, a generated constant in
+  the port). They expand to the N64 type, so they change no code; they are
+  what a native port rebases or byteswaps on load. No field of ROM data is
+  a pointer: libaudio's bank files, whose offsets the original relocates in
+  place, are parsed into objects of the port's own (docs/PORT.md,
+  "libaudio"). `.data`/`.bss` stay plain C.
 - Where two files read one field with different signedness, the header has
   the type most uses need, and the other uses get a cast: IDO folds
   `(s16)p->u16field` into `lh` and `(s8)p->u8field` into `lb`. A `char *`

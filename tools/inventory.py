@@ -10,8 +10,8 @@ What the 64-bit port needs to know about the game's memory, in one file
             they contain), with each field's offset, name, type and count.
             The layout comes from clang (-m32 -malign-double, which the
             headers' SIZE_CHECKs hold to the N64's); the kinds of address
-            come from the header markers (ROMPTR, AssetOffset, RomAddr,
-            SegAddr), pointer types and Gfx.
+            come from the header markers (AssetOffset, RomAddr, SegAddr),
+            pointer types and Gfx.
   symbols   the variables whose declaration isn't their type: the ones the
             handwritten code owns (asm/bss, asm/data: only .space and
             .word there), which the headers type, and the C placeholders
@@ -227,20 +227,7 @@ def classify_type(qt, typedefs):
     return name, None, count
 
 
-def rom_marked_fields():
-    """(struct, field) pairs declared with ROMPTR() in the headers."""
-    out = set()
-    for h in headers():
-        text = open(os.path.join(GAME_INC, h)).read()
-        for m in re.finditer(r"typedef\s+(?:struct|union)\s*(\w*)\s*\{(.*?)\}\s*(\w+)\s*;", text, re.S):
-            name = m.group(3)
-            for fm in re.finditer(r"ROMPTR\([^)]*\)\s*(\w+)", m.group(2)):
-                out.add((name, fm.group(1)))
-    return out
-
-
 def build_types(T):
-    romf = rom_marked_fields()
     want = set()
     for name, td in T.typedefs.items():
         if T.file_of.get(name, "") and "/include/game/" in T.file_of[name] and T._is_record_typedef(name):
@@ -266,8 +253,6 @@ def build_types(T):
             e = {"off": off, "name": f.get("name", ""), "type": t, "count": count}
             if t == "ptr":
                 e["to"] = to
-                if (name, f.get("name")) in romf:
-                    e["rom"] = True
             if t == "offset":
                 e["base"] = OFFSET_BASE.get(name, name)
             if t not in F_SCALAR_NAMES and t not in ("ptr", "offset", "romoff", "segptr", "gfx", "bytes"):
@@ -696,9 +681,9 @@ SEGMENT_TYPES = [
     (r"^(chimp|lagp|valley|fact|dip|beetle|bonus\d|level\d+)$", "LevelHeader", 1, "the offsets are added where used (never stored as pointers); the _dl file's G_SETTIMG words are texture indices patched to addresses"),
     (r"_dl$", "gfx", 0, "G_SETTIMG words patched from texture indices (func_802A08E4)"),
     (r"^static_data", "Vp, then gfx", 1, ""),
-    (r"^(music|sfx)_ctl", "ALBankFile", 1, "alBnkfNew turns its offsets into pointers in place"),
+    (r"^(music|sfx)_ctl", "ALBankFile", 1, "alBnkfNew turns its offsets into pointers in place (the N64's libaudio; the port's parses the file into objects of its own)"),
     (r"^(music|sfx)_tbl", "bytes (ADPCM)", 0, ""),
-    (r"^sequences", "ALSeqFile", 1, "alSeqFileNew turns its offsets into pointers in place"),
+    (r"^sequences", "ALSeqFile", 1, "alSeqFileNew turns its offsets into pointers in place (the N64's libaudio; the port's adds the ROM address to them as integers)"),
     (r"^bg_image", "bytes (RGBA16 320x240)", 1, ""),
     (r"^textures", "bytes (texels)", 0, ""),
 ]
