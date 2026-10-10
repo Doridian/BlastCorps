@@ -5269,6 +5269,45 @@ times, but the gameplay digest is `2e9a3a7173fe4337`: in Tempest City
 to the level's end.  The quick tier is as before (none of its runs plays
 level 33 or reaches the wall).
 
+### Reads of what was never meant
+
+Where the original reads something other than what it means (a stale
+byte, a neighbour past an end, a register's leftover), the port reads
+what it means; each is its own commit:
+
+- **An entry's colour** (26570.c `func_8026BCE0`): the two yoshi entries
+  built with an icon and no text (53220.c's window 21, 10850.c's best
+  times) never got colours, and their stale heap bytes (0xAF, 0xFF, 0x3C
+  in the TAS) indexed past `D_802F47B0`.  They get 7 now, and an index
+  past the pairs is no colour (`port_color_pair`); such an entry draws
+  nothing anyway.
+- **Window 21's rows** (53220.c, jp's too): a full row of five
+  selectable entries has no 0 after it; the scan stops at its end
+  instead of reading the next row's first byte.
+- **The heap's alignment** (34430.c `func_80278E3C`): the address of
+  `D_80358070`, not its value, so the stale word at the heap's top is
+  left alone (the top was aligned already).
+- **The chopper's shadow** outside the level (72B80 `func_802B8C18`): at
+  the last ground height found, not at the model's address.
+- **A support from group 0** (77E20 `func_802BF668`): no group, so it
+  holds nothing up, instead of reading `damage[-1]` and `falling[-1]`.
+- **A debris roll of 100** (77E20): the chance table's last record (at
+  100) takes it, instead of the walk going on past the table's end
+  into the debris counts.
+- `PlayerInfo.hintShown` names the per-hint counters 26570.c reached as
+  `unk54[0x34 + hint]`, and 77E20's debris throw no longer starts its
+  record at `M_DEBRIS` as an address (both the same code).
+
+The quick tier and the TAS (us.v10, 32-bit and LP64) are as before with
+all of them: no reference changed, the TAS's digest is still
+`2e9a3a7173fe4337` (the debris of a roll of 100 is only drawn).  The
+hint box's portrait static is the combiner's NOISE, as the game means
+it: the software renderer's noise is one sequence over every pixel it
+combines, so anything drawn differently before it moves the static
+("Testing the port", layout-dependent); filling the level pool and
+init's area with a pattern before the boot changes nothing in the quick
+tier's us.v10 runs, so no read of stale memory feeds it there.
+
 ### Vehicles
 
 (The vehicles part charged differently from the other parts, while there were charges: one
