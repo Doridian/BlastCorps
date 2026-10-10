@@ -22,7 +22,7 @@ N64_CFLAGS := $(ARCH) -O2 -g -fPIC -std=gnu89 -fsigned-char -fno-strict-aliasing
     -fno-delete-null-pointer-checks -ftrivial-auto-var-init=zero -ffp-contract=off -fno-common \
     -fno-builtin -nostdinc -isystem $(RESOURCE) -include $(PORT)/include/port_game.h \
     -D_LANGUAGE_C -D_FINALROM -DTARGET_PC -D$(VDEF) -D_MIPS_SZLONG=32 -D_MIPS_SZINT=32 \
-    -DPORT_AUDIO_ORACLE -w
+    -DPORT_AUDIO_ORACLE -w -MMD -MP
 ORIG_INC := -I$(PORT)/include -I$(BLAST) -I$(BLAST)/include -I$(BLAST)/include/2.0I \
     -I$(BLAST)/include/2.0I/PR
 PORT_INC := -I$(PORT)/libaudio -I$(PORT)/include -I$(PORT)/include/sdk -I$(PORT)/include/sdk/PR \
@@ -58,5 +58,8 @@ $(OUT)/port.so: $(PORT_O)
 
 clean:
 	rm -rf $(OUT)
+
+# the headers each object read
+-include $(ORIG_O:.o=.d) $(PORT_O:.o=.d)
 
 .PHONY: all clean
