@@ -878,7 +878,7 @@ void func_801F8980(void) {
 #endif
     D_8021A91C -= D_8021A934;
     D_8021A920 -= D_8021A938;
-    D_8021AB68 = func_801F9258((Gfx *)(sp38 + 0x48B0), sp38, &D_80358078);
+    D_8021AB68 = func_801F9258(((Frame *)sp38)->buf.dl, sp38, &D_80358078);
     D_8021AB6C = func_801F9820(D_8021AB68, sp38, &D_8021AB58);
     func_801F9B84(D_8021AB6C, sp38, &D_8021AB5C);
     func_801FD748();
@@ -1003,7 +1003,7 @@ Gfx *func_801F9B84(Gfx *arg0, u8 *arg1, s32 *arg2) {
     gSPMatrix(gfx++, arg1 + 0x1280, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
     gfx = func_801FC5B8(arg1, gfx, D_8021A904, D_8021A905);
     func_801FDE98();
-    gfx = func_80274BF0((Frame *)(arg1 + D_8035805C * 0x21498), gfx);
+    gfx = func_80274BF0((Frame *)(arg1 + D_8035805C * sizeof(Frame)), gfx);
     gDPFullSync(gfx++);
     gSPEndDisplayList(gfx++);
     if (D_802FA264 != 0) {

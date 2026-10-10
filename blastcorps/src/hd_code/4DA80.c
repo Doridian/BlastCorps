@@ -33,6 +33,7 @@ typedef struct {
     /* 0x5AC */ s32 unk5AC;
     /* 0x5B0 */ u8 unk5B0;
 } UnkStruct_802FE3C0; /* size = 0x5B8 */
+SIZE_CHECK_C(UnkStruct_802FE3C0, 0x5B8);
 
 void func_80292DDC(s32 arg0);
 extern FrameGame D_02000000;

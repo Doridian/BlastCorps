@@ -2965,7 +2965,7 @@ Gfx *func_8024C414(Frame *arg0, s32 *arg1) {
         }
     }
     func_80259C24(&gfx, arg0);
-    *arg1 = ((u8 *)gfx - (u8 *)arg0 - 0x48B0) >> 3;
+    *arg1 = gfx - arg0->game.unk48B0;
     return gfx;
 }
 
@@ -4456,7 +4456,7 @@ void func_802559F8(Gfx *arg0, s32 *arg1) {
 
     gDPFullSync(gfx++);
     gSPEndDisplayList(gfx++);
-    *arg1 = ((u8 *)gfx - (u8 *)D_803156F8[D_8035805C].game.unk48B0) >> 3;
+    *arg1 = gfx - D_803156F8[D_8035805C].game.unk48B0;
     if (*arg1 >= 0xB5E) {
         func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "*length<TOPLEVEL_DL_SIZE", "hd.c", LINE_EU(3665, 3681));
     }
