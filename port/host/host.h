@@ -3,6 +3,7 @@
 #define HOST_H
 
 #include <stddef.h>
+#include <stdio.h>
 
 #include "port.h"
 #include "recomp.h"
@@ -17,6 +18,11 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
    (malloc'd, *outn bytes), or NULL */
 long host_gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn, size_t *used);
 uint8_t *host_blast_decode(int t, const uint8_t *s, size_t n, const uint8_t *lut, size_t lut_len, size_t *outn);
+
+/* runtime.c: RDRAM's 4 MB to a file (zeros where the guard is); the N64
+   address of a fault in the guard (PORT_SCATTER_GUARD), or 0 */
+void port_dump_rdram(FILE *f);
+uint32_t port_guard_hit(const void *p);
 
 /* threads.c */
 int host_run_one(void);             /* run the best runnable thread; 0 if none */

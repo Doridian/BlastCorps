@@ -393,7 +393,7 @@ static void dump(unsigned n) {
             snprintf(path, sizeof path, "rdram_%u.bin", n);
             FILE *f = fopen(path, "wb");
             if (f) {
-                fwrite(port_ptr(0x80000000), 1, 0x400000, f);
+                port_dump_rdram(f);
                 fclose(f);
 #ifdef PORT_ACCESS_PROFILE
                 port_access_dump_widths(n);     /* rdram_N.widths, for build_cmp.py */

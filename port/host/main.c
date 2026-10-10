@@ -20,8 +20,10 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
+#include <dlfcn.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
+#include <ucontext.h>
 #endif
 #ifndef MAP_NORESERVE
 #define MAP_NORESERVE 0
@@ -612,7 +614,7 @@ void host_controller_poll(void) {
             snprintf(path, sizeof path, "rdram_%u.bin", n);
             FILE *f = fopen(path, "wb");
             if (f) {
-                fwrite(port_ptr(PORT_RDRAM_BASE), 1, PORT_RDRAM_SIZE, f);
+                port_dump_rdram(f);
                 fclose(f);
                 host_log("dumped %s\n", path);
 #ifdef PORT_ACCESS_PROFILE
@@ -631,12 +633,38 @@ void host_controller_poll(void) {
    (POSIX signals; emscripten has none to catch) */
 #ifndef __EMSCRIPTEN__
 static void on_crash(int sig, siginfo_t *si, void *uc) {
+    uint32_t n64 = port_guard_hit(si->si_addr);
+    if (n64) {
+        /* (the guard: where the code was, for addr2line) */
+        void *pc = NULL;
+#ifdef __linux__
+        const ucontext_t *u = uc;
+#if defined(__x86_64__)
+        pc = (void *)u->uc_mcontext.gregs[REG_RIP];
+#elif defined(__i386__)
+        pc = (void *)u->uc_mcontext.gregs[REG_EIP];
+#elif defined(__aarch64__)
+        pc = (void *)u->uc_mcontext.pc;
+#endif
+        /* (addr2line takes a PIE's or a library's offset, an executable's address:
+           the ELF header's e_type, ET_DYN 3) */
+        Dl_info di;
+        if (pc && dladdr(pc, &di) && di.dli_fname)
+            fprintf(stderr, "guard: N64 address %08X, the N64's RDRAM, where nothing is in this layout, "
+                            "reached at %p: addr2line -f -e %s 0x%lx\n", n64, pc, di.dli_fname,
+                    (unsigned long)((char *)pc - (*(uint16_t *)((char *)di.dli_fbase + 16) == 3
+                                                      ? (char *)di.dli_fbase : (char *)0)));
+        else
+#endif
+            fprintf(stderr, "guard: N64 address %08X, the N64's RDRAM, where nothing is in this layout, "
+                            "reached at %p\n", n64, pc);
+    }
     (void)uc;
     fprintf(stderr, "crash: signal %d at address %p\n", sig, si->si_addr);
     if (getenv("PORT_DUMP")) {
         FILE *f = fopen("rdram_crash.bin", "wb");
         if (f) {
-            fwrite(port_ptr(PORT_RDRAM_BASE), 1, PORT_RDRAM_SIZE, f);
+            port_dump_rdram(f);
             fclose(f);
         }
     }

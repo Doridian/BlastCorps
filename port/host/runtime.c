@@ -238,6 +238,30 @@ static void port_scatter_init(void) {
 }
 #endif
 
+#ifdef PORT_SCATTER_GUARD
+/* The guard (PORT_SCATTER_GUARD, docs/PORT.md "The guard"): the scattered
+   layout with the front end's variables moved leaves nothing of the game in
+   the arena's first 4 MB, the N64's RDRAM, so the pages inside it are made
+   inaccessible once the arena is filled (and poisoned).  An access there,
+   by the game's C, the engine or the host (the renderer, audio, the
+   loaders: what PORT_SCATTER_CHECK doesn't see), faults, and on_crash
+   (main.c) names the N64 address (port_guard_hit).  At full speed. */
+#include <unistd.h>
+static uint8_t *guard_lo, *guard_hi;
+
+static void port_guard_init(uint8_t *a) {
+    long pg = sysconf(_SC_PAGESIZE);
+    uintptr_t lo = ((uintptr_t)a + (uintptr_t)pg - 1) & ~(uintptr_t)(pg - 1);
+    uintptr_t hi = ((uintptr_t)a + PORT_ARENA_SPAN) & ~(uintptr_t)(pg - 1);
+    if (__port_arena_data_end < PORT_ARENA_SPAN || hi <= lo ||
+        mprotect((void *)lo, hi - lo, PROT_NONE))
+        host_fatal("the guard: can't protect the arena's RDRAM");
+    guard_lo = (uint8_t *)lo;
+    guard_hi = (uint8_t *)hi;
+    host_log("the guard: the N64's RDRAM (%08X-%08X) faults\n", port_n64(guard_lo), port_n64(guard_hi));
+}
+#endif
+
 /* The arena: memory of the host's choosing, at an offset into its page
    (PORT_ARENA_OFFSET, default 0x5670) so that nothing can rely on its
    alignment beyond 16 bytes, filled as the arena link says. */
@@ -275,6 +299,9 @@ void port_arena_init(void) {
     port_arena = a;
 #ifdef PORT_SCATTER
     port_scatter_init();
+#endif
+#ifdef PORT_SCATTER_GUARD
+    port_guard_init(a);
 #endif
     if (host_verbose)
         host_log("the arena at %p (%u relocations)\n", (void *)a, __port_arena_relocs_n);
@@ -329,6 +356,33 @@ void port_arena_bad_local(uintptr_t p) {
     host_fatal("a frame of the game's C's escaping locals off the locals' stacks, at %08lX", (unsigned long)p);
 }
 #endif
+
+/* a fault's address in the guarded range: its N64 address (0 otherwise) */
+uint32_t port_guard_hit(const void *p) {
+#ifdef PORT_SCATTER_GUARD
+    if ((const uint8_t *)p >= guard_lo && (const uint8_t *)p < guard_hi)
+        return port_n64(p);
+#endif
+    (void)p;
+    return 0;
+}
+
+/* RDRAM's 4 MB to a file (PORT_DUMP, the replay's dumps), with zeros for
+   what the guard protects */
+void port_dump_rdram(FILE *f) {
+    const uint8_t *m = port_ptr(PORT_RDRAM_BASE);
+    size_t lo = PORT_RDRAM_SIZE, hi = PORT_RDRAM_SIZE;
+#ifdef PORT_SCATTER_GUARD
+    if (guard_lo) {
+        lo = (size_t)(guard_lo - m);
+        hi = (size_t)(guard_hi - m);
+    }
+#endif
+    fwrite(m, 1, lo, f);
+    for (size_t k = lo; k < hi; k++)
+        fputc(0, f);
+    fwrite(m + hi, 1, PORT_RDRAM_SIZE - hi, f);
+}
 
 /* ---- translated-code hooks ------------------------------------------------ */
 

@@ -61,7 +61,9 @@ must give the references' hashes, which makes them all equal to each
 other.  --tas runs the TAS on all of them too.  The WebAssembly build
 (wasm, under node) is one of them where emsdk is there (--emsdk, $EMSDK,
 or emcmake on the PATH), and it must equal mn32 in every hash, the
-layout-dependent screenshots included.
+layout-dependent screenshots included.  guard is mn32 in the scattered
+layout with the guard on (docs/PORT.md, "The guard"): it must give the
+references' hashes too.
 
 Exit status: 0 when everything passed (known drifts included), 1 on a
 failure, 77 when nothing could run (no ROM, no log, no venv: CTest's skip).
@@ -99,6 +101,10 @@ VARIANTS = {
     "m64": ["-DPORT_64BIT=ON", "-DPORT_MOVABLE=ON"],
     "mlp64": ["-DPORT_LP64=ON", "-DPORT_MOVABLE=ON"],
     "mn32": ["-DPORT_NATIVE_ENDIAN=ON", "-DPORT_MOVABLE=ON"],
+    # mn32 in the scattered layout (seed 1), with the guard: nothing of the
+    # game's at an N64 address, and the N64's RDRAM faults (docs/PORT.md,
+    # "The guard")
+    "guard": ["-DPORT_NATIVE_ENDIAN=ON", "-DPORT_MOVABLE=ON", "-DPORT_SCATTER=1", "-DPORT_SCATTER_GUARD=ON"],
     # the movable 32-bit native-endian build for wasm32, under node (emsdk)
     "wasm": ["-DPORT_WASM_TARGET=node"],
 }
@@ -242,6 +248,8 @@ class Build:
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
         self.variant = ("m" if self.movable else "") + (
             "lp64" if self.lp64 else ("n" if self.native else "") + ("64" if self.bits64 else "32"))
+        if cache.get("PORT_SCATTER"):       # (the scattered layout: seed, g with the guard)
+            self.variant += "-s" + cache["PORT_SCATTER"] + ("g" if on("PORT_SCATTER_GUARD") else "")
         self.node = None
         if self.wasm:       # (the movable native-endian 32-bit build, for wasm32)
             self.variant = "wasm"

@@ -105,6 +105,13 @@ if(NOT PORT_SCATTER STREQUAL "")
 elseif(PORT_SCATTER_CHECK)
     message(FATAL_ERROR "PORT_SCATTER_CHECK needs -DPORT_SCATTER=SEED")
 endif()
+# the guard (docs/PORT.md, "The guard"): in the scattered layout with the
+# front end's variables moved nothing is left in the arena's first 4 MB, so
+# its pages are made inaccessible and any access there faults, the host's too
+option(PORT_SCATTER_GUARD "the scattered layout's build faults on any access to the N64's RDRAM" OFF)
+if(PORT_SCATTER_GUARD AND (PORT_SCATTER STREQUAL "" OR NOT PORT_SCATTER_FE OR EMSCRIPTEN))
+    message(FATAL_ERROR "PORT_SCATTER_GUARD needs -DPORT_SCATTER=SEED with PORT_SCATTER_FE, and mprotect (not WebAssembly)")
+endif()
 
 # the game's data from the user's ROM at startup (docs/PORT.md, "The data from
 # the ROM"; docs/DISTRIBUTION.md): the movable build's arena image isn't
@@ -1040,6 +1047,9 @@ if(NOT PORT_SCATTER STREQUAL "")
     target_compile_definitions(host PRIVATE PORT_SCATTER)
     if(PORT_SCATTER_CHECK)
         target_compile_definitions(host PRIVATE PORT_SCATTER_CHECK)
+    endif()
+    if(PORT_SCATTER_GUARD)
+        target_compile_definitions(host PRIVATE PORT_SCATTER_GUARD)
     endif()
 endif()
 if(PORT_MOVABLE)
