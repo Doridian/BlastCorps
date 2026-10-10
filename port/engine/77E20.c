@@ -45,14 +45,14 @@ typedef struct Immune {
 
 extern u8 D_803F3FF8[FX_SIZE];          /* the one being made */
 extern DelayedHit D_803F7690[NDELAYED];
-extern u8 *PTR32 D_803F77D4;            /* the part numbers hit this frame (D_803F77D8...) */
+extern u8 *D_803F77D4;                  /* the part numbers hit this frame (D_803F77D8...) */
 extern u8 D_803F77D8[];
-extern u8 *PTR32 D_803F77E4;            /* and last frame's (D_803F77E8...) */
+extern u8 *D_803F77E4;                  /* and last frame's (D_803F77E8...) */
 extern u8 D_803F77E8[];
 extern u8 D_803F24D0[], D_803F2ED0[];   /* (one per frame) */
 extern s32 D_803F38D0[16];              /* a matrix being made */
-extern Mtx *PTR32 D_803F7658;           /* the falling groups' shadows' matrices */
-extern Mtx *PTR32 D_803F765C;           /* the next free matrix */
+extern Mtx *D_803F7658;                 /* the falling groups' shadows' matrices */
+extern Mtx *D_803F765C;                 /* the next free matrix */
 extern s32 D_803F7660;
 extern s32 D_803F7664, D_803F7668, D_803F766C;  /* where a moving building is now */
 extern s32 D_803F7670, D_803F7674, D_803F7678;
@@ -65,12 +65,9 @@ extern u8 D_803F7806;                   /* every target building down (hd.c: fun
 extern u8 D_803F7807, D_803F7808, D_803F7809;
 extern s8 D_803F780A;
 extern u8 D_803F780B, D_803F780C, D_803F780D, D_803F780E, D_803F780F, D_803F7810, D_803F7812;
-extern Part *PTR32 D_803F77D0;
 extern Smoke D_803F0900[NSMOKE];
 extern Dust D_803EFED0[NDUST];
 extern FallShadow D_803F1BE0[NSHADOW];
-extern u8 *PTR32 D_803F7820, *PTR32 D_803F7824;
-extern u8 *PTR32 D_803F7828;
 
 extern u8 D_803643D6, D_803643D7, D_803643DB, D_80364AC1;
 extern u32 D_803649E8;
@@ -79,9 +76,7 @@ extern s32 D_802E8BDC;                  /* the level */
 extern s32 D_80358068;                  /* a frame count */
 extern UnkStruct_8039C800 D_8039C800[];
 extern u8 D_8039C940;
-extern u8 *PTR32 D_803BE708;            /* the level's group sets */
 extern u8 D_803BE738;
-extern u32 D_8036C790;
 extern u16 D_803EF6FC;
 extern s32 D_8036C7C8;
 extern s16 D_803C30A8[];                /* the visible cells, to -1 */
@@ -89,7 +84,6 @@ extern s32 D_803643F8, D_80364400;      /* the camera's position */
 extern s32 D_803A740C;
 extern Immune D_803059F0[];
 extern u8 D_8036B971;
-extern Building *PTR32 D_8036B974;
 extern u8 D_80370C2C;
 extern u8 D_8036CB2E, D_8036CB2F;
 extern u16 D_8036CB2A, D_8036CB2C;
@@ -104,8 +98,7 @@ extern u8 D_80306344[0xAC];
 #define CHANCES_DESTROYED (D_80306344 + 0xC)    /* (D_80306350) */
 #define CHANCES_LANDED (D_80306344 + 0x90)      /* (D_803063D4) */
 #define DEBRIS_COUNTS (D_80306344 + 0x9C)       /* (D_803063E0) */
-extern u8 *PTR32 D_80306270[];
-extern u32 D_802C3FFC[];
+extern u8 *D_80306270[];
 extern u8 D_8036DCD4, D_8036DCD7;
 extern u64 D_802F46C0[24];
 extern u64 D_802F4780[6];
@@ -494,7 +487,8 @@ s32 func_802BCE40(void) {
     Building *b;
     s32 px = D_803643E0, py = D_803643E4, pz = D_803643E8;
     s64 best = 9999999, d;
-    u32 found = 0, outline;
+    u32 found = 0;
+    void *outline;
     s32 kind = 0, n, down;
     UnkStruct_8039C800 *h;
     TargetObj *o;
@@ -539,12 +533,12 @@ s32 func_802BCE40(void) {
     outline = 0;
     if (kind != 0) {
         if (kind == 1) {
-            outline = (u32)B_SECTION((Building *)found, MS_CORNERS);
+            outline = B_SECTION((Building *)found, MS_CORNERS);
         } else {
             if (kind == 3) {
-                outline = (u32)((TargetObj *)found)->corners;
+                outline = ((TargetObj *)found)->corners;
             } else {
-                outline = (u32)((UnkStruct_8039C800 *)found)->corners;
+                outline = ((UnkStruct_8039C800 *)found)->corners;
             }
         }
     }
@@ -2196,7 +2190,7 @@ void func_802C0574(void) {
                 }
             }
         }
-        started = func_802A6274(D_802C3FFC[k], FX_W(fx, FX_SPEED), 0, FX_W(fx, FX_X), FX_W(fx, FX_Y),
+        started = func_802A6274((u32)(__UINTPTR_TYPE__)D_802C3FFC[k], FX_W(fx, FX_SPEED), 0, FX_W(fx, FX_X), FX_W(fx, FX_Y),
                                 FX_W(fx, FX_Z), FX_W(fx, FX_VEL), FX_W(fx, FX_VEL + 4), FX_W(fx, FX_VEL + 8),
                                 FX_W(fx, FX_UNK14), FX_W(fx, FX_UNK14 + 4), FX_W(fx, FX_UNK14 + 8),
                                 FX_W(fx, FX_UNK28), FX_B(fx, FX_UNK35), big);

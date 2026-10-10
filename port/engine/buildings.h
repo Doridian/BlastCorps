@@ -292,7 +292,7 @@ extern s32 D_803A73F0, D_803A73F4, D_803A73F8;
 extern u16 D_803A7410, D_803A7412;
 extern u8 D_803A742F;                           /* limits off */
 extern u8 D_803A7424, D_803A7425, D_803A7427, D_803A742A;
-extern s8 *PTR32 D_803A7408;                    /* the kinds that turn the camera, to -1 */
+extern s8 *D_803A7408;                          /* the kinds that turn the camera, to -1 */
 
 /* the level's solid objects (Solid, D_803A7300) and the kinds' parts
    (KindPart, D_803A6B30): collision.h */

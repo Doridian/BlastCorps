@@ -8,6 +8,8 @@
 #include "vehicle.h"
 #include "game/game.h"
 #include "level_tables.h"
+#include "game/level.h"
+#include "game/objects.h"
 
 extern u8 D_80367C10;                   /* the level is one of 1D990.c's five (D_802E8F30): slower steering, gears doubled */
 extern s16 D_803A7410, D_803A7412;      /* the camera's headings (12-bit) */
@@ -971,14 +973,9 @@ s32 func_802AA2E4(s32 x, s32 z, s32 x1, s32 y1, s32 z1, s32 x2, s32 y2, s32 z2, 
     return (s32)engine_cvt_l_d(f) - 1000;
 }
 
-extern u8 *PTR32 D_803F7828, *PTR32 D_803F782C;   /* the static triangles, 0x28 bytes each */
 extern u8 D_803EBDB0[];                         /* the moving objects' triangles, 0x38 bytes each ... */
-extern u8 *PTR32 D_803EBBEC;                     /* ... to here */
-extern s32 D_803BE718, D_803BE71C;              /* the triangle grid's cell sizes */
-extern u16 D_803BE720;                          /* its width in cells */
-extern u32 D_803BDB10[];                        /* each cell's first triangle (0x14 bytes each) */
-extern u8 *PTR32 D_803EBC00, *PTR32 D_803EBC04;   /* the cell looked in last */
-extern u8 *PTR32 D_803EBC08;                     /* the triangle found there */
+extern u8 *D_803EBC00, *D_803EBC04;               /* the cell looked in last */
+extern u8 *D_803EBC08;                           /* the triangle found there */
 extern u8 D_803EBBD8[];                         /* a triangle's room, for a swap */
 
 /* a moving object's triangle: the world's (x, y, z) words, its own s16
@@ -1054,13 +1051,14 @@ s32 func_802A9F24(s32 x, s32 z, s32 y, s32 self, s32 *id_out) {
 REGS(t0, t1, t2, t3, fp -> a1, t3, fp)
 s32 func_802AA094(s32 x, s32 z, s32 y, s32 h, s32 mat, s32 *h_out, s32 *mat_out) {
     s32 found = 0, hh, x1, z1, x2, z2, x3, z3;
-    u32 dist = NO_GROUND, a, *cell;
+    u32 dist = NO_GROUND, a;
+    u8 **cell;
     u8 *p, *end;
     s16 *w;
 
-    cell = &D_803BDB10[D_803BE720 * (z / D_803BE71C) + x / D_803BE718];
-    p = (u8 *)cell[0];
-    end = (u8 *)cell[1] - 4;
+    cell = &D_803BDB10[D_803BE720 * (z / (s32)D_803BE71C) + x / (s32)D_803BE718];   /* (the grid, game/level.h) */
+    p = cell[0];
+    end = cell[1] - 4;
     D_803EBC00 = p;
     D_803EBC04 = end;
     for (; p != end; p += LEVEL_TRI_SIZE) {
@@ -1265,7 +1263,6 @@ s32 func_802A93B0(s32 i, s16 *pts, s32 *h, s32 *state, s32 *ground, s32 x, s32 z
 /* ---- the ground of the level's objects and of the water ---------------- */
 
 extern s32 D_803EBBF8, D_803EBBFC;
-extern u8 *PTR32 D_803BDAF4, *PTR32 D_803BDAF8;
 
 /* Of an object model's solid triangles (byte 0x13 clear; the model's list
    at its offsets 0x24 to 0x28) under (x, z), the nearest at or below y: its
@@ -1295,8 +1292,6 @@ s32 func_802ABFC8(s32 found, s32 x, s32 z, s32 y, u8 *model) {
     return found;
 }
 
-extern u8 D_803F4030[];                 /* the level's objects, 0xFC bytes each, their model first */
-extern u8 *PTR32 D_803F7654;            /* ... to here */
 
 /* whether (x, z) is in one of the level's objects (their model's
    rectangle, as two triangles) with ground under it at or below y
@@ -1306,7 +1301,7 @@ s32 func_802ABEDC(s32 x, s32 y, s32 z) {
     s16 *r;
     s32 found = 0, x1, z1, x2, z2;
 
-    for (p = D_803F4030; p != D_803F7654; p += 0xFC) {
+    for (p = (u8 *)D_803F4030; p != (u8 *)D_803F7654; p += 0xFC) {   /* the level's objects, 0xFC bytes each */
         model = *(u8 *PTR32 *)p;
         r = (s16 *)(model + *(s32 *)(model + 0x20));
         x1 = r[0] << 5, z1 = r[1] << 5, x2 = r[2] << 5, z2 = r[3] << 5;
@@ -1325,7 +1320,7 @@ s32 func_802AC0BC(s32 x, s32 z, s32 y) {
     s32 h, found = 0, x1, z1, x2, z2, x3, z3;
     s16 *w;
 
-    for (p = D_803BDAF4; p != D_803BDAF8; p += LEVEL_TRI_SIZE) {
+    for (p = (u8 *)D_803BDAF4; p != (u8 *)D_803BDAF8; p += LEVEL_TRI_SIZE) {
         w = (s16 *)p;
         x1 = w[0] << 5, z1 = w[2] << 5, x2 = w[3] << 5, z2 = w[5] << 5, x3 = w[6] << 5, z3 = w[8] << 5;
         if (!tri_under(x, z, x1, z1, x2, z2, x3, z3))
@@ -1925,7 +1920,7 @@ s32 func_802A71DC(s32 h, s32 h2, f32 rate, VS *vs, s32 *rate_out) {
 /* ---- out of the level's bounds ------------------------------------------- */
 
 extern s16 D_803BE730, D_803BE732, D_803BE734, D_803BE736; /* the level's bounds (game/level.h) */
-extern u8 *PTR32 D_803BE6F8;            /* the start points: 9-byte records, a key, then (x, y, z) as s16 pairs of bytes */
+/* D_803BE6F8: the start points, 9-byte records, a key, then (x, y, z) as s16 pairs of bytes */
 extern u8 D_80364412;
 
 /* a start point's coordinate: a big-endian s16 at p, << 5 */

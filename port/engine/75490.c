@@ -32,21 +32,21 @@ extern u8 D_803EF6FE;                           /* frames before the countdown's
 extern u8 D_803EF6FF;                           /* the effect's frames are over */
 extern u8 D_803EF700;                           /* the effect's frames */
 extern u8 D_803EF701;                           /* the effect has started */
-extern u8 *PTR32 D_803EF704;                    /* two 0xC00-byte buffers, one per frame */
-extern u8 *PTR32 D_803EF708;
-extern u8 *PTR32 D_803EF70C;                    /* its model file */
+extern u8 *D_803EF704;                          /* two 0xC00-byte buffers, one per frame */
+extern u8 *D_803EF708;
+extern u8 *D_803EF70C;                          /* its model file */
 extern u8 D_803EF710;                           /* it is far enough on to hit the parts' collision */
 extern u8 D_803EF711;                           /* ... and the buildings' */
 /* the crane's */
 extern Part D_803EF720[32];
 extern VS D_803EFA20;
 extern s32 D_803EFAC8, D_803EFACC, D_803EFAD0;  /* x, y, z */
-extern u8 *PTR32 D_803EFAD4;                    /* its model file */
+extern u8 *D_803EFAD4;                          /* its model file */
 extern SndState *PTR32 D_803EFAD8;              /* its three sounds: the arm's, the turn's, the grab's */
 extern SndState *PTR32 D_803EFADC;
 extern SndState *PTR32 D_803EFAE0;
-extern u8 *PTR32 D_803EFAE4;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EFAE8;
+extern u8 *D_803EFAE4;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EFAE8;
 
 #define P D_803EF330
 #define Q D_803EF720
@@ -79,7 +79,6 @@ extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
 extern u8 D_803643D6, D_803643D8;
 extern u8 D_803A7424, D_803A7426;           /* the collision walk hit something (77E20, 56040) */
-extern Part *PTR32 D_803F77D0;
 
 /* 60F60.c's */
 REGS()

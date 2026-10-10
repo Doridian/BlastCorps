@@ -162,12 +162,9 @@ typedef struct LevelAnimTex {
 SIZE_CHECK(LevelAnimTex, 0xC);
 
 extern f32 D_803EBBF0;          /* gravity */
-extern u8 *PTR32 D_80364458;    /* the level's display data, after its header */
-extern u8 *PTR32 D_803EBBEC;    /* the end of D_803EBDB0's records */
 extern u8 D_803EBDB0[];
 extern u8 D_803ED3B8[N_ED3B8][4];
 extern s32 D_803EBC10[N_EBC10][4];
-extern FileVehicle *PTR32 D_803BE6F8;   /* the level's vehicles' records */
 extern u8 D_803A7426, D_803F7805, D_803F780A, D_803F780B, D_803F780C, D_803F7810;
 extern u8 D_803F7804;
 #ifndef VERSION_US_V10
@@ -175,8 +172,6 @@ extern u8 D_803F7812;
 #endif
 extern s32 D_803A740C, D_803F77F8;
 extern u8 D_80364A6E;           /* the level's ambient light */
-extern u8 *PTR32 D_803F7820, *PTR32 D_803F7824;  /* the matrices, two sets */
-extern MovingTri *PTR32 D_803F7828, *PTR32 D_803F782C;
 
 /* func_802A2D68: the header's grids and constants; the run-time tables
    emptied */
@@ -273,13 +268,13 @@ void func_802A4464(u32 h_) {
     s32 n = (s16)h->unk8[0] * (s16)h->unk8[1];
     u8 *base = LEVEL_PTR(h, terrain);
     u8 *p = base;
-    u32 *out = (u32 *)D_803BDB10;
+    u8 **out = D_803BDB10;
 
     for (; n != 0; n--) {
-        *out++ = (u32)(p + 4);
+        *out++ = p + 4;
         p = base + UNALIGNED_W(p);
     }
-    *out = (u32)(p + 4);
+    *out = p + 4;
 }
 
 /* func_802A44E4: a size rounded up to 8, if it isn't a multiple of 4 */
@@ -523,13 +518,13 @@ u32 func_802A41B0(u32 t_, u32 src_, u32 h52, u32 b56, u32 b55, u32 b4f, u32 b50,
    0x52 is the cells left, 0x57 the low byte of the list's end; 0x59 the
    file triangle's 0x15; 0x4F, 0x50 and 0x58 are 0 (LEVEL_TRI_BYTES).  (802A3D54's code: 802A3DF8 is the
    same.) */
-static void tri_grid(LevelHeader *h, u8 *base, u32 *table) {
+static void tri_grid(LevelHeader *h, u8 *base, CollisionTri **table) {
     s32 cells = (s16)h->unk10[0] * (s16)h->unk10[1];
     u8 *p = base, *end;
     CollisionTri *t = (CollisionTri *)D_80358070;
 
     do {
-        *table++ = (u32)t;
+        *table++ = t;
         end = base + UNALIGNED_W(p);
         for (p += 4; p != end; p += sizeof(LevelCollisionTri)) {
             LevelCollisionTri *f = (LevelCollisionTri *)p;
@@ -538,7 +533,7 @@ static void tri_grid(LevelHeader *h, u8 *base, u32 *table) {
             t[-1].unk59 = f->unk15;
         }
     } while (--cells != 0);
-    *table = (u32)t;
+    *table = t;
     D_80358070 = (u8 *)t;
 }
 
@@ -546,14 +541,14 @@ REGS(t0)
 void func_802A3D54(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
 
-    tri_grid(h, LEVEL_PTR(h, collisionXZ), (u32 *)D_803BDCA8);
+    tri_grid(h, LEVEL_PTR(h, collisionXZ), D_803BDCA8);
 }
 
 REGS(t0)
 void func_802A3DF8(u32 h_) {
     LevelHeader *h = (LevelHeader *)h_;
 
-    tri_grid(h, LEVEL_PTR(h, playerCollisionXZ), (u32 *)D_803BDE40);
+    tri_grid(h, LEVEL_PTR(h, playerCollisionXZ), D_803BDE40);
 }
 
 #define WALL_TRI_SIZE 0x14      /* the walls' file triangles: no 0x14, 0x15 */
@@ -715,13 +710,11 @@ u32 func_802A0CFC(u32 id, u32 param);
 REGS(s0, s1)
 void func_802A08E4(u32 dl, u32 end);
 
-extern u8 *PTR32 D_803BE704, *PTR32 D_803BE708;    /* this level's building groups */
 extern u8 D_802D30D0[], D_802D3194[], D_802D32A0[], D_802D331C[], D_802D33C8[], D_802D3444[],
     D_802D3538[], D_802D3614[], D_802D36C0[], D_802D3784[], D_802D3890[], D_802D393C[],
     D_802D3A00[], D_802D3A4C[], D_802D3BA0[], D_802D3BD4[], D_802D3CE0[], D_802D3DD4[],
     D_802D3EB0[], D_802D3F74[];
 extern u8 D_8030631F[];
-extern u32 D_80365330;
 
 #define GROUP_SIZE 0x18         /* a building group's record (D_803BE708) */
 
@@ -849,7 +842,7 @@ void func_802A24BC(u32 b_) {
         (b->unk30 != 0xBC)) {
         return;
     }
-    D_80365330 = func_802A0CFC(0xF81, tex_param);
+    D_80365330 = (u8 *)(__UINTPTR_TYPE__)func_802A0CFC(0xF81, tex_param);
     b->unk44 = func_802CE6F8(b->x, b->z, b->y);
 }
 
@@ -998,7 +991,6 @@ void func_802A3008(u32 h_) {
 /* ---- the buildings ------------------------------------------------------ */
 
 u8 *func_802C4108(u8 *src, u8 *dst, struct huft *heap, u8 **dst_end);
-extern u32 *PTR32 D_803BE6F0;   /* the model table, on the heap */
 extern OSMesgQueue D_803150A0;
 extern OSIoMesg D_80370C58;
 extern u8 D_006EC4C0[];         /* the model table's ROM address */
@@ -1430,7 +1422,6 @@ void func_802A350C(u32 h_);
 
 extern u8 D_8039CA61, D_8039CA7E, D_8039CAB7;  /* the level's extras: a carrier model's, its number; another */
 extern s16 D_8039CAB0, D_8039CAB2, D_8039CAB4;  /* ... the other's offset */
-extern u8 *PTR32 D_8039CAC0, *PTR32 D_8039CABC;
 extern u8 D_8036698C;
 extern u8 D_803ED40F;
 extern u8 D_80364AC1, D_803643DB, D_803643DC;
@@ -1510,14 +1501,14 @@ void func_802A19F4(void) {
 
         m = (u8 *)(__UINTPTR_TYPE__)func_802A396C(VEHICLE_SCIENTIST);
         v = (Vtx *)VMODEL_PTR(m, unk14);
-        D_8039CAC0 = (u8 *)v;
+        D_8039CAC0 = v;
         end = (Vtx *)VMODEL_PTR(m, unk18);
         for (; v != end; v++) {
             v->v.ob[0] += D_8039CAB0;
             v->v.ob[1] += D_8039CAB2;
             v->v.ob[2] += D_8039CAB4;
         }
-        D_8039CABC = VMODEL_PTR(m, unk24[0]);
+        D_8039CABC = (Gfx *)VMODEL_PTR(m, unk24[0]);
     }
 }
 

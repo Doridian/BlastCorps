@@ -10,16 +10,16 @@
 #include "functions.h"
 
 typedef struct {
-    /* 0x00 */ char *PTR32 unk0[4];   /* (PTR32: jp's func_801E8EB8, still asm, reads them) */
+    /* 0x00 */ char *unk0[4];
 } UnkStruct_80208358; /* size = 0x10 */
 
 #ifdef VERSION_EU
 typedef struct {
-    /* 0x00 */ char *PTR32 unk0[4][3];   /* eu: per language */
+    /* 0x00 */ char *unk0[4][3];         /* eu: per language */
 } UnkStruct_80208358_eu; /* size = 0x30 */
 
 typedef struct {
-    /* 0x00 */ char *PTR32 unk0[2];
+    /* 0x00 */ char *unk0[2];
 } UnkStruct_80208378_eu; /* size = 0x8 */
 #endif
 
@@ -144,8 +144,6 @@ extern UnkStruct_80208358 D_80208358;
 extern UnkStruct_80208358 D_80208368;
 #ifdef VERSION_EU
 extern UnkStruct_80208378_eu D_80208378;
-#else
-extern char *PTR32 D_80208378[];     /* (PTR32: jp's func_801E8EB8 reads it too) */
 #endif
 extern Vtx D_80208380[];
 extern Gfx D_80208400[];
@@ -191,7 +189,6 @@ extern s32 D_802154F0[];
 extern s32 D_80215508[];
 extern char D_80215520[][0x19];
 extern u8 D_802155A0[];
-extern u16 *D_802158A0;
 extern u16 D_802158A8[];
 extern u8 D_80215900[];
 extern u8 D_80215902[];
@@ -445,7 +442,7 @@ UnkStruct_80208358 D_80208368 = { { D_803043B8, D_80304474, D_80304544, D_803046
 #endif
 #ifdef VERSION_JP
 /* jp's are u16 text (0x0FFE-terminated), as are its own below */
-char *PTR32 D_80208378[2] = { (char *)D_80301044, (char *)D_803043AC };
+char *D_80208378[2] = { (char *)D_80301044, (char *)D_803043AC };
 u16 D_802082D0_jp[10] = { 0x1002, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x1002, 0x1003, 0xFFE };
 u16 D_802082E4_jp[10] = { 0x1003, 0x1002, 0x1002, 0x1004, 0x1002, 0x3C, 0x3C, 0x1002, 0xFFE };
 u16 D_802082F8_jp[10] = { 0x1003, 0x1002, 0x1002, 0x1004, 0x1002, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
@@ -456,7 +453,7 @@ u16 D_80208330_jp[8] = { 4, 0x1002, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
 u16 D_80208340_jp[4] = { 0x1002, 3, 0xFFE };
 u16 D_80208348_jp[8] = { 0x1002, 0x3C, 0x3C, 0x3C, 0x3C, 0x1002, 0xFFE };
 #elif !defined(VERSION_EU)
-char *PTR32 D_80208378[2] = { (char *)D_8020E764, (char *)D_8020E768 };
+char *D_80208378[2] = { (char *)D_8020E764, (char *)D_8020E768 };
 #endif
 extern Vtx D_80208380[8];
 #ifdef ASSET_INIT

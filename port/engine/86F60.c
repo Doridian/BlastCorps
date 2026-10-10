@@ -19,9 +19,9 @@
 extern Part D_803F8B80[32];
 extern VS D_803F8E80;
 extern s32 D_803F8F28, D_803F8F2C, D_803F8F30;  /* x, y, z */
-extern u8 *PTR32 D_803F8F34;                    /* its model file */
-extern u8 *PTR32 D_803F8F38;                    /* two 0x100-byte buffers, one per frame */
-extern u8 *PTR32 D_803F8F3C;
+extern u8 *D_803F8F34;                          /* its model file */
+extern u8 *D_803F8F38;                          /* two 0x100-byte buffers, one per frame */
+extern u8 *D_803F8F3C;
 extern u16 D_803F8F40;                          /* the heading it turns to against a wall (D_803A7425) */
 extern u8 D_803F8F42;                           /* frames until the next sparks */
 extern s8 D_803F8F43;                           /* turning to it */
@@ -39,7 +39,6 @@ extern u8 D_803F8F45;                           /* the siren's lights: a step, 2
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80306430[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 extern u8 D_802C2324[], D_802C2348[];           /* the siren's two lights (56040's list) */

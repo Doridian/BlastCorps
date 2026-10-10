@@ -19,9 +19,9 @@
 extern Part D_803EDC10[32];
 extern VS D_803EDF10;
 extern s32 D_803EDFB8, D_803EDFBC, D_803EDFC0;  /* x, y, z */
-extern u8 *PTR32 D_803EDFC4;                    /* its model file */
-extern u8 *PTR32 D_803EDFC8;                    /* two 0x1400-byte buffers, one per frame */
-extern u8 *PTR32 D_803EDFCC;
+extern u8 *D_803EDFC4;                          /* its model file */
+extern u8 *D_803EDFC8;                          /* two 0x1400-byte buffers, one per frame */
+extern u8 *D_803EDFCC;
 extern SndState *PTR32 D_803EDFD0;              /* its sound while it is in */
 extern u16 D_803EDFD4;                          /* the heading it turns to against a wall (D_803A7425) */
 extern s16 D_803EDFD6;                          /* the step sounds' last frame */
@@ -53,8 +53,6 @@ extern f32 D_803EBBF0, D_803EBBF4;
 extern u64 D_803649D8;                          /* this frame's random (osGetTime) */
 extern u8 D_80370C35;                           /* 45BB0.c: the stick plays the buttons (A and B don't roll) */
 extern u8 D_803F7804;                           /* it crashes through what it hits (77E20) */
-extern SndState *PTR32 D_803F7844;              /* the rolling sound */
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80305CF0[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2308[];                         /* its head (56040's list) */
 extern u8 D_802C2984[];                         /* the dust's effect record (60F60) */

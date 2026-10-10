@@ -216,6 +216,8 @@ typedef struct Hole {
     /* 0x14 */ s32 unk14;        /* D_803FB8B0 before and after its triangles are added (func_802CE9C8) */
     /* 0x18 */ s32 unk18;
 } Hole;
+/* 8A080's: the end of the holes' collision triangles (the next free one) */
+extern struct CollisionTri *D_803FB8B0;
 SIZE_CHECK(Hole, 0x1C);
 
 /* The holes with LevelHole.unk8 set, D_8039C800[HOLE_MAX]; D_8039C940
@@ -311,7 +313,10 @@ typedef struct Building {
 SIZE_CHECK(Building, 0xFC);
 
 extern Building D_803F4030[];
-extern Building *PTR32 D_803F7654; /* one past the last */
+extern Building *D_803F7654;       /* one past the last */
+
+/* the effects' sprites by kind (hd_code 7D9D0's table; the handwritten code's func_802A6274) */
+extern u8 *D_802C3FFC[];
 
 /* LevelHeader.unk58 (in two levels): what hd_code 32E00.c walks from
  * D_803BE6FC to D_803BE700.  (tools/assetlib/level.py writes it as four

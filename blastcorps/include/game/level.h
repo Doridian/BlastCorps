@@ -153,12 +153,12 @@ extern UnkStruct_802E8F38 D_802E8F38[6];
  */
 typedef struct UnkStruct_8020D810 {
     /* 0x00 */ u8 unk0[4];
-    /* 0x04 */ char *PTR32 name;
+    /* 0x04 */ char *name;
 #ifdef VERSION_EU
-    /* 0x08 */ char *PTR32 name2;    /* eu: the German name */
-    /* 0x0C */ char *PTR32 name3;    /* eu: NULL in the table */
+    /* 0x08 */ char *name2;          /* eu: the German name */
+    /* 0x0C */ char *name3;          /* eu: NULL in the table */
 #endif
-    /* 0x08 */ u16 *PTR32 unk8;      /* eu: NULL in the table */
+    /* 0x08 */ u16 *unk8;            /* eu: NULL in the table */
     /* 0x0C */ u8 unkC[4];
     /* 0x10 */ f32 unk10;
     /* 0x14 */ f32 unk14;
@@ -176,9 +176,9 @@ extern u8 D_80366F70_eu;
 #define LEVEL_NAME(e) (e).name
 #endif
 #ifdef VERSION_EU
-SIZE_CHECK(UnkStruct_8020D810, 0x38); /* eu: the offsets from unk8 on are 8 more */
+SIZE_CHECK_C(UnkStruct_8020D810, 0x38); /* eu: the offsets from unk8 on are 8 more */
 #else
-SIZE_CHECK(UnkStruct_8020D810, 0x30);
+SIZE_CHECK_C(UnkStruct_8020D810, 0x30);
 #endif
 
 extern UnkStruct_8020D810 D_8020D810[LEVEL_COUNT];
@@ -240,25 +240,32 @@ extern LevelHeader *D_80358074;
  * into grids of cells in x and z (three: the objects', the terrain's and
  * the collision's), each given by a cell size (<< 5) and a count.
  */
-extern void *PTR32 D_803BDAF0;  /* D_803BD310: 0xFC-byte records (the walls, LevelHeader.unk64) */
-extern s16 *PTR32 D_803BDAF4;   /* LevelHeader.collisionFixes: triangles of 9 s16 and a pad */
-extern s16 *PTR32 D_803BDAF8;   /* ... and its end */
-extern void *PTR32 D_803BDAFC;  /* a model func_802A32CC loaded for the missile carrier (func_802A3198) */
-extern void *PTR32 D_803BDB00;  /* a heap block: segment 7 while 50670.c draws */
-extern void *PTR32 D_803BDB04;  /* that model + its unk14: segment 6 */
-extern void *PTR32 D_803BDB08;  /* that model + its unk24: a display list */
-extern void *PTR32 D_803BDB10[102];   /* LevelHeader.terrain: one pointer per group (func_802A4464) */
-extern void *PTR32 D_803BDCA8[102];   /* LevelHeader.collisionXZ: one per group (func_802A3D54) */
-extern void *PTR32 D_803BDE40[101];   /* LevelHeader.playerCollisionXZ (func_802A3DF8): one
-                                         short of the others, the lights' end D_803BDFD4 after it */
-extern Gfx *PTR32 D_803BE6E0;   /* level display lists (LevelHeader.displayLists) hd.c draws */
-extern Gfx *PTR32 D_803BE6E4;
-extern Gfx *PTR32 D_803BE6E8;
-extern Gfx *PTR32 D_803BE6EC;
-extern u32 *PTR32 D_803BE6F0;   /* the model table (DMA'd, func_802A2BB0) */
+extern void *D_803BDAF0;        /* D_803BD310: 0xFC-byte records (the walls, LevelHeader.unk64) */
+extern s16 *D_803BDAF4;         /* LevelHeader.collisionFixes: triangles of 9 s16 and a pad */
+extern s16 *D_803BDAF8;         /* ... and its end */
+extern void *D_803BDAFC;        /* a model func_802A32CC loaded for the missile carrier (func_802A3198) */
+extern void *D_803BDB00;        /* a heap block: segment 7 while 50670.c draws */
+extern void *D_803BDB04;        /* that model + its unk14: segment 6 */
+extern void *D_803BDB08;        /* that model + its unk24: a display list */
+extern u8 *D_803BDB10[102];     /* LevelHeader.terrain: each group's first triangle (func_802A4464) */
+/* LevelHeader.collisionXZ and playerCollisionXZ: each cell's first CollisionTri,
+   the next cell's its end (func_802A3D54, func_802A3DF8).  D_803BDE40 is one
+   short of the cells and their end: its last is the lights' end D_803BDFD4,
+   which they set after it (the port's has the room where pointers aren't the
+   N64's 4 bytes: port/tools/asm2c.py). */
+extern struct CollisionTri *D_803BDCA8[102];
+extern struct CollisionTri *D_803BDE40[];
+extern Gfx *D_803BE6E0;         /* level display lists (LevelHeader.displayLists) hd.c draws */
+extern Gfx *D_803BE6E4;
+extern Gfx *D_803BE6E8;
+extern Gfx *D_803BE6EC;
+extern u32 *D_803BE6F0;         /* the model table (DMA'd, func_802A2BB0) */
 extern s32 D_803BE6F4;          /* func_802A1674's second argument */
-extern struct LevelUnk58 *PTR32 D_803BE6FC; /* LevelHeader.unk58 (game/objects.h) ... */
-extern struct LevelUnk58 *PTR32 D_803BE700; /* ... to LevelHeader.buildings */
+extern struct LevelUnk58 *D_803BE6FC;  /* LevelHeader.unk58 (game/objects.h) ... */
+extern struct LevelUnk58 *D_803BE700;  /* ... to LevelHeader.buildings */
+extern void *D_803BE6F8;        /* LevelHeader.vehicles: the vehicles' records, read as their start points */
+extern u8 *D_803BE704;          /* the level's building groups (0x18-byte records): the next one ... */
+extern u8 *D_803BE708;          /* ... and the first */
 extern s32 D_803BE70C;          /* the object grid (the RDUs' Rdu.cell): cell width in x, << 5 */
 extern s32 D_803BE710;          /* ... in z */
 extern u16 D_803BE714;          /* ... cells in x (LevelHeader.unk0[0]) */
@@ -277,6 +284,30 @@ extern s16 D_803BE734;          /* LevelBounds.z1 */
 extern s16 D_803BE736;          /* LevelBounds.z2 */
 extern u8 D_803BE738;
 extern u8 D_803BE739;           /* LevelHeader.unk1C */
+
+/*
+ * Other pointers into the level that the game's C and the handwritten code
+ * (port/engine) share, each declared once here.
+ */
+extern u8 *D_80364458;          /* 00000.c's: the level's display data, after its header (segment 8) */
+extern u8 *D_80365330;          /* 13A70.c's: a texture of the level (func_802A0CFC 0xF81) */
+extern Gfx *D_8039CABC;         /* 52D70.c's: the level's extra model's display list ... */
+extern void *D_8039CAC0;        /* ... and its vertices (segment 6) */
+extern u8 *D_803EBBEC;          /* 62740's: the end of D_803EBDB0's records */
+extern u8 *D_803F7820;          /* 77E20's: the moving sections' matrices (segment 10), two sets */
+extern u8 *D_803F7824;
+extern void *D_803F7828;        /* ... their triangles (0x28 bytes each) ... */
+extern void *D_803F782C;        /* ... to here */
+extern struct Building *D_8036B974;  /* 23C20.c's: the building the hint is about */
+
+/* 30C70.c's: the radar's outline of the target (its corners, x y z) */
+typedef struct UnkStruct_8036C7A0 {
+    /* 0x0 */ s16 unk0;
+    /* 0x2 */ s16 unk2;
+    /* 0x4 */ s16 unk4;
+} UnkStruct_8036C7A0; /* size = 0x6 */
+extern UnkStruct_8036C7A0 *D_8036C790;  /* the target's, from the handwritten code (func_802BCE40) */
+extern UnkStruct_8036C7A0 *D_8036C794;
 
 /*
  * Objects the level file places.  The records are read straight out of the

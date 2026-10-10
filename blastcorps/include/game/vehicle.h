@@ -260,7 +260,7 @@ extern u8 D_803ED40D;
 extern s32 D_803ED808;        /* x, y, z: the player's start (hd.c copies them to D_803643E0..E8) */
 extern s32 D_803ED80C;
 extern s32 D_803ED810;
-extern VehicleModel *PTR32 D_803ED818; /* its model file */
+extern VehicleModel *D_803ED818;       /* its model file */
 extern u8 D_803ED826;
 
 /* The Sideswipe (6B4A0). */
@@ -321,5 +321,9 @@ extern s16 D_803FCD6C;
 extern s16 D_803FCD6E;
 extern u8 D_803FCD70;
 extern u8 D_803FCD75;
+
+/* What the vehicle modules share (the handwritten code's .bss: 77E20, 7F8B0). */
+extern UnkStruct_803ED460 *D_803F77D0;   /* the player vehicle's parts */
+extern struct SndState *PTR32 D_803F7844; /* its engine (rolling) sound: a sound handle (func_80260650) */
 
 #endif

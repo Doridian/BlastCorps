@@ -72,8 +72,8 @@ extern KindPart D_803A6B30[];
 
 /* The level's and the objects' triangles */
 extern CollisionTri D_803B9890[];               /* the objects', to D_803BD300 */
-extern CollisionTri *PTR32 D_803BD300;
-extern CollisionTri *PTR32 D_803BD308, *PTR32 D_803BD30C;  /* the walls' */
+extern CollisionTri *D_803BD300;
+extern CollisionTri *D_803BD308, *D_803BD30C;              /* the walls' */
 
 /* D_803BC1D0..D_803BD304: the objects' switches (func_802A3F80, from
    LevelHeader.unk68): while the point is in a switch's area (kind 0: n
@@ -93,7 +93,7 @@ typedef struct TriSwitch {
 } TriSwitch;
 SIZE_CHECK(TriSwitch, 0xDC);
 extern TriSwitch D_803BC1D0[];
-extern TriSwitch *PTR32 D_803BD304;     /* one past the last */
+extern TriSwitch *D_803BD304;           /* one past the last */
 
 /* D_803BD310: the walls (func_802A3E9C): the kinds they stop, then their
    triangles (D_803BD308's); the word at 0xF8 holds their count (its high

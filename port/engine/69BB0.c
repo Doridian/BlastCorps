@@ -32,8 +32,8 @@ extern u8 D_803ED825;                           /* it can get out */
 extern u8 D_803F7812;                           /* set on getting out (not by us.v10) */
 extern u8 D_803ED827;                           /* getting out (func_802AE888) */
 extern u8 D_803ED828;                           /* the side it gets out on: 0 +z, 1 -z, 2 +x, 3 -x */
-extern u8 *PTR32 D_803ED82C;                    /* two 0xC80-byte buffers, one per frame */
-extern u8 *PTR32 D_803ED830;
+extern u8 *D_803ED82C;                          /* two 0xC80-byte buffers, one per frame */
+extern u8 *D_803ED830;
 extern s32 D_803ED3A8[4];
 
 extern u8 D_80305CB0[];                         /* its parts' collision (56040's func_8029A800) */
@@ -41,7 +41,6 @@ extern s8 D_80305CB1[];                         /* where to get out of a vehicle
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern Part *PTR32 D_803F77D0;
 
 REGS(t3, t6, t7, s0, s1, s2, s3, s4, gp -> t2, t3, s3)
 s32 func_802A7834(s32 step, s16 *speed, s32 mode, u8 *flags, s16 *rows, s32 brake, s32 rate, u16 *h, VS *vs,

@@ -17,8 +17,6 @@
 
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
-extern char *D_802084D0[];
-extern u16 *D_802084E0[];
 extern s32 D_802FA268;
 extern FrameBuf D_803156F8[];
 extern s32 D_80358078;

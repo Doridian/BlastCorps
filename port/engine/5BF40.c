@@ -18,13 +18,12 @@
 #define N_DMAS 144              /* DMAs (and decodes) in flight at most */
 
 extern TexCacheEntry D_803B8570[N_LOADED];
-extern TexCacheEntry *PTR32 D_803B8D40;     /* the list's end */
-extern TextureEntry *PTR32 D_803B8D44;      /* the table, on the heap */
+extern TexCacheEntry *D_803B8D40;           /* the list's end */
+extern TextureEntry *D_803B8D44;            /* the table, on the heap */
 extern OSIoMesg D_803B8D48[N_DMAS];         /* one per DMA in flight */
 extern u8 D_803B9888;                       /* the table is in */
 extern TexDecode D_803C4B58;                /* the decode of a texture loaded now */
 extern TexDecode D_803C4250[N_DMAS];        /* the decode queue (60F60) */
-extern TexDecode *PTR32 D_803C4B50;
 extern OSMesgQueue D_80315180;
 extern OSIoMesg D_80370C58;
 extern s32 D_80358080;                      /* DMAs in flight */

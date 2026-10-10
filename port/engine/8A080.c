@@ -21,7 +21,6 @@ SIZE_CHECK(CollisionObject, 0x14);
 
 extern CollisionObject D_803FB8B8[N_COLLISION_OBJECTS];
 extern CollisionTri D_803F9330[N_HOLE_TRIS];
-extern CollisionTri *PTR32 D_803FB8B0;  /* the next free one */
 
 /* func_802CE840 (00000.c's): empty the table */
 void func_802CE840(void) {

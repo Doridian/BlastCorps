@@ -41,9 +41,13 @@ a walk into the next label: LABEL_TYPES), the first label's type runs
 over the others, which are names inside it.
 
 A symbolic .word is a pointer initializer (`&D_X`, a cast where the
-field's type is another, or `(u8 *)&D_X + n` into a variable), and every
-pointer is `T *PTR32`: 4 bytes in the LP64 build too, where the handwritten
-code reads this data at its N64 offsets.
+field's type is another, or `(u8 *)&D_X + n` into a variable).  A pointer
+is native, as the C that reads it declares it (8 bytes in the LP64 build,
+which lays out what holds one as the host does): the inventory's pointers
+and POINTERS' (the words the C has as pointers), but where PTR32_* say
+the C's are still 4 bytes.  A name inside a variable past a native
+pointer is none in the port (its offset isn't the N64's there): the C
+reaches it as an expression.
 
 Where the data's units in the native-endian build come from (asm2x86.py
 before; docs/PORT.md, "The native-endian build"): the type inventory's
@@ -257,6 +261,94 @@ LABEL_TYPES = {
     # its end into its end pointer D_803F3960, D_803F3964 and D_803F3968[0]
     "D_803F3910": ("bytes", 0x6E8),
 }
+
+
+# The pointer variables of the handwritten objects' data that the inventory
+# has as words (fieldscan saw a word loaded and stored): {name: (what it
+# points to, count)}, count None for as many as its room holds (a table to
+# a sentinel, whose other words are 0 or -1).  A pointer is native, as the
+# C declares it (port/engine, game/*.h: decl_check.py compares them); the
+# room the N64 has after it is left out (.bss, nothing there).  The
+# pointee is the C's type, a structure by its tag where asm_data.h has no
+# typedef of it.
+POINTERS = {
+    # 56040
+    "D_803A7408": ("s8", 1), "D_803B35F0": ("struct TexPatch", 1), "D_803B3770": ("u8", 1),
+    "D_803B8568": ("struct MtxCopy", 2),
+    # 5BF40, 5CB60
+    "D_803B8D40": ("struct TexCacheEntry", 1), "D_803B8D44": ("struct TextureEntry", 1),
+    "D_803BD300": ("struct CollisionTri", 1), "D_803BD304": ("struct TriSwitch", 1),
+    "D_803BD308": ("struct CollisionTri", 1), "D_803BD30C": ("struct CollisionTri", 1),
+    "D_803BDFD4": ("struct LevelLight", 1), "D_803BE6F8": ("void", 1), "D_803BE704": ("u8", 1),
+    "D_803BE708": ("u8", 1),
+    # the level's grids (game/level.h): D_803BDE40's cells and their end
+    # need 102, the N64's 102nd is D_803BDFD4 (set after): the port has one
+    # more where pointers aren't the N64's 4 bytes (count, extra)
+    "D_803BDB08": ("void", 1), "D_803BDB10": ("u8", 102), "D_803BDCA8": ("struct CollisionTri", 102),
+    "D_803BDE40": ("struct CollisionTri", (101, 1)),
+    # 5FD50, 60F60
+    "D_803C2B88": ("struct QuadNode", 1), "D_803C3170": ("s16", 1),
+    "D_803C4B50": ("struct TexDecode", 1), "D_803C4B54": ("struct TexDecode", 1),
+    "D_803EB780": ("Gfx", 1), "D_803EB784": ("Gfx", 1), "D_803EB788": ("u8", 1), "D_803EB78C": ("u8", 1),
+    # 62740
+    "D_803EBBEC": ("u8", 1), "D_803EBC00": ("u8", 1), "D_803EBC04": ("u8", 1), "D_803EBC08": ("u8", 1),
+    # the vehicle modules' model files and buffers, and their sounds (below)
+    "D_803ED82C": ("u8", 1), "D_803ED830": ("u8", 1),
+    "D_803EDBF4": ("u8", 1), "D_803EDBF8": ("u8", 1), "D_803EDBFC": ("u8", 1),
+    "D_803EDFC4": ("u8", 1), "D_803EDFC8": ("u8", 1), "D_803EDFCC": ("u8", 1), "D_803EDFD0": ("struct SndState", 1),
+    "D_803EE388": ("struct SndState", 1), "D_803EE398": ("u8", 1), "D_803EE39C": ("u8", 1),
+    "D_803EE3A0": ("u8", 1), "D_803EE774": ("u8", 1), "D_803EE778": ("u8", 1), "D_803EE77C": ("u8", 1),
+    "D_803EEB44": ("u8", 1), "D_803EEB48": ("u8", 1), "D_803EEB4C": ("u8", 1),
+    "D_803EEF24": ("u8", 1), "D_803EEF28": ("u8", 1), "D_803EEF2C": ("u8", 1), "D_803EF2E8": ("struct SndState", 1),
+    "D_803EF2F8": ("u8", 1), "D_803EF2FC": ("u8", 1), "D_803EF300": ("u8", 1),
+    "D_803EF6D8": ("struct SndState", 1), "D_803EF704": ("u8", 1), "D_803EF708": ("u8", 1),
+    "D_803EF70C": ("u8", 1), "D_803EFAD4": ("u8", 1), "D_803EFAD8": ("struct SndState", 1),
+    "D_803EFADC": ("struct SndState", 1), "D_803EFAE0": ("struct SndState", 1), "D_803EFAE4": ("u8", 1),
+    "D_803EFAE8": ("u8", 1), "D_803EFEA4": ("u8", 1), "D_803EFEA8": ("u8", 1), "D_803EFEAC": ("u8", 1),
+    # 77E20
+    "D_803F7658": ("Mtx", 1), "D_803F765C": ("Mtx", 1), "D_803F77D0": ("UnkStruct_803ED460", 1),
+    "D_803F77D4": ("u8", 1), "D_803F77E4": ("u8", 1), "D_803F7820": ("u8", 1), "D_803F7824": ("u8", 1),
+    "D_803F7828": ("void", 1), "D_803F782C": ("void", 1),
+    # 7F8B0, 80280
+    "D_803F7830": ("u8", 1), "D_803F7834": ("u8", 1), "D_803F7844": ("struct SndState", 1),
+    "D_803F7848": ("struct SndState", 1), "D_803F7C04": ("u8", 1), "D_803F7C08": ("u8", 1),
+    "D_803F7C0C": ("u8", 1), "D_803F7C18": ("struct SndState", 1), "D_803F7C1C": ("struct SndState", 1),
+    # 83910 (LABEL_TYPES), 853D0, 86F60, 88160
+    "D_803F876C": ("u8", 3), "D_803F8778": ("u8", 6),
+    "D_803F8B54": ("u8", 1), "D_803F8B58": ("u8", 1), "D_803F8B5C": ("u8", 1),
+    "D_803F8F34": ("u8", 1), "D_803F8F38": ("u8", 1), "D_803F8F3C": ("u8", 1),
+    "D_803F9304": ("u8", 1), "D_803F9308": ("u8", 1), "D_803F930C": ("u8", 1),
+    # 8A080, 8A2E0, 8AEE0, 8DDB0
+    "D_803FB8B0": ("struct CollisionTri", 1), "D_803FBBD8": ("u8", 1),
+    "D_803FC1E0": ("u8", 1), "D_803FC1E4": ("u8", 1), "D_803FC1E8": ("u8", 1), "D_803FC1EC": ("u8", 1),
+    "D_803FC5B4": ("u8", 1), "D_803FC5B8": ("u8", 1), "D_803FC5BC": ("u8", 1),
+    "D_803FC984": ("u8", 1), "D_803FC988": ("u8", 1), "D_803FC98C": ("u8", 1), "D_803FC990": ("struct SndState", 1),
+    "D_803FCD54": ("u8", 1), "D_803FCD58": ("u8", 1), "D_803FCD5C": ("u8", 1), "D_803FCD64": ("struct SndState", 1),
+    # .data: tables of pointers to a sentinel (60F60's, 77E20's, 7D9D0's, 800DC's)
+    "D_80305C10": ("void", None), "D_80306270": ("u8", None),
+    "D_802C23B4": ("struct TexAnim", None), "D_802C3FFC": ("u8", None),
+    "D_802C4A20": ("struct UnkStruct_8036EC30", None),
+}
+
+# Pointers kept 4 bytes (PTR32) while the C's are: the sound handles
+# (func_80260650 stores through a SndState *PTR32 *: P6-D2), the inventory's
+# structures whose game header still has PTR32 (Part, D2; Building, D1), and
+# the display list's words (P8).
+PTR32_POINTEES = {"struct SndState"}
+PTR32_TYPES = {"UnkStruct_803ED460", "Building"}
+PTR32_VARS = {"D_80300A68"}
+
+
+def keep32(t):
+    """t with its pointers PTR32"""
+    if isinstance(t, Scalar):
+        t.ptr32 = t.kind == "ptr"
+    elif isinstance(t, Array):
+        keep32(t.elem)
+    elif isinstance(t, Struct):
+        for _, _, m in t.members:
+            keep32(m)
+    return t
 
 
 # ---- parsing --------------------------------------------------------------------
@@ -567,34 +659,49 @@ def resolve(blob, rel, island=None, blob_layout=None):
 # ---- C types --------------------------------------------------------------------
 
 class Scalar:
-    def __init__(self, kind, pointee=None):
+    """A scalar; its size and alignment are the N64's (a pointer's 4: the
+    data's units), which a native pointer's C type has only where pointers
+    are 4 bytes (native() says where they aren't)."""
+
+    def __init__(self, kind, pointee=None, ptr32=False):
         self.kind = kind            # u8 .. f64, or "ptr"
         self.pointee = pointee      # C type the pointer points to
+        self.ptr32 = ptr32          # a pointer kept 4 bytes (PTR32) in the LP64 build
         self.size = {"char": 1, "s8": 1, "u8": 1, "s16": 2, "u16": 2, "s32": 4, "u32": 4, "f32": 4,
                      "s64": 8, "u64": 8, "f64": 8, "ptr": 4}[kind]
         self.align = self.size
 
     def decl(self, name):
         if self.kind == "ptr":
-            return f"{self.pointee} *PTR32 {name}"
+            return f"{self.pointee} *{'PTR32 ' if self.ptr32 else ''}{name}"
         return f"{self.kind} {name}"
 
     def units(self):
         return [(0, self.size, self)]
 
+    def native(self):
+        """the offset of its first native pointer (None: none)"""
+        return 0 if self.kind == "ptr" and not self.ptr32 else None
+
 
 class Array:
-    def __init__(self, elem, n):
+    def __init__(self, elem, n, extra=0):
         self.elem, self.n = elem, n
+        self.extra = extra          # more elements where pointers aren't 4 bytes (a top-level .bss variable)
         self.size = elem.size * n
         self.align = elem.align
 
     def decl(self, name):
+        if self.extra:
+            return self.elem.decl(f"{name}[{self.n} + {self.extra} * (sizeof(void *) != 4)]")
         return self.elem.decl(f"{name}[{self.n}]")
 
     def units(self):
         sub = self.elem.units()
         return [(k * self.elem.size + o, w, s) for k in range(self.n) for o, w, s in sub]
+
+    def native(self):
+        return self.elem.native()
 
 
 class Struct:
@@ -627,15 +734,25 @@ class Struct:
             out += [(o + uo, w, s) for uo, w, s in t.units()]
         return out
 
+    def native(self):
+        offs = [o + n for o, _, t in self.members for n in [t.native()] if n is not None]
+        return min(offs) if offs else None
+
     def definition(self):
         kw = "union" if self.union else "struct"
         lines = [f"typedef {kw} {self.name} {{"]
         for o, n, t in self.members:
             lines.append(f"    /* 0x{o:02X} */ {t.decl(n)};")
+        if self.packed and self.native() is not None:
+            # (a packed layout is the N64's, which native pointers don't keep)
+            raise SystemExit(f"asm2c.py: {self.name}: a packed structure with native pointers")
         attr = " __attribute__((packed))" if self.packed else ""
         lines.append(f"}}{attr} {self.name};")
         if not self.union:
-            lines.append(f"typedef char {self.name}_size_check[sizeof({self.name}) == 0x{self.size:X} ? 1 : -1];")
+            # (the N64's size where pointers are 4 bytes: with native ones, the
+            # LP64 build lays it out as the C does, from the same members)
+            cond = "sizeof(void *) != 4 || " if self.native() is not None else ""
+            lines.append(f"typedef char {self.name}_size_check[{cond}sizeof({self.name}) == 0x{self.size:X} ? 1 : -1];")
         return "\n".join(lines)
 
 
@@ -699,6 +816,8 @@ class Types:
             if covered < ty["size"]:
                 members += (fill or bytes_fill)(covered, ty["size"] - covered)
             st = Struct(name, members, ty["size"])
+        if name in PTR32_TYPES:
+            keep32(st)
         self.made[name] = st
         self.order.append(st)
         return st
@@ -839,6 +958,36 @@ class Gen:
 
     # -- a variable's C type
     def var_type(self, v, rel):
+        if v.name in POINTERS:
+            return self.pointer_type(v), False
+        t, wrapped = self.var_type_(v, rel)
+        if v.name in PTR32_VARS:
+            keep32(t)
+        return t, wrapped
+
+    def pointer_type(self, v):
+        """POINTERS' variable: its pointers, each word of the data a symbol,
+        0 or -1 (a sentinel)"""
+        to, n = POINTERS[v.name]
+        n, extra = n if isinstance(n, tuple) else (n, 0)
+        blob, span = v.blob, v.end - v.off
+        cnt = span // 4 if n is None else n
+        if cnt == 0 or cnt * 4 > span:
+            sys.exit(f"asm2c.py: {v.name}: {cnt} pointers in its 0x{span:X} bytes")
+        if not blob.bss:
+            for a in range(v.off, v.off + 4 * cnt, 4):
+                if a in blob.syms:
+                    continue
+                w = blob.val[a:a + 4]
+                if None in w or int.from_bytes(bytes(w), "big") not in (0, 0xFFFFFFFF):
+                    sys.exit(f"asm2c.py: {v.name}+0x{a - v.off:X}: neither a symbol, 0 nor -1")
+        self.stats["inventory"] += 1
+        if blob.bss:
+            self.stats["bss"] += 1
+        sc = Scalar("ptr", to, ptr32=to in PTR32_POINTEES)
+        return Array(sc, cnt, extra) if n != 1 else sc
+
+    def var_type_(self, v, rel):
         blob = v.blob
         span = v.end - v.off
         sym = inventory()["symbols"].get(v.name)
@@ -942,6 +1091,8 @@ class Gen:
             if k in blob.syms:
                 return self.pointer(blob.syms[k], sc.pointee)
             v = int.from_bytes(bytes(blob.val[k:k + 4]), "big")
+            if v == 0xFFFFFFFF:
+                return f"({sc.pointee} *)-1"        # (a sentinel: all ones in the LP64 build too)
             return "0" if not v else f"({sc.pointee} *)0x{v:08X}"
         raw = bytes(blob.val[k:k + sc.size])
         v = int.from_bytes(raw, "big")
@@ -1153,6 +1304,7 @@ def main():
 
     # the C files
     defined = set()
+    dropped = []
     bodies = {}
     for out, rel, src, top, allv in per_file:
         lines = [f"/* Generated by port/tools/asm2c.py from {os.path.relpath(src, ROOT)}: not to be committed. */",
@@ -1168,7 +1320,14 @@ def main():
             else:
                 lines.append(f"{v.ctype.decl(v.name)} = {g.init(v.blob, v.off, v.ctype)};")
             defined.add(v.name)
+            nat = v.ctype.native()
             for o, n in v.inner:
+                if nat is not None and o >= nat:
+                    # (past a native pointer, where the LP64 build's offset
+                    # isn't the N64's: no name, the C reaches it as an
+                    # expression)
+                    dropped.append(f"{n} ({v.name} + 0x{o:X})")
+                    continue
                 aliases.append(f".globl {n}\\n.set {n}, {v.name} + 0x{o:X}\\n")
         if aliases:
             lines += ["", "/* names inside the variables (the movable build's arena link has them at their",
@@ -1210,6 +1369,7 @@ def main():
         text = "\n".join(lines) + "\n"
         with open(p, "w") as f:
             f.write(text)
+    g.log += [f"{d}: inside a variable past a native pointer: no alias" for d in dropped]
     with open(os.path.join(outdir, "asm_data_report.txt"), "w") as f:
         f.write("\n".join(g.log) + "\n")
     nv = sum(len(allv) for _, _, _, _, allv in per_file)

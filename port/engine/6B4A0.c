@@ -15,9 +15,9 @@
 extern Part D_803ED840[32];
 extern VS D_803EDB40;
 extern s32 D_803EDBE8, D_803EDBEC, D_803EDBF0;  /* x, y, z */
-extern u8 *PTR32 D_803EDBF4;                    /* its model file */
-extern u8 *PTR32 D_803EDBF8;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EDBFC;
+extern u8 *D_803EDBF4;                          /* its model file */
+extern u8 *D_803EDBF8;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EDBFC;
 extern u16 D_803EDC02;                          /* the heading it turns to against a wall (D_803A7425) */
 extern s8 D_803EDC04;                           /* turning to it */
 extern u8 D_803EDC05;                           /* the rams' extension, 0..100 */
@@ -35,7 +35,6 @@ extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
 extern u8 D_80364A6D;
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80305CE0[];                         /* its parts' collision (56040's func_8029A800) */
 extern s32 D_802E8BE8;
 extern u8 D_802C2390[];                         /* the rams' part record (56040's list) */

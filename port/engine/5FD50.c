@@ -89,11 +89,11 @@ typedef union VisTask {
 extern VisTask D_803BE740;
 extern u32 D_803BEB80[0x1000];  /* the task's output */
 extern u32 D_803C2B80;          /* ... its size */
-extern QuadNode *PTR32 D_803C2B88;      /* the node stack's top */
+extern QuadNode *D_803C2B88;            /* the node stack's top */
 extern QuadNode D_803C2B90[100];        /* the node stack */
 extern s16 D_803C2EB0[0xFC];    /* the keys drawn (terrain_dl) */
 extern s16 D_803C30A8[100];     /* the visible cells, ascending, -1 at the end */
-extern s16 *PTR32 D_803C3170;   /* the end of ... */
+extern s16 *D_803C3170;         /* the end of ... */
 extern s16 D_803C3178[100];     /* ... the cells found visible in this walk */
 extern u32 D_803C3240;          /* the animation's texture (0: the list's own) */
 extern u32 D_803C3244;          /* ... the one it blends into */

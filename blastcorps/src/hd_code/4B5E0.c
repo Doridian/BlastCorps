@@ -19,7 +19,6 @@ extern s32 D_803F9324;
 extern u8 D_803F932C;
 extern u8 D_803F932D;
 extern u8 D_803F932E;
-extern s32 D_803FB8B0;
 
 /* .bss, 0x8039C550-0x8039C960 (tools/bss_c.py) */
 Block D_8039C550[BLOCK_MAX];
@@ -103,10 +102,10 @@ void func_8028FDA0(s16 *arg0, s16 *arg1) {
             D_8039C718[i].type = ((LevelHole *) arg0)->type;
             D_8039C718[i].unkC = D_8039C718[i].y - D_802FDC08[D_8039C718[i].type].unk288;
             D_8039C718[i].filled = 0;
-            D_8039C718[i].unk14 = D_803FB8B0;
+            D_8039C718[i].unk14 = (s32)D_803FB8B0;
             func_802CE9C8(((LevelHole *) arg0)->tris, ((LevelHole *) arg0)->numTris,
                           D_8039C718[i].type);
-            D_8039C718[i].unk18 = D_803FB8B0;
+            D_8039C718[i].unk18 = (s32)D_803FB8B0;
             if (((LevelHole *) arg0)->unk8 != 0) {
                 D_8039C800[D_8039C940].x = D_8039C718[i].x;
                 D_8039C800[D_8039C940].y = D_8039C718[i].y;

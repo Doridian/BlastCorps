@@ -13,9 +13,7 @@
 #include "game/level.h"
 #include "game/player.h"
 #include "game/sched.h"
-
-/* (hd_code 14B30.c's: no header declares it) */
-extern Vtx *PTR32 D_80365348[2];
+#include "game/game.h"
 
 #define OFF(type, field) __builtin_offsetof(type, field)
 

@@ -24,7 +24,6 @@ extern u8 *D_80215A80;
 extern u8 *D_80215A84;
 extern u8 D_0066C900[];
 extern u8 D_0068B550[];
-extern u16 *D_80215A70[];
 extern Vtx D_80215A88[];
 extern s32 D_80217290[];
 extern s32 D_80217390[];

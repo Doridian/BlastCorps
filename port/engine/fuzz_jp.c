@@ -149,15 +149,12 @@ extern u16 D_80367B58[4];
 extern s32 D_80367BC0;
 extern u32 D_80367BC4;
 extern u16 D_80367BC8;
-extern YoshiIcon *D_80367BCC;
-extern YoshiIcon *D_80367BD0;
 extern u8 D_80367BD4, D_80367BD5;
 extern s16 D_80367BD6, D_80367BD8;
 extern u16 D_80367BF4;
 extern u8 D_80367BF8, D_80367BF9, D_80367BFA, D_80367BFB;
 extern u16 D_80367BFC;
 extern LevelInfo *D_80367C04;
-extern u16 *D_80367C0C;
 extern s16 D_80367D50;
 extern u8 D_80367D52;
 extern u8 D_803156F4;
@@ -552,7 +549,7 @@ static void fuzz_801F9258(FuzzRng *r) {
 
 /* 1C40: the players' menu's scroller */
 extern u8 D_80365060[];
-extern struct { char *PTR32 unk0[4]; } D_80208368, D_80208358;
+extern struct { char *unk0[4]; } D_80208368, D_80208358;
 extern u8 D_802E8BF8;
 
 static void fuzz_801E8EB8(FuzzRng *r) {

@@ -27,9 +27,9 @@
 extern Part D_803EEB70[32];
 extern VS D_803EEE70;
 extern s32 D_803EEF18, D_803EEF1C, D_803EEF20;  /* x, y, z */
-extern u8 *PTR32 D_803EEF24;                    /* its model file */
-extern u8 *PTR32 D_803EEF28;                    /* two 0x100-byte buffers, one per frame */
-extern u8 *PTR32 D_803EEF2C;
+extern u8 *D_803EEF24;                          /* its model file */
+extern u8 *D_803EEF28;                          /* two 0x100-byte buffers, one per frame */
+extern u8 *D_803EEF2C;
 extern u16 D_803EEF30;                          /* the heading it turns to against a wall (D_803A7425) */
 extern u8 D_803EEF32;                           /* frames until the next sparks */
 extern s8 D_803EEF33;                           /* turning to it */
@@ -39,9 +39,9 @@ extern Part D_803EEF40[32];
 extern VS D_803EF240;
 extern SndState *PTR32 D_803EF2E8;              /* its rotor's sound, while the player is near */
 extern s32 D_803EF2EC, D_803EF2F0, D_803EF2F4;  /* x, y, z */
-extern u8 *PTR32 D_803EF2F8;                    /* its model file */
-extern u8 *PTR32 D_803EF2FC;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EF300;
+extern u8 *D_803EF2F8;                          /* its model file */
+extern u8 *D_803EF2FC;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EF300;
 extern s32 D_803EF304;                          /* the height it flies at */
 extern s32 D_803EF308, D_803EF30C;              /* where it flies to: x, z */
 extern s32 D_803EF310, D_803EF314, D_803EF318;  /* where the player gets out */
@@ -75,7 +75,6 @@ extern char D_80305D40[];                       /* "moving to zoom2\n" */
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern Part *PTR32 D_803F77D0;
 extern s32 D_80368030, D_80368044, D_80368048;
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 

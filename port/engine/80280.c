@@ -186,9 +186,9 @@ u32 func_802C4E58(u8 *buf, u8 medal) {
 
 extern Part D_803F7850[32];
 extern s32 D_803F7BF8, D_803F7BFC, D_803F7C00;  /* x, y, z */
-extern u8 *PTR32 D_803F7C04;                    /* its model file */
-extern u8 *PTR32 D_803F7C08;                    /* two 0x1000-byte buffers, one per frame */
-extern u8 *PTR32 D_803F7C0C;
+extern u8 *D_803F7C04;                          /* its model file */
+extern u8 *D_803F7C08;                          /* two 0x1000-byte buffers, one per frame */
+extern u8 *D_803F7C0C;
 extern SndState *PTR32 D_803F7C18;              /* its jets' sound, while they play */
 extern SndState *PTR32 D_803F7C1C;              /* its flight's */
 extern s32 D_803F7C20;                          /* frames since it was last dropping (mode 3) */
@@ -214,7 +214,6 @@ extern u8 D_803F7C48;                           /* its brake (func_802C7F28) */
 extern u8 D_803F7C49;                           /* a ceiling just above where it goes */
 extern u8 D_803F7C4A;                           /* the slam's push still to come */
 extern u8 D_803F7C4B;                           /* frames standing still before it lands */
-extern s32 D_803F7844;
 
 #define JB D_803F7850
 #define X D_803F7BF8
@@ -247,7 +246,6 @@ extern f32 D_803EBBF0, D_803EBBF4;
 extern s32 D_803EBBFC;                          /* the ceiling's height above it (func_802AC0BC) */
 extern u8 D_803A742B;
 extern u8 D_80370C35;                           /* 45BB0.c: the stick plays the buttons */
-extern Part *PTR32 D_803F77D0;
 
 REGS(t0, t1, t2 -> a1)
 s32 func_802AC0BC(s32 x, s32 z, s32 y);

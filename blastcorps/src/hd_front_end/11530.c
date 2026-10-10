@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/sched.h"
 #include "game/frame.h"
+#include "game/frontend.h"
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/level.h"
@@ -32,7 +33,6 @@ extern u16 D_8020E39C[];
 extern Lights1 D_8020E3A8[];
 extern f32 D_8020E3D8;
 extern u8 D_802159F0[];
-extern u16 *D_80215A70[];
 extern s32 D_80217B6C;
 extern Mtx D_80217B70[][4];
 

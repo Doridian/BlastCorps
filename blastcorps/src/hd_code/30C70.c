@@ -5,12 +5,6 @@
 #include "game/game.h"
 #include "functions.h"
 
-typedef struct {
-    /* 0x0 */ s16 unk0;
-    /* 0x2 */ s16 unk2;
-    /* 0x4 */ s16 unk4;
-} UnkStruct_8036C7A0; /* size = 0x6 */
-
 void func_80276D1C(Mtx *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 *arg5, f32 *arg6, f32 *arg7, f32 *arg8);
 
 /* .bss, 0x8036C790-0x8036C8D0 (tools/bss_c.py) */
@@ -53,8 +47,6 @@ s32 func_802768A8(void);
 extern FrameBuf D_02000000;
 extern u16 D_8035807C;
 extern u8 D_803643DB;
-extern UnkStruct_8036C7A0 *D_8036C790;
-extern UnkStruct_8036C7A0 *D_8036C794;
 extern UnkStruct_8036C7A0 *D_8036C7A0[10];
 extern s32 D_8036C798;
 extern s32 D_8036C7C8;

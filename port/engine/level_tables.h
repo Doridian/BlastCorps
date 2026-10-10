@@ -38,6 +38,6 @@ typedef struct LevelLight {
 } LevelLight;
 SIZE_CHECK(LevelLight, 0x24);
 extern LevelLight D_803BDFD8[];
-extern LevelLight *PTR32 D_803BDFD4;    /* one past the last */
+extern LevelLight *D_803BDFD4;          /* one past the last */
 
 #endif

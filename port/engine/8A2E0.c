@@ -24,10 +24,10 @@ SIZE_CHECK(CommPoint, 0x14);
 
 extern CommPoint D_803FBBB0[];
 extern u8 D_803FC1F0;                           /* how many */
-extern u8 *PTR32 D_803FBBD8;                    /* their model */
+extern u8 *D_803FBBD8;                          /* their model */
 extern Part D_803FBBE0[32], D_803FBEE0[32];     /* the dish's parts, turning and still */
-extern u8 *PTR32 D_803FC1E0, *PTR32 D_803FC1E4; /* the turning parts' two buffers */
-extern u8 *PTR32 D_803FC1E8, *PTR32 D_803FC1EC; /* the still ones' */
+extern u8 *D_803FC1E0, *D_803FC1E4;             /* the turning parts' two buffers */
+extern u8 *D_803FC1E8, *D_803FC1EC;             /* the still ones' */
 extern s16 D_803FBAB0[];                        /* each one's box, 8 Vtx (0x80 bytes) */
 extern s32 D_803643E0, D_803643E4, D_803643E8;  /* the player's position */
 extern u8 D_803F3FF8[];                         /* a debris record being made (77E20) */

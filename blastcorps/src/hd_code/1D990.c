@@ -52,16 +52,15 @@ u8 D_80367BD4;
 u8 D_80367BD5;
 s16 D_80367BD6;
 s16 D_80367BD8;
-/* (PTR32: func_80264264 draws D_80367BDC[1..5], which are D_80367BE0's
-   five images, so the two stay as the N64 lays them out) */
+/* (func_80264264 draws D_80367BDC[1..5], which are D_80367BE0's five
+   images: the port has them as one object, so that no build's compiler
+   takes an index past 0 for impossible) */
 #ifdef TARGET_PC
-/* (one object here, so that no build's compiler takes an index past 0 for
-   impossible) */
-u8 *PTR32 D_80367BDC[6];
+u8 *D_80367BDC[6];
 #define D_80367BE0 (D_80367BDC + 1)
 #else
-u8 *PTR32 D_80367BDC[1];
-u8 *PTR32 D_80367BE0[5];
+u8 *D_80367BDC[1];
+u8 *D_80367BE0[5];
 #endif
 u16 D_80367BF4;
 u16 D_80367BF6;
@@ -471,16 +470,13 @@ extern char D_80367BB0[];
 extern s32 D_80367BC0;
 extern u32 D_80367BC4;
 extern u16 D_80367BC8;
-extern YoshiIcon *D_80367BCC;
-extern YoshiIcon *D_80367BD0;
 extern u8 D_80367BD4;
 extern s16 D_80367BD8;
 #ifndef TARGET_PC
-extern u8 *PTR32 D_80367BE0[];
+extern u8 *D_80367BE0[];
 #endif
 extern u8 D_80367C01;
 extern char *D_80367C08;
-extern u16 *D_80367C0C;
 
 void func_80262320(u8 arg0) {
     s32 i;
@@ -1031,7 +1027,7 @@ void func_8026420C(void) {
 }
 
 extern u8 D_80367BFE;
-extern u8 *PTR32 D_80367BDC[];
+extern u8 *D_80367BDC[];
 extern s16 D_80367D50;
 extern u8 D_80367D52;
 extern u8 D_80367D53;

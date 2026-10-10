@@ -10,13 +10,6 @@
 
 #ifdef VERSION_JP
 
-typedef struct {
-    /* 0x00 */ char *PTR32 unk0;     /* a level's name */
-    /* 0x04 */ u16 *PTR32 unk4;     /* jp: the same in its u16 text */
-    /* 0x08 */ u8 unk8[0x28];
-} UnkStruct_8020D7E4_jp; /* size = 0x30 */
-
-extern UnkStruct_8020D7E4_jp D_8020D7E4[];
 extern u8 D_802FDA60[0x10];
 extern char D_8036EBA0[0x60];
 extern u16 D_80301260[];
@@ -59,9 +52,11 @@ void func_802860F0(void) {
             if (i >= 0x3C)
                 break;
         } while (open == 0);
-        sprintf(D_8036EBA0, "IN %s.", D_8020D7E4[i].unk0);
+        /* (the original's D_8020D7E4[i] (i > 0), a 0x30-byte stride from 4 before
+           D_8020D810: D_8020D810[i - 1] from its name on) */
+        sprintf(D_8036EBA0, "IN %s.", D_8020D810[i - 1].name);
         D_8020C070[80].text = D_8036EBA0;
-        func_8025B5D4((u16 *)(D_8036EBA0 + 0x20), D_80301260, D_8020D7E4[i].unk4, 0);
+        func_8025B5D4((u16 *)(D_8036EBA0 + 0x20), D_80301260, D_8020D810[i - 1].unk8, 0);
         D_8020C070[77].unk10 = (u16 *)(D_8036EBA0 + 0x20);
     } else {
         if (kind == 6) {

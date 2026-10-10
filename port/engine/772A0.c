@@ -18,9 +18,9 @@
 extern Part D_803EFAF0[32];
 extern VS D_803EFDF0;
 extern s32 D_803EFE98, D_803EFE9C, D_803EFEA0;  /* x, y, z */
-extern u8 *PTR32 D_803EFEA4;                    /* its model file */
-extern u8 *PTR32 D_803EFEA8;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EFEAC;
+extern u8 *D_803EFEA4;                          /* its model file */
+extern u8 *D_803EFEA8;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EFEAC;
 extern s32 D_803EFEC0, D_803EFEC4;              /* frames since it was last at each end */
 extern u8 D_803EFEC9;                           /* the wheels' sparks: frames to wait */
 extern u8 D_803EFECA;
@@ -36,7 +36,6 @@ extern u8 D_803EFECA;
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80305E00[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2984[];                         /* the sparks' effect record (60F60) */
 

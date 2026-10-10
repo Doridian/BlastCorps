@@ -156,7 +156,6 @@ void func_80258544(void *image, s32 x, s32 y, s32 z, f32 dist, Gfx *dl, void *se
 }
 
 extern FrameGame D_02000000;
-extern u8 *D_80365330;
 
 void func_80258B78(Gfx **arg0, FrameGame *arg1) {
     Gfx *gfx;

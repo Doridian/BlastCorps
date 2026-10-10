@@ -27,9 +27,9 @@ extern Part D_803EDFE0[32];
 extern VS D_803EE2E0;
 extern SndState *PTR32 D_803EE388;              /* its boost's sound, while it plays */
 extern s32 D_803EE38C, D_803EE390, D_803EE394;  /* x, y, z */
-extern u8 *PTR32 D_803EE398;                    /* its model file */
-extern u8 *PTR32 D_803EE39C;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EE3A0;
+extern u8 *D_803EE398;                          /* its model file */
+extern u8 *D_803EE39C;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EE3A0;
 extern f32 D_803EE3A4;                          /* part 3's lift, 0..1 */
 extern u16 D_803EE3A8;                          /* its turn rate (func_802A7FD8) */
 extern u16 D_803EE3AA;                          /* the heading it turns to against a wall (D_803A7425) */
@@ -45,7 +45,6 @@ extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
 extern u8 D_80364A69;
 extern u16 D_803F7840;                          /* (Ramdozer's speed at its frame's start; 0 here) */
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80305D00[];                         /* Skyfall's parts' collision (56040's func_8029A800) */
 extern u8 D_802C2314[];                         /* the flame's part record (56040's list) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
@@ -438,9 +437,9 @@ void func_802B40D4(u8 *src) {
 extern Part D_803EE3C0[32];
 extern VS D_803EE6C0;
 extern s32 D_803EE768, D_803EE76C, D_803EE770;  /* x, y, z */
-extern u8 *PTR32 D_803EE774;                    /* its model file */
-extern u8 *PTR32 D_803EE778;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EE77C;
+extern u8 *D_803EE774;                          /* its model file */
+extern u8 *D_803EE778;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EE77C;
 extern f32 D_803EE780;                          /* part 2's (the blade's) lift, 0..1 */
 extern u16 D_803EE784;                          /* its turn rate (func_802A7FD8) */
 extern u16 D_803EE786;                          /* the heading it turns to against a wall (D_803A7425) */

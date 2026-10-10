@@ -21,9 +21,9 @@
 extern Part D_803EE790[32];
 extern VS D_803EEA90;
 extern s32 D_803EEB38, D_803EEB3C, D_803EEB40;  /* x, y, z */
-extern u8 *PTR32 D_803EEB44;                    /* its model file */
-extern u8 *PTR32 D_803EEB48;                    /* two 0x800-byte buffers, one per frame */
-extern u8 *PTR32 D_803EEB4C;
+extern u8 *D_803EEB44;                          /* its model file */
+extern u8 *D_803EEB48;                          /* two 0x800-byte buffers, one per frame */
+extern u8 *D_803EEB4C;
 extern f32 D_803EEB50;                          /* the suspension, 0..1 (0.5 level) */
 extern f32 D_803EEB54;                          /* the bed's tilt, 0..1 (0.5 level) */
 extern u16 D_803EEB58;                          /* its turn rate (slower with L or R) */
@@ -47,7 +47,6 @@ extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
 extern s32 D_80364AA8;
 extern f32 D_80364414;                          /* the camera's heading, degrees */
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80305D20[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 extern u8 D_802C2208[], D_802C226C[];           /* the front wheels (56040's list) */

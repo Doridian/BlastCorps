@@ -15,6 +15,7 @@
 #include "shared.h"
 #include "game/game.h"
 #include "game/audio.h"
+#include "game/objects.h"
 
 /* ---- what this calls ------------------------------------------------- */
 
@@ -36,12 +37,9 @@ void func_802C18D4(s32 a1, s32 x, s32 y, s32 z, s32 t6);
 /* 39050.c's */
 extern s16 D_8036E4C8;
 
-extern u8 D_803F4030[];         /* 0xFC-byte records up to D_803F7654 */
-extern u8 *PTR32 D_803F7654;
 extern s32 D_803EF6DC, D_803EF6E0, D_803EF6E4;
 extern s32 D_802E8BDC;
 extern u8 D_80364412;
-extern u32 D_802C3FFC[];
 extern u8 D_802C2A5C[];
 extern s32 D_803ED420[16];
 
@@ -56,7 +54,7 @@ void func_802AC1A0(s32 radius) {
     s32 x, y, z;
 
     radius <<= 5;
-    for (p = D_803F4030, end = D_803F7654; p != end; p += 0xFC) {
+    for (p = (u8 *)D_803F4030, end = (u8 *)D_803F7654; p != end; p += 0xFC) {   /* (0xFC-byte records) */
         if (p[0xEA] != 0)
             continue;
         x = *(s32 *)(p + 0x10);
@@ -111,12 +109,12 @@ void func_802AC544(s32 x, s32 y, s32 z) {
 
 /* effects at a position (<< 5), of kind `kind` (D_802C3FFC) */
 void func_802AC61C(s32 x, s32 y, s32 z, s32 kind, s32 t1) {
-    func_802A6274(D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    func_802A6274((u32)(__UINTPTR_TYPE__)D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /* the same with a3 = 1 */
 void func_802AC6FC(s32 x, s32 y, s32 z, s32 kind, s32 t1) {
-    func_802A6274(D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+    func_802A6274((u32)(__UINTPTR_TYPE__)D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 1);
 }
 
 /* an unaligned word, as swl/swr and lwl/lwr move it */

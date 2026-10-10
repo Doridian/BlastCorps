@@ -19,9 +19,9 @@
 extern Part D_803F8F50[32];
 extern VS D_803F9250;
 extern s32 D_803F92F8, D_803F92FC, D_803F9300;  /* x, y, z */
-extern u8 *PTR32 D_803F9304;                    /* its model file */
-extern u8 *PTR32 D_803F9308;                    /* two 0x100-byte buffers, one per frame */
-extern u8 *PTR32 D_803F930C;
+extern u8 *D_803F9304;                          /* its model file */
+extern u8 *D_803F9308;                          /* two 0x100-byte buffers, one per frame */
+extern u8 *D_803F930C;
 extern u16 D_803F9310;                          /* the heading it turns to against a wall (D_803A7425) */
 extern u8 D_803F9312;                           /* frames until the next sparks */
 extern s8 D_803F9313;                           /* turning to it */
@@ -38,7 +38,6 @@ extern u8 D_803F9314;                           /* frames without the throttle a
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80306440[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 

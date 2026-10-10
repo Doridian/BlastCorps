@@ -3,7 +3,7 @@
 # not counted).  P6's packets bring the P6- classes to nothing (F the
 # game's C, G the engine's), P7 and P8 theirs, P10 the host interface's.
 # ptrcast_scan.py BUILD --version all --update rewrites the counts.
-P8-gbi blastcorps/src/hd_code/00000.c 11 11 11 11
+P8-gbi blastcorps/src/hd_code/00000.c 12 12 12 12
 P8-gbi blastcorps/src/hd_code/13A70.c 12 12 12 12
 P8-gbi blastcorps/src/hd_code/14B30.c 2 2 2 2
 P8-gbi blastcorps/src/hd_code/17E10.c 3 3 3 3
@@ -68,7 +68,7 @@ P6-game blastcorps/src/hd_code/405F0.c 1 1 1 1
 P6-game blastcorps/src/hd_code/409D0.c 2 2 2 2
 P6-game blastcorps/src/hd_code/479D0.c 2 2 2 2
 P6-game blastcorps/src/hd_code/48D00.c 4 4 4 4
-P6-game blastcorps/src/hd_code/4B5E0.c 3 3 3 3
+P6-game blastcorps/src/hd_code/4B5E0.c 5 5 5 5
 P6-game blastcorps/src/hd_front_end/00000.c 4 4 4 4
 P6-game blastcorps/src/hd_front_end/10850.c 1 1 1 1
 P6-game blastcorps/src/hd_front_end/11530.c 5 5 2 5
@@ -81,17 +81,17 @@ P6-game blastcorps/src/hd_front_end/E7B0.c 7 7 6 7
 P6-engine port/engine/1B100.c 12 12 12 12
 P6-engine port/engine/56040.c 9 9 9 9
 P6-engine port/engine/5BF40.c 12 12 12 12
-P6-engine port/engine/5CB60.c 78 78 78 78
+P6-engine port/engine/5CB60.c 71 71 71 71
 P6-engine port/engine/60F60.c 56 56 56 56
-P6-engine port/engine/62740.c 5 5 5 5
+P6-engine port/engine/62740.c 3 3 3 3
 P6-engine port/engine/679E0.c 1 1 1 1
 P6-engine port/engine/6C5E0.c 3 3 3 3
 P6-engine port/engine/6E200.c 5 5 5 5
 P6-engine port/engine/71140.c 1 1 1 1
-P6-engine port/engine/72B80.c 4 4 4 4
+P6-engine port/engine/72B80.c 5 5 5 5
 P6-engine port/engine/75490.c 1 1 1 1
 P6-engine port/engine/772A0.c 2 2 2 2
-P6-engine port/engine/77E20.c 17 17 17 17
+P6-engine port/engine/77E20.c 14 14 14 14
 P6-engine port/engine/7F8B0.c 11 11 11 11
 P6-engine port/engine/80280.c 3 3 3 3
 P6-engine port/engine/853D0.c 1 1 1 1

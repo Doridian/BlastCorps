@@ -17,7 +17,7 @@
  * (func_801F7FF4 compares two).  "Entry" is our name, not Rare's.
  *
  * The same tables are also reached through a label that falls inside one:
- * D_8020C488 is &D_8020C070[37].text.
+ * D_8020C488 is &D_8020C070[37].text (the N64's; not the port's).
  */
 
 typedef struct YoshiEntry {
@@ -27,12 +27,12 @@ typedef struct YoshiEntry {
     /* 0x06 */ u16 unk6;          /* 24, 20, 15: the text's cell size? */
     /* 0x08 */ u16 unk8;
     /* 0x0A */ u8 padA[2];
-    /* 0x0C */ char *PTR32 text;  /* "SELECT OPTION", "MORE", ... */
+    /* 0x0C */ char *text;        /* "SELECT OPTION", "MORE", ... */
 #ifdef VERSION_EU
-    /* 0x10 */ char *PTR32 text2; /* eu: the German text ("OPTIONEN", "WEITER", ...) */
-    /* 0x14 */ char *PTR32 text3; /* eu: NULL in the tables */
+    /* 0x10 */ char *text2;       /* eu: the German text ("OPTIONEN", "WEITER", ...) */
+    /* 0x14 */ char *text3;       /* eu: NULL in the tables */
 #endif
-    /* 0x10 */ u16 *PTR32 unk10;  /* yoshi.c's tables: the text in the 0x0FFE-terminated u16 encoding
+    /* 0x10 */ u16 *unk10;        /* yoshi.c's tables: the text in the 0x0FFE-terminated u16 encoding
                                      (A44D0, BC8E0); the front end also stores char strings here */
     /* 0x14 */ u8 unk14;          /* the YoshiIcon it shows */
     /* 0x15 */ u8 pad15;
@@ -42,9 +42,9 @@ typedef struct YoshiEntry {
     /* 0x1A */ u8 unk1A;          /* that icon's handle (func_80272C5C) */
 } YoshiEntry;
 #ifdef VERSION_EU
-SIZE_CHECK(YoshiEntry, 0x24);     /* eu: the offsets from unk10 on are 8 more */
+SIZE_CHECK_C(YoshiEntry, 0x24);   /* eu: the offsets from unk10 on are 8 more */
 #else
-SIZE_CHECK(YoshiEntry, 0x1C);
+SIZE_CHECK_C(YoshiEntry, 0x1C);
 #endif
 
 typedef struct YoshiWindow {
@@ -104,10 +104,11 @@ typedef struct ColorPair {
 SIZE_CHECK(ColorPair, 8);
 
 /* D_8020C488 is &D_8020C070[37].text, reached as its own symbol: an array
- * of YoshiEntry seen from their text field. */
+ * of YoshiEntry seen from their text field.  (The port has no such symbol:
+ * its C names the entries, D_8020C070[FE_ENTRY(37) + i].text.) */
 typedef struct UnkStruct_8020C488 {
-    /* 0x00 */ char *PTR32 text;
-    /* 0x04 */ u8 unk4[sizeof(YoshiEntry) - 4];
+    /* 0x00 */ char *text;
+    /* 0x04 */ u8 unk4[sizeof(YoshiEntry) - sizeof(char *)];
 } UnkStruct_8020C488;
 SIZE_CHECK(UnkStruct_8020C488, sizeof(YoshiEntry));
 
@@ -141,8 +142,14 @@ extern ColorPair D_802F47B0[COLOR_PAIRS];
 /* D_802F47B0[i] for any u8 i: past its tables, the .data that follows (26570.c) */
 ColorPair port_color_pair(u8 i);
 #endif
+#ifndef TARGET_PC
 extern UnkStruct_8020C488 D_8020C488[];
+#endif
 extern YoshiIcon D_802F49F4[0x4B];
+/* 1D990.c's: the icons a window shows, and its u16 text */
+extern YoshiIcon *D_80367BCC;
+extern YoshiIcon *D_80367BD0;
+extern u16 *D_80367C0C;
 /*
  * The entry tables differ in jp and eu: jp lacks some of the US versions'
  * entries, eu has more, so the ones after those sit elsewhere.
@@ -201,7 +208,7 @@ SIZE_CHECK(UnkStruct_8026F644, 4);
 typedef struct UnkStruct_802F9934 {
     /* 0x00 */ u8 unk0;
 #ifdef VERSION_EU
-    /* 0x04 */ char *PTR32 text[3]; /* eu: English, German, NULL */
+    /* 0x04 */ char *text[3];     /* eu: English, German, NULL */
 #else
     /* 0x01 */ char unk1[0xF];
 #endif

@@ -16,8 +16,7 @@
 
 extern u8 D_803C3250[0x1000];           /* the stream's copy */
 extern TexDecode D_803C4250[144];       /* decodes waiting for their DMAs */
-extern TexDecode *PTR32 D_803C4B50;     /* where the next is queued */
-extern TexDecode *PTR32 D_803C4B54;     /* the next to do */
+extern TexDecode *D_803C4B54;           /* the next to do */
 
 /* ---- the decoders: `len` bytes of words from `in` to `out`; each returns
    the end of what it wrote ------------------------------------------------ */
@@ -296,7 +295,7 @@ typedef struct EffectSlot {
 extern EffectSlot D_803C4B70[EFFECT_SLOTS];
 extern u8 D_803EA770[16][0x100];
 extern u8 D_803EB770[16];       /* the cells in use */
-extern u8 *PTR32 D_803EB788, *PTR32 D_803EB78C;    /* the effects' heap */
+extern u8 *D_803EB788, *D_803EB78C;                /* the effects' heap */
 extern s16 D_803EB790;          /* ... in 0x1010-byte pieces */
 extern u8 D_803EB792;
 extern u8 D_8020ED00[], D_8021DD00[];
@@ -464,8 +463,8 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 #define PIECE_FRAME(p) (*(u8 *)((u8 *)(p) + 0x1006))
 #define PIECE_NEXT(p) ((u8 *)(p) + 0x1010)
 
-extern u32 D_80305C10[];        /* the animations kept in the heap's pieces, 0 at the end */
-extern Gfx *PTR32 D_803EB780, *PTR32 D_803EB784;   /* the effects' two display lists */
+extern void *D_80305C10[];      /* the animations kept in the heap's pieces, NULL at the end */
+extern Gfx *D_803EB780, *D_803EB784;               /* the effects' two display lists */
 REGS(t6, s1, fp)
 void func_802A1074(u32 id, u32 dst, u32 param);
 
@@ -511,10 +510,10 @@ u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_o
     }
     dst = cells + (*(u8 *)cell << 12);
     if (D_803EB790 != 0) {
-        u32 *k;
+        void **k;
 
         for (k = D_80305C10;; k++) {
-            if (*k == key) {
+            if ((u32)(__UINTPTR_TYPE__)*k == key) {
                 D_803EB790--;
                 for (p = D_803EB788; PIECE_KEY(p) != 0; p = PIECE_NEXT(p))
                     ;
@@ -524,7 +523,7 @@ u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_o
                 dst = (u32)p;
                 break;
             }
-            if (*k == 0)
+            if (*k == NULL)
                 break;
         }
     }
@@ -581,12 +580,12 @@ u32 func_802A6EB8(u32 s_) {
    next effect and func_8029C454 read it). */
 REGS(t4, t1, s1, t8, v1, s5, gp)
 void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) {
-    Gfx *PTR32 *dl;
+    Gfx **dl;
     Gfx *g;
 
-    dl = (Gfx *PTR32 *)func_802A6EB8(s);
+    dl = (Gfx **)func_802A6EB8(s);
     g = func_802575F4(*dl, a1, a2, a3, sp10, sp14, sp18);
-    dl = (Gfx *PTR32 *)func_802A6EB8(s);
+    dl = (Gfx **)func_802A6EB8(s);
     *dl = g;
 }
 
@@ -606,12 +605,12 @@ REGS(t4, t0)
 void func_802A68D4(u32 s_, u32 m_) {
     EffectSlot *s = (EffectSlot *)s_;
     s32 *m = (s32 *)m_;
-    Gfx *PTR32 *dl;
+    Gfx **dl;
     Gfx *g;
     s32 x, y, z, scale, step, cx, cy, cz, angle, pitch;
     s64 dist, q, num;
 
-    dl = (Gfx *PTR32 *)func_802A6EB8(s_);
+    dl = (Gfx **)func_802A6EB8(s_);
     g = *dl;
     ((u32 *)g)[1] = K0_TO_PHYS(m_);
     ((u32 *)g)[0] = 0x01040040;
@@ -730,7 +729,7 @@ void func_802A64A4(void) {
         }
         mtx += 0x40;
         {
-            Gfx *PTR32 *dl = (Gfx *PTR32 *)func_802A6EB8((u32)s);
+            Gfx **dl = (Gfx **)func_802A6EB8((u32)s);
             u32 *g = (u32 *)*dl;
 
             g[0] = 0xBD000000;      /* G_POPMTX */

@@ -20,9 +20,9 @@
 extern Part D_803F87A0[32];
 extern VS D_803F8AA0;
 extern s32 D_803F8B48, D_803F8B4C, D_803F8B50;  /* x, y, z */
-extern u8 *PTR32 D_803F8B54;                    /* its model file */
-extern u8 *PTR32 D_803F8B58;                    /* two 0x700-byte buffers, one per frame */
-extern u8 *PTR32 D_803F8B5C;
+extern u8 *D_803F8B54;                          /* its model file */
+extern u8 *D_803F8B58;                          /* two 0x700-byte buffers, one per frame */
+extern u8 *D_803F8B5C;
 extern f32 D_803F8B60;                          /* the lean, 0..1 (0.5 upright) */
 extern s32 D_803F8B64, D_803F8B68, D_803F8B6C;  /* the wheelie: its speed, its frames, where it started */
 extern u16 D_803F8B70;                          /* the wheelie's boosts so far */
@@ -49,7 +49,6 @@ extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
 extern u8 D_80364A6B;
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80306420[];                         /* its parts' collision (56040's func_8029A800) */
 extern u8 D_802C2954[];                         /* the sparks' effect record (60F60) */
 

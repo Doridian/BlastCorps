@@ -24,8 +24,8 @@ typedef struct UnkStruct_8020BD30 {
     /* 0x04 */ f32 unk4;
     /* 0x08 */ f32 unk8;
     /* 0x0C */ f32 unkC;
-    /* 0x10 */ struct UnkStruct_8020BD30 *PTR32 unk10;
-    /* 0x14 */ struct UnkStruct_8020BD30 *PTR32 unk14;
+    /* 0x10 */ struct UnkStruct_8020BD30 *unk10;
+    /* 0x14 */ struct UnkStruct_8020BD30 *unk14;
     /* 0x18 */ u8 unk18;
     /* 0x19 */ u8 unk19;
     /* 0x1A */ u8 unk1A;
@@ -38,14 +38,14 @@ typedef struct UnkStruct_8020BD30 {
     /* 0x34 */ f32 unk34;
     /* 0x38 */ f32 unk38;
 } UnkStruct_8020BD30;
-SIZE_CHECK(UnkStruct_8020BD30, 0x3C);
+SIZE_CHECK_C(UnkStruct_8020BD30, 0x3C);
 
 /* C450.c's .bss; sorted with func_802595E0 by func_801F36B0. */
 typedef struct UnkStruct_80218270 {
     /* 0x0 */ s32 unk0;
-    /* 0x4 */ Gfx *PTR32 unk4;
+    /* 0x4 */ Gfx *unk4;
 } UnkStruct_80218270;
-SIZE_CHECK(UnkStruct_80218270, 8);
+SIZE_CHECK_C(UnkStruct_80218270, 8);
 
 extern UnkStruct_8020BD30 D_8020BD30[7];
 /* D_8020BD30[6], and [3]'s unk0 and unk8: IDO adds an element's offset to
@@ -69,5 +69,18 @@ extern char *D_802081C0[0x1F][4];  /* eu: English, German, French (NULL) and no 
 #else
 extern char *D_802081C0[0x1F][2];
 #endif
+#ifndef VERSION_EU
+extern char *D_80208378[];      /* 1C40.c's: the two players' names (jp: u16 text) */
+#endif
+extern u16 *D_802158A0;         /* 1C40.c's: the u16 text being shown */
+
+/* 6790.c's: the promotion's two lines (eu: in the language), and as u16 text. */
+extern char *D_802084B0;
+extern char *D_802084B4;
+extern u16 *D_802084B8;
+extern u16 *D_802084BC;
+
+/* 9570.c's: three textures on the heap (11530.c and C450.c draw them). */
+extern u16 *D_80215A70[3];
 
 #endif

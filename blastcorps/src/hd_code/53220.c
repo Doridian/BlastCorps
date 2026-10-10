@@ -7,11 +7,11 @@
 
 typedef struct {
 #ifdef VERSION_EU
-    /* 0x0 */ u8 *PTR32 unk0[3];      /* eu: English, German, French (NULL) */
-    /* 0xC */ u16 *PTR32 unk4;        /* eu: NULL */
+    /* 0x0 */ u8 *unk0[3];            /* eu: English, German, French (NULL) */
+    /* 0xC */ u16 *unk4;              /* eu: NULL */
 #else
-    /* 0x0 */ u8 *PTR32 unk0;         /* (PTR32: jp's func_802979E0, still asm, reads them) */
-    /* 0x4 */ u16 *PTR32 unk4;
+    /* 0x0 */ u8 *unk0;
+    /* 0x4 */ u16 *unk4;
 #endif
 } UnkStruct_802FF188; /* size = 0x8, eu 0x10 */
 
@@ -521,11 +521,7 @@ void func_802979E0(u8 arg0) {
     }
     sp3C = 0;
     D_8036BB24 = (YoshiEntry *)D_80358070;
-#ifdef VERSION_EU
-    D_80358070 += 0x2F4; /* 21 entries */
-#else
-    D_80358070 += 0x24C; /* 21 entries */
-#endif
+    D_80358070 += 21 * sizeof(YoshiEntry); /* 0x24C (eu 0x2F4) on the N64 */
     sp34 = 0;
     sp30 = 0;
     sp2F = 0;

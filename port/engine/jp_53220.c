@@ -9,8 +9,8 @@
 #ifdef VERSION_JP
 
 typedef struct {
-    /* 0x0 */ u8 *PTR32 unk0;
-    /* 0x4 */ u16 *PTR32 unk4;
+    /* 0x0 */ u8 *unk0;
+    /* 0x4 */ u16 *unk4;
 } UnkStruct_802FF188;
 
 extern u8 D_8039CAB6;
@@ -68,7 +68,7 @@ void func_802979E0(u8 arg) {
     }
     i = 0;
     D_8036BB24 = (YoshiEntry *)D_80358070;
-    D_80358070 += 0x24C;
+    D_80358070 += 21 * sizeof(YoshiEntry);    /* (0x24C on the N64) */
     sel = 0;
     count = 0;
     stop = 0;

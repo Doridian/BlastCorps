@@ -14,7 +14,9 @@ typedef struct {
     /* 0x04 */ u8 unk4[0x2C];
 } UnkStruct_8020D7E4; /* size = 0x30 (eu 0x38) */
 
-extern UnkStruct_8020D7E4 D_8020D7E4[];
+#ifndef TARGET_PC
+extern UnkStruct_8020D7E4 D_8020D7E4[];    /* (the port names what it reads: below) */
+#endif
 
 /* .bss, 0x8036EBA0-0x8036EC00 (tools/bss_c.py) */
 char D_8036EBA0[0x60];
@@ -49,10 +51,16 @@ void func_802860F0(void) {
                         }
                     }
                 }
+#ifdef TARGET_PC
+                /* (D_8020D7E4[n] for n > 0 is D_8020D810[n - 1] from its name on: the port
+                   names it, the two tables being apart, and their pointers its own size) */
+                sprintf(D_8036EBA0, TEXT_EU("IN %s.", "IN %s."), LEVEL_NAME(D_8020D810[sp30 - 1]));
+#else
 #ifdef VERSION_EU
                 sprintf(D_8036EBA0, TEXT_EU("IN %s.", "IN %s."), (&D_8020D7E4[sp30].unk0)[D_80366F70_eu]);
 #else
                 sprintf(D_8036EBA0, "IN %s.", D_8020D7E4[sp30].unk0);
+#endif
 #endif
                 ENTRY_TEXT(&D_8020C070[FE_ENTRY(82)]) = D_8036EBA0;
                 break;

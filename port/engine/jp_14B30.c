@@ -18,7 +18,6 @@ typedef struct {
 } UnkStruct_80365340; /* size = 0xC */
 
 extern UnkStruct_80365340 *D_80365340;
-extern Vtx *PTR32 D_80365348[2];
 extern s32 D_80365350;
 extern s32 D_802E8C74;
 extern s32 D_802E8C78;

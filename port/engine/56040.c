@@ -21,7 +21,9 @@
  */
 #include "shared.h"
 #include "collision.h"
+#include "buildings.h"
 #include "game/vehicle.h"
+#include "game/level.h"
 
 /* ---- the records ---------------------------------------------------------- */
 
@@ -121,7 +123,7 @@ typedef struct TexPatch {
 } TexPatch;
 SIZE_CHECK(TexPatch, 0xC);
 extern TexPatch D_803B3500[];
-extern TexPatch *PTR32 D_803B35F0;      /* one past the last */
+extern TexPatch *D_803B35F0;            /* one past the last */
 
 /* D_803B7FC8: the parts' matrices to copy from one frame's buffer to the
    other's (func_8029DDC8 does it when the frame comes round) */
@@ -135,7 +137,7 @@ SIZE_CHECK(MtxCopy, 0xC);
 extern MtxCopy D_803B7FC8[MTX_COPIES];
 /* [0] the last one in use; [1] a word no code here names, which
    func_8029DD54's walk past the end takes for a record's `to` */
-extern MtxCopy *PTR32 D_803B8568[2];
+extern MtxCopy *D_803B8568[2];
 #define MTX_LAST D_803B8568[0]
 
 /* D_803059F0: which building kinds each vehicle type collides with, on
@@ -855,15 +857,16 @@ void func_8029C284(s32 x, s32 z) {
     D_803A7418[1] = -1;
 }
 
-extern s32 D_802C23B4[];                /* the texture animations (TexAnim *), to -1 */
-#define TEXANIM_AT(i) (*(TexAnim *PTR32 *)&D_802C23B4[i])
+extern TexAnim *D_802C23B4[];           /* the texture animations, to TEXANIM_END */
+#define TEXANIM_END ((TexAnim *)-1)
 
 /* The texture slots freed; D_803B35F8's records set up for the texture
    animations of D_802C23B4 (to a key of -1) */
 void func_8029DEA0(void) {
     TexSlot *s = D_803A7440;
     Part *p;
-    s32 n, *id = D_802C23B4, w;
+    s32 n;
+    TexAnim **id = D_802C23B4, *w;
 
     for (n = TEX_SLOTS;; n--, s++) {
         if (n == 0)
@@ -873,8 +876,8 @@ void func_8029DEA0(void) {
     D_803B35F0 = D_803B3500;
     for (p = D_803B35F8;; p++) {
         w = *id;
-        *(s32 *)&p->unk0 = w;
-        if (w == -1)
+        p->unk0 = w;
+        if (w == TEXANIM_END)
             break;
         id++;
         p->unk4 = 0.0f;
@@ -1252,7 +1255,7 @@ s32 func_8029F1BC(Anim *a, s32 k, s32 n, f32 rate, f32 t, f32 *t_out) {
     return k;
 }
 
-extern u8 *PTR32 D_803B3770;            /* the other frame's matrices' base */
+extern u8 *D_803B3770;                  /* the other frame's matrices' base */
 
 /* An object's animation, one frame on: its state (func_8029F1BC; the rate
    from its data's speeds), then each part's matrix from its rest matrix
@@ -1487,15 +1490,15 @@ void func_8029A914(VS *vs) {
 REGS(s0, s1, s2)
 void func_8029DF78(u32 dl_, u32 end_, u32 type) {
     u32 *dl = (u32 *)(__UINTPTR_TYPE__)dl_, *end = (u32 *)(__UINTPTR_TYPE__)end_;
-    s32 *ids = D_802C23B4;
+    TexAnim **ids = D_802C23B4;
     TexAnim *T;
     TexPatch *out = D_803B35F0;
     u32 *p, w, tex;
 
     for (;;) {
-        if (*ids == -1)
+        if (*ids == TEXANIM_END)
             break;
-        T = *(TexAnim *PTR32 *)ids;
+        T = *ids;
         ids++;
         if (T->type != type)
             continue;
@@ -2072,7 +2075,6 @@ void func_8029B994(void) {
 
 extern s32 D_803A73F0, D_803A73F4, D_803A73F8;  /* the vehicle's point */
 extern s32 D_80358060;                  /* a frame count; 0 before the first */
-extern s8 *PTR32 D_803A7408;            /* the kinds whose hit turns the camera, to a negative byte */
 extern u8 D_803F7811, D_803F7801, D_803A7427, D_803A7429, D_803A7424, D_803A7425;
 extern s16 D_803A7422, D_803F77FC;
 
@@ -2836,10 +2838,8 @@ REGS(-> t1)
 s32 func_802BD8C8(void);
 extern BuildingRule D_803059F0[];
 extern CollisionTri D_803F9330[];       /* the holes' triangles (8A080) */
-extern CollisionTri *PTR32 D_803FB8B0;  /* one past the last */
-extern u32 D_803BDE40[], D_803BDCA8[];  /* the grid's cells: their triangles from one word to the next */
 extern u8 D_803A742A;                   /* the hole group a vehicle of type 0xC8 stands on */
-#define CELL_TRIS(tab, i) (*(CollisionTri *PTR32 *)&(tab)[i])
+#define CELL_TRIS(tab, i) ((tab)[i])     /* the grid's cells: their triangles from one to the next */
 #define VEHICLE_ON_HOLE 0xC8            /* (the type that skips the hole group it stands on) */
 #define NO_GRID_TYPE VEHICLE_JETPACK    /* the J-Bomb skips the first grid */
 

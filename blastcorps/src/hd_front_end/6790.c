@@ -49,10 +49,6 @@ extern u8 D_802082B8[][0x1F];
 #else
 extern u8 D_802082B8[];
 #endif
-extern char *D_802084B0;
-extern char *D_802084B4;
-extern u16 *D_802084B8;
-extern u16 *D_802084BC;
 extern s8 D_802084C0;
 extern s32 D_80215960;
 extern s32 D_80215964;

@@ -70,7 +70,8 @@ extern u8 D_80370C50;
  * them with different types; where a file needs the other signedness it
  * casts).  hd.c's (00000.c's) unless noted.
  */
-extern u16 *PTR32 D_80358050[2]; /* the two colour framebuffers (gDPSetColorImage, D_8035805C picks; PTR32: jp's func_801F9258, still asm, reads them) */
+extern u16 *D_80358050[2];      /* the two colour framebuffers (gDPSetColorImage, D_8035805C picks) */
+extern Vtx *D_80365348[2];      /* 14B30.c's: the HUD text's vertices, a frame's each (port/host/gfx.c reads them) */
 extern u16 *D_80358058;         /* the depth buffer (gDPSetDepthImage) */
 extern u32 D_80358060;          /* a frame count (a lit TntCrate keeps it in unk14; compared with 100, 300 and 700) */
 extern u8 *D_8035806C;          /* segment 1: the static data at the end of .bss */

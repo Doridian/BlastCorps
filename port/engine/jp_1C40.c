@@ -17,12 +17,11 @@
 #ifdef VERSION_JP
 
 typedef struct {
-    /* 0x00 */ char *PTR32 unk0[4];
+    /* 0x00 */ char *unk0[4];
 } UnkStruct_80208358; /* size = 0x10 */
 
 extern UnkStruct_80208358 D_80208358;
 extern UnkStruct_80208358 D_80208368;
-extern char *PTR32 D_80208378[];
 extern u16 D_802082D0_jp[];
 extern u16 D_802082E4_jp[];
 extern u16 D_802082F8_jp[];
@@ -43,7 +42,6 @@ extern f32 D_802154E0;
 extern s32 D_802154EC;
 extern s32 D_80215508[];
 extern u8 D_802155A0[];
-extern u16 *D_802158A0;
 extern u8 D_8021592E;
 extern u16 D_80215930[6];
 

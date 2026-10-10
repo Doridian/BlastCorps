@@ -20,14 +20,13 @@
 
 /* the barges' .bss (asm/data/hd_code/83910.bss.s) */
 extern s32 D_803F8748[9];                       /* x, y, z of each */
-extern u8 *PTR32 D_803F876C[3];                 /* their model files */
-extern u8 *PTR32 D_803F8778[6];                 /* their buffer pairs (0x800 bytes each) */
+extern u8 *D_803F876C[3];                       /* their model files */
+extern u8 *D_803F8778[6];                       /* their buffer pairs (0x800 bytes each) */
 extern u8 D_803F8790[3];                        /* bumped (turned back once until clear) */
 
 extern u8 D_803ED40B;
 extern u8 D_803ED3F6, D_803ED3F7;
 extern f32 D_803EBBF0, D_803EBBF4;
-extern Part *PTR32 D_803F77D0;
 extern u8 D_80306410[];                         /* their parts' collision (56040's func_8029A800) */
 
 REGS(gp)

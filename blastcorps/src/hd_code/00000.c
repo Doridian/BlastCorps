@@ -89,7 +89,7 @@ Gfx *D_80358030[2];
 Gfx *D_80358038[2];
 Gfx *D_80358040[2];
 Gfx *D_80358048[2];
-u16 *PTR32 D_80358050[2];
+u16 *D_80358050[2];
 u16 *D_80358058;
 u8 D_8035805C;
 u32 D_80358060;
@@ -152,7 +152,7 @@ u8 D_80364450[2];
 s16 D_80364452;
 s16 D_80364454;
 u8 D_80364456;
-u32 D_80364458;
+u8 *D_80364458;
 Vehicle D_80364460[0xc];
 Vehicle *D_803649D0;
 u64 D_803649D8;
@@ -271,7 +271,7 @@ Gfx *D_80358030[2];
 Gfx *D_80358038[2];
 Gfx *D_80358040[2];
 Gfx *D_80358048[2];
-u16 *PTR32 D_80358050[2];
+u16 *D_80358050[2];
 u16 *D_80358058;
 u8 D_8035805C;
 u32 D_80358060;
@@ -334,7 +334,7 @@ u8 D_80364450[2];
 s16 D_80364452;
 s16 D_80364454;
 u8 D_80364456;
-u32 D_80364458;
+u8 *D_80364458;
 Vehicle D_80364460[0xc];
 Vehicle *D_803649D0;
 u64 D_803649D8;
@@ -489,8 +489,6 @@ extern u8 D_803C5770[];
 extern u8 D_803C6370[];
 extern u8 D_803C6F70[];
 extern u8 D_803C7B70[];
-extern void *PTR32 D_803F7820;
-extern void *PTR32 D_803F7824;
 extern u8 D_803FF600[];
 #ifdef TARGET_PC
 extern u8 D_803FFFF8[];
@@ -3293,18 +3291,11 @@ void func_802502EC(void) {
     }
 }
 
-typedef struct {
-    /* 0x0 */ s16 unk0;
-    /* 0x2 */ s16 unk2;
-    /* 0x4 */ s16 unk4;
-} UnkStruct_8036C794; /* size = 0x6 */
-
 extern u8 D_8036B8B0;
 extern s32 D_8036B8B4;
 extern s32 D_8036B8B8;
 extern s32 D_8036B8BC;
 extern u8 D_8036B965;
-extern UnkStruct_8036C794 *D_8036C794;
 extern u8 D_80370C1C;
 extern u8 D_80370C1D;
 extern s8 D_80370C2D;
