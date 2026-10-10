@@ -31,6 +31,5 @@ P8-gbi blastcorps/src/hd_front_end/9570.c 1 1 1 1
 P8-gbi blastcorps/src/hd_front_end/C450.c 1 1 1 1
 P8-gbi blastcorps/src/hd_front_end/DE70.c 6 6 6 6
 P8-gbi port/engine/jp_26570.c 0 0 7 0
-P8-acmd port/libaudio/synth.c 1 1 1 1
 P10-host port/src/loads.c 19 19 19 19
 P10-host port/src/ultra.c 25 25 25 25
