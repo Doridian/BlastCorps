@@ -3,6 +3,7 @@
  * sequence bank files.
  */
 #include "audio_private.h"
+#include "port.h"
 
 /* ---- the heap ------------------------------------------------------------------ */
 
@@ -20,8 +21,11 @@ void *alHeapDBAlloc(u8 *file, s32 line, ALHeap *hp, s32 num, s32 size) {
     s32 bytes = (num * size + 15) & ~15;
     u8 *block;
 
+    /* (the reference returns NULL, which the game doesn't test: it would
+       write through it) */
     if (hp->cur + bytes > hp->base + hp->len)
-        return NULL;
+        host_fatal("libaudio: the audio heap is full: %d bytes asked for, %d left", bytes,
+                   (s32)(hp->base + hp->len - hp->cur));
     block = hp->cur;
     hp->cur = block + bytes;
     return block;

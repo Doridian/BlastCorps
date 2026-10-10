@@ -443,6 +443,18 @@ __attribute__((visibility("default"))) u32 osVirtualToPhysical(void *p) {
     return (u32)(uintptr_t)p;
 }
 
+/* the port's stop with a message (port/host): the library's on a full heap */
+__attribute__((visibility("default"))) void host_fatal(const char *fmt, ...) {
+    va_list ap;
+
+    va_start(ap, fmt);
+    fprintf(stderr, "replay: the library stopped: ");
+    vfprintf(stderr, fmt, ap);
+    fputc('\n', stderr);
+    va_end(ap);
+    exit(1);
+}
+
 __attribute__((visibility("default"))) void func_8029A7E4(char *fmt, ...) {
     (void)fmt;      /* the game's printf, compiled out */
 }
