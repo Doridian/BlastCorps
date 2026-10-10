@@ -14,7 +14,10 @@
   gen_syms.py script OUT.ld OBJECT...
       For the linker: every name the N64 link gets from a linker script
       (build/<module>.<version>.syms.ld, the ROM positions) that no object of
-      the port defines.  Names inside another variable or a data island
+      the port defines.  The ROM positions are the original ROM's (the
+      port reads it), the modules' too (rom.<version>.ld, which the
+      stage-2 link of init takes them from: the boot's hand-over words,
+      src/boot.c).  Names inside another variable or a data island
       stay relative to it (`D_X = base + off`); fixed addresses (the
       libultra globals at 0x80000300, hardware registers, RDRAM buffers)
       stay absolute, which works because RDRAM is mapped at 0x80000000.
@@ -106,6 +109,7 @@ def script(out, objects):
     order = []
     srcs = [os.path.join(BLAST, "build", f"{m}.{VERSION}.syms.ld") for m in MODULES]
     srcs.append(os.path.join(BLAST, "build", f"rom_fixed.{VERSION}.ld"))
+    srcs.append(os.path.join(BLAST, "build", f"rom.{VERSION}.ld"))
     for src in srcs:
         for line in open(src):
             m = ASSIGN_RE.match(line)
