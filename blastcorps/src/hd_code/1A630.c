@@ -8,7 +8,7 @@
 ALMicroTime func_8025F044(void *node);
 void func_8025F0F0(SndPlayer *sndp, SndEvent *event);
 void func_80260148(ALEventQueue *evtq, SndState *state, u16 eventType);
-SndState *func_80260300(SndBank *bank, ALSound *sound);
+SndState *func_80260300(ALBank *bank, ALSound *sound);
 void func_802604FC(SndState *state);
 void func_80260934(u8 arg0);
 
@@ -388,7 +388,7 @@ u16 func_80260210(u16 *arg0, u16 *arg1) {
     return count3;
 }
 
-SndState *func_80260300(SndBank *bank, ALSound *sound) {
+SndState *func_80260300(ALBank *bank, ALSound *sound) {
     SndState *state;
     ALKeyMap *keyMap;
     s32 isSpecial;
@@ -475,7 +475,7 @@ u8 func_80260634(SndState *state) {
     return 0;
 }
 
-SndState *func_80260650(SndBank *bank, s16 id, SndState **handle) {
+SndState *func_80260650(ALBank *bank, s16 id, SndState **handle) {
     SndState *state;
     SndState *result;
     ALKeyMap *keyMap;
@@ -495,7 +495,7 @@ SndState *func_80260650(SndBank *bank, s16 id, SndState **handle) {
         return NULL;
     }
     do {
-        sound = bank->inst->soundArray[id];
+        sound = SND_SOUND(bank, id);
         state = func_80260300(bank, sound);
         if (state != NULL) {
             D_802E8CEC->unk40 = state;

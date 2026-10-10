@@ -45,7 +45,7 @@ u8 D_8036772A;
 s32 D_8036772C;
 u8 D_80367730;
 ALCSPlayer *D_80367734;
-SndBank *D_80367738;
+ALBank *D_80367738;
 ALBank *D_8036773C;
 s32 D_80367740;
 u8 D_80367744[4];
@@ -315,7 +315,7 @@ void func_80261588(void) {
     sfxBankFile = alHeapAlloc(&D_80367718, 1, size);
     func_8028B4C4(ROM(D_003A1920), (u8 *)sfxBankFile, &size2, 0xD, 0, 2);
     alBnkfNew(sfxBankFile, D_003A48C0);
-    D_80367738 = (SndBank *)sfxBankFile->bankArray[0];
+    D_80367738 = sfxBankFile->bankArray[0];
     D_80367514 = alHeapAlloc(&D_80367718, 1, 4);
     headerSize = 4;
     func_8028B4C4(ROM(D_0044F5C0), (u8 *)D_80367514, &headerSize, 0, 0, 0);
