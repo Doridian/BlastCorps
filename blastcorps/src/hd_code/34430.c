@@ -96,10 +96,20 @@ void func_80278BF0(Gfx *src, Gfx *end, Gfx **out) {
 }
 
 void func_80278E3C(void) {
+#ifdef TARGET_PC
+    /* the heap's top aligned, as everywhere else: the N64 passes its value,
+       not its address, and so rounds up the stale word at the top instead
+       (the top is aligned already, so the buffers are where they were) */
+    func_80257490((s32 *)&D_80358070, 0x40);
+    D_8036D170 = D_80358070;
+    D_80358070 += 0x5460;
+    func_80257490((s32 *)&D_80358070, 8);
+#else
     func_80257490((s32 *)D_80358070, 0x40);
     D_8036D170 = D_80358070;
     D_80358070 += 0x5460;
     func_80257490((s32 *)D_80358070, 8);
+#endif
     D_8036D178 = 0;
     D_8036CC68 = 0;
     D_8036CC6C = 0;
