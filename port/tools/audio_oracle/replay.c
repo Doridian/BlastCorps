@@ -279,8 +279,10 @@ __attribute__((visibility("default"))) u32 osSetIntMask(u32 m) {
     return old;
 }
 
+/* the identity, as the port's (port/src/ultra.c; PR/R4300.h has why): the
+   recorded command lists hold KSEG0 addresses */
 __attribute__((visibility("default"))) u32 osVirtualToPhysical(void *p) {
-    return (u32)(uintptr_t)p & 0x1FFFFFFFu;
+    return (u32)(uintptr_t)p;
 }
 
 __attribute__((visibility("default"))) void func_8029A7E4(char *fmt, ...) {
