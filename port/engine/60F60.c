@@ -46,9 +46,7 @@ extern TexDecode *D_803C4B54;           /* the next to do */
 
 /* type 6, func_802A5958: two 8-bit texels, (b & 0x38) << 2 | (b & 7) << 1 */
 REGS(a0, a1, a3 -> a3)
-u32 func_802A5958(u32 in_, s32 len, u32 out_) {
-    s16 *in = (s16 *)in_;
-    u8 *out = (u8 *)out_;
+u8 *func_802A5958(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
@@ -65,14 +63,12 @@ u32 func_802A5958(u32 in_, s32 len, u32 out_) {
             BACKREF16();
         }
     }
-    return (u32)out;
+    return out;
 }
 
 /* type 3, func_802A5A2C: two 8-bit texels, each << 1 */
 REGS(a0, a1, a3 -> a3)
-u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
-    s16 *in = (s16 *)in_;
-    u8 *out = (u8 *)out_;
+u8 *func_802A5A2C(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
@@ -87,14 +83,12 @@ u32 func_802A5A2C(u32 in_, s32 len, u32 out_) {
             BACKREF16();
         }
     }
-    return (u32)out;
+    return out;
 }
 
 /* type 1, func_802A5AE0: a 16-bit texel, a 0 inserted above bit 5 */
 REGS(a0, a1, a3 -> a3)
-u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
-    s16 *in = (s16 *)in_;
-    u8 *out = (u8 *)out_;
+u8 *func_802A5AE0(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
@@ -108,14 +102,12 @@ u32 func_802A5AE0(u32 in_, s32 len, u32 out_) {
             BACKREF16();
         }
     }
-    return (u32)out;
+    return out;
 }
 
 /* type 2, func_802A5B90: a 32-bit RGBA texel from 4-4-4-3 */
 REGS(a0, a1, a3 -> a3)
-u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
-    s16 *in = (s16 *)in_;
-    u8 *out = (u8 *)out_;
+u8 *func_802A5B90(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
@@ -130,16 +122,13 @@ u32 func_802A5B90(u32 in_, s32 len, u32 out_) {
             BACKREF32();
         }
     }
-    return (u32)out;
+    return out;
 }
 
 /* type 4, func_802A5C5C: two 16-bit texels through the palette at `pal`:
    the top 7 bits of each byte pick the entry, shifted up past the low bit */
 REGS(a0, a1, a3, t4 -> a3)
-u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
-    s16 *in = (s16 *)in_;
-    u8 *out = (u8 *)out_;
-    u8 *pal = (u8 *)pal_;
+u8 *func_802A5C5C(s16 *in, s32 len, u8 *out, u8 *pal) {
 
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
@@ -156,16 +145,13 @@ u32 func_802A5C5C(u32 in_, s32 len, u32 out_, u32 pal_) {
             BACKREF32();
         }
     }
-    return (u32)out;
+    return out;
 }
 
 /* type 5, func_802A5D34: a 32-bit RGBA texel from a 12-bit palette index
    (the palette's 5-5-5 widened) and 4 bits of alpha */
 REGS(a0, a1, a3, t4 -> a3)
-u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
-    s16 *in = (s16 *)in_;
-    u8 *out = (u8 *)out_;
-    u8 *pal = (u8 *)pal_;
+u8 *func_802A5D34(s16 *in, s32 len, u8 *out, u8 *pal) {
 
     while (len != 0) {
         s32 w = (s16)TEX_BE16(*in);
@@ -182,13 +168,12 @@ u32 func_802A5D34(u32 in_, s32 len, u32 out_, u32 pal_) {
             BACKREF32();
         }
     }
-    return (u32)out;
+    return out;
 }
 
 /* type 0, func_802A5E10: raw, `len` / 8 doublewords */
 REGS(a0, a1, a3 -> a3)
-u32 func_802A5E10(u32 in_, u32 len, u32 out_) {
-    u32 *in = (u32 *)in_;
+u8 *func_802A5E10(u32 *in, u32 len, u8 *out_) {
     u32 *out = (u32 *)out_;
     u32 n = len >> 3;
 
@@ -196,7 +181,7 @@ u32 func_802A5E10(u32 in_, u32 len, u32 out_) {
         out[0] = in[0];
         out[1] = in[1];
     }
-    return (u32)out;
+    return (u8 *)out;
 }
 
 /* func_802A57DC: decode `req` in place; returns the bytes written */
@@ -205,8 +190,8 @@ u32 func_802A57DC(TexDecode *req) {
     u32 n8 = len >> 3 << 3;
     u32 *from = (u32 *)req->dst;
     u32 *to = (u32 *)D_803C3250;
-    u32 out = req->dst, end;
-    u32 in = (u32)D_803C3250;
+    u8 *out = req->dst, *end;
+    u32 *in = (u32 *)D_803C3250;
 
     /* the stream to D_803C3250: doublewords, then the halves left */
     len -= n8;
@@ -221,12 +206,12 @@ u32 func_802A57DC(TexDecode *req) {
     }
     switch (req->type) {
     case 0: end = func_802A5E10(in, req->length, out); break;
-    case 1: end = func_802A5AE0(in, req->length, out); break;
-    case 2: end = func_802A5B90(in, req->length, out); break;
-    case 3: end = func_802A5A2C(in, req->length, out); break;
-    case 4: end = func_802A5C5C(in, req->length, out, req->param); break;
-    case 5: end = func_802A5D34(in, req->length, out, req->param); break;
-    case 6: end = func_802A5958(in, req->length, out); break;
+    case 1: end = func_802A5AE0((s16 *)in, req->length, out); break;
+    case 2: end = func_802A5B90((s16 *)in, req->length, out); break;
+    case 3: end = func_802A5A2C((s16 *)in, req->length, out); break;
+    case 4: end = func_802A5C5C((s16 *)in, req->length, out, req->param); break;
+    case 5: end = func_802A5D34((s16 *)in, req->length, out, req->param); break;
+    case 6: end = func_802A5958((s16 *)in, req->length, out); break;
     default: end = out; break;
     }
     return end - out;
@@ -242,7 +227,7 @@ void func_802A5720(void) {
 
 /* func_802A5764 (5BF40's): queue a decode */
 REGS(s1, s2, s3, fp)
-void func_802A5764(u32 dst, u32 length, u32 type, u32 param) {
+void func_802A5764(u8 *dst, u32 length, u32 type, u8 *param) {
     TexDecode *q = D_803C4B50;
 
     q->dst = dst;
@@ -259,7 +244,7 @@ void func_802A57AC(void) {
     {
         u32 size = func_802A57DC(q);
 
-        host_tex_decoded_slot(q - D_803C4250, q->dst, size);
+        host_tex_decoded_slot(q - D_803C4250, (u32)(uintptr_t)q->dst, size);
     }
     D_803C4B54 = q + 1;
 }
@@ -301,7 +286,7 @@ extern u8 D_803EB792;
 extern u8 D_8020ED00[], D_8021DD00[];
 extern char D_80305C34[], D_80305C48[];
 REGS(t6, s1)
-void func_802A11C4(u32 id, u32 dst);
+void func_802A11C4(u32 id, u8 *dst);
 
 
 /* func_802A5E60 (the carrier's and the comm point's): each sprite back
@@ -379,9 +364,8 @@ void func_802A5FA8(void) {
    it starts there, still, in mode 0).  Returns 1, or 0 when there is no
    room. */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
-s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1,
+s32 func_802A6274(u8 *anim, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1,
                   s32 s2, s32 s3, s32 s4, s32 s5, s32 a3) {
-    u8 *anim = (u8 *)t0;
     EffectSlot *s = D_803C4B70;
     u8 *dest = D_803EA770[0];
     s32 n = 16, need, k;
@@ -448,7 +432,7 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
     }
     t6 = *(s16 *)anim;
     if (t6 != -1) {
-        func_802A11C4(t6, (u32)dest);
+        func_802A11C4(t6, dest);
     }
     return 1;
 }
@@ -466,7 +450,7 @@ s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7
 extern void *D_80305C10[];      /* the animations kept in the heap's pieces, NULL at the end */
 extern Gfx *D_803EB780, *D_803EB784;               /* the effects' two display lists */
 REGS(t6, s1, fp)
-void func_802A1074(u32 id, u32 dst, u32 param);
+void func_802A1074(u32 id, u8 *dst, u8 *param);
 
 /* func_802A6748: the pieces a frame older; those older than
    EFFECT_PIECE_FRAMES are free again */
@@ -493,42 +477,41 @@ void func_802A6748(void) {
    number at $t9) is loaded there.  Returns it ($s1), $t9 advanced and $t6
    the number, as the original leaves them. */
 REGS(a0, t3, t4, t9, t6, fp -> s1, t9, t6)
-u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_out, u32 *t6_out) {
-    EffectSlot *s = (EffectSlot *)s_;
+u8 *func_802A67C4(u8 *cell, u8 *cells, EffectSlot *s, u16 *t9, u32 t6, u8 *fp, u16 **t9_out, u32 *t6_out) {
     u8 *p = D_803EB788, *end = D_803EB78C;
     u32 frame = s->frame;
-    u32 key = (u32)s->anim;
-    u32 dst;
+    u32 key = (u32)(uintptr_t)s->anim;    /* (the piece keeps the N64 address) */
+    u8 *dst;
 
     *t9_out = t9;
     *t6_out = t6;
     for (; p != end; p = PIECE_NEXT(p)) {
         if (PIECE_KEY(p) != 0 && key == PIECE_KEY(p) && frame == PIECE_FRAME(p)) {
             PIECE_AGE(p) = 0;
-            return (u32)p;
+            return p;
         }
     }
-    dst = cells + (*(u8 *)cell << 12);
+    dst = cells + (*cell << 12);
     if (D_803EB790 != 0) {
         void **k;
 
         for (k = D_80305C10;; k++) {
-            if ((u32)(__UINTPTR_TYPE__)*k == key) {
+            if ((u32)(uintptr_t)*k == key) {
                 D_803EB790--;
                 for (p = D_803EB788; PIECE_KEY(p) != 0; p = PIECE_NEXT(p))
                     ;
                 PIECE_KEY(p) = key;
                 PIECE_FRAME(p) = frame;
                 PIECE_AGE(p) = 0;
-                dst = (u32)p;
+                dst = p;
                 break;
             }
             if (*k == NULL)
                 break;
         }
     }
-    t6 = *(u16 *)t9;
-    *t9_out = t9 + 2;
+    t6 = *t9;
+    *t9_out = t9 + 1;
     *t6_out = t6;
     func_802A1074(t6, dst, fp);
     return dst;
@@ -538,9 +521,7 @@ u32 func_802A67C4(u32 cell, u32 cells, u32 s_, u32 t9, u32 t6, u32 fp, u32 *t9_o
    (the texture coordinates w << 5, h << 5), coloured by bytes 6..9 of
    `rec` */
 REGS(t1, t7, s2, s3, v1, s5)
-void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
-    s16 *v = (s16 *)vtx_;
-    u8 *rec = (u8 *)rec_;
+void func_802A6C10(s16 *v, u8 *rec, s32 x, s32 y, s32 w, s32 h) {
     s32 x1 = x - w, y1 = y + h;
     s32 sw = w << 5, sh = h << 5;
     s32 i;
@@ -550,7 +531,7 @@ void func_802A6C10(u32 vtx_, u32 rec_, s32 x, s32 y, s32 w, s32 h) {
     v[0x10] = x;  v[0x11] = y1; v[0x12] = 0; v[0x13] = 0; v[0x14] = 0;  v[0x15] = sh;
     v[0x18] = x1; v[0x19] = y1; v[0x1A] = 0; v[0x1B] = 0; v[0x1C] = sw; v[0x1D] = sh;
     for (i = 0; i < 4; i++) {
-        u8 *c = (u8 *)vtx_ + i * 0x10 + 0xC;
+        u8 *c = (u8 *)v + i * 0x10 + 0xC;
 
         c[0] = rec[6];
         c[1] = rec[7];
@@ -569,23 +550,21 @@ void func_802A6D34(void) {
 /* func_802A6EB8: slot `s`'s display list: the second (D_803EB784) if its
    0x3B is set */
 REGS(t4 -> t2)
-u32 func_802A6EB8(u32 s_) {
-    EffectSlot *s = (EffectSlot *)s_;
-
-    return s->unk3B != 0 ? (u32)&D_803EB784 : (u32)&D_803EB780;
+Gfx **func_802A6EB8(EffectSlot *s) {
+    return s->unk3B != 0 ? &D_803EB784 : &D_803EB780;
 }
 
 /* func_802A6DE8: slot `s`'s sprite drawn into its display list
    (12D80.c's func_802575F4).  Leaves $s0 the slot (the vehicle modules'
    next effect and func_8029C454 read it). */
 REGS(t4, t1, s1, t8, v1, s5, gp)
-void func_802A6DE8(u32 s, s32 a1, s32 a2, s32 a3, s32 sp10, s32 sp14, s32 sp18) {
+void func_802A6DE8(EffectSlot *s, s16 *vtx, u8 *tex, s32 a3, s32 sp10, s32 sp14, s32 sp18) {
     Gfx **dl;
     Gfx *g;
 
-    dl = (Gfx **)func_802A6EB8(s);
-    g = func_802575F4(*dl, a1, a2, a3, sp10, sp14, sp18);
-    dl = (Gfx **)func_802A6EB8(s);
+    dl = func_802A6EB8(s);
+    g = func_802575F4(*dl, vtx, tex, a3, sp10, sp14, sp18);
+    dl = func_802A6EB8(s);
     *dl = g;
 }
 
@@ -602,17 +581,15 @@ REGS(v1 -> fp)
 s32 func_802AD7FC(u32 x);
 
 REGS(t4, t0)
-void func_802A68D4(u32 s_, u32 m_) {
-    EffectSlot *s = (EffectSlot *)s_;
-    s32 *m = (s32 *)m_;
+void func_802A68D4(EffectSlot *s, s32 *m) {
     Gfx **dl;
     Gfx *g;
     s32 x, y, z, scale, step, cx, cy, cz, angle, pitch;
     s64 dist, q, num;
 
-    dl = (Gfx **)func_802A6EB8(s_);
+    dl = func_802A6EB8(s);
     g = *dl;
-    ((u32 *)g)[1] = K0_TO_PHYS(m_);
+    ((u32 *)g)[1] = K0_TO_PHYS((u32)(uintptr_t)m);
     ((u32 *)g)[0] = 0x01040040;
     *dl = g + 1;
     scale = s->unk4;
@@ -697,19 +674,20 @@ void func_802A64A4(void) {
     func_802A6D34();
     for (n = EFFECT_SLOTS; n != 0; n--, s++, fp += 0x100) {
         u8 *anim, *cell;
-        u32 stream, w, h, cw, rows, cols, frames;
+        u16 *stream;
+        u32 w, h, cw, rows, cols, frames;
         s32 x, y, x0;
 
         t6 = s->active;
         if (t6 == 0)
             continue;
-        func_802A68D4((u32)s, (u32)mtx);
+        func_802A68D4(s, (s32 *)mtx);
         anim = s->anim;
         cell = s->cells;
         rows = anim[3];
         h = *(u16 *)(anim + 0xC);
         w = *(u16 *)(anim + 0xA);
-        stream = (u32)anim + 0x10 + anim[2] * anim[3] * s->frame * 2;
+        stream = (u16 *)(anim + 0x10 + anim[2] * anim[3] * s->frame * 2);
         cw = anim[2];
         x0 = (s32)(cw * w) >> 1;
         y = -((s32)(rows * h) >> 1);
@@ -717,19 +695,19 @@ void func_802A64A4(void) {
         for (; rows != 0; rows--, y += h) {
             x = x0;
             for (cols = cw; cols != 0; cols--) {
-                u32 dst;
+                u8 *dst;
 
-                func_802A6C10((u32)vtx, (u32)anim, x, y, w, h);
-                dst = func_802A67C4((u32)cell, (u32)cells, (u32)s, stream, t6, (u32)fp, &stream, &t6);
+                func_802A6C10((s16 *)vtx, anim, x, y, w, h);
+                dst = func_802A67C4(cell, cells, s, stream, t6, fp, &stream, &t6);
                 cell++;
-                func_802A6DE8((u32)s, (u32)vtx, dst, *(u16 *)(anim + 4), w, h, s->unk35);
+                func_802A6DE8(s, (s16 *)vtx, dst, *(u16 *)(anim + 4), w, h, s->unk35);
                 vtx += 0x40;
                 x -= w;
             }
         }
         mtx += 0x40;
         {
-            Gfx **dl = (Gfx **)func_802A6EB8((u32)s);
+            Gfx **dl = func_802A6EB8(s);
             u32 *g = (u32 *)*dl;
 
             g[0] = 0xBD000000;      /* G_POPMTX */

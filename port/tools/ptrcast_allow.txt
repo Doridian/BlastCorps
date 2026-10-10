@@ -4,6 +4,7 @@
 # game's C, G the engine's), P7 and P8 theirs, P10 the host interface's.
 # ptrcast_scan.py BUILD --version all --update rewrites the counts.
 P8-gbi blastcorps/src/hd_code/00000.c 12 12 12 12
+P8-gbi blastcorps/src/hd_code/12D80.c 2 2 2 2
 P8-gbi blastcorps/src/hd_code/13A70.c 12 12 12 12
 P8-gbi blastcorps/src/hd_code/14B30.c 4 4 4 4
 P8-gbi blastcorps/src/hd_code/17E10.c 3 3 3 3

@@ -28,8 +28,8 @@ void func_8028C190(LevelAmmoBox *arg0, LevelAmmoBox *arg1) {
         D_8039AF00[D_8039B068].type = arg0->type;
         D_8039AF00[D_8039B068].collected = 0;
         D_8039AF00[D_8039B068].alpha = 0xFF;
-        D_8039AF00[D_8039B068].unkC = (u8 *)func_802A0CC8(D_802FDB40[D_8039AF00[D_8039B068].type].unkC, 0);
-        D_8039AF00[D_8039B068].unk10 = (u8 *)func_802A0CC8(D_802FDB40[D_8039AF00[D_8039B068].type].unkE, 0);
+        D_8039AF00[D_8039B068].unkC = func_802A0CC8(D_802FDB40[D_8039AF00[D_8039B068].type].unkC, 0);
+        D_8039AF00[D_8039B068].unk10 = func_802A0CC8(D_802FDB40[D_8039AF00[D_8039B068].type].unkE, 0);
         D_8039AF00[D_8039B068].vtx = (Vtx *)D_80358070;
         D_80358070 += 0x80;
         func_8028C41C(D_8039AF00[D_8039B068].vtx, D_8039AF00[D_8039B068].type, D_8039AF00[D_8039B068].x,

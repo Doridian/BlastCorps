@@ -21,7 +21,7 @@ extern u32 D_803649E8;
 
 /* 60F60: start an effect */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
-s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
+s32 func_802A6274(u8 *anim, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
                   s32 s3, s32 s4, s32 s5, s32 a3);
 /* 62740 (native) */
 REGS(t0, t1, t2, fp -> t3, fp)
@@ -42,7 +42,7 @@ void func_802CE204(s32 x, s32 z, s32 tx, s32 tz);
 
 /* the effect of a crate blowing up at (x, y, z) */
 void func_802CDA10(s32 x, s32 y, s32 z) {
-    func_802A6274((s32)D_802C382C, 0x591C8, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    func_802A6274(D_802C382C, 0x591C8, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /* func_802C18D4 at the player's position */

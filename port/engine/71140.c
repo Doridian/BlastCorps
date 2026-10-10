@@ -74,7 +74,6 @@ void func_802AC284(s32 *x, s32 *y, s32 *z);
 REGS(v0, v1, a0, a1, t8, gp)
 void func_802AC2A4(s32 x, s32 y, s32 z, u8 *a1, s32 type, VS *vs);
 
-#define T(p) ((s32)(p))
 
 /* ---- the truck's numbers (a frame, where it's per frame) ----------------- */
 
@@ -278,7 +277,7 @@ void func_802B6294(void) {
     } else if (VS_TURNING(vs) != 0) {
         D_803EEB5E = 1;
         if (func_802A5ED0() < 4)
-            func_802A6274(T(D_802C2954), 0x30D40, 1, VEHICLE_TRUCK, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x30D40, 1, VEHICLE_TRUCK, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     }
     func_802AC284(&X, &Y, &Z);
     func_802B7030(vs);

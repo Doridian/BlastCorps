@@ -64,7 +64,6 @@ s32 func_802B3F78(VS *vs);
 REGS(gp)
 void func_802B3FF0(VS *vs);
 
-#define T(p) ((s32)(p))
 
 /* ---- Skyfall -------------------------------------------------------------- */
 
@@ -305,8 +304,8 @@ void func_802B37B0(VS *vs) {
     } else if (VS_TURNING(vs) != 0) {
         D_803EE3AE = 1;
         if (func_802A5ED0() < 0xF) {
-            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_BUGGY, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_BUGGY, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x29810, 1, VEHICLE_BUGGY, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x29810, 1, VEHICLE_BUGGY, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
         }
     }
     D_803EE3A4 = pad_lift(vs, D_803EE3A4, 10);
@@ -329,7 +328,7 @@ void func_802B37B0(VS *vs) {
             func_80260650(D_80367738, 0x8D, &D_803EE388);
         }
         func_802A05A4(D_802C2314, 1, 0.0f);
-        func_802A6274(T(D_802C37C0), 0x186A0, 1, VEHICLE_BUGGY, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0);
+        func_802A6274(D_802C37C0, 0x186A0, 1, VEHICLE_BUGGY, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0);
         s = VS_SPEED(vs);
         VS_SPEED(vs) = s < BOOST_TOP_SPEED ? s + BOOST_ACCEL : BOOST_TOP_SPEED;
         func_802B3C68(vs);
@@ -708,12 +707,12 @@ void func_802B4EF8(VS *vs) {
     } else if (VS_TURNING(vs) != 0) {
         D_803EE788 = 1;
         if (func_802A5ED0() < 0xE)
-            func_802A6274(T(D_802C2954), 0x30D40, 1, VEHICLE_BULLDOZER, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x30D40, 1, VEHICLE_BULLDOZER, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     }
     /* starting off (stopped at the last frame's start, moving now) */
     if (D_803F7840 == 0 && VS_SPEED(vs) != 0) {
         func_80260650(D_80367738, 0xA, NULL);
-        func_802A6274(T(D_802C2954), 0x1D4C0, 1, VEHICLE_BULLDOZER, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+        func_802A6274(D_802C2954, 0x1D4C0, 1, VEHICLE_BULLDOZER, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     }
     D_803EE780 = pad_lift(vs, D_803EE780, 0x1E);
     func_802A0360(2, 0, p, D_803EE780);

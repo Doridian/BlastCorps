@@ -45,7 +45,6 @@ REGS(gp)
 void func_802BC3D0(VS *vs);
 void func_802BC578(void);
 
-#define T(p) ((s32)(p))
 
 /* ---- the train's numbers (a frame, where it's per frame) ----------------- */
 
@@ -202,8 +201,8 @@ void func_802BC2C8(void) {
     if (D_803EFEC9 != 0) {
         D_803EFEC9--;
     } else if (VS_SPEED(vs) > 0 ? PAD_B_OR_Z != 0 : PAD_A != 0) {
-        func_802A6274(T(D_802C2984), 0x9C40, 1, VEHICLE_TRAIN, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        func_802A6274(T(D_802C2984), 0x9C40, 1, VEHICLE_TRAIN, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        func_802A6274(D_802C2984, 0x9C40, 1, VEHICLE_TRAIN, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        func_802A6274(D_802C2984, 0x9C40, 1, VEHICLE_TRAIN, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         func_80260650(D_80367738, 0x29, NULL);
         D_803EFEC9 = 1;
     }

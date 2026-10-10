@@ -108,7 +108,6 @@ void func_802B98E0(VS *vs);
 REGS(gp)
 void func_802B9B4C(VS *vs);
 
-#define T(p) ((s32)(p))
 
 static s32 f2i(f32 f) {
     union {
@@ -318,10 +317,10 @@ void func_802B7F98(VS *vs) {
     } else if (VS_TURNING(vs) != 0) {
         D_803EEF32 = 1;
         if (func_802A5ED0() < 0xF) {
-            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_HOTROD, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_HOTROD, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-            func_802A6274(T(D_802C2954), 0x1D4C0, 1, VEHICLE_HOTROD, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-            func_802A6274(T(D_802C2954), 0x1D4C0, 1, VEHICLE_HOTROD, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x29810, 1, VEHICLE_HOTROD, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x29810, 1, VEHICLE_HOTROD, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x1D4C0, 1, VEHICLE_HOTROD, 3, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x1D4C0, 1, VEHICLE_HOTROD, 4, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
         }
     }
     func_802C4584((u32)iabs(VS_SPEED(vs)) >> 5);
@@ -508,7 +507,7 @@ REGS(gp)
 void func_802B8C18(VS *vs) {
     /* (the original's $t3, the shadow's height outside the level: the
        model's address func_802B9B4C leaves there) */
-    s32 x = CH_X, z = CH_Z, h = T(CH_MODEL);
+    s32 x = CH_X, z = CH_Z, h = (s32)(uintptr_t)CH_MODEL;
 
     if (x > 0 && z > 0 && x < D_803BE732 << 5 && z < D_803BE736 << 5)
         h = D_803EF31C = func_802A9B1C(0, x, z, D_803EF31C, VEHICLE_CHOPPER, vs, 0);

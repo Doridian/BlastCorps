@@ -32,7 +32,7 @@ extern u8 D_00004CE0[];                     /* the texture table's ROM address *
 
 #define TABLE_ROM ((u32)D_00004CE0)
 #define TABLE_SIZE 0x8000                   /* the table's bytes */
-#define PHYS(p) K0_TO_PHYS((u32)(p))
+#define PHYS(p) K0_TO_PHYS((u32)(uintptr_t)(p))
 #define G_SETTIMG_OP 0xFD                   /* F3D's G_SETTIMG */
 #define INVAL_DECODED 0x1000    /* the bytes of cache invalidated for a
                                    texture to decode */
@@ -42,7 +42,7 @@ extern u8 D_00004CE0[];                     /* the texture table's ROM address *
 #define ENTRY(id) (&D_803B8D44[id])
 
 REGS(s1, s2, s3, fp)
-void func_802A5764(u32 dst, u32 length, u32 type, u32 param);
+void func_802A5764(u8 *dst, u32 length, u32 type, u8 *param);
 
 /* start the DMA of texture entry `e` to `dst`, with the message block `mb` */
 static void tex_dma(OSIoMesg *mb, TextureEntry *e, void *dst) {
@@ -59,7 +59,7 @@ static u32 tex_load_now(u32 id, TextureEntry *e, u8 *dst) {
     tex_dma(&D_80370C58, e, dst);
     osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
     size = func_802A57DC(&D_803C4B58);
-    host_tex_decoded(id, D_803C4B58.dst, size);
+    host_tex_decoded(id, (u32)(uintptr_t)D_803C4B58.dst, size);
     return size;
 }
 
@@ -113,7 +113,7 @@ static void tex_fix_dl(u32 *dl, u32 *end) {
             heap = D_80358070;
             D_803C4B58.length = e->length;
             D_803C4B58.type = e->type;
-            D_803C4B58.dst = (u32)heap;
+            D_803C4B58.dst = heap;
             phys = PHYS(heap);
             dl[1] = phys;
             c->phys = phys;
@@ -127,8 +127,8 @@ static void tex_fix_dl(u32 *dl, u32 *end) {
 }
 
 REGS(s0, s1)
-void func_802A08E4(u32 dl, u32 end) {
-    tex_fix_dl((u32 *)dl, (u32 *)end);
+void func_802A08E4(u32 *dl, u32 *end) {
+    tex_fix_dl(dl, end);
 }
 
 /* func_802A08B4 (DE70.c's) */
@@ -138,7 +138,7 @@ void func_802A08B4(u32 *dl, u32 *end) {
 
 /* func_802A0B34: load texture `id` at the heap's top with `param`, always */
 REGS(t6, fp)
-void func_802A0B34(u32 id, u32 param) {
+void func_802A0B34(u32 id, u8 *param) {
     TextureEntry *e;
     u8 *heap;
     u32 size;
@@ -149,21 +149,21 @@ void func_802A0B34(u32 id, u32 param) {
     D_803C4B58.length = e->length;
     D_803C4B58.type = e->type;
     D_803C4B58.param = param;
-    D_803C4B58.dst = (u32)heap;
+    D_803C4B58.dst = heap;
     size = tex_load_now(id, e, heap);
     D_80358070 += size;
 }
 
 /* func_802A0B00 (2D810.c, 2E490.c, 39050.c).  (The original returns its
    caller's $s0, which none of them reads.) */
-void func_802A0B00(u16 id, s32 param) {
+void func_802A0B00(u16 id, u8 *param) {
     func_802A0B34(id, param);
 }
 
 /* func_802A0CFC: texture `id`'s physical address, loaded at the heap's top
    with `param` if it isn't yet */
 REGS(t6, fp -> s0)
-u32 func_802A0CFC(u32 id, u32 param) {
+u32 func_802A0CFC(u32 id, u8 *param) {
     TexCacheEntry *top = D_803B8D40;
     TexCacheEntry *c;
     TextureEntry *e;
@@ -183,7 +183,7 @@ u32 func_802A0CFC(u32 id, u32 param) {
     D_803C4B58.length = e->length;
     D_803C4B58.type = e->type;
     D_803C4B58.param = param;
-    D_803C4B58.dst = (u32)heap;
+    D_803C4B58.dst = heap;
     phys = PHYS(heap);
     top->phys = phys;
     size = tex_load_now(id, e, heap);
@@ -192,48 +192,48 @@ u32 func_802A0CFC(u32 id, u32 param) {
 }
 
 /* func_802A0CC8 (the C's): the same */
-u32 func_802A0CC8(s32 id, s32 param) {
+u8 *func_802A0CC8(s32 id, u8 *param) {
     u32 phys;
 
     phys = func_802A0CFC(id, param);
-    return phys;
+    return (u8 *)(uintptr_t)phys;       /* (a physical address: P8) */
 }
 
 /* func_802A0F0C: texture `id`'s raw bytes DMA'd to `dst` (not decoded) */
 REGS(t6, s1)
-void func_802A0F0C(u32 id, u32 dst) {
-    osInvalDCache((void *)dst, INVAL_RAW);
-    tex_dma(&D_80370C58, ENTRY(id), (void *)dst);
+void func_802A0F0C(u32 id, u8 *dst) {
+    osInvalDCache(dst, INVAL_RAW);
+    tex_dma(&D_80370C58, ENTRY(id), dst);
     osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
 }
 
 /* func_802A0EE0 (2E490.c's) */
-void func_802A0EE0(u16 id, s32 dst) {
+void func_802A0EE0(u16 id, u8 *dst) {
     func_802A0F0C(id, dst);
 }
 
 /* func_802A1074: start texture `id`'s DMA to `dst` without waiting and
    queue its decode with `param`; each DMA in flight has its own OSIoMesg */
 REGS(t6, s1, fp)
-void func_802A1074(u32 id, u32 dst, u32 param) {
+void func_802A1074(u32 id, u8 *dst, u8 *param) {
     TextureEntry *e;
 
-    osInvalDCache((void *)dst, INVAL_DECODED);
+    osInvalDCache(dst, INVAL_DECODED);
     e = ENTRY(id);
-    tex_dma(&D_803B8D48[D_80358080++], e, (void *)dst);
+    tex_dma(&D_803B8D48[D_80358080++], e, dst);
     host_tex_queued(D_803C4B50 - D_803C4250, id);
     func_802A5764(dst, e->length, e->type, param);
 }
 
 /* func_802A1040 (168B0.c, 32E00.c, 43A60.c) */
-void func_802A1040(u16 id, u8 *dst, s32 param) {
-    func_802A1074(id, (u32)dst, param);
+void func_802A1040(u16 id, u8 *dst, u8 *param) {
+    func_802A1074(id, dst, param);
 }
 
 /* func_802A11C4: start texture `id`'s raw DMA to `dst` without waiting */
 REGS(t6, s1)
-void func_802A11C4(u32 id, u32 dst) {
-    osInvalDCache((void *)dst, INVAL_RAW);
+void func_802A11C4(u32 id, u8 *dst) {
+    osInvalDCache(dst, INVAL_RAW);
     D_80358084++;
-    tex_dma(&D_803B8D48[D_80358080++], ENTRY(id), (void *)dst);
+    tex_dma(&D_803B8D48[D_80358080++], ENTRY(id), dst);
 }

@@ -24,7 +24,6 @@
 extern u8 D_803063F0[];                         /* the share of the groups a medal wants, by medal */
 extern s32 D_80368040;                          /* the level's groups to destroy */
 
-#define T(p) ((s32)(p))
 
 /* ---- the level's status ------------------------------------------------- */
 
@@ -875,7 +874,7 @@ void func_802C61F0(VS *vs) {
         func_80260650(D_80367738, 0x7D, NULL);
         D_802E8BE4 = JBOMB_SLAM_SHAKE_FRAMES;
         D_802E8BE8 = JBOMB_SLAM_SHAKE;
-        func_802A6274(T(D_802C28E4), 0x222E0, 0, X << 11, Y << 11, Z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        func_802A6274(D_802C28E4, 0x222E0, 0, X << 11, Y << 11, Z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
     switch (JB_MODE(vs)) {
     case JB_LANDED:
@@ -1080,8 +1079,8 @@ void func_802C7544(VS *vs) {
         D_803F7C3A = JBOMB_SPARK_WAIT;
     else
         return;
-    func_802A6274(T(D_802C3804), 0x15F90, 1, VEHICLE_JETPACK, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-    func_802A6274(T(D_802C3804), 0x15F90, 1, VEHICLE_JETPACK, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+    func_802A6274(D_802C3804, 0x15F90, 1, VEHICLE_JETPACK, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+    func_802A6274(D_802C3804, 0x15F90, 1, VEHICLE_JETPACK, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
 }
 
 /* a boost button's presses counted (*count odd while held), each within

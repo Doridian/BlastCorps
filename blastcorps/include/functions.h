@@ -192,7 +192,7 @@ f32 func_80257514(f32);
 
 /* hd_code 12D80.c */
 Gfx *func_80257540(Gfx *);
-Gfx *func_802575F4(Gfx *, s32, s32, s16, s32, s32, s32);
+Gfx *func_802575F4(Gfx *, void *, void *, s16, s32, s32, s32);
 
 /* hd_code 13A70.c */
 void func_80258230(u8, s32, s16, s16);
@@ -578,10 +578,10 @@ void func_8029E0AC(void);
 /* hd_code 5BF40, handwritten (port/engine/5BF40.c) */
 void func_802A0700(void);
 void func_802A08B4(u32 *, u32 *);
-void func_802A0B00(u16, s32);
-u32 func_802A0CC8(s32, s32);
-void func_802A0EE0(u16, s32);
-void func_802A1040(u16, u8 *, s32);
+void func_802A0B00(u16, u8 *);
+u8 *func_802A0CC8(s32, u8 *);
+void func_802A0EE0(u16, u8 *);
+void func_802A1040(u16, u8 *, u8 *);
 
 /* hd_code 5CB60, handwritten (port/engine/5CB60.c) */
 u32 func_802A1320(void);

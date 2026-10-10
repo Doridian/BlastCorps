@@ -111,7 +111,7 @@ REGS(t4 -> t5)
 s32 func_8029D210(s32 id);
 /* 60F60 (engine-B's) */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
-s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
+s32 func_802A6274(u8 *anim, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
                   s32 s3, s32 s4, s32 s5, s32 a3);
 /* 62740 (native) */
 REGS(t3, t4, t5, t6, t7, s0 -> s1+f0)
@@ -2189,7 +2189,7 @@ void func_802C0574(void) {
                 }
             }
         }
-        started = func_802A6274((u32)(__UINTPTR_TYPE__)D_802C3FFC[k], FX_W(fx, FX_SPEED), 0, FX_W(fx, FX_X), FX_W(fx, FX_Y),
+        started = func_802A6274(D_802C3FFC[k], FX_W(fx, FX_SPEED), 0, FX_W(fx, FX_X), FX_W(fx, FX_Y),
                                 FX_W(fx, FX_Z), FX_W(fx, FX_VEL), FX_W(fx, FX_VEL + 4), FX_W(fx, FX_VEL + 8),
                                 FX_W(fx, FX_UNK14), FX_W(fx, FX_UNK14 + 4), FX_W(fx, FX_UNK14 + 8),
                                 FX_W(fx, FX_UNK28), FX_B(fx, FX_UNK35), big);

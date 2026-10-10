@@ -290,10 +290,10 @@ s32 func_802AD7D4(s32 x);
 /* 60F60 and 5BF40: start an effect (a debris or smoke
    particle; it leaves at, a3, t2-t6 and s1 itself), and load a texture */
 REGS(t0, t1, t2, t3, t4, t5, t6, t7, s0, s1, s2, s3, s4, s5, a3 -> t0)
-s32 func_802A6274(s32 t0, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
+s32 func_802A6274(u8 *anim, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 t7, s32 s0, s32 s1, s32 s2,
                   s32 s3, s32 s4, s32 s5, s32 a3);
 REGS(t6, s1, fp)
-void func_802A1074(u32 id, u32 dst, u32 param);
+void func_802A1074(u32 id, u8 *dst, u8 *param);
 
 /* 77E20 and 89250: a building kind into this frame's list,
    two list resets, and the angle test (it leaves f0 and f2) */

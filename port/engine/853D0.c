@@ -65,7 +65,6 @@ REGS(gp -> s3)
 s32 func_802CB564(VS *vs);
 void func_802CB5D8(void);
 
-#define T(p) ((s32)(p))
 
 /* ---- the Ballista's numbers (a frame, where it's per frame) -------------- */
 
@@ -407,7 +406,7 @@ void func_802CAAFC(VS *vs) {
     } else if (VS_TURNING(vs) != 0) {
         D_803F8B76 = 1;
         if (func_802A5ED0() < 4)
-            func_802A6274(T(D_802C2954), 0x30D40, 1, VEHICLE_BIKE, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0);
+            func_802A6274(D_802C2954, 0x30D40, 1, VEHICLE_BIKE, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0);
     }
     func_802A03D4(1, VS_SPEED(vs) < 0 ? 1 : 0, BK);
     func_802A039C(1, (u32)iabs(VS_SPEED(vs)) / BIKE_WHEEL_SPIN_DIV, BK);

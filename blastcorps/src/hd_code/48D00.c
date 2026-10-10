@@ -71,10 +71,10 @@ void func_8028D4C0(LevelTntCrate *arg0, LevelTntCrate *arg1) {
         D_8039B070[D_8039B610].type = arg0->type;
         D_8039B070[D_8039B610].timer = arg0->timer * FRAMES_PER_SECOND;
         D_8039B070[D_8039B610].timerStart = D_8039B070[D_8039B610].timer;
-        D_8039B070[D_8039B610].tex[0] = (u8 *)func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unkC, 0);
-        D_8039B070[D_8039B610].tex[1] = (u8 *)func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unkE, 0);
-        D_8039B070[D_8039B610].tex[2] = (u8 *)func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unk10, 0);
-        D_8039B070[D_8039B610].tex[3] = (u8 *)func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unk12, 0);
+        D_8039B070[D_8039B610].tex[0] = func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unkC, 0);
+        D_8039B070[D_8039B610].tex[1] = func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unkE, 0);
+        D_8039B070[D_8039B610].tex[2] = func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unk10, 0);
+        D_8039B070[D_8039B610].tex[3] = func_802A0CC8(D_802FDB98[D_8039B070[D_8039B610].type].unk12, 0);
         D_8039B070[D_8039B610].unkC = 0;
         D_8039B070[D_8039B610].unk14 = 0;
         D_8039B070[D_8039B610].unk1E = 0;

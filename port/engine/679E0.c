@@ -104,17 +104,17 @@ s32 func_802AC4C4(s32 x, s32 z, s32 x1, s32 z1, s32 x2, s32 z2, s32 x3, s32 z3) 
 
 /* effects at a point (whole units): one of D_802C2A5C's */
 void func_802AC544(s32 x, s32 y, s32 z) {
-    func_802A6274((s32)D_802C2A5C, 0x28488, 0, x << 16, y << 16, z << 16, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    func_802A6274(D_802C2A5C, 0x28488, 0, x << 16, y << 16, z << 16, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /* effects at a position (<< 5), of kind `kind` (D_802C3FFC) */
 void func_802AC61C(s32 x, s32 y, s32 z, s32 kind, s32 t1) {
-    func_802A6274((u32)(__UINTPTR_TYPE__)D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    func_802A6274(D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 /* the same with a3 = 1 */
 void func_802AC6FC(s32 x, s32 y, s32 z, s32 kind, s32 t1) {
-    func_802A6274((u32)(__UINTPTR_TYPE__)D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+    func_802A6274(D_802C3FFC[kind], t1, 0, x << 11, y << 11, z << 11, 0, 0, 0, 0, 0, 0, 0, 0, 1);
 }
 
 /* an unaligned word, as swl/swr and lwl/lwr move it */

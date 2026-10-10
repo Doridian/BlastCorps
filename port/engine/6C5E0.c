@@ -66,7 +66,6 @@ REGS(gp -> s3)
 s32 func_802B28B8(VS *vs);
 void func_802B2900(void);
 
-#define T(p) ((s32)(p))
 
 /* ---- Thunderfist's numbers (a frame, where it's per frame) ---------------- */
 
@@ -375,7 +374,7 @@ static void walk(VS *vs) {
         return;
     }
     if (((u32)D_803649D8 >> 8 & 0x2F) == 0)
-        func_802A6274(T(D_802C2984), 0xEA60, 1, VEHICLE_MAGOO, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+        func_802A6274(D_802C2984, 0xEA60, 1, VEHICLE_MAGOO, 2, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1);
     if (MAGOO_LEG(vs) != 0 && MAGOO_LEG(vs) != 1)
         engine_trap(N64_PC(0x802B1FCC));
     for (leg = MAGOO_LEG(vs) == 0 ? 1 : 5;; ) {
@@ -489,7 +488,7 @@ void func_802B18F4(VS *vs) {
             func_802C444C();
             func_80260650(D_80367738, 0x4B, NULL);
         }
-        func_802A6274(T(D_802C2984), 0x222E0, 1, VEHICLE_MAGOO, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+        func_802A6274(D_802C2984, 0x222E0, 1, VEHICLE_MAGOO, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
         func_802BCC10();
         if (part(0x1F, NULL, NULL) != 1) {
             D_803F7804 = 0;
@@ -502,7 +501,7 @@ void func_802B18F4(VS *vs) {
         }
         break;
     case MAGOO_GET_UP:
-        func_802A6274(T(D_802C2984), 0x222E0, 1, VEHICLE_MAGOO, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+        func_802A6274(D_802C2984, 0x222E0, 1, VEHICLE_MAGOO, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
         func_802BCC10();
         if (part(3, NULL, NULL) != 1) {
             D_803F7804 = 1;

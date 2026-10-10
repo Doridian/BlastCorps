@@ -114,7 +114,6 @@ s32 func_802BB868(void);
 REGS(gp)
 void func_802BB8B8(VS *vs);
 
-#define T(p) ((s32)(p))
 
 /* ---- the carrier's numbers (a frame, where it's per frame) ----------------- */
 
@@ -425,7 +424,7 @@ void func_802BA9A0(VS *vs, s32 *s7) {
         D_803EF6FE--;
     } else if (D_803EF6FF == 0) {
         if (D_803EF701 == 0) {
-            func_802A6274(T(D_802C3B44), 0x7A120, 1, VEHICLE_CMO, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+            func_802A6274(D_802C3B44, 0x7A120, 1, VEHICLE_CMO, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
             D_803EF701 = 1;
         } else if (++D_803EF700 == CMO_COUNTDOWN_FRAMES) {
             D_803EF6FF = 1;

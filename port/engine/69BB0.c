@@ -64,7 +64,6 @@ s32 func_802AEB9C(s32 test);
 REGS(a2, gp -> a3)
 s32 func_802AEC3C(s32 d, VS *vs);
 
-#define T(p) ((s32)(p))
 #define DRV D_803ED460
 #define MODEL ((u8 *)D_803ED818)
 #define X D_803ED808

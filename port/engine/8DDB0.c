@@ -190,7 +190,7 @@ void func_802D2C20(void) {
             D_803FCD79--;
         } else {
             D_803FCD79 = SHUTTLE_EFFECT_FRAMES;
-            func_802A6274((s32)D_802C28E4, 0x107AC0, 1, VEHICLE_SHUTTLE, 4, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
+            func_802A6274(D_802C28E4, 0x107AC0, 1, VEHICLE_SHUTTLE, 4, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
         }
     }
     if (D_803FCD77 != 0) {
@@ -198,9 +198,9 @@ void func_802D2C20(void) {
             D_803FCD76--;
         } else {
             D_803FCD76 = SHUTTLE_EFFECT_FRAMES;
-            func_802A6274((s32)D_802C3804, 0x53020, 1, VEHICLE_SHUTTLE, 4, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
-            func_802A6274((s32)D_802C3804, 0x53020, 1, VEHICLE_SHUTTLE, 5, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
-            func_802A6274((s32)D_802C3804, 0x5CC60, 1, VEHICLE_SHUTTLE, 6, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
+            func_802A6274(D_802C3804, 0x53020, 1, VEHICLE_SHUTTLE, 4, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
+            func_802A6274(D_802C3804, 0x53020, 1, VEHICLE_SHUTTLE, 5, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
+            func_802A6274(D_802C3804, 0x5CC60, 1, VEHICLE_SHUTTLE, 6, 1, 0, 0, s0, 0, 0, 0, 0, 0, 0);
         }
     }
 }

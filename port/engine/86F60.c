@@ -54,7 +54,6 @@ REGS(gp -> s3)
 s32 func_802CC844(VS *vs);
 void func_802CC8B8(void);
 
-#define T(p) ((s32)(p))
 
 /* ---- the police car's numbers (a frame, where it's per frame) ------------ */
 
@@ -266,8 +265,8 @@ void func_802CC400(VS *vs) {
     } else if (VS_TURNING(vs) != 0) {
         D_803F8F42 = 1;
         if (func_802A5ED0() < 0xF) {
-            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_POLICE, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
-            func_802A6274(T(D_802C2954), 0x29810, 1, VEHICLE_POLICE, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x29810, 1, VEHICLE_POLICE, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
+            func_802A6274(D_802C2954, 0x29810, 1, VEHICLE_POLICE, 2, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1);
         }
     }
     func_802C4584((u32)iabs(VS_SPEED(vs)) >> 5);

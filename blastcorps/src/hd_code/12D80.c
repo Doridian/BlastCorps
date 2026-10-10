@@ -18,7 +18,7 @@ Gfx *func_80257540(Gfx *arg0) {
 
 /* Draws a textured quad; arg3 holds the texture format (high byte) and
  * texel size (low byte). */
-Gfx *func_802575F4(Gfx *arg0, s32 arg1, s32 arg2, s16 arg3, s32 arg4, s32 arg5, s32 arg6) {
+Gfx *func_802575F4(Gfx *arg0, void *arg1, void *arg2, s16 arg3, s32 arg4, s32 arg5, s32 arg6) {
     s32 spBC;
 
     gDPPipeSync(arg0++);

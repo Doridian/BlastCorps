@@ -934,7 +934,7 @@ void func_80281A70(s32 arg0) {
         }
     }
     if (D_8036E4C0 != 0) {
-        D_8036E4C4 = (u8 *)(uintptr_t)func_802A0CC8(0x546, 0);
+        D_8036E4C4 = func_802A0CC8(0x546, 0);
     }
     D_8036E4C8 = 0;
     D_8036E4CA = 0;

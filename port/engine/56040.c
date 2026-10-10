@@ -78,12 +78,12 @@ SIZE_CHECK(Key, 0x14);
 
 /* the first part record of an animation's data: after its counts,
    aligned to a word */
-#define ANIM_MISALIGNED(d) ((u32)((d) + ANIM_KEYS_N(d) + 2) & 3)
+#define ANIM_MISALIGNED(d) ((u32)((uintptr_t)((d) + ANIM_KEYS_N(d) + 2)) & 3)
 static AnimPart *anim_parts(u8 *d) {
     u8 *r = d + ANIM_KEYS_N(d) + 2;
 
-    if ((u32)r & 3)
-        r += 4 - ((u32)r & 3);
+    if ((uintptr_t)r & 3)
+        r += 4 - ((uintptr_t)r & 3);
     return (AnimPart *)r;
 }
 
@@ -549,7 +549,7 @@ u32 func_8029E4E4(s32 kind, TexAnim *owner) {
 /* A texture (kind, for this animation) into a free slot (the one past them
    when none is free) through func_802A1074; its physical address */
 REGS(t3, t6, fp -> s1)
-u32 func_8029E47C(TexAnim *owner, s32 kind, s32 fp) {
+u32 func_8029E47C(TexAnim *owner, s32 kind, u8 *fp) {
     TexSlot *s = D_803A7440;
     s32 n;
 
@@ -564,7 +564,7 @@ u32 func_8029E47C(TexAnim *owner, s32 kind, s32 fp) {
     s->kind = kind;
     s->used = 1;
     s->refs = 0;
-    func_802A1074(kind, (u32)s->data, fp);
+    func_802A1074(kind, s->data, fp);
     return SLOT_PHYS(s);
 }
 
@@ -1479,8 +1479,7 @@ void func_8029A914(VS *vs) {
    animation, the command's address word, texture 0) appended at
    D_803B35F0 */
 REGS(s0, s1, s2)
-void func_8029DF78(u32 dl_, u32 end_, u32 type) {
-    u32 *dl = (u32 *)(__UINTPTR_TYPE__)dl_, *end = (u32 *)(__UINTPTR_TYPE__)end_;
+void func_8029DF78(u32 *dl, u32 *end, u32 type) {
     TexAnim **ids = D_802C23B4;
     TexAnim *T;
     TexPatch *out = D_803B35F0;
@@ -1877,7 +1876,7 @@ static void put_dword(s64 *p, s64 v) {
 #define PLACE_CORNER(i)                                                                                        \
     do {                                                                                                     \
         s32 x_, y_, z_;                                                                                      \
-        x_ = func_802AA890(c[3 * (i)], c[3 * (i) + 1], c[3 * (i) + 2], data->nmtx, data->mtx, base, (u32)t, s1, \
+        x_ = func_802AA890(c[3 * (i)], c[3 * (i) + 1], c[3 * (i) + 2], data->nmtx, data->mtx, base, (u32)(uintptr_t)t, s1, \
                            s2, &y_, &z_, &s1, &s2);                                                          \
         t->v[i][0] = x_ >> 2, t->v[i][1] = y_ >> 2, t->v[i][2] = z_ >> 2;                                   \
     } while (0)
@@ -1916,8 +1915,8 @@ void func_8029D24C(ObjTris *data, s32 owner, u8 *base) {
         c = OBJTRI(data, id - 1);
         /* (what $s1 and $s2 hold: func_802AA890's point when there are no
            matrices) */
-        s1 = (u32)end;
-        s2 = (u32)&D_803BD300;
+        s1 = (u32)(uintptr_t)end;
+        s2 = (u32)(uintptr_t)&D_803BD300;
         PLACE_CORNER(0);
         PLACE_CORNER(1);
         PLACE_CORNER(2);
@@ -2059,7 +2058,7 @@ extern u8 D_802C2984[];                 /* the hit effect's description */
 /* The hit effect (func_802A6274) at the point D_803A73FC-D_803A7404, and
    D_80370C3C set */
 void func_8029B994(void) {
-    func_802A6274((s32)(u32)D_802C2984, D_803A7428 * HIT_FX_UNIT, 0, (u32)D_803A73FC << 13, (u32)D_803A7400 << 13,
+    func_802A6274(D_802C2984, D_803A7428 * HIT_FX_UNIT, 0, (u32)D_803A73FC << 13, (u32)D_803A7400 << 13,
                   (u32)D_803A7404 << 13, 0, 0, 0, 0, 0, 0, 0, 1, 0);
     D_80370C3C = 1;
 }
@@ -2715,7 +2714,7 @@ extern Vehicle D_80364460[];
    D_803B3500 says (and, blending, the next key's, with the fraction as
    G_SETPRIMCOLOR's LOD), and the slots no key uses any more freed */
 REGS(t0, fp)
-void func_8029E21C(Anim *a, s32 fp) {
+void func_8029E21C(Anim *a, u8 *fp) {
     TexAnim *T = (TexAnim *)a->data;
     TexSlot *s;
     TexPatch *e, *end;
@@ -2811,7 +2810,7 @@ void func_8029E21C(Anim *a, s32 fp) {
    left, and played the same). */
 REGS()
 void func_8029E0AC(void) {
-    s32 fp = 0;
+    u8 *fp = NULL;
     Part *p;
 
     for (p = D_803B35F8;; p++) {
