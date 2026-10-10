@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The port's test suite (docs/PORT.md, "Testing the port").
 
-    port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--update] [--gameplay]
+    port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--long] [--update] [--gameplay]
     port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack] [--update] [--gameplay]
                            [--timing free|movie|both]
     port/tools/test.py recomp [--trials N]
@@ -28,6 +28,8 @@ from a resource pack made from the ROM (port/make_pack.py, into build/pack/):
 the same hashes as from the ROM; and from a copy with a texture painted over:
 the same save and sound, the screenshots changed only toward its colour.
 --update writes the build's hashes as the references for its version.
+--long runs attract.long in a version that has no reference for it
+(us.v10), for --against.
 
 Every run also writes the gameplay digest (PORT_DIGEST, port/host/digest.c):
 what a player sees or what decides a level, at every poll.  Its gameplay
@@ -134,6 +136,12 @@ SCENARIOS = {
     "auto3.wide": ("3", 3000, ["--widescreen"], {}, "auto3", "game"),
     "auto3.interp": ("3", 3000, ["--interpolate", "--widescreen"], {}, "auto3", "game"),
     "auto3.gl": ("3", 3000, ["--renderer", "gl", "--scale", "1"], {}, "auto3", "game"),
+    # OpenGL over the attract mode and the other two levels: within the
+    # build only the save and the sound, but --against another build every
+    # screenshot (the host's GL's, the same on one machine)
+    "attract.gl": ("0", 4000, ["--renderer", "gl", "--scale", "1"], {}, "attract", "game"),
+    "auto1.gl": ("1", 3000, ["--renderer", "gl", "--scale", "1"], {}, "auto1", "game"),
+    "auto2.gl": ("2", 2000, ["--renderer", "gl", "--scale", "1"], {}, "auto2", "game"),
     "auto3.gl.interp": ("3", 3000, ["--renderer", "gl", "--scale", "1", "--interpolate", "--widescreen"],
                         {}, "auto3", "game"),
     # the HUD at the sides (the default when wider than 4:3) and in the middle
@@ -174,8 +182,11 @@ EDIT_MIN_CHANGED = 3        # screenshots that must show it
 SCENARIO_VERSIONS = {"attract.long": ("us.v11", "jp", "eu")}
 
 
-def scenarios_for(version):
-    return [n for n in SCENARIOS if version in SCENARIO_VERSIONS.get(n, (version,))]
+def scenarios_for(version, long=False):
+    """the scenarios a version runs; long: attract.long too, whatever the
+    version (a version without its reference compares it --against only)"""
+    return [n for n in SCENARIOS if version in SCENARIO_VERSIONS.get(n, (version,))
+            or (long and n == "attract.long")]
 
 REPORT = re.compile(r"replay: (\d+) reads, (-?\d+) of the log's (\d+) matched \((\d+) skipped\), "
                     r"(\d+) without a match, (\d+) retraces given anyway, .* (\d+) save commands let go "
@@ -586,7 +597,7 @@ def quick_run(build, jobs, scenarios):
     return res, times
 
 
-def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=False):
+def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=False, long=False):
     """one build's quick tier; returns the number of failures (None: skipped).
     gameplay: the gameplay digest decides, the references' hashes are only
     reported (for a change meant to keep the game and change its timing)"""
@@ -598,7 +609,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
     if not build.runnable():
         say("FAIL", build.name, "not built" + (" (or no node)" if build.wasm else ""))
         return 1
-    names = [n for n in scenarios_for(build.version) if build.gl or "gl" not in n.split(".")]
+    names = [n for n in scenarios_for(build.version, long) if build.gl or "gl" not in n.split(".")]
     if build.threads == "pthread":      # the default is the base run then
         names.remove("auto3.pthread")
     elif build.threads == "ucontext":
@@ -1174,6 +1185,8 @@ def main():
                    help="the gameplay digest decides; the references' hashes are only reported")
     q.add_argument("--known", metavar="NOTE",
                    help="record the build's differences from the references as a known failure")
+    q.add_argument("--long", action="store_true",
+                   help="run attract.long whatever the version (with --against: compared with the other build)")
     q.add_argument("-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     t = sub.add_parser("tas")
     t.add_argument("builds", nargs="+")
@@ -1216,7 +1229,8 @@ def main():
     t0 = time.time()
     if args.cmd == "quick":
         against = Build(args.against) if args.against else None
-        rs = [quick(Build(b), refs, args.jobs, against, args.update, args.known, args.gameplay) for b in args.builds]
+        rs = [quick(Build(b), refs, args.jobs, against, args.update, args.known, args.gameplay, args.long)
+              for b in args.builds]
         fails = None if all(x is None for x in rs) else sum(x or 0 for x in rs)
     elif args.cmd == "tas":
         builds = [Build(b) for b in args.builds]
