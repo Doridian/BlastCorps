@@ -440,14 +440,26 @@ s32 func_802A6274(u8 *anim, s32 t1, s32 t2, s32 t3, s32 t4, s32 t5, s32 t6, s32 
 /* ---- the effects' sprite drawing ---------------------------------------- */
 
 /* The effects' heap (D_803EB788..D_803EB78C): 0x1010-byte pieces, a frame's
-   texture in the first 0x1000, then which animation (0 when free), its
-   age and its frame. */
+   texture in the first 0x1000, then which animation (its PIECE_ANIM key;
+   0 when free), its age and its frame. */
 #define PIECE_KEY(p) (*(u32 *)((u8 *)(p) + 0x1000))
 #define PIECE_AGE(p) (*(u16 *)((u8 *)(p) + 0x1004))
 #define PIECE_FRAME(p) (*(u8 *)((u8 *)(p) + 0x1006))
 #define PIECE_NEXT(p) ((u8 *)(p) + 0x1010)
 
 extern void *D_80305C10[];      /* the animations kept in the heap's pieces, NULL at the end */
+
+/* animation `anim`'s key in a piece: its index in D_80305C10, + 1; 0 for
+   one not kept there.  (The original keeps the animation's address.) */
+static u32 piece_anim(void *anim) {
+    void **k;
+
+    for (k = D_80305C10; *k != NULL; k++) {
+        if (*k == anim)
+            return (u32)(k - D_80305C10) + 1;
+    }
+    return 0;
+}
 extern Gfx *D_803EB780, *D_803EB784;               /* the effects' two display lists */
 REGS(t6, s1, fp)
 void func_802A1074(u32 id, u8 *dst, u8 *param);
@@ -480,7 +492,7 @@ REGS(a0, t3, t4, t9, t6, fp -> s1, t9, t6)
 u8 *func_802A67C4(u8 *cell, u8 *cells, EffectSlot *s, u16 *t9, u32 t6, u8 *fp, u16 **t9_out, u32 *t6_out) {
     u8 *p = D_803EB788, *end = D_803EB78C;
     u32 frame = s->frame;
-    u32 key = (u32)(uintptr_t)s->anim;    /* (the piece keeps the N64 address) */
+    u32 key = piece_anim(s->anim);
     u8 *dst;
 
     *t9_out = t9;
@@ -492,23 +504,15 @@ u8 *func_802A67C4(u8 *cell, u8 *cells, EffectSlot *s, u16 *t9, u32 t6, u8 *fp, u
         }
     }
     dst = cells + (*cell << 12);
-    if (D_803EB790 != 0) {
-        void **k;
-
-        for (k = D_80305C10;; k++) {
-            if ((u32)(uintptr_t)*k == key) {
-                D_803EB790--;
-                for (p = D_803EB788; PIECE_KEY(p) != 0; p = PIECE_NEXT(p))
-                    ;
-                PIECE_KEY(p) = key;
-                PIECE_FRAME(p) = frame;
-                PIECE_AGE(p) = 0;
-                dst = p;
-                break;
-            }
-            if (*k == NULL)
-                break;
-        }
+    if (D_803EB790 != 0 && key != 0) {
+        /* an animation kept in the pieces: the first free one */
+        D_803EB790--;
+        for (p = D_803EB788; PIECE_KEY(p) != 0; p = PIECE_NEXT(p))
+            ;
+        PIECE_KEY(p) = key;
+        PIECE_FRAME(p) = frame;
+        PIECE_AGE(p) = 0;
+        dst = p;
     }
     t6 = *t9;
     *t9_out = t9 + 1;
