@@ -211,6 +211,13 @@ execute_process(COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py regi
         ${GEN}/port_regions.txt ${GEN}/port_fixed.ld COMMAND_ERROR_IS_FATAL ANY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
+# The ROM addresses the game's C names (game/types.h's ROM(sym))
+execute_process(COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py romaddrs ${GEN}/rom_addrs.h
+        COMMAND_ERROR_IS_FATAL ANY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    ${BLAST}/build/rom.${PORT_VERSION}.ld ${BLAST}/build/rom_fixed.${PORT_VERSION}.ld
+    ${BLAST}/build/hd_code.${PORT_VERSION}.syms.ld ${BLAST}/build/hd_front_end.${PORT_VERSION}.syms.ld
+    ${BLAST}/build/init.${PORT_VERSION}.syms.ld)
 # the type inventory: the version's own where its layouts differ (eu's)
 if(EXISTS ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
     set(PORT_INVENTORY ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
@@ -413,7 +420,7 @@ else()
     endif()
 endif()
 set(N64_INCLUDES
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include ${GEN}
     ${BLAST} ${BLAST}/include ${SDK_INCLUDES})
 set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
 if(PORT_AUDIO_RECORD)

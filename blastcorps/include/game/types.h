@@ -18,9 +18,11 @@
  *                by the game itself after loading (or a KSEG0 address
  *                baked into the asset).  The LP64 port keeps it 4 bytes
  *                (PTR32): the bytes are the ROM's.
- *   RomAddr      a cartridge ROM address, the source of a PI DMA.  In C it
- *                is the address of a linker symbol (D_00xxxxxx, a segment's
- *                _ROM_START); the port reads the ROM file there.
+ *   RomAddr      a cartridge ROM address, the source of a PI DMA, written
+ *                ROM(D_00xxxxxx) (or a segment's _ROM_START).  For IDO that is
+ *                the address of the linker symbol, as the original had it;
+ *                in the port it is the number (port/tools/gen_syms.py's
+ *                rom_addrs.h), and the port reads the ROM file there.
  *   AssetOffset  an offset from the start of the asset (or record) it is
  *                stored in, added to that asset's address at run time.
  *   SegAddr      an RSP segmented address (segment << 24 | offset), only
@@ -50,6 +52,12 @@
 
 #define ROMPTR(type) type PTR32
 typedef u32 RomAddr;
+#ifdef TARGET_PC
+#include "rom_addrs.h"
+#define ROM(sym) ((RomAddr)ROM_##sym)
+#else
+#define ROM(sym) ((RomAddr)(sym))
+#endif
 typedef u32 AssetOffset;
 typedef u32 SegAddr;
 
