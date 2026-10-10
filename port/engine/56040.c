@@ -135,8 +135,8 @@ typedef struct MtxCopy {
 SIZE_CHECK_C(MtxCopy, 0xC);
 #define MTX_COPIES 0x78
 extern MtxCopy D_803B7FC8[MTX_COPIES];
-/* [0] the last one in use; [1] a word no code here names, which
-   func_8029DD54's walk past the end takes for a record's `to` */
+/* [0] the last one in use; [1] a word nothing uses (the original's
+   func_8029DD54 walked one record past the end, onto these two) */
 extern MtxCopy *D_803B8568[2];
 #define MTX_LAST D_803B8568[0]
 
@@ -506,8 +506,7 @@ s32 func_8029DB7C(u8 *pairs, s32 n, Anim *parts) {
     return 1;
 }
 
-/* the matrix copies to `to` cleared (the last one in use pulling
-   D_803B8568 back) */
+/* the matrix copies to `to` cleared */
 REGS(s2)
 void func_8029DD54(u32 *to) {
     MtxCopy *c;
@@ -517,14 +516,6 @@ void func_8029DD54(u32 *to) {
             continue;
         c->from = NULL;
         c->to = NULL;
-    }
-    /* (sic: the original's end is D_803B8568's address, the word after the
-       records, not its value: the loop goes one record past the last, onto
-       D_803B8568, its `from`, and its second word, its `to`; cleared there,
-       the last one in use is the last record, as that record's `c - 1`) */
-    if ((u32 *)D_803B8568[1] == to) {
-        D_803B8568[1] = NULL;
-        MTX_LAST = &D_803B7FC8[MTX_COPIES - 1];
     }
 }
 
