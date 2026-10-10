@@ -3135,7 +3135,7 @@
     },
     {
      "off": 206,
-     "name": "unkCE",
+     "name": "hintShown",
      "type": "u8",
      "count": 32
     },

@@ -3017,11 +3017,11 @@ u8 func_8026AD30(s16 arg0) {
         if (sp2C->unk0 == D_802E8BDC) {
             for (sp20 = 0; sp20 < 16 && sp2B == 0 && sp2C->unk2[sp20] != -1; sp20++) {
                 if (sp2C->unk2[sp20] == arg0) {
-                    sp1C = D_80364AF0[D_80364AE8].unk54[0x34 + arg0] < D_802F49E0[arg0 - 70];
+                    sp1C = D_80364AF0[D_80364AE8].hintShown[arg0 - 70] < D_802F49E0[arg0 - 70];
                     sp18 = D_802E8BDC == 0;
                     if (D_8036BAA2[arg0] == 0 && (sp18 || sp1C)) {
                         if (sp1C && !sp18) {
-                            D_80364AF0[D_80364AE8].unk54[0x34 + arg0]++;
+                            D_80364AF0[D_80364AE8].hintShown[arg0 - 70]++;
                         }
                         D_8036BAA2[arg0] = 1;
                         func_8026AF6C(arg0 | 0x8000 | 0x2000);

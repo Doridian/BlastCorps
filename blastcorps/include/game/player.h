@@ -30,7 +30,8 @@ typedef struct PlayerInfo {
     /* 0x90 */ u8 unk90;          /* bit flags; 0x3F is all of them */
     /* 0x91 */ u8 gameState;      /* academy.c "going to game state %d"; LevelInfo.gameState */
     /* 0x92 */ u8 unk92[60];      /* per level, an index into D_802E8C44 (the time slots) */
-    /* 0xCE */ u8 unkCE[0x20];
+    /* 0xCE */ u8 hintShown[0x20]; /* per hint window from 70 (func_8026AD30): how often it was shown, up to
+                                     D_802F49E0[hint - 70] */
     /* 0xEE */ u8 unkEE;          /* bit flags */
     /* 0xEF */ u8 padEF;
     /* 0xF0 */ s32 unkF0;         /* bit flags, 1 << n */
