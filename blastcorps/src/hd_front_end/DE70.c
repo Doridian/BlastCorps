@@ -45,16 +45,16 @@ void func_801F4E70(u8 arg0) {
     func_802A0700();
     switch (arg0) {
         case 0:
-            D_802182C4 = (u32)D_006E8980;
-            D_802182C0 = D_006EA850 - D_006E8980;
+            D_802182C4 = ROM(D_006E8980);
+            D_802182C0 = ROM(D_006EA850) - ROM(D_006E8980);
             break;
         case 1:
-            D_802182C4 = (u32)D_006EA850;
-            D_802182C0 = D_006EAB90 - D_006EA850;
+            D_802182C4 = ROM(D_006EA850);
+            D_802182C0 = ROM(D_006EAB90) - ROM(D_006EA850);
             break;
         case 2:
-            D_802182C4 = (u32)D_006EAB90;
-            D_802182C0 = D_006EC4C0 - D_006EAB90;
+            D_802182C4 = ROM(D_006EAB90);
+            D_802182C0 = ROM(D_006EC4C0) - ROM(D_006EAB90);
             break;
     }
     func_8028B4C4(D_802182C4, D_80358070, &D_802182C0, 0xC, 0xA, 1);

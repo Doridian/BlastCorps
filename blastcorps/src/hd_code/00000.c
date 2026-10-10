@@ -4532,7 +4532,7 @@ void func_80255DC8(void) {
     s32 sp24;
     u8 *sp20;
 
-    sp24 = D_00788000 - D_00787F40;
+    sp24 = ROM(D_00788000) - ROM(D_00787F40);
     osViBlack(TRUE);
     D_80364A70 = func_80261A44(D_80364A98);
     osWritebackDCacheAll();
@@ -4552,8 +4552,8 @@ void func_80255DC8(void) {
     func_8028AE88();
     func_8028B720();
     D_8035806C = D_803FF600;
-    func_8028B4C4((u32)D_00787F40, D_803FF600, &sp24, 10, 0, 2);
-    sp2C = D_803FF600 + (D_00788000 - D_00787F40);
+    func_8028B4C4(ROM(D_00787F40), D_803FF600, &sp24, 10, 0, 2);
+    sp2C = D_803FF600 + (ROM(D_00788000) - ROM(D_00787F40));
 #ifdef TARGET_PC
     /* debug output: the room is up to init's hand-over words */
     func_8029A7E4("Static end = 0x%x, space=0x%x (%d) bytes\n", sp2C, (u32)(D_803FFFF8 - sp2C), (u32)(D_803FFFF8 - sp2C));
@@ -4665,251 +4665,251 @@ extern u8 D_00665F80[];
 extern u8 D_0066C900[];
 
 void func_8025615C(s32 arg0, u8 *arg1, s32 *arg2) {
-    u8 *sp24;
+    RomAddr sp24;
 
     switch (arg0) {
         case 1:
-            sp24 = D_004A5660;
-            *arg2 = D_004ACC10 - D_004A5660;
+            sp24 = ROM(D_004A5660);
+            *arg2 = ROM(D_004ACC10) - ROM(D_004A5660);
             break;
         case 0:
-            sp24 = D_004ACC10;
-            *arg2 = D_004B8960 - D_004ACC10;
+            sp24 = ROM(D_004ACC10);
+            *arg2 = ROM(D_004B8960) - ROM(D_004ACC10);
             break;
         case 2:
-            sp24 = D_004B8960;
-            *arg2 = D_004BFD60 - D_004B8960;
+            sp24 = ROM(D_004B8960);
+            *arg2 = ROM(D_004BFD60) - ROM(D_004B8960);
             break;
         case 3:
-            sp24 = D_004BFD60;
-            *arg2 = D_004C3AC0 - D_004BFD60;
+            sp24 = ROM(D_004BFD60);
+            *arg2 = ROM(D_004C3AC0) - ROM(D_004BFD60);
             break;
         case 4:
-            sp24 = D_004C3AC0;
-            *arg2 = D_004D5F90 - D_004C3AC0;
+            sp24 = ROM(D_004C3AC0);
+            *arg2 = ROM(D_004D5F90) - ROM(D_004C3AC0);
             break;
         case 5:
-            sp24 = D_004D5F90;
-            *arg2 = D_004E2F70 - D_004D5F90;
+            sp24 = ROM(D_004D5F90);
+            *arg2 = ROM(D_004E2F70) - ROM(D_004D5F90);
             break;
         case 6:
-            sp24 = D_004E2F70;
-            *arg2 = D_004E4E80 - D_004E2F70;
+            sp24 = ROM(D_004E2F70);
+            *arg2 = ROM(D_004E4E80) - ROM(D_004E2F70);
             break;
         case 7:
-            sp24 = D_004E4E80;
-            *arg2 = D_004E7C00 - D_004E4E80;
+            sp24 = ROM(D_004E4E80);
+            *arg2 = ROM(D_004E7C00) - ROM(D_004E4E80);
             break;
         case 8:
-            sp24 = D_004E7C00;
-            *arg2 = D_004E8F70 - D_004E7C00;
+            sp24 = ROM(D_004E7C00);
+            *arg2 = ROM(D_004E8F70) - ROM(D_004E7C00);
             break;
         case 9:
-            sp24 = D_004E8F70;
-            *arg2 = D_004F5C10 - D_004E8F70;
+            sp24 = ROM(D_004E8F70);
+            *arg2 = ROM(D_004F5C10) - ROM(D_004E8F70);
             break;
         case 10:
-            sp24 = D_004F5C10;
-            *arg2 = D_00500520 - D_004F5C10;
+            sp24 = ROM(D_004F5C10);
+            *arg2 = ROM(D_00500520) - ROM(D_004F5C10);
             break;
         case 11:
-            sp24 = D_00500520;
-            *arg2 = D_00507E80 - D_00500520;
+            sp24 = ROM(D_00500520);
+            *arg2 = ROM(D_00507E80) - ROM(D_00500520);
             break;
         case 12:
-            sp24 = D_00507E80;
-            *arg2 = D_00511340 - D_00507E80;
+            sp24 = ROM(D_00507E80);
+            *arg2 = ROM(D_00511340) - ROM(D_00507E80);
             break;
         case 13:
-            sp24 = D_00511340;
-            *arg2 = D_00523080 - D_00511340;
+            sp24 = ROM(D_00511340);
+            *arg2 = ROM(D_00523080) - ROM(D_00511340);
             break;
         case 14:
-            sp24 = D_00523080;
-            *arg2 = D_0052CD00 - D_00523080;
+            sp24 = ROM(D_00523080);
+            *arg2 = ROM(D_0052CD00) - ROM(D_00523080);
             break;
         case 15:
-            sp24 = D_0052CD00;
-            *arg2 = D_00532700 - D_0052CD00;
+            sp24 = ROM(D_0052CD00);
+            *arg2 = ROM(D_00532700) - ROM(D_0052CD00);
             break;
         case 16:
-            sp24 = D_00532700;
-            *arg2 = D_0053E9B0 - D_00532700;
+            sp24 = ROM(D_00532700);
+            *arg2 = ROM(D_0053E9B0) - ROM(D_00532700);
             break;
         case 17:
-            sp24 = D_0053E9B0;
-            *arg2 = D_0054A820 - D_0053E9B0;
+            sp24 = ROM(D_0053E9B0);
+            *arg2 = ROM(D_0054A820) - ROM(D_0053E9B0);
             break;
         case 18:
-            sp24 = D_0054A820;
-            *arg2 = D_00552DE0 - D_0054A820;
+            sp24 = ROM(D_0054A820);
+            *arg2 = ROM(D_00552DE0) - ROM(D_0054A820);
             break;
         case 19:
-            sp24 = D_00552DE0;
-            *arg2 = D_00555000 - D_00552DE0;
+            sp24 = ROM(D_00552DE0);
+            *arg2 = ROM(D_00555000) - ROM(D_00552DE0);
             break;
         case 20:
-            sp24 = D_00555000;
-            *arg2 = D_00560E90 - D_00555000;
+            sp24 = ROM(D_00555000);
+            *arg2 = ROM(D_00560E90) - ROM(D_00555000);
             break;
         case 21:
-            sp24 = D_00560E90;
-            *arg2 = D_005652D0 - D_00560E90;
+            sp24 = ROM(D_00560E90);
+            *arg2 = ROM(D_005652D0) - ROM(D_00560E90);
             break;
         case 22:
-            sp24 = D_005652D0;
-            *arg2 = D_0056F3F0 - D_005652D0;
+            sp24 = ROM(D_005652D0);
+            *arg2 = ROM(D_0056F3F0) - ROM(D_005652D0);
             break;
         case 23:
-            sp24 = D_0056F3F0;
-            *arg2 = D_005721E0 - D_0056F3F0;
+            sp24 = ROM(D_0056F3F0);
+            *arg2 = ROM(D_005721E0) - ROM(D_0056F3F0);
             break;
         case 24:
-            sp24 = D_005721E0;
-            *arg2 = D_005736E0 - D_005721E0;
+            sp24 = ROM(D_005721E0);
+            *arg2 = ROM(D_005736E0) - ROM(D_005721E0);
             break;
         case 25:
-            sp24 = D_005736E0;
-            *arg2 = D_0057A2C0 - D_005736E0;
+            sp24 = ROM(D_005736E0);
+            *arg2 = ROM(D_0057A2C0) - ROM(D_005736E0);
             break;
         case 26:
-            sp24 = D_0057A2C0;
-            *arg2 = D_00580B60 - D_0057A2C0;
+            sp24 = ROM(D_0057A2C0);
+            *arg2 = ROM(D_00580B60) - ROM(D_0057A2C0);
             break;
         case 27:
-            sp24 = D_00580B60;
-            *arg2 = D_00588CE0 - D_00580B60;
+            sp24 = ROM(D_00580B60);
+            *arg2 = ROM(D_00588CE0) - ROM(D_00580B60);
             break;
         case 28:
-            sp24 = D_00588CE0;
-            *arg2 = D_0058BE80 - D_00588CE0;
+            sp24 = ROM(D_00588CE0);
+            *arg2 = ROM(D_0058BE80) - ROM(D_00588CE0);
             break;
         case 29:
-            sp24 = D_0058BE80;
-            *arg2 = D_00597B80 - D_0058BE80;
+            sp24 = ROM(D_0058BE80);
+            *arg2 = ROM(D_00597B80) - ROM(D_0058BE80);
             break;
         case 30:
-            sp24 = D_00597B80;
-            *arg2 = D_0059B7D0 - D_00597B80;
+            sp24 = ROM(D_00597B80);
+            *arg2 = ROM(D_0059B7D0) - ROM(D_00597B80);
             break;
         case 31:
-            sp24 = D_0059B7D0;
-            *arg2 = D_005A5840 - D_0059B7D0;
+            sp24 = ROM(D_0059B7D0);
+            *arg2 = ROM(D_005A5840) - ROM(D_0059B7D0);
             break;
         case 32:
-            sp24 = D_005A5840;
-            *arg2 = D_005B0B10 - D_005A5840;
+            sp24 = ROM(D_005A5840);
+            *arg2 = ROM(D_005B0B10) - ROM(D_005A5840);
             break;
         case 33:
-            sp24 = D_005B0B10;
-            *arg2 = D_005B5A30 - D_005B0B10;
+            sp24 = ROM(D_005B0B10);
+            *arg2 = ROM(D_005B5A30) - ROM(D_005B0B10);
             break;
         case 34:
-            sp24 = D_005B5A30;
-            *arg2 = D_005B8BB0 - D_005B5A30;
+            sp24 = ROM(D_005B5A30);
+            *arg2 = ROM(D_005B8BB0) - ROM(D_005B5A30);
             break;
         case 35:
-            sp24 = D_005B8BB0;
-            *arg2 = D_005C4C80 - D_005B8BB0;
+            sp24 = ROM(D_005B8BB0);
+            *arg2 = ROM(D_005C4C80) - ROM(D_005B8BB0);
             break;
         case 36:
-            sp24 = D_005C4C80;
-            *arg2 = D_005CA9C0 - D_005C4C80;
+            sp24 = ROM(D_005C4C80);
+            *arg2 = ROM(D_005CA9C0) - ROM(D_005C4C80);
             break;
         case 37:
-            sp24 = D_005CA9C0;
-            *arg2 = D_005CCF50 - D_005CA9C0;
+            sp24 = ROM(D_005CA9C0);
+            *arg2 = ROM(D_005CCF50) - ROM(D_005CA9C0);
             break;
         case 38:
-            sp24 = D_005CCF50;
-            *arg2 = D_005D1060 - D_005CCF50;
+            sp24 = ROM(D_005CCF50);
+            *arg2 = ROM(D_005D1060) - ROM(D_005CCF50);
             break;
         case 39:
-            sp24 = D_005D1060;
-            *arg2 = D_005DC830 - D_005D1060;
+            sp24 = ROM(D_005D1060);
+            *arg2 = ROM(D_005DC830) - ROM(D_005D1060);
             break;
         case 40:
-            sp24 = D_005DC830;
-            *arg2 = D_005E6EE0 - D_005DC830;
+            sp24 = ROM(D_005DC830);
+            *arg2 = ROM(D_005E6EE0) - ROM(D_005DC830);
             break;
         case 41:
-            sp24 = D_005E6EE0;
-            *arg2 = D_005EC800 - D_005E6EE0;
+            sp24 = ROM(D_005E6EE0);
+            *arg2 = ROM(D_005EC800) - ROM(D_005E6EE0);
             break;
         case 42:
-            sp24 = D_005EC800;
-            *arg2 = D_005F3A80 - D_005EC800;
+            sp24 = ROM(D_005EC800);
+            *arg2 = ROM(D_005F3A80) - ROM(D_005EC800);
             break;
         case 43:
-            sp24 = D_005F3A80;
-            *arg2 = D_006014B0 - D_005F3A80;
+            sp24 = ROM(D_005F3A80);
+            *arg2 = ROM(D_006014B0) - ROM(D_005F3A80);
             break;
         case 44:
-            sp24 = D_006014B0;
-            *arg2 = D_0060A710 - D_006014B0;
+            sp24 = ROM(D_006014B0);
+            *arg2 = ROM(D_0060A710) - ROM(D_006014B0);
             break;
         case 45:
-            sp24 = D_0060A710;
-            *arg2 = D_00613AA0 - D_0060A710;
+            sp24 = ROM(D_0060A710);
+            *arg2 = ROM(D_00613AA0) - ROM(D_0060A710);
             break;
         case 46:
-            sp24 = D_00613AA0;
-            *arg2 = D_0061DD70 - D_00613AA0;
+            sp24 = ROM(D_00613AA0);
+            *arg2 = ROM(D_0061DD70) - ROM(D_00613AA0);
             break;
         case 47:
-            sp24 = D_0061DD70;
-            *arg2 = D_00621AF0 - D_0061DD70;
+            sp24 = ROM(D_0061DD70);
+            *arg2 = ROM(D_00621AF0) - ROM(D_0061DD70);
             break;
         case 48:
-            sp24 = D_00621AF0;
-            *arg2 = D_006269E0 - D_00621AF0;
+            sp24 = ROM(D_00621AF0);
+            *arg2 = ROM(D_006269E0) - ROM(D_00621AF0);
             break;
         case 49:
-            sp24 = D_006269E0;
-            *arg2 = D_00630C30 - D_006269E0;
+            sp24 = ROM(D_006269E0);
+            *arg2 = ROM(D_00630C30) - ROM(D_006269E0);
             break;
         case 50:
-            sp24 = D_00630C30;
-            *arg2 = D_00635700 - D_00630C30;
+            sp24 = ROM(D_00630C30);
+            *arg2 = ROM(D_00635700) - ROM(D_00630C30);
             break;
         case 51:
-            sp24 = D_00635700;
-            *arg2 = D_0063CA10 - D_00635700;
+            sp24 = ROM(D_00635700);
+            *arg2 = ROM(D_0063CA10) - ROM(D_00635700);
             break;
         case 52:
-            sp24 = D_0063CA10;
-            *arg2 = D_00641F30 - D_0063CA10;
+            sp24 = ROM(D_0063CA10);
+            *arg2 = ROM(D_00641F30) - ROM(D_0063CA10);
             break;
         case 53:
-            sp24 = D_00641F30;
-            *arg2 = D_00644810 - D_00641F30;
+            sp24 = ROM(D_00641F30);
+            *arg2 = ROM(D_00644810) - ROM(D_00641F30);
             break;
         case 54:
-            sp24 = D_00644810;
-            *arg2 = D_00646080 - D_00644810;
+            sp24 = ROM(D_00644810);
+            *arg2 = ROM(D_00646080) - ROM(D_00644810);
             break;
         case 55:
-            sp24 = D_00646080;
-            *arg2 = D_00647550 - D_00646080;
+            sp24 = ROM(D_00646080);
+            *arg2 = ROM(D_00647550) - ROM(D_00646080);
             break;
         case 56:
-            sp24 = D_00647550;
-            *arg2 = D_00654FC0 - D_00647550;
+            sp24 = ROM(D_00647550);
+            *arg2 = ROM(D_00654FC0) - ROM(D_00647550);
             break;
         case 57:
-            sp24 = D_00654FC0;
-            *arg2 = D_00660950 - D_00654FC0;
+            sp24 = ROM(D_00654FC0);
+            *arg2 = ROM(D_00660950) - ROM(D_00654FC0);
             break;
         case 58:
-            sp24 = D_00660950;
-            *arg2 = D_00665F80 - D_00660950;
+            sp24 = ROM(D_00660950);
+            *arg2 = ROM(D_00665F80) - ROM(D_00660950);
             break;
         case 59:
-            sp24 = D_00665F80;
-            *arg2 = D_0066C900 - D_00665F80;
+            sp24 = ROM(D_00665F80);
+            *arg2 = ROM(D_0066C900) - ROM(D_00665F80);
             break;
     }
-    func_8028B4C4((u32)(uintptr_t)sp24, arg1, arg2, 12, 10, 1);
+    func_8028B4C4(sp24, arg1, arg2, 12, 10, 1);
 }
 
 void func_80256A34(u8 *arg0) {

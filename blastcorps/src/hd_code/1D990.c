@@ -547,9 +547,9 @@ void func_80262320(u8 arg0) {
         D_80367C0C = D_802E9F9C;
     }
     if (D_80364AA8 != 1) {
-        size = D_006A8DA0 - D_006A32B0;
+        size = ROM(D_006A8DA0) - ROM(D_006A32B0);
         if (D_80364AA8 != 0x80 && D_80364A98 == 0x2000) {
-            func_8028B4C4((u32)D_006A32B0, D_80358070, &size, 0xA, 0, 1);
+            func_8028B4C4(ROM(D_006A32B0), D_80358070, &size, 0xA, 0, 1);
             for (i = 0; i < 5; i++) {
                 D_80367BE0[i] = D_80358070 + (i << 15);
             }

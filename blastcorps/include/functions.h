@@ -21,6 +21,7 @@
  */
 
 #include "common.h"
+#include "game/types.h"
 
 struct CollisionTri;
 struct FrameBuf;
@@ -476,7 +477,7 @@ void func_8028B240(void);
 
 /* hd_code 46C20.c */
 void func_8028B3E0(void);
-void func_8028B4C4(u32, u8 *, u32 *, u8, u8, u8);
+void func_8028B4C4(RomAddr, u8 *, u32 *, u8, u8, u8);
 
 /* hd_code 46F60.c */
 void func_8028B720(void);

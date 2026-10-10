@@ -253,17 +253,17 @@ void func_8025CE74(void) {
 }
 
 void func_8025D0B0(u8 arg0) {
-    u32 romAddr;
+    RomAddr romAddr;
     s32 size;
 
     switch (arg0) {
         case 1:
-            romAddr = (u32)D_00489E70;
-            size = D_0048F5A0 - D_00489E70;
+            romAddr = ROM(D_00489E70);
+            size = ROM(D_0048F5A0) - ROM(D_00489E70);
             break;
         case 0:
-            romAddr = (u32)D_00487050;
-            size = D_00489E70 - D_00487050;
+            romAddr = ROM(D_00487050);
+            size = ROM(D_00489E70) - ROM(D_00487050);
             break;
     }
     func_8028B4C4(romAddr, D_80358070, &size, 0xC, 0, 1);

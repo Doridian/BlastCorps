@@ -63,16 +63,16 @@ u16 D_802E8CB0[8] = { 0x0920 }; /* texture ids (func_80272C5C) */
 
 void func_8025B9D0(s32 arg0, s32 *arg1) {
     s32 sp34;
-    u8 *sp30;
+    RomAddr sp30;
     s32 sp2C;
     s32 sp28;
     u16 sp26;
     UnkStruct_8025B9D0 *sp20;
 
-    sp30 = D_006A9F10;
-    sp2C = D_006AD3F0 - D_006A9F10;
+    sp30 = ROM(D_006A9F10);
+    sp2C = ROM(D_006AD3F0) - ROM(D_006A9F10);
     sp20 = (UnkStruct_8025B9D0 *)D_80358070;
-    func_8028B4C4((u32)(uintptr_t)sp30, D_80358070, &sp2C, 9, 0, 1);
+    func_8028B4C4(sp30, D_80358070, &sp2C, 9, 0, 1);
     D_80358070 += sp2C;
     func_80257490((s32 *)&D_80358070, 0x10);
     for (sp34 = 0; sp34 < arg0; sp34++) {

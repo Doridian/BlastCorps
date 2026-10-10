@@ -31,7 +31,7 @@ void func_8028B3E0(void) {
     }
 }
 
-void func_8028B4C4(u32 arg0, u8 *arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5) {
+void func_8028B4C4(RomAddr arg0, u8 *arg1, u32 *arg2, u8 arg3, u8 arg4, u8 arg5) {
     u32 sp44;
     u32 sp40;
     u8 *sp3C;

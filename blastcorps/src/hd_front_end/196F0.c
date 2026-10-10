@@ -37,8 +37,8 @@ void func_802006F0(void) {
 #define IMG_WR(p, v) (*(p) = (v))
 #endif
 void func_80200714(u8 arg0) {
-    u8 *romStart;
-    u8 *romEnd;
+    RomAddr romStart;
+    RomAddr romEnd;
     u32 size;
     u16 *img;
     u32 i;
@@ -53,26 +53,26 @@ void func_80200714(u8 arg0) {
         case 1:
         case 2:
         case 3:
-            romStart = D_006AD3F0;
-            romEnd = D_006BF2F0;
+            romStart = ROM(D_006AD3F0);
+            romEnd = ROM(D_006BF2F0);
             break;
         case 4:
         case 7:
         case 8:
-            romStart = D_006BF2F0;
-            romEnd = D_006D3D30;
+            romStart = ROM(D_006BF2F0);
+            romEnd = ROM(D_006D3D30);
             break;
         case 5:
         case 6:
         case 9:
-            romStart = D_006D3D30;
-            romEnd = D_006E8980;
+            romStart = ROM(D_006D3D30);
+            romEnd = ROM(D_006E8980);
             break;
         default:
             return;
     }
     size = romEnd - romStart;
-    func_8028B4C4((u32)(uintptr_t)romStart, D_80358070, &size, 0xD, 0, 2);
+    func_8028B4C4(romStart, D_80358070, &size, 0xD, 0, 2);
     img = (u16 *)D_80358070;
     for (i = 0; i < size >> 1; i++) {
         r = IMG_RD(&img[i]) >> 11;

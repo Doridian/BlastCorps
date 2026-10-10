@@ -286,24 +286,24 @@ void func_80261588(void) {
     s32 headerSize;
 
     alHeapInit(&D_80367718, D_80370C80, AUDIO_HEAP_SIZE);
-    size = size2 = D_003539A0 - D_00350950;
-    func_8028B4C4((s32)D_00350950, (u8 *)MEM_POOL, &size, 0xD, 0, 2);
+    size = size2 = ROM(D_003539A0) - ROM(D_00350950);
+    func_8028B4C4(ROM(D_00350950), (u8 *)MEM_POOL, &size, 0xD, 0, 2);
     musicBankFile = alHeapAlloc(&D_80367718, 1, size);
-    func_8028B4C4((s32)D_00350950, (u8 *)musicBankFile, &size2, 0xD, 0, 2);
+    func_8028B4C4(ROM(D_00350950), (u8 *)musicBankFile, &size2, 0xD, 0, 2);
     alBnkfNew(musicBankFile, D_003539A0);
     D_8036773C = musicBankFile->bankArray[0];
-    size = size2 = D_003A48C0 - D_003A1920;
-    func_8028B4C4((s32)D_003A1920, (u8 *)MEM_POOL, &size, 0xD, 0, 2);
+    size = size2 = ROM(D_003A48C0) - ROM(D_003A1920);
+    func_8028B4C4(ROM(D_003A1920), (u8 *)MEM_POOL, &size, 0xD, 0, 2);
     sfxBankFile = alHeapAlloc(&D_80367718, 1, size);
-    func_8028B4C4((s32)D_003A1920, (u8 *)sfxBankFile, &size2, 0xD, 0, 2);
+    func_8028B4C4(ROM(D_003A1920), (u8 *)sfxBankFile, &size2, 0xD, 0, 2);
     alBnkfNew(sfxBankFile, D_003A48C0);
     D_80367738 = (SndBank *)sfxBankFile->bankArray[0];
     D_80367514 = alHeapAlloc(&D_80367718, 1, 4);
     headerSize = 4;
-    func_8028B4C4((s32)D_0044F5C0, (u8 *)D_80367514, &headerSize, 0, 0, 0);
+    func_8028B4C4(ROM(D_0044F5C0), (u8 *)D_80367514, &headerSize, 0, 0, 0);
     seqFileSize = D_80367514->seqCount * 8 + 4;
     D_80367514 = alHeapAlloc(&D_80367718, 1, 0x214);
-    func_8028B4C4((s32)D_0044F5C0, (u8 *)D_80367514, &seqFileSize, 0, 0, 0);
+    func_8028B4C4(ROM(D_0044F5C0), (u8 *)D_80367514, &seqFileSize, 0, 0, 0);
     alSeqFileNew(D_80367514, D_0044F5C0);
     D_80367510 = alHeapAlloc(&D_80367718, 1, 0x21AE);
     for (i = 0; i < 0x42; i++) {
