@@ -38,17 +38,25 @@ that starts a variable of its own (n64_labels), so that the code reaches
 what it names as a variable, not as an alias of an offset into another.
 Where the code reads one table across several labels (a record per wheel,
 a walk into the next label: LABEL_TYPES), the first label's type runs
-over the others, which are names inside it.
+over the others, which are names inside it.  LABEL_TYPES also gives the
+handwritten .bss the engine's structures (TYPES: the hit list, the walls,
+the texture slots and records, the parts...), and GROWN the two of them
+with more room than the N64's (the original runs over their end; the
+labels after them are variables of their own).
 
 A symbolic .word is a pointer initializer (`&D_X`, a cast where the
 field's type is another, or `(u8 *)&D_X + n` into a variable).  A pointer
 is native, as the C that reads it declares it (8 bytes in the LP64 build,
-which lays out what holds one as the host does): the inventory's pointers
-and POINTERS' (the words the C has as pointers), but where PTR32_* say
-the C's are still 4 bytes.  A name inside a variable past a native
-pointer is none in the LP64 build (its offset isn't the N64's there): the
-C reaches it as an expression.  (Where pointers are 4 bytes it is the
-alias, for the check build's translations.)
+which lays out what holds one as the host does; decl_check.py compares
+the two): the inventory's pointers and POINTERS' (the words the C has as
+pointers, tables to a sentinel included).  Only PTR32_VARS' stay 4 bytes
+(D_80300A68's display list words, P8).  Nothing reads this data at the
+N64's offsets any more: the engine is C (port/engine), and only the
+32-bit check build compiles the translated code, where pointers are 4
+bytes anyway.  A name inside a variable past a native pointer is none in
+the LP64 build (its offset isn't the N64's there): the C reaches it as an
+expression.  (Where pointers are 4 bytes it is the alias, for the check
+build's translations.)
 
 Where the data's units in the native-endian build come from (asm2x86.py
 before; docs/PORT.md, "The native-endian build"): the type inventory's

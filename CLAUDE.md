@@ -87,9 +87,11 @@ Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A
 busy-wait in the game's C (a loop spinning on what another thread or an
 interrupt changes) calls `port_spin_wait()` in its body there: the port
 runs one thread at a time with no polls in loops, so without it the loop
-spins forever (docs/PORT.md, "Memory model").  A pointer
-the handwritten code, the asm data or the ROM's data share with the C is
-`T *PTR32 p` (4 bytes in the LP64 port, nothing to IDO).
+spins forever (docs/PORT.md, "Memory model").  Pointers in
+memory are native (8 bytes in the LP64 port); `T *PTR32 p` (4 bytes there,
+nothing to IDO) is only for what the ROM's data, libaudio or the display
+lists fix, and a variable's declarations all agree (docs/PORT.md, "The
+LP64 build").
 
 The port's improvements for the player (`--interpolate` with
 `--display-hz auto`, `--hd-text`, `--model-icons`, and any added later) are

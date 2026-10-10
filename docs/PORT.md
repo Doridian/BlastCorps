@@ -956,7 +956,7 @@ So the stages are:
 2. BEPass without the swaps, with the C's punning sites fixed under
    `TARGET_PC`.
 3. Native LP64 structs where a struct's pointers are only the C's: those
-   the asm or the ROM data share keep 32-bit fields (`PTR32`), and the
+   the ROM's data or libaudio fix keep 32-bit fields (`PTR32`), and the
    `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
    depends on them.  The first two are gone in the LP64 build ("The LP64
    build"); the fixed addresses are what's left.
@@ -1178,49 +1178,143 @@ compiles the game's C for the host as it is: no i386 frontend, no
 port-ilp32, 8-byte pointers, and every struct laid out by the host but
 where the N64's layout is shared.  BEPass still runs (the u64 words).
 
-**`PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's `__ptr32 __uptr` in this
-build, nothing elsewhere, so IDO sees the same code) is a pointer that stays
-4 bytes in memory, zero-extended when loaded.  The structs that keep the
-N64's layout have it on every pointer field:
+**Pointers are the host's.**  Every pointer the game's C, the engine
+(`port/engine`) and the asm data (`asm2c.py`) keep in memory is a plain
+`T *`, 8 bytes here, in a struct the host compiler lays out.  Nothing
+reads that memory at the N64's offsets any more: the engine is C and
+reads by field, the host reads the game's structures by the N64 side's
+layout table (below), and the translated code is only in the 32-bit
+check build (`PORT_ENGINE_CHECK`), where pointers are 4 bytes anyway.
+`port/tools/layout_cmp.py A B` lists every struct whose layout differs
+between two builds from their DWARF; against the native-endian 64-bit
+build (`n64`) the LP64 build has 59 (us.v10):
 
-- what the translated code reads at the N64's offsets: `Vehicle`,
-  `Building`, `TntCrate`, `UnkStruct_803ED460`, and `SchedTask`, which
-  hd_code 5FD50 builds itself (the inventory's `asm_uses` misses that, so
-  it isn't proof on its own; the runs below are);
-- what the ROM's data, the asm data files and hd_code's islands hold:
-  libaudio's banks and sequences, Rare's `SndBank`/`SndInstrument`
-  (`ROMPTR` is `PTR32` now), `YoshiEntry` (hd_front_end 25070's tables),
-  `UnkStruct_8036EC30` (800DC's);
-- structs whose instances other files reach through labels inside them
-  (`D_803156C4` is `Sched.frameCount`, the audio DMA state's, `ALHeap`'s),
-  and so what those embed: libultra's `OSThread`, `OSMesgQueue` and
-  `OSMesg` (a `PTR32` typedef), `OSIoMesg`, `OSTimer`, `OSTask`;
-- all of libaudio and Rare's sound player: libaudio casts between its
-  parameter records and allocates them at `sizeof(ALParam)`, which holds
-  only in the N64's layout; its function-pointer typedefs are `PTR32` too;
-- gzip's `huft` (the table pool is sized for the N64's), and the pointer
-  slots the handwritten code passes to the C (the unzip's `src`/`dst`,
-  `func_80278BF0`'s `out`, the sound handles of `func_80260650` and
-  `SndState.unk30`), the pointer arrays the front end's model loader
-  (hd_front_end 1B100's `func_80202100`, a word per slot) fills and
-  `func_80202270` reads (00000.c's `D_80210E90`/`EE0`/`F78`, DE70.c's
-  `D_80218350`..`60`; the TAS's first front-end model, at read 1,620,
-  crashed on them), and the C's `extern`s of pointers the asm's data
-  define (`level.h`'s `D_803BDAF0`..., `D_803F7654`, `D_802C4A20`).
+- the OS's and the scheduler's: `OSThread`, `OSMesgQueue`, `OSIoMesg`
+  and its header, `OSPiHandle`, `__OSBlockInfo`, `__OSTranxInfo`,
+  `OSTimer`, `OSPfs`, `OSTask`, `Sched`, `SchedTask`, `SchedClient`,
+  `AudioInfo`, `IoMesg`, `PakState`, `port/src/ultra.c`'s `Delay`, and
+  `AMAudioMgr` (the thread and queues it holds; its command lists are
+  still `PTR32`, below);
+- the game's objects: `Vehicle`, `Building`, `TntCrate`, `Block`,
+  `AmmoBox`, `Hole`, `YoshiEntry`, the part (`UnkStruct_803ED460`, the
+  engine's `Anim`) and `VehicleSave`, and the front end's and the game's
+  `UnkStruct_*` (`8020BD30`, `8020D810`, `80218270`, `8036EC30`...);
+- the engine's records: the walls (`Wall`), the hit list's `HitPair`,
+  `DelayedHit`, `TexSlot`, `TexPatch`, `MtxCopy`, `EffectSlot`,
+  `TexDecode`, the decoders' `BitIn`/`BitOut`/`LzssIn`, and gzip's
+  `huft` (16 bytes; its tables still come from the pool's start, and
+  `huft_build` traps if they would reach the ghost's buffers at
+  `+0xA000`);
+- asm2c's types of the asm data with pointers in it (`D_8020C070_t`,
+  `D_802C48A0_t`...).
 
-What is native then: pointer variables, and the structs only the C uses
-(`SchedClient` and six of the front end's and the game's
-`UnkStruct_*`, in both versions).  `port/tools/layout_cmp.py A B` lists every struct whose
-layout differs between two builds from their DWARF.  The
-`SIZE_CHECK`s hold on the N64 for a native struct (`SIZE_CHECK_C`) and
-everywhere for the rest.
+The `SIZE_CHECK`s of these are `SIZE_CHECK_C`: the N64's size where
+pointers are 4 bytes.
+
+**What keeps `PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's
+`__ptr32 __uptr` in this build, nothing elsewhere, so IDO sees the same
+code) is what something other than the C fixes the layout of.
+`port/tools/ptr32_allow.txt` lists the 49 structures and the package
+that takes each:
+
+- **P7** (the ROM's data and the sound): libaudio (36 types: its records
+  are allocated and cast at `sizeof(ALParam)` and the like, which holds
+  only in the N64's layout, and its banks and sequences are the ROM's
+  bytes), Rare's sound player on it (`SndState`, `SndEvent`, `SndPlayer`,
+  `SndConfig`, `SndStateLists`; `SndBank`/`SndInstrument` are ROM data,
+  `ROMPTR`), the audio DMA's `AMDMABuffer`/`AMDMAState` (on `ALLink`),
+  `SynConfig`, the engine's `GroupSet` (its first word is in the level's
+  tables, `D_802D30D0`..., 0x18 bytes a record), `OSDevMgr`'s two
+  function pointers, and the ROM addresses the C makes from symbols
+  (`(u32)D_00xxxxxx`: `RomAddr` constants there);
+- **P8** (the display lists): `AMAudioMgr.ACMDList` (`Acmd`), asm2c's
+  `D_80300A68` (its display list's words, `PTR32_VARS`), `gbi.h`'s
+  `_GBI_W` and `STATIC_K0_TO_PHYS`;
+- **P10** (the host interface): no structure, but `port/src` hands the
+  host N64 addresses as `u32` (`host_*((u32)p)`).
+
+A sound handle is native (`TntCrate`'s, `Block`'s, the vehicle modules'
+`SndState *` slots, `func_80260650`'s `SndState **`); only the field of
+`SndState` that points back at it, `unk30`, is still 4 bytes.
+
+**The tools.**
+
+- `port/src/layout.c`: `sizeof` and `offsetof` of what the host reads
+  inside the game's structures (the vehicles, buildings, crates, blocks,
+  boxes, RDUs, the player and level stats, `Sched`'s counters) and the
+  widths of the pointer variables it follows, compiled by each variant's
+  N64-side compiler.  The host asks for an entry by its name in `port.h`
+  (`host_layout`) and reads a game pointer of the width the table gives
+  (`port_game_ptr_n`); `digest.c`, `sched_vars.h` and `gfx.c` spell no
+  offset of the game's.
+- `port/tools/ptr32_check.py BUILD`: from an LP64 build's DWARF, every
+  structure or union (one without a name goes by its container's and
+  member's, `huft.v`) with a 4-byte pointer, against `ptr32_allow.txt`.
+  One that isn't listed fails, and so does one listed that has none.
+- `port/tools/decl_check.py BUILD --version all`: every `D_`/`func_`
+  name's declarations across the N64 side's files (clang's AST), and
+  asm2c's word for it: a pointer declared as an integer in one file, or
+  4 bytes in one and 8 in another, fails (`decl_allow.txt` is empty).
+- `port/tools/ptrcast_scan.py BUILD --version all`: clang's
+  pointer/integer conversions (`-Wpointer-to-int-cast`,
+  `-Wint-to-pointer-cast`, `-Wint-conversion`) and incompatible pointer
+  types, classed by where they are and the macros they come through,
+  counted per file and version against `ptrcast_allow.txt`; what is left
+  is P7's, P8's and P10's.
+- `port/tools/n64_tus.py`: the N64 side's translation units with the
+  build's own commands, which the last two run with each version's
+  `VERSION_` define, so one build answers for all four.
+- `port/tools/test.py quick` runs the three on an LP64 build (not the
+  movable one, which has the same sources), and the LP64 builds compile
+  the N64 side with `-Werror=int-conversion` and
+  `-Werror=incompatible-pointer-types` (`CMakeLists.txt`; the function
+  pointer subgroup stays a warning until P7).
+
+**In the C.**
+
+- `OSMesg` is a real pointer: a message that is a number goes in as
+  `OS_MESG(n)` and comes out as `OS_MESG_INT(m)` (`common.h`), and a
+  receive into an integer variable is `osRecvMesgInt(mq, var, flag)`
+  (`game/types.h`), which is the original's cast for IDO and goes
+  through an `OSMesg` in the port.
+- The frame buffer the game passes around is a `Frame` (`game/frame.h`),
+  the union of its two views (`FrameBuf`, `FrameGame`), not an `s32`.
+- Where retyping a matched function's parameter would move IDO's output,
+  it keeps its `s32` and the call casts.
+  `func_80257490` (00000.c) still rounds a pointer through an `s32 *`:
+  right while the addresses are under 4 GB on a little-endian host.
+- `asm2c.py` types the asm data's pointers as the C declares them:
+  `POINTERS` (the words the C has as pointers, tables to a sentinel
+  included), `TYPES` and `LABEL_TYPES` (the engine's structures for the
+  handwritten `.bss`), `GROWN` (the arrays with more room than the N64's,
+  "The engine's arrays"); a name inside a variable past a native pointer
+  is no symbol in the LP64 build, and the C reaches it as an expression.
+
+**Rules for a change.**
+
+- A variable's definition and all its declarations change together, in
+  one commit: one left `PTR32` (or `s32`) beside an 8-byte one is a
+  silent 4/8-byte mismatch that x86 hides until a write leaves a stale
+  high half.  A pointer variable more than one file uses is declared
+  once, in a header.  decl_check finds the rest.
+- A function that writes a pointer through an out-parameter
+  (`u32 *` that becomes `T **`) needs every caller's local retyped too:
+  an 8-byte store into a 4-byte local overwrites its neighbour (P6 found
+  two, `func_802A7C28`'s and `func_802A7E70`'s callers).
+- An allocation sized with an N64 literal (`0x24C` for 21 `YoshiEntry`s,
+  `u8[0x300]` for 32 parts, the audio heap exactly full) is too small for
+  a native struct: size it with `sizeof` (the LP64 YoshiEntry list ran
+  over the next allocation, and the TAS crashed in level 13's window
+  text).
+- A struct the host reads gets its fields into `layout.c`, not an offset
+  in the host.
 
 **The variables that grew.**  `gen_ld.py` leaves a C variable to the host
 linker when it no longer fits where the N64 has it (its room up to the next
-sized N64 symbol, or its alignment): 120 in us.v10, pointers and the native
-structs' tables, listed in `gen/port_rdram_moved.txt`.  (In every build it
-also moves the engine's arrays that have more room than the N64's: "The
-engine's arrays", below.)  The translated
+variable, or its alignment): 333 in us.v10's LP64 build, pointers and the
+native structs' tables, listed in `gen/port_rdram_moved.txt`.  (In every
+build it also moves the engine's arrays that have more room than the
+N64's: "The engine's arrays", below.)  The translated
 code finds them through `SYM()` as before.  They live in the image, above
 RDRAM, so what reads game memory by address takes the whole KSEG0 window:
 the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
@@ -1257,7 +1351,8 @@ the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
 - BEPass's native mode swaps the words of u64s but not of the 8-byte
   pointers.
 
-**How it was checked**, us.v10, against the native-endian 64-bit build,
+**How it was checked** (the first LP64 build, when seven types were
+native and everything else `PTR32`), us.v10, against the native-endian 64-bit build,
 `PORT_COUNT_PER_OP=0 --deterministic`, Simian Acres (`PORT_AUTOSTART=2`):
 4,000 frames with the save, `--wav` and 16 screenshots identical; RDRAM at
 controller reads 300 and 600 the same but for the native structs' own
@@ -1289,13 +1384,12 @@ The one thing the runs found wasn't the LP64 build's: a 64-bit build of
 either kind now and then failed to start, with `can't map thread stacks`
 or `hardware registers ... File exists` (the brk heap, "Memory model").
 
-What's left for it: the fixed addresses.  The image is still non-PIE at
-`0x80400000` and RDRAM at `0x80000000`, which `PTR32` (and the translated
-code's 32-bit addresses) depend on; Linux on x86-64 and AArch64 can do
-that, macOS on arm64 and WebAssembly can't.  Getting there means the game's
-variables reached by relocatable symbols only, RDRAM an arena at any base
-with the 32-bit addresses relative to it, and `PTR32` a base-relative
-pointer; and for the browser, threads without `ucontext`.
+What was left for it then, the fixed addresses (the image non-PIE at
+`0x80400000`, RDRAM at `0x80000000`), the movable build does without
+("Movable memory", next): `-DPORT_LP64=ON -DPORT_MOVABLE=ON` is the
+`mlp64` variant.  The pointer *values* are still N64 addresses, under
+4 GB, in every build; that, the `PTR32` that is left and the host
+interface's `u32` addresses are what an ordinary C program still lacks.
 
 ## Movable memory
 
@@ -1784,9 +1878,13 @@ game's.
 - **Pointers.**  A symbolic `.word` is a pointer initializer: `(T *)&D_X`,
   `&D_8030xxxx` of a member, or `(u8 *)&D_X + n` for a name inside a
   variable (YoshiEntry's text pointers into hd_code's u16 text), and a
-  function's name for a function.  Every pointer is `T *PTR32`: 4 bytes in
-  the LP64 build too, where the handwritten code reads this data at its
-  N64 offsets, as it did the words.
+  function's name for a function.  A pointer is native, as the C that
+  reads it declares it (8 bytes in the LP64 build, which lays out the
+  variables that hold one as the host does): the inventory's pointers and
+  `POINTERS`' (the words the C has as pointers, tables to a sentinel
+  included), but `D_80300A68`'s display list words (`PTR32_VARS`).
+  Nothing reads this data at its N64 offsets any more ("The LP64
+  build").
 - **The same bytes.**  The native-endian builds had each datum in host
   order at the width `asm2x86.py --native` gave it (the inventory's
   fields, the islands' layouts, `ISLANDS` and `BLOBS`, the u16 text of
@@ -4530,8 +4628,8 @@ quick` fails a build that compiles or links any of it ("engine": no
 **The mechanism.**
 - `port/engine/replaced.txt` lists the functions that are native now, and
   `port/engine/<object>.c` defines them.  The code is readable C over the
-  game's types (`#include "engine.h"`; `PTR32` on pointers that live in
-  shared memory), built like the game's C: the N64 side, through BEPass,
+  game's types (`#include "engine.h"`; its pointers in memory native,
+  "The LP64 build"), built like the game's C: the N64 side, through BEPass,
   port-ilp32 and port-arena, so it works in every variant.
 - `tools/recomp/translate.py` keeps a replaced function's translation as
   `recomp_orig_X` under `RECOMP_ORIG`, for the checks.  The port doesn't
@@ -5397,8 +5495,9 @@ the same in C):
   N64 stack pointer, where the movable build's C can reach it) and copies
   the pointer back; and the pointer arrays it reads by words
   (`D_80208358`/`68`, `D_80208378`, `D_802FF188`, `D_80358050`,
-  `D_80365348`) are `PTR32` (the attract mode's Japanese text was missing,
-  its scroller divided by zero at frame 7,250).  The native pointers it
+  `D_80365348`) were `PTR32` (the attract mode's Japanese text was missing,
+  its scroller divided by zero at frame 7,250); since jp's IDO code is C
+  (`port/engine/jp_*.c`) they are native like every other pointer.  The native pointers it
   reads or writes whole (`D_802158A0` ...) are right as they are: their
   low half is the N64's word on a little-endian host.
 - **Everywhere**: `sprintf` and `bcopy` from the asm went to the host's
@@ -5473,8 +5572,10 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   differential test passes 688/688 after them).
 
 The 64-bit build needs no change in `blastcorps/src`.  The LP64 build's are
-`PTR32`s (nothing to IDO), `_GBI_W` in `gbi.h`, and the port's `int`
-typedefs in `ultratypes.h` ("The LP64 build").
+real pointer types where the C had integers (each checked with IDO's
+build), the `PTR32`s that are left (nothing to IDO), `osRecvMesgInt` and
+`OS_MESG`, `_GBI_W` in `gbi.h`, and the port's `int` typedefs in
+`ultratypes.h` ("The LP64 build").
 
 ## The TAS
 
