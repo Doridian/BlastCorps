@@ -92,8 +92,8 @@ extern u8 D_80306344[0xAC];
 #define DEBRIS_COUNTS (D_80306344 + 0x9C)       /* (D_803063E0) */
 extern u8 *D_80306270[];
 extern u8 D_8036DCD4, D_8036DCD7;
-extern u64 D_802F46C0[24];
-extern u64 D_802F4780[6];
+extern Gfx D_802F46C0[12][2];          /* a smoke cloud's commands: {as the model has it, as the cloud does} */
+extern Gfx D_802F4780[6];               /* the dust's set-up */
 extern u8 D_8036EB92;
 extern u32 D_80364A40;
 extern u16 D_803649E0, D_803649E2, D_803649E4;  /* the spin a falling group starts with */
@@ -131,11 +131,11 @@ void func_802BD99C(Building *b, s32 dx, s32 dy, s32 dz);
 REGS(v0, t1, t2)
 void func_802BDDB4(Building *b, AnimTex *anim, AnimTex *end);
 REGS(a2, s0, t1, t2, t7 -> a2, t7)
-u32 *func_802BE228(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out);
+Gfx *func_802BE228(Gfx *dl, Gfx *end, AnimTex *anim, AnimTex *anim_end, Gfx *src, Gfx **src_out);
 REGS(t0, s0, t1, t2, t7 -> t0, t7)
-u32 *func_802BE3C8(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out);
+Gfx *func_802BE3C8(Gfx *dl, Gfx *end, AnimTex *anim, AnimTex *anim_end, Gfx *src, Gfx **src_out);
 REGS(v0, a3, s6 -> s5)
-u32 func_802BE574(Building *b, s32 g, s32 fall);
+uintptr_t func_802BE574(Building *b, s32 g, s32 fall);
 REGS(t8, gp)
 void func_802BE77C(s32 type, VS *vs);
 REGS(t3, t8 -> t9)
@@ -173,15 +173,15 @@ s32 func_802C0284(s32 power, s32 type, s32 strength, s32 *power_out);
 REGS(v0, t9 -> t3)
 s32 func_802C038C(s32 group, Building *b);
 REGS(v0)
-void func_802C08C4(u32 *gfx);
+void func_802C08C4(Gfx *gfx);
 REGS(t4 -> t4)
 u64 func_802C0C64(u64 cmd);
 REGS(v0)
-void func_802C0CBC(u32 *gfx);
+void func_802C0CBC(Gfx *gfx);
 REGS(v1, t9)
 void func_802C1214(Dust *s, Building *b);
 REGS(a0, a1 -> a0, a1)
-u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out);
+Gfx *func_802C12E0(Gfx *g0, Gfx *g1, Gfx **g1_out);
 REGS(t3, t9 -> a2)
 s32 func_802C1A28(s32 group, Building *b);
 
@@ -605,20 +605,23 @@ void func_802BD10C(void *t) {
 
 /* n display list commands copied from src to d (a loop the compiler keeps
    inline: these are a few commands each, too few for a call to memcpy) */
-static inline u32 *copy_cmds(u32 *d, const u32 *src, s32 n) {
+static inline Gfx *copy_cmds(Gfx *d, const Gfx *src, s32 n) {
     s32 i;
 
-    for (i = 0; i < n * 2; i++)
-        d[i] = src[i];
-    return d + n * 2;
+    for (i = 0; i < n; i++)
+        dl_copy_cmd(&d[i], &src[i]);
+    return d + n;
 }
 
 /* Display list commands copied from src to src_end at d, in one go */
 #define COPY_CMDS(d, src, src_end)                                          \
     do {                                                                    \
-        s32 ncmd_ = ((u8 *)(src_end) - (u8 *)(src)) / 8;                    \
+        s32 ncmd_ = (src_end) - (src);                                      \
         (d) = copy_cmds((d), (src), ncmd_);                                 \
     } while (0)
+
+/* the display list at offset `off` of a model file */
+#define M_DL(model, off) ((Gfx *)((u8 *)(model) + (off)))
 
 /* One look of building b's group gi (0-based): a falling group gets its
    matrix (func_802BE574) pushed around its lists and comes down a frame,
@@ -626,11 +629,11 @@ static inline u32 *copy_cmds(u32 *d, const u32 *src, s32 n) {
    group destroyed and what rests on it let go); then its two lists, with
    the animated textures put in (anim to anim_end, func_802BE228 and
    func_802BE3C8). */
-static void draw_look(Building *b, s32 gi, GroupDls *dls, AnimTex *anim, AnimTex *anim_end, u32 **d0p, u32 **d1p,
+static void draw_look(Building *b, s32 gi, GroupDls *dls, AnimTex *anim, AnimTex *anim_end, Gfx **d0p, Gfx **d1p,
                       s32 *fell) {
     u8 *model = B_MODEL(b);
-    u32 *d0 = *d0p, *d1 = *d1p, *src, *src_end;
-    u32 mtx = 0;
+    Gfx *d0 = *d0p, *d1 = *d1p, *src, *src_end;
+    uintptr_t mtx = 0;
     s32 falling, t, fall;
 
     falling = B_FALLING(b)[gi];
@@ -649,36 +652,28 @@ static void draw_look(Building *b, s32 gi, GroupDls *dls, AnimTex *anim, AnimTex
             func_802BD85C(b, gi);
         }
         mtx = func_802BE574(b, gi, fall);
-        d0[0] = DL_MTX_PUSH;
-        d0[1] = mtx;
-        d0 += 2;
+        d0 = dl_put(d0, DL_MTX_PUSH, mtx);
     }
-    src = (u32 *)(model + dls->dl0);
-    src_end = (u32 *)(model + dls->dl0_end);
+    src = M_DL(model, dls->dl0);
+    src_end = M_DL(model, dls->dl0_end);
     if (anim != anim_end) {
         d0 = func_802BE228(d0, src_end, anim, anim_end, src, &src);
     } else {
         COPY_CMDS(d0, src, src_end);
     }
     if (falling) {
-        d0[0] = DL_MTX_POP;
-        d0[1] = 0;
-        d0 += 2;
-        d1[0] = DL_MTX_PUSH;
-        d1[1] = mtx;
-        d1 += 2;
+        d0 = dl_put(d0, DL_MTX_POP, 0);
+        d1 = dl_put(d1, DL_MTX_PUSH, mtx);
     }
-    src = (u32 *)(model + dls->dl1);
-    src_end = (u32 *)(model + dls->dl1_end);
+    src = M_DL(model, dls->dl1);
+    src_end = M_DL(model, dls->dl1_end);
     if (anim != anim_end) {
         d1 = func_802BE3C8(d1, src_end, anim, anim_end, src, &src);
     } else {
         COPY_CMDS(d1, src, src_end);
     }
     if (falling) {
-        d1[0] = DL_MTX_POP;
-        d1[1] = 0;
-        d1 += 2;
+        d1 = dl_put(d1, DL_MTX_POP, 0);
     }
     *d0p = d0;
     *d1p = d1;
@@ -720,12 +715,11 @@ static void visible_cells_clear(void) {
    only it (the building whole).  Every building, drawn or not, ends both
    its lists (and, moving, pops a matrix from g0 and g1) as the original
    does. */
-void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5, Gfx *g6, Gfx *g7) {
-    u32 *g0 = (u32 *)g0_, *g1 = (u32 *)g1_, *d0 = (u32 *)d0_, *d1 = (u32 *)d1_;
+void func_802BD1F8(Gfx *g0, Gfx *g1, Gfx *d0, Gfx *d1, Mtx *arg4, Mtx *arg5, Gfx *g6, Gfx *g7) {
     Building *b, *end;
     u8 *model, *r, *next, *grp_end;
     AnimTex *anim, *anim_end;
-    u32 *src, *src_end;
+    Gfx *src, *src_end;
     Mtx *m;
     s32 first, n, gi, dmg, i, hidden;
     GroupCond *c;
@@ -733,8 +727,8 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
 
     D_803F7658 = arg4;
     D_803F765C = arg5;
-    func_802C08C4((u32 *)g6);
-    func_802C0CBC((u32 *)g7);
+    func_802C08C4(g6);
+    func_802C0CBC(g7);
     if (D_8035805C != 0) {
         FALL_MTX = D_803F24D0;
     } else {
@@ -761,10 +755,10 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
 
             m = D_803F765C;
             D_803F765C = (Mtx *)((u8 *)m + 0x40);
-            func_802933A0(b->unk1C, b->unk20, b->unk24, M_MOVES(model), m, &b->unk38, (Gfx *)g0,
-                          (Gfx *)g1, b->unk34, b->x, b->y, b->z);
-            g0 += 2;
-            g1 += 2;
+            func_802933A0(b->unk1C, b->unk20, b->unk24, M_MOVES(model), m, &b->unk38, g0, g1,
+                          b->unk34, b->x, b->y, b->z);
+            g0++;
+            g1++;
             ox = b->x, oy = b->y, oz = b->z;
             b->x = D_803F7664;
             b->y = D_803F7668;
@@ -775,24 +769,18 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
         anim = (AnimTex *)B_SECTION(b, MS_ANIMS);
         anim_end = (AnimTex *)B_SECTION(b, MS_CENTRES);
         func_802BDDB4(b, anim, anim_end);
-        g0[0] = DL_SEGMENT(9);          /* the model's textures */
-        g0[1] = K0(M_TEXTURES(model));
-        g1[0] = DL_SEGMENT(9);
-        g1[1] = K0(M_TEXTURES(model));
-        g0[2] = DL_CALL;                /* its lists, made below */
-        g0[3] = K0(d0);
-        g1[2] = DL_CALL;
-        g1[3] = K0(d1);
-        g0 += 4;
-        g1 += 4;
+        g0 = dl_put(g0, DL_SEGMENT(9), DL_ADDR(M_TEXTURES(model)));     /* the model's textures */
+        g1 = dl_put(g1, DL_SEGMENT(9), DL_ADDR(M_TEXTURES(model)));
+        g0 = dl_put(g0, DL_CALL, DL_ADDR(d0));                          /* its lists, made below */
+        g1 = dl_put(g1, DL_CALL, DL_ADDR(d1));
         /* the head, in both */
-        src = (u32 *)B_SECTION(b, MS_DL);
-        src_end = (u32 *)B_SECTION(b, MS_DL_END);
-        n = ((u8 *)src_end - (u8 *)src) / 8;
+        src = (Gfx *)B_SECTION(b, MS_DL);
+        src_end = (Gfx *)B_SECTION(b, MS_DL_END);
+        n = src_end - src;
         copy_cmds(d0, src, n);
         copy_cmds(d1, src, n);
-        d0 += n * 2;
-        d1 += n * 2;
+        d0 += n;
+        d1 += n;
         /* the groups' looks */
         first = 1;
         grp_end = B_SECTION(b, MS_FALLS);
@@ -825,28 +813,18 @@ void func_802BD1F8(Gfx *g0_, Gfx *g1_, Gfx *d0_, Gfx *d1_, Mtx *arg4, Mtx *arg5,
             first = 0;
         }
     done:
-        d0[0] = DL_END;
-        d0[1] = 0;
-        d1[0] = DL_END;
-        d1[1] = 0;
-        d0 += 2;
-        d1 += 2;
+        d0 = dl_put(d0, DL_END, 0);
+        d1 = dl_put(d1, DL_END, 0);
         if (M_MOVES(B_MODEL(b))) {
-            g0[0] = DL_MTX_POP;         /* the moving one's matrix popped */
-            g0[1] = 0;
-            g1[0] = DL_MTX_POP;
-            g1[1] = 0;
-            g0 += 2;
-            g1 += 2;
+            g0 = dl_put(g0, DL_MTX_POP, 0);     /* the moving one's matrix popped */
+            g1 = dl_put(g1, DL_MTX_POP, 0);
         }
     }
     visible_cells_clear();
     if (fell)
         g0 = func_802C12E0(g0, g1, &g1);
-    g0[0] = DL_END;
-    g0[1] = 0;
-    g1[0] = DL_END;
-    g1[1] = 0;
+    dl_put(g0, DL_END, 0);
+    dl_put(g1, DL_END, 0);
 }
 
 /* the pieces of group g (0-based) that depend on another (group2)
@@ -1082,14 +1060,15 @@ void func_802BDDB4(Building *b, AnimTex *a, AnimTex *end) {
    also the next G_SETTIMG the frame after, and the G_SETPRIMCOLOR after
    them the blend between the two.  func_802BE228 and func_802BE3C8 are
    this for the two lists. */
-static u32 *copy_dl(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
-    u32 w0, w1, f;
+static Gfx *copy_dl(Gfx *dl, Gfx *end, AnimTex *anim, AnimTex *anim_end, Gfx *src, Gfx **src_out) {
+    u32 w0, f;
+    uintptr_t w1;
     AnimTex *a;
 
     while (src != end) {
-        w0 = src[0];
-        dl[0] = w0;
-        w1 = src[1];
+        w0 = src->words.w0;
+        dl->words.w0 = w0;
+        w1 = src->words.w1;
         if (w0 >> 24 == DL_SETTIMG) {
             /* a texture: one of the animated ones? */
             for (a = anim; a != anim_end; a = ANIM_NEXT(a)) {
@@ -1108,50 +1087,47 @@ static u32 *copy_dl(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *sr
                     if (f != 0) {
                         w1 = ANIM_FRAME(a, f);
                     }
-                    dl[1] = w1;
-                    src += 2;
-                    dl += 2;
+                    dl->words.w1 = w1;
+                    src++;
+                    dl++;
                     if (++f == a->n) {
                         f = 0;
                     }
                     /* the next texture: the frame after */
                     for (;;) {
-                        w0 = src[0];
-                        dl[0] = w0;
-                        w1 = src[1];
+                        w0 = src->words.w0;
+                        dl->words.w0 = w0;
+                        w1 = src->words.w1;
                         if (w0 >> 24 == DL_SETTIMG)
                             break;
-                        dl[1] = w1;
-                        src += 2;
-                        dl += 2;
+                        dl->words.w1 = w1;
+                        src++;
+                        dl++;
                     }
                     if (f != 0) {
                         w1 = ANIM_FRAME(a, f);
                     }
-                    dl[1] = w1;
-                    src += 2;
-                    dl += 2;
+                    dl->words.w1 = w1;
+                    src++;
+                    dl++;
                     /* the blend, at the primitive colour */
                     for (;;) {
-                        w0 = src[0];
+                        w0 = src->words.w0;
                         if (w0 >> 24 == DL_SETPRIMCOLOR)
                             break;
-                        dl[0] = w0;
-                        dl[1] = src[1];
-                        src += 2;
-                        dl += 2;
+                        dl_copy_cmd(dl, src);
+                        src++;
+                        dl++;
                     }
-                    dl[0] = w0 | a->blend;
-                    dl[1] = src[1];
-                    src += 2;
-                    dl += 2;
+                    dl = dl_put(dl, w0 | a->blend, src->words.w1);
+                    src++;
                     continue;
                 }
             }
         }
-        dl[1] = w1;
-        src += 2;
-        dl += 2;
+        dl->words.w1 = w1;
+        src++;
+        dl++;
     }
     *src_out = src;
     return dl;
@@ -1159,13 +1135,13 @@ static u32 *copy_dl(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *sr
 
 /* the first list (dl in $a2) */
 REGS(a2, s0, t1, t2, t7 -> a2, t7)
-u32 *func_802BE228(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
+Gfx *func_802BE228(Gfx *dl, Gfx *end, AnimTex *anim, AnimTex *anim_end, Gfx *src, Gfx **src_out) {
     return copy_dl(dl, end, anim, anim_end, src, src_out);
 }
 
 /* the second (dl in $t0) */
 REGS(t0, s0, t1, t2, t7 -> t0, t7)
-u32 *func_802BE3C8(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src, u32 **src_out) {
+Gfx *func_802BE3C8(Gfx *dl, Gfx *end, AnimTex *anim, AnimTex *anim_end, Gfx *src, Gfx **src_out) {
     return copy_dl(dl, end, anim, anim_end, src, src_out);
 }
 
@@ -1174,7 +1150,7 @@ u32 *func_802BE3C8(u32 *dl, u32 *end, AnimTex *anim, AnimTex *anim_end, u32 *src
    lowered by `fall`; made at D_803F3964 (the next one), returned as its
    physical address. */
 REGS(v0, a3, s6 -> s5)
-u32 func_802BE574(Building *b, s32 g, s32 fall) {
+uintptr_t func_802BE574(Building *b, s32 g, s32 fall) {
     s32 *m = (s32 *)FALL_MTX;
     u32 t = B_FALL_T(b)[g];
     s32 ax, ay, az, cx, cy, cz;
@@ -1209,7 +1185,7 @@ u32 func_802BE574(Building *b, s32 g, s32 fall) {
     func_802ACA60(0, fall, 0, D_803F38D0);
     func_802ACCCC(D_803F38D0, m);
     func_802AC8CC((u32 *)m);
-    return K0(m);
+    return DL_ADDR(m);
 }
 
 /* ---- a vehicle against the buildings --------------------------------- */
@@ -2225,7 +2201,7 @@ void func_802C0574(void) {
    SMOKE_FADE a frame) is drawn at that alpha; a gone one waits SMOKE_WAIT
    frames before it can be used again. */
 REGS(v0)
-void func_802C08C4(u32 *g) {
+void func_802C08C4(Gfx *g) {
     Smoke *s;
     s32 i, a;
 
@@ -2244,16 +2220,11 @@ void func_802C08C4(u32 *g) {
             continue;
         }
         s->alpha = a;
-        g[0] = DL_PIPESYNC;
-        g[1] = 0;
-        g[2] = DL_ENVCOLOR;             /* the environment colour: alpha */
-        g[3] = a;
-        g[4] = DL_CALL;                 /* the cloud's list */
-        g[5] = K0(s->dl);
-        g += 6;
+        g = dl_put(g, DL_PIPESYNC, 0);
+        g = dl_put(g, DL_ENVCOLOR, a);          /* the environment colour: alpha */
+        g = dl_put(g, DL_CALL, DL_ADDR(s->dl)); /* the cloud's list */
     }
-    g[0] = DL_END;
-    g[1] = 0;
+    dl_put(g, DL_END, 0);
 }
 
 /* whether the look at r (a GroupDl of group `group`'s, 1-based) is shown
@@ -2281,18 +2252,31 @@ static s32 look_shown(u8 *r, s32 group, Building *b) {
     return 1;
 }
 
+/* a display list command as a smoke cloud has it: D_802F46C0's pairs
+   (twelve) replace some (func_802C0C64) */
+static const Gfx *smoke_cmd(const Gfx *cmd) {
+    s32 n;
+
+    for (n = 0; n < 12; n++) {
+        if (D_802F46C0[n][0].words.w0 == cmd->words.w0 && D_802F46C0[n][0].words.w1 == cmd->words.w1) {
+            return &D_802F46C0[n][1];
+        }
+    }
+    return cmd;
+}
+
 /* A display list's commands from src to src_end copied to *d (through
-   func_802C0C64 when `subst`) while *k, counting down, lasts: 0 if it ran
+   smoke_cmd when `subst`) while *k, counting down, lasts: 0 if it ran
    out. */
-static s32 copy_cmds_n(u32 **d, u32 *src, u32 *src_end, s32 *k, s32 subst) {
-    for (; src != src_end; src += 2) {
+static s32 copy_cmds_n(Gfx **d, Gfx *src, Gfx *src_end, s32 *k, s32 subst) {
+    for (; src != src_end; src++) {
         if (--*k == 0)
             return 0;
         if (subst) {
-            *(u64 *)*d = func_802C0C64(*(u64 *)src);
+            dl_copy_cmd(*d, smoke_cmd(src));
         } else
-            *(u64 *)*d = *(u64 *)src;
-        *d += 2;
+            dl_copy_cmd(*d, src);
+        (*d)++;
     }
     return 1;
 }
@@ -2306,7 +2290,7 @@ void func_802C09B8(s32 group, Building *b) {
     u8 *model = B_MODEL(b), *r, *end;
     Smoke *s;
     GroupDls *dls;
-    u32 *d;
+    Gfx *d;
     s32 i, k;
 
     if (M_SHADOWS(model) != 0)
@@ -2319,10 +2303,7 @@ void func_802C09B8(s32 group, Building *b) {
                 break;
         }
     }
-    d = s->dl;
-    d[0] = DL_SEGMENT(9);
-    d[1] = K0(M_TEXTURES(model));
-    d += 2;
+    d = dl_put(s->dl, DL_SEGMENT(9), DL_ADDR(M_TEXTURES(model)));
     k = SMOKE_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
     for (r = B_SECTION(b, MS_GROUP_DLS); r != end; r = GDL_NEXT(r)) {
@@ -2330,30 +2311,26 @@ void func_802C09B8(s32 group, Building *b) {
             continue;
         }
         dls = GDL_DLS(r, GDL_N(r));
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k, 1))
+        if (!copy_cmds_n(&d, M_DL(model, dls->dl0), M_DL(model, dls->dl0_end), &k, 1))
             return;
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k, 1))
+        if (!copy_cmds_n(&d, M_DL(model, dls->dl1), M_DL(model, dls->dl1_end), &k, 1))
             return;
     }
     s->alpha = SMOKE_ALPHA;
-    d[0] = DL_END;
-    d[1] = 0;
+    dl_put(d, DL_END, 0);
 }
 
-/* a display list command as a smoke cloud has it: D_802F46C0's pairs
-   (twelve) replace some */
+/* smoke_cmd, as the original's callers pass it a command: in a doubleword,
+   w0 the high word */
 REGS(t4 -> t4)
 u64 func_802C0C64(u64 cmd) {
-    u64 *p;
-    s32 n;
+    Gfx g;
+    const Gfx *r;
 
-    for (n = 12, p = D_802F46C0; n != 0; n--, p += 2) {
-        if (p[0] == cmd) {
-            cmd = p[1];
-            break;
-        }
-    }
-    return cmd;
+    g.words.w0 = (u32)(cmd >> 32);
+    g.words.w1 = (u32)cmd;
+    r = smoke_cmd(&g);
+    return (u64)(u32)r->words.w0 << 32 | (u32)r->words.w1;
 }
 
 /* The dust (D_803EFED0): rising faster each frame (by DUST_ACCEL) until
@@ -2361,7 +2338,7 @@ u64 func_802C0C64(u64 cmd) {
    drawn with this frame's matrix; then it waits DUST_WAIT frames before
    it can be used again.  D_803F7810 while it rises. */
 REGS(v0)
-void func_802C0CBC(u32 *g) {
+void func_802C0CBC(Gfx *g) {
     Dust *s;
     s32 i, h, y, x, z;
     s32 *m;
@@ -2396,22 +2373,16 @@ void func_802C0CBC(u32 *g) {
         }
         func_802ACA60(x, y, z, m);
         func_802AC8CC((u32 *)m);
-        g[0] = DL_PIPESYNC;
-        g[1] = 0;
-        g += 2;
+        g = dl_put(g, DL_PIPESYNC, 0);
         if (D_8035805C != 0) {
             m = s->mtx[1];
         } else {
             m = s->mtx[0];
         }
-        g[0] = DL_SEGMENT(12);          /* the matrix */
-        g[1] = K0(m);
-        g[2] = DL_CALL;                 /* the cloud */
-        g[3] = K0(s->dl);
-        g += 4;
+        g = dl_put(g, DL_SEGMENT(12), DL_ADDR(m));      /* the matrix */
+        g = dl_put(g, DL_CALL, DL_ADDR(s->dl));         /* the cloud */
     }
-    g[0] = DL_END;
-    g[1] = 0;
+    dl_put(g, DL_END, 0);
 }
 
 /* The dust of group `group` of building b (a model D_80305E38 lists; not
@@ -2425,8 +2396,7 @@ void func_802C0E8C(s32 group, Building *b) {
     s16 *id;
     Dust *s;
     GroupDls *dls;
-    u32 *d;
-    u64 *c;
+    Gfx *d;
     s32 i, k;
 
     if ((D_80364A90 & 0x440) != 0)
@@ -2445,18 +2415,12 @@ void func_802C0E8C(s32 group, Building *b) {
     }
     func_802C1214(s, b);
     d = s->dl;
-    d[0] = DL_SEGMENT(9);               /* the model's textures */
-    d[1] = K0(M_TEXTURES(model));
-    d[2] = DL_SEGMENT(11);              /* the corners */
-    d[3] = K0(s->corners);
-    d += 4;
-    for (i = 6, c = D_802F4780; i != 0; i--) {
-        *(u64 *)d = *c++;
-        d += 2;
+    d = dl_put(d, DL_SEGMENT(9), DL_ADDR(M_TEXTURES(model)));   /* the model's textures */
+    d = dl_put(d, DL_SEGMENT(11), DL_ADDR(s->corners));         /* the corners */
+    for (i = 0; i < 6; i++) {
+        dl_copy_cmd(d++, &D_802F4780[i]);
     }
-    d[0] = DL_MTX_PUSH;                 /* segment 12's matrix */
-    d[1] = 0x0C000000;
-    d += 2;
+    d = dl_put(d, DL_MTX_PUSH, 0x0C000000);                     /* segment 12's matrix */
     k = DUST_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
     for (r = B_SECTION(b, MS_GROUP_DLS); r != end; r = GDL_NEXT(r)) {
@@ -2464,19 +2428,17 @@ void func_802C0E8C(s32 group, Building *b) {
             continue;
         }
         dls = GDL_DLS(r, GDL_N(r));
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k, 0))
+        if (!copy_cmds_n(&d, M_DL(model, dls->dl0), M_DL(model, dls->dl0_end), &k, 0))
             return;
-        if (!copy_cmds_n(&d, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k, 0))
+        if (!copy_cmds_n(&d, M_DL(model, dls->dl1), M_DL(model, dls->dl1_end), &k, 0))
             return;
     }
     s->y = 0;
     s->top = (((s16 *)B_SECTION(b, MS_HEIGHTS))[group - 1] << 5) - b->y;
     s->speed = 0;
     s->active = 1;
-    d[0] = DL_MTX_POP;
-    d[1] = 0;
-    d[2] = DL_END;
-    d[3] = 0;
+    d = dl_put(d, DL_MTX_POP, 0);
+    dl_put(d, DL_END, 0);
 }
 
 /* the dust's four corners: the model's shadow rectangle (MS_SHADOW)
@@ -2499,7 +2461,7 @@ void func_802C1214(Dust *s, Building *b) {
    both lists; then it waits SHADOW_WAIT frames before it can be used
    again.  Returns g0 (and g1). */
 REGS(a0, a1 -> a0, a1)
-u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
+Gfx *func_802C12E0(Gfx *g0, Gfx *g1, Gfx **g1_out) {
     FallShadow *s;
     Mtx *m = D_803F7658;
     s32 i, sz, sz2, gr;
@@ -2527,16 +2489,10 @@ u32 *func_802C12E0(u32 *g0, u32 *g1, u32 **g1_out) {
             }
         }
         func_8026A454(s->x, s->y, s->z, sz, s->heading, m);
-        g0[0] = DL_SEGMENT(9);          /* the model's textures */
-        g0[1] = K0_TO_PHYS(s->textures);
-        g1[0] = DL_SEGMENT(9);
-        g1[1] = K0_TO_PHYS(s->textures);
-        g0[2] = DL_CALL;
-        g0[3] = K0(s->dl0);
-        g1[2] = DL_CALL;
-        g1[3] = K0(s->dl1);
-        g0 += 4;
-        g1 += 4;
+        g0 = dl_put(g0, DL_SEGMENT(9), DL_ADDR(s->textures));      /* the model's textures */
+        g1 = dl_put(g1, DL_SEGMENT(9), DL_ADDR(s->textures));
+        g0 = dl_put(g0, DL_CALL, DL_ADDR(s->dl0));
+        g1 = dl_put(g1, DL_CALL, DL_ADDR(s->dl1));
     }
     *g1_out = g1;
     return g0;
@@ -2554,7 +2510,8 @@ void func_802C1438(s32 group, Building *b) {
     FallShadow *s;
     GroupDls *dls;
     s16 *c;
-    u32 *d0, *d1, seg = 0x02000000;
+    Gfx *d0, *d1;
+    u32 seg = 0x02000000;
     s32 i, k0, k1, t, h;
 
     if (M_SHADOWS(model) == 0)
@@ -2570,15 +2527,9 @@ void func_802C1438(s32 group, Building *b) {
                 break;
         }
     }
-    s->textures = (u32)(uintptr_t)M_TEXTURES(model);
-    d0 = s->dl0;
-    d1 = s->dl1;
-    d0[0] = DL_MTX_PUSH;                /* its matrix */
-    d0[1] = seg;
-    d1[0] = DL_MTX_PUSH;
-    d1[1] = seg;
-    d0 += 2;
-    d1 += 2;
+    s->textures = M_TEXTURES(model);
+    d0 = dl_put(s->dl0, DL_MTX_PUSH, seg);      /* its matrix */
+    d1 = dl_put(s->dl1, DL_MTX_PUSH, seg);
     k0 = SHADOW_DL_MAX;
     k1 = SHADOW_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
@@ -2587,19 +2538,15 @@ void func_802C1438(s32 group, Building *b) {
             continue;
         }
         dls = GDL_DLS(r, GDL_N(r));
-        if (!copy_cmds_n(&d0, (u32 *)(model + dls->dl0), (u32 *)(model + dls->dl0_end), &k0, 0))
+        if (!copy_cmds_n(&d0, M_DL(model, dls->dl0), M_DL(model, dls->dl0_end), &k0, 0))
             return;
-        if (!copy_cmds_n(&d1, (u32 *)(model + dls->dl1), (u32 *)(model + dls->dl1_end), &k1, 0))
+        if (!copy_cmds_n(&d1, M_DL(model, dls->dl1), M_DL(model, dls->dl1_end), &k1, 0))
             return;
     }
-    d0[0] = DL_MTX_POP;
-    d0[1] = 0;
-    d0[2] = DL_END;
-    d0[3] = 0;
-    d1[0] = DL_MTX_POP;
-    d1[1] = 0;
-    d1[2] = DL_END;
-    d1[3] = 0;
+    d0 = dl_put(d0, DL_MTX_POP, 0);
+    dl_put(d0, DL_END, 0);
+    d1 = dl_put(d1, DL_MTX_POP, 0);
+    dl_put(d1, DL_END, 0);
     s->active = 1;
     s->size = 0;
     s->growth = 1;

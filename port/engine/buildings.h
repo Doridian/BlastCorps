@@ -216,12 +216,12 @@ extern u8 D_803F3968[NFX][FX_SIZE];     /* the effect records */
 
 /* a smoke cloud (D_803F0900[4]): a group's look copied, fading */
 typedef struct Smoke {
-    /* 0x000 */ u32 dl[0x12C];
+    /* 0x000 */ Gfx dl[0x96];
     /* 0x4B0 */ s16 alpha;       /* 0: not drawn */
     /* 0x4B2 */ u8 wait;         /* frames before it can be used again */
     /* 0x4B3 */ u8 pad[5];
 } Smoke;
-SIZE_CHECK(Smoke, 0x4B8);
+SIZE_CHECK_C(Smoke, 0x4B8);
 #define NSMOKE 4
 #define SMOKE_DL_MAX 0x94       /* the commands it copies, at most (- 1) */
 #define SMOKE_ALPHA 0xFF        /* where it starts */
@@ -230,7 +230,7 @@ SIZE_CHECK(Smoke, 0x4B8);
 
 /* the dust (D_803EFED0, one): a group's look, rising from the ground */
 typedef struct Dust {
-    /* 0x000 */ u32 dl[0x258];
+    /* 0x000 */ Gfx dl[0x12C];
     /* 0x960 */ s32 mtx[2][16];  /* by frame (D_8035805C) */
     /* 0x9E0 */ s16 corners[4][8];       /* Vtx */
     /* 0xA20 */ s32 top;         /* how far it rises (<< 5) */
@@ -240,7 +240,7 @@ typedef struct Dust {
     /* 0xA2B */ u8 wait;
     /* 0xA2C */ u8 padA2C[4];
 } Dust;
-SIZE_CHECK(Dust, 0xA30);
+SIZE_CHECK_C(Dust, 0xA30);
 #define NDUST 1
 #define DUST_DL_MAX 0x121       /* the commands it copies, at most (- 1) */
 #define DUST_ACCEL 16           /* its speed's rise a frame */
@@ -250,9 +250,9 @@ SIZE_CHECK(Dust, 0xA30);
 
 /* a falling group's shadow (D_803F1BE0[2]) */
 typedef struct FallShadow {
-    /* 0x000 */ u32 dl0[0x8C];   /* the two passes' lists */
-    /* 0x230 */ u32 dl1[0x8C];
-    /* 0x460 */ u32 textures;    /* its model's (segment 9) */
+    /* 0x000 */ Gfx dl0[0x46];   /* the two passes' lists */
+    /* 0x230 */ Gfx dl1[0x46];
+    /* 0x460 */ u8 *textures;    /* its model's (segment 9) */
     /* 0x464 */ s16 x, y, z;
     /* 0x46A */ u16 heading;
     /* 0x46C */ u16 size;
@@ -262,7 +262,7 @@ typedef struct FallShadow {
     /* 0x472 */ u8 wait;
     /* 0x473 */ u8 pad473[5];
 } FallShadow;
-SIZE_CHECK(FallShadow, 0x478);
+SIZE_CHECK_C(FallShadow, 0x478);
 #define NSHADOW 2
 #define SHADOW_DL_MAX 0x43      /* the commands each list copies, at most (- 1) */
 #define SHADOW_ACCEL 15         /* the growth's rise a frame */
@@ -304,10 +304,6 @@ extern s8 *D_803A7408;                          /* the kinds that turn the camer
 /* divu, as the VR4300 (and the translation) gives it for 0 */
 static inline u32 engine_divu(u32 n, u32 d) { return d != 0 ? n / d : 0xFFFFFFFFu; }
 static inline u32 engine_remu(u32 n, u32 d) { return d != 0 ? n % d : n; }
-
-/* a KSEG0 address as the display lists hold it (the SDK's K0_TO_PHYS: the
-   identity in the port, the N64's physical word in the engine check) */
-#define K0(p) K0_TO_PHYS((u32)(p))
 
 /* the display list commands 77E20 and 8A2E0 write */
 #define DL_SEGMENT(seg) (0xBC000006 | (seg) * 4 << 8)  /* G_MOVEWORD: segment seg's address */

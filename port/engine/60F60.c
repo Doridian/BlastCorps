@@ -587,15 +587,11 @@ s32 func_802AD7FC(u32 x);
 REGS(t4, t0)
 void func_802A68D4(EffectSlot *s, s32 *m) {
     Gfx **dl;
-    Gfx *g;
     s32 x, y, z, scale, step, cx, cy, cz, angle, pitch;
     s64 dist, q, num;
 
     dl = func_802A6EB8(s);
-    g = *dl;
-    ((u32 *)g)[1] = K0_TO_PHYS((u32)(uintptr_t)m);
-    ((u32 *)g)[0] = 0x01040040;
-    *dl = g + 1;
+    *dl = dl_put(*dl, 0x01040040, DL_ADDR(m));     /* G_MTX: modelview, multiplied, pushed */
     scale = s->unk4;
     func_802ACC68(scale, scale, scale, m);
     if (s->mode != 1) {
@@ -712,11 +708,8 @@ void func_802A64A4(void) {
         mtx += 0x40;
         {
             Gfx **dl = func_802A6EB8(s);
-            u32 *g = (u32 *)*dl;
 
-            g[0] = 0xBD000000;      /* G_POPMTX */
-            g[1] = 0;
-            *dl = (Gfx *)(g + 2);
+            *dl = dl_put(*dl, 0xBD000000, 0);      /* G_POPMTX */
         }
         frames = *(u16 *)(anim + 0xE);
         t6 = s->frame + 1;
@@ -731,9 +724,7 @@ void func_802A64A4(void) {
                 D_803EB770[*cell++] = 0;
         }
     }
-    ((u32 *)D_803EB780)[0] = 0xB8000000;    /* G_ENDDL */
-    ((u32 *)D_803EB780)[1] = 0;
-    ((u32 *)D_803EB784)[0] = 0xB8000000;
-    ((u32 *)D_803EB784)[1] = 0;
+    dl_put(D_803EB780, 0xB8000000, 0);      /* G_ENDDL */
+    dl_put(D_803EB784, 0xB8000000, 0);
     func_802A6748();
 }

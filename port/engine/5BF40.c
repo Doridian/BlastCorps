@@ -6,7 +6,7 @@
  * the heap once (D_803B8D44).  A texture is DMA'd from its entry's offset
  * to the next entry's and decoded in place by its type (60F60's
  * func_802A57DC), straight away or (func_802A1074) when its DMA is in.
- * D_803B8570 lists what is loaded, by number and physical address, up to
+ * D_803B8570 lists what is loaded, by number and address (DL_ADDR), up to
  * D_803B8D40 (tex_phys looks one up); display lists name textures by number
  * in their G_SETTIMG words, and func_802A08E4 puts the addresses in.
  */
@@ -30,7 +30,6 @@ extern s32 D_80358080;                      /* DMAs in flight */
 extern s32 D_80358084;                      /* raw ones among them */
 #define TABLE_ROM ROM(D_00004CE0)                /* the texture table's ROM address */
 #define TABLE_SIZE 0x8000                   /* the table's bytes */
-#define PHYS(p) K0_TO_PHYS((u32)(uintptr_t)(p))
 #define G_SETTIMG_OP 0xFD                   /* F3D's G_SETTIMG */
 #define INVAL_DECODED 0x1000    /* the bytes of cache invalidated for a
                                    texture to decode */
@@ -82,18 +81,18 @@ void func_802A0700(void) {
 /* func_802A08E4: every G_SETTIMG in [dl, end) names a texture by number:
    load the ones not loaded yet and put their addresses in.  (A texture
    loaded here keeps the last decode's param.) */
-static void tex_fix_dl(u32 *dl, u32 *end) {
+static void tex_fix_dl(Gfx *dl, Gfx *end) {
     TexCacheEntry *top = D_803B8D40;
     TextureEntry *table = D_803B8D44;
     TexCacheEntry *c;
 
-    for (; dl != end; dl += 2) {
+    for (; dl != end; dl++) {
         u32 id;
 
-        if ((dl[0] & 0xFF000000) >> 24 != G_SETTIMG_OP) {
+        if (DL_OP(dl) != G_SETTIMG_OP) {
             continue;
         }
-        id = dl[1];
+        id = dl->words.w1;
         for (c = D_803B8570; c != top; c++) {
             if (c->id == id) {
                 break;
@@ -103,7 +102,8 @@ static void tex_fix_dl(u32 *dl, u32 *end) {
             /* not loaded: load it at the heap's top */
             TextureEntry *e;
             u8 *heap;
-            u32 phys, size;
+            uintptr_t phys;
+            u32 size;
 
             c->id = id;
             osInvalDCache(D_80358070, INVAL_DECODED);
@@ -112,25 +112,25 @@ static void tex_fix_dl(u32 *dl, u32 *end) {
             D_803C4B58.length = e->length;
             D_803C4B58.type = e->type;
             D_803C4B58.dst = heap;
-            phys = PHYS(heap);
-            dl[1] = phys;
+            phys = DL_ADDR(heap);
+            dl->words.w1 = phys;
             c->phys = phys;
             top++;
             size = tex_load_now(id, e, heap);
             D_80358070 += size;
         }
-        dl[1] = c->phys;
+        dl->words.w1 = c->phys;
     }
     D_803B8D40 = top;
 }
 
 REGS(s0, s1)
-void func_802A08E4(u32 *dl, u32 *end) {
+void func_802A08E4(Gfx *dl, Gfx *end) {
     tex_fix_dl(dl, end);
 }
 
 /* func_802A08B4 (DE70.c's) */
-void func_802A08B4(u32 *dl, u32 *end) {
+void func_802A08B4(Gfx *dl, Gfx *end) {
     tex_fix_dl(dl, end);
 }
 
@@ -158,15 +158,16 @@ void func_802A0B00(u16 id, u8 *param) {
     func_802A0B34(id, param);
 }
 
-/* func_802A0CFC: texture `id`'s physical address, loaded at the heap's top
-   with `param` if it isn't yet */
+/* func_802A0CFC: texture `id`'s address (as a G_SETTIMG has it), loaded at
+   the heap's top with `param` if it isn't yet */
 REGS(t6, fp -> s0)
-u32 func_802A0CFC(u32 id, u8 *param) {
+uintptr_t func_802A0CFC(u32 id, u8 *param) {
     TexCacheEntry *top = D_803B8D40;
     TexCacheEntry *c;
     TextureEntry *e;
     u8 *heap;
-    u32 phys, size;
+    uintptr_t phys;
+    u32 size;
 
     for (c = D_803B8570; c != top; c++) {
         if (c->id == id) {
@@ -182,18 +183,18 @@ u32 func_802A0CFC(u32 id, u8 *param) {
     D_803C4B58.type = e->type;
     D_803C4B58.param = param;
     D_803C4B58.dst = heap;
-    phys = PHYS(heap);
+    phys = DL_ADDR(heap);
     top->phys = phys;
     size = tex_load_now(id, e, heap);
     D_80358070 += size;
     return phys;
 }
 
-/* texture `id`'s physical address, which func_802A0CFC gave when it loaded
-   it.  The animated textures' frames keep their numbers (5CB60's
-   func_802A2608 and func_802A1C20 load them), where the original put these
-   addresses over them; 5FD50 and 77E20 look them up when they draw. */
-u32 tex_phys(u32 id) {
+/* texture `id`'s address, which func_802A0CFC gave when it loaded it.  The
+   animated textures' frames keep their numbers (5CB60's func_802A2608 and
+   func_802A1C20 load them), where the original put these addresses over
+   them; 5FD50 and 77E20 look them up when they draw. */
+uintptr_t tex_phys(u32 id) {
     TexCacheEntry *c;
 
     for (c = D_803B8570; c != D_803B8D40; c++) {
@@ -204,12 +205,10 @@ u32 tex_phys(u32 id) {
     host_fatal("texture %u is not loaded", (unsigned)id);
 }
 
-/* func_802A0CC8 (the C's): the same */
+/* func_802A0CC8 (the C's): the same, as a pointer (the physical address
+   in the engine check build) */
 u8 *func_802A0CC8(s32 id, u8 *param) {
-    u32 phys;
-
-    phys = func_802A0CFC(id, param);
-    return (u8 *)(uintptr_t)phys;       /* (a physical address: P8) */
+    return (u8 *)func_802A0CFC(id, param);
 }
 
 /* func_802A0F0C: texture `id`'s raw bytes DMA'd to `dst` (not decoded) */

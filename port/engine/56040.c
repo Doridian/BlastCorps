@@ -118,9 +118,11 @@ extern TexSlot D_803A7440[TEX_SLOTS];
    texture (a G_SETTIMG's word), by func_8029DF78 */
 typedef struct TexPatch {
     /* 0x00 */ TexAnim *anim;
-    /* 0x04 */ s32 off;             /* the G_SETTIMG's address word, from the list's start */
+    /* 0x04 */ s32 off;             /* the G_SETTIMG's address word, from the list's start (bytes) */
     /* 0x08 */ s32 idx;             /* which of the frame's textures */
 } TexPatch;
+/* a TexPatch's command in the list at dl */
+#define PATCH_CMD(dl, e) ((Gfx *)((u8 *)(dl) + (e)->off - __builtin_offsetof(Gfx, words.w1)))
 SIZE_CHECK_C(TexPatch, 0xC);
 extern TexPatch D_803B3500[];
 extern TexPatch *D_803B35F0;            /* one past the last */
@@ -521,13 +523,13 @@ void func_8029DD54(u32 *to) {
 
 /* ---- the animated textures' slots ----------------------------------------- */
 
-/* the physical address of a slot's texture, as a G_SETTIMG takes it */
-#define SLOT_PHYS(s) K0_TO_PHYS((u32)(s)->data)
+/* the address of a slot's texture, as a G_SETTIMG takes it */
+#define SLOT_PHYS(s) DL_ADDR((s)->data)
 
 /* the slot holding this texture kind for this animation: its refs
-   cleared; its texture's physical address, 0 if none */
+   cleared; its texture's address (SLOT_PHYS), 0 if none */
 REGS(t6, t3 -> s1)
-u32 func_8029E4E4(s32 kind, TexAnim *owner) {
+uintptr_t func_8029E4E4(s32 kind, TexAnim *owner) {
     TexSlot *s = D_803A7440;
     s32 n;
 
@@ -547,9 +549,9 @@ u32 func_8029E4E4(s32 kind, TexAnim *owner) {
 }
 
 /* A texture (kind, for this animation) into a free slot (the one past them
-   when none is free) through func_802A1074; its physical address */
+   when none is free) through func_802A1074; its address (SLOT_PHYS) */
 REGS(t3, t6, fp -> s1)
-u32 func_8029E47C(TexAnim *owner, s32 kind, u8 *fp) {
+uintptr_t func_8029E47C(TexAnim *owner, s32 kind, u8 *fp) {
     TexSlot *s = D_803A7440;
     s32 n;
 
@@ -1472,18 +1474,18 @@ void func_8029A914(VS *vs) {
 
 #define G_SETTIMG_OP 0xFD
 #define G_SETPRIMCOLOR_OP 0xFA
-#define GFX_OP(w) (((w) & 0xFF000000) >> 24)
 
 /* For each texture animation of this vehicle type, the G_SETTIMG commands
    of its display list (dl to end) that load its first texture: (the
    animation, the command's address word, texture 0) appended at
    D_803B35F0 */
 REGS(s0, s1, s2)
-void func_8029DF78(u32 *dl, u32 *end, u32 type) {
+void func_8029DF78(Gfx *dl, Gfx *end, u32 type) {
     TexAnim **ids = D_802C23B4;
     TexAnim *T;
     TexPatch *out = D_803B35F0;
-    u32 *p, w, tex;
+    Gfx *p;
+    u32 tex;
 
     for (;;) {
         if (*ids == TEXANIM_END)
@@ -1495,17 +1497,13 @@ void func_8029DF78(u32 *dl, u32 *end, u32 type) {
         if (T->c == 0)
             continue;
         tex = TEXANIM_KINDS(T, 0)[0];
-        for (p = dl;;) {
-            if (p == end)
-                break;
-            w = p[0];
-            p += 2;
-            if (GFX_OP(w) != G_SETTIMG_OP)
+        for (p = dl; p != end; p++) {
+            if (DL_OP(p) != G_SETTIMG_OP)
                 continue;
-            if (p[-1] != tex)
+            if (p->words.w1 != tex)
                 continue;
             out->anim = T;
-            out->off = (u8 *)p - (u8 *)dl - 4;
+            out->off = (u8 *)&p->words.w1 - (u8 *)dl;
             out->idx = 0;
             out++;
         }
@@ -2721,7 +2719,8 @@ void func_8029E21C(Anim *a, u8 *fp) {
     Vehicle *m;
     u8 *dl;
     u16 *h1, *h2;
-    u32 tex1, tex2 = 0, *w, cmd;
+    uintptr_t tex1, tex2 = 0;
+    Gfx *g;
     s32 k, n, c, second, idx;
     f32 t = a->t;
 
@@ -2771,20 +2770,17 @@ void func_8029E21C(Anim *a, u8 *fp) {
                 break;
             if (e->anim == T) {
                 if (e->idx == idx) {
-                    *(u32 *)(dl + e->off) = tex1;
+                    PATCH_CMD(dl, e)->words.w1 = tex1;
                     if (second != 0) {
                         /* the next record: the second texture's G_SETTIMG,
                            then the G_SETPRIMCOLOR after it gets the blend */
                         e++;
-                        w = (u32 *)(dl + e->off);
-                        *w++ = tex2;
-                        for (;;) {
-                            cmd = *w;
-                            w += 2;
-                            if (GFX_OP(cmd) == G_SETPRIMCOLOR_OP)
-                                break;
-                        }
-                        w[-2] = engine_cvt_w_s(t * 255.0f) | ((u32)G_SETPRIMCOLOR_OP << 24);
+                        g = PATCH_CMD(dl, e);
+                        g->words.w1 = tex2;
+                        do {
+                            g++;
+                        } while (DL_OP(g) != G_SETPRIMCOLOR_OP);
+                        g->words.w0 = engine_cvt_w_s(t * 255.0f) | ((u32)G_SETPRIMCOLOR_OP << 24);
                     }
                 }
             }

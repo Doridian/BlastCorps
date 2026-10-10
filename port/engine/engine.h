@@ -151,6 +151,33 @@ void engine_frame_s(void);
 u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)
 
+/* ---- display lists ---------------------------------------------------------
+
+   The engine's display lists are Gfx arrays, walked a command at a time
+   and read and written by their two words (gbi.h's Gwords: 4 bytes each,
+   as wide as a pointer in the LP64 port's wide build), never as bytes or
+   doublewords.  An address in a word is DL_ADDR's: the pointer itself (the
+   N64's physical address in the engine check build, whose translations
+   write that word). */
+#ifdef PORT_ENGINE_CHECK
+#define DL_ADDR(p) ((uintptr_t)K0_TO_PHYS((uintptr_t)(p)))
+#else
+#define DL_ADDR(p) ((uintptr_t)(p))
+#endif
+/* the command at g set to (w0, w1); the next */
+static inline Gfx *dl_put(Gfx *g, u32 w0, uintptr_t w1) {
+    g->words.w0 = w0;
+    g->words.w1 = w1;
+    return g + 1;
+}
+/* the command at s copied to d */
+static inline void dl_copy_cmd(Gfx *d, const Gfx *s) {
+    d->words.w0 = s->words.w0;
+    d->words.w1 = s->words.w1;
+}
+/* a command's opcode */
+#define DL_OP(g) ((u32)(g)->words.w0 >> 24)
+
 /* A count for the taint build (-DPORT_ENGINE_TAINT=ON, port/host/engine.c;
    port/tools/taint.py --probes): whether a path some leftover feeds is
    ever taken, say.  Nothing in the other builds. */
