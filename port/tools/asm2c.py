@@ -82,6 +82,22 @@ N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 # ---- the type inventory -------------------------------------------------------
 
 UPTR = "__UINTPTR_TYPE__"       # (asm_data.h has no stdint.h)
+# a display list command (TYPES' and LABEL_TYPES' kind `Gfx`): gbi.h's Gfx,
+# which asm_data.h can't include (its Mtx and Vtx are the inventory's), as
+# asm_Gfx: the same two words, as wide as a pointer in the wide build
+ASM_GFX = "asm_Gfx"
+ASM_GFX_DEF = """/* a display list command: gbi.h's Gfx (its words as wide as a pointer in the
+   LP64 port's wide build, PORT_WIDE_GFX) */
+typedef union asm_Gfx {
+    struct {
+#ifdef PORT_WIDE_GFX
+        __UINTPTR_TYPE__ w0, w1;
+#else
+        unsigned int w0, w1;
+#endif
+    } words;
+    long long force_structure_alignment;
+} asm_Gfx;"""
 
 _GAME = os.path.join(BLAST, "include", "game")
 INVENTORY = os.path.join(_GAME, f"inventory.{VERSION}.json")
@@ -107,13 +123,15 @@ def inventory():
 
 
 SCALAR = {"s8": 1, "u8": 1, "s16": 2, "u16": 2, "s32": 4, "u32": 4, "f32": 4, "s64": 8, "u64": 8, "f64": 8,
-          "ptr": 4, "ptr?": 4, "romoff": 4, "segptr": 4, "offset": 4, "phys": 4, "gfx": 4, "uptr": 4, "bytes": 1}
+          "ptr": 4, "ptr?": 4, "romoff": 4, "segptr": 4, "offset": 4, "phys": 4, "gfx": 4, "uptr": 4, "Gfx": 8,
+          "bytes": 1}
 # the inventory's scalar kinds as C (an address kind that isn't a pointer is
-# the number it is; `uptr`, TYPES' and LABEL_TYPES' own, an address as a
-# display list's word holds it: uintptr_t, as wide as a pointer)
+# the number it is; the inventory's `gfx` is a display list's word).  TYPES'
+# and LABEL_TYPES' own: `uptr`, an address as a display list's word holds
+# it (uintptr_t, as wide as a pointer), and `Gfx`, a command (asm_Gfx)
 C_SCALAR = {"s8": "s8", "u8": "u8", "s16": "s16", "u16": "u16", "s32": "s32", "u32": "u32", "f32": "f32",
             "s64": "s64", "u64": "u64", "f64": "f64", "romoff": "u32", "segptr": "u32", "offset": "u32",
-            "phys": "u32", "gfx": "u32", "ptr?": "u32", "uptr": UPTR, "bytes": "u8"}
+            "phys": "u32", "gfx": "u32", "ptr?": "u32", "uptr": UPTR, "Gfx": ASM_GFX, "bytes": "u8"}
 
 
 def type_size(t):
@@ -123,6 +141,8 @@ def type_size(t):
 
 def type_widths(t, types, depth=0):
     """[(offset, width)] of every scalar in type t (None: unknown/union)"""
+    if t == "Gfx":
+        return [(0, 4), (4, 4)]         # (a command's two words)
     if t in SCALAR:
         return [(0, SCALAR[t])]
     ty = types.get(t)
@@ -273,9 +293,9 @@ LABEL_TYPES = {
     # big-endian, as bytes)
     "D_80306344": ("bytes", 0xAC),
     # the display list commands 77E20's smoke and dust copy (the original
-    # reads them as doublewords): words, as the engine reads them (Gfx)
-    "D_802F46C0": ("gfx", 48),
-    "D_802F4780": ("gfx", 12),
+    # reads them as doublewords): commands, as the engine reads them
+    "D_802F46C0": ("Gfx", 24),
+    "D_802F4780": ("Gfx", 6),
     # the engine's types for the inventory's words (TYPES)
     "D_803F3910": ("HitPair", 128),
     "D_803F3968": ("bytes", 30 * 0x38),
@@ -289,6 +309,8 @@ LABEL_TYPES = {
     "D_803B7FC8": ("MtxCopy", 0x78),
     "D_803C4B70": ("EffectSlot", 16),
     "D_803EB7A0": ("VehicleSave", 1),
+    "D_803F0900": ("Smoke", 4),
+    "D_803EFED0": ("Dust", 1),
     "D_803F1BE0": ("FallShadow", 2),
     "D_803B8570": ("TexCacheEntry", 250),
     "D_803C3240": ("uptr", 1),          # 5FD50's animated textures' words
@@ -338,10 +360,16 @@ TYPES = {
         (0x20, "vel", "s32", 3), (0x2C, "unk2C", "s32"), (0x30, "unk30", "u8"), (0x31, "unk31", "u8"),
         (0x32, "frame", "u8"), (0x33, "active", "u8"), (0x34, "mode", "u8"), (0x35, "unk35", "u8"),
         (0x36, "unk36", "u8"), (0x37, "cells", "u8", 4), (0x3B, "unk3B", "u8"))},
-    # (77E20's falling groups' shadows: display list words, and the model's
-    # textures for segment 9)
-    "FallShadow": {"size": 0x478, "align": 4, "fields": _fields(
-        (0, "dl0", "gfx", 0x8C), (0x230, "dl1", "gfx", 0x8C), (0x460, "textures", "ptr", 1, "u8"),
+    # (77E20's smoke, dust and falling groups' shadows: display lists, and
+    # the shadow's model's textures for segment 9)
+    "Smoke": {"size": 0x4B8, "align": 8, "fields": _fields(
+        (0, "dl", "Gfx", 0x96), (0x4B0, "alpha", "s16"), (0x4B2, "wait", "u8"), (0x4B3, "pad", "bytes", 5))},
+    "Dust": {"size": 0xA30, "align": 8, "fields": _fields(
+        (0, "dl", "Gfx", 0x12C), (0x960, "mtx", "s32", 32), (0x9E0, "corners", "s16", 32), (0xA20, "top", "s32"),
+        (0xA24, "y", "s32"), (0xA28, "speed", "u16"), (0xA2A, "active", "u8"), (0xA2B, "wait", "u8"),
+        (0xA2C, "padA2C", "bytes", 4))},
+    "FallShadow": {"size": 0x478, "align": 8, "fields": _fields(
+        (0, "dl0", "Gfx", 0x46), (0x230, "dl1", "Gfx", 0x46), (0x460, "textures", "ptr", 1, "u8"),
         (0x464, "x", "s16"), (0x466, "y", "s16"), (0x468, "z", "s16"), (0x46A, "heading", "u16"),
         (0x46C, "size", "u16"), (0x46E, "growth", "u16"), (0x470, "active", "u8"), (0x471, "held", "u8"),
         (0x472, "wait", "u8"), (0x473, "pad473", "bytes", 5))},
@@ -758,7 +786,7 @@ class Scalar:
         self.pointee = pointee      # C type the pointer points to
         self.ptr32 = ptr32          # a pointer kept 4 bytes (PTR32) in the LP64 build
         self.size = {"char": 1, "s8": 1, "u8": 1, "s16": 2, "u16": 2, "s32": 4, "u32": 4, "f32": 4,
-                     "s64": 8, "u64": 8, "f64": 8, "ptr": 4, UPTR: 4}[kind]
+                     "s64": 8, "u64": 8, "f64": 8, "ptr": 4, UPTR: 4, ASM_GFX: 8}[kind]
         self.align = self.size
 
     def decl(self, name):
@@ -767,12 +795,15 @@ class Scalar:
         return f"{self.kind} {name}"
 
     def units(self):
+        if self.kind == ASM_GFX:
+            w = Scalar("u32")
+            return [(0, 4, w), (4, 4, w)]
         return [(0, self.size, self)]
 
     def native(self):
         """the offset of its first native pointer (None: none; a uintptr_t
-        is as wide as one)"""
-        return 0 if (self.kind == "ptr" and not self.ptr32) or self.kind == UPTR else None
+        is as wide as one, and so are a command's words in the wide build)"""
+        return 0 if (self.kind == "ptr" and not self.ptr32) or self.kind in (UPTR, ASM_GFX) else None
 
 
 class Array:
@@ -864,7 +895,7 @@ class Types:
             return to           # (by its tag: TYPES', whose definition may come after)
         if to in (None, "void") or not IDENT.match(to or ""):
             return "void"
-        if to in C_SCALAR:
+        if to in C_SCALAR and to != "Gfx":     # (a pointer to a command: gbi.h's, by its tag)
             return C_SCALAR[to]
         if to == "char":
             return "char"
@@ -1226,6 +1257,11 @@ class Gen:
         return f"{cast}{sym}"
 
     def init(self, blob, base, ctype, depth=0):
+        if isinstance(ctype, Scalar) and ctype.kind == ASM_GFX:
+            if base in blob.syms or base + 4 in blob.syms:
+                sys.exit(f"asm2c.py: a display list command at 0x{base:X} holds a symbol")
+            w = Scalar("u32")
+            return "{ { " + self.value(blob, base, w) + ", " + self.value(blob, base + 4, w) + " } }"
         if isinstance(ctype, Scalar):
             return self.value(blob, base, ctype)
         if isinstance(ctype, Array):
@@ -1442,7 +1478,7 @@ def main():
         bodies[out] = (lines, top)
     # asm_data.h
     h = ["/* Generated by port/tools/asm2c.py: the types and declarations of the", "   handwritten objects' data. */",
-         "#ifndef ASM_DATA_H", "#define ASM_DATA_H", "", '#include "ultratypes.h"', ""]
+         "#ifndef ASM_DATA_H", "#define ASM_DATA_H", "", '#include "ultratypes.h"', "", ASM_GFX_DEF, ""]
     for m in MACROS:
         h.append(f"#undef {m}")
     h += ["", "/* data that is zeros: in .data all the same where sections place it */", "#ifdef PORT_MOVABLE",
