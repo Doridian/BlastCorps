@@ -170,35 +170,32 @@ typedef struct SndStateLists {
  * number of audio DMA buffers and messages (22EE0.c): eu's PAL frames are
  * longer and take more DMAs, and its heap is smaller. */
 #ifdef VERSION_EU
-#define AUDIO_HEAP_SIZE 0x24540
+#define AUDIO_HEAP_N64 0x24540
 #define NUM_DMA_MESSAGES 0x5C
 #else
-#define AUDIO_HEAP_SIZE 0x2A280
+#define AUDIO_HEAP_N64 0x2A280
 #define NUM_DMA_MESSAGES 0x48
 #endif
-/* The heap is exactly full on the N64.  In the LP64 port what is allocated
- * in it with pointers in it is bigger, and the heap gets that much more
- * (port/include/libaudio_heap.h; alHeapAlloc stops the port where it runs
- * out): AudioInfo (22EE0.c, three), the synthesizer's blocks (1C460.c's
- * synConfig: 0x18 voices, 0x80 updates; 22EE0.c's reverb, D_802F3AFC: 8
- * sections, one with a chorus, four with a low-pass filter), the sequence
- * player and its blocks (1C460.c's seqConfig: 0x10 channels, 0x18 voices,
- * 0x20 events) and the sound player's (sndConfig: 0x20 sounds, 0x40 events);
- * and 15 bytes, which alHeapInit takes off a buffer that isn't 16-aligned
- * (the port's image may give it 8). */
-#if defined(TARGET_PC) && defined(PORT_LP64)
-#include "libaudio_heap.h"
-#undef AUDIO_HEAP_SIZE
-#ifdef VERSION_EU
-#define AUDIO_HEAP_N64 0x24540
+/* The heap is exactly full on the N64.  In the port, what is allocated in
+ * it with pointers in it is as big as the host makes it, and the heap grows
+ * by that (port/include/libaudio_heap.h; nothing where pointers are 4
+ * bytes; alHeapAlloc stops the port where it runs out): AudioInfo (22EE0.c,
+ * three), the synthesizer's blocks (1C460.c's synConfig: 0x18 voices, 0x80
+ * updates; 22EE0.c's reverb, D_802F3AFC: 8 sections, one with a chorus,
+ * four with a low-pass filter), the sequence player and its blocks
+ * (1C460.c's seqConfig: 0x10 channels, 0x18 voices, 0x20 events) and the
+ * sound player's (sndConfig: 0x20 sounds, 0x40 events).  A heap that grew
+ * isn't at its N64 address, which is 16-aligned, and alHeapInit takes the
+ * rounding to 16 off a buffer that isn't: up to 15 bytes more then. */
+#ifndef TARGET_PC
+#define AUDIO_HEAP_SIZE AUDIO_HEAP_N64
 #else
-#define AUDIO_HEAP_N64 0x2A280
-#endif
-#define AUDIO_HEAP_SIZE                                                              \
-    (AUDIO_HEAP_N64 + 15 + 3 * AL_HEAP_GROWTH(1, AudioInfo, 0x68) +                  \
-     AL_SYN_HEAP_GROWTH(0x18, 0x80, 8, 1, 4) +                                       \
-     AL_HEAP_GROWTH(1, ALCSPlayer, 0x7C) + AL_CSP_HEAP_GROWTH(0x10, 0x18, 0x20) +   \
+#include "libaudio_heap.h"
+#define AUDIO_HEAP_GROWTH                                                              \
+    (3 * AL_HEAP_GROWTH(1, AudioInfo, 0x68) + AL_SYN_HEAP_GROWTH(0x18, 0x80, 8, 1, 4) + \
+     AL_HEAP_GROWTH(1, ALCSPlayer, 0x7C) + AL_CSP_HEAP_GROWTH(0x10, 0x18, 0x20) +     \
      AL_HEAP_GROWTH(0x20, SndState, 0x40) + AL_HEAP_GROWTH(0x40, ALEventListItem, 0x1C))
+#define AUDIO_HEAP_SIZE (AUDIO_HEAP_N64 + AUDIO_HEAP_GROWTH + (AUDIO_HEAP_GROWTH != 0 ? 15 : 0))
 #endif
 
 extern SndState *D_8036DCD8; /* a sound hd_code 39050.c starts (func_80260650's handle) */
