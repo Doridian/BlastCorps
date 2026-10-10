@@ -399,7 +399,13 @@ static int menu_hit(int w, float x, float y) {
         } else {
             uint32_t t = port_g32(e + 0xC);
             int len = 0;
+            /* (a text in game memory: RDRAM and the data after it, which
+               the scattered layout's variables reach far into) */
+#ifdef PORT_MOVABLE
+            if (t - 0x80000000u < PORT_ARENA_STACKS)
+#else
             if (t - 0x80000000u < 0x00800000u)
+#endif
                 for (const char *s = port_ptr(t); len < 64 && s[len]; len++)
                     ;
             ew = len ? (0.6f * (len - 1) + 1) * cw : 4 * cw;
