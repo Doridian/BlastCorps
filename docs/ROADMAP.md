@@ -291,10 +291,12 @@ Mostly done alongside Phase 2, but it's its own effort.
       The scheduler's functions are named after SGI's sched.c; gen_symbols.py
       now also gives other modules the hand-identified names they call.
 - [x] Mark every field that holds a pointer or a ROM offset in data loaded from
-      ROM (`ROMPTR`, `AssetOffset`, `RomAddr` in `types.h`): the level
-      header's offsets, the vehicle and model files' offset tables, the
-      sound bank's pointers. The port has to widen or rebase exactly those
-      fields; `inventory.json` lists them with the rest.
+      ROM (`AssetOffset`, `RomAddr` in `types.h`): the level header's
+      offsets, the vehicle and model files' offset tables. The port has to
+      rebase exactly those fields; `inventory.json` lists them with the
+      rest. (The sound banks' pointers were `ROMPTR` until P7: the port
+      parses the bank files into objects of its own, docs/PORT.md,
+      "libaudio".)
 - [ ] Rename the `D_` symbols the headers identify (`playerNumber`, `levelno`,
       `saveIt`, `frontEndPresent`, ...). They keep their address names for
       now; the port refers to some of them by name.

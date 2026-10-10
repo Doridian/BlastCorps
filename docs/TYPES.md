@@ -10,7 +10,7 @@ There are two outputs:
 
 - **The headers** (`blastcorps/include/game/`): the structures written out
   as C, with `SIZE_CHECK`, the evidence for each name, and the address
-  markers of `types.h` (`ROMPTR`, `AssetOffset`, `RomAddr`, `SegAddr`).
+  markers of `types.h` (`AssetOffset`, `RomAddr`, `SegAddr`).
   The C uses them; they are the readable side.
 - **The inventory** (`blastcorps/include/game/inventory.json`, written by
   `tools/inventory.py`): the machine-readable side, for all memory the C and
@@ -89,10 +89,10 @@ One JSON object:
   libultra structures they contain.  `type` is a scalar (`s8 u8 s16 u16 s32
   u32 f32 s64 u64 f64`), another type's name, `bytes` (texels, text,
   padding: endian-free), `gfx` (a display-list word pair), or an address
-  kind: `ptr` (an N64 address, with `to`; `rom: true` for a pointer the
-  loader relocates in ROM data), `romoff` (a cartridge address), `segptr`
-  (a segmented address), `offset` (from `base`).  Layouts come from clang
-  (`-m32 -malign-double`; the SIZE_CHECKs hold on IDO and clang alike).
+  kind: `ptr` (an N64 address, with `to`), `romoff` (a cartridge
+  address), `segptr` (a segmented address), `offset` (from `base`).
+  Layouts come from clang (`-m32 -malign-double`; the SIZE_CHECKs hold
+  on IDO and clang alike).
 - **`symbols`**: `{name: {type, count, declared, storage, note}}` for the
   variables whose declaration isn't their type: the handwritten objects'
   (`storage`: their `asm/data/*.s`, which has only `.space`/`.word`), typed
