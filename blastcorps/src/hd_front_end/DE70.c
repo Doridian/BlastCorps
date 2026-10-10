@@ -60,9 +60,9 @@ void func_801F4E70(u8 arg0) {
     func_8028B4C4(D_802182C4, D_80358070, &D_802182C0, 0xC, 0xA, 1);
     sp34 = (UnkStruct_801F4E70 *)D_80358070;
     D_80358070 += D_802182C0;
-    D_802182C8 = (void *)(sp34->unk1C + (u32)sp34);
-    sp30 = (void *)(sp34->unk20 + (u32)sp34);
-    D_802182CC = (void *)(sp34->unk14 + (u32)sp34);
+    D_802182C8 = ASSET_PTR(sp34, sp34->unk1C);
+    sp30 = ASSET_PTR(sp34, sp34->unk20);
+    D_802182CC = ASSET_PTR(sp34, sp34->unk14);
     func_802A08B4(D_802182C8, sp30);
 }
 
@@ -95,14 +95,14 @@ Gfx *func_801F51C8(Frame *arg0, Gfx *arg1) {
         s32 sp4C;
         Mtx *sp48;
 
-        sp4C = ((UnkStruct_801F4E70 *)(D_80218350->unk18 + (u32)D_80218350))->unk4;
+        sp4C = ((UnkStruct_801F4E70 *)ASSET_PTR(D_80218350, D_80218350->unk18))->unk4;
         sp48 = (Mtx *)(D_80218358[D_8035805C] + sp4C);
         func_802021FC(D_80218430, D_80218358[D_8035805C], D_80218358[D_8035805C ^ 1]);
         D_80218730 += 3;
         guRotate(sp48, D_80218730 % 360, 0.0f, 1.0f, 0.0f);
         osWritebackDCache(sp48, sizeof(Mtx));
     }
-    sp68 = (void *)(D_80218350->unk14 + (u32)D_80218350);
+    sp68 = ASSET_PTR(D_80218350, D_80218350->unk14);
     gSPSegment(gfx++, 6, sp68);
     gSPSegment(gfx++, 7, D_80218358[D_8035805C]);
     gSPMatrix(gfx++, &D_802183F0, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);

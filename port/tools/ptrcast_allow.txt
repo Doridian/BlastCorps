@@ -34,7 +34,6 @@ P8-gbi port/engine/5FD50.c 1 1 1 1
 P8-gbi port/engine/77E20.c 13 13 13 13
 P8-gbi port/engine/8A2E0.c 6 6 6 6
 P8-gbi port/engine/jp_26570.c 0 0 7 0
-P7-rebase blastcorps/src/hd_front_end/DE70.c 10 10 10 10
 P7-libaudio port/libaudio/core.c 13 13 13 13
 P7-libaudio port/libaudio/reverb.c 1 1 1 1
 P7-libaudio port/libaudio/synth.c 1 1 1 1

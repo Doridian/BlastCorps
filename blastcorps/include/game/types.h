@@ -59,6 +59,13 @@ typedef u32 RomAddr;
 #define ROM(sym) ((RomAddr)(sym))
 #endif
 typedef u32 AssetOffset;
+/* the address `off` bytes into a loaded asset at `base` (its header's
+   fields are offsets from its start); for IDO the original's sum */
+#ifdef TARGET_PC
+#define ASSET_PTR(base, off) ((void *)((u8 *)(base) + (off)))
+#else
+#define ASSET_PTR(base, off) ((void *)((off) + (u32)(base)))
+#endif
 typedef u32 SegAddr;
 
 /* osRecvMesg into an integer variable.  OSMesg is a pointer, so in the port
