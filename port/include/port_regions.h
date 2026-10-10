@@ -53,12 +53,9 @@
     /* the effects' heap's limits (port/engine/60F60.c) */ \
     PORT_SUBREGION(D_8020ED00, limit20, D_8004B400, 0x1C3900, 0) \
     PORT_SUBREGION(D_8021DD00, limit, D_8004B400, 0x1D2900, 0) \
-    /* init's area: the depth buffer, and where compressed loads are staged. \
-       It stays until the N64 side stages there by its name (46C20.c, \
-       port/engine/5CB60.c): the DMA there is the host's, by address, which \
-       the check can't take to where the region went, so the staged data \
-       and its inflate would part */ \
-    PORT_REGION(D_8021ED00, init, 0x8021ED00, 0x802447C0, 0) \
+    /* init's area: the depth buffer, and where compressed loads are staged \
+       (46C20.c, port/engine/5CB60.c, both by this name) */ \
+    PORT_REGION(D_8021ED00, init, 0x8021ED00, 0x802447C0, 1) \
     /* segment 1's static data, after hd_code's .bss (LZSS from the ROM) */ \
     PORT_REGION_LINK(D_803FF600, static, 0x803FFFF8, 1) \
     /* the front end's compressed ROM range, init's hand-over to hd_code */ \
