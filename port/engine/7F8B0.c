@@ -112,7 +112,7 @@ u32 func_802C41C0(u32 src_, u32 dst_, u32 window_, s32 index_bits, u32 *dst_end)
 }
 
 /* func_802C4070 (46C20.c's): inflate *src into *dst and advance both */
-void func_802C4070(u8 *PTR32 *src, u8 *PTR32 *dst, void *window, u8 index_bits) {
+void func_802C4070(u8 **src, u8 **dst, void *window, u8 index_bits) {
     u32 end, s;
 
     s = func_802C41C0((u32)*src, (u32)*dst, (u32)window, index_bits, &end);
@@ -123,12 +123,14 @@ void func_802C4070(u8 *PTR32 *src, u8 *PTR32 *dst, void *window, u8 index_bits) 
 /* func_802C4108: the model loaders' gzip (func_8025C230): src and dst as
    the inflate leaves them */
 REGS(a0, a1, a2 -> a0, a1)
-u32 func_802C4108(u32 src, u32 dst, u32 arg2, u32 *dst_end) {
-    D_803F7830 = (u8 *)src;
-    D_803F7834 = (u8 *)dst;
-    func_8025C230(&D_803F7830, &D_803F7834, (void *)arg2);
-    *dst_end = (u32)D_803F7834;
-    return (u32)D_803F7830;
+u8 *func_802C4108(u8 *src, u8 *dst, struct huft *heap, u8 **dst_end) {
+    /* the unzip advances native words; the game's 4-byte ones (E's) are
+       left as it leaves them */
+    func_8025C230(&src, &dst, heap);
+    D_803F7830 = src;
+    D_803F7834 = dst;
+    *dst_end = dst;
+    return src;
 }
 
 /* ---- the player vehicle's engine sound ----------------------------------- */

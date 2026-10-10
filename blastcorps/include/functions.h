@@ -236,7 +236,7 @@ void func_8025BD98(void);
 void func_8025BEF8(void);
 
 /* hd_code 17A70.c (src/gzip_unzip.inc.c) */
-void func_8025C230(u8 *PTR32 *, u8 *PTR32 *, struct huft *);
+void func_8025C230(u8 **, u8 **, struct huft *);
 
 /* hd_code 17E10.c */
 void func_8025C5D0(void);
@@ -475,7 +475,7 @@ void func_8028B240(void);
 
 /* hd_code 46C20.c */
 void func_8028B3E0(void);
-void func_8028B4C4(u32, u8 *PTR32, u32 *, u8, u8, u8);
+void func_8028B4C4(u32, u8 *, u32 *, u8, u8, u8);
 
 /* hd_code 46F60.c */
 void func_8028B720(void);
@@ -707,7 +707,7 @@ void func_802C1F30(s32, s32, s32, s32, s32);
 void func_802C2054(void);
 
 /* hd_code 7F8B0, handwritten (port/engine/7F8B0.c) */
-void func_802C4070(u8 *PTR32 *, u8 *PTR32 *, void *, u8);
+void func_802C4070(u8 **, u8 **, void *, u8);
 
 /* hd_code 80280, handwritten (port/engine/80280.c) */
 s32 func_802C4A40(u8 *);

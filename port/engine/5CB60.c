@@ -997,7 +997,7 @@ void func_802A3008(u32 h_) {
 
 /* ---- the buildings ------------------------------------------------------ */
 
-u32 func_802C4108(u32 src, u32 dst, u32 arg2, u32 *dst_end);
+u8 *func_802C4108(u8 *src, u8 *dst, struct huft *heap, u8 **dst_end);
 extern u32 *PTR32 D_803BE6F0;   /* the model table, on the heap */
 extern OSMesgQueue D_803150A0;
 extern OSIoMesg D_80370C58;
@@ -1018,14 +1018,14 @@ extern u8 D_8021ED00[], D_8004B400[];
    (rounded up).  (802A2A98's code: 802A396C and 802A32CC are the
    same.) */
 static u32 load_gz_model(u32 rom, u32 size) {
-    u32 src, dst;
+    u8 *src, *dst;
 
     osInvalDCache(INIT_AREA, size);
     osPiStartDma(&D_80370C58, OS_MESG_PRI_NORMAL, OS_READ, rom, INIT_AREA, size, &D_803150A0);
     osRecvMesg(&D_803150A0, NULL, OS_MESG_BLOCK);
-    src = func_802C4108((u32)INIT_AREA, (u32)D_80358070, (u32)GZIP_WINDOW, &dst);
-    src = func_802C4108(src, dst, (u32)GZIP_WINDOW, &dst);
-    return func_802A44E4(dst);
+    src = func_802C4108(INIT_AREA, D_80358070, (struct huft *)GZIP_WINDOW, &dst);
+    src = func_802C4108(src, dst, (struct huft *)GZIP_WINDOW, &dst);
+    return func_802A44E4((u32)dst);
 }
 
 /* func_802A2BB0: the model table onto the heap */

@@ -21,14 +21,14 @@
 __typeof__(func_8025C230) __real_func_8025C230, __wrap_func_8025C230;
 __typeof__(func_8028B4C4) __real_func_8028B4C4, __wrap_func_8028B4C4;
 
-void __wrap_func_8025C230(u8 *PTR32 *src, u8 *PTR32 *dst, struct huft *heap) {
+void __wrap_func_8025C230(u8 **src, u8 **dst, struct huft *heap) {
     u8 *s = *src, *d = *dst;
 
     __real_func_8025C230(src, dst, heap);
     host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d));
 }
 
-void __wrap_func_8028B4C4(u32 rom, u8 *PTR32 dst, u32 *len, u8 bits, u8 bits2, u8 method) {
+void __wrap_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method) {
     __real_func_8028B4C4(rom, dst, len, bits, bits2, method);
     if (method == 2 && (bits != 0 || bits2 != 0))
         host_loaded_lzss(rom, (u32)dst, *len);

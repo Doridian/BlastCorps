@@ -6,6 +6,10 @@
  * cplext, cpdist, cpdext, mask_bits, lbits, dbits), either defined or extern.
  */
 
+#ifdef TARGET_PC
+#include "port_regions.h"
+#endif
+
 #define wp outcnt
 #define slide window
 
@@ -15,7 +19,7 @@
 #define BMAX 16
 #define N_MAX 288
 
-int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft *PTR32 *t, int *m) {
+int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft **t, int *m) {
     unsigned a;
     unsigned c[BMAX + 1];
     unsigned f;
@@ -118,6 +122,14 @@ int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft 
                 /* Rare: tables come from a bump allocator, not malloc(). */
                 q = huft_heap + hufts;
                 hufts += z + 1;
+#ifdef TARGET_PC
+                /* the tables go at the pool's start (huft_heap) and the
+                   ghost's buffers begin at +0xA000: an LP64 huft is twice
+                   the N64's. */
+                if (hufts * sizeof(struct huft) > PORT_REGION_OFF_D_80055400) {
+                    __builtin_trap();
+                }
+#endif
                 *t = q + 1;
                 *(t = &(q->v.t)) = (struct huft *)NULL;
                 u[h] = ++q;
@@ -257,8 +269,8 @@ int inflate_stored(void) {
 
 int inflate_fixed(void) {
     int i;
-    struct huft *PTR32 tl;
-    struct huft *PTR32 td;
+    struct huft *tl;
+    struct huft *td;
     int bl;
     int bd;
     unsigned l[288];
@@ -289,8 +301,8 @@ int inflate_dynamic(void) {
     unsigned l;
     unsigned m;
     unsigned n;
-    struct huft *PTR32 tl;
-    struct huft *PTR32 td;
+    struct huft *tl;
+    struct huft *td;
     int bl;
     int bd;
     unsigned nb;
