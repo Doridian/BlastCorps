@@ -145,16 +145,16 @@ void *__wrap_alHeapDBAlloc(u8 *file, s32 line, ALHeap *hp, s32 num, s32 size) {
     return r;
 }
 
-void __real_alBnkfNew(ALBankFile *file, u8 *table);
-void __wrap_alBnkfNew(ALBankFile *file, u8 *table) {
-    ENTER(ALOG_alBnkfNew, A(file), A(table), 0, 0, 0, 0);
-    __real_alBnkfNew(file, table);
+void __real_alBnkfNew(ALBankFile *file, u32 table, s32 len);
+void __wrap_alBnkfNew(ALBankFile *file, u32 table, s32 len) {
+    ENTER(ALOG_alBnkfNew, A(file), table, (u32)len, 0, 0, 0);
+    __real_alBnkfNew(file, table, len);
     LEAVE(0);
 }
 
-void __real_alSeqFileNew(ALSeqFile *file, u8 *base);
-void __wrap_alSeqFileNew(ALSeqFile *file, u8 *base) {
-    ENTER(ALOG_alSeqFileNew, A(file), A(base), 0, 0, 0, 0);
+void __real_alSeqFileNew(ALSeqFile *file, u32 base);
+void __wrap_alSeqFileNew(ALSeqFile *file, u32 base) {
+    ENTER(ALOG_alSeqFileNew, A(file), base, 0, 0, 0, 0);
     __real_alSeqFileNew(file, base);
     LEAVE(0);
 }

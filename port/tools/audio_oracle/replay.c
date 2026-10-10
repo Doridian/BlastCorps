@@ -313,6 +313,119 @@ static void bank_file_new(u32 file) {
         fprintf(stderr, "replay: the library's bank map: %u objects\n", nmap);
 }
 
+/* the length of the game's heap block at addr, 0 if none */
+static u32 alloc_len(u32 addr) {
+    int i, n = nallocs < 1024 ? nallocs : 1024;
+    u32 len = 0;
+    for (i = 0; i < n; i++)
+        if (allocs[i].addr == addr)
+            len = allocs[i].len;
+    return len;
+}
+
+/*
+ * A bank file's records as the ROM has them, for a library that parses the
+ * file (port/libaudio/bankfile.h): the logs are of the original, whose
+ * loader (port/host/native.c, PORT_LIBAUDIO_ORIGINAL) put the records'
+ * scalars in host order for it to relocate in place; the port's loader
+ * leaves them big-endian and converts only the leaves, which stay so.
+ */
+static u32 rom_file, rom_len;
+static u32 rom_done[4096];
+static int rom_ndone;
+
+static int rom_once(u32 off) {
+    int i;
+    for (i = 0; i < rom_ndone; i++)
+        if (rom_done[i] == off)
+            return 0;
+    if (rom_ndone < 4096)
+        rom_done[rom_ndone++] = off;
+    return off != 0 && off < rom_len;
+}
+
+static u32 rom_rd32(u32 off) {
+    return off + 4 <= rom_len ? *(u32 *)mem(rom_file + off) : 0;
+}
+
+static u16 rom_rd16(u32 off) {
+    return off + 2 <= rom_len ? *(u16 *)mem(rom_file + off) : 0;
+}
+
+static void rom_w(u32 off) {
+    if (off + 4 <= rom_len)
+        *(u32 *)mem(rom_file + off) = __builtin_bswap32(*(u32 *)mem(rom_file + off));
+}
+
+static void rom_h(u32 off) {
+    if (off + 2 <= rom_len)
+        *(u16 *)mem(rom_file + off) = __builtin_bswap16(*(u16 *)mem(rom_file + off));
+}
+
+static void rom_wave(u32 w) {
+    if (!rom_once(w))
+        return;
+    rom_w(w);
+    rom_w(w + 4);
+    rom_h(w + 10);
+    rom_w(w + 12);
+    if (w + 8 < rom_len && *(u8 *)mem(rom_file + w + 8) == 0)  /* AL_ADPCM_WAVE: the book */
+        rom_w(w + 16);
+}
+
+static void rom_sound(u32 s) {
+    u32 wt;
+    if (!rom_once(s))
+        return;
+    wt = rom_rd32(s + 8);
+    rom_w(s);
+    rom_w(s + 4);
+    rom_w(s + 8);
+    rom_wave(wt);
+}
+
+static void rom_inst(u32 in) {
+    u32 n, i;
+    if (!rom_once(in))
+        return;
+    n = rom_rd16(in + 14);
+    if (16 + 4 * n > rom_len - in)
+        return;
+    for (i = 0; i < n; i++)
+        rom_sound(rom_rd32(in + 16 + 4 * i));
+    rom_h(in + 12);
+    rom_h(in + 14);
+    for (i = 0; i < n; i++)
+        rom_w(in + 16 + 4 * i);
+}
+
+static void bank_file_to_rom(u32 file, u32 len) {
+    u32 nb, b, i;
+    rom_file = file;
+    rom_len = len;
+    rom_ndone = 0;
+    if (len < 4 || rom_rd16(0) != 0x4231)
+        return;
+    nb = rom_rd16(2);
+    for (b = 0; b < nb && 4 + 4 * b + 4 <= len; b++) {
+        u32 bk = rom_rd32(4 + 4 * b), ni;
+        rom_w(4 + 4 * b);
+        if (!rom_once(bk))
+            continue;
+        ni = rom_rd16(bk);
+        rom_inst(rom_rd32(bk + 8));
+        for (i = 0; i < ni; i++)
+            rom_inst(rom_rd32(bk + 12 + 4 * i));
+        rom_h(bk);
+        rom_w(bk + 4);
+        rom_w(bk + 8);
+        for (i = 0; i < ni; i++)
+            rom_w(bk + 12 + 4 * i);
+    }
+    rom_h(0);
+    rom_h(2);
+}
+
 /* the game's bytes at addr: its words that are file objects become the
    library's */
 static void game_writes(u32 addr, u32 len) {
@@ -594,7 +707,13 @@ static void run_call(void) {
         note_alloc(ret, a[3] * a[4]);
         break;
     case ALOG_alBnkfNew:
-        ((V_pp)fnp[fn])(a[0], a[1]);
+        /* (the file's length: the logs before it was an argument have
+           the game's heap block) */
+        if (a[2] == 0)
+            a[2] = alloc_len(a[0]);
+        if (bank_map_fn != NULL)
+            bank_file_to_rom(a[0], a[2]);
+        ((void (*)(u32, u32, u32))fnp[fn])(a[0], a[1], a[2]);
         bank_file_new(a[0]);
         break;
     case ALOG_alInit:

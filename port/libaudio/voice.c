@@ -65,7 +65,7 @@ void al_voice_queue(PVoice *pv, Update *u) {
 
 static void set_table(PVoice *pv, ALWaveTable *w) {
     pv->table = w;
-    pv->rom = (s32)w->base;
+    pv->rom = w->base;
     pv->played = 0;
     if (w->type == AL_ADPCM_WAVE) {
         ALADPCMBook *book = w->waveInfo.adpcmWave.book;
@@ -105,7 +105,7 @@ static void reset(PVoice *pv) {
     pv->played = 0;
     if (pv->table != NULL) {
         ALWaveTable *w = pv->table;
-        pv->rom = (s32)w->base;
+        pv->rom = w->base;
         if (w->type == AL_ADPCM_WAVE) {
             if (w->waveInfo.adpcmWave.loop != NULL)
                 pv->loop_count = w->waveInfo.adpcmWave.loop->count;

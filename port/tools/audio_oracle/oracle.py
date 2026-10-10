@@ -2,7 +2,7 @@
 """The libaudio oracle's runner (docs/PORT.md, "The libaudio oracle").
 
   oracle.py record --version V --refs DIR [--rom ROM] [--build DIR] [--no-build]
-  oracle.py replay --version V --refs DIR [--lib port orig banktest] [--out DIR] [--no-build]
+  oracle.py replay --version V --refs DIR [--lib port orig] [--out DIR] [--no-build]
 
 record: configures and builds the recorder (a native-endian ILP32 port
 with the original libaudio and PORT_AUDIO_RECORD, in build/oracle-rec-V
@@ -17,8 +17,7 @@ one of the reference tree.
 replay: builds the replay and the two libraries for i386 (make -C
 port/tools/audio_oracle, into build/audio_oracle/V unless --out says
 otherwise) and replays every DIR/V-*.alog into port.so, or the libraries
---lib names: orig.so too, banktest.so (port.so with its bank objects out
-of the file: banktest.c, the replay's bank-object translation at work).
+--lib names: orig.so too.
 Passes with no mismatch in any.
 
 --lock FILE holds an flock on FILE for the runs and the replays (the
@@ -177,7 +176,7 @@ def main():
     r.add_argument("--rom", help="the ROM (baserom.V.z64)")
     r.add_argument("--build", help="the recorder's build directory (build/oracle-rec-V)")
     p = sub.choices["replay"]
-    p.add_argument("--lib", nargs="+", default=["port"], choices=["port", "orig", "banktest"])
+    p.add_argument("--lib", nargs="+", default=["port"], choices=["port", "orig"])
     p.add_argument("--out", help="the replay's build directory (build/audio_oracle/V)")
     p.add_argument("-j", "--jobs", type=int, default=4)
     a = ap.parse_args()

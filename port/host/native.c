@@ -521,6 +521,21 @@ static void conv_attract(void) {
 
 /* ---- libaudio's banks and sequences -------------------------------------- */
 
+/* A bank file's records (the bank list, banks, instruments, sounds, wave
+   tables: port/libaudio/bankfile.h) stay as the ROM has them: the port's
+   libaudio parses them with a big-endian reader of its own.  Only the
+   leaves they point at (envelopes, books, loops), which the library and
+   the RSP read where they are, are converted.  The original library
+   (PORT_LIBAUDIO_ORIGINAL, the oracle's recorder) makes the records its
+   objects in place, so there they are converted too. */
+#ifdef PORT_LIBAUDIO_ORIGINAL
+#define bank_rec rec
+#define bank_cv cv
+#else
+#define bank_rec(off, f) ((void)(off))
+#define bank_cv(off, n, w) ((void)(off))
+#endif
+
 /* the objects of a bank file already converted (they are shared) */
 #define MAX_DONE 4096
 static uint32_t done[MAX_DONE];
@@ -541,9 +556,9 @@ static void conv_wavetable(uint32_t w) {
         return;
     uint32_t loop = rd32(w + 12), book = rd32(w + 16);
     uint8_t type = w + 8 < len ? base[w + 8] : 0;
-    rec(w, "wwbbhw");          /* the pad after flags: the union's alignment */
+    bank_rec(w, "wwbbhw");          /* the pad after flags: the union's alignment */
     if (type == 0) {           /* AL_ADPCM_WAVE */
-        cv(w + 16, 4, 4);
+        bank_cv(w + 16, 4, 4);
         if (loop && once(loop))
             rec(loop, "wwwhhhhhhhhhhhhhhhh");   /* ALADPCMloop */
         if (book && once(book)) {
@@ -564,7 +579,7 @@ static void conv_sound(uint32_t s) {
     if (!once(s))
         return;
     uint32_t env = rd32(s), km = rd32(s + 4), wt = rd32(s + 8);
-    rec(s, "wwwbbbb");
+    bank_rec(s, "wwwbbbb");
     if (once(env))
         rec(env, "wwwbbbb");                    /* ALEnvelope (+ padding) */
     if (once(km))
@@ -581,10 +596,10 @@ static void conv_inst(uint32_t in) {
         warn("an instrument past the end at +0x%X", in, 0);
         return;
     }
-    rec(in, "bbbbbbbbbbbbhh");
+    bank_rec(in, "bbbbbbbbbbbbhh");
     for (uint32_t i = 0; i < n; i++) {
         uint32_t s = rd32(in + 16 + 4 * i);
-        cv(in + 16 + 4 * i, 4, 4);
+        bank_cv(in + 16 + 4 * i, 4, 4);
         conv_sound(s);
     }
 }
@@ -598,18 +613,18 @@ static void conv_bank(void) {
     if (rd16(0) != 0x4231)          /* AL_BANK_VERSION */
         return;
     uint32_t nb = rd16(2);
-    rec(0, "hh");
+    bank_rec(0, "hh");
     for (uint32_t b = 0; b < nb && 4 + 4 * b + 4 <= len; b++) {
         uint32_t bk = rd32(4 + 4 * b);
-        cv(4 + 4 * b, 4, 4);
+        bank_cv(4 + 4 * b, 4, 4);
         if (!once(bk))
             continue;
         uint32_t ni = rd16(bk), perc = rd32(bk + 8);
-        rec(bk, "hbbww");
+        bank_rec(bk, "hbbww");
         conv_inst(perc);
         for (uint32_t i = 0; i < ni; i++) {
             uint32_t in = rd32(bk + 12 + 4 * i);
-            cv(bk + 12 + 4 * i, 4, 4);
+            bank_cv(bk + 12 + 4 * i, 4, 4);
             conv_inst(in);
         }
     }

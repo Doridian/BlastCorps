@@ -11,7 +11,13 @@ static  void _bnkfPatchInst(ALInstrument *i, s32 offset, s32 table);
 static  void _bnkfPatchSound(ALSound *s, s32 offset, s32 table);
 static  void _bnkfPatchWaveTable(ALWaveTable *w, s32 offset, s32 table);
 
+#ifdef TARGET_PC
+/* (the port's interface, port/include/sdk/PR/libaudio.h: the ROM addresses
+   are numbers, and the game gets a bank through alBnkfBank) */
+void alSeqFileNew(ALSeqFile *file, u32 base)
+#else
 void alSeqFileNew(ALSeqFile *file, u8 *base)
+#endif
 {
     s32 offset = (s32) base;
     s32 i;
@@ -20,11 +26,24 @@ void alSeqFileNew(ALSeqFile *file, u8 *base)
      * patch the file so that offsets are pointers
      */
     for (i = 0; i < file->seqCount; i++) {
+#ifdef TARGET_PC
+        file->seqArray[i].offset += offset;
+#else
         file->seqArray[i].offset = (u8 *)((u8 *)file->seqArray[i].offset + offset);
+#endif
     }
 }
 
+#ifdef TARGET_PC
+ALBank *alBnkfBank(ALBankFile *file, s32 i)
+{
+    return file->bankArray[i];
+}
+
+void alBnkfNew(ALBankFile *file, u32 table, s32 len)
+#else
 void alBnkfNew(ALBankFile *file, u8 *table)
+#endif
 {
     s32 offset = (s32) file;
     s32 woffset = (s32) table;

@@ -8,15 +8,5 @@
 # DMA; the level's tables) and P8's (the display list and audio command
 # words).  P10 has none here (its host interface is ptrcast_scan.py's).
 # ptr32_check.py BUILD --update rewrites it, keeping each name's note.
-ALADPCMWaveInfo  # P7: libaudio
-ALBankFile       # P7: libaudio
-ALBank_s         # P7: libaudio
-ALInstrument     # P7: libaudio
-ALRAWWaveInfo    # P7: libaudio
-ALSeqData        # P7: libaudio
-ALSound_s        # P7: libaudio
-ALWaveTable_s    # P7: libaudio
 AMAudioMgr       # P8: ACMDList, the audio command lists (Acmd, the RSP's words)
 D_80300A68_t     # P8: asm2c's display list D_80300A68 (PTR32_VARS), its words
-SndBank          # P7: Rare's sound bank, ROM data (ROMPTR)
-SndInstrument    # P7: Rare's sound bank, ROM data (ROMPTR)
