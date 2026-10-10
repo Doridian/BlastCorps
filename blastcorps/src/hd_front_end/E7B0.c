@@ -556,9 +556,9 @@ s32 func_801F67E4(u8 arg0, u8 arg1, u8 arg2) {
             D_80364F70[sp37] = D_80364EF0[arg0][D_802E8C44[D_80364AF0[arg0].unk92[arg1]]];
             D_80364F70[sp37 + 1] = D_80364F70[sp37] ^ 0x55AA;
             func_8029A7E4("%d %d EEWRITE %x %x\n", arg1, D_80364F70[sp37], (u32)(sp37 * 2 + 0x100) >> 3, sp30);
-            osEepromWrite(&D_80370BF8, (u32)(sp37 * 2 + 0x100) >> 3, sp30);
+            osEepromWrite(&D_80370BF8, (u32)(sp37 * 2 + 0x100) >> 3, (u8 *)sp30);
         } else {
-            osEepromRead(&D_80370BF8, (u32)(sp37 * 2 + 0x100) >> 3, sp30);
+            osEepromRead(&D_80370BF8, (u32)(sp37 * 2 + 0x100) >> 3, (u8 *)sp30);
             for (sp38 = 0; sp38 < 2; sp38++, arg1++) {
                 if (LEVEL_DONE_IN(D_80364AF0[arg0], arg1) &&
                     !DUMMY_LEVELS(arg1)) {
@@ -581,7 +581,7 @@ s32 func_801F6AF4(u8 arg0, u64 arg2) {
     sp24 = 0;
     sp20 = &D_80364AF0[arg0];
     if (D_802E8BF8 != 0 || D_80364A90 == 0x40000000000000) {
-        osEepromWrite(&D_80370BF8, 0x3F, &arg2);
+        osEepromWrite(&D_80370BF8, 0x3F, (u8 *)&arg2);
     } else {
         func_8029A7E4("PUTTING SEMAPHORE %llu\n", arg2);
         sp24 = osPfsReadWriteFile(&D_8039B630, D_8039B698[arg0], 1, 0xDE0, 0x20, (u8 *)&arg2);
@@ -625,7 +625,7 @@ s32 func_801F6BD0(u8 arg0, u64 *arg1) {
     sp44 = 0;
     sp40 = &D_80364AF0[arg0];
     if (D_802E8BF8 != 0) {
-        osEepromRead(&D_80370BF8, 0x3F, arg1);
+        osEepromRead(&D_80370BF8, 0x3F, (u8 *)arg1);
     } else {
         sp44 = osPfsReadWriteFile(&D_8039B630, D_8039B698[arg0], 0, 0xDE0, 0x20, (u8 *)sp20);
         *arg1 = sp20[0];

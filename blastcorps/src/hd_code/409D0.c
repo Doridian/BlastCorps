@@ -161,10 +161,10 @@ u8 func_80285814(void) {
                 if (sp26 == 5) {
                     sp26 = 4;
                 }
-                if (func_802C4E58(D_8039C4B8, sp26) > 60) {
+                if (func_802C4E58((u8 *)D_8039C4B8, sp26) > 60) {
                     func_8029A7E4("\n\007 --- ASSERTION FAULT - %s - %s, line %d\n\n", "create_status(pakBuffer,coin)<=LEVEL_SAVE_SIZE-4", "stats_perm.c", 0xA1);
                 }
-                func_802C4BF0(D_8039C4B8);
+                func_802C4BF0((u8 *)D_8039C4B8);
                 func_802C1DD0(0);
                 func_80264C20((u8 *)D_8039C4B8);
                 sp27 = 1;

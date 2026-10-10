@@ -111,7 +111,7 @@ void func_802979E0(u8 arg) {
     e->unk1A = 0;
     e->unk16 = e->unk1A;
     icon = &D_802F49F4[e->unk14];
-    e->unk1A = func_80272C5C(icon->unk6, 0, icon->unk4, icon->unk2C, icon->unk2D | 4, 1.0f);
+    e->unk1A = func_80272C5C((u16 *)icon->unk6, 0, icon->unk4, icon->unk2C, icon->unk2D | 4, 1.0f);
     w->count = count + 1;
     w->unk18 = D_802FF5E8.unk0[D_8039CAD0][0];
     r = func_80297EF8(arg);

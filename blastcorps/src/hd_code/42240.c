@@ -180,8 +180,8 @@ void func_80287530(Gfx **arg0, Frame *arg1, s32 arg2, u8 arg3) {
         gSP1Triangle(gfx++, 0, 1, 2, 0);
         gSP1Triangle(gfx++, 0, 2, 3, 0);
         gDPPipeSync(gfx++);
-        func_8026A378(D_803F8B72, spB8);
-        func_80259DC8(arg1, spB8, 0, 1, 0, 0x40, 0x91, 15, 15, 1, 0xFF, 0xFF, 0, (D_8036EC1C < D_80367BD6) ? D_8036EC1C : D_80367BD6,
+        func_8026A378(D_803F8B72, (char *)spB8);
+        func_80259DC8(arg1, (u8 *)spB8, 0, 1, 0, 0x40, 0x91, 15, 15, 1, 0xFF, 0xFF, 0, (D_8036EC1C < D_80367BD6) ? D_8036EC1C : D_80367BD6,
                       0xFF, 0, 0, (D_8036EC1C < D_80367BD6) ? D_8036EC1C : D_80367BD6);
         gDPPipeSync(gfx++);
         *arg0 = gfx;
@@ -251,8 +251,8 @@ void func_80287C68(Gfx **arg0, Frame *arg1, s32 arg2, u8 arg3) {
         gSP1Triangle(gfx++, 0, 1, 2, 0);
         gSP1Triangle(gfx++, 0, 2, 3, 0);
         gDPPipeSync(gfx++);
-        func_8026A378(D_803EDC00, spB8);
-        func_80259DC8(arg1, spB8, 0, 1, 0, 0x44, 0x97, 15, 15, 1, 0xFF, 0xFF, 0, (D_8036EC28 < D_80367BD6) ? D_8036EC28 : D_80367BD6,
+        func_8026A378(D_803EDC00, (char *)spB8);
+        func_80259DC8(arg1, (u8 *)spB8, 0, 1, 0, 0x44, 0x97, 15, 15, 1, 0xFF, 0xFF, 0, (D_8036EC28 < D_80367BD6) ? D_8036EC28 : D_80367BD6,
                       0xFF, 0, 0, (D_8036EC28 < D_80367BD6) ? D_8036EC28 : D_80367BD6);
         gDPPipeSync(gfx++);
         *arg0 = gfx;

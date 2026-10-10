@@ -926,11 +926,11 @@ Gfx *func_801F9258(Gfx *arg0, u8 *arg1, s32 *arg2) {
 
         sp9C = 0x18;
         sp68 = D_8021AB2C / 9;
-        func_80259DC8(arg1, LEVEL_NAME(D_8020D810[D_8021A908]), D_8020D810[D_8021A908].unk8, 0, 0xA0, 0,
+        func_80259DC8((Frame *)arg1, LEVEL_NAME(D_8020D810[D_8021A908]), D_8020D810[D_8021A908].unk8, 0, 0xA0, 0,
                       (0x1C - sp68) / 2 + 0x12, sp9C, sp68, 1, 0xFF, 0xFF, 0xFF, D_8021AB2C, 0, 0, 0xFF,
                       D_8021AB2C);
-        gfx = func_8024C404(gfx, arg1, &sp64);
-        func_80259C24(&gfx, arg1);
+        gfx = func_8024C404(gfx, (Frame *)arg1, &sp64);
+        func_80259C24(&gfx, (Frame *)arg1);
         sp60 = &D_802E8F94[D_8021A908];
         gfx = func_80274868(gfx);
         spB4 = 0xDA;
@@ -1249,11 +1249,11 @@ Gfx *func_801FA74C(u8 *arg0, Gfx *arg1, u8 arg2, u8 arg3, s8 *arg4, f32 *arg5, u
             switch (D_80217B6C) {
                 case 3:
                     if (sp120 != 0) {
-                        func_8027690C(arg0, sp104, sp100, spFC, &spF6, &spF4, &D_80217B70[3][D_8035805C],
+                        func_8027690C((Frame *)arg0, sp104, sp100, spFC, &spF6, &spF4, &D_80217B70[3][D_8035805C],
                                       &D_80217B70[3][D_8035805C] + 2, (Mtx *)(arg0 + 0x1280), 1.0f);
                         *arg5 = func_8028BBF4(spF2, spF0, spF6, spF4);
                     } else {
-                        func_8027690C(arg0, sp104, sp100, spFC, &spF2, &spF0, &D_80217B70[3][D_8035805C],
+                        func_8027690C((Frame *)arg0, sp104, sp100, spFC, &spF2, &spF0, &D_80217B70[3][D_8035805C],
                                       &D_80217B70[3][D_8035805C] + 2, (Mtx *)(arg0 + 0x1280), 1.0f);
                     }
                     break;

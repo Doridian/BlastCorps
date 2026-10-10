@@ -522,7 +522,7 @@ void func_802447C0(void) {
     for (sp74 = 0; sp74 < 16; sp74++, sp68 += 4) {
         osPiRawReadIo(sp68, &sp28[sp74]);
     }
-    func_80270AE0(sp28);
+    func_80270AE0((u8 *)sp28);
     osCreateThread(&D_80310820, 1, func_80244870, NULL, &D_803109D0[0x200 / sizeof(u64)], 10);
     osStartThread(&D_80310820);
 }
@@ -1078,7 +1078,7 @@ void func_80244930(void *arg0) {
                 case 0x40000:
                     osSendMesg(&D_80219EF8, OS_MESG((D_80364AE8 << 16) | 0x14 | 0x01000000), OS_MESG_BLOCK);
                     osRecvMesg(&D_80219F50, NULL, OS_MESG_BLOCK);
-                    func_801EA93C(TEXT_EU("ENTER NAME!", "NAME EINGEBEN!"), U16TEXT(D_803047A0), 7, 0x1E, &D_80364AF0[D_80364AE8]);
+                    func_801EA93C(TEXT_EU("ENTER NAME!", "NAME EINGEBEN!"), U16TEXT(D_803047A0), 7, 0x1E, D_80364AF0[D_80364AE8].name);
                     func_8026AF6C(0x800B);
                     func_8025D184();
                     D_80364A70 = func_80261A44(D_80364A98);
@@ -4552,7 +4552,7 @@ void func_80255DC8(void) {
     func_8028AE88();
     func_8028B720();
     D_8035806C = D_803FF600;
-    func_8028B4C4(D_00787F40, D_803FF600, &sp24, 10, 0, 2);
+    func_8028B4C4((u32)D_00787F40, D_803FF600, &sp24, 10, 0, 2);
     sp2C = D_803FF600 + (D_00788000 - D_00787F40);
 #ifdef TARGET_PC
     /* debug output: the room is up to init's hand-over words */

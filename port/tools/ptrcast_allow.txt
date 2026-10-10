@@ -1,7 +1,9 @@
 # ptrcast_scan.py's allow-list: the pointer/integer conversions the N64
 # side still has, by class and file, per version (us.v10 us.v11 jp eu; -
-# not counted).  P6's packets bring the P6- classes to nothing (F the
-# game's C, G the engine's), P7 and P8 theirs, P10 the host interface's.
+# not counted).  P6 brought its classes (P6-game, P6-engine, P6-x3) to
+# nothing, and ptrtype (incompatible pointer types) has no allowance: what
+# is left is P7's (ROM addresses, rebased ROM data, libaudio), P8's (the
+# display list words and segment addresses) and P10's (the host interface).
 # ptrcast_scan.py BUILD --version all --update rewrites the counts.
 P8-gbi blastcorps/src/hd_code/00000.c 12 12 12 12
 P8-gbi blastcorps/src/hd_code/12D80.c 2 2 2 2
@@ -50,4 +52,3 @@ P7-libaudio port/libaudio/reverb.c 1 1 1 1
 P7-libaudio port/libaudio/synth.c 1 1 1 1
 P10-host port/src/loads.c 19 19 19 19
 P10-host port/src/ultra.c 35 35 35 35
-P6-engine port/engine/jp_E7B0.c 0 0 1 0

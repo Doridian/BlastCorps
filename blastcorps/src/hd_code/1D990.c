@@ -549,7 +549,7 @@ void func_80262320(u8 arg0) {
     if (D_80364AA8 != 1) {
         size = D_006A8DA0 - D_006A32B0;
         if (D_80364AA8 != 0x80 && D_80364A98 == 0x2000) {
-            func_8028B4C4(D_006A32B0, D_80358070, &size, 0xA, 0, 1);
+            func_8028B4C4((u32)D_006A32B0, D_80358070, &size, 0xA, 0, 1);
             for (i = 0; i < 5; i++) {
                 D_80367BE0[i] = D_80358070 + (i << 15);
             }
@@ -574,12 +574,12 @@ void func_80262320(u8 arg0) {
     D_80367BCC = &D_802F49F4[sp33];
     if (D_802E8F94[arg0].unk0 == 0x20) {
         D_80367BD0 = 0;
-        D_80367BD4 = func_80272C5C(D_80367BCC->unk6, 0, D_80367BCC->unk4, D_80367BCC->unk2C, D_80367BCC->unk2D,
+        D_80367BD4 = func_80272C5C((u16 *)D_80367BCC->unk6, 0, D_80367BCC->unk4, D_80367BCC->unk2C, D_80367BCC->unk2D,
                                    D_80367BCC->unk28 * 0.5);
     } else {
         D_80367BD0 = 0;
         if (sp33 != 0) {
-            D_80367BD4 = func_80272C5C(D_80367BCC->unk6, 0, D_80367BCC->unk4, D_80367BCC->unk2C, D_80367BCC->unk2D,
+            D_80367BD4 = func_80272C5C((u16 *)D_80367BCC->unk6, 0, D_80367BCC->unk4, D_80367BCC->unk2C, D_80367BCC->unk2D,
                                        1.0f);
         } else {
             D_80367BCC = NULL;

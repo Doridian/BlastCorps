@@ -103,7 +103,7 @@ void func_8028FDA0(s16 *arg0, s16 *arg1) {
             D_8039C718[i].unkC = D_8039C718[i].y - D_802FDC08[D_8039C718[i].type].unk288;
             D_8039C718[i].filled = 0;
             D_8039C718[i].unk14 = D_803FB8B0;
-            func_802CE9C8(((LevelHole *) arg0)->tris, ((LevelHole *) arg0)->numTris,
+            func_802CE9C8((LevelCollisionTri *)((LevelHole *) arg0)->tris, ((LevelHole *) arg0)->numTris,
                           D_8039C718[i].type);
             D_8039C718[i].unk18 = D_803FB8B0;
             if (((LevelHole *) arg0)->unk8 != 0) {

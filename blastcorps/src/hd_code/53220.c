@@ -564,7 +564,7 @@ void func_802979E0(u8 arg0) {
     sp48->unk1A = 0;
     sp48->unk16 = (u8)sp48->unk1A;
     sp44 = &D_802F49F4[sp48->unk14];
-    sp48->unk1A = func_80272C5C(sp44->unk6, 0, sp44->unk4, sp44->unk2C, sp44->unk2D | 4, 1.0f);
+    sp48->unk1A = func_80272C5C((u16 *)sp44->unk6, 0, sp44->unk4, sp44->unk2C, sp44->unk2D | 4, 1.0f);
     sp4C->count = sp30 + 1;
     sp4C->unk18 = D_802FF5E8.unk0[D_8039CAD0][0];
     if (func_80297EF8(arg0) == 0) {

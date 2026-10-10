@@ -74,7 +74,7 @@ void func_8025B9D0(s32 arg0, s32 *arg1) {
     sp20 = (UnkStruct_8025B9D0 *)D_80358070;
     func_8028B4C4((u32)(uintptr_t)sp30, D_80358070, &sp2C, 9, 0, 1);
     D_80358070 += sp2C;
-    func_80257490(&D_80358070, 0x10);
+    func_80257490((s32 *)&D_80358070, 0x10);
     for (sp34 = 0; sp34 < arg0; sp34++) {
         sp28 = sp20->unk140C;
         sp20 = (UnkStruct_8025B9D0 *)((u8 *)sp20 + sp28 + 0x140E);
@@ -87,7 +87,7 @@ void func_8025B9D0(s32 arg0, s32 *arg1) {
     D_803669AC = sp20->unkC;
     sp28 = sp20->unk140C;
     sp20 = (UnkStruct_8025B9D0 *)((u8 *)sp20 + 0x140E);
-    func_80257490(&sp20, 2);
+    func_80257490((s32 *)&sp20, 2);
     D_803669B0 = (u8 *)sp20;
     D_80366994 = 0;
     D_803669A0 = D_803669AC->unk2;

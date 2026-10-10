@@ -71,7 +71,7 @@ void func_802021FC(Part *parts, u8 *buf, u8 *other) {
 }
 
 /* the parts set up from the model in the two buffers */
-void func_80202270(u8 *model, u8 **bufs, Part *parts) {
+void func_80202270(void *model, u8 **bufs, Part *parts) {
     func_8029F85C(parts, model, bufs[0], bufs[1]);
 }
 

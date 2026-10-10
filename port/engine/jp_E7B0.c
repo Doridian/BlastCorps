@@ -65,7 +65,7 @@ s32 func_801F6F18(void) {
     i = 0;
     do {
         do {
-            osSendMesg(&D_80219EF8, (OSMesg)(((u32)i << 16 | 0x11) | 0x01000000), OS_MESG_BLOCK);
+            osSendMesg(&D_80219EF8, OS_MESG(((u32)i << 16 | 0x11) | 0x01000000), OS_MESG_BLOCK);
             osRecvMesg(&D_80219F50, &msg, OS_MESG_BLOCK);
             if (msg != NULL) {
                 i++;

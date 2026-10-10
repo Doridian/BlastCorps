@@ -471,6 +471,20 @@ set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrap
     -Wno-implicit-const-int-float-conversion -Wno-pointer-bool-conversion
     -Wno-string-plus-int -Wno-null-pointer-arithmetic -Wno-gnu-folding-constant
     -Wno-macro-redefined -Wno-ignored-pragma-intrinsic)   # (IDO's sqrtf, not one on AArch64)
+if(PORT_LP64)
+    # Where pointers are 8 bytes, an implicit pointer/integer conversion or
+    # a pointer to one type passed as a pointer to another is where a
+    # 4-byte slot can meet an 8-byte pointer (docs/PORT.md, "The LP64
+    # build"): errors, on the whole N64 side.  An explicit cast is allowed;
+    # ptrcast_scan.py counts those against its allow-list.  (The function
+    # pointers, a subgroup of the second, stay off: P7 types them.  The
+    # flags are taken out and put back in this order because CMake keeps
+    # only the first of two equal options.)
+    list(REMOVE_ITEM N64_FLAGS -Wno-error=incompatible-pointer-types -Wno-incompatible-pointer-types
+        -Wno-error=int-conversion -Wno-int-conversion -Wno-incompatible-function-pointer-types)
+    list(APPEND N64_FLAGS -Werror=int-conversion -Werror=incompatible-pointer-types
+        -Wno-incompatible-function-pointer-types)
+endif()
 if(PORT_MOVABLE)
     list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link
 endif()

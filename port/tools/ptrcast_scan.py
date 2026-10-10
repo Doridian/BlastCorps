@@ -6,9 +6,13 @@ allow-list (P6's inventory of them: docs/PORT.md, "The LP64 build").
 
 BUILD is a configured LP64 port build (-DPORT_LP64=ON): its commands for
 the N64 side's files (n64_tus.py), run by clang with only
--Wpointer-to-int-cast, -Wint-to-pointer-cast and -Wint-conversion on.
-With 8-byte pointers each is a place where a pointer goes through a 32-bit
-integer, or one comes from it.  Another version's diagnostics are the same
+-Wpointer-to-int-cast, -Wint-to-pointer-cast, -Wint-conversion and
+-Wincompatible-pointer-types on.  With 8-byte pointers each of the first
+three is a place where a pointer goes through a 32-bit integer, or one
+comes from it; the last is a pointer passed or stored as a pointer to
+another type, which hides a pointer slot written as a 32-bit word (the
+LP64 build has the last two as errors, CMakeLists.txt; this sees every
+version's `#if`s).  Another version's diagnostics are the same
 commands with its VERSION_ define (all: the four), so each version's `#if`
 branches are seen.  A diagnostic is counted once however many files
 include the line.
@@ -25,6 +29,7 @@ Each is put in a class by where it is and the macros it comes through:
   P6-x3       the native-endian X3's `^ 3` on an address (uintptr_t)
   P6-game     the game's C (blastcorps/src, blastcorps/include)
   P6-engine   port/engine
+  ptrtype     -Wincompatible-pointer-types anywhere (none allowed)
   other       anything else
 
 The allow-list (port/tools/ptrcast_allow.txt) has a line per class and
@@ -47,9 +52,11 @@ import n64_tus  # noqa: E402
 ROOT = n64_tus.ROOT
 VERSIONS = n64_tus.VERSIONS
 ALLOW = os.path.join(ROOT, "port", "tools", "ptrcast_allow.txt")
-CLASSES = ("P8-gbi", "P7-rom", "P7-rebase", "P7-libaudio", "P10-host", "P6-x3", "P6-game", "P6-engine", "other")
+CLASSES = ("P8-gbi", "P7-rom", "P7-rebase", "P7-libaudio", "P10-host", "P6-x3", "P6-game", "P6-engine", "ptrtype",
+           "other")
 FLAGS = ["-fsyntax-only", "-Wno-everything", "-Wpointer-to-int-cast", "-Wint-to-pointer-cast",
-         "-Wint-conversion", "-Wno-error", "-fno-caret-diagnostics", "-fmacro-backtrace-limit=0",
+         "-Wint-conversion", "-Wincompatible-pointer-types", "-Wno-incompatible-function-pointer-types",
+         "-Wno-error", "-fno-caret-diagnostics", "-fmacro-backtrace-limit=0",
          "-fno-color-diagnostics"]
 DIAG = re.compile(r"^(.*?):(\d+):(\d+): (warning|error): (.*?)(?: \[(-W[\w-]+)\])?$")
 NOTE_MACRO = re.compile(r"^(.*?):(\d+):(\d+): note: expanded from macro '(\w+)'$")
@@ -96,7 +103,9 @@ def scan_one(argv):
     return out, r.returncode
 
 
-def classify(path, line, macros):
+def classify(path, line, macros, flag=""):
+    if flag == "-Wincompatible-pointer-types":
+        return "ptrtype"
     rel = os.path.relpath(path, ROOT)
     names = [m[2] for m in macros]
     files = [os.path.basename(m[0]) for m in macros]
@@ -133,7 +142,7 @@ def scan(build, version, jobs):
                 path, line, col, msg, flag, macros = d
                 key = (os.path.relpath(path, ROOT), line, col, msg)
                 if key not in res:
-                    res[key] = (classify(path, line, macros), flag)
+                    res[key] = (classify(path, line, macros, flag), flag)
     return res, errors
 
 

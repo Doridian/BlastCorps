@@ -156,7 +156,7 @@ void func_801F7850(void) {
                 sp74->unk16 = D_80364EF0[sp6C][D_802E8C44[sp70]];
                 sp74->unk1A = sp70;
             }
-            func_802595E0(&D_8036BB24[sp68 * 4], 4, sizeof(YoshiEntry), func_801F7FF4);
+            func_802595E0((u8 *)&D_8036BB24[sp68 * 4], 4, sizeof(YoshiEntry), func_801F7FF4);
             for (sp6C = 0; sp6C < 4; sp6C++) {
                 sp74 = &D_8036BB24[sp68 * 4 + sp6C];
                 sp74->y = sp6C * 0x11;
@@ -171,7 +171,7 @@ void func_801F7850(void) {
             sp68++;
         }
     }
-    func_802595E0(D_8036BB24, sp68, 4 * sizeof(YoshiEntry), func_801F7FF4);
+    func_802595E0((u8 *)D_8036BB24, sp68, 4 * sizeof(YoshiEntry), func_801F7FF4);
     for (sp70 = 0; sp70 < sp68 * 4; sp70++) {
         sp74 = &D_8036BB24[sp70];
         D_8021A7E8[sp70] = sp74->unk18;

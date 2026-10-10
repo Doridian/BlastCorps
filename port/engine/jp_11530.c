@@ -50,10 +50,10 @@ Gfx *func_801F9258(Gfx *arg0, u8 *arg1, s32 *arg2) {
         size = 0x18;
     }
     h = D_8021AB2C / 9;
-    func_80259DC8(arg1, D_8020D810[D_8021A908].name, D_8020D810[D_8021A908].unk8, 0, 0xA0, 0, (0x1C - h) / 2 + 0x12,
+    func_80259DC8((union Frame *)arg1, D_8020D810[D_8021A908].name, D_8020D810[D_8021A908].unk8, 0, 0xA0, 0, (0x1C - h) / 2 + 0x12,
                   size, h, 1, 0xFF, 0xFF, 0xFF, D_8021AB2C, 0, 0, 0xFF, D_8021AB2C);
-    gfx = func_8024C404(gfx, arg1, &sp64);
-    func_80259C24(&gfx, arg1);
+    gfx = func_8024C404(gfx, (union Frame *)arg1, &sp64);
+    func_80259C24(&gfx, (union Frame *)arg1);
     level = &D_802E8F94[D_8021A908];
     gfx = func_80274868(gfx);
     y = 0xDA;

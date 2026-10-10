@@ -3236,7 +3236,7 @@ void func_8026BA7C(YoshiWindow *arg0) {
         if (sp20->flags & 0x400) {
             sp2C = &D_802F49F4[sp20->unk14];
             if (sp2C->unk2E == -1) {
-                sp20->unk1A = func_80272C5C(sp2C->unk6, 0, sp2C->unk4, sp2C->unk2C, sp2C->unk2D | sp27, 1.0f);
+                sp20->unk1A = func_80272C5C((u16 *)sp2C->unk6, 0, sp2C->unk4, sp2C->unk2C, sp2C->unk2D | sp27, 1.0f);
                 D_8036BA98[sp20->unk14] = 0;
             } else {
                 sp20->unk1A = sp2C->unk2E;
