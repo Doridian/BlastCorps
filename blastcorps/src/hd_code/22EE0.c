@@ -7,7 +7,7 @@ void func_80267A9C(void *arg);
 void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo);
 void func_80267F88(AudioInfo *info);
 void func_802682A4(void);
-ALDMAproc func_80268254(AMDMAState **state);
+ALDMAproc func_80268254(void *state);
 s32 func_80267FE0(s32 addr, s32 len, void *state);
 
 extern s32 D_80000300;
@@ -313,7 +313,8 @@ s32 func_80267FE0(s32 addr, s32 len, void *state) {
     return osVirtualToPhysical(foundBuffer) + delta;
 }
 
-ALDMAproc func_80268254(AMDMAState **state) {
+/* (an ALDMANew: its state is the AMDMAState *'s place) */
+ALDMAproc func_80268254(void *state) {
     s32 unused;
 
     if (!D_8036A308.initialized) {
@@ -321,8 +322,8 @@ ALDMAproc func_80268254(AMDMAState **state) {
         D_8036A308.firstFree = D_8036A318;
         D_8036A308.initialized = 1;
     }
-    *state = &D_8036A308;
-    return (ALDMAproc)func_80267FE0;
+    *(AMDMAState **)state = &D_8036A308;
+    return func_80267FE0;
 }
 
 void func_802682A4(void) {

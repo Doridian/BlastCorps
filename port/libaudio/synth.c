@@ -101,7 +101,7 @@ void alSynNew(ALSynth *s, ALSynConfig *c) {
     s->paramSamples = 0;
     s->outputRate = c->outputRate;
     s->maxOutSamples = MAX_SECTION;
-    s->dma = (ALDMANew)c->dmaproc;
+    s->dma = c->dmaproc;
 
     /* the blocks in the reference's order */
     out = alHeapAlloc(hp, 1, HEAP_BLOCK(OutStage, BLOCK_SAVE));
