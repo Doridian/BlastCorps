@@ -582,7 +582,7 @@ void func_8029E0AC(void);
 
 /* hd_code 5BF40, handwritten (port/engine/5BF40.c) */
 void func_802A0700(void);
-void func_802A08B4(u32 *, u32 *);
+void func_802A08B4(Gfx *, Gfx *);
 void func_802A0B00(u16, u8 *);
 u8 *func_802A0CC8(s32, u8 *);
 void func_802A0EE0(u16, u8 *);

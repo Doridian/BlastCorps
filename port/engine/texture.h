@@ -13,10 +13,11 @@ typedef struct TextureEntry {
     /* 0x6 */ u16 type;     /* the decoder: 0 raw ... 6 */
 } TextureEntry;
 
-/* a loaded texture: its number and physical address */
+/* a loaded texture: its number and its address as a G_SETTIMG has it
+   (DL_ADDR) */
 typedef struct TexCacheEntry {
     u32 id;
-    u32 phys;
+    uintptr_t phys;
 } TexCacheEntry;
 
 /* a decode (func_802A57DC): in place at dst */
@@ -28,7 +29,13 @@ typedef struct TexDecode {
 } TexDecode;
 
 u32 func_802A57DC(TexDecode *req);
-u32 tex_phys(u32 id);           /* a loaded texture's physical address (5BF40) */
+uintptr_t tex_phys(u32 id);     /* a loaded texture's address, as a G_SETTIMG has it (5BF40) */
+/* 5BF40's: texture `id` loaded if it isn't, its address as tex_phys's */
+REGS(t6, fp -> s0)
+uintptr_t func_802A0CFC(u32 id, u8 *param);
+/* and the textures [dl, end) name by number loaded, their addresses put in */
+REGS(s0, s1)
+void func_802A08E4(Gfx *dl, Gfx *end);
 extern TexDecode *D_803C4B50;   /* 60F60's queue of decodes: where the next goes */
 
 /* A resource pack's edited textures (port/host/pack.c, docs/PORT.md,

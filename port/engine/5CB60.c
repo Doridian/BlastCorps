@@ -14,6 +14,7 @@
  * read at that width (native-endian memory keeps those in host order).
  */
 #include "engine.h"
+#include "texture.h"
 #include "game/game.h"
 #include "game/level.h"
 #include "game/vehicle.h"
@@ -239,17 +240,17 @@ void func_802A2D68(LevelHeader *h) {
 #endif
 }
 
-/* func_802A1C88: the level's display lists: their G_DL addresses made
-   physical, and the four the C draws */
+/* func_802A1C88: the level's display lists: their G_DL words (offsets
+   from the first list) made addresses, and the four the C draws */
 REGS(t0)
 void func_802A1C88(LevelHeader *h) {
-    u32 base = K0_TO_PHYS((u32)(uintptr_t)LEVEL_PTR(h, displayLists[0]));
-    u32 *p = (u32 *)LEVEL_PTR(h, displayLists[6]);
-    u32 *end = (u32 *)LEVEL_PTR(h, displayLists[3]);
+    uintptr_t base = DL_ADDR(LEVEL_PTR(h, displayLists[0]));
+    Gfx *p = (Gfx *)LEVEL_PTR(h, displayLists[6]);
+    Gfx *end = (Gfx *)LEVEL_PTR(h, displayLists[3]);
 
-    for (; p != end; p += 2) {
-        if (p[0] >> 24 == GBI_DL) {
-            p[1] += base;
+    for (; p != end; p++) {
+        if (DL_OP(p) == GBI_DL) {
+            p->words.w1 += base;
         }
     }
     D_803BE6E0 = (Gfx *)LEVEL_PTR(h, displayLists[6]);
@@ -696,10 +697,6 @@ void func_802A3F80(LevelHeader *h) {
 
 /* ---- the buildings' parts and the textures ---------------------------- */
 
-REGS(t6, fp -> s0)
-u32 func_802A0CFC(u32 id, u8 *param);
-REGS(s0, s1)
-void func_802A08E4(u32 *dl, u32 *end);
 
 extern u8 D_802D30D0[], D_802D3194[], D_802D32A0[], D_802D331C[], D_802D33C8[], D_802D3444[],
     D_802D3538[], D_802D3614[], D_802D36C0[], D_802D3784[], D_802D3890[], D_802D393C[],
@@ -824,7 +821,7 @@ void func_802A24BC(Building *b) {
         (b->unk30 != 0xBC)) {
         return;
     }
-    D_80365330 = (u8 *)(uintptr_t)func_802A0CFC(0xF81, tex_param);
+    D_80365330 = (u8 *)func_802A0CFC(0xF81, tex_param);
     b->unk44 = func_802CE6F8(b->x, b->z, b->y);
 }
 
@@ -963,7 +960,7 @@ void func_802A1C20(LevelHeader *h) {
 REGS(t0)
 void func_802A3008(LevelHeader *h) {
 
-    func_802A08E4((u32 *)LEVEL_PTR(h, displayLists[0]), (u32 *)LEVEL_PTR(h, displayLists[3]));
+    func_802A08E4((Gfx *)LEVEL_PTR(h, displayLists[0]), (Gfx *)LEVEL_PTR(h, displayLists[3]));
 }
 
 /* ---- the buildings ------------------------------------------------------ */
@@ -1137,7 +1134,7 @@ void func_802A1D54(LevelHeader *h) {
         n = BE16U(p->model);
         m = func_802A2A98(n);
         func_802A2164(n, (Model *)m);
-        func_802A08E4((u32 *)MODEL_PTR(m, unk10), (u32 *)MODEL_PTR(m, unk14));
+        func_802A08E4((Gfx *)MODEL_PTR(m, unk10), (Gfx *)MODEL_PTR(m, unk14));
         ((Model *)m)->unkE = p->behavior;
         x = BE16U(p->x);
         y = BE16U(p->y);
@@ -1167,7 +1164,7 @@ REGS(a0, a1, v0, v1, s2)
 void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     Vehicle *v = D_803649D0;
     VehicleModel *vm = (VehicleModel *)model;
-    u32 *src, *end, *dst;
+    Gfx *src, *end, *dst;
     s32 delta;
 
     D_803649D0 = v + 1;
@@ -1186,13 +1183,12 @@ void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     v->unk28 = model + vm->unk24[7];
     v->unk2C = model + vm->unk24[8];
     v->unk54 = (Gfx *)(model + vm->unk48);
-    src = (u32 *)(model + vm->unk1C);
-    end = (u32 *)(model + vm->unk20);
-    dst = (u32 *)D_80358070;
-    delta = (u8 *)dst - (u8 *)v->unkC;
-    for (; src != end; src += 2, dst += 2) {
-        dst[0] = src[0];
-        dst[1] = src[1];
+    src = (Gfx *)(model + vm->unk1C);
+    end = (Gfx *)(model + vm->unk20);
+    dst = (Gfx *)D_80358070;
+    delta = (u8 *)dst - (u8 *)v->unkC;      /* (bytes: the copy's place from the original's) */
+    for (; src != end; src++, dst++) {
+        dl_copy_cmd(dst, src);
     }
     D_80358070 = (u8 *)dst;
     v->unk30 = (u8 *)v->unkC + delta;
@@ -1227,7 +1223,7 @@ void func_802A133C(s32 x, s32 y, s32 z, s32 type, VS *vs) {
 /* ---- the vehicles' and the cargo's model files -------------------------- */
 
 REGS(s0, s1, s2)
-void func_8029DF78(u32 *dl, u32 *end, u32 type);
+void func_8029DF78(Gfx *dl, Gfx *end, u32 type);
 
 /* the model file's ROM range */
 #define ROM_RANGE(s, e) (start = ROM(s), end = ROM(e))
@@ -1269,8 +1265,8 @@ u8 *func_802A396C(u32 type) {
     top = load_gz_model(start, end - start);
     m = D_80358070;
     D_80358070 = top;
-    func_8029DF78((u32 *)VMODEL_PTR(m, unk1C), (u32 *)VMODEL_PTR(m, unk20), type);
-    func_802A08E4((u32 *)VMODEL_PTR(m, unk1C), (u32 *)VMODEL_PTR(m, unk20));
+    func_8029DF78((Gfx *)VMODEL_PTR(m, unk1C), (Gfx *)VMODEL_PTR(m, unk20), type);
+    func_802A08E4((Gfx *)VMODEL_PTR(m, unk1C), (Gfx *)VMODEL_PTR(m, unk20));
     return m;
 }
 
@@ -1296,7 +1292,7 @@ u8 *func_802A32CC(u32 type) {
     top = load_gz_model(start, end - start);
     m = D_80358070;
     D_80358070 = top;
-    func_802A08E4((u32 *)VMODEL_PTR(m, unk1C), (u32 *)VMODEL_PTR(m, unk20));
+    func_802A08E4((Gfx *)VMODEL_PTR(m, unk1C), (Gfx *)VMODEL_PTR(m, unk20));
     return m;
 }
 

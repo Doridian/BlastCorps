@@ -96,8 +96,8 @@ extern s16 D_803C2EB0[0xFC];    /* the keys drawn (terrain_dl) */
 extern s16 D_803C30A8[100];     /* the visible cells, ascending, -1 at the end */
 extern s16 *D_803C3170;         /* the end of ... */
 extern s16 D_803C3178[100];     /* ... the cells found visible in this walk */
-extern u32 D_803C3240;          /* the animation's texture (0: the list's own) */
-extern u32 D_803C3244;          /* ... the one it blends into */
+extern uintptr_t D_803C3240;    /* the animation's texture (0: the list's own), as a G_SETTIMG has it */
+extern uintptr_t D_803C3244;    /* ... the one it blends into */
 extern u16 D_803C3248;          /* game frames before the walk's next step */
 extern u8 D_803C324A;           /* the animation blends */
 extern u8 D_803C324B;           /* ... by this much */
@@ -111,7 +111,6 @@ extern SchedClient D_803156D8;
                                            wasn't drawn (a G_RDPTILESYNC) */
 #define VIS_OUT_CHECKED 0x20            /* the output bytes read back */
 
-#define OP(w) (((w) & 0xFF000000) >> 24)
 #define G_DL_W0 _SHIFTL(G_DL, 24, 8)
 #define G_ENDDL_W0 _SHIFTL(G_ENDDL, 24, 8)
 _Static_assert(G_DL_W0 == 0x06000000u && G_ENDDL_W0 == 0xB8000000u, "F3D's G_DL, G_ENDDL");
@@ -421,30 +420,26 @@ static s32 tex_anim_find(LevelHeader *h, s32 key) {
 }
 
 /* the display list [h + from, h + to) appended to out; the new end */
-static u32 *dl_append(LevelHeader *h, u32 from, u32 to, u32 *out) {
-    u32 *src = (u32 *)AT(h, from);
-    u32 *end = (u32 *)AT(h, to);
+static Gfx *dl_append(LevelHeader *h, u32 from, u32 to, Gfx *out) {
+    Gfx *src = (Gfx *)AT(h, from);
+    Gfx *end = (Gfx *)AT(h, to);
 
     for (;;) {
         if (src == end) {
             break;
         }
-        out[0] = src[0];
-        out[1] = src[1];
-        src += 2;
-        out += 2;
+        dl_copy_cmd(out, src);
+        src++;
+        out++;
     }
     return out;
 }
 
-/* the first command at or after p with opcode `op`; the one after it */
-static u32 *dl_find(u32 *p, u32 op) {
-    u32 w;
-
-    do {
-        w = p[0];
-        p += 2;
-    } while (OP(w) != op);
+/* the first command at or after p with opcode `op` */
+static Gfx *dl_find(Gfx *p, u32 op) {
+    while (DL_OP(p) != op) {
+        p++;
+    }
     return p;
 }
 
@@ -452,26 +447,26 @@ static u32 *dl_find(u32 *p, u32 op) {
    p: the first G_SETTIMG gets the frame's texture, and when it blends the
    next G_SETTIMG the next frame's and the G_SETPRIMCOLOR after that the
    fraction (its lodfrac byte) */
-static void dl_patch(u32 *p) {
+static void dl_patch(Gfx *p) {
     p = dl_find(p, G_SETTIMG);
     if (D_803C3240 != 0) {
-        p[-1] = D_803C3240;
+        p->words.w1 = D_803C3240;
     }
     if (D_803C324A == 0) {
         return;
     }
-    p = dl_find(p, G_SETTIMG);
+    p = dl_find(p + 1, G_SETTIMG);
     if (D_803C3244 != 0) {
-        p[-1] = D_803C3244;
+        p->words.w1 = D_803C3244;
     }
-    p = dl_find(p, G_SETPRIMCOLOR);
-    p[-2] |= D_803C324B;
+    p = dl_find(p + 1, G_SETPRIMCOLOR);
+    p->words.w0 |= D_803C324B;
 }
 
 /* (802A51FC) copy the display list [h + from, h + to) to *out, with the
    animation's patches if `patch` */
-static u32 *dl_copy(LevelHeader *h, u32 from, u32 to, u32 *out, s32 patch) {
-    u32 *start = out;
+static Gfx *dl_copy(LevelHeader *h, u32 from, u32 to, Gfx *out, s32 patch) {
+    Gfx *start = out;
 
     out = dl_append(h, from, to, out);
     if (patch) {
@@ -542,11 +537,11 @@ static s32 key_drawn(s32 key, const s16 *drawn) {
 /* (802A5334) the spans of [s, end) not drawn yet whose cells are visible;
    a run of spans with one key gets the texture setup (and the animation's
    patches) once */
-static u32 *spans_rest(LevelHeader *h, TerrainSpan *s, TerrainSpan *end, s16 *drawn, u32 *out) {
+static Gfx *spans_rest(LevelHeader *h, TerrainSpan *s, TerrainSpan *end, s16 *drawn, Gfx *out) {
     s32 last = -2;      /* no key */
 
     for (;; s = SPAN_NEXT(s)) {
-        u32 *start = out;
+        Gfx *start = out;
         s32 same, patch;
 
         if (s == end) {
@@ -575,7 +570,7 @@ static u32 *spans_rest(LevelHeader *h, TerrainSpan *s, TerrainSpan *end, s16 *dr
    group of [g, gEnd) its list and those of the following visible groups
    and the visible spans of [spans, sEnd) with the same key (the texture
    setup once), then the other visible spans */
-static void terrain_dl(LevelHeader *h, u32 *out, TerrainGroup *g, TerrainGroup *gEnd,
+static void terrain_dl(LevelHeader *h, Gfx *out, TerrainGroup *g, TerrainGroup *gEnd,
                        TerrainSpan *spans, TerrainSpan *sEnd) {
     s16 *drawn = D_803C2EB0;
 
@@ -625,26 +620,22 @@ static void terrain_dl(LevelHeader *h, u32 *out, TerrainGroup *g, TerrainGroup *
         }
     }
     out = spans_rest(h, spans, sEnd, drawn, out);
-    out[0] = G_ENDDL_W0;
-    out[1] = 0;
+    dl_put(out, G_ENDDL_W0, 0);
 }
 
 /* (802A4DE8) a G_DL to each display list of [p, end) (each running to its
    G_ENDDL), then G_ENDDL */
-static void dl_calls(u32 *out, u32 *p, u32 *end) {
+static void dl_calls(Gfx *out, Gfx *p, Gfx *end) {
     for (;;) {
         if (p == end) {
             break;
         }
-        out[0] = G_DL_W0;
-        out[1] = K0_TO_PHYS((u32)p);   /* KSEG0 to physical */
-        out += 2;
+        out = dl_put(out, G_DL_W0, DL_ADDR(p));
         do {
-            p += 2;
-        } while (p[-2] != G_ENDDL_W0);
+            p++;
+        } while (p[-1].words.w0 != G_ENDDL_W0);
     }
-    out[0] = G_ENDDL_W0;
-    out[1] = 0;
+    dl_put(out, G_ENDDL_W0, 0);
 }
 
 /* func_802A4CDC (00000.c's, every frame): the terrain's four display lists
@@ -660,13 +651,12 @@ void func_802A4CDC(Gfx *dl0, Gfx *dl1, Gfx *dl2, Gfx *dl3, Gfx *calls) {
     dls[2] = dl2;
     dls[3] = dl3;
     for (i = 0; i < 4; i++) {
-        terrain_dl(h, (u32 *)dls[i],
+        terrain_dl(h, dls[i],
                    (TerrainGroup *)AT(h, h->unkA0[TERRAIN_GROUPS + i]),
                    (TerrainGroup *)AT(h, h->unkA0[TERRAIN_GROUPS + i + 1]),
                    (TerrainSpan *)AT(h, h->unkA0[TERRAIN_SPANS + i]),
                    (TerrainSpan *)AT(h, h->unkA0[TERRAIN_SPANS + i + 1]));
     }
-    dl_calls((u32 *)calls, (u32 *)AT(h, h->displayLists[DL_OTHERS]),
-             (u32 *)AT(h, h->displayLists[DL_OTHERS + 1]));
+    dl_calls(calls, (Gfx *)AT(h, h->displayLists[DL_OTHERS]), (Gfx *)AT(h, h->displayLists[DL_OTHERS + 1]));
     tex_anims_tick(h);
 }

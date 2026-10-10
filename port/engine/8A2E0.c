@@ -136,20 +136,18 @@ void func_802CEE14(s32 x, s32 y, s32 z) {
    frame's, `frame`), and a display list made at `dl` (its box, culled,
    and the model at its position, the matrix at `mtx`); last the turning
    parts stepped.  Returns the end of gfx. */
-Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
-    u32 *gfx = (u32 *)gfx_, *dl = dl_;
+Gfx *func_802CEEFC(Gfx *gfx, u8 frame, void *dl_, void *mtx_) {
+    Gfx *dl = dl_;
     s32 *mtx = mtx_;
     CommPoint *c;
     s32 n, i = 0;
     u8 *model, *buf;
 
     if (D_803FC1F0 == 0) {
-        return (Gfx *)gfx;
+        return gfx;
     }
     model = D_803FBBD8;
-    gfx[0] = DL_SEGMENT(6);             /* the model's section 0x14 */
-    gfx[1] = K0(model + *(s32 *)(model + 0x14));
-    gfx += 2;
+    gfx = dl_put(gfx, DL_SEGMENT(6), DL_ADDR(model + *(s32 *)(model + 0x14)));     /* the model's section 0x14 */
     for (n = D_803FC1F0, c = D_803FBBB0; n != 0; n--, c++, i++) {
         if (c->lit != 0) {
             if (frame != 0) {
@@ -164,30 +162,19 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
                 buf = D_803FC1E8;
             }
         }
-        gfx[0] = DL_SEGMENT(7);         /* the parts */
-        gfx[1] = K0(buf);
-        gfx[2] = DL_CALL;               /* the display list below */
-        gfx[3] = K0(dl);
-        dl[0] = 0x04700080;             /* its box: 8 vertices */
-        dl[1] = (u32)(uintptr_t)&D_803FBAB0[i * 0x40];
-        dl[2] = 0xBE000000;             /* culled by them */
-        dl[3] = 0x140;
-        gfx += 4;
-        dl += 4;
+        gfx = dl_put(gfx, DL_SEGMENT(7), DL_ADDR(buf));        /* the parts */
+        gfx = dl_put(gfx, DL_CALL, DL_ADDR(dl));                /* the display list below */
+        /* its box: 8 vertices (their KSEG0 address, as the original has it) */
+        dl = dl_put(dl, 0x04700080, (uintptr_t)&D_803FBAB0[i * 0x40]);
+        dl = dl_put(dl, 0xBE000000, 0x140);                     /* culled by them */
         func_802ACA60(c->x << 11, c->y << 11, c->z << 11, mtx);
         func_802AC8CC((u32 *)mtx);
         model = D_803FBBD8;
-        dl[0] = DL_MTX_PUSH;            /* the matrix */
-        dl[1] = K0(mtx);
-        dl[2] = DL_CALL;                /* the model's two lists */
-        dl[3] = K0(model + *(s32 *)(model + 0x24));
-        dl[4] = DL_CALL;
-        dl[5] = K0(model + *(s32 *)(model + 0x2C));
-        dl[6] = DL_MTX_POP;
-        dl[7] = 0;
-        dl[8] = DL_END;
-        dl[9] = 0;
-        dl += 10;
+        dl = dl_put(dl, DL_MTX_PUSH, DL_ADDR(mtx));             /* the matrix */
+        dl = dl_put(dl, DL_CALL, DL_ADDR(model + *(s32 *)(model + 0x24)));     /* the model's two lists */
+        dl = dl_put(dl, DL_CALL, DL_ADDR(model + *(s32 *)(model + 0x2C)));
+        dl = dl_put(dl, DL_MTX_POP, 0);
+        dl = dl_put(dl, DL_END, 0);
         mtx += 0x10;
     }
     if (frame != 0) {
@@ -195,7 +182,7 @@ Gfx *func_802CEEFC(Gfx *gfx_, u8 frame, void *dl_, void *mtx_) {
     } else {
         func_8029E558(D_803FBBE0, D_803FC1E0, D_803FC1E4);
     }
-    return (Gfx *)gfx;
+    return gfx;
 }
 
 /* the player near (under 0x4C) an unlit one: it lights (the dish turns) */
