@@ -13,11 +13,6 @@
  * (ROADMAP, Phase 3).  The markers expand to the type the N64 code uses, so
  * they never change what IDO emits:
  *
- *   ROMPTR(T)    a pointer stored in data that comes from ROM at run time
- *                (a level file, a model, a sound bank): 4 bytes, relocated
- *                by the game itself after loading (or a KSEG0 address
- *                baked into the asset).  The LP64 port keeps it 4 bytes
- *                (PTR32): the bytes are the ROM's.
  *   RomAddr      a cartridge ROM address, the source of a PI DMA, written
  *                ROM(D_00xxxxxx) (or a segment's _ROM_START).  For IDO that is
  *                the address of the linker symbol, as the original had it;
@@ -30,9 +25,8 @@
  *
  *   T *PTR32 p   a pointer kept 4 bytes in the LP64 port too
  *                (ultratypes.h), where something other than the C fixes the
- *                layout: ROM data (ROMPTR), libaudio and the sound player
- *                built on it, the display list's and the audio command
- *                list's words, OSDevMgr's two function pointers.  Nothing
+ *                layout: the display list's and the audio command
+ *                list's words.  Nothing
  *                else: the engine is C and reads by
  *                field, and the host reads by port/src/layout.c's table.
  *
@@ -50,7 +44,6 @@
 
 #include <ultra64.h>
 
-#define ROMPTR(type) type PTR32
 typedef u32 RomAddr;
 #ifdef TARGET_PC
 #include "rom_addrs.h"

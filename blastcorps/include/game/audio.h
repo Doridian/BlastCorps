@@ -84,24 +84,14 @@ typedef struct FxParams {
 SIZE_CHECK(FxParams, 0x108);
 
 /*
- * The sound bank, as the game's libaudio lays it out: ALBank, and an
- * ALInstrument from before bendRange/soundCount moved soundArray to 0x10.
- * Both are loaded from ROM; the pointers are offsets in the file until the
- * bank loader (_bnkfPatchBank) adds the file's address.
+ * The sound effects' bank (hd_code 1C460.c: the effects' bank file's
+ * bankArray[0]); the sound calls pass it to func_80260650(bank, id,
+ * handle).  Sound id N is its first instrument's sound N - 1 (the game
+ * reads it at 0xC + 4 * N in the instrument; id 0 is never asked for:
+ * func_80260650 returns first).
  */
-typedef struct SndInstrument {
-    /* 0x00 */ u8 unk0[0xC];
-    /* 0x0C */ ROMPTR(ALSound *) soundArray[1];
-} SndInstrument;
-
-typedef struct SndBank {
-    /* 0x00 */ u8 unk0[0xC];
-    /* 0x0C */ ROMPTR(SndInstrument *) inst; /* ALBank.instArray[0] */
-} SndBank;
-
-/* The sound effects' bank (hd_code 1C460.c: sfxBankFile->bankArray[0]); the
- * sound calls pass it to func_80260650(bank, id, handle). */
-extern SndBank *D_80367738;
+extern ALBank *D_80367738;
+#define SND_SOUND(bank, id) ((bank)->instArray[0]->soundArray[(id) - 1])
 
 /* Rare's sound player (libaudio's ALSoundState, ALSndpEvent, ALSndpConfig,
  * ALSndPlayer, with changes). */
