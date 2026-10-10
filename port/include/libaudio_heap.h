@@ -156,7 +156,7 @@ typedef struct {
 /* the synthesizer's own blocks: the output stage, the aux bus with the
    reverb, the main bus (only their addresses are seen, in ALSynth) */
 typedef struct {
-    s32 dram;                   /* this section's output */
+    s16 *dram;                  /* this section's output */
 } OutStage;
 
 typedef struct {

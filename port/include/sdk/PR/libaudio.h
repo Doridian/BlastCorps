@@ -68,8 +68,8 @@ void alUnlink(ALLink *element);
 void alLink(ALLink *element, ALLink *after);
 
 /* sample data is fetched through the game's routine: given a ROM address
-   and a length, it returns an RDRAM physical address holding them */
-typedef s32 (*ALDMAproc)(s32 addr, s32 len, void *state);
+   and a length, it returns where in memory they are */
+typedef void *(*ALDMAproc)(s32 addr, s32 len, void *state);
 typedef ALDMAproc (*ALDMANew)(void *state);
 
 void alCopy(void *src, void *dest, s32 len);

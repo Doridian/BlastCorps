@@ -105,7 +105,7 @@ void alSynNew(ALSynth *s, ALSynConfig *c) {
 
     /* the blocks in the reference's order */
     out = alHeapAlloc(hp, 1, HEAP_BLOCK(OutStage, BLOCK_SAVE));
-    out->dram = 0;
+    out->dram = NULL;
     s->outputFilter = (struct ALFilter_s *)out;
 
     aux = alHeapAlloc(hp, 1, HEAP_BLOCK(AuxBus, BLOCK_AUXBUS));
@@ -226,7 +226,7 @@ Acmd *alAudioFrame(Acmd *cmdList, s32 *cmdLen, s16 *outBuf, s32 outLen) {
         s32 n = outLen < s->maxOutSamples ? outLen : s->maxOutSamples;
 
         aSegment(cmd++, 0, 0);
-        out->dram = (s32)outBuf;
+        out->dram = outBuf;
 
         /* the main bus: the aux bus's voices through the reverb */
         aClearBuffer(cmd++, DMEM_MAIN_L, n << 1);

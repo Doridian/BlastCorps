@@ -16,10 +16,6 @@
 #define PITCH_ONE 0x8000
 #define CENTS_PER_LN2 173123.404906676     /* 120000 / ln 2: hundredths of a cent */
 
-static u32 phys(void *p) {
-    return osVirtualToPhysical(p);
-}
-
 /* the one-pole low-pass, given to the microcode's pole filter as an ADPCM
    book: its impulse response's first eight samples (fc^1..fc^8, from the
    ninth coefficient), the gain 1 - fc */
@@ -100,12 +96,12 @@ static Acmd *line_load(Reverb *r, s16 *at, s32 dmem, s32 n, Acmd *cmd) {
     if (at + n > end) {
         s32 first = end - at;
         aSetBuffer(cmd++, 0, dmem, 0, first << 1);
-        aLoadBuffer(cmd++, phys(at));
+        aLoadBuffer(cmd++, at);
         aSetBuffer(cmd++, 0, dmem + (first << 1), 0, (n - first) << 1);
-        aLoadBuffer(cmd++, phys(r->line));
+        aLoadBuffer(cmd++, r->line);
     } else {
         aSetBuffer(cmd++, 0, dmem, 0, n << 1);
-        aLoadBuffer(cmd++, phys(at));
+        aLoadBuffer(cmd++, at);
     }
     aSetBuffer(cmd++, 0, 0, 0, n << 1);
     return cmd;
@@ -118,13 +114,13 @@ static Acmd *line_save(Reverb *r, s16 *at, s32 dmem, s32 n, Acmd *cmd) {
     if (at + n > end) {
         s32 first = end - at;
         aSetBuffer(cmd++, 0, 0, dmem, first << 1);
-        aSaveBuffer(cmd++, phys(at));
+        aSaveBuffer(cmd++, at);
         aSetBuffer(cmd++, 0, 0, dmem + (first << 1), (n - first) << 1);
-        aSaveBuffer(cmd++, phys(r->line));
+        aSaveBuffer(cmd++, r->line);
         aSetBuffer(cmd++, 0, 0, 0, n << 1);
     } else {
         aSetBuffer(cmd++, 0, 0, dmem, n << 1);
-        aSaveBuffer(cmd++, phys(at));
+        aSaveBuffer(cmd++, at);
     }
     return cmd;
 }
@@ -164,7 +160,7 @@ static Acmd *read_out_tap(Reverb *r, Section *s, s32 dmem, s32 n, Acmd *cmd) {
         skew = (s32)((uintptr_t)at & 7) >> 1;      /* samples before it to an 8-byte boundary */
         cmd = line_load(r, at - skew, DMEM_TEMP2, nin + skew, cmd);
         aSetBuffer(cmd++, 0, DMEM_TEMP2 + (skew << 1), dmem, n << 1);
-        aResample(cmd++, ch->first, (s32)(ratio * PITCH_ONE), phys(ch->state));
+        aResample(cmd++, ch->first, (s32)(ratio * PITCH_ONE), ch->state);
         ch->first = 0;
         s->drift += nin - n;
         return cmd;
@@ -174,12 +170,12 @@ static Acmd *read_out_tap(Reverb *r, Section *s, s32 dmem, s32 n, Acmd *cmd) {
 
 static Acmd *lowpass(LowPass *lp, s32 dmem, s32 n, Acmd *cmd) {
     aSetBuffer(cmd++, 0, dmem, dmem, n << 1);
-    aLoadADPCM(cmd++, 32, phys(lp->coef));
+    aLoadADPCM(cmd++, 32, lp->coef);
 #ifdef VERSION_EU
     /* eu's abi.h puts the gain in 8 bits (hd_code 9FE20.c) */
-    aPoleFilter(cmd++, lp->first, lp->gain & 0xFF, phys(lp->state));
+    aPoleFilter(cmd++, lp->first, lp->gain & 0xFF, lp->state);
 #else
-    aPoleFilter(cmd++, lp->first, lp->gain, phys(lp->state));
+    aPoleFilter(cmd++, lp->first, lp->gain, lp->state);
 #endif
     lp->first = 0;
     return cmd;

@@ -8,5 +8,4 @@
 # the audio command list's words.  P10 has none here (its host interface
 # is ptrcast_scan.py's).
 # ptr32_check.py BUILD --update rewrites it, keeping each name's note.
-AMAudioMgr       # P8: ACMDList, the audio command lists (Acmd, the RSP's words)
 D_80300A68_t     # P8: asm2c's display list D_80300A68 (PTR32_VARS), its words

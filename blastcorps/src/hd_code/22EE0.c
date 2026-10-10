@@ -8,7 +8,13 @@ void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo);
 void func_80267F88(AudioInfo *info);
 void func_802682A4(void);
 ALDMAproc func_80268254(void *state);
-s32 func_80267FE0(s32 addr, s32 len, void *state);
+/* an ALDMAproc's result: an RDRAM address (the port's: the pointer) */
+#ifdef TARGET_PC
+#define DMA_RESULT void *
+#else
+#define DMA_RESULT s32
+#endif
+DMA_RESULT func_80267FE0(s32 addr, s32 len, void *state);
 
 extern s32 D_80000300;
 extern s32 osViClock;
@@ -18,19 +24,17 @@ extern u64 D_802E68F0[];
 extern u64 D_8030EB90[];
 
 /*
- * The audio frame (Nintendo's demo audio.c's names, MAX_RSP_CMDS from the
+ * The audio frame (Nintendo's demo audio.c's names, MAX_RSP_CMDS (audio.h) from the
  * assert): NUM_FIELDS retraces long, at FRAMES_PER_SECOND.  eu's PAL frame is
  * one field, and its command list and DMA buffers are smaller.
  */
 #ifdef VERSION_EU
 #define NUM_FIELDS 1
 #define EXTRA_SAMPLES 38
-#define MAX_RSP_CMDS 1950
 #define DMA_BUFFER_LENGTH 0x138
 #else
 #define NUM_FIELDS 2
 #define EXTRA_SAMPLES 53
-#define MAX_RSP_CMDS 2750
 #define DMA_BUFFER_LENGTH 0x200
 #endif
 
@@ -199,7 +203,11 @@ void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo) {
 
     samplesLeft = 0;
     func_802682A4();
+#ifdef TARGET_PC
+    audioPtr = info->data;
+#else
     audioPtr = (s16 *)(uintptr_t)osVirtualToPhysical(info->data);
+#endif
     if (lastInfo != NULL) {
         osAiSetNextBuffer(lastInfo->data, lastInfo->frameSamples << 2);
     }
@@ -251,7 +259,7 @@ void func_80267F88(AudioInfo *info) {
     }
 }
 
-s32 func_80267FE0(s32 addr, s32 len, void *state) {
+DMA_RESULT func_80267FE0(s32 addr, s32 len, void *state) {
     void *foundBuffer;
     s32 delta;
     s32 addrEnd;
@@ -274,7 +282,11 @@ s32 func_80267FE0(s32 addr, s32 len, void *state) {
         } else if (addrEnd <= buffEnd) {
             dmaPtr->lastFrame = D_802F3AF0;
             foundBuffer = dmaPtr->ptr + addr - dmaPtr->startAddr;
+#ifdef TARGET_PC
+            return foundBuffer;
+#else
             return osVirtualToPhysical(foundBuffer);
+#endif
         }
         lastDmaPtr = dmaPtr;
         dmaPtr = (AMDMABuffer *)dmaPtr->node.next;
@@ -288,7 +300,11 @@ s32 func_80267FE0(s32 addr, s32 len, void *state) {
         func_8029A7E4("OH DEAR - No audio DMA buffers left\n");
     }
     if (dmaPtr == NULL) {
+#ifdef TARGET_PC
+        return D_8036A308.firstUsed;
+#else
         return osVirtualToPhysical(D_8036A308.firstUsed);
+#endif
     }
     D_8036A308.firstFree = (AMDMABuffer *)dmaPtr->node.next;
     alUnlink(&dmaPtr->node);
@@ -310,7 +326,11 @@ s32 func_80267FE0(s32 addr, s32 len, void *state) {
     dmaPtr->startAddr = addr;
     dmaPtr->lastFrame = D_802F3AF0;
     osPiStartDma((OSIoMesg *)&D_8036A8C8[D_802F3AF4++], OS_MESG_PRI_NORMAL, OS_READ, addr, foundBuffer, DMA_BUFFER_LENGTH, &D_8036AE68);
+#ifdef TARGET_PC
+    return (u8 *)foundBuffer + delta;
+#else
     return osVirtualToPhysical(foundBuffer) + delta;
+#endif
 }
 
 /* (an ALDMANew: its state is the AMDMAState *'s place) */

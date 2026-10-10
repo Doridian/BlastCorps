@@ -202,7 +202,7 @@ Acmd *__wrap_alAudioFrame(Acmd *cmdList, s32 *cmdLen, s16 *outBuf, s32 outLen) {
             for (i = 0; i < NUM_DMA_MESSAGES; i++)
                 host_alog_untrack(A(D_8036A318[i].ptr), 0x200);
             for (i = 0; i < 2; i++)
-                host_alog_untrack(A(D_80368070.ACMDList[i]), 0x55F0);
+                host_alog_untrack(A(D_80368070.ACMDList[i]), MAX_RSP_CMDS * sizeof(Acmd));
             for (i = 0; i < 3; i++)
                 host_alog_untrack(A(D_80368070.audioInfo[i]->data), D_8036A8C0 * 4);
         }
