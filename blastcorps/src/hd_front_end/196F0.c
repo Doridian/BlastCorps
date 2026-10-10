@@ -1,5 +1,6 @@
 #include "common.h"
 #include "game/game.h"
+#include "game/frame.h"
 #include "functions.h"
 
 /*
@@ -46,7 +47,7 @@ void func_80200714(u8 arg0) {
     u8 b;
     u8 t;
 
-    __additional_scanline = (u32)D_80358070;
+    __additional_scanline = (u32)(uintptr_t)D_80358070;
     D_8021AB84 = arg0;
     switch (arg0) {
         case 1:
@@ -71,7 +72,7 @@ void func_80200714(u8 arg0) {
             return;
     }
     size = romEnd - romStart;
-    func_8028B4C4(romStart, D_80358070, &size, 0xD, 0, 2);
+    func_8028B4C4((u32)(uintptr_t)romStart, D_80358070, &size, 0xD, 0, 2);
     img = (u16 *)D_80358070;
     for (i = 0; i < size >> 1; i++) {
         r = IMG_RD(&img[i]) >> 11;
@@ -111,7 +112,7 @@ void osViExtendVStart(u32 value) {
     __additional_scanline = value;
 }
 
-Gfx *func_80200BE0(Gfx *arg0, s32 arg1, s32 *arg2) {
+Gfx *func_80200BE0(Gfx *arg0, Frame *arg1, s32 *arg2) {
     Gfx *gfx = arg0;
     s32 x;
     s32 y;

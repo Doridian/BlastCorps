@@ -2,6 +2,7 @@
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/yoshi.h"
+#include "game/frame.h"
 #include "functions.h"
 
 extern u8 D_802FAD50[];
@@ -67,7 +68,7 @@ void func_80201240(s32 arg0) {
 #endif
 }
 
-Gfx *func_80201364(s32 arg0, Gfx *arg1) {
+Gfx *func_80201364(Frame *arg0, Gfx *arg1) {
     Gfx *gfx = arg1;
     s32 x;
     s32 y;

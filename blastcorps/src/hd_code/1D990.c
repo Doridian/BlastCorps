@@ -8,6 +8,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/frame.h"
 #include "functions.h"
 
 typedef struct {
@@ -929,7 +930,7 @@ extern u8 D_80367BFB;
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/1D990/func_802639B4.s")
 #else
-Gfx *func_802639B4(Gfx *arg0, void *arg1, s32 arg2) {
+Gfx *func_802639B4(Gfx *arg0, Frame *arg1, s32 *arg2) {
     Gfx *gfx;
     s32 unused;
     u8 sp5F;
@@ -1014,7 +1015,7 @@ Gfx *func_802639B4(Gfx *arg0, void *arg1, s32 arg2) {
                             0x18, D_80367BD8 + 0xC, alpha, 1, 1.0f);
     }
     gfx = func_80274AA4(gfx);
-    arg2 += (gfx - arg0) * 4;
+    arg2 += gfx - arg0;
     return gfx;
 }
 #endif
@@ -1033,7 +1034,7 @@ extern u8 D_80367D52;
 extern u8 D_80367D53;
 extern u8 D_80370C1C;
 
-Gfx *func_80264264(void *arg0, Gfx *arg1) {
+Gfx *func_80264264(Frame *arg0, Gfx *arg1) {
     Gfx *gfx;
     s32 i;
     s32 x;

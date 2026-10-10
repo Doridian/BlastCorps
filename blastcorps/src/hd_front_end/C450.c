@@ -13,7 +13,6 @@ extern f32 D_8021A91C;
 extern f32 D_8021A920;
 
 extern Gfx D_8020BC88[];
-extern u8 D_803156F8[];
 extern f32 D_8020F080; /* 25000.0f */
 extern u16 D_80217288;
 extern u16 *D_8021728C;

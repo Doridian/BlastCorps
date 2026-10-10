@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/sched.h"
 #include "game/game.h"
+#include "game/frame.h"
 #include "functions.h"
 
 /*
@@ -26,7 +27,7 @@ extern u8 D_803B9888;
 Gfx *func_802742D8(Gfx *, u8, s16, s16, s32, s32, s32, f32, u8);
 
 /* .bss, 0x8036BFE0-0x8036C770 (tools/bss_c.py) */
-s32 D_8036BFE0[0x40][2];
+u8 *D_8036BFE0[0x40][2];
 u8 D_8036C1E0[0x40];
 u8 D_8036C220[0x40];
 f32 D_8036C260[0x40];
@@ -41,7 +42,7 @@ void func_80272C50(void) {
 }
 
 u8 func_80272C5C(u16 *arg0, u16 *arg1, u8 arg2, u8 arg3, u8 arg4, f32 arg5) {
-    s32 sp3C;
+    u8 *sp3C;
     s32 i;
     s32 j;
     s32 k;
@@ -57,17 +58,17 @@ u8 func_80272C5C(u16 *arg0, u16 *arg1, u8 arg2, u8 arg3, u8 arg4, f32 arg5) {
     while (i < arg2 + start) {
         if (arg1 != NULL) {
             func_80257490((s32 *)&D_80358070, 0x10);
-            func_802A0EE0(arg1[i - start], sp3C = (s32)D_80358070);
+            func_802A0EE0(arg1[i - start], (s32)(uintptr_t)(sp3C = D_80358070));
             D_80358070 += 0x80;
         } else {
             func_80257490((s32 *)&D_80358070, 0x10);
-            sp3C = 0;
+            sp3C = NULL;
         }
         for (j = 0; j < arg3; j++) {
-            D_8036BFE0[i][j] = (s32)D_80358070;
-            func_802A0B00(arg0[arg3 * sp2C + j], sp3C);
+            D_8036BFE0[i][j] = D_80358070;
+            func_802A0B00(arg0[arg3 * sp2C + j], (s32)(uintptr_t)sp3C);
 #ifdef TARGET_PC
-            port_icon_texture(D_8036BFE0[i][j], arg0[arg3 * sp2C + j], j, arg3, arg4);
+            port_icon_texture((u32)(uintptr_t)D_8036BFE0[i][j], arg0[arg3 * sp2C + j], j, arg3, arg4);
 #endif
         }
         D_8036C1E0[i] = arg3;
@@ -280,7 +281,7 @@ Gfx *func_80274B08(Gfx *arg0) {
     return gfx;
 }
 
-void func_80274B40(Gfx **gfxp, s32 arg1, u8 arg2, s16 arg3, s16 arg4) {
+void func_80274B40(Gfx **gfxp, Frame *arg1, u8 arg2, s16 arg3, s16 arg4) {
     Gfx *gfx;
 
     gfx = *gfxp;

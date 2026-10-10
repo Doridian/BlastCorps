@@ -213,12 +213,12 @@ typedef struct Hole {
     /* 0x0C */ s32 unkC;         /* y less the block type's depth */
     /* 0x10 */ u8 type;
     /* 0x11 */ u8 filled;
-    /* 0x14 */ s32 unk14;        /* D_803FB8B0 before and after its triangles are added (func_802CE9C8) */
-    /* 0x18 */ s32 unk18;
+    /* 0x14 */ struct CollisionTri *unk14;  /* D_803FB8B0 before and after its triangles are added (func_802CE9C8) */
+    /* 0x18 */ struct CollisionTri *unk18;
 } Hole;
 /* 8A080's: the end of the holes' collision triangles (the next free one) */
 extern struct CollisionTri *D_803FB8B0;
-SIZE_CHECK(Hole, 0x1C);
+SIZE_CHECK_C(Hole, 0x1C);
 
 /* The holes with LevelHole.unk8 set, D_8039C800[HOLE_MAX]; D_8039C940
  * counts them. */

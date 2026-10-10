@@ -27,7 +27,6 @@ extern f32 D_8021A91C;
 extern f32 D_8021A920;
 
 
-extern FrameGame D_803156F8[];
 extern Vtx D_02000000[];
 
 
@@ -645,8 +644,8 @@ Gfx *func_801F2E20(void) {
     s32 spA0;
     s32 pad[7];
 
-    spCC = D_803156F8[0].unk15C0;
-    spC8 = D_803156F8[1].unk15C0;
+    spCC = D_803156F8[0].game.unk15C0;
+    spC8 = D_803156F8[1].game.unk15C0;
     spC4 = (Mtx *)D_80358070;
     D_80358070 += 2 * sizeof(Mtx);
     spBC = gfx = (Gfx *)D_80358070;

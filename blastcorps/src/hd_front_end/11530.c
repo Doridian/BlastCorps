@@ -100,7 +100,6 @@ Gfx *D_8021AB6C;
 extern f32 D_802E8C84[2];
 extern s32 D_802FA264;
 extern OSMesgQueue D_80315180;
-extern FrameGame D_803156F8[];
 extern s32 D_80358078;
 extern u16 D_8035807C;
 extern s32 D_80358080;
@@ -756,11 +755,11 @@ void func_801F8980(void) {
     func_802A5720();
     func_8028A3E4();
     if (D_80358060 != 0) {
-        func_80284E54(D_803156F8[D_8035805C].unk48B0, D_80358078, 2, 0, 1234, 0);
+        func_80284E54(D_803156F8[D_8035805C].game.unk48B0, D_80358078, 2, 0, 1234, 0);
         func_80284E54(D_8021AB68, D_8021AB58, 0, 0, 1234, 0);
         func_80284E54(D_8021AB6C, D_8021AB5C, 1, 1, 1234, 0);
     } else {
-        func_80284E54(D_803156F8[D_8035805C].unk48B0, D_80358078, 1, 1, 1234, 0);
+        func_80284E54(D_803156F8[D_8035805C].game.unk48B0, D_80358078, 1, 1, 1234, 0);
     }
     D_8035805C ^= 1;
     sp38 = (u8 *)&D_803156F8[D_8035805C];
@@ -1004,7 +1003,7 @@ Gfx *func_801F9B84(Gfx *arg0, u8 *arg1, s32 *arg2) {
     gSPMatrix(gfx++, arg1 + 0x1280, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
     gfx = func_801FC5B8(arg1, gfx, D_8021A904, D_8021A905);
     func_801FDE98();
-    gfx = func_80274BF0(arg1 + D_8035805C * 0x21498, gfx);
+    gfx = func_80274BF0((Frame *)(arg1 + D_8035805C * 0x21498), gfx);
     gDPFullSync(gfx++);
     gSPEndDisplayList(gfx++);
     if (D_802FA264 != 0) {
@@ -1516,8 +1515,8 @@ void func_801FD748(void) {
     Vtx *sp34;
 
     sp74 = 0;
-    sp38 = D_803156F8[D_8035805C].unk15C0;
-    sp34 = D_803156F8[D_8035805C ^ 1].unk15C0;
+    sp38 = D_803156F8[D_8035805C].game.unk15C0;
+    sp34 = D_803156F8[D_8035805C ^ 1].game.unk15C0;
     do {
         sp48 = 0x40000000, sp4C = 0x40000000;
         sp70 = 0;

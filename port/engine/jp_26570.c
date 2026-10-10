@@ -91,7 +91,7 @@ static s32 alpha_of(s16 fade, u8 a, u8 v) {
     return (s32)((u32)v * (u32)(fade * a)) / 65025;
 }
 
-Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
+Gfx *func_8026BCE0(Gfx *arg0, union Frame *arg1, s32 *arg2) {
     YoshiWindow *w;
     YoshiEntry *e;
     void *sp144 = NULL;  /* the char text: kept from the last entry without u16 text */
@@ -474,17 +474,17 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
 
     SDIV(sp136, w->unk0, 2);
     SDIV(sp134, w->unk2, 2);
-    guOrtho(&arg1->mtx[73], -w->unk4 - sp136, -w->unk4 - sp136 + 319, -w->unk6 - sp134 + 239,
+    guOrtho(&arg1->buf.mtx[73], -w->unk4 - sp136, -w->unk4 - sp136 + 319, -w->unk6 - sp134 + 239,
             -w->unk6 - sp134, -256.0f, 256.0f, 256.0f);
-    gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[73]), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[73]), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
     if (w->unk8 & 0x10) {
-        guRotate(&arg1->mtx[75], 180.0 - (f64)(D_8036BB38 * D_8036BB34 / sp128) * 180.0, 2.0f, 0.0f, 1.0f);
-        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+        guRotate(&arg1->buf.mtx[75], 180.0 - (f64)(D_8036BB38 * D_8036BB34 / sp128) * 180.0, 2.0f, 0.0f, 1.0f);
+        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
     } else {
-        guTranslate(&arg1->mtx[75], 0.0f, 0.0f, 0.0f);
-        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+        guTranslate(&arg1->buf.mtx[75], 0.0f, 0.0f, 0.0f);
+        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
     }
-    gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+    gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
     gSPPopMatrix(gfx++, G_MTX_MODELVIEW);
     if (w->unk8 & 8) {
         f32 x, y;
@@ -493,16 +493,16 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
         x = f * D_8036BB38 * D_8036BB34 / 1000.0f;
         U2F(f, sp134);
         y = f * D_8036BB38 * D_8036BB34 / 1000.0f;
-        guScale(&arg1->mtx[76], x, y, 1.0f);
-        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+        guScale(&arg1->buf.mtx[76], x, y, 1.0f);
+        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
     } else {
         f32 x;
 
         U2F(f, sp136);
         x = f / 1000.0f;
         U2F(f, sp134);
-        guScale(&arg1->mtx[76], x, f / 1000.0f, 1.0f);
-        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+        guScale(&arg1->buf.mtx[76], x, f / 1000.0f, 1.0f);
+        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
     }
     gDPPipeSync(gfx++);
     gDPSetRenderMode(gfx++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
@@ -515,8 +515,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
     }
     gSPPopMatrix(gfx++, G_MTX_MODELVIEW);
     if (w->unk8 & 8) {
-        guScale(&arg1->mtx[74], D_8036BB38, D_8036BB38, 1.0f);
-        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->mtx[74]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
+        guScale(&arg1->buf.mtx[74], D_8036BB38, D_8036BB38, 1.0f);
+        gSPMatrix(gfx++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[74]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
     }
 
     /* the selection's moves */
@@ -663,7 +663,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                 spCC = func_80276080(arg1, 0, spCC, -3 - sp136, sp134 - D_8036BB44 - spCA + 3, 16, h + 10, 0, 0, 0,
                                      h2);
                 gfx = func_80275DA4(gfx, 1);
-                gSPVertex(gfx++, arg1->vtx, 8, 0);
+                gSPVertex(gfx++, arg1->buf.vtx, 8, 0);
                 gSP1Triangle(gfx++, 4, 5, 6, 0);
                 gSP1Triangle(gfx++, 4, 6, 7, 0);
                 gSP1Triangle(gfx++, 0, 1, 2, 0);
@@ -681,7 +681,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                 spCC = func_80276080(arg1, 1, spCC, -3 - sp136, D_8036BB44 - sp134 + spCA - 3, 16, h + 10, 0, 0, 0,
                                      h2);
                 gfx = func_80275DA4(gfx, 1);
-                gSPVertex(gfx++, &arg1->vtx[spCC - 8], 8, 0);
+                gSPVertex(gfx++, &arg1->buf.vtx[spCC - 8], 8, 0);
                 gSP1Triangle(gfx++, 4, 5, 6, 0);
                 gSP1Triangle(gfx++, 4, 6, 7, 0);
                 gSP1Triangle(gfx++, 0, 1, 2, 0);

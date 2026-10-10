@@ -8,7 +8,6 @@
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
 extern OSMesgQueue D_80315180;
-extern FrameBuf D_803156F8[];
 extern s32 D_80358078;
 extern s32 D_80358080;
 extern s32 D_80358084;
@@ -21,14 +20,14 @@ void func_801EE390(void) {
 }
 
 void func_801EE398(s32 arg0) {
-    FrameBuf *sp5C;
+    Frame *sp5C;
     Gfx *gfx;
     s32 sp54;
 
     sp5C = &D_803156F8[D_8035805C ^ 1];
     D_80358080 = 0;
     D_80358084 = 0;
-    gfx = sp5C->dl;
+    gfx = sp5C->buf.dl;
     func_802A5720();
     func_8025B2B8();
     if (D_8036BB18 != arg0) {
@@ -40,7 +39,7 @@ void func_801EE398(s32 arg0) {
         osViBlack(0);
     }
     func_80259450();
-    func_80284E54(D_803156F8[D_8035805C].dl, D_80358078, 1, 1, 0x4D2, 0);
+    func_80284E54(D_803156F8[D_8035805C].buf.dl, D_80358078, 1, 1, 0x4D2, 0);
     D_8035805C ^= 1;
     gSPSegment(gfx++, 0, 0);
     gSPSegment(gfx++, 2, osVirtualToPhysical(sp5C));
@@ -56,7 +55,7 @@ void func_801EE398(s32 arg0) {
     gfx = func_8026BBD0(gfx, &D_803156F8[D_8035805C], &D_80358078);
     gDPFullSync(gfx++);
     gSPEndDisplayList(gfx++);
-    D_80358078 = gfx - sp5C->dl;
+    D_80358078 = gfx - sp5C->buf.dl;
     for (sp54 = 0; sp54 < D_80358080; sp54++) {
         osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
     }

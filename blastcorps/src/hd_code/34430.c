@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/level.h"
 #include "game/game.h"
+#include "game/frame.h"
 #include "functions.h"
 
 typedef struct {
@@ -26,7 +27,7 @@ UnkStruct_8036CB60 D_8036CB60[11];
 s32 D_8036CC68;
 s32 D_8036CC6C;
 Mtx D_8036CC70[2][10];
-s32 D_8036D170;
+u8 *D_8036D170;
 f32 D_8036D174;
 u8 D_8036D178;
 s32 D_8036D17C;
@@ -95,10 +96,10 @@ void func_80278BF0(Gfx *src, Gfx *end, Gfx **out) {
 }
 
 void func_80278E3C(void) {
-    func_80257490((s32)D_80358070, 0x40);
-    D_8036D170 = (s32)D_80358070;
+    func_80257490((s32 *)D_80358070, 0x40);
+    D_8036D170 = D_80358070;
     D_80358070 += 0x5460;
-    func_80257490((s32)D_80358070, 8);
+    func_80257490((s32 *)D_80358070, 8);
     D_8036D178 = 0;
     D_8036CC68 = 0;
     D_8036CC6C = 0;
@@ -305,7 +306,7 @@ void func_80279778(s32 arg0, s32 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, G
     }
 }
 
-void func_80279EE8(Gfx **gfxp, s32 arg1, u8 arg2) {
+void func_80279EE8(Gfx **gfxp, Frame *arg1, u8 arg2) {
     Gfx *gfx;
     u8 ok;
     s32 off;

@@ -38,7 +38,7 @@ u8 D_8036CB3B;
 u8 D_8036CB3C;
 s16 *D_8036CB40;
 u8 D_8036CB44;
-s32 D_8036CB48[2];
+u8 *D_8036CB48[2];
 u8 D_8036CB50;
 u8 D_8036CB51;
 
@@ -108,15 +108,15 @@ extern u8 D_8036CB3A;
 extern u8 D_8036CB3B;
 extern u8 D_8036CB3C;
 extern s16 *D_8036CB40;
-extern s32 D_8036CB48[2];
+extern u8 *D_8036CB48[2];
 extern u8 D_8036CB50;
 extern u8 D_8036CB51;
 
 void func_802775C0(void) {
     D_8036CB34 = 0;
-    D_8036CB48[0] = (s32)D_80358070;
+    D_8036CB48[0] = D_80358070;
     D_80358070 += 0xC80;
-    D_8036CB48[1] = (s32)D_80358070;
+    D_8036CB48[1] = D_80358070;
     D_80358070 += 0xC80;
     D_8036CB28 = 0;
     D_8036CB29 = 0;
@@ -397,7 +397,7 @@ void func_80278318(void) {
     D_8036CB34 = 0;
 }
 
-void func_80278324(Gfx **arg0, s32 arg1, u8 arg2) {
+void func_80278324(Gfx **arg0, Frame *arg1, u8 arg2) {
     Gfx *gfx;
 
     gfx = *arg0;

@@ -21,7 +21,6 @@ extern u8 D_006EAB90[];
 extern u8 D_006EC4C0[];
 extern u16 D_8035807C;
 extern s16 D_8036BB20;
-extern FrameBuf D_803156F8[];
 
 /* .bss, 0x802182C0-0x80218740 (tools/bss_c.py) */
 u32 D_802182C0;
@@ -67,30 +66,30 @@ void func_801F4E70(u8 arg0) {
     func_802A08B4(D_802182C8, sp30);
 }
 
-Gfx *func_801F4FBC(u8 *arg0, Gfx *arg1) {
+Gfx *func_801F4FBC(Frame *arg0, Gfx *arg1) {
     Gfx *gfx = arg1;
 
     gSPSegment(gfx++, 6, D_802182CC);
     gSPSegment(gfx++, 7, &D_802182D0[D_8035805C]);
     gSPPerspNormalize(gfx++, D_8035807C);
-    gSPLookAt(gfx++, arg0 + 0x3C00);
-    gSPMatrix(gfx++, arg0 + 0x1240, G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, arg0 + 0x140, G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, arg0 + 0x12C0, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, arg0 + 0x1280, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, arg0 + 0x1300, G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
+    gSPLookAt(gfx++, &arg0->buf.lookAt);
+    gSPMatrix(gfx++, &arg0->buf.mtx[0x49], G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg0->buf.mtx[5], G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg0->buf.mtx[0x4B], G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg0->buf.mtx[0x4A], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg0->buf.mtx[0x4C], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
     gSPDisplayList(gfx++, D_802182C8);
     return gfx;
 }
 
-Gfx *func_801F51C8(u8 *arg0, Gfx *arg1) {
+Gfx *func_801F51C8(Frame *arg0, Gfx *arg1) {
     Gfx *gfx = arg1;
     void *sp68;
 
     gSPPerspNormalize(gfx++, D_80218734);
-    gSPLookAt(gfx++, arg0 + 0x3C00);
-    gSPMatrix(gfx++, arg0 + 0x240, G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, arg0 + 0x140, G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
+    gSPLookAt(gfx++, &arg0->buf.lookAt);
+    gSPMatrix(gfx++, &arg0->buf.mtx[9], G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg0->buf.mtx[5], G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
     gDPSetEnvColor(gfx++, 0, 0, 0, D_8036BB20);
     {
         s32 sp4C;

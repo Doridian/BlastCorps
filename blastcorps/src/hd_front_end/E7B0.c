@@ -170,10 +170,10 @@ void func_801F58E8(void) {
             port_spin_wait();
 #endif
         }
-        sp2F = (u32)sp3C & 0xFF;
-        sp31 = ((u32)sp3C >> 8) & 0xFF;
-        sp32 = ((u32)sp3C >> 16) & 0xFF;
-        sp30 = ((u32)sp3C >> 24) & 0xFF;
+        sp2F = OS_MESG_INT(sp3C) & 0xFF;
+        sp31 = (OS_MESG_INT(sp3C) >> 8) & 0xFF;
+        sp32 = (OS_MESG_INT(sp3C) >> 16) & 0xFF;
+        sp30 = (OS_MESG_INT(sp3C) >> 24) & 0xFF;
         D_8020C014[0] = sp32 + 0x11;
         D_8039C4B0 = 1;
 #ifdef TARGET_PC
@@ -318,7 +318,7 @@ void func_801F58E8(void) {
                     } else {
                         func_8029A7E4("trying to fix pak ...\n");
                         if (sp2F != 0x12) {
-                            osSendMesg(&D_80219EF8, (OSMesg)(sp2F | (sp31 << 8) | (sp32 << 16) | (sp30 << 24)),
+                            osSendMesg(&D_80219EF8, OS_MESG(sp2F | (sp31 << 8) | (sp32 << 16) | (sp30 << 24)),
                                        OS_MESG_NOBLOCK);
                         }
                         sp2E = 0x12;
@@ -372,7 +372,7 @@ void func_801F58E8(void) {
             D_8036BB18 = -1;
         }
         if (sp30 != 0) {
-            osSendMesg(&D_80219F50, (OSMesg)sp38, OS_MESG_BLOCK);
+            osSendMesg(&D_80219F50, OS_MESG(sp38), OS_MESG_BLOCK);
         }
     }
 }
@@ -692,7 +692,7 @@ s32 func_801F6F18(void) {
     D_80218D28 = 0;
     for (sp44 = 0; sp44 < 0x10; sp44++) {
         do {
-            osSendMesg(&D_80219EF8, (OSMesg)((u32)((u32)(sp44 << 16) | 0x11) | 0x01000000), OS_MESG_BLOCK);
+            osSendMesg(&D_80219EF8, OS_MESG((u32)((u32)(sp44 << 16) | 0x11) | 0x01000000), OS_MESG_BLOCK);
             osRecvMesg(&D_80219F50, &sp38, OS_MESG_BLOCK);
             if (sp38 != NULL) {
                 sp44++;

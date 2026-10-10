@@ -281,7 +281,7 @@ void func_802633E0(void) {
 
 /* the level's HUD: the goal's counter (the laps' times), the timer, the
    icons */
-Gfx *func_802639B4(Gfx *arg0, void *arg1, s32 arg2) {
+Gfx *func_802639B4(Gfx *arg0, union Frame *arg1, s32 *arg2) {
     Gfx *gfx = arg0;
     s16 alpha;
     s32 i = 0;

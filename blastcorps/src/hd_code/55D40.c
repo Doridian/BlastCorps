@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/game.h"
 #include "game/yoshi.h"
+#include "game/frame.h"
 #include "functions.h"
 
 typedef struct {
@@ -122,8 +123,8 @@ void func_8029A500(void) {
 #define HEADING_GAP 0x26
 #endif
 
-s32 func_8029A518(s32 arg0, s32 arg1) {
-    s32 sp64;
+Gfx *func_8029A518(Frame *arg0, Gfx *arg1) {
+    Gfx *sp64;
     UnkStruct_80304A90 *sp60;
     s32 sp5C;
     s32 sp58;

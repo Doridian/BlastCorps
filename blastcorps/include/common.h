@@ -4,6 +4,21 @@
 #include <ultra64.h>
 
 /*
+ * An address as an integer, for the arithmetic done on one (alignment) and
+ * the words that carry one: uintptr_t in the port, where pointers are as wide
+ * as the host's; IDO's pointers are u32.  OS_MESG(x) is an OSMesg made of an
+ * integer (the game's messages are commands, not addresses) and
+ * OS_MESG_INT(m) the integer back.
+ */
+#ifdef TARGET_PC
+#include <stdint.h>
+#else
+typedef u32 uintptr_t;
+#endif
+#define OS_MESG(x) ((OSMesg)(uintptr_t)(x))
+#define OS_MESG_INT(m) ((u32)(uintptr_t)(m))
+
+/*
  * The game was built against an older gbi.h than the 2.0I one here.  Where
  * the two build different display-list words, the older form is redefined.
  */

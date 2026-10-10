@@ -60,6 +60,19 @@ typedef struct FrameGame {
 SIZE_CHECK(FrameGame, 0x21498);
 
 /*
+ * D_803156F8's element: the buffer in whichever of its two views the code
+ * using it has.  The functions that take the buffer as a parameter take a
+ * Frame *, and look at it as the view they know.
+ */
+typedef union Frame {
+    FrameBuf buf;
+    FrameGame game;
+} Frame;
+SIZE_CHECK(Frame, 0x21498);
+
+extern Frame D_803156F8[];
+
+/*
  * 0x1040-byte records that hd_code 13A70.c fills and draws (hd.c aligns the
  * array to 64 bytes in its .bss, at D_80358088): 0x1000 bytes of image
  * first.  D_803643C8 is the first, D_803643CC the next free one.

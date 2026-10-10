@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/vehicle.h"
 #include "game/game.h"
+#include "game/frame.h"
 #include "functions.h"
 
 extern s16 D_80367BD6;
@@ -67,7 +68,7 @@ void func_80286A00(void) {
     D_8036EC10 = 0;
 }
 
-void func_80286C60(Gfx **arg0, s32 arg1, u8 arg2, u8 arg3) {
+void func_80286C60(Gfx **arg0, Frame *arg1, u8 arg2, u8 arg3) {
     Gfx *gfx;
 
     gfx = *arg0;
@@ -145,7 +146,7 @@ void func_802873AC(void) {
     D_8036EC1C = 0;
 }
 
-void func_80287530(Gfx **arg0, s32 arg1, s32 arg2, u8 arg3) {
+void func_80287530(Gfx **arg0, Frame *arg1, s32 arg2, u8 arg3) {
     Gfx *gfx;
     s32 spB8[5];
 
@@ -216,7 +217,7 @@ void func_80287AE4(void) {
     D_8036EC28 = 0;
 }
 
-void func_80287C68(Gfx **arg0, s32 arg1, s32 arg2, u8 arg3) {
+void func_80287C68(Gfx **arg0, Frame *arg1, s32 arg2, u8 arg3) {
     Gfx *gfx;
     s32 spB8[5];
 

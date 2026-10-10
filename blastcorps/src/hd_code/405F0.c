@@ -15,7 +15,6 @@ extern u64 D_802E6820[0xD0 / sizeof(u64)];
 extern u64 D_802E68F0[];
 extern u64 D_8030E390[];
 extern OSMesgQueue D_803153D8;
-extern FrameGame D_803156F8[];
 extern u64 D_80367750[];
 extern u64 D_8036AFB0[];
 
@@ -70,7 +69,7 @@ void func_80284E54(Gfx *arg0, s32 arg1, u8 arg2, u8 arg3, s32 arg4, u8 arg5) {
     t->list.t.yield_data_size = 0x900;
     t->next = NULL;
     t->msgQ = &D_803153D8;
-    t->msg = (OSMesg)((arg2 << 16) | arg4);
+    t->msg = OS_MESG((arg2 << 16) | arg4);
     t->flags = 3;
     if (arg3) {
         t->flags |= 0x40;

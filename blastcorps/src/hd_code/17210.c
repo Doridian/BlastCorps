@@ -72,7 +72,7 @@ void func_8025B9D0(s32 arg0, s32 *arg1) {
     sp30 = D_006A9F10;
     sp2C = D_006AD3F0 - D_006A9F10;
     sp20 = (UnkStruct_8025B9D0 *)D_80358070;
-    func_8028B4C4(sp30, D_80358070, &sp2C, 9, 0, 1);
+    func_8028B4C4((u32)(uintptr_t)sp30, D_80358070, &sp2C, 9, 0, 1);
     D_80358070 += sp2C;
     func_80257490(&D_80358070, 0x10);
     for (sp34 = 0; sp34 < arg0; sp34++) {

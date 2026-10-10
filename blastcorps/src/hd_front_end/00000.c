@@ -93,7 +93,6 @@ extern s32 D_802153EC;
 extern u32 D_802153F0[];
 extern f32 D_802FDAC0[];
 extern OSMesgQueue D_80315180;
-extern FrameBuf D_803156F8[];
 extern s32 D_80358078;
 extern u16 D_8035807C;
 extern s32 D_80358080;
@@ -240,13 +239,13 @@ void func_801E7598(void) {
     UnkStruct_802081A8 sp14C;
     s32 sp148;
     s32 sp144;
-    FrameBuf *sp140;
+    Frame *sp140;
     Gfx *gfx;
 
     sp144 = 0;
     sp14C = D_802081A8;
     sp140 = &D_803156F8[D_8035805C ^ 1];
-    gfx = sp140->dl;
+    gfx = sp140->buf.dl;
     func_8028A3E4();
     D_80358080 = 0;
     D_80358084 = 0;
@@ -311,7 +310,7 @@ void func_801E7598(void) {
         }
         D_802153E6 -= 750;
     }
-    func_80284E54(D_803156F8[D_8035805C].dl, D_80358078, 1, 1, 0x4D2, 0);
+    func_80284E54(D_803156F8[D_8035805C].buf.dl, D_80358078, 1, 1, 0x4D2, 0);
     D_8035805C ^= 1;
     gSPSegment(gfx++, 0, 0);
     gSPSegment(gfx++, 2, osVirtualToPhysical(sp140));
@@ -361,7 +360,7 @@ void func_801E7598(void) {
     }
     func_80259C24(&gfx, sp140);
     if (D_80358060 < 2) {
-        guPerspective(&sp140->mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 4000.0f, 1.0f);
+        guPerspective(&sp140->buf.mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 4000.0f, 1.0f);
     }
 #ifdef VERSION_EU
     D_802153D8 += (D_802153D4 - D_802153D8) * 0.1 * 60.0 / 50.0;
@@ -370,12 +369,12 @@ void func_801E7598(void) {
     D_802153D8 += (D_802153D4 - D_802153D8) * 0.1 * 60.0 / 60.0;
     D_802153E0 += (D_802153DC - D_802153E0) * 0.1 * 60.0 / 60.0;
 #endif
-    guLookAtReflect(&sp140->mtx[5], &sp140->lookAt, D_802153D8, 1.0f, D_802153E0, D_802153D8, 0.0f, 0.0f, 0.0f,
+    guLookAtReflect(&sp140->buf.mtx[5], &sp140->buf.lookAt, D_802153D8, 1.0f, D_802153E0, D_802153D8, 0.0f, 0.0f, 0.0f,
                     1.0f, 0.0f);
     gSPPerspNormalize(gfx++, D_8035807C);
-    gSPLookAt(gfx++, &sp140->lookAt);
-    gSPMatrix(gfx++, &sp140->mtx[73], G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, &sp140->mtx[5], G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
+    gSPLookAt(gfx++, &sp140->buf.lookAt);
+    gSPMatrix(gfx++, &sp140->buf.mtx[73], G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &sp140->buf.mtx[5], G_MTX_PROJECTION | G_MTX_MUL | G_MTX_NOPUSH);
     gDPSetEnvColor(gfx++, 0, 0, 0, 0xFF);
     for (sp148 = 0; sp148 < D_80211A6A; sp148++) {
         u8 spEF;
@@ -427,7 +426,7 @@ void func_801E7598(void) {
                               D_802F47B0[19].g1, D_802F47B0[19].b1, D_802F47B0[19].a1);
         sp144 = func_80276080(sp140, 2, sp144, D_802153EC + 268, 35, D_802153EC / 4 + 12, 16, 0, 0, 0, 0xA0);
         gfx = func_80275DA4(gfx, 0);
-        gSPVertex(gfx++, sp140->vtx, 8, 0);
+        gSPVertex(gfx++, sp140->buf.vtx, 8, 0);
         gSP1Triangle(gfx++, 4, 5, 6, 0);
         gSP1Triangle(gfx++, 4, 6, 7, 0);
         gSP1Triangle(gfx++, 0, 1, 2, 0);
@@ -444,7 +443,7 @@ void func_801E7598(void) {
                               D_802F47B0[19].g1, D_802F47B0[19].b1, D_802F47B0[19].a1);
         sp144 = func_80276080(sp140, 3, sp144, 48 - D_802153EC, 35, D_802153EC / 4 + 12, 16, 0, 0, 0, 0xA0);
         gfx = func_80275DA4(gfx, 0);
-        gSPVertex(gfx++, &sp140->vtx[sp144 - 8], 8, 0);
+        gSPVertex(gfx++, &sp140->buf.vtx[sp144 - 8], 8, 0);
         gSP1Triangle(gfx++, 4, 5, 6, 0);
         gSP1Triangle(gfx++, 4, 6, 7, 0);
         gSP1Triangle(gfx++, 0, 1, 2, 0);
@@ -454,7 +453,7 @@ void func_801E7598(void) {
     gfx = func_80274BF0(sp140, gfx);
     gDPFullSync(gfx++);
     gSPEndDisplayList(gfx++);
-    D_80358078 = gfx - sp140->dl;
+    D_80358078 = gfx - sp140->buf.dl;
     for (sp148 = 0; sp148 < D_80358080; sp148++) {
         osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
     }

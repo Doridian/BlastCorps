@@ -36,20 +36,19 @@
 u16 *func_801F7410(u8 *);
 s32 func_8025B498(s16, u16, char *, u16 *);
 void func_802979E0(u8);
-Gfx *func_801EC770(Gfx *, s32, s32 *);
-Gfx *func_801ED800(Gfx *, FrameBuf *, u8, s32 *);
-Gfx *func_8026BCE0(Gfx *, FrameBuf *, s32 *);
+Gfx *func_801EC770(Gfx *, union Frame *, s32 *);
+Gfx *func_801ED800(Gfx *, union Frame *, u8, s32 *);
+Gfx *func_8026BCE0(Gfx *, union Frame *, s32 *);
 void func_80262840(void);
 void func_80263358(void);
 void func_802633E0(void);
-Gfx *func_802639B4(Gfx *, void *, s32);
-void func_80259EC4(s32, u8 *, u16 *, u8, s32, f32, s32, f32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
+Gfx *func_802639B4(Gfx *, union Frame *, s32 *);
+void func_80259EC4(union Frame *, u8 *, u16 *, u8, s32, f32, s32, f32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
                    u8, u8, u8, u8, u8);
 Gfx *func_801F9258(Gfx *, u8 *, s32 *);
 void func_801E8EB8(u8, u8);
 u8 func_801EE800(u8 *, u8, u8);
 
-extern FrameBuf D_803156F8[2];
 extern u8 D_802189C0[][0x11];
 extern char D_80218740[0x10][0x50];
 extern u16 D_80219F00_jp[0x20];
@@ -120,7 +119,7 @@ static void fuzz_801EC770(FuzzRng *r) {
     D_80215910[1] = fuzz_int(r, -300, 300);
     D_80215914 = fuzz_int(r, 0, 0x40);
     D_802E8BDC = fuzz_int(r, 0, 59);
-    func_801EC770(D_803156F8[1].dl, (s32)&D_803156F8[1], &n);
+    func_801EC770(D_803156F8[1].buf.dl, &D_803156F8[1], &n);
 }
 
 /* 6790: the promotion screen */
@@ -140,7 +139,7 @@ static void fuzz_801ED800(FuzzRng *r) {
     D_80370C28 = (u16)fuzz_u32(r);
     D_80370C2A = (u16)fuzz_u32(r);
     D_802FA268 = fuzz_int(r, 0, 1);
-    func_801ED800(D_803156F8[0].dl, &D_803156F8[0], fuzz_int(r, 0, 1), &n);
+    func_801ED800(D_803156F8[0].buf.dl, &D_803156F8[0], fuzz_int(r, 0, 1), &n);
 }
 
 /* 1D990: the level's goal, its timer and the HUD */
@@ -271,6 +270,7 @@ static YoshiIcon *fuzz_icon(FuzzRng *r) {
 /* 1D990: the HUD */
 static void fuzz_802639B4(FuzzRng *r) {
     s32 k = D_8035805C & 1;
+    s32 n = 0;
     u32 lo = FUZZ_PICK(r, 0, 0x04000000, 0x200, 0x04000200, 0x40, 0x400, 0x440, 0x104, 0x100, 4, 0x2000,
                        0x04000104, 0x04000440);
 
@@ -298,7 +298,8 @@ static void fuzz_802639B4(FuzzRng *r) {
     D_80367BD4 = fuzz_int(r, 0, 1);
     D_80367BD5 = fuzz_int(r, 0, 1);
     D_80367BD8 = fuzz_int(r, -20, 200);
-    func_802639B4(D_803156F8[k].dl, &D_803156F8[k], fuzz_int(r, 0, 100));
+    (void)fuzz_int(r, 0, 100);
+    func_802639B4(D_803156F8[k].buf.dl, &D_803156F8[k], &n);
 }
 
 /* 26570 (yoshi.c): the window renderer, on a window set up from scratch:
@@ -332,7 +333,7 @@ static void fuzz_8026BCE0(FuzzRng *r) {
     s32 n = 0, w, k, first, count;
     YoshiWindow *win;
     u16 *t16 = (u16 *)D_8036B9C8;
-    FrameBuf *fb = &D_803156F8[fuzz_int(r, 0, 1)];
+    Frame *fb = &D_803156F8[fuzz_int(r, 0, 1)];
 
     w = fuzz_int(r, 0, 3) == 0 ? fuzz_int(r, 0x62, 0x6B) : fuzz_int(r, 0, 0x6B);
     win = &D_802F8BDC[w];
@@ -440,7 +441,7 @@ static void fuzz_8026BCE0(FuzzRng *r) {
     D_8036BB44 = fuzz_int(r, -2, 9);
     D_802F9930 = FUZZ_PICK(r, 1, -1, 2, -2);
     D_8035805C = fuzz_int(r, 0, 1);
-    func_8026BCE0(fb->dl, fb, &n);
+    func_8026BCE0(fb->buf.dl, fb, &n);
 }
 
 /* 14B30: the text renderer, char text or u16 text, either way round, near
@@ -514,7 +515,7 @@ static void fuzz_80259EC4(FuzzRng *r) {
         c[3] = c[7] = c[11] = c[15] = 0;
     if (fuzz_int(r, 0, 3) == 0)
         c[0] = c[1] = c[2] = 0;
-    func_80259EC4(0, kind == 0 ? NULL : s, kind <= 1 ? NULL : t, (u8)FUZZ_PICK(r, 0, 1, 1, 2),
+    func_80259EC4(NULL, kind == 0 ? NULL : s, kind <= 1 ? NULL : t, (u8)FUZZ_PICK(r, 0, 1, 1, 2),
                   fuzz_int(r, 0, 1) ? 0 : fuzz_int(r, 1, 320),
                   fuzz_float(r, -50.0f, 330.0f), fuzz_int(r, -20, 260),
                   FUZZ_PICK(r, 0, 1, 2, 3, 4, 5, 6) == 0 ? (f32)FUZZ_PICK(r, -3, -1, 0, 1, 0x7FFFFF, 3000000, 2147484, 4294967) * 1000.0f
@@ -544,7 +545,7 @@ static void fuzz_801F9258(FuzzRng *r) {
     for (i = 0; i < 19; i++)
         D_8020E350[i * 2] = fuzz_int(r, 0, 2) ? 1 : 0;
     D_8021AB2C = fuzz_int(r, 0, 255);
-    func_801F9258(D_803156F8[k].dl, (u8 *)&D_803156F8[k], &n);
+    func_801F9258(D_803156F8[k].buf.dl, (u8 *)&D_803156F8[k], &n);
 }
 
 /* 1C40: the players' menu's scroller */

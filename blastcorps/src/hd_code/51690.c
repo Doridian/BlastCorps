@@ -1,5 +1,6 @@
 #include "common.h"
 #include "game/game.h"
+#include "game/frame.h"
 #include "functions.h"
 
 extern u8 D_006A8DA0[];
@@ -29,7 +30,7 @@ void func_80295E50(void) {
     D_8039CAA2 = 1;
 }
 
-Gfx *func_80295EFC(s32 arg0, Gfx *arg1, s16 arg2, s16 arg3, u8 arg4) {
+Gfx *func_80295EFC(Frame *arg0, Gfx *arg1, s16 arg2, s16 arg3, u8 arg4) {
     Gfx *gfx = arg1;
     s32 sp118;
 

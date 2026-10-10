@@ -157,7 +157,7 @@ void func_80258544(void *image, s32 x, s32 y, s32 z, f32 dist, Gfx *dl, void *se
 
 extern FrameGame D_02000000;
 
-void func_80258B78(Gfx **arg0, FrameGame *arg1) {
+void func_80258B78(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 sp70;
     s32 sp6C;
@@ -191,29 +191,29 @@ void func_80258B78(Gfx **arg0, FrameGame *arg1) {
             sp66 = D_803F4030[sp70].x >> 5;
             sp64 = D_803F4030[sp70].unk44 >> 5;
             sp62 = D_803F4030[sp70].z >> 5;
-            arg1->unk1900[0x200 + sp6C].v.ob[0] = sp66 - sp68;
-            arg1->unk1900[0x200 + sp6C].v.ob[1] = sp64;
-            arg1->unk1900[0x200 + sp6C].v.ob[2] = sp62 - sp68;
-            arg1->unk1900[0x200 + sp6C].v.tc[0] = 0;
-            arg1->unk1900[0x200 + sp6C].v.tc[1] = 0;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[0] = sp66 - sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[1] = sp64;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[2] = sp62 - sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[0] = 0;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[1] = 0;
             sp6C++;
-            arg1->unk1900[0x200 + sp6C].v.ob[0] = sp66 + sp68;
-            arg1->unk1900[0x200 + sp6C].v.ob[1] = sp64;
-            arg1->unk1900[0x200 + sp6C].v.ob[2] = sp62 - sp68;
-            arg1->unk1900[0x200 + sp6C].v.tc[0] = 0x7E0;
-            arg1->unk1900[0x200 + sp6C].v.tc[1] = 0;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[0] = sp66 + sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[1] = sp64;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[2] = sp62 - sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[0] = 0x7E0;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[1] = 0;
             sp6C++;
-            arg1->unk1900[0x200 + sp6C].v.ob[0] = sp66 + sp68;
-            arg1->unk1900[0x200 + sp6C].v.ob[1] = sp64;
-            arg1->unk1900[0x200 + sp6C].v.ob[2] = sp62 + sp68;
-            arg1->unk1900[0x200 + sp6C].v.tc[0] = 0x7E0;
-            arg1->unk1900[0x200 + sp6C].v.tc[1] = 0x7E0;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[0] = sp66 + sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[1] = sp64;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[2] = sp62 + sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[0] = 0x7E0;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[1] = 0x7E0;
             sp6C++;
-            arg1->unk1900[0x200 + sp6C].v.ob[0] = sp66 - sp68;
-            arg1->unk1900[0x200 + sp6C].v.ob[1] = sp64;
-            arg1->unk1900[0x200 + sp6C].v.ob[2] = sp62 + sp68;
-            arg1->unk1900[0x200 + sp6C].v.tc[0] = 0;
-            arg1->unk1900[0x200 + sp6C].v.tc[1] = 0x7E0;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[0] = sp66 - sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[1] = sp64;
+            arg1->game.unk1900[0x200 + sp6C].v.ob[2] = sp62 + sp68;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[0] = 0;
+            arg1->game.unk1900[0x200 + sp6C].v.tc[1] = 0x7E0;
             sp6C++;
             if (sp60 == 0) {
                 gDPLoadTextureBlock(gfx++, OS_K0_TO_PHYSICAL(D_80365330), G_IM_FMT_IA, G_IM_SIZ_8b, 64, 64, 0,

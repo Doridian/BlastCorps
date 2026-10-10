@@ -3245,11 +3245,11 @@ void func_8026BA7C(YoshiWindow *arg0) {
     }
 }
 
-Gfx *func_8026BCE0(Gfx *, FrameBuf *, s32 *);
+Gfx *func_8026BCE0(Gfx *, Frame *, s32 *);
 
 /* The callers use the result, which on the N64 is whatever is left in v0:
    func_8026BCE0's return value.  The port returns that. */
-Gfx *func_8026BBD0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
+Gfx *func_8026BBD0(Gfx *arg0, Frame *arg1, s32 *arg2) {
 #ifdef TARGET_PC
     Gfx *ret;
 #endif
@@ -3359,11 +3359,11 @@ ColorPair port_color_pair(u8 i) {
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/26570/func_8026BCE0.s")
 #else
-Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
+Gfx *func_8026BCE0(Gfx *arg0, Frame *arg1, s32 *arg2) {
     YoshiWindow *sp14C;
     YoshiEntry *sp148;
     void *sp144;
-    s32 sp140;
+    u16 *sp140;
     Gfx *sp13C;
     u16 sp13A;
     u16 sp138;
@@ -3625,25 +3625,25 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
     if (D_8036BB1C != 1 && D_8036BB38 * D_8036BB34 > 0.1) {
         sp136 = sp14C->unk0 / 2;
         sp134 = sp14C->unk2 / 2;
-        guOrtho(&arg1->mtx[73], -sp14C->unk4 - sp136, -sp14C->unk4 - sp136 + 319, -sp14C->unk6 - sp134 + 239,
+        guOrtho(&arg1->buf.mtx[73], -sp14C->unk4 - sp136, -sp14C->unk4 - sp136 + 319, -sp14C->unk6 - sp134 + 239,
                 -sp14C->unk6 - sp134, -256.0f, 256.0f, 256.0f);
-        gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[73]), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+        gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[73]), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
         if (sp14C->unk8 & 0x10) {
-            guRotate(&arg1->mtx[75], 180.0 - D_8036BB38 * D_8036BB34 / sp128 * 180.0, 2.0f, 0.0f, 1.0f);
-            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+            guRotate(&arg1->buf.mtx[75], 180.0 - D_8036BB38 * D_8036BB34 / sp128 * 180.0, 2.0f, 0.0f, 1.0f);
+            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
         } else {
-            guTranslate(&arg1->mtx[75], 0.0f, 0.0f, 0.0f);
-            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+            guTranslate(&arg1->buf.mtx[75], 0.0f, 0.0f, 0.0f);
+            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[75]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
         }
-        gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+        gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
         gSPPopMatrix(sp13C++, G_MTX_MODELVIEW);
         if (sp14C->unk8 & 8) {
-            guScale(&arg1->mtx[76], sp136 * D_8036BB38 * D_8036BB34 / 1000.0f,
+            guScale(&arg1->buf.mtx[76], sp136 * D_8036BB38 * D_8036BB34 / 1000.0f,
                     sp134 * D_8036BB38 * D_8036BB34 / 1000.0f, 1.0f);
-            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
         } else {
-            guScale(&arg1->mtx[76], sp136 / 1000.0f, sp134 / 1000.0f, 1.0f);
-            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
+            guScale(&arg1->buf.mtx[76], sp136 / 1000.0f, sp134 / 1000.0f, 1.0f);
+            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[76]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
         }
         gDPPipeSync(sp13C++);
         gDPSetRenderMode(sp13C++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
@@ -3656,8 +3656,8 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
         }
         gSPPopMatrix(sp13C++, G_MTX_MODELVIEW);
         if (sp14C->unk8 & 8) {
-            guScale(&arg1->mtx[74], D_8036BB38, D_8036BB38, 1.0f);
-            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->mtx[74]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
+            guScale(&arg1->buf.mtx[74], D_8036BB38, D_8036BB38, 1.0f);
+            gSPMatrix(sp13C++, OS_K0_TO_PHYSICAL(&arg1->buf.mtx[74]), G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);
         }
         {
             s32 spD8;
@@ -3763,7 +3763,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                         spCC = func_80276080(arg1, 0, spCC, -3 - sp136, sp134 - D_8036BB44 - spCA + 3, 16,
                                              D_8036BB44 / 2 + 10, 0, 0, 0, D_8036BB20 / 2);
                         sp13C = func_80275DA4(sp13C, 1);
-                        gSPVertex(sp13C++, arg1->vtx, 8, 0);
+                        gSPVertex(sp13C++, arg1->buf.vtx, 8, 0);
                         gSP1Triangle(sp13C++, 4, 5, 6, 0);
                         gSP1Triangle(sp13C++, 4, 6, 7, 0);
                         gSP1Triangle(sp13C++, 0, 1, 2, 0);
@@ -3781,7 +3781,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
                         spCC = func_80276080(arg1, 1, spCC, -3 - sp136, D_8036BB44 - sp134 + spCA - 3, 16,
                                              D_8036BB44 / 2 + 10, 0, 0, 0, D_8036BB20 / 2);
                         sp13C = func_80275DA4(sp13C, 1);
-                        gSPVertex(sp13C++, &arg1->vtx[spCC - 8], 8, 0);
+                        gSPVertex(sp13C++, &arg1->buf.vtx[spCC - 8], 8, 0);
                         gSP1Triangle(sp13C++, 4, 5, 6, 0);
                         gSP1Triangle(sp13C++, 4, 6, 7, 0);
                         gSP1Triangle(sp13C++, 0, 1, 2, 0);
@@ -3869,7 +3869,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
         if (D_8036BB18 < 0x62 || D_8036BB18 >= 0x6C || D_80364A90 == 2) {
             for (sp138 = sp14C->first; sp138 < sp14C->first + sp14C->count; sp138++) {
                 sp148 = &D_8036BB10[sp138];
-                sp140 = 0;
+                sp140 = NULL;
                 sp144 = func_8026F004(sp14C, sp138, 0);
                 if ((sp148->flags & 0x80) && !(sp148->flags & 0x800)) {
                     if (sp138 == sp14C->unk18) {
@@ -3902,7 +3902,7 @@ Gfx *func_8026BCE0(Gfx *arg0, FrameBuf *arg1, s32 *arg2) {
         }
         for (sp138 = sp14C->first; sp138 < sp14C->first + sp14C->count; sp138++) {
             sp148 = &D_8036BB10[sp138];
-            sp140 = 0;
+            sp140 = NULL;
             sp144 = func_8026F004(sp14C, sp138, 0);
             if (!(sp148->flags & 0x800)) {
                 if (sp138 == sp14C->unk18) {

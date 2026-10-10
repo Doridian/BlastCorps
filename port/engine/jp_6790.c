@@ -28,7 +28,7 @@ extern u16 D_8035807C;
 
 /* the promotion screen: the badge growing in and turning, and the
    congratulations and the new rank fading in and out */
-Gfx *func_801ED800(Gfx *arg0, FrameBuf *arg1, u8 arg2, s32 *arg3) {
+Gfx *func_801ED800(Gfx *arg0, union Frame *arg1, u8 arg2, s32 *arg3) {
     Gfx *gfx = arg0;
     s32 v;
     s16 h;
@@ -144,12 +144,12 @@ turn:
         D_80215968 -= 360.0;
     }
     if (D_80358060 < 2) {
-        guPerspective(&arg1->mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 4000.0f, 1.0f);
-        guLookAtReflect(&arg1->mtx[5], &arg1->lookAt, 5.0f, 7.0f, 400.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
-        guMtxIdent(&arg1->mtx[74]);
-        guMtxIdent(&arg1->mtx[75]);
+        guPerspective(&arg1->buf.mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 4000.0f, 1.0f);
+        guLookAtReflect(&arg1->buf.mtx[5], &arg1->buf.lookAt, 5.0f, 7.0f, 400.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+        guMtxIdent(&arg1->buf.mtx[74]);
+        guMtxIdent(&arg1->buf.mtx[75]);
     }
-    guScale(&arg1->mtx[76], D_8021596C / 8.0f, D_8021596C / 8.0f, D_8021596C / 8.0f);
+    guScale(&arg1->buf.mtx[76], D_8021596C / 8.0f, D_8021596C / 8.0f, D_8021596C / 8.0f);
     guRotate(&D_802182D0[arg2], D_80215968, 1.0f, 1.0f, 1.0f);
     if (D_8021596C > 0.2) {
         gfx = func_801F4FBC(arg1, gfx);

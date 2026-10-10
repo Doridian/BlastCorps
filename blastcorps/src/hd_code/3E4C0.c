@@ -1,6 +1,7 @@
 #include "common.h"
 #include "game/sched.h"
 #include "game/camera.h"
+#include "game/frame.h"
 #include "functions.h"
 
 
@@ -72,7 +73,7 @@ extern Vtx D_802FD9B8[0xa];
 Vtx D_802FD9B8[0xa] = { 0 };
 #endif
 
-void func_80282C80(Gfx **arg0, Mtx *arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7) {
+void func_80282C80(Gfx **arg0, Frame *arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7) {
     Gfx *gfx;
     f32 dist;
     f32 angle;
@@ -139,7 +140,7 @@ void func_80282C80(Gfx **arg0, Mtx *arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5
         guMtxCatF(mf, mf2, mf);
         guTranslateF(mf2, -150.0f, -230.0f, -800.0f);
         guMtxCatF(mf, mf2, mf);
-        guMtxF2L(mf, &arg1[86]);
+        guMtxF2L(mf, &arg1->buf.mtx[86]);
         gSPMatrix(gfx++, &D_02000000[2], G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
         gSPPerspNormalize(gfx++, D_8035807C);
         gSPMatrix(gfx++, &D_02000000[86], G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
@@ -172,7 +173,7 @@ void func_80282C80(Gfx **arg0, Mtx *arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5
     *arg0 = gfx;
 }
 
-void func_8028376C(Gfx **arg0, Mtx *arg1, u8 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
+void func_8028376C(Gfx **arg0, Frame *arg1, u8 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6) {
     Gfx *gfx = *arg0;
     s32 dist;
     u8 shift;
@@ -303,9 +304,9 @@ void func_8028376C(Gfx **arg0, Mtx *arg1, u8 arg2, s32 arg3, s32 arg4, s32 arg5,
         gDPSetPrimColor(gfx++, 0, 0, 0, 0, 0, (D_80367BD6 >= 0x80) ? 0x7F : D_80367BD6);
         gDPLoadTextureBlock(gfx++, OS_K0_TO_PHYSICAL(D_802FD6B0), G_IM_FMT_IA, G_IM_SIZ_8b, 8, 32, 0, G_TX_CLAMP,
                             G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-        guRotate(&arg1[23], D_802FD9B0, 0.0f, 0.0f, 1.0f);
+        guRotate(&arg1->buf.mtx[23], D_802FD9B0, 0.0f, 0.0f, 1.0f);
         guTranslate(&sp1C8, 58.0f, 195.0f, 0.0f);
-        guMtxCatL(&arg1[23], &sp1C8, &arg1[23]);
+        guMtxCatL(&arg1->buf.mtx[23], &sp1C8, &arg1->buf.mtx[23]);
         D_802FD9B0 += 4.0;
         gSPMatrix(gfx++, &D_02000000[23], G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
         gSPVertex(gfx++, osVirtualToPhysical(D_802FD7F0), 4, 0);

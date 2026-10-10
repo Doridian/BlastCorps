@@ -187,7 +187,7 @@ void func_80292DDC(s32 arg0) {
     func_80260650(D_80367738, 0x10, NULL);
 }
 
-void func_80292EB8(Gfx **arg0, FrameGame *arg1) {
+void func_80292EB8(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 i;
     f32 mf[4][4];
@@ -210,7 +210,7 @@ void func_80292EB8(Gfx **arg0, FrameGame *arg1) {
             guMtxCatF(mf, tmp, mf);
             guTranslateF(tmp, D_8039C960[i].x / 32.0f, D_8039C960[i].y / 32.0f, D_8039C960[i].z / 32.0f);
             guMtxCatF(mf, tmp, mf);
-            guMtxF2L(mf, &arg1->unk2C0[0x29 + i]);
+            guMtxF2L(mf, &arg1->game.unk2C0[0x29 + i]);
             gSPMatrix(gfx++, &D_02000000.unk2C0[0x29 + i], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
             gDPPipeSync(gfx++);
             gDPSetPrimColor(gfx++, 0, 0, D_8039C960[i].unk29, 0, 0, 255);

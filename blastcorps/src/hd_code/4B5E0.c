@@ -102,10 +102,10 @@ void func_8028FDA0(s16 *arg0, s16 *arg1) {
             D_8039C718[i].type = ((LevelHole *) arg0)->type;
             D_8039C718[i].unkC = D_8039C718[i].y - D_802FDC08[D_8039C718[i].type].unk288;
             D_8039C718[i].filled = 0;
-            D_8039C718[i].unk14 = (s32)D_803FB8B0;
+            D_8039C718[i].unk14 = D_803FB8B0;
             func_802CE9C8(((LevelHole *) arg0)->tris, ((LevelHole *) arg0)->numTris,
                           D_8039C718[i].type);
-            D_8039C718[i].unk18 = (s32)D_803FB8B0;
+            D_8039C718[i].unk18 = D_803FB8B0;
             if (((LevelHole *) arg0)->unk8 != 0) {
                 D_8039C800[D_8039C940].x = D_8039C718[i].x;
                 D_8039C800[D_8039C940].y = D_8039C718[i].y;
@@ -349,7 +349,7 @@ void func_80291724(s32 arg0) {
     }
 }
 
-void func_802917B0(Gfx **arg0, FrameGame *arg1) {
+void func_802917B0(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 i;
 
@@ -364,7 +364,7 @@ void func_802917B0(Gfx **arg0, FrameGame *arg1) {
         gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
     }
     for (i = 0; i < D_8039C710; i++) {
-        guTranslate(&arg1->unk2C0[0x21 + i], D_8039C550[i].x / 32.0f, D_8039C550[i].y / 32.0f, D_8039C550[i].z / 32.0f);
+        guTranslate(&arg1->game.unk2C0[0x21 + i], D_8039C550[i].x / 32.0f, D_8039C550[i].y / 32.0f, D_8039C550[i].z / 32.0f);
         gSPMatrix(gfx++, &D_02000000.unk2C0[0x21 + i], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
         gDPLoadTextureBlock(gfx++, OS_K0_TO_PHYSICAL(D_8039C550[i].unk30), G_IM_FMT_RGBA, G_IM_SIZ_16b,
                             D_802FDC08[D_8039C550[i].type].unk282, D_802FDC08[D_8039C550[i].type].unk283, 0,

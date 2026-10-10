@@ -18,7 +18,6 @@
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
 extern s32 D_802FA268;
-extern FrameBuf D_803156F8[];
 extern s32 D_80358078;
 extern u16 D_8035807C;
 extern char D_8036B980[];
@@ -95,7 +94,7 @@ void func_801EF380(s32 arg0) {
 #endif
 
 void func_801EF4AC(void) {
-    FrameBuf *sp12C;
+    Frame *sp12C;
     Gfx *gfx;
     s32 sp124;
     s32 sp120;
@@ -103,7 +102,7 @@ void func_801EF4AC(void) {
     s16 sp11A;
 
     sp12C = &D_803156F8[D_8035805C ^ 1];
-    gfx = sp12C->dl;
+    gfx = sp12C->buf.dl;
     func_8028A470();
 #ifdef TARGET_PC
     /* A, B or Start goes to the logo's fade-out (with the camera where it
@@ -113,7 +112,7 @@ void func_801EF4AC(void) {
         D_802159E0 = 400.0f;
     }
 #endif
-    func_80284E54(D_803156F8[D_8035805C].dl, D_80358078, 1, 1, 0x4D2, 0);
+    func_80284E54(D_803156F8[D_8035805C].buf.dl, D_80358078, 1, 1, 0x4D2, 0);
     D_8035805C ^= 1;
     gSPSegment(gfx++, 0, 0);
     gSPSegment(gfx++, 2, osVirtualToPhysical(sp12C));
@@ -166,13 +165,13 @@ void func_801EF4AC(void) {
         }
     }
     if (D_80358060 < 2) {
-        guPerspective(&sp12C->mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 8000.0f, 0.25f);
+        guPerspective(&sp12C->buf.mtx[73], &D_8035807C, 45.0f, 4.0f / 3.0f, 40.0f, 8000.0f, 0.25f);
         if (D_802159DC == 1) {
-            guTranslate(&sp12C->mtx[74], 0.0f, -130.0f, 0.0f);
-            guRotate(&sp12C->mtx[75], 35.0f, 0.1f, 0.0f, 0.0f);
+            guTranslate(&sp12C->buf.mtx[74], 0.0f, -130.0f, 0.0f);
+            guRotate(&sp12C->buf.mtx[75], 35.0f, 0.1f, 0.0f, 0.0f);
         } else {
-            guTranslate(&sp12C->mtx[74], 0.0f, 0.0f, 0.0f);
-            guRotate(&sp12C->mtx[75], -10.0f, 0.1f, 0.0f, 0.0f);
+            guTranslate(&sp12C->buf.mtx[74], 0.0f, 0.0f, 0.0f);
+            guRotate(&sp12C->buf.mtx[75], -10.0f, 0.1f, 0.0f, 0.0f);
         }
     }
     if (D_80358060 >= INTRO_FRAME(20, 17)) {
@@ -189,10 +188,10 @@ void func_801EF4AC(void) {
         } else if (D_80358060 == INTRO_FRAME(75, 63) && D_802159DC == 1) {
             func_80260650(D_80367738, 0xBB, 0);
         }
-        guLookAtReflect(&sp12C->mtx[5], &sp12C->lookAt, 1.0f, 0.0f, D_802159E0, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
+        guLookAtReflect(&sp12C->buf.mtx[5], &sp12C->buf.lookAt, 1.0f, 0.0f, D_802159E0, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
         D_802159D0 += D_802159E4;
         guRotate(&D_802182D0[D_8035805C], D_802159D0 % 360, 0.0f, 1.0f, 0.0f);
-        guScale(&sp12C->mtx[76], 1.5f, 1.5f, 1.5f);
+        guScale(&sp12C->buf.mtx[76], 1.5f, 1.5f, 1.5f);
         gDPSetRenderMode(gfx++, G_RM_AA_ZB_OPA_INTER, G_RM_NOOP2);
         gfx = func_801F4FBC(sp12C, gfx);
     }
@@ -227,5 +226,5 @@ void func_801EF4AC(void) {
     }
     gDPFullSync(gfx++);
     gSPEndDisplayList(gfx++);
-    D_80358078 = gfx - sp12C->dl;
+    D_80358078 = gfx - sp12C->buf.dl;
 }

@@ -166,10 +166,10 @@ u8 func_80285814(void) {
                 }
                 func_802C4BF0(D_8039C4B8);
                 func_802C1DD0(0);
-                func_80264C20(D_8039C4B8);
+                func_80264C20((u8 *)D_8039C4B8);
                 sp27 = 1;
             } else {
-                func_80256A34(D_8039C4B8);
+                func_80256A34((u8 *)D_8039C4B8);
             }
         } else {
             func_80256A34(NULL);

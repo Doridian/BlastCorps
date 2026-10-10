@@ -5,6 +5,7 @@
 #include "game/level.h"
 #include "game/player.h"
 #include "game/objects.h"
+#include "game/frame.h"
 #include "functions.h"
 
 extern s32 D_802E8BE8;
@@ -314,7 +315,7 @@ void func_8028DF14(u8 arg0) {
     D_8039B620 = arg0;
 }
 
-void func_8028E9E4(Gfx **arg0, Mtx *arg1) {
+void func_8028E9E4(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 i;
     f32 sp160[4][4];
@@ -337,7 +338,7 @@ void func_8028E9E4(Gfx **arg0, Mtx *arg1) {
             guRotateF(sp160, (f32)D_8039B070[i].unk2A / 4095.0 * 360.0, 0.0f, 1.0f, 0.0f);
             guTranslateF(sp120, D_8039B070[i].x / 32.0f, D_8039B070[i].y / 32.0f, D_8039B070[i].z / 32.0f);
             guMtxCatF(sp160, sp120, sp160);
-            guMtxF2L(sp160, (Mtx *)((u8 *)arg1 + i * sizeof(Mtx) + 0x600));
+            guMtxF2L(sp160, &arg1->buf.mtx[0x18 + i]);
             gSPMatrix(gfx++, &D_02000000[i + 24], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
             gSPVertex(gfx++, osVirtualToPhysical(D_8039B070[i].vtx), 8, 0);
             gDPPipeSync(gfx++);

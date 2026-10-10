@@ -5,6 +5,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/frame.h"
 #include "functions.h"
 
 /* YoshiWindow entries, sorted with func_801F7FF4. */
@@ -120,7 +121,7 @@ void func_801F7850(void) {
     for (sp6C = 0; sp6C < 4; sp6C++) {
         if (D_80365060[sp6C] == 1 && D_8039C53C[sp6C] == 0 &&
             LEVEL_DONE_IN(D_80364AF0[sp6C], D_802E8BDC)) {
-            osSendMesg(&D_80219EF8, (OSMesg)((u32)((D_802E8BDC << 8) | 8 | (sp6C << 16)) | 0x01000000),
+            osSendMesg(&D_80219EF8, OS_MESG((u32)((D_802E8BDC << 8) | 8 | (sp6C << 16)) | 0x01000000),
                        OS_MESG_BLOCK);
             osRecvMesg(&D_80219F50, NULL, OS_MESG_BLOCK);
         } else {
@@ -289,7 +290,7 @@ void func_801F8354(u8 arg0) {
     }
 }
 
-Gfx *func_801F8440(s32 arg0, Gfx *arg1) {
+Gfx *func_801F8440(Frame *arg0, Gfx *arg1) {
     Gfx *sp2C;
     s16 sp2A;
 

@@ -30,7 +30,6 @@ extern OSMesgQueue D_80219EF8;
 extern s32 D_80358080;
 extern s32 D_80358084;
 extern s32 D_80358078;
-extern FrameBuf D_803156F8[];
 extern Gfx D_01000010[];
 extern Gfx D_01000038[];
 extern s8 D_80364A71;
@@ -133,7 +132,7 @@ void func_801FE990(void) {
                 break;
             case 0x0000008000000000:
                 if (D_8036BB16 == 0xC) {
-                    osSendMesg(&D_80219EF8, (OSMesg)((D_8021AB74 << 16) | 5), OS_MESG_BLOCK);
+                    osSendMesg(&D_80219EF8, OS_MESG((D_8021AB74 << 16) | 5), OS_MESG_BLOCK);
                 }
                 D_80364A98 = 0x0000010000000000;
                 break;
@@ -224,9 +223,9 @@ void func_801FE990(void) {
     D_80358080 = 0;
     D_80358084 = 0;
     func_802A5720();
-    func_80284E54(D_803156F8[D_8035805C].dl, D_80358078, 1, 1, 1234, 0);
+    func_80284E54(D_803156F8[D_8035805C].buf.dl, D_80358078, 1, 1, 1234, 0);
     D_8035805C ^= 1;
-    spD8 = D_803156F8[D_8035805C].dl;
+    spD8 = D_803156F8[D_8035805C].buf.dl;
     gSPSegment(spD8++, 0, 0);
     gSPSegment(spD8++, 2, osVirtualToPhysical(&D_803156F8[D_8035805C]));
     gSPSegment(spD8++, 1, osVirtualToPhysical(D_8035806C));
@@ -346,7 +345,7 @@ void func_801FE990(void) {
     }
     gDPFullSync(spD8++);
     gSPEndDisplayList(spD8++);
-    D_80358078 = spD8 - D_803156F8[D_8035805C].dl;
+    D_80358078 = spD8 - D_803156F8[D_8035805C].buf.dl;
     for (spDC = 0; spDC < D_80358080; spDC++) {
         osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
     }
@@ -403,8 +402,8 @@ void func_801FE990(void) {
                 func_80275390(0x0400000000000000);
                 break;
             case 0x1000000:
-                osSendMesg(&D_80219EF8, (OSMesg)((D_80364AE8 << 16) | 7), OS_MESG_BLOCK);
-                osSendMesg(&D_80219EF8, (OSMesg)((D_80364AE8 << 16) | 0x15 | 0x1000000), OS_MESG_BLOCK);
+                osSendMesg(&D_80219EF8, OS_MESG((D_80364AE8 << 16) | 7), OS_MESG_BLOCK);
+                osSendMesg(&D_80219EF8, OS_MESG((D_80364AE8 << 16) | 0x15 | 0x1000000), OS_MESG_BLOCK);
                 func_802995F0(4);
                 func_80275390(0x0000100000000000);
                 break;

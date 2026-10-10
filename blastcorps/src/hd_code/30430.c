@@ -3,6 +3,7 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/frame.h"
 #include "functions.h"
 
 /*
@@ -30,7 +31,7 @@ f32 D_802FA930 = 8.0f;
 
 
 
-Gfx *func_80274BF0(u8 *arg0, Gfx *arg1) {
+Gfx *func_80274BF0(Frame *arg0, Gfx *arg1) {
     Gfx *gfx;
 
     gfx = arg1;

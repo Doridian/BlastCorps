@@ -142,7 +142,7 @@ void func_8026FEC4(void) {
     }
 }
 
-void func_802701A8(Gfx **arg0, s32 arg1) {
+void func_802701A8(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 i;
     s32 j;

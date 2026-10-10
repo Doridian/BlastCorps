@@ -4,6 +4,7 @@
 #include "game/yoshi.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/frame.h"
 #include "functions.h"
 
 typedef struct {
@@ -101,7 +102,7 @@ Vtx D_802FA820[2][4] = { 0 };
 #endif
 UnkStruct_802FA8A0 D_802FA8A0 = { { 0, 3 } };
 
-Gfx *func_80271FD0(Gfx *arg0, s32 arg1, u16 arg2, s16 arg3, s16 arg4, s32 *arg5) {
+Gfx *func_80271FD0(Gfx *arg0, Frame *arg1, u16 arg2, s16 arg3, s16 arg4, s32 *arg5) {
     Gfx *gfx;
     UnkStruct_802FA8A0 sp78;
     s32 i;
@@ -145,8 +146,8 @@ Gfx *func_80271FD0(Gfx *arg0, s32 arg1, u16 arg2, s16 arg3, s16 arg4, s32 *arg5)
         gDPLoadSync(gfx++);
         gDPLoadBlock(gfx++, G_TX_LOADTILE, 0, 0, 0x3FF, 0x100);
     }
-    gSPMatrix(gfx++, OS_PHYSICAL_TO_K0(arg1 + 0x100), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, OS_PHYSICAL_TO_K0(arg1 + 0x1C0), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, OS_PHYSICAL_TO_K0(&arg1->game.unk0[4]), G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, OS_PHYSICAL_TO_K0(&arg1->game.unk0[7]), G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
     gDPTileSync(gfx++);
     gDPSetTextureLOD(gfx++, G_TL_TILE);
     for (i = 0; i < 2; i++) {

@@ -251,7 +251,7 @@ extern u16 D_802F35F0[0x280];
 u16 D_802F35F0[0x280] = { 0 };
 #endif
 
-void func_80264C20(s32 arg0) {
+void func_80264C20(u8 *arg0) {
     s32 i;
 
     for (i = 0; i < 20; i++) {
@@ -630,7 +630,7 @@ extern f32 D_80364414;
 
 s32 func_80267614(UnkStruct_80267614 *arg0);
 
-void func_80266248(Gfx **gfxp, FrameGame *arg1) {
+void func_80266248(Gfx **gfxp, Frame *arg1) {
     Gfx *gfx;
     s32 vtxIdx;
     s32 i;
@@ -696,11 +696,11 @@ void func_80266248(Gfx **gfxp, FrameGame *arg1) {
             gDPPipeSync(gfx++);
             gDPLoadTextureBlock(gfx++, phys, G_IM_FMT_RGBA, G_IM_SIZ_16b, 20, 32, 0, G_TX_NOMIRROR | G_TX_CLAMP,
                                 G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-            func_8026A5CC((u64 *)&arg1->unk1900[vtxIdx], (u64 *)D_802E9FB0, 0x40);
+            func_8026A5CC((u64 *)&arg1->game.unk1900[vtxIdx], (u64 *)D_802E9FB0, 0x40);
             for (j = 0; j < 4; j++) {
-                arg1->unk1900[vtxIdx + j].v.ob[0] = x[j] + D_80367D60[i].unk0;
-                arg1->unk1900[vtxIdx + j].v.ob[1] = y[j] + D_80367D60[i].unk2;
-                arg1->unk1900[vtxIdx + j].v.ob[2] = z[j] + D_80367D60[i].unk4;
+                arg1->game.unk1900[vtxIdx + j].v.ob[0] = x[j] + D_80367D60[i].unk0;
+                arg1->game.unk1900[vtxIdx + j].v.ob[1] = y[j] + D_80367D60[i].unk2;
+                arg1->game.unk1900[vtxIdx + j].v.ob[2] = z[j] + D_80367D60[i].unk4;
             }
             gSPVertex(gfx++, &D_02000000.unk1900[vtxIdx], 4, 0);
             vtxIdx += 4;
@@ -842,17 +842,17 @@ void func_80266248(Gfx **gfxp, FrameGame *arg1) {
             gDPPipeSync(gfx++);
             gDPLoadTextureBlock(gfx++, phys, G_IM_FMT_RGBA, G_IM_SIZ_16b, 20, 32, 0, G_TX_NOMIRROR | G_TX_CLAMP,
                                 G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
-            func_8026A5CC((u64 *)&arg1->unk1900[vtxIdx], (u64 *)D_802E9FB0, 0x40);
+            func_8026A5CC((u64 *)&arg1->game.unk1900[vtxIdx], (u64 *)D_802E9FB0, 0x40);
             if (flip) {
-                arg1->unk1900[vtxIdx].v.tc[0] = 0x260;
-                arg1->unk1900[vtxIdx + 1].v.tc[0] = 0;
-                arg1->unk1900[vtxIdx + 2].v.tc[0] = 0;
-                arg1->unk1900[vtxIdx + 3].v.tc[0] = 0x260;
+                arg1->game.unk1900[vtxIdx].v.tc[0] = 0x260;
+                arg1->game.unk1900[vtxIdx + 1].v.tc[0] = 0;
+                arg1->game.unk1900[vtxIdx + 2].v.tc[0] = 0;
+                arg1->game.unk1900[vtxIdx + 3].v.tc[0] = 0x260;
             }
             for (j = 0; j < 4; j++) {
-                arg1->unk1900[vtxIdx + j].v.ob[0] = x[j] + D_80367D60[i].unk0;
-                arg1->unk1900[vtxIdx + j].v.ob[1] = y[j] + D_80367D60[i].unk2;
-                arg1->unk1900[vtxIdx + j].v.ob[2] = z[j] + D_80367D60[i].unk4;
+                arg1->game.unk1900[vtxIdx + j].v.ob[0] = x[j] + D_80367D60[i].unk0;
+                arg1->game.unk1900[vtxIdx + j].v.ob[1] = y[j] + D_80367D60[i].unk2;
+                arg1->game.unk1900[vtxIdx + j].v.ob[2] = z[j] + D_80367D60[i].unk4;
             }
             gSPVertex(gfx++, &D_02000000.unk1900[vtxIdx], 4, 0);
             vtxIdx += 4;
@@ -870,13 +870,13 @@ void func_80266248(Gfx **gfxp, FrameGame *arg1) {
                 gDPLoadTextureBlock(gfx++, osVirtualToPhysical(D_802E9FF0), G_IM_FMT_RGBA, G_IM_SIZ_16b, 20, 32, 0,
                                     G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMIRROR | G_TX_CLAMP, G_TX_NOMASK, G_TX_NOMASK,
                                     G_TX_NOLOD, G_TX_NOLOD);
-                func_8026A5CC((u64 *)&arg1->unk1900[vtxIdx], (u64 *)D_802E9FB0, 0x40);
+                func_8026A5CC((u64 *)&arg1->game.unk1900[vtxIdx], (u64 *)D_802E9FB0, 0x40);
                 for (j = 0; j < 4; j++) {
-                    arg1->unk1900[vtxIdx + j].v.ob[0] = x[j];
-                    arg1->unk1900[vtxIdx + j].v.ob[1] = y[j];
-                    arg1->unk1900[vtxIdx + j].v.ob[2] = z[j];
+                    arg1->game.unk1900[vtxIdx + j].v.ob[0] = x[j];
+                    arg1->game.unk1900[vtxIdx + j].v.ob[1] = y[j];
+                    arg1->game.unk1900[vtxIdx + j].v.ob[2] = z[j];
                 }
-                guTranslate(&arg1->unk0[8], D_803EF310 / 32.0f, D_803EF314 / 32.0f, D_803EF318 / 32.0f);
+                guTranslate(&arg1->game.unk0[8], D_803EF310 / 32.0f, D_803EF314 / 32.0f, D_803EF318 / 32.0f);
                 gSPMatrix(gfx++, &D_02000000.unk0[8], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_PUSH);
                 gSPVertex(gfx++, &D_02000000.unk1900[vtxIdx], 4, 0);
                 vtxIdx += 4;

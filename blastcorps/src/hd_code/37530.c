@@ -257,7 +257,7 @@ void func_8027BE7C(u8 arg0, s32 arg1, s16 arg2, s16 arg3, s16 arg4, s16 arg5, s3
    of 16, where the next load starts back at track B's first pair; as the
    loads shift, that quad comes and goes.  No cull box: the RSP's time
    isn't the port's. */
-void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
+void func_8027C4C8(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     Gfx *sub;
     Gfx *subEnd;
@@ -280,8 +280,8 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
     gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_OFF);
     gDPSetCombineLERP(gfx++, 0, 0, 0, PRIMITIVE, 0, 0, 0, SHADE, 0, 0, 0, PRIMITIVE, 0, 0, 0, SHADE);
     gDPSetPrimColor(gfx++, 0, 0, 0, 0, 0, 0);
-    sub = &arg1->unk3C20[2];
-    subEnd = &arg1->unk3C20[0x192 - 1]; /* (the end's) */
+    sub = &arg1->game.unk3C20[2];
+    subEnd = &arg1->game.unk3C20[0x192 - 1]; /* (the end's) */
     /* the runs as the original finds them: from the tail, each to the next
        entry that ends one (unk1A, itself not drawn) or to the head */
     idx = D_8036DC90;
@@ -295,7 +295,7 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
                 break;
             }
             e = &D_8036D3D0[idx];
-            v = &arg1->unk1900[0x70 + 4 * idx];
+            v = &arg1->game.unk1900[0x70 + 4 * idx];
             v[0].v.ob[0] = e->unk0, v[0].v.ob[1] = e->unk2, v[0].v.ob[2] = e->unk4;
             v[1].v.ob[0] = e->unk6, v[1].v.ob[1] = e->unk8, v[1].v.ob[2] = e->unkA;
             v[0].v.cn[3] = v[1].v.cn[3] = e->unk18;
@@ -327,7 +327,7 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
             idx = 0;
         }
     }
-    if (sub != &arg1->unk3C20[2]) {
+    if (sub != &arg1->game.unk3C20[2]) {
         gSPDisplayList(gfx++, &D_02000000.unk3C20[2]);
         gSPEndDisplayList(sub++);
     }
@@ -335,7 +335,7 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
     *arg0 = gfx;
 }
 #else
-void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
+void func_8027C4C8(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     u8 idx;
     u8 start;
@@ -361,7 +361,7 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
     gfx = *arg0;
     idx = D_8036DC90;
     done = FALSE;
-    sub = &arg1->unk3C20[2];
+    sub = &arg1->game.unk3C20[2];
     subCount = 0;
     vtxStart = 0;
     func_8027D5AC();
@@ -392,15 +392,15 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
             vtxIdx = vtxStart;
             j = start;
             while (j != end) {
-                arg1->unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unk0;
-                arg1->unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unk2;
-                arg1->unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unk4;
-                arg1->unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk18;
+                arg1->game.unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unk0;
+                arg1->game.unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unk2;
+                arg1->game.unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unk4;
+                arg1->game.unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk18;
                 vtxIdx++;
-                arg1->unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unk6;
-                arg1->unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unk8;
-                arg1->unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unkA;
-                arg1->unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk18;
+                arg1->game.unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unk6;
+                arg1->game.unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unk8;
+                arg1->game.unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unkA;
+                arg1->game.unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk18;
                 vtxIdx++;
                 if (D_8036D3D0[j].unk0 < minX) {
                     minX = D_8036D3D0[j].unk0;
@@ -445,15 +445,15 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
             if (flag == 0) {
                 j = start;
                 while (j != end) {
-                    arg1->unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unkC;
-                    arg1->unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unkE;
-                    arg1->unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unk10;
-                    arg1->unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk19;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unkC;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unkE;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unk10;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk19;
                     vtxIdx++;
-                    arg1->unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unk12;
-                    arg1->unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unk14;
-                    arg1->unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unk16;
-                    arg1->unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk19;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.ob[0] = D_8036D3D0[j].unk12;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.ob[1] = D_8036D3D0[j].unk14;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.ob[2] = D_8036D3D0[j].unk16;
+                    arg1->game.unk1900[0x70 + vtxIdx].v.cn[3] = D_8036D3D0[j].unk19;
                     vtxIdx++;
                     if (D_8036D3D0[j].unkC < minX) {
                         minX = D_8036D3D0[j].unkC;
@@ -503,7 +503,7 @@ void func_8027C4C8(Gfx **arg0, FrameGame *arg1) {
                 sp6C = count >> 1;
             }
             if (count > 40) {
-                func_8027D350(minX, minY, minZ, maxX, maxY, maxZ, &arg1->unk1900[0x70], vtxIdx);
+                func_8027D350(minX, minY, minZ, maxX, maxY, maxZ, &arg1->game.unk1900[0x70], vtxIdx);
                 gSPVertex(sub++, &D_02000000.unk1900[0x70 + vtxIdx], 8, 0);
                 gSPCullDisplayList(sub++, 0, 7);
                 subCount += 2;

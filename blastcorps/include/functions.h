@@ -25,6 +25,7 @@
 struct CollisionTri;
 struct FrameBuf;
 struct FrameGame;
+union Frame;
 struct LevelAmmoBox;
 struct LevelCollisionTri;
 struct LevelHeader;
@@ -56,17 +57,17 @@ void func_801E8DCC(u8);
 void func_801E8EB8(u8, u8);
 void func_801E93DC(u8);
 s32 func_801E96F8(void);
-Gfx *func_801E9718(Gfx *, struct FrameBuf *, s32);
+Gfx *func_801E9718(Gfx *, union Frame *, s32);
 void func_801EA108(u8, u8, u8);
 void func_801EA278(void);
 void func_801EA4B8(void);
 void func_801EA6E8(void);
-void func_801EA93C(char *, s32, u8, u8, char *);
-Gfx *func_801EAA7C(Gfx *, struct FrameBuf *, s32 *);
+void func_801EA93C(char *, u16 *, u8, u8, char *);
+Gfx *func_801EAA7C(Gfx *, union Frame *, s32 *);
 void func_801EC288(u8);
 void func_801EC30C(u8);
 Gfx *func_801EC49C(Gfx *, s32, s32, u8);
-Gfx *func_801EC770(Gfx *, s32, s32 *);
+Gfx *func_801EC770(Gfx *, union Frame *, s32 *);
 u64 func_801ECA50(u8);
 void func_801ECB18(void);
 void func_801ECC8C(void);
@@ -76,7 +77,7 @@ void func_801ED4B8(void);
 
 /* hd_front_end 6790.c */
 void func_801ED790(void);
-Gfx *func_801ED800(Gfx *, struct FrameBuf *, u8, s32 *);
+Gfx *func_801ED800(Gfx *, union Frame *, u8, s32 *);
 
 /* hd_front_end 7390.c */
 void func_801EE390(void);
@@ -110,8 +111,8 @@ void func_801F4C3C(struct UnkStruct_8020BD30 *, f32);
 
 /* hd_front_end DE70.c */
 void func_801F4E70(u8);
-Gfx *func_801F4FBC(u8 *, Gfx *);
-Gfx *func_801F51C8(u8 *, Gfx *);
+Gfx *func_801F4FBC(union Frame *, Gfx *);
+Gfx *func_801F51C8(union Frame *, Gfx *);
 void func_801F55D8(void);
 
 /* hd_front_end E7B0.c */
@@ -137,7 +138,7 @@ void func_801F803C(void);
 s32 func_801F81B4(u8);
 void func_801F8228(void);
 void func_801F8354(u8);
-Gfx *func_801F8440(s32, Gfx *);
+Gfx *func_801F8440(union Frame *, Gfx *);
 
 /* hd_front_end 11530.c */
 void func_801F8530(s32);
@@ -156,11 +157,11 @@ void func_801FE990(void);
 
 /* hd_front_end 196F0.c */
 void func_80200714(u8);
-Gfx *func_80200BE0(Gfx *, s32, s32 *);
+Gfx *func_80200BE0(Gfx *, union Frame *, s32 *);
 
 /* hd_front_end 1A240.c */
 void func_80201240(s32);
-Gfx *func_80201364(s32, Gfx *);
+Gfx *func_80201364(union Frame *, Gfx *);
 
 /* hd_front_end 1AE80.c */
 s32 func_80201E80(void);
@@ -181,10 +182,10 @@ s32 func_80204410(OSMesgQueue *, u8, u8 *, int);
 
 /* hd_code 00000.c */
 void func_802447C0(void);
-Gfx *func_8024C404(Gfx *, struct FrameGame *, s32 *);
+Gfx *func_8024C404(Gfx *, union Frame *, s32 *);
 void func_8024FC2C(Gfx **, u8);
 void func_80255DC8(void);
-void func_80256A34(s32);
+void func_80256A34(u8 *);
 void func_80257490(s32 *, s32);
 f32 func_802574F0(f32);
 f32 func_80257514(f32);
@@ -199,16 +200,16 @@ void func_802582C4(u8, s32, s32, s32, s32, s32, s32, s32);
 s32 func_802584BC(u8);
 s32 func_80258500(u8);
 void func_80258544(void *, s32, s32, s32, f32, Gfx *, void *, void *);
-void func_80258B78(Gfx **, struct FrameGame *);
+void func_80258B78(Gfx **, union Frame *);
 
 /* hd_code 14B30.c */
 void func_802592F0(void);
 void func_80259450(void);
 void func_802595E0(u8 *, s32, s32, s32 (*)(void *, void *));
-void func_80259BD4(Gfx **, s32);
-void func_80259C24(Gfx **, s32);
-void func_80259CCC(s32, u8 *, u16 *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8);
-void func_80259DC8(s32, u8 *, u16 *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8);
+void func_80259BD4(Gfx **, union Frame *);
+void func_80259C24(Gfx **, union Frame *);
+void func_80259CCC(union Frame *, u8 *, u16 *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8);
+void func_80259DC8(union Frame *, u8 *, u16 *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8);
 
 /* hd_code 168B0.c */
 void func_8025B070(void);
@@ -218,7 +219,7 @@ s32 func_8025B300(u8 *);
 s32 func_8025B370(u16 *);
 s32 func_8025B3F0(u8 *, u8 *);
 #if defined(VERSION_US_V10) || defined(VERSION_US_V11) || defined(VERSION_EU)
-s32 func_8025B498(s16, u16, u8 *, s32);
+s32 func_8025B498(s16, u16, u8 *, u16 *);
 #elif defined(VERSION_JP)
 s32 func_8025B498(s16, u16, char *, u16 *);
 #endif
@@ -240,10 +241,10 @@ void func_8025C230(u8 **, u8 **, struct huft *);
 
 /* hd_code 17E10.c */
 void func_8025C5D0(void);
-Gfx *func_8025C878(Gfx *, s32, u8, s32 *);
+Gfx *func_8025C878(Gfx *, union Frame *, u8, s32 *);
 void func_8025D184(void);
-void func_8025E2CC(Gfx **, s32, s32);
-void func_8025E67C(Gfx **, s32, u8);
+void func_8025E2CC(Gfx **, union Frame *, s32);
+void func_8025E67C(Gfx **, union Frame *, u8);
 
 /* hd_code 1A630.c */
 void func_8025EDF0(struct SndConfig *);
@@ -288,19 +289,19 @@ void func_80262238(u8);
 void func_80262320(u8);
 void func_80262BF4(void);
 s32 func_8026394C(s16, s16, s16, s16, s16, s16);
-Gfx *func_802639B4(Gfx *, void *, s32);
+Gfx *func_802639B4(Gfx *, union Frame *, s32 *);
 void func_8026420C(void);
-Gfx *func_80264264(void *, Gfx *);
+Gfx *func_80264264(union Frame *, Gfx *);
 void func_80264A34(char *, u16, s32);
 void func_80264AEC(void);
 u8 func_80264BA4(u8);
 
 /* hd_code 20460.c */
-void func_80264C20(s32);
+void func_80264C20(u8 *);
 void func_80264CB4(s16, s16, s16, s16, u8, s32);
 void func_8026510C(void);
 void func_802661EC(void);
-void func_80266248(Gfx **, struct FrameGame *);
+void func_80266248(Gfx **, union Frame *);
 
 /* hd_code 22EE0.c */
 void func_802676A0(struct SynConfig *, OSPri);
@@ -333,7 +334,7 @@ u16 func_8026B10C(void);
 void func_8026B118(u8);
 void func_8026B8F8(void);
 void func_8026BA7C(struct YoshiWindow *);
-Gfx *func_8026BBD0(Gfx *, struct FrameBuf *, s32 *);
+Gfx *func_8026BBD0(Gfx *, union Frame *, s32 *);
 void func_8026EF70(struct YoshiWindow *);
 void *func_8026F004(struct YoshiWindow *, u16, u8);
 u8 func_8026F644(struct UnkStruct_8026F644 *, u16 *, s16);
@@ -348,12 +349,12 @@ void func_8026FBB0(struct LevelRdu *, struct LevelRdu *);
 u8 func_8026FE6C(s32);
 void func_8026FE8C(s32);
 void func_8026FEC4(void);
-void func_802701A8(Gfx **, s32);
+void func_802701A8(Gfx **, union Frame *);
 s32 func_80270A54(struct Rdu *);
 void func_80270AE0(u8 *);
 
 /* hd_code 2D810.c */
-Gfx *func_80271FD0(Gfx *, s32, u16, s16, s16, s32 *);
+Gfx *func_80271FD0(Gfx *, union Frame *, u16, s16, s16, s32 *);
 void func_802729F0(u16, u16);
 
 /* hd_code 2E490.c */
@@ -364,10 +365,10 @@ Gfx *func_80274868(Gfx *);
 Gfx *func_80274998(Gfx *);
 Gfx *func_80274AA4(Gfx *);
 Gfx *func_80274B08(Gfx *);
-void func_80274B40(Gfx **, s32, u8, s16, s16);
+void func_80274B40(Gfx **, union Frame *, u8, s16, s16);
 
 /* hd_code 30430.c */
-Gfx *func_80274BF0(u8 *, Gfx *);
+Gfx *func_80274BF0(union Frame *, Gfx *);
 void func_80275270(u64, f32);
 void func_80275390(u64);
 s32 func_802753C0(void);
@@ -375,19 +376,19 @@ s32 func_802753F8(void);
 
 /* hd_code 30C70.c */
 void func_80275430(void);
-void func_80275478(struct FrameBuf *, Gfx **, u8);
+void func_80275478(union Frame *, Gfx **, u8);
 Gfx *func_80275DA4(Gfx *, u8);
-s32 func_80276080(struct FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
-s32 func_80276130(struct FrameBuf *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
-void func_8027690C(struct FrameBuf *, f32, f32, f32, s16 *, s16 *, Mtx *, Mtx *, Mtx *, f32);
-void func_80276E50(Gfx **, struct FrameBuf *, u8, s32, s32, s32);
+s32 func_80276080(union Frame *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8);
+s32 func_80276130(union Frame *, u8, s32, s32, s32, s32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);
+void func_8027690C(union Frame *, f32, f32, f32, s16 *, s16 *, Mtx *, Mtx *, Mtx *, f32);
+void func_80276E50(Gfx **, union Frame *, u8, s32, s32, s32);
 
 /* hd_code 32E00.c */
 void func_802775C0(void);
 void func_80277620(s32);
 void func_80277EDC(u8, u8, s32, u8);
 void func_80278318(void);
-void func_80278324(Gfx **, s32, u8);
+void func_80278324(Gfx **, union Frame *, u8);
 
 /* hd_code 34430.c */
 void func_80278BF0(Gfx *, Gfx *, Gfx **);
@@ -398,12 +399,12 @@ void func_802794E4(void);
 u8 func_802794F0(void);
 void func_80279514(s32, s32, s32, s32, s32, s32);
 void func_80279778(s32, s32, s32, s32, s32, s32, Gfx *, void *, void *, s32);
-void func_80279EE8(Gfx **, s32, u8);
+void func_80279EE8(Gfx **, union Frame *, u8);
 
 /* hd_code 37530.c */
 void func_8027BE4C(void);
 void func_8027BE7C(u8, s32, s16, s16, s16, s16, s32, s32, s16, u8, u8, u8, u8);
-void func_8027C4C8(Gfx **, struct FrameGame *);
+void func_8027C4C8(Gfx **, union Frame *);
 
 /* hd_code 39050.c */
 void func_8027D810(s32);
@@ -422,8 +423,8 @@ void func_80282728(void);
 void func_8028273C(Gfx **, u8);
 
 /* hd_code 3E4C0.c */
-void func_80282C80(Gfx **, Mtx *, s32, s32, s32, s32, s32, s32);
-void func_8028376C(Gfx **, Mtx *, u8, s32, s32, s32, s32);
+void func_80282C80(Gfx **, union Frame *, s32, s32, s32, s32, s32, s32);
+void func_8028376C(Gfx **, union Frame *, u8, s32, s32, s32, s32);
 
 /* hd_code 405F0.c */
 void func_80284DB0(void);
@@ -453,11 +454,11 @@ u8 func_8028653C(void);
 
 /* hd_code 42240.c */
 void func_80286A00(void);
-void func_80286C60(Gfx **, s32, u8, u8);
+void func_80286C60(Gfx **, union Frame *, u8, u8);
 void func_802873AC(void);
-void func_80287530(Gfx **, s32, s32, u8);
+void func_80287530(Gfx **, union Frame *, s32, u8);
 void func_80287AE4(void);
-void func_80287C68(Gfx **, s32, s32, u8);
+void func_80287C68(Gfx **, union Frame *, s32, u8);
 
 /* hd_code 43A60.c */
 void func_80288220(void);
@@ -485,7 +486,7 @@ f32 func_8028BBF4(s16, s16, s16, s16);
 /* hd_code 479D0.c */
 void func_8028C190(struct LevelAmmoBox *, struct LevelAmmoBox *);
 void func_8028C874(u8);
-void func_8028CB30(Gfx **, s32);
+void func_8028CB30(Gfx **, union Frame *);
 
 /* hd_code 48D00.c */
 void func_8028D4C0(struct LevelTntCrate *, struct LevelTntCrate *);
@@ -493,7 +494,7 @@ void func_8028DA5C(Vtx *, u8);
 void func_8028DD64(u8);
 struct TntCrate *func_8028DE94(void);
 void func_8028DF14(u8);
-void func_8028E9E4(Gfx **, Mtx *);
+void func_8028E9E4(Gfx **, union Frame *);
 void func_8028F6B4(u8);
 void func_8028F794(u8);
 void func_8028F93C(void);
@@ -507,7 +508,7 @@ u8 func_8028FCD4(OSMesgQueue *, u8 *);
 /* hd_code 4B5E0.c */
 void func_8028FDA0(s16 *, s16 *);
 void func_802906C0(u8);
-void func_802917B0(Gfx **, struct FrameGame *);
+void func_802917B0(Gfx **, union Frame *);
 void func_80291ED8(u8);
 void func_80291FAC(u8);
 void func_80292084(void);
@@ -517,7 +518,7 @@ void func_802920DC(s32, s32, s32, s32);
 void func_80292240(void);
 s32 func_80292288(s16, s32, s32, s32, s32, s32, s32, u8, s16);
 void func_80292830(void);
-void func_80292EB8(Gfx **, struct FrameGame *);
+void func_80292EB8(Gfx **, union Frame *);
 
 /* hd_code 4EBE0.c */
 void func_802933A0(s32, s32, s32, s32, Mtx *, void *, Gfx *, Gfx *, s32, s32, s32, s32);
@@ -527,14 +528,14 @@ void func_80294E30(void);
 void func_80294E88(void);
 void func_80294EB8(void);
 void func_80294F00(void);
-void func_80295120(Gfx **, struct FrameGame *);
+void func_80295120(Gfx **, union Frame *);
 void func_80295A20(u32);
 void func_80295AE0(Gfx *, Gfx *);
 void func_80295C70(u8, s32, s32);
 
 /* hd_code 51690.c */
 void func_80295E50(void);
-Gfx *func_80295EFC(s32, Gfx *, s16, s16, u8);
+Gfx *func_80295EFC(union Frame *, Gfx *, s16, s16, u8);
 
 /* hd_code 52D70.c */
 void func_80297530(u8);
@@ -558,11 +559,11 @@ u64 func_80299FE8(u8);
 
 /* hd_code 55970.c */
 void func_8029A130(void);
-Gfx *func_8029A1A8(s32, Gfx *);
+Gfx *func_8029A1A8(union Frame *, Gfx *);
 
 /* hd_code 55D40.c */
 void func_8029A500(void);
-s32 func_8029A518(s32, s32);
+Gfx *func_8029A518(union Frame *, Gfx *);
 
 /* hd_code 56010.c */
 void func_8029A7E4(char *, ...);

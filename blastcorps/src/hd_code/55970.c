@@ -1,5 +1,6 @@
 #include "common.h"
 #include "game/game.h"
+#include "game/frame.h"
 #include "functions.h"
 
 extern u8 D_0048FA70[];
@@ -19,7 +20,7 @@ void func_8029A130(void) {
     D_803A6B14 = 0;
 }
 
-Gfx *func_8029A1A8(s32 arg0, Gfx *arg1) {
+Gfx *func_8029A1A8(Frame *arg0, Gfx *arg1) {
     Gfx *gfx = arg1;
 
     gDPPipeSync(gfx++);

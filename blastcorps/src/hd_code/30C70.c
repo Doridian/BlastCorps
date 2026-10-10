@@ -41,7 +41,7 @@ OSViMode D_802FDB40_eu[2] = {
 
 
 
-void func_8027656C(FrameBuf *arg0);
+void func_8027656C(Frame *arg0);
 s32 func_802768A8(void);
 
 extern FrameBuf D_02000000;
@@ -66,7 +66,7 @@ void func_80275430(void) {
     D_8036C7CC = 0;
 }
 
-void func_80275478(FrameBuf *arg0, Gfx **arg1, u8 arg2) {
+void func_80275478(Frame *arg0, Gfx **arg1, u8 arg2) {
     s16 i;
     s16 j;
     s16 vtxIdx;
@@ -244,83 +244,83 @@ Gfx *func_80275DA4(Gfx *arg0, u8 arg1) {
     return gfx;
 }
 
-s32 func_80276080(FrameBuf *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
+s32 func_80276080(Frame *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
                   u8 arg8, u8 arg9, u8 arg10) {
     return func_80276130(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg7, arg8, arg9, arg10, arg7,
                   arg8, arg9, arg10, arg7, arg8, arg9, arg10);
 }
 
-s32 func_80276130(FrameBuf *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
+s32 func_80276130(Frame *arg0, u8 arg1, s32 arg2, s32 arg3, s32 arg4, s32 arg5, s32 arg6, u8 arg7,
                   u8 arg8, u8 arg9, u8 arg10, u8 arg11, u8 arg12, u8 arg13, u8 arg14, u8 arg15, u8 arg16, u8 arg17,
                   u8 arg18, u8 arg19, u8 arg20, u8 arg21, u8 arg22) {
     s32 sp4;
 
     switch (arg1) {
         case 0:
-            arg0->vtx[arg2].v.tc[0] = 0, arg0->vtx[arg2].v.tc[1] = 0;
-            arg0->vtx[arg2 + 1].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 1].v.tc[1] = 0;
-            arg0->vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 2].v.tc[1] = 0x3E0;
-            arg0->vtx[arg2 + 3].v.tc[0] = 0, arg0->vtx[arg2 + 3].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2].v.tc[0] = 0, arg0->buf.vtx[arg2].v.tc[1] = 0;
+            arg0->buf.vtx[arg2 + 1].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 1].v.tc[1] = 0;
+            arg0->buf.vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 2].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2 + 3].v.tc[0] = 0, arg0->buf.vtx[arg2 + 3].v.tc[1] = 0x3E0;
             break;
         case 1:
-            arg0->vtx[arg2].v.tc[0] = 0, arg0->vtx[arg2].v.tc[1] = 0x3E0;
-            arg0->vtx[arg2 + 1].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 1].v.tc[1] = 0x3E0;
-            arg0->vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 2].v.tc[1] = 0;
-            arg0->vtx[arg2 + 3].v.tc[0] = 0, arg0->vtx[arg2 + 3].v.tc[1] = 0;
+            arg0->buf.vtx[arg2].v.tc[0] = 0, arg0->buf.vtx[arg2].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2 + 1].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 1].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 2].v.tc[1] = 0;
+            arg0->buf.vtx[arg2 + 3].v.tc[0] = 0, arg0->buf.vtx[arg2 + 3].v.tc[1] = 0;
             break;
         case 2:
-            arg0->vtx[arg2].v.tc[0] = 0, arg0->vtx[arg2].v.tc[1] = 0;
-            arg0->vtx[arg2 + 1].v.tc[0] = 0, arg0->vtx[arg2 + 1].v.tc[1] = 0x3E0;
-            arg0->vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 2].v.tc[1] = 0x3E0;
-            arg0->vtx[arg2 + 3].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 3].v.tc[1] = 0;
+            arg0->buf.vtx[arg2].v.tc[0] = 0, arg0->buf.vtx[arg2].v.tc[1] = 0;
+            arg0->buf.vtx[arg2 + 1].v.tc[0] = 0, arg0->buf.vtx[arg2 + 1].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 2].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2 + 3].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 3].v.tc[1] = 0;
             break;
         case 3:
-            arg0->vtx[arg2].v.tc[0] = 0, arg0->vtx[arg2].v.tc[1] = 0x3E0;
-            arg0->vtx[arg2 + 1].v.tc[0] = 0, arg0->vtx[arg2 + 1].v.tc[1] = 0;
-            arg0->vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 2].v.tc[1] = 0;
-            arg0->vtx[arg2 + 3].v.tc[0] = 0x3E0, arg0->vtx[arg2 + 3].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2].v.tc[0] = 0, arg0->buf.vtx[arg2].v.tc[1] = 0x3E0;
+            arg0->buf.vtx[arg2 + 1].v.tc[0] = 0, arg0->buf.vtx[arg2 + 1].v.tc[1] = 0;
+            arg0->buf.vtx[arg2 + 2].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 2].v.tc[1] = 0;
+            arg0->buf.vtx[arg2 + 3].v.tc[0] = 0x3E0, arg0->buf.vtx[arg2 + 3].v.tc[1] = 0x3E0;
             break;
     }
-    arg0->vtx[arg2].v.ob[0] = arg3 - arg5;
-    arg0->vtx[arg2].v.ob[1] = arg4 - arg6;
-    arg0->vtx[arg2].v.ob[2] = -10;
-    arg0->vtx[arg2].v.flag = 0;
-    arg0->vtx[arg2].v.cn[0] = arg7;
-    arg0->vtx[arg2].v.cn[1] = arg8;
-    arg0->vtx[arg2].v.cn[2] = arg9;
-    arg0->vtx[arg2].v.cn[3] = arg10;
+    arg0->buf.vtx[arg2].v.ob[0] = arg3 - arg5;
+    arg0->buf.vtx[arg2].v.ob[1] = arg4 - arg6;
+    arg0->buf.vtx[arg2].v.ob[2] = -10;
+    arg0->buf.vtx[arg2].v.flag = 0;
+    arg0->buf.vtx[arg2].v.cn[0] = arg7;
+    arg0->buf.vtx[arg2].v.cn[1] = arg8;
+    arg0->buf.vtx[arg2].v.cn[2] = arg9;
+    arg0->buf.vtx[arg2].v.cn[3] = arg10;
     arg2++;
-    arg0->vtx[arg2].v.ob[0] = arg3 + arg5;
-    arg0->vtx[arg2].v.ob[1] = arg4 - arg6;
-    arg0->vtx[arg2].v.ob[2] = -10;
-    arg0->vtx[arg2].v.flag = 0;
-    arg0->vtx[arg2].v.cn[0] = arg11;
-    arg0->vtx[arg2].v.cn[1] = arg12;
-    arg0->vtx[arg2].v.cn[2] = arg13;
-    arg0->vtx[arg2].v.cn[3] = arg14;
+    arg0->buf.vtx[arg2].v.ob[0] = arg3 + arg5;
+    arg0->buf.vtx[arg2].v.ob[1] = arg4 - arg6;
+    arg0->buf.vtx[arg2].v.ob[2] = -10;
+    arg0->buf.vtx[arg2].v.flag = 0;
+    arg0->buf.vtx[arg2].v.cn[0] = arg11;
+    arg0->buf.vtx[arg2].v.cn[1] = arg12;
+    arg0->buf.vtx[arg2].v.cn[2] = arg13;
+    arg0->buf.vtx[arg2].v.cn[3] = arg14;
     arg2++;
-    arg0->vtx[arg2].v.ob[0] = arg3 + arg5;
-    arg0->vtx[arg2].v.ob[1] = arg4 + arg6;
-    arg0->vtx[arg2].v.ob[2] = -10;
-    arg0->vtx[arg2].v.flag = 0;
-    arg0->vtx[arg2].v.cn[0] = arg15;
-    arg0->vtx[arg2].v.cn[1] = arg16;
-    arg0->vtx[arg2].v.cn[2] = arg17;
-    arg0->vtx[arg2].v.cn[3] = arg18;
+    arg0->buf.vtx[arg2].v.ob[0] = arg3 + arg5;
+    arg0->buf.vtx[arg2].v.ob[1] = arg4 + arg6;
+    arg0->buf.vtx[arg2].v.ob[2] = -10;
+    arg0->buf.vtx[arg2].v.flag = 0;
+    arg0->buf.vtx[arg2].v.cn[0] = arg15;
+    arg0->buf.vtx[arg2].v.cn[1] = arg16;
+    arg0->buf.vtx[arg2].v.cn[2] = arg17;
+    arg0->buf.vtx[arg2].v.cn[3] = arg18;
     arg2++;
-    arg0->vtx[arg2].v.ob[0] = arg3 - arg5;
-    arg0->vtx[arg2].v.ob[1] = arg4 + arg6;
-    arg0->vtx[arg2].v.ob[2] = -10;
-    arg0->vtx[arg2].v.flag = 0;
-    arg0->vtx[arg2].v.cn[0] = arg19;
-    arg0->vtx[arg2].v.cn[1] = arg20;
-    arg0->vtx[arg2].v.cn[2] = arg21;
-    arg0->vtx[arg2].v.cn[3] = arg22;
+    arg0->buf.vtx[arg2].v.ob[0] = arg3 - arg5;
+    arg0->buf.vtx[arg2].v.ob[1] = arg4 + arg6;
+    arg0->buf.vtx[arg2].v.ob[2] = -10;
+    arg0->buf.vtx[arg2].v.flag = 0;
+    arg0->buf.vtx[arg2].v.cn[0] = arg19;
+    arg0->buf.vtx[arg2].v.cn[1] = arg20;
+    arg0->buf.vtx[arg2].v.cn[2] = arg21;
+    arg0->buf.vtx[arg2].v.cn[3] = arg22;
     arg2++;
     return arg2;
 }
 
-void func_8027656C(FrameBuf *arg0) {
+void func_8027656C(Frame *arg0) {
     s32 i;
     s32 j;
     UnkStruct_8036C7A0 *p;
@@ -414,7 +414,7 @@ s32 func_802768A8(void) {
     return 0;
 }
 
-void func_8027690C(FrameBuf *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7,
+void func_8027690C(Frame *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mtx *arg6, Mtx *arg7,
                    Mtx *arg8, f32 arg9) {
     f32 w;
 
@@ -428,13 +428,13 @@ void func_8027690C(FrameBuf *arg0, f32 x, f32 y, f32 z, s16 *outX, s16 *outY, Mt
     if (arg6 != NULL) {
         func_80276D1C(arg6, x, y, z, w, &x, &y, &z, &w);
     }
-    func_80276D1C(&arg0->mtx[5], x, y, z, w, &x, &y, &z, &w);
+    func_80276D1C(&arg0->buf.mtx[5], x, y, z, w, &x, &y, &z, &w);
     if (z >= 0.0) {
         *outX = 0x4000;
         *outY = 0x4000;
         return;
     }
-    func_80276D1C(&arg0->mtx[2], x, y, z, w, &x, &y, &z, &w);
+    func_80276D1C(&arg0->buf.mtx[2], x, y, z, w, &x, &y, &z, &w);
     x = x * ((u32)D_8035807C / 65535.0);
     y = y * ((u32)D_8035807C / 65535.0);
     w = w * ((u32)D_8035807C / 65535.0);
@@ -465,7 +465,7 @@ void func_80276D1C(Mtx *arg0, f32 arg1, f32 arg2, f32 arg3, f32 arg4, f32 *arg5,
     *arg8 = mf[0][3] * arg1 + mf[1][3] * arg2 + mf[2][3] * arg3 + mf[3][3];
 }
 
-void func_80276E50(Gfx **arg0, FrameBuf *arg1, u8 arg2, s32 arg3, s32 arg4, s32 arg5) {
+void func_80276E50(Gfx **arg0, Frame *arg1, u8 arg2, s32 arg3, s32 arg4, s32 arg5) {
     s16 sx;
     s16 sy;
     Gfx *gfx;

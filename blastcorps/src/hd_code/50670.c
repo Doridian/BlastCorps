@@ -117,7 +117,7 @@ void func_80294F00(void) {
     }
 }
 
-void func_80295120(Gfx **arg0, FrameGame *arg1) {
+void func_80295120(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 x;
     s32 y;
@@ -129,7 +129,7 @@ void func_80295120(Gfx **arg0, FrameGame *arg1) {
     gfx = *arg0;
     if (D_8039CA61 != 0) {
         func_80295394(&x, &y, &z, &rx, &ry, &rz);
-        func_802AA6D0(x, y, z, rx, ry, rz, D_802FF0D0[D_8039CA7C], &arg1->unk11C0[12]);
+        func_802AA6D0(x, y, z, rx, ry, rz, D_802FF0D0[D_8039CA7C], &arg1->game.unk11C0[12]);
         gSPSegment(gfx++, 6, osVirtualToPhysical(D_803BDB04));
         gSPSegment(gfx++, 7, osVirtualToPhysical(D_803BDB00));
         gSPMatrix(gfx++, &D_02000000.unk11C0[12], G_MTX_MODELVIEW | G_MTX_MUL | G_MTX_NOPUSH);

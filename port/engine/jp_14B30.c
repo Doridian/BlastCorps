@@ -14,8 +14,8 @@
 typedef struct {
     /* 0x0 */ u16 unk0;
     /* 0x4 */ s32 unk4;
-    /* 0x8 */ s32 unk8;
-} UnkStruct_80365340; /* size = 0xC */
+    /* 0x8 */ u8 *unk8;
+} UnkStruct_80365340; /* size = 0xC on the N64 */
 
 extern UnkStruct_80365340 *D_80365340;
 extern s32 D_80365350;
@@ -31,7 +31,7 @@ extern u16 D_802E8C94[];
    left to right from its start, else right to left from its end; arg4 set,
    centred on arg4 (func_8025B498); arg3 1, proportional; the corners'
    colours arg10-13, arg14-17, arg18-21, arg22-25 */
-void func_80259EC4(s32 arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, f32 arg5, s32 arg6, f32 arg7, s32 arg8,
+void func_80259EC4(union Frame *arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, f32 arg5, s32 arg6, f32 arg7, s32 arg8,
                    u8 arg9, u8 arg10, u8 arg11, u8 arg12, u8 arg13, u8 arg14, u8 arg15, u8 arg16, u8 arg17,
                    u8 arg18, u8 arg19, u8 arg20, u8 arg21, u8 arg22, u8 arg23, u8 arg24, u8 arg25) {
     u16 glyph = 0;
@@ -394,7 +394,7 @@ void func_80259EC4(s32 arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, f32 arg5, s
         {
             u8 *tex = func_8025B0B8(glyph);
 
-            D_80365340[D_802E8C74].unk8 = (s32)tex;
+            D_80365340[D_802E8C74].unk8 = tex;
         }
         if (!(++D_802E8C74 < D_80365350)) {
             func_8029A7E4("\n\a --- ASSERTION FAULT - %s - %s, line %d\n\n", "index<maxCharacters", "drawtext.c", 435);

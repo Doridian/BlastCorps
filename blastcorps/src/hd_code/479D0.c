@@ -3,6 +3,7 @@
 #include "game/audio.h"
 #include "game/game.h"
 #include "game/objects.h"
+#include "game/frame.h"
 #include "functions.h"
 
 
@@ -114,7 +115,7 @@ void func_8028C874(u8 arg0) {
     }
 }
 
-void func_8028CB30(Gfx **arg0, s32 arg1) {
+void func_8028CB30(Gfx **arg0, Frame *arg1) {
     Gfx *gfx;
     s32 i;
     u8 spDF;

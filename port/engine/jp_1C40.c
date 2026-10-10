@@ -167,7 +167,7 @@ extern u8 D_80215914;
 
 /* the medal screen's cups (two players: the two of them) and, for one, the
    time to beat for the next medal, with its shadow */
-Gfx *func_801EC770(Gfx *arg0, s32 arg1, s32 *arg2) {
+Gfx *func_801EC770(Gfx *arg0, union Frame *arg1, s32 *arg2) {
     Gfx *gfx = arg0;
     u8 medal;
     s32 a, b, h;

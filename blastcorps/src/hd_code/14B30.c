@@ -2,20 +2,21 @@
 #include "game/game.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/frame.h"
 #include "functions.h"
 
 /* 12-byte sort records: a u16 key, a quad index and a texture address. */
 typedef struct {
     /* 0x0 */ u16 unk0;
     /* 0x4 */ s32 unk4;
-    /* 0x8 */ s32 unk8;
-} UnkStruct_80365340; /* size = 0xC */
+    /* 0x8 */ u8 *unk8;
+} UnkStruct_80365340; /* size = 0xC on the N64 */
 
 
 void func_802597D8(u8 *arg0, u8 *arg1, s32 arg2);
 s32 func_80259814(u16 *arg0, u16 *arg1);
-void func_8025946C(Gfx **arg0, s32 arg1);
-void func_80259824(Gfx **arg0, s32 arg1);
+void func_8025946C(Gfx **arg0, Frame *arg1);
+void func_80259824(Gfx **arg0, Frame *arg1);
 
 /* .bss, 0x80365340-0x80365360 (tools/bss_c.py) */
 UnkStruct_80365340 *D_80365340;
@@ -43,7 +44,7 @@ void func_802592F0(void) {
         D_80358070 += D_80365350 * 0x10 * 4;
     }
     D_80365340 = (UnkStruct_80365340 *)D_80358070;
-    D_80358070 += D_80365350 * 0xC;
+    D_80358070 += D_80365350 * sizeof(UnkStruct_80365340);
     func_8025B070();
 }
 
@@ -53,7 +54,7 @@ void func_80259450(void) {
     D_802E8C78 = 0;
 }
 
-void func_8025946C(Gfx **arg0, s32 arg1) {
+void func_8025946C(Gfx **arg0, Frame *arg1) {
     Gfx *gfx = *arg0;
 
     gSPClearGeometryMode(gfx++, 0xFFFFFFFF);
@@ -103,12 +104,12 @@ s32 func_80259814(u16 *arg0, u16 *arg1) {
     return *arg0 - *arg1;
 }
 
-void func_80259824(Gfx **arg0, s32 arg1) {
-    s32 sp54;
+void func_80259824(Gfx **arg0, Frame *arg1) {
+    u8 *sp54;
     Gfx *gfx;
     s32 sp4C;
 
-    sp54 = 0;
+    sp54 = NULL;
     gfx = *arg0;
     func_802595E0((u8 *)&D_80365340[D_802E8C70], D_802E8C74 - D_802E8C70, sizeof(UnkStruct_80365340),
                   (s32(*)(void *, void *))func_80259814);
@@ -134,7 +135,7 @@ void func_80259824(Gfx **arg0, s32 arg1) {
     *arg0 = gfx;
 }
 
-void func_80259BD4(Gfx **arg0, s32 arg1) {
+void func_80259BD4(Gfx **arg0, Frame *arg1) {
     Gfx *sp1C;
 
     sp1C = *arg0;
@@ -143,26 +144,26 @@ void func_80259BD4(Gfx **arg0, s32 arg1) {
     *arg0 = sp1C;
 }
 
-void func_80259C24(Gfx **arg0, s32 arg1) {
+void func_80259C24(Gfx **arg0, Frame *arg1) {
     Gfx *gfx = *arg0;
 
-    gSPMatrix(gfx++, arg1 + 0xC0, G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
-    gSPMatrix(gfx++, arg1 + 0x1C0, G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg1->game.unk0[3], G_MTX_PROJECTION | G_MTX_LOAD | G_MTX_NOPUSH);
+    gSPMatrix(gfx++, &arg1->game.unk0[7], G_MTX_MODELVIEW | G_MTX_LOAD | G_MTX_NOPUSH);
     func_8025946C(&gfx, arg1);
     func_80259824(&gfx, arg1);
     *arg0 = gfx;
 }
 
-void func_80259EC4(s32, u8 *, u16 *, u8, s32, f32, s32, f32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
+void func_80259EC4(Frame *, u8 *, u16 *, u8, s32, f32, s32, f32, s32, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8,
                    u8, u8, u8, u8);
 
-void func_80259CCC(s32 arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7, s32 arg8, u8 arg9,
+void func_80259CCC(Frame *arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7, s32 arg8, u8 arg9,
                    u8 arg10, u8 arg11, u8 arg12, u8 arg13) {
     func_80259EC4(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg10, arg11,
                   arg12, arg13, arg10, arg11, arg12, arg13, arg10, arg11, arg12, arg13);
 }
 
-void func_80259DC8(s32 arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7, s32 arg8, u8 arg9,
+void func_80259DC8(Frame *arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, s32 arg5, s32 arg6, s32 arg7, s32 arg8, u8 arg9,
                    u8 arg10, u8 arg11, u8 arg12, u8 arg13, u8 arg14, u8 arg15, u8 arg16, u8 arg17) {
     func_80259EC4(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg10, arg11,
                   arg12, arg13, arg14, arg15, arg16, arg17, arg14, arg15, arg16, arg17);
@@ -177,7 +178,7 @@ extern u16 D_802E8C94[];
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/14B30/func_80259EC4.s")
 #else
-void func_80259EC4(s32 arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, f32 arg5, s32 arg6, f32 arg7, s32 arg8,
+void func_80259EC4(Frame *arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, f32 arg5, s32 arg6, f32 arg7, s32 arg8,
                    u8 arg9, u8 arg10, u8 arg11, u8 arg12, u8 arg13, u8 arg14, u8 arg15, u8 arg16, u8 arg17,
                    u8 arg18, u8 arg19, u8 arg20, u8 arg21, u8 arg22, u8 arg23, u8 arg24, u8 arg25) {
     u16 sp3E;
@@ -484,7 +485,7 @@ void func_80259EC4(s32 arg0, u8 *arg1, u16 *arg2, u8 arg3, s32 arg4, f32 arg5, s
                 D_80365340[D_802E8C74].unk0 += 0x8000;
             }
             D_80365340[D_802E8C74].unk4 = D_802E8C74;
-            D_80365340[D_802E8C74].unk8 = (s32)func_8025B0B8(sp3E);
+            D_80365340[D_802E8C74].unk8 = func_8025B0B8(sp3E);
             if (!(++D_802E8C74 < D_80365350)) {
                 func_8029A7E4("\n\a --- ASSERTION FAULT - %s - %s, line %d\n\n", "index<maxCharacters", "drawtext.c",
                               435);

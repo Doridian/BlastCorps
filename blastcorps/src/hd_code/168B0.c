@@ -129,7 +129,7 @@ s32 func_8025B3F0(u8 *arg0, u8 *arg1) {
 #ifdef VERSION_JP
 #pragma GLOBAL_ASM("asm/nonmatchings/hd_code/168B0/func_8025B498.s")
 #else
-s32 func_8025B498(s16 arg0, u16 arg1, u8 *arg2, s32 arg3) {
+s32 func_8025B498(s16 arg0, u16 arg1, u8 *arg2, u16 *arg3) {
     s32 sp2C;
     s16 sp2A;
     register s32 len;

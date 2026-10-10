@@ -199,7 +199,7 @@ void func_80267CDC(AudioInfo *info, AudioInfo *lastInfo) {
 
     samplesLeft = 0;
     func_802682A4();
-    audioPtr = (s16 *)osVirtualToPhysical(info->data);
+    audioPtr = (s16 *)(uintptr_t)osVirtualToPhysical(info->data);
     if (lastInfo != NULL) {
         osAiSetNextBuffer(lastInfo->data, lastInfo->frameSamples << 2);
     }

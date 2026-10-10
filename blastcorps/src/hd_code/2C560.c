@@ -148,7 +148,7 @@ void __scMain(void *arg) {
             for (;;) {
             }
         }
-        switch ((s32) msg) {
+        switch ((s32) OS_MESG_INT(msg)) {
             case 0x29A:
                 if (++D_8036BFB8 % 480 == 0) {
                     D_8036BEF8 = D_8036BF00;

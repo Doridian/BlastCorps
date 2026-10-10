@@ -4,9 +4,10 @@
 #include "game/audio.h"
 #include "game/level.h"
 #include "game/player.h"
+#include "game/frame.h"
 #include "functions.h"
 
-Gfx *func_8025D2B4(Gfx *gfx, s32 arg1, s32 *arg2);
+Gfx *func_8025D2B4(Gfx *gfx, Frame *arg1, s32 *arg2);
 void func_8025E1E0(Gfx **gfxp);
 
 /* Segment 2 base and three ROM addresses, reached through relocations. */
@@ -142,7 +143,7 @@ void func_8025C5D0(void) {
     }
 }
 
-Gfx *func_8025C878(Gfx *arg0, s32 arg1, u8 arg2, s32 *arg3) {
+Gfx *func_8025C878(Gfx *arg0, Frame *arg1, u8 arg2, s32 *arg3) {
     u8 *sp6C;
     u32 sp68;
     Gfx *gfx;
@@ -294,7 +295,7 @@ void func_8025D184(void) {
     }
 }
 
-Gfx *func_8025D2B4(Gfx *arg0, s32 arg1, s32 *arg2) {
+Gfx *func_8025D2B4(Gfx *arg0, Frame *arg1, s32 *arg2) {
     Gfx *gfx;
     s32 x;
     s32 y;
@@ -438,7 +439,7 @@ void func_8025E1E0(Gfx **gfxp) {
     *gfxp = gfx;
 }
 
-void func_8025E2CC(Gfx **gfxp, s32 arg1, s32 arg2) {
+void func_8025E2CC(Gfx **gfxp, Frame *arg1, s32 arg2) {
     Gfx *gfx;
 
     gfx = *gfxp;
@@ -512,7 +513,7 @@ void func_8025E2CC(Gfx **gfxp, s32 arg1, s32 arg2) {
 #define FADE_HOLD 46
 #endif
 
-void func_8025E67C(Gfx **gfxp, s32 arg1, u8 arg2) {
+void func_8025E67C(Gfx **gfxp, Frame *arg1, u8 arg2) {
     Gfx *gfx;
     u32 now;
     u32 i;
