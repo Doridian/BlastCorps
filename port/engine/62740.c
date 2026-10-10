@@ -15,12 +15,23 @@ extern u8 D_80367C10;                   /* the level is one of 1D990.c's five (D
 extern s16 D_803A7410, D_803A7412;      /* the camera's headings (12-bit) */
 extern s32 D_80358064;                  /* the game's frame in this mode */
 extern u8 D_8035805C;                   /* which of the two display buffers is this frame's */
-extern u8 D_803EB7A0[];                 /* a vehicle's parts, state and position, saved */
-
 /* an unaligned word, as swl/swr and lwl/lwr move it */
 typedef struct {
     u32 v;
 } __attribute__((packed)) UnalignedWord;
+
+/* D_803EB7A0: a vehicle's parts, state and position, saved (func_802A75DC):
+   its 32 parts, the state's first 0xA6 bytes, then x, y and z as words
+   right after them (unaligned) */
+#define SAVED_STATE_SIZE 0xA6
+typedef struct VehicleSave {
+    /* 0x000 */ Part parts[32];
+    /* 0x300 */ u8 state[SAVED_STATE_SIZE];
+    /* 0x3A6 */ UnalignedWord pos[3];
+    /* 0x3B2 */ u8 pad3B2[6];
+} VehicleSave;
+SIZE_CHECK_C(VehicleSave, 0x3B8);
+extern VehicleSave D_803EB7A0;
 
 /* ---- per-frame constants of the shared physics (vehicle.h has the rest) --- */
 
@@ -171,39 +182,41 @@ void func_802A754C(VS *vs) {
     VS_SLOPE_RATIO(vs) = 0.0f;
 }
 
-/* the current vehicle's parts (0x300 bytes), state (0xA6) and position
-   (three words) to D_803EB7A0 */
+/* the current vehicle's parts, state (0xA6 bytes) and position to
+   D_803EB7A0 */
 REGS(v0, v1, a0, a1, gp)
-void func_802A75DC(u8 *parts, s32 *x, s32 *y, s32 *z, u8 *vs) {
-    u8 *d = D_803EB7A0;
+void func_802A75DC(u8 *parts_, s32 *x, s32 *y, s32 *z, u8 *vs) {
+    VehicleSave *d = &D_803EB7A0;
+    Part *parts = (Part *)parts_;
     s32 n;
 
-    for (n = 0; n < 0x300; n++)
-        *d++ = *parts++;
-    for (n = 0; n < 0xA6; n++)
-        *d++ = *vs++;
-    ((UnalignedWord *)d)[0].v = *x;
-    ((UnalignedWord *)d)[1].v = *y;
-    ((UnalignedWord *)d)[2].v = *z;
+    for (n = 0; n < 32; n++)
+        d->parts[n] = parts[n];
+    for (n = 0; n < SAVED_STATE_SIZE; n++)
+        d->state[n] = vs[n];
+    d->pos[0].v = *x;
+    d->pos[1].v = *y;
+    d->pos[2].v = *z;
 }
 
 /* ... and back, with `n` bytes from src to dst (in doublewords) */
 REGS(v0, v1, a0, a1, a2, a3, t0, gp)
-void func_802A768C(u8 *parts, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n, u8 *vs) {
-    u8 *s = D_803EB7A0;
+void func_802A768C(u8 *parts_, s32 *x, s32 *y, s32 *z, u32 *src, u32 *dst, s32 n, u8 *vs) {
+    VehicleSave *s = &D_803EB7A0;
+    Part *parts = (Part *)parts_;
     s32 k;
 
-    for (k = 0; k < 0x300; k++)
-        *parts++ = *s++;
-    for (k = 0; k < 0xA6; k++)
-        *vs++ = *s++;
+    for (k = 0; k < 32; k++)
+        parts[k] = s->parts[k];
+    for (k = 0; k < SAVED_STATE_SIZE; k++)
+        vs[k] = s->state[k];
     for (; n != 0; n -= 8, src += 2, dst += 2) {
         dst[0] = src[0];
         dst[1] = src[1];
     }
-    *x = ((UnalignedWord *)s)[0].v;
-    *y = ((UnalignedWord *)s)[1].v;
-    *z = ((UnalignedWord *)s)[2].v;
+    *x = s->pos[0].v;
+    *y = s->pos[1].v;
+    *z = s->pos[2].v;
 }
 
 /* n bytes (in doublewords) from a to b, or b to a on the other buffer */

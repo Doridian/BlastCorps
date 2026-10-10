@@ -2824,7 +2824,7 @@ void func_8029E0AC(void) {
     Part *p;
 
     for (p = D_803B35F8;; p++) {
-        if (*(s32 *)&p->unk0 == -1)
+        if (p->unk0 == TEXANIM_END)
             break;
         if (p->unk10 != 0) {
             func_8029E21C(ANIM(p), fp);
