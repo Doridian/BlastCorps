@@ -551,7 +551,7 @@ static void mtx_xf(const char *m, float v[4]) {
 
 static int globe_project(float x, float y, float z, float *sx, float *sy) {
     int fb = g8(V(D_8035805C)) ^ 1;
-    char *frame = V(D_803156F8) + fb * 0x21498;
+    char *frame = V(D_803156F8) + fb * host_layout(PORT_LAYOUT_FRAME_SIZE);
     float v[4] = { x, y, z, 1 };
     mtx_xf(frame + 0x1280, v);
     mtx_xf(V(D_80217B70) + (3 * 4 + fb + 2) * 64, v);
