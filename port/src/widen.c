@@ -31,8 +31,10 @@
  *                               port/tools/gen_syms.py places the second)
  *
  * The header's other offsets must be into the header (a warning if not:
- * a list nobody rescaled).  With the N64's 8-byte commands (every build
- * but the wide one) all of this is the identity, and nothing is written.
+ * a list nobody rescaled).  A list widened in the pool's free part counts
+ * as a carve-out of the pool's (src/pool.c).  With the N64's 8-byte
+ * commands (every build but the wide one) all of this is the identity,
+ * and nothing is written.
  */
 #include "common.h"
 #include "port.h"
@@ -173,7 +175,7 @@ static void level_rescale(LevelHeader *h, u32 b, Gfx *list, Gfx *list_end) {
 /* [start, end) arrived from the ROM, a `klass` (romclass.h); returns its
    end in this build's form */
 u8 *port_rom_loaded(int klass, u8 *start, u8 *end) {
-    u32 b;
+    u32 b, w;
 
     switch (klass) {
     case ROM_VEHICLE:
@@ -187,7 +189,9 @@ u8 *port_rom_loaded(int klass, u8 *start, u8 *end) {
         if (!WIDE) {
             return end;
         }
-        end = start + dl_widen(start, (u32)(end - start));
+        w = dl_widen(start, (u32)(end - start));
+        port_pool_widened(start, (u32)(end - start), w);
+        end = start + w;
         if (hdr_class == ROM_BYTES || hdr_end != start) {
             host_log("widen: a display list at %p without its header\n", (void *)start);
             return end;
@@ -206,7 +210,9 @@ u8 *port_rom_loaded(int klass, u8 *start, u8 *end) {
         if (!WIDE || end - start <= (s32)sizeof(Vp)) {
             return end;
         }
-        return start + sizeof(Vp) + dl_widen(start + sizeof(Vp), (u32)(end - start - sizeof(Vp)));
+        w = dl_widen(start + sizeof(Vp), (u32)(end - start - sizeof(Vp)));
+        port_pool_widened(start, (u32)(end - start - sizeof(Vp)), w);
+        return start + sizeof(Vp) + w;
     default:
         hdr_class = ROM_BYTES;
         return end;

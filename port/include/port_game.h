@@ -73,5 +73,23 @@ int port_intro_skip(void);
    the icons are all gone (func_80272C50).  The renderer may draw the model
    the picture shows in its place (port/host/micons.c) */
 void port_icon_texture(unsigned int addr, int tex, int row, int rows, int flags);
+/* The level pool's display lists (port/src/pool.c): the pool's top
+   (D_80358070) moved to `end`, past display-list commands from it, which
+   are 8 bytes on the N64 and sizeof(Gfx) here; the N64's own position
+   moves by 8 a command.  Every carve-out of commands from the pool is made
+   by it (the ROM's lists, widened where they land, by port_pool_widened).
+   Returns end. */
+void *port_pool_gfx(void *end);
+/* a display list loaded at `at`, `narrow` bytes in the ROM, `wide` here
+   (src/widen.c) */
+void port_pool_widened(void *at, unsigned int narrow, unsigned int wide);
+/* the pool emptied (00000.c, the start of a level or of the front end) */
+void port_pool_reset(void);
+/* where the N64's top would be: D_80358070 less what the display lists
+   below it take beyond the N64's 8 bytes a command */
+void *port_pool_n64(void);
+/* the top moved to `end`, past the effects' heap (port/engine/60F60.c);
+   returns end */
+void *port_pool_slots(void *end);
 
 #endif

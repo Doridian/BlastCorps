@@ -293,6 +293,8 @@ static inline uint32_t port_game_ptr_n(const void *p, uint32_t size) {
 void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
 void host_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 extern int host_verbose;
+/* the level pool's top, as the N64 has it and its end (src/pool.c) */
+void host_pool_report(const char *what, int level, uint32_t top, uint32_t n64_top, uint32_t end);
 
 /* the cartridge */
 uint32_t host_rom_size(void);

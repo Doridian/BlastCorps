@@ -329,7 +329,10 @@ void func_802A5F30(void) {
 
 /* func_802A5FA8 (00000.c's): the effects' heap: what is left below the
    allocator's limit (0x8020ED00, or 0x8021DD00 outside mode 0x20), in
-   0x1010-byte pieces, each marked free at 0x1000 */
+   0x1010-byte pieces, each marked free at 0x1000.  What is left is the
+   N64's: from where its top would be with 8-byte display-list commands
+   (port_pool_n64, src/pool.c), so that a level has its number of pieces
+   whatever the build's Gfx; the pieces themselves start at the real top. */
 void func_802A5FA8(void) {
     u8 *heap = D_80358070, *limit, *end, *p;
     s32 left;
@@ -340,7 +343,7 @@ void func_802A5FA8(void) {
     } else {
         limit = D_8021DD00;
     }
-    left = limit - heap;
+    left = limit - (u8 *)port_pool_n64();
     if (left < 0)
         left = 0;
     n = (u32)left / 0x1010;
@@ -350,7 +353,7 @@ void func_802A5FA8(void) {
     func_8029A7E4(D_80305C48, n);
     end = heap + n * 0x1010;
     D_803EB78C = end;
-    D_80358070 = end;
+    port_pool_slots(end);
     for (p = heap; p != end; p += 0x1010)
         *(u32 *)(p + 0x1000) = 0;
 }

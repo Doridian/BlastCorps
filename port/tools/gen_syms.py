@@ -144,6 +144,22 @@ def n64_addresses():
     return addrs
 
 
+def n64_data():
+    """{address: name} of the modules' data in the N64 link (what the port
+    places at its N64 address: tools/gen_ld.py)"""
+    data = {}
+    for m in MODULES:
+        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
+        out = subprocess.run([N64_NM, elf], capture_output=True, text=True, check=True).stdout
+        for line in out.splitlines():
+            p = line.split()
+            # (a D_ name in .text is a data island, and so are the bins')
+            island = p[1] in "tT" and len(p) == 3 and (p[2].startswith(("D_", "_binary_")) or p[2].endswith("_bin"))
+            if len(p) == 3 and (p[1] in "dDbBrR" or island):
+                data.setdefault(int(p[0], 16), p[2])
+    return data
+
+
 def script(out, objects):
     defined = set()
     objs = [o for arg in objects for o in arg.split(";") if o]
@@ -221,13 +237,34 @@ def script(out, objects):
             f.write(f"{name} = {rhs};\n")
 
 
+def region_macros(growth=True):
+    """port_regions.h's numeric #defines, PORT_GFX_SIZE's (CMake's) among
+    them; without growth, as the N64 has them (PORT_GFX_SIZE 8)"""
+    macros = {"PORT_GFX_SIZE": GFX_SIZE if growth else 8}
+    for line in open(REGIONS_H):
+        m = re.match(r"^#define\s+(PORT_POOL_\w+)\s+(.+?)\s*$", line)
+        if m:
+            macros[m.group(1)] = region_value(m.group(2), macros)
+    return macros
+
+
+def region_value(v, macros):
+    """a port_regions.h number: a literal, or an expression of them and of
+    the file's macros (+ - * / and parentheses)"""
+    e = re.sub(r"[A-Za-z_]\w*", lambda m: str(macros[m.group(0)]) if m.group(0) in macros else m.group(0), v)
+    if not re.fullmatch(r"[0-9a-fA-FxX+\-*/() ]+", e):
+        sys.exit(f"gen_syms.py: {v}: not a number (port_regions.h)")
+    return int(eval(e.replace("/", "//")))
+
+
 def regions_table(n64=None):
     """port_regions.h's table for the version: (name, tag, address, size,
     parent, offset, moves), parents first."""
     if n64 is None:
         n64 = n64_addresses()
-    rows, at = [], {}
-    num = lambda v: int(v, 0)
+    rows, at, grown = [], {}, []
+    macros, n64_macros = region_macros(), region_macros(growth=False)
+    num = lambda v: region_value(v, macros)
     for line in open(REGIONS_H):
         m = re.match(r"^\s*(PORT_REGION|PORT_REGION_LINK|PORT_SUBREGION)\(([^)]*)\)", line)
         if not m:
@@ -236,6 +273,9 @@ def regions_table(n64=None):
         if m.group(1) == "PORT_REGION":
             name, tag, start, end, moves = a[0], a[1], num(a[2]), num(a[3]), int(a[4])
             rows.append((name, tag, start, end - start, "-", 0, moves))
+            n64_end = region_value(a[3], n64_macros)
+            if end > n64_end:
+                grown.append((name, n64_end, end))
         elif m.group(1) == "PORT_REGION_LINK":
             name, tag, end, moves = a[0], a[1], num(a[2]), int(a[3])
             if name not in n64:
@@ -259,6 +299,14 @@ def regions_table(n64=None):
     for a, b in zip(tops, tops[1:]):
         if a[2] + a[3] > b[2]:
             sys.exit(f"gen_syms.py: the regions {a[0]} and {b[0]} overlap (port_regions.h)")
+    # a region grown past its N64 end (the pool, PORT_POOL_GROWTH) must not
+    # run into the modules' data, which is at its N64 addresses (hd_code's
+    # data islands in its .text)
+    for name, start, end in grown:
+        hit = [(a, n) for a, n in n64_data().items() if start <= a < end]
+        if hit:
+            a, n = min(hit)
+            sys.exit(f"gen_syms.py: {name} grows (to 0x{end:08X}) over {n} at 0x{a:08X} (port_regions.h)")
     return rows
 
 
