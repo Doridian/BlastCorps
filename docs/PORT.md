@@ -376,13 +376,17 @@ exactly, and adapts the host to that, rather than the other way round:
   scattered layout moves it ("The scattered layout").
 - **No conversions.**  `K0_TO_PHYS`, `OS_K0_TO_PHYSICAL`,
   `osVirtualToPhysical`, their inverses, `STATIC_K0_TO_PHYS`, Rare's adds
-  of `0x80000000` (`K0_TO_PHYS_ADD`) and the engine's own are the identity
-  on the N64 side (`PR/R4300.h`, `PR/os.h`, `common.h`), so display lists,
-  segment bases and audio commands hold KSEG0 addresses; what reads them
-  (the renderer's segments, the audio HLE, `port_ptr`) masks to physical,
-  as the RSP ignores the top bits.  The engine check build keeps the N64's
-  forms: its translations write the physical words the native code's are
-  compared with.  What looks like an address but is a number stays one,
+  of `0x80000000` (`K0_TO_PHYS_ADD`) and the engine's own give the
+  pointer's value on the N64 side (`PR/R4300.h`, `PR/os.h`, `common.h`: a
+  `uintptr_t`, the KSEG0 address where pointers are 4 bytes and the whole
+  pointer where they are 8), so display lists, segment bases and audio
+  commands hold addresses, not physical ones; what reads them (the
+  renderer's `gfx_addr`, the audio HLE's `ram`, `port_ptr`) masks to
+  physical where the word is an N64 address, as the RSP ignores the top
+  bits.  An integer the game keeps for such an address is a `DlAddr`
+  (`game/types.h`: a `u32` for IDO, a `uintptr_t` here).  The engine check
+  build keeps the N64's forms: its translations write the physical words
+  the native code's are compared with.  What looks like an address but is a number stays one,
   marked: the trap PCs in the engine's messages (`N64_PC`) and the N64
   values the game uses as data (`N64_VALUE`, 69BB0.c's return addresses
   and dead stack read as angles).  The movable build fails on any other
@@ -961,8 +965,9 @@ So the stages are:
 2. BEPass without the swaps, with the C's punning sites fixed under
    `TARGET_PC`.
 3. Native LP64 structs where a struct's pointers are only the C's: those
-   the display and audio command lists fix keep 32-bit fields (`PTR32`;
-   the ROM's data and libaudio did until P7), and the
+   the display and audio command lists fix kept 32-bit fields (`PTR32`)
+   until their words were made as wide as a pointer ("The LP64 build",
+   "Graphics"; the ROM's data and libaudio did until P7), and the
    `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
    depends on them.  The first two are gone in the LP64 build ("The LP64
    build"); the fixed addresses are what's left.
@@ -1187,7 +1192,8 @@ side, and each checks the other.  Stage 1 needs `types`, `symbols` and
 `-DPORT_LP64=ON` (which turns on `PORT_64BIT` and `PORT_NATIVE_ENDIAN`)
 compiles the game's C for the host as it is: no i386 frontend, no
 port-ilp32, 8-byte pointers, and every struct laid out by the host but
-where the N64's layout is shared.  BEPass still runs (the u64 words).
+where the N64's layout is shared.  BEPass still runs (the alignments, the
+arena; it swaps nothing here).
 
 **Pointers are the host's.**  Every pointer the game's C, the engine
 (`port/engine`) and the asm data (`asm2c.py`) keep in memory is a plain
@@ -1198,14 +1204,18 @@ layout table (below), and the translated code is only in the 32-bit
 check build (`PORT_ENGINE_CHECK`), where pointers are 4 bytes anyway.
 `port/tools/layout_cmp.py A B` lists every struct whose layout differs
 between two builds from their DWARF; against the native-endian 64-bit
-build (`n64`) the LP64 build has 107 (us.v10):
+build (`n64`) the LP64 build has 123 (us.v10):
 
 - the OS's and the scheduler's: `OSThread`, `OSMesgQueue`, `OSIoMesg`
   and its header, `OSPiHandle`, `__OSBlockInfo`, `__OSTranxInfo`,
   `OSTimer`, `OSPfs`, `OSTask`, `Sched`, `SchedTask`, `SchedClient`,
   `AudioInfo`, `IoMesg`, `PakState`, `port/src/ultra.c`'s `Delay`, and
-  `AMAudioMgr` (the thread and queues it holds; its command lists are
-  still `PTR32`, below);
+  `AMAudioMgr` (the thread and queues it holds, and its command lists'
+  pointers);
+- the display lists' and the audio commands' (since P8): `Gwords` and
+  `Gfx`, `Awords` and `Acmd` (16 bytes), asm2c's `asm_Gfx`, and what holds
+  commands, `Frame` with its two views (`FrameBuf`, `FrameGame`),
+  `BlockInfo`, `UnkStruct_802FE3C0`, `Smoke`, `Dust` and `FallShadow`;
 - the sound (48, since P7): libaudio's structures (32 `AL*`: the players,
   sequences, voices, events, the heap, and the bank objects it parses
   the bank files into, "libaudio"), its private blocks in the audio heap
@@ -1232,16 +1242,30 @@ pointers are 4 bytes.
 
 **What keeps `PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's
 `__ptr32 __uptr` in this build, nothing elsewhere, so IDO sees the same
-code) is what something other than the C fixes the layout of: the words
-of the display lists and of the audio command lists, which the RSP (and
-the renderer and the audio HLE for it) reads.  `port/tools/ptr32_allow.txt`
-lists the 2 structures, both P8's:
+code) is nothing now.  It was what something other than the C fixed the
+layout of, and the last of that, the words of the display lists and of the
+audio command lists, which the RSP (and the renderer and the audio HLE for
+it) reads, became pointer-wide in P8 (below).  The macro stays, and
+port-lp64's handling of a `PTR32` field in a static initializer;
+`port/tools/ptr32_allow.txt` is empty, so `ptr32_check.py` fails on any
+structure that gets one.  What is left of the conversions between pointers
+and integers is **P10**'s, the host interface: `port/src` hands the host N64
+addresses as `u32` (`host_*((u32)p)`).
 
-- **P8** (the display lists): `AMAudioMgr.ACMDList` (`Acmd`), asm2c's
-  `D_80300A68` (its display list's words, `PTR32_VARS`); without a
-  structure, `gbi.h`'s `_GBI_W` and `STATIC_K0_TO_PHYS`;
-- **P10** (the host interface): no structure, but `port/src` hands the
-  host N64 addresses as `u32` (`host_*((u32)p)`).
+**The display lists and the audio command lists** are native too.
+`Gwords` and `Awords` (`gbi.h`, `abi.h`, the port's and `2.0I`'s alike)
+are two `uintptr_t` words: where pointers are 4 bytes (the ILP32 builds,
+and the engine check build) a command is the N64's 8 bytes with its words,
+and in the LP64 builds it is 16, each word as wide as a pointer.  A word
+that holds an address is the pointer's value (`_GBI_W`, `STATIC_K0_TO_PHYS`,
+the audio macros' arguments, `K0_TO_PHYS`), a word that holds data its 32
+bits (`_GBI_D`).  The host learns the command sizes from `port_layout()`
+(`PORT_LAYOUT_GFX_SIZE`, `ACMD_SIZE`; CMake's `PORT_GFX_SIZE` is 16 wherever
+`PORT_LP64` is on), so nothing in the host tests the build.  The structs
+that hold commands (`Frame`'s two views, `BlockInfo`, `Smoke`, `Dust`, the
+static lists) are `SIZE_CHECK_C`, their gaps typed as `Gfx`, their counts
+in commands; the ROM's lists are widened where they load, and the pool
+that holds them grows by a formula ("Graphics").
 
 P7 made the rest native: libaudio's structures and private blocks (a
 block in the audio heap is the bigger of the N64's size and its
@@ -1273,8 +1297,9 @@ animation's index.
   offset of the game's.
 - `port/tools/ptr32_check.py BUILD`: from an LP64 build's DWARF, every
   structure or union (one without a name goes by its container's and
-  member's, `huft.v`) with a 4-byte pointer, against `ptr32_allow.txt`.
-  One that isn't listed fails, and so does one listed that has none.
+  member's, `huft.v`) with a 4-byte pointer, against `ptr32_allow.txt`
+  (empty).  One that isn't listed fails, and so does one listed that has
+  none.
 - `port/tools/decl_check.py BUILD --version all`: every `D_`/`func_`
   name's declarations across the N64 side's files (clang's AST), and
   asm2c's word for it: a pointer declared as an integer in one file, or
@@ -1284,8 +1309,9 @@ animation's index.
   `-Wint-to-pointer-cast`, `-Wint-conversion`) and incompatible pointer
   types, classed by where they are and the macros they come through,
   counted per file and version against `ptrcast_allow.txt`; what is left
-  is P8's (the display lists' and the audio command lists' words) and
-  P10's (the host interface).
+  is P10's (the host interface: `port/src/loads.c` and `ultra.c`, 42
+  diagnostics in every version).  P8's class, the display lists' and the
+  audio command lists' words (135 casts), is gone.
 - `port/tools/n64_tus.py`: the N64 side's translation units with the
   build's own commands, which the last two run with each version's
   `VERSION_` define, so one build answers for all four.
@@ -1350,10 +1376,9 @@ the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
 
 - `s32`/`u32` are `int` in the port (`ultratypes.h`), `Mtx_t`, `Hilite`,
   `Gsetcolor` and `TexRect` in `gbi.h` 32-bit, `size_t` the host's;
-- display lists in static data: clang won't truncate a 64-bit address in a
-  constant, so `gbi.h` puts its words through `_GBI_W` (a cast through a
-  32-bit pointer, which is a 32-bit relocation), and `STATIC_K0_TO_PHYS`
-  the same;
+- display lists in static data: a word is a `uintptr_t` constant, the
+  address as wide as a pointer (`gbi.h`'s `_GBI_W`, `STATIC_K0_TO_PHYS`),
+  a relocation like any pointer's;
 - no over-alignment on declarations either: x86-64 clang gives an
   `extern` array of 16 bytes or more 16-byte alignment, as it does a
   definition, and the optimiser then clears the low bits of addresses
@@ -1374,8 +1399,9 @@ the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
   32-bit function pointer are made through its value (clang calls through
   the `__ptr32` operand, and the backend then loads 8 bytes), and a
   `PTR32` field in a static initializer becomes the address's low 32 bits;
-- BEPass's native mode swaps the words of u64s but not of the 8-byte
-  pointers.
+- BEPass's native mode swaps nothing: a `u64`, an 8-byte pointer and a
+  64-bit command word are plain host-order scalars ("Native-endian
+  memory").
 
 **How it was checked** (the first LP64 build, when seven types were
 native and everything else `PTR32`), us.v10, against the native-endian 64-bit build,
@@ -1414,8 +1440,8 @@ What was left for it then, the fixed addresses (the image non-PIE at
 `0x80400000`, RDRAM at `0x80000000`), the movable build does without
 ("Movable memory", next): `-DPORT_LP64=ON -DPORT_MOVABLE=ON` is the
 `mlp64` variant.  The pointer *values* are still N64 addresses, under
-4 GB, in every build; that, the `PTR32` that is left and the host
-interface's `u32` addresses are what an ordinary C program still lacks.
+4 GB, in every build; that and the host interface's `u32` addresses are
+what an ordinary C program still lacks (nothing is `PTR32` any more).
 
 ## Movable memory
 
@@ -1570,8 +1596,9 @@ interface do.
   build, and WebAssembly natively): a pointer in memory is 4 bytes and
   holds the N64 address.  Nothing changes, and nothing moves: every
   N64-named variable keeps its N64 address.
-- **LP64**: `PTR32` fields hold the same 4-byte N64 value as now; native
-  8-byte pointer fields hold it zero-extended.  The moved variables get
+- **LP64**: native 8-byte pointer fields hold the N64 value
+  zero-extended (a `PTR32` field, which nothing has now, held it in 4
+  bytes).  The moved variables get
   addresses after RDRAM, and the translated code reads their `SYM()`s
   from a header the arena link writes (the translated code is compiled
   after it).
@@ -1854,13 +1881,16 @@ anyway.
   8-byte words) compared, so a ROM that inflates to other data stops the
   port there rather than playing wrong.  7 ms on a desktop.
 - **What is literal**, us.v10 (64-bit big-endian, 32-bit native-endian,
-  LP64): 2,932, 3,164 and 3,444 bytes, in operations of 11 K, 24 K and
-  26 K (the image's runs were about 190 K); 1.24 MB of the image comes from
-  the ROM (zeros between included), 21-24 K of it from other addresses.
-  The literal bytes are the port's: pointer words to the data port-arena
-  moved (the game's string tables, 1.7 K), clang's lookup tables for the
-  game's switches (`switch.table.*`, 0.5-0.7 K), `port/src`'s strings and
-  `__func__`s (0.7 K), LP64's native pointer tables (0.4 K) and a few
+  LP64): 4,608, 4,806 and 6,058 bytes (2.9-3.4 K before P7 and P8), in
+  operations of 14 K, 28 K and 40 K (the image's runs were about 190 K);
+  1.49-1.57 MB of the image comes from the ROM (zeros between included),
+  21-30 K of it from other addresses (207 K in LP64, whose static display
+  lists are widened copies, "Graphics").  The literal bytes are the port's:
+  pointer words to the data port-arena moved (the game's string tables and
+  the LP64 build's native pointer tables, 1.8-2.7 K), `port/src`'s and
+  libaudio's strings and `__func__`s (1.8-2.1 K: the new messages of
+  `widen.c`, `pool.c` and libaudio's checks are among them), clang's lookup
+  tables for the game's switches (`switch.table.*`, 0.9-1.1 K) and a few
   words of `port/src`'s own variables.
 - **The RSP microcode's text** (hd_code's after `ldiv`, hd_front_end's
   last 0xFB0 bytes of `.text`, 18.3 K) is zeros in every build now
@@ -1913,9 +1943,16 @@ game's.
   reads it declares it (8 bytes in the LP64 build, which lays out the
   variables that hold one as the host does): the inventory's pointers and
   `POINTERS`' (the words the C has as pointers, tables to a sentinel
-  included), but `D_80300A68`'s display list words (`PTR32_VARS`).
-  Nothing reads this data at its N64 offsets any more ("The LP64
-  build").
+  included).  A display list is typed by its kind, `Gfx` (`TYPES` and
+  `LABEL_TYPES`: `asm_Gfx`, gbi.h's two words as wide as a pointer, so as
+  wide as the build's command), and a word of it that holds an address is
+  the symbol's pointer value, a `uintptr_t` (`uptr`, `ASM_GFX_ADDR`), its
+  segmented ones tagged ("Graphics"): `D_802F46C0`, `D_802F4780`, the
+  effects' two-pass buffers and `D_80300A68`, the carrier's explosion's
+  dome, which runs to its `G_ENDDL`; `SPLIT_LABELS` makes the words after
+  that a variable of their own, `D_80300A68_after`, which nothing reads as
+  part of the list.  Nothing reads this data at its N64 offsets any more
+  ("The LP64 build").
 - **The same bytes.**  The native-endian builds had each datum in host
   order at the width `asm2x86.py --native` gave it (the inventory's
   fields, the islands' layouts, `ISLANDS` and `BLOBS`, the u16 text of
@@ -2794,6 +2831,20 @@ the intro story ran about 3% slower than `--deterministic` here.
   copied; mupen64plus-rsp-hle, which is GPL, was the reference it was
   compared against, only by output); the resampler's filter table is read
   from the microcode's own data in RDRAM (`D_8030EB90 + 0xD0`).
+- **The command lists.**  An `Acmd` is `abi.h`'s two `uintptr_t` words,
+  as a `Gfx` is: 8 bytes where pointers are 4, 16 in the LP64 builds
+  (`port_layout()`'s `ACMD_SIZE`, which `aspmain.c` steps by).  An
+  address argument is the pointer, as wide as the word (`abi.h`'s macros
+  take it as a pointer-wide integer): libaudio passes its state, delay
+  lines and ROM DMA buffers to them directly, `OutStage.dram` is a
+  pointer, and the game's DMA callback (`ALDMAproc`) returns one.
+  `ram()` in `aspmain.c` resolves a word as `gfx_addr` does (a tagged
+  segmented one through the segment table, any other as the pointer).
+  `AMAudioMgr.ACMDList` is plain, and the audio heap grows for the
+  16-byte commands: `AUDIO_HEAP_GROWTH` counts the two lists with the
+  other blocks that are bigger on the host (0 where pointers are 4
+  bytes, so the ILP32 builds and the oracle's recordings keep the
+  original's heap).  The libaudio oracle (below) is ILP32 only.
 - **The AI** (`port/host/audio.c`): `osAiSetFrequency(22050)` gives the
   DAC divider libultra would (2208: 22047 Hz); the two-deep DMA queue drains
   at that rate on the same clock as the retraces and timers, so
@@ -3007,6 +3058,78 @@ interface between them.
   geometry (the covered area), not from what a back end drew, so both
   renderers see the same timeline; it delays OS_EVENT_DP only when
   `PORT_RDP_SCALE` is set (see "Timing").
+- **Commands and addresses.**  A command is two words, `gbi.h`'s `Gwords`
+  (`uintptr_t`s): the N64's 8 bytes where pointers are 4, and 16 in the
+  LP64 builds, whose words the host reads whole as 64-bit scalars of game
+  memory's order (`port_g64`, "Native-endian memory").  The renderer takes
+  the size from `port_layout()` (`gfx_cmd`, `gfx_w0`, `gfx_w1`: the
+  interpreter, the HUD's scan, the texture rectangle's two extra commands,
+  the model icons), and every address it holds, the segment table's
+  entries, the images, a vertex load's, the TMEM sources and the
+  interpolation keys, is a host pointer (`GfxAddr`).  `gfx_addr()` makes
+  one of a command's word: a segmented address, which carries the tag
+  `G_SEGTAG` (bit 0, which no address a list points at has, since what a
+  list points at is 8-aligned) and is a segment (bits 24 to 27) and an
+  offset (`G_SEGADDR(seg, off)`), goes through the segment table; any
+  other word is the pointer itself, an N64 address until P10
+  (`port_ptr`).  Every producer of a segmented address sets the tag: the
+  names that are segment addresses (`D_01000010`, `D_02000000`...,
+  `tools/gen_syms.py`), the ROM's lists where they load (`widen.c`'s
+  `dl_tag`: the words of `G_MTX`, `G_MOVEMEM`, `G_VTX` and `G_DL` to
+  segments 1 to 15), asm2c's lists, the engine's and the model icons'.  So
+  the renderer needs no assumption about where the host's memory is, a
+  low-address 32-bit host's included (it was a word below `0x10000000`
+  before).  The engine check build keeps the N64's untagged words, as its
+  translations write them, and the renderer its RSP rule for it
+  (`PORT_LAYOUT_SEG_TAG` tells which).  `PORT_GFX_STRICT=1` (on in
+  `test.py quick` for the LP64 builds) makes a malformed list fatal, with
+  its start and the command's offset: an unknown opcode, a `w0` with bits
+  above its 32, a list past `GFX_MAX_CMDS`, a segmented address through a
+  segment that isn't set, an untagged word that isn't an N64 address (a
+  segmented one that lost its tag); the audio commands likewise.
+- **The ROM's lists, widened.**  A display list comes out of the ROM's
+  gzip (or `static_data`'s LZSS) in the N64's form, and where the
+  command is wider `src/widen.c` spreads it in place, from its last
+  command back, over twice its room in the pool, its words kept (texture
+  numbers, segmented words), and the decompressor's wrapper reports the
+  wide length, so the callers' heap bump takes it.  Every offset into it
+  is rescaled once, right after, in the header member loaded just before
+  it, record by record (`VehicleModel`'s `unk1C`, `unk20`, `unk24[]` and
+  `unk48`, `Model`'s `unk10`, `unk14`, `unk18` and its `GroupDls`,
+  `LevelHeader`'s `displayLists[]`, its `TerrainGroup`s and
+  `TerrainSpan`s, and the level lists' own `G_DL` words): `B + (o - B) / 8
+  * sizeof(Gfx)` for a list at `B`, which is right for an end and for the
+  offset one past a list that two logos have, and leaves an offset below
+  `B` (into the header) alone.  The readers (`LEVEL_PTR`, `MODEL_PTR`,
+  `VMODEL_PTR`, the terrain's, `B_SECTION`) stay as they were.
+  `static_data`'s second list, `D_01000038`, is five commands after
+  `D_01000010` in the port's units.  The C's static lists in `.data`
+  (`PORT_ROM_DATA`) are made by `rom_data.py`'s widening copies, the
+  words of the ROM's 4-byte units each in a half of an 8-byte one.  With
+  8-byte commands all of it is the identity.
+- **The pool.**  The level pool (`D_8004B400`, bump pointer `D_80358070`)
+  holds the level's display lists with everything else: the eight
+  per-frame lists, the vehicles' copies (`func_80278BF0`, `func_802A1388`),
+  the water's, the front end's built in place, and the ROM's, widened.  One
+  helper carves each out (`port_pool_gfx`, and `port_pool_widened` for the
+  ROM's, `src/pool.c`), and keeps beside the real top the N64's, what it
+  would be with 8-byte commands (`port_pool_n64`).  The effects' heap
+  (`func_802A5FA8`), which takes what is left in 0x1010-byte slots, counts
+  them from that top, so a level has the N64's number of slots in every
+  build and the game plays the same.  The pool grows by what wide
+  commands add to the most the N64's pool holds of display lists at once:
+  `PORT_POOL_GROWTH = (PORT_GFX_SIZE - 8) / 8 * PORT_POOL_GFX_N64`
+  (`port_regions.h`; `PORT_POOL_GFX_N64` is 0x8E000, level 4's 0x72820
+  over the TAS being the most, and nearly a quarter more), nothing where
+  commands are 8 bytes.  It grows past where init's area is on the N64
+  into what is hd_code's `.text` there, up to its first data island, and
+  init's area (the depth buffer and the compressed staging) is a buffer of
+  the port's own, `port_init_area`, wherever the layout puts it.
+  `pool.c` stops the port when the top passes the pool's end or the front
+  end's runs into its variables, and with `PORT_POOL_LOG=1` the host prints
+  each level's effects' heap and high-water.  The effects' buffers
+  (`D_803C5770`...) are `Gfx[0x180]`: sized in commands, not the N64's
+  bytes.
 - **Software renderer**: draws into the game's color image in RDRAM, as
   the RDP would, and the VI shows RDRAM.  The combiner (both cycles), the
   blender (P * A + M * B over A + B, per cycle; without FORCE_BL the last
@@ -3063,9 +3186,10 @@ interface between them.
   `PORT_AUTOSTART=1`'s sound, though no screenshot: the game's timing
   moves.)
   The box is on the C's stack, which the RSP addresses as physical
-  `0x10xxxxxx` on the fibers' host stacks (at `0x90000000`): the front
-  end and the audio HLE keep bit 28 of a segmented address and of a
-  segment's base, which the RSP's 24 bits would drop (they read, and the
+  `0x10xxxxxx` on the fibers' host stacks (at `0x90000000`): where the
+  lists hold the N64's addresses the front end and the audio HLE keep bit
+  28 of a segmented address and of a segment's base, which the RSP's 24
+  bits would drop (they read, and the
   front end drew, whatever RDRAM held at `0x800EFCC0`: a dark sliver on
   the title's road, frames 848 to 857).  The movable builds' stacks are
   in the arena (`0x80C00000` and up), which fits.
@@ -3831,8 +3955,10 @@ instead, at the internal resolution (`port/host/micons.c`).
 - **Drawing.**  The renderer (gfx.c) skips any draw from such a texture
   (`micon_at`, by `G_SETTIMG`'s address, the texels checked against what
   was loaded there) and, once the picture's last row is in, runs a
-  display list micons.c makes in memory of the renderer's own (gfx.h's
-  `GFX_HOST_BASE`, which `gfx_ptr` reads; segment 15 points at it): a
+  display list micons.c makes in memory of the renderer's own (with
+  4-byte words gfx.h's `GFX_HOST_BASE`, which `gfx_ptr` reads, and
+  segment 15 points at it, tagged; with pointer-wide words a host buffer
+  that the words point into): a
   viewport over the rectangle the picture covered, a modelview that fits
   the model's box in it (turned and tilted as the picture is), the
   z-buffer cleared there, and the model's display list.  It runs from
@@ -3842,7 +3968,9 @@ instead, at the internal resolution (`port/host/micons.c`).
 - **The models.**  Read from the ROM (or the pack's image) when first
   needed and kept: a building's head and the intact look's two pieces
   (`func_802BD1F8` copies them out of the model the same way), its
-  vertices through segment 9; a vehicle's opaque and translucent passes,
+  vertices through segment 9 (the lists copied at the build's command
+  size, as the ROM's are widened where they load; their words tagged as
+  `widen.c` tags them); a vehicle's opaque and translucent passes,
   its vertices through segment 6 and its parts' matrices (segment 7) all
   identity, the parts at rest.  Their textures are decoded from the
   texture table (a pack's edited texels if it has them).
@@ -5742,8 +5870,8 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
 
 The 64-bit build needs no change in `blastcorps/src`.  The LP64 build's are
 real pointer types where the C had integers (each checked with IDO's
-build), the `PTR32`s that are left (nothing to IDO), `osRecvMesgInt` and
-`OS_MESG`, `_GBI_W` in `gbi.h`, and the port's `int` typedefs in
+build), `osRecvMesgInt` and `OS_MESG`, `_GBI_W` and `_GBI_D` in `gbi.h`
+(and `abi.h`'s pointer-wide words), `DlAddr`, and the port's `int` typedefs in
 `ultratypes.h` ("The LP64 build").
 
 ## The TAS
