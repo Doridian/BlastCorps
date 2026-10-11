@@ -81,8 +81,9 @@ u8 D_8021A7E8[0x40];
 u32 D_8021A828;
 u8 D_8021A82C[4];
 #endif
-u8 D_8021A830[4];
-u8 D_8021A834[4];
+/* the game mode to go back to (00000.c saves D_80364A90 here, 17990.c
+   restores it): one u64, the eight bytes the N64 had at D_8021A830 */
+u64 D_8021A830;
 #ifndef VERSION_US_V10
 u8 D_8021A838[8];
 #endif

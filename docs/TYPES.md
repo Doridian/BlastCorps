@@ -112,7 +112,8 @@ One JSON object:
   same offset, or as float and integer, outside copy loops; plus the known
   cases: the `u64` game mode words (`ld`/`sd` in the C, words in the asm, the
   high word at the lower address on the N64; the port's native-endian
-  builds keep a host-order `u64`), `D_8021A830` (4 bytes defined, 8 read), the Controller
+  builds keep a host-order `u64`), `D_8021A830` (4 bytes defined, 8 read, until P10
+  made it one `u64`), the Controller
   Pak block `D_8039C4B8`, the per-frame buffer's two layouts, `Mtx`.
 - **`packed`**: `{site, op, where, fields}`: the handwritten code's word
   and doubleword accesses that carry narrower fields, found two ways: where
@@ -183,7 +184,7 @@ end, which clang (the 32-bit port) miscompiled.
   `u8[1]`, an `s8` only ever stored to) the definition changed.  What is
   left declared two ways is deliberate: `D_02000000`/`D_803156F8` (one
   buffer, two layouts), `D_8039C4B8` (a pak block with a u64 marker),
-  `D_80367750`/`D_8036AFB0` (buffers 405F0.c fills as u64), `D_8021A830`,
+  `D_80367750`/`D_8036AFB0` (buffers 405F0.c fills as u64),
   `D_80301080`, `D_8036C794` (two views of one record, not yet reconciled).
 - Three struct types yoshi.c and 2B3F0.c both defined are in yoshi.h.
 
