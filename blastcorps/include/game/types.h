@@ -28,13 +28,13 @@
  *                value, as wide as one (PR/R4300.h).
  *
  *   T *PTR32 p   a pointer kept 4 bytes in the LP64 port too
- *                (ultratypes.h), where something other than the C fixes the
- *                layout: only the display lists' and the audio command
- *                lists' words, which the RSP reads.  Nothing else: the
- *                engine is C and reads by field, the host reads by
- *                port/src/layout.c's table, and libaudio's bank files are
- *                parsed into objects of the port's own (no ROM data is
- *                read as pointers).
+ *                (ultratypes.h), where something other than the C would
+ *                fix the layout.  Nothing has one any more: the engine is
+ *                C and reads by field, the host reads by port/src/
+ *                layout.c's table, libaudio's bank files are parsed into
+ *                objects of the port's own (no ROM data is read as
+ *                pointers), and the display lists' and the audio command
+ *                lists' words are as wide as a pointer (gbi.h, abi.h).
  *
  * Everything the running game makes and the C reads (the modules' .data
  * and .bss, the asm data, the OS's and the scheduler's structures) has
