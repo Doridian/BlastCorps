@@ -820,8 +820,6 @@ def build_punning(prog, an, res, regions, elem):
 KNOWN_PUNNING = [
     {"where": "D_80364A90 (u64 game_mode), D_80364A98", "as": ["u64", "u32 halves"],
      "note": "the C uses ld/sd; the handwritten code reads and writes the words (on the N64 the high word is at the lower address; the port's native-endian builds keep a host-order u64, which the host reads whole)"},
-    {"where": "D_8021A830", "as": ["u64 (hd.c, 17990.c)", "u8[4] (10850.c's definition)"],
-     "note": "10850.c defines 4 bytes; the u64 view covers the next variable too"},
     {"where": "D_8039C4B8", "as": ["u8[0x40] (the Controller Pak block)", "u64 (409D0.c: the 0x1234567887654321 marker)"]},
     {"where": "D_02000000 / D_803156F8", "as": ["FrameBuf (front end)", "FrameGame (gameplay)", "Mtx[]", "Vtx[]"],
      "note": "one per-frame buffer with two layouts (game/frame.h)"},

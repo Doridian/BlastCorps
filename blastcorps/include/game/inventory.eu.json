@@ -16904,20 +16904,6 @@
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
-  "D_8021A830": {
-   "type": "bytes",
-   "count": 4,
-   "declared": "src/hd_front_end/10850.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_8021A834": {
-   "type": "bytes",
-   "count": 4,
-   "declared": "src/hd_front_end/10850.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
   "D_8021A838": {
    "type": "bytes",
    "count": 8,
@@ -29095,14 +29081,6 @@
     "u32 halves"
    ],
    "note": "the C uses ld/sd; the handwritten code reads and writes the words (on the N64 the high word is at the lower address; the port's native-endian builds keep a host-order u64, which the host reads whole)"
-  },
-  {
-   "where": "D_8021A830",
-   "as": [
-    "u64 (hd.c, 17990.c)",
-    "u8[4] (10850.c's definition)"
-   ],
-   "note": "10850.c defines 4 bytes; the u64 view covers the next variable too"
   },
   {
    "where": "D_8039C4B8",
