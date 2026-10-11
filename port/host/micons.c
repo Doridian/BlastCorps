@@ -96,9 +96,18 @@ static uint32_t mem_alloc(uint32_t n) {
 static uint8_t *mem(uint32_t off) { return gfx_host_mem + off; }
 
 /* the word for the address of off in that memory: narrow, through segment
-   SEG_HOST; wide, its pointer */
+   SEG_HOST (with the N64 side's segment tag: gfx.h); wide, its pointer */
 static uintptr_t haddr(uint32_t off) {
-    return gfx_wide ? (uintptr_t)mem(off) : (uint32_t)SEG_HOST << 24 | off;
+    return gfx_wide ? (uintptr_t)mem(off) : (uint32_t)SEG_HOST << 24 | off | gfx_seg_tag;
+}
+/* a ROM display list's w1 as the N64 side's lists have it: a segmented
+   address (G_MTX, G_MOVEMEM, G_VTX, G_DL to segments 1..15) with the
+   segment tag, as src/widen.c gives it where the game loads the list */
+static uint32_t rom_w1(uint32_t w0, uint32_t w1) {
+    uint8_t op = w0 >> 24;
+    if ((op == 0x01 || op == 0x03 || op == 0x04 || op == 0x06) && (w1 >> 24) & 15)
+        return w1 | gfx_seg_tag;
+    return w1;
 }
 /* a segment's value for off: narrow, the N64 address's physical one (the
    segment table's form); wide, its pointer */
@@ -228,7 +237,7 @@ static void model_cmd(Dl *d, int v, uint32_t w0, uint32_t w1) {
         fade_2cyc = ((w0 >> 20) & 3) == 1;
         w1 = (w1 & 7) | (fade_2cyc ? RM_FADE2 : RM_FADE);
     }
-    dl_cmd(d, w0, w1);
+    dl_cmd(d, w0, rom_w1(w0, w1));
 }
 
 typedef struct {

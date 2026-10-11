@@ -31,6 +31,7 @@
  * (a swapped store to a local followed by a swapped load folds away).
  */
 #include "llvm/Analysis/ValueTracking.h"
+#include <cctype>
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
@@ -334,6 +335,17 @@ struct BEPass : PassInfoMixin<BEPass> {
         }
     }
 
+    /* D_0Sxxxxxx, S 1..F: a name whose N64 address (us.v11's, in every
+       version's names) is segment S's (gen_syms.py's seg_tagged) */
+    static bool segmentName(StringRef n) {
+        if (n.size() != 10 || !n.starts_with("D_0") || n[3] == '0')
+            return false;
+        for (char ch : n.drop_front(3))
+            if (!isxdigit((unsigned char)ch) || islower((unsigned char)ch))
+                return false;
+        return true;
+    }
+
     /* the accesses clang made to g (directly, or to a part of it)
        claiming more alignment than g now has: to its alignment.  clang
        emits them with the alignment it gave the variable (x86-64's 16 for
@@ -382,6 +394,14 @@ struct BEPass : PassInfoMixin<BEPass> {
                LP64 build's `&D_802F49F4[i]`, an array at ...944) */
             if (!g->hasInitializer()) {
                 Align natural = g->getValueType()->isSized() ? dl.getABITypeAlign(g->getValueType()) : Align(1);
+                /* nor on a name that is a segmented address (D_01000010,
+                   D_02000000...: its N64 address in segments 1..15): the
+                   port's value has the segment tag in bit 0 (gbi.h's
+                   G_SEGTAG), which the type's alignment would let the
+                   optimiser drop (the LP64 build's `&D_02000000.unk2C0[i]`
+                   came out `& ~7`) */
+                if (segmentName(g->getName()))
+                    natural = Align(1);
                 if (g->getAlign().value_or(Align(1)) > natural) {
                     g->setAlignment(natural);
                     capAccesses(g, natural);

@@ -341,6 +341,7 @@ static uint32_t seg_to_k0(uint32_t a) {
 
 unsigned gfx_cmd;
 int gfx_wide, gfx_strict;
+uint32_t gfx_seg_tag;
 
 void gfx_layout_init(void) {
     if (gfx_cmd)
@@ -351,6 +352,10 @@ void gfx_layout_init(void) {
                    sizeof(uintptr_t) == 8 ? " or 16" : "");
     gfx_cmd = n;
     gfx_wide = n == 16;
+    gfx_seg_tag = host_layout(PORT_LAYOUT_SEG_TAG);
+    if (gfx_seg_tag > 1 || (gfx_wide && !gfx_seg_tag))
+        host_fatal("gfx: the N64 side's segment tag is %u: this host reads 1, or 0 with 8-byte commands\n",
+                   gfx_seg_tag);
     const char *e = getenv("PORT_GFX_STRICT");
     gfx_strict = e && atoi(e) != 0;
 }
@@ -368,23 +373,40 @@ static inline GfxAddr seg_base(int s) {
     return (GfxAddr)gfx_ptr(0x80000000u | (uint32_t)gs.seg[s]);
 }
 
+/* A pointer word of the N64 side's as a host address.  Until P10 every
+   pointer value the N64 side holds is an N64 address (KSEG0, or a stack's
+   at 0x90000000: port.h), at port_ptr, or the renderer's own memory in its
+   window (GFX_HOST_BASE); in the wide form a word above 32 bits is the
+   renderer's own host pointer (micons.c's lists).  Strict mode stops at a
+   word that is none of these: a segmented address without the tag. */
+static inline GfxAddr gfx_of_word(uintptr_t w) {
+#if UINTPTR_MAX > 0xFFFFFFFFu
+    if (w >> 32)
+        return w;
+#endif
+    if (gfx_strict && w && (uint32_t)w < 0x80000000u)
+        strict_fail("the address %08lX isn't an N64 address (a segmented one without its tag?)", (unsigned long)w);
+    return (GfxAddr)gfx_ptr(0x80000000u | ((uint32_t)w & 0x1FFFFFFFu));      /* (see seg_to_k0) */
+}
+
 /* G_MOVEWORD's segment: the narrow form's word masked (see seg_to_k0), the
-   wide one's a pointer, as it is */
+   wide one's a host address (0: none) */
 static inline void seg_set(int s, uintptr_t w1) {
-    gs.seg[s & 15] = gfx_wide ? w1 : (w1 & 0x1FFFFFFFu);
+    gs.seg[s & 15] = gfx_wide ? (w1 ? gfx_of_word(w1) : 0) : (w1 & 0x1FFFFFFFu);
 }
 
 /* a command's word as an address (gfx.h) */
 static inline GfxAddr gfx_addr(uintptr_t w) {
-    if (!gfx_wide)
+    if (!gfx_seg_tag)                       /* (the check build's: the RSP's rule for all) */
         return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w));
-    if (!gfx_wide_segmented(w))
-        return w;
-    GfxAddr b = gs.seg[(w >> 24) & 15];
-    if (gfx_strict && !b)
-        strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w,
-                    (int)((w >> 24) & 15));
-    return b + (w & 0x00FFFFFFu);
+    if (!gfx_segmented(w))
+        return gfx_of_word(w);
+    int s = (int)((w >> 24) & 15);
+    if (gfx_strict && !gs.seg[s])
+        strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w, s);
+    if (!gfx_wide)
+        return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w & ~gfx_seg_tag));
+    return gs.seg[s] + gfx_seg_offset(w);
 }
 
 /* PORT_SIMD: four-lane vectors (the compiler's vector extensions: SSE on
@@ -2907,8 +2929,9 @@ CALL_VIA(load_tile) CALL_VIA(fill_rect) CALL_VIA(tex_rect) CALL_VIA(tri)
    doesn't know (or that F3D 2.0D hasn't), a w0 with bits above its 32
    (the wide form: a pointer read as a command, a step of the narrow
    form's 8 bytes into a wide list), a list that runs past GFX_MAX_CMDS
-   commands, a segment not set (gfx_addr), a host pointer in the segmented
-   range (host_gfx_task) */
+   commands, a segment not set (gfx_addr), a pointer that isn't an N64
+   address (gfx_of_word: a segmented address without its tag), a list at
+   a host address with the tag's bit (host_gfx_task) */
 static void strict_fail(const char *fmt, ...) {
     char msg[256];
     va_list ap;
@@ -3277,7 +3300,7 @@ int host_gfx_task(const void *dl, uint32_t size, const void *ucode, int rdp) {
     (void)ucode;
     gfx_layout_init();
     struct gfx_call c = { gfx_of_ptr(dl), size, rdp, 0 };
-    if (gfx_strict && gfx_wide && gfx_wide_segmented(c.dl)) {
+    if (gfx_strict && gfx_seg_tag && gfx_segmented(c.dl)) {
         strict_list = strict_at = c.dl;
         strict_fail("a task's list at a host address a word can't hold (it would read as segmented)");
     }

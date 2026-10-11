@@ -28,6 +28,22 @@
 #endif
 #define _GBI_D(x) ((unsigned int)(x))
 
+/* A segmented address in a list (segment << 24 | offset, the RSP's): in
+   the port tagged with bit 0, which no address a list holds has (what a
+   list points at is 8-aligned), so that the renderer tells it from a
+   pointer whatever the host's addresses are, low ones too
+   (port/host/gfx.h, gfx_segmented).  Every producer tags: the names that
+   are segment addresses (D_01000010, D_02000000...: port/tools/gen_syms.py),
+   the ROM's lists where they load (port/src/widen.c), asm2c's lists, the
+   engine's (G_SEGADDR).  The engine check build keeps the N64's words, as
+   its translations write them. */
+#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+#define G_SEGTAG 1u
+#else
+#define G_SEGTAG 0u
+#endif
+#define G_SEGADDR(seg, off) (((unsigned int)(seg) << 24) | (unsigned int)(off) | G_SEGTAG)
+
 /* v's low w bits, at bit s of a command word */
 #define _SHIFTL(v, s, w) ((unsigned int)(((unsigned int)(v) & ((0x01 << (w)) - 1)) << (s)))
 #define _SHIFT _SHIFTL

@@ -2420,7 +2420,7 @@ void func_802C0E8C(s32 group, Building *b) {
     for (i = 0; i < 6; i++) {
         dl_copy_cmd(d++, &D_802F4780[i]);
     }
-    d = dl_put(d, DL_MTX_PUSH, 0x0C000000);                     /* segment 12's matrix */
+    d = dl_put(d, DL_MTX_PUSH, G_SEGADDR(12, 0));            /* segment 12's matrix */
     k = DUST_DL_MAX;
     end = B_SECTION(b, MS_FALLS);
     for (r = B_SECTION(b, MS_GROUP_DLS); r != end; r = GDL_NEXT(r)) {
@@ -2511,7 +2511,7 @@ void func_802C1438(s32 group, Building *b) {
     GroupDls *dls;
     s16 *c;
     Gfx *d0, *d1;
-    u32 seg = 0x02000000;
+    u32 seg = G_SEGADDR(2, 0);          /* (segment 2: the frame's matrices, 0x40 bytes each) */
     s32 i, k0, k1, t, h;
 
     if (M_SHADOWS(model) == 0)
