@@ -18,6 +18,9 @@
 #define strlen n64_strlen
 #define strchr n64_strchr
 
+/* port_f2i: a float to an integer where it may be out of range */
+#include "port_f2i.h"
+
 /* --replay (port/host/replay.c): the game has seeded its random number
    generator from osGetCount, which is the port's clock, not the movie's */
 void port_replay_seeded(void);
