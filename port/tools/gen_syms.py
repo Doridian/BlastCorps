@@ -59,6 +59,19 @@ N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 MODULES = ("hd_code", "hd_front_end")
 
 REGIONS_H = os.path.join(ROOT, "port", "include", "port_regions.h")
+# a display-list command in the port (CMake: 16 with PORT_WIDE_GFX, else the
+# N64's 8)
+GFX_SIZE = int(os.environ.get("PORT_GFX_SIZE", "8"))
+# names inside a display list the ROM loads into game memory, which the port
+# widens there (port/src/widen.c): name -> (the list's start, commands from
+# it).  static_data's second list follows the first's five commands.
+DL_NAMES = {"D_01000038": ("D_01000010", 5)}
+
+
+def dl_name_address(name, addrs):
+    """a DL_NAMES name's address with the port's commands"""
+    base, cmds = DL_NAMES[name]
+    return addrs[base] + cmds * GFX_SIZE
 ASSIGN_RE = re.compile(r"^\s*([A-Za-z_][\w.]*)\s*=\s*([^;]+);\s*(?:/\*\s*(.*?)\s*\*/)?")
 REL_COMMENT_RE = re.compile(r"^([A-Za-z_]\w*)\s*\+\s*(0x[0-9A-Fa-f]+)\s+in\s+(\w+)")
 
@@ -174,6 +187,8 @@ def script(out, objects):
     def resolve(name, depth=0):
         """RHS usable in the port: base symbols must exist."""
         rhs = assigns[name]
+        if name in DL_NAMES:
+            return f"0x{dl_name_address(name, n64):08X}"
         # the game's data is at its N64 addresses (gen_ld.py), so anything
         # in RDRAM the port doesn't define is simply there
         if name in n64 and 0x80000000 <= n64[name] < 0x80400000 and not name.startswith("func_"):
@@ -299,6 +314,9 @@ def table(out):
             island = p[2].startswith(("D_", "_binary_")) or p[2].endswith("_bin")
             seen[p[2]] = (int(p[0], 16), "F" if p[1] in "tT" and not island else "D", size)
     seen = dict(sorted(seen.items()))      # (whichever nm listed them)
+    for name in DL_NAMES:
+        if name in seen:
+            seen[name] = (dl_name_address(name, {n: a for n, (a, k, z) in seen.items()}),) + seen[name][1:]
     with open(out, "w") as f:
         for name, (addr, kind, size) in seen.items():
             f.write(f"{name} {addr:08X} {kind} {size:X}\n")

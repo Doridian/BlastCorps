@@ -12,6 +12,10 @@
  *   func_8028B4C4(rom, dst, &len, ...) DMA and gzip or Rare's LZSS (method
  *                                     2: the sound banks, static_data, the
  *                                     background images), by ROM address
+ *
+ * Then src/widen.c gives a display list the port's Gfx, where that is wider
+ * than the N64's, and the length it takes is what the caller learns (the
+ * advanced *dst, func_8028B4C4's *len).
  */
 #include "common.h"
 #include "functions.h"
@@ -21,17 +25,20 @@
 __typeof__(func_8025C230) __real_func_8025C230, __wrap_func_8025C230;
 __typeof__(func_8028B4C4) __real_func_8028B4C4, __wrap_func_8028B4C4;
 
+/* widen.c */
+u8 *port_rom_loaded(int klass, u8 *start, u8 *end);
+
 void __wrap_func_8025C230(u8 **src, u8 **dst, struct huft *heap) {
     u8 *s = *src, *d = *dst;
 
     __real_func_8025C230(src, dst, heap);
-    host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d));
+    *dst = port_rom_loaded(host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d)), d, *dst);
 }
 
 void __wrap_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method) {
     __real_func_8028B4C4(rom, dst, len, bits, bits2, method);
     if (method == 2 && (bits != 0 || bits2 != 0))
-        host_loaded_lzss(rom, (u32)dst, *len);
+        *len = (u32)(port_rom_loaded(host_loaded_lzss(rom, (u32)dst, *len), dst, dst + *len) - dst);
 }
 
 /*

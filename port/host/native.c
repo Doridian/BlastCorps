@@ -660,7 +660,7 @@ static void gzip_name(const uint8_t *s, char *out, size_t n) {
     out[k] = 0;
 }
 
-void host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t n) {
+int host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t n) {
     char name[40];
     gzip_name(port_ptr(src), name, sizeof name);
     if (!name[0])
@@ -680,16 +680,18 @@ void host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t n) {
     case ROM_ATTRACT: conv_attract(); break;
     default: break;
     }
+    return k;
 }
 
-void host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t n) {
+int host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t n) {
     const struct rom_segment *s = rom_segment(rom & 0x0FFFFFFFu);
     char name[48];
     snprintf(name, sizeof name, "lzss:%s", s ? s->name : "?");
     if (host_verbose > 1)
         host_log("load: %s -> %08X (%X)\n", name, dst, n);
     begin(name, dst, n, 0);
-    switch (s ? s->klass : ROM_BYTES) {
+    int k = s ? s->klass : ROM_BYTES;
+    switch (k) {
     case ROM_BANK: conv_bank(); break;
     case ROM_STATIC:            /* Vp (s16 x 8), then Gfx */
         cv(0, 16, 2);
@@ -698,6 +700,7 @@ void host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t n) {
         break;
     default: break;
     }
+    return k;
 }
 
 void host_loaded_dma(uint32_t dst, uint32_t rom, uint32_t n) {
