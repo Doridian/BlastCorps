@@ -83,10 +83,8 @@ void *port_fn(uint32_t addr);
 /* (the game's variables aren't symbols of the host's link: by their N64
    addresses, gen_syms.py table's header) */
 #define PORT_VAR(sym) ((char *)port_ptr(PORT_N64_##sym))
-#define PORT_ADDR(sym) PORT_N64_##sym
 #else
-#define PORT_VAR(sym) ((char *)port_ptr((uint32_t)(uintptr_t)(sym)))
-#define PORT_ADDR(sym) ((uint32_t)(uintptr_t)(sym))
+#define PORT_VAR(sym) ((char *)(sym))
 #endif
 
 /* A pointer of the N64 side's, as the host reads through it: one handed to
@@ -217,16 +215,6 @@ static inline int port_in_rdram(const void *p) {
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
 static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
-#ifdef PORT_LP64
-/* a pointer the game's C declares without PTR32, 8 bytes here: the N64
-   address it holds (one the game made from an address, as most of its
-   buffers' are, or the host's own pointer into its memory) */
-static inline uint32_t port_game_ptr(const void *p) {
-    uint64_t v;
-    __builtin_memcpy(&v, p, sizeof v);
-    return v >> 32 ? port_n64((const void *)(uintptr_t)v) : (uint32_t)v;
-}
-#endif
 static inline void port_wvar16(void *p, uint16_t v) {
     if (port_in_rdram(p) || port_n64(p) - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
         port_wg16(p, v);
@@ -313,15 +301,15 @@ static inline uint32_t host_layout(enum PortLayout id) {
     }
     return v[id];
 }
-/* one of the game's pointers, `size` bytes wide (a PTR_ entry): the N64
-   address it holds */
-static inline uint32_t port_game_ptr_n(const void *p, uint32_t size) {
-#ifdef PORT_LP64
-    if (size == 8)
-        return port_game_ptr(p);
-#endif
-    (void)size;
-    return port_var32(p);
+/* one of the game's pointers, `size` bytes wide (a PTR_ entry): the
+   pointer it holds, as the game has it (port_hptr makes it the host's) */
+static inline void *port_game_ptr_n(const void *p, uint32_t size) {
+    if (size == sizeof(void *) && size > 4) {
+        void *v;
+        __builtin_memcpy(&v, p, sizeof v);
+        return v;
+    }
+    return (void *)(uintptr_t)port_var32(p);
 }
 
 /* ---- host services (port/host) ----------------------------------------- */

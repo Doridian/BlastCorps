@@ -2190,8 +2190,8 @@ static void hud_begin(GfxAddr dl, int rdp) {
     hud_stamp++;
     /* (its two pointers: as wide as the N64 side has them, port.h's host_layout) */
     uint32_t w = host_layout(PORT_LAYOUT_PTR_D_80365348);
-    hud_txt[0] = gfx_of_n64(port_game_ptr_n(D_80365348, w));
-    hud_txt[1] = gfx_of_n64(port_game_ptr_n(D_80365348 + w, w));
+    hud_txt[0] = (GfxAddr)port_hptr(port_game_ptr_n(D_80365348, w));
+    hud_txt[1] = (GfxAddr)port_hptr(port_game_ptr_n(D_80365348 + w, w));
     hud_txt_n = port_g32(D_80365350);
     if (hud_txt_n > 0x200)
         hud_txt_n = 0x200;
@@ -2313,20 +2313,15 @@ static unsigned globe_gen;
 /* (D_80215A70's pointers: 8 bytes in the LP64 build) */
 #ifdef PORT_LP64
 #define GAME_PTR_SIZE 8
-#define game_ptr port_game_ptr
 #else
 #define GAME_PTR_SIZE 4
-#define game_ptr port_var32
 #endif
 
-/* (the frames' textures by their physical addresses, made host ones: the
-   texture image's, from gfx_addr, is KSEG0's whatever its word was) */
+/* (the frames' textures, as the host has them) */
 static void globe_begin(void) {
     int map = micons_on && port_g64(D_80364A90) == MODE_WORLD_MAP;
-    for (int k = 0; k < 3; k++) {
-        uint32_t phys = map ? game_ptr(D_80215A70 + GAME_PTR_SIZE * k) & 0x1FFFFFFFu : 0;
-        globe_tex[k] = phys ? gfx_of_n64(0x80000000u | phys) : 0;
-    }
+    for (int k = 0; k < 3; k++)
+        globe_tex[k] = map ? (GfxAddr)port_hptr(port_game_ptr_n(D_80215A70 + GAME_PTR_SIZE * k, GAME_PTR_SIZE)) : 0;
 }
 
 static int globe_at(void) {

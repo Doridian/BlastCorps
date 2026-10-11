@@ -397,16 +397,16 @@ static int menu_hit(int w, float x, float y) {
             ew = 64;
             chh = 32;
         } else {
-            uint32_t t = port_g32(e + 0xC);
+            void *t = port_game_ptr_n(e + 0xC, 4);
             int len = 0;
             /* (a text in game memory: RDRAM and the data after it, which
                the scattered layout's variables reach far into) */
 #ifdef PORT_MOVABLE
-            if (t - 0x80000000u < PORT_ARENA_STACKS)
+            if ((uintptr_t)t - 0x80000000u < PORT_ARENA_STACKS)
 #else
-            if (t - 0x80000000u < 0x00800000u)
+            if ((uintptr_t)t - 0x80000000u < 0x00800000u)
 #endif
-                for (const char *s = port_ptr(t); len < 64 && s[len]; len++)
+                for (const char *s = port_hptr(t); len < 64 && s[len]; len++)
                     ;
             ew = len ? (0.6f * (len - 1) + 1) * cw : 4 * cw;
         }
