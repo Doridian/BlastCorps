@@ -54,10 +54,6 @@
 #include "host.h"
 #include "../engine/cvt.h"
 
-#ifdef PORT_NATIVE_ENDIAN
-/* game variables are read with port_be32 below: at their own width (port.h) */
-#define port_be32(p) port_var32(p)
-#endif
 
 /* the scheduler's retrace count, the game's frame count, the mode and the
    random number generator's state */
@@ -412,7 +408,7 @@ static void dump(unsigned n) {
 void host_replay_read_started(void) {
     si_started = 1;
     uint64_t mode = mode_now();
-    uint32_t frames = port_be32(D_80358064);
+    uint32_t frames = port_g32(D_80358064);
     int found = -1;
 
     reads++;
@@ -433,7 +429,7 @@ void host_replay_read_started(void) {
         }
         if (reads >= from && reads <= to)
             host_log("replay: read %u: mode %016llX frame %u retraces %u, the log's read %d (pad %08X)\n", reads,
-                     (unsigned long long)mode, frames, port_be32(SCHED_FRAMECOUNT), found + 1,
+                     (unsigned long long)mode, frames, port_g32(SCHED_FRAMECOUNT), found + 1,
                      found >= 0 ? log_reads[found].pad : 0);
     }
     if (mode != last_mode) {
@@ -476,13 +472,13 @@ void host_replay_read_started(void) {
        Likewise where the port spent a different number of frames in the
        last mode than the movie (a loading screen: the port loads faster),
        whose frames drew numbers too. */
-    if ((seeded || found > prev + 1 || gap) && has_rng && port_be32(D_8036B968) != cur_read->rng) {
+    if ((seeded || found > prev + 1 || gap) && has_rng && port_g32(D_8036B968) != cur_read->rng) {
         port_wg32(D_8036B968, cur_read->rng);    /* a game variable: its own width */
         seeds++;
-    } else if (has_rng && mode == 4 && port_be32(D_8036B968) != cur_read->rng) {     /* (in a level) */
+    } else if (has_rng && mode == 4 && port_g32(D_8036B968) != cur_read->rng) {     /* (in a level) */
         if (rng_diffs++ < 5 || host_verbose > 1)
             host_log("replay: read %u (the log's %d, mode %016llX frame %u): the random state %08X, the log "
-                     "has %08X\n", reads, found + 1, (unsigned long long)mode, frames, port_be32(D_8036B968),
+                     "has %08X\n", reads, found + 1, (unsigned long long)mode, frames, port_g32(D_8036B968),
                      cur_read->rng);
     }
     seeded = 0;
@@ -493,7 +489,7 @@ void host_replay_read_started(void) {
     if (has_pos && (mode == 4 || mode == 0x4000)) {
         int32_t p[3];
         for (int i = 0; i < 3; i++)
-            p[i] = (int32_t)port_be32(i == 0 ? D_803643E0 : i == 1 ? D_803643E4 : D_803643E8);
+            p[i] = (int32_t)port_g32(i == 0 ? D_803643E0 : i == 1 ? D_803643E4 : D_803643E8);
         if (p[0] != cur_read->pos[0] || p[1] != cur_read->pos[1] || p[2] != cur_read->pos[2]) {
             if (pos_diffs++ < 5 || host_verbose > 1)
                 host_log("replay: read %u (the log's %d, mode %016llX frame %u): the player at %d,%d,%d, "
@@ -541,7 +537,7 @@ unsigned int port_counter(int timer, const char *func) {
             host_log("replay: the log's read %d: %s reads the %s, which the log's frame doesn't\n", matched + 1,
                      func, timer ? "level timer" : "retrace count");
     }
-    return port_be32(timer ? SCHED_LEVEL_TIME : SCHED_FRAMECOUNT);
+    return port_g32(timer ? SCHED_LEVEL_TIME : SCHED_FRAMECOUNT);
 }
 
 /* The port's own functions by address (its symbol table, from
@@ -733,7 +729,7 @@ static void force_mode(unsigned k) {
     D_8036C784[0] = 0;
     forced_modes++;
     host_log("replay: mode %016llX forced at the log's read %u (the port was in %016llX, level %u)\n",
-             (unsigned long long)c->mode, k + 1, (unsigned long long)mode_now(), port_be32(D_802E8BDC));
+             (unsigned long long)c->mode, k + 1, (unsigned long long)mode_now(), port_g32(D_802E8BDC));
     matched = (int)k - 1;       /* the next read: the log's read k+1 */
 }
 
@@ -750,11 +746,11 @@ void port_replay_mode_switch(void) {
        of it are the movie's (port_counter). */
     static uint32_t level_start;
     if (log_reads && (want == 0x2000 || want == 0x800))
-        level_start = port_be32(SCHED_LEVEL_TIME);
+        level_start = port_g32(SCHED_LEVEL_TIME);
     if (log_reads && mode_now() == 4 && want != 4) {
-        uint32_t t = port_be32(SCHED_LEVEL_TIME) - level_start;
+        uint32_t t = port_g32(SCHED_LEVEL_TIME) - level_start;
         host_log("replay: level %u ends at the log's read %d: %u frames, %u retraces, time %u.%u s\n",
-                 port_be32(D_802E8BDC), matched + 1, port_be32(D_80358064), t, t / PORT_RETRACE_HZ, t * 10 / PORT_RETRACE_HZ % 10);
+                 port_g32(D_802E8BDC), matched + 1, port_g32(D_80358064), t, t / PORT_RETRACE_HZ, t * 10 / PORT_RETRACE_HZ % 10);
     }
     if (!checkpoints || !switches || matched < 0)
         return;
@@ -798,7 +794,7 @@ int port_pad_read_due(int free) {
     if (si_started)
         return 1;
     uint64_t mode = mode_now();
-    uint32_t frames = port_be32(D_80358064);
+    uint32_t frames = port_g32(D_80358064);
     for (unsigned k = matched + 1; k < nreads && k <= (unsigned)(matched + 1) + WINDOW; k++)
         if (log_reads[k].mode == mode && log_reads[k].frames == frames) {
             unmatched_run = 0;

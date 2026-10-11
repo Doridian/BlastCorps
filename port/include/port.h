@@ -216,6 +216,7 @@ static inline int port_in_rdram(const void *p) {
     return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
 }
 static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
+static inline uint16_t port_var16(const void *p) { return port_in_rdram(p) ? port_g16(p) : port_be16(p); }
 static inline void port_wvar16(void *p, uint16_t v) {
     if (port_in_rdram(p) || port_n64(p) - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
         port_wg16(p, v);
@@ -224,6 +225,7 @@ static inline void port_wvar16(void *p, uint16_t v) {
 }
 #else
 #define port_var32 port_be32    /* (all of it big-endian) */
+#define port_var16 port_be16
 #endif
 
 /* ---- the game's layouts, as the host reads them ------------------------ */
