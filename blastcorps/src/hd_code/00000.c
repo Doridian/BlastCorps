@@ -4488,7 +4488,11 @@ void func_80255AD0(void) {
     osViSetSpecialFeatures(OS_VI_DITHER_FILTER_ON);
     D_80358050[0] = (u16 *)(uintptr_t)K0_TO_PHYS(D_80000400[0]);
     D_80358050[1] = (u16 *)(uintptr_t)K0_TO_PHYS(D_80000400[1]);
+#ifdef TARGET_PC
+    D_80358058 = (u16 *)(uintptr_t)K0_TO_PHYS(MEM_INIT_AREA);
+#else
     D_80358058 = (u16 *)(uintptr_t)K0_TO_PHYS(D_8021ED00);
+#endif
     func_80284DB0();
     osWritebackDCacheAll();
     func_8028FC10();
@@ -4563,6 +4567,9 @@ void func_80255DC8(void) {
     D_80358078 = 0;
     func_802558C8(D_803156F8[D_8035805C].game.unk48B0, &D_80358078);
     func_802559F8(D_803156F8[D_8035805C].game.unk48B0, &D_80358078);
+#ifdef TARGET_PC
+    port_pool_reset();
+#endif
     D_80358070 = (u8 *)MEM_POOL;
     func_80257490((s32 *)&D_80358070, 16);
     D_8036E694 = (u64 *)D_80358070;
@@ -5069,7 +5076,7 @@ void func_80256A34(u8 *arg0) {
     }
 #ifdef TARGET_PC
     /* debug output: init's area is the module's load address, the pool ends where it starts */
-    func_8029A7E4("Level %d: mem_pool=0x%x, code seg=0x%x, space=%d bytes\n", D_802E8BDC, D_80358070, D_8021ED00 + PORT_REGION_SIZE_D_8021ED00, (u32)(D_8004B400 + PORT_REGION_SIZE_D_8004B400 - D_80358070));
+    func_8029A7E4("Level %d: mem_pool=0x%x, code seg=0x%x, space=%d bytes\n", D_802E8BDC, D_80358070, MEM_INIT_AREA + PORT_INIT_AREA_SIZE, (u32)(D_8004B400 + PORT_REGION_SIZE_D_8004B400 - D_80358070));
 #else
     func_8029A7E4("Level %d: mem_pool=0x%x, code seg=0x%x, space=%d bytes\n", D_802E8BDC, D_80358070, 0x802447C0, 0x8021ED00 - (u32)D_80358070);
 #endif
@@ -5130,6 +5137,18 @@ void func_80257234(void) {
             }
             break;
     }
+#ifdef TARGET_PC
+    /* (carved out by the pool's helper: port_game.h) */
+    D_80358030[0] = (Gfx *)D_80358070;
+    D_80358038[0] = port_pool_gfx((Gfx *)D_80358070 + sp14);
+    D_80358040[0] = port_pool_gfx((Gfx *)D_80358070 + sp10);
+    D_80358048[0] = port_pool_gfx((Gfx *)D_80358070 + spC);
+    D_80358030[1] = port_pool_gfx((Gfx *)D_80358070 + sp8);
+    D_80358038[1] = port_pool_gfx((Gfx *)D_80358070 + sp14);
+    D_80358040[1] = port_pool_gfx((Gfx *)D_80358070 + sp10);
+    D_80358048[1] = port_pool_gfx((Gfx *)D_80358070 + spC);
+    port_pool_gfx((Gfx *)D_80358070 + sp8);
+#else
     D_80358030[0] = (Gfx *)D_80358070;
     D_80358038[0] = (Gfx *)(D_80358070 += sp14 * sizeof(Gfx));
     D_80358040[0] = (Gfx *)(D_80358070 += sp10 * sizeof(Gfx));
@@ -5139,6 +5158,7 @@ void func_80257234(void) {
     D_80358040[1] = (Gfx *)(D_80358070 += sp10 * sizeof(Gfx));
     D_80358048[1] = (Gfx *)(D_80358070 += spC * sizeof(Gfx));
     D_80358070 += sp8 * sizeof(Gfx);
+#endif
 }
 
 void func_80257490(s32 *arg0, s32 arg1) {

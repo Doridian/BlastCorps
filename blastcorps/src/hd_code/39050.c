@@ -432,8 +432,13 @@ void func_8027E344(s32 arg0) {
     size += ((D_802FC3F0[D_8036DCD6].unk1 / 8) + 1) * D_802FC3F0[D_8036DCD6].unk2 * sizeof(Gfx);
     size += 0x384 * sizeof(Gfx);
     D_8036DCC8[0] = (Gfx *)D_80358070;
+#ifdef TARGET_PC
+    D_8036DCC8[1] = port_pool_gfx(D_80358070 + size);       /* (port_game.h) */
+    port_pool_gfx(D_80358070 + size);
+#else
     D_8036DCC8[1] = (Gfx *)(D_80358070 += size);
     D_80358070 += size;
+#endif
     D_8036DCD7 = D_802FC3F0[D_8036DCD6].unk31;
     if (D_8036DCD5 = D_802FC3F0[D_8036DCD6].unk24) {
         D_8036DCB8[0] = D_80358070;

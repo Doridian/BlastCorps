@@ -14,12 +14,15 @@ extern u8 D_8004B400[];     /* the level pool */
 extern u8 D_80055400[];     /* the ghost's buffers, in the pool */
 extern u8 D_80065400[];
 extern u8 D_801E7000[];     /* the front end's area, the pool's tail */
-extern u8 D_8021ED00[];     /* init's area: depth buffer, compressed staging */
+/* init's area, depth buffer and compressed staging: the port's own buffer
+   (port_regions.h, PORT_INIT_AREA_SIZE), not at 0x8021ED00, where the
+   pool may grow */
+extern u8 port_init_area[];
 #define MEM_POOL D_8004B400
 #define MEM_GHOST0 D_80055400
 #define MEM_GHOST1 D_80065400
 #define MEM_FRONT_END D_801E7000
-#define MEM_INIT_AREA D_8021ED00
+#define MEM_INIT_AREA port_init_area
 #else
 #define MEM_POOL 0x8004B400
 #define MEM_GHOST0 0x80055400

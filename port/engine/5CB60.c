@@ -16,6 +16,7 @@
 #include "engine.h"
 #include "texture.h"
 #include "game/game.h"
+#include "game/memmap.h"
 #include "game/level.h"
 #include "game/vehicle.h"
 #include "game/objects.h"
@@ -973,9 +974,9 @@ extern u8 D_803EFED0[], D_803F0900[], D_803F1BE0[];
 extern s16 D_803F767C, D_803F767E, D_803F7680;
 
 /* init's memory (where models are DMA'd before inflating) and the pool's
-   start (the gzip window): port_regions.h's regions */
-extern u8 D_8021ED00[], D_8004B400[];
-#define INIT_AREA D_8021ED00
+   start (the gzip window): game/memmap.h's */
+extern u8 D_8004B400[];
+#define INIT_AREA MEM_INIT_AREA
 #define GZIP_WINDOW D_8004B400
 #define MODEL_TABLE_SIZE 0x800
 
@@ -1197,7 +1198,7 @@ void func_802A1388(s32 type, s32 a1, u8 *buf1, u8 *buf2, u8 *model) {
     for (; src != end; src++, dst++) {
         dl_copy_cmd(dst, src);
     }
-    D_80358070 = (u8 *)dst;
+    port_pool_gfx(dst);     /* (port_game.h) */
     v->unk30 = (u8 *)v->unkC + delta;
     v->unk34 = (u8 *)v->unk10 + delta;
     v->unk38 = (u8 *)v->unk14 + delta;

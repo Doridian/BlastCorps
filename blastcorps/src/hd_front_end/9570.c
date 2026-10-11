@@ -755,7 +755,11 @@ Gfx *func_801F1568(void) {
         }
     }
     gSPEndDisplayList(gfx++);
+#ifdef TARGET_PC
+    port_pool_gfx(gfx);     /* (port_game.h) */
+#else
     D_80358070 += (gfx - sp64) * sizeof(Gfx);
+#endif
     return sp64;
 }
 
@@ -840,7 +844,11 @@ Gfx *func_801F2000(void) {
     }
     gDPPipeSync(gfx++);
     gSPEndDisplayList(gfx++);
+#ifdef TARGET_PC
+    port_pool_gfx(gfx);     /* (port_game.h) */
+#else
     D_80358070 = (u8 *)gfx;
+#endif
     osWritebackDCache(sp80, 0x30 * sizeof(Vtx));
     return sp7C;
 }
@@ -990,7 +998,11 @@ Gfx *func_801F2428(void) {
     } while (--spCA >= 0);
     gDPPipeSync(gfx++);
     gSPEndDisplayList(gfx++);
+#ifdef TARGET_PC
+    port_pool_gfx(gfx);     /* (port_game.h) */
+#else
     D_80358070 = (u8 *)gfx;
+#endif
     osWritebackDCache(spE8, 0x1E0 * sizeof(Vtx));
     return spE0;
 }
@@ -1049,7 +1061,11 @@ Gfx *func_801F2E20(void) {
     }
     gDPPipeSync(gfx++);
     gSPEndDisplayList(gfx++);
+#ifdef TARGET_PC
+    port_pool_gfx(gfx);     /* (port_game.h) */
+#else
     D_80358070 += (gfx - spBC) * sizeof(Gfx);
+#endif
     osWritebackDCache(spCC, 0x200 * sizeof(Vtx));
     return spBC;
 }

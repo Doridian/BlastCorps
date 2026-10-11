@@ -78,6 +78,19 @@ void host_log(const char *fmt, ...) {
     va_end(ap);
 }
 
+/* the level pool's use (port/src/pool.c): with PORT_POOL_LOG=1, a line for
+   each level's effects' heap and each level's end (its high-water) */
+void host_pool_report(const char *what, int level, uint32_t top, uint32_t n64_top, uint32_t end) {
+    static int on = -1;
+    if (on < 0) {
+        const char *e = getenv("PORT_POOL_LOG");
+        on = e && atoi(e) != 0;
+    }
+    if (on)
+        fprintf(stderr, "pool: level %d %s: top 0x%08X (N64 0x%08X, display lists 0x%X more), end 0x%08X, room 0x%X\n",
+                level, what, top, n64_top, top - n64_top, end, end - top);
+}
+
 void host_fatal(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);

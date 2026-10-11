@@ -78,7 +78,11 @@ void func_80278BF0(Gfx *src, Gfx *end, Gfx **out) {
 
     *out = (Gfx *)D_80358070;
     dst = *out;
+#ifdef TARGET_PC
+    port_pool_gfx((Gfx *)D_80358070 + (end - src) - 2);     /* (port_game.h) */
+#else
     D_80358070 = (u8 *)((Gfx *)D_80358070 + (end - src) - 2);
+#endif
     while (src != end) {
         switch (cmd = src->words.w0 >> 24) {
             case (s8)G_ENDDL:
