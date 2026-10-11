@@ -20,6 +20,7 @@
 
 #include "shared.h"
 #include "game/objects.h"
+#include "game/model.h"
 #include "collision.h"
 #include "texture.h"
 
@@ -65,24 +66,7 @@ enum {
     MS_END = 0x48
 };
 
-/* MS_GROUP_DLS: for each group's look, the conditions on the groups'
-   damage that hide it (the first one is on its own group), then its lists
-   for the two passes, as offsets in the model */
-typedef struct GroupCond {
-    /* 0x0 */ u16 group;         /* 1-based */
-    /* 0x2 */ u8 below;          /* hides it while the damage is under `limit`; 0: over it */
-    /* 0x3 */ u8 limit;
-} GroupCond;
-typedef struct GroupDls {
-    /* 0x0 */ u32 dl0, dl0_end;
-    /* 0x8 */ u32 dl1, dl1_end;
-} GroupDls;
-/* a GroupDl is {u32 n; GroupCond cond[n]; GroupDls dls;} */
-#define GDL_N(r) (*(u32 *)(r))
-#define GDL_COND(r) ((GroupCond *)((u8 *)(r) + 4))
-#define GDL_GROUP(r) (GDL_COND(r)->group)
-#define GDL_DLS(r, n) ((GroupDls *)((u8 *)(r) + 4 + (n) * 4))
-#define GDL_NEXT(r) ((u8 *)GDL_DLS(r, GDL_N(r)) + sizeof(GroupDls))
+/* MS_GROUP_DLS: game/model.h's GroupCond, GroupDls and GDL_*() */
 /* the damage a hidden-look test takes for the group being destroyed itself
    (func_802C09B8, func_802C0E8C, func_802C1438: the look it had just
    before) */
