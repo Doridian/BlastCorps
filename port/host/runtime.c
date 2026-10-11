@@ -34,11 +34,29 @@ void __bepass_fixup(const struct bepass_entry *e, uint32_t n) {
 
 /* A thread's host stack: inside the KSEG0 window (at PORT_STACK_BASE,
    port.h), so that the address of a local means the same to the translated
-   code; in the movable build that range is in the arena (port_arena.h). */
+   code; in the movable build that range is in the arena (port_arena.h).
+   The plain build's come from the host's allocator, one for each thread
+   slot, the first time it is used, zeroed as the other builds' mapped
+   windows are (nothing tests where they are); page-aligned, as a pthread
+   stack must be (fiber_pthread.c: 16 KB pages on arm64 macOS). */
+#ifdef PORT_PLAIN
+void *host_thread_stack(int idx, uint32_t *size) {
+    static void *stacks[PORT_MAX_THREADS];
+    *size = PORT_STACK_SIZE;
+    if (!stacks[idx]) {
+        stacks[idx] = aligned_alloc(0x4000, PORT_STACK_SIZE);
+        if (!stacks[idx])
+            host_fatal("no memory for thread %d's stack", idx);
+        memset(stacks[idx], 0, PORT_STACK_SIZE);
+    }
+    return stacks[idx];
+}
+#else
 void *host_thread_stack(int idx, uint32_t *size) {
     *size = PORT_STACK_SIZE;
     return port_host(PORT_STACK_BASE + (uint32_t)idx * PORT_STACK_SIZE);
 }
+#endif
 
 /* ---- movable memory (PORT_MOVABLE, docs/PORT.md "Movable memory") ------- */
 
@@ -359,7 +377,14 @@ uint32_t port_guard_hit(const void *p) {
 }
 
 /* RDRAM's 4 MB to a file (PORT_DUMP, the replay's dumps), with zeros for
-   what the guard protects */
+   what the guard protects.  The plain build has no RDRAM to dump (P10's
+   open question 9). */
+#ifdef PORT_PLAIN
+void port_dump_rdram(FILE *f) {
+    (void)f;
+    host_fatal("PORT_DUMP and the replay's dumps are RDRAM's, which the plain build hasn't");
+}
+#else
 void port_dump_rdram(FILE *f) {
     const uint8_t *m = port_ptr(PORT_RDRAM_BASE);
     size_t lo = PORT_RDRAM_SIZE, hi = PORT_RDRAM_SIZE;
@@ -374,6 +399,7 @@ void port_dump_rdram(FILE *f) {
         fputc(0, f);
     fwrite(m + hi, 1, PORT_RDRAM_SIZE - hi, f);
 }
+#endif
 
 /* ---- translated-code hooks ------------------------------------------------ */
 

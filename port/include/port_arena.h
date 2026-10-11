@@ -36,7 +36,7 @@ static inline void *port_host(uint32_t addr) { return port_arena + (addr & 0x1FF
 static inline uint32_t port_n64(const void *p) {
     return 0x80000000u | (uint32_t)((const uint8_t *)p - port_arena);
 }
-#else
+#elif !defined(PORT_PLAIN)       /* (the plain build has no N64 addresses: port.h) */
 static inline void *port_host(uint32_t addr) { return (void *)(uintptr_t)addr; }
 static inline uint32_t port_n64(const void *p) { return (uint32_t)(uintptr_t)p; }
 #endif
