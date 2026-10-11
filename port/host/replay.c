@@ -52,6 +52,7 @@
 
 #include "port.h"
 #include "host.h"
+#include "../engine/cvt.h"
 
 #ifdef PORT_NATIVE_ENDIAN
 /* game variables are read with port_be32 below: at their own width (port.h) */
@@ -364,10 +365,11 @@ void host_replay_load(const char *path) {
         fclose(f);
         host_log("replay: %u checkpoints from %s\n", ncheckpoints, cpath);
     }
-    /* the movie's emulator rounds cvt.w halves up (recomp.h), and the
-       movie depends on it (PORT_REPLAY_VR4300_ROUNDING=1: the hardware's) */
+    /* the movie's emulator rounds cvt.w halves up (port/engine/cvt.h), and
+       the movie depends on it (PORT_REPLAY_VR4300_ROUNDING=1: the
+       hardware's); the check build's translation follows it too */
     extern int recomp_round_half_up;
-    recomp_round_half_up = getenv("PORT_REPLAY_VR4300_ROUNDING") == NULL;
+    port_round_half_up = recomp_round_half_up = getenv("PORT_REPLAY_VR4300_ROUNDING") == NULL;
     host_log("replay: %u reads from %s\n", nreads, path);
 }
 

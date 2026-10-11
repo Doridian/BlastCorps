@@ -4509,7 +4509,8 @@ shares and the ratio to `tri`, which didn't change, are what compare):
 
 - **The rounding (1).**  recomp.h's `recomp_rint` and `recomp_rintf`, and
   so `engine_cvt_w_s`/`_l_s`/`_l_d` and the translated code's
-  conversions, no longer call libm: round-to-even is adding and taking
+  conversions, no longer call libm (the engine's are cvt.h's `port_rint`
+  and `port_rintf` since P10): round-to-even is adding and taking
   away 2^52 (2^23 for a float) in the default rounding mode, `floor` that
   less one where it rounded up, a zero result with the input's sign.
   `port/tools/rint_check.c` compares them with `nearbyint`,
@@ -4962,11 +4963,12 @@ the original would have run that block; BEPass neither counted nor polled
 in this code.  All of it is gone with the model.
 - `port/tools/engine_asm.py FUNC|OBJECT` prints the asm with each basic
   block and its size, plus the convention.  That's what to write from.
-- Float to int: `engine_cvt_w_s` and its siblings, which follow
-  `recomp_round_half_up` as the translation does.
+- Float to int: `engine_cvt_w_s` and its siblings (`port/engine/cvt.h`,
+  defined in `port/host/cvt.c`), which follow `port_round_half_up`; the
+  translation's `recomp_round_half_up` is set with it.
 - IDO's checked division is `ENGINE_DIV`, and a `break` or Rare's
-  "can't happen" `syscall` is `engine_break`/`engine_syscall`.  They stop
-  the port as the translation's `recomp_trap` does.
+  "can't happen" `syscall` is `engine_break`/`engine_syscall` (cvt.h):
+  the port stops with the instruction's address.
 
 **Native-endian memory.**  The native code accesses memory at the widths
 the original does, and in native-endian builds that is right everywhere
@@ -6012,7 +6014,7 @@ frames and gives each the movie's input for that frame:
   number of frames in a mode than the movie (a level's loading intro: the
   port loads faster).
 - **Rounding.**  `cvt.w`/`round.w` round halves up, as the movie's emulator
-  does (`recomp_round_half_up`, recomp.h); the VR4300 rounds them to even,
+  does (`port_round_half_up`, port/engine/cvt.h); the VR4300 rounds them to even,
   and with that the first level goes elsewhere at its frame 370.
   `PORT_REPLAY_VR4300_ROUNDING=1` uses the hardware's.
 

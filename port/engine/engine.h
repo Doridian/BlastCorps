@@ -25,34 +25,14 @@
 
 #include "common.h"
 #include "functions.h"
+/* the VR4300's conversions, the original's traps, ENGINE_DIV, engine_mfc0 */
+#include "cvt.h"
 
 #define REGS(...)
-
-/* The VR4300's conversions as the translated code does them (recomp.h):
-   cvt.w.s/round.w.s round to nearest (to even, or halves up as the TAS's
-   emulator did: recomp_round_half_up), trunc.w.s truncates; NaN and out of
-   range give 0x7FFFFFFF.  (port/host/engine.c) */
-s32 engine_cvt_w_s(f32 x);
-s32 engine_cvt_w_d(f64 x);
-s32 engine_trunc_w_s(f32 x);
-s32 engine_trunc_w_d(f64 x);
-s64 engine_cvt_l_d(f64 x);
-s64 engine_cvt_l_s(f32 x);
-
-/* IDO's conversion of a float to an unsigned int (jp's IDO code, still
-   asm in the C): the FCSR set to truncate, cvt.w.s, and where its V flag
-   says the float is 2^31 or more, a second one of x - 2^31 with the top bit
-   set; negative or out of range gives 0xFFFFFFFF (port/host/engine.c). */
-u32 engine_ido_cvt_u_s(f32 x);
-#define IDO_CVT_U_S(dst, x) ((dst) = engine_ido_cvt_u_s(x))
 
 /* the game's sprintf (port_game.h's n64_sprintf: port/src/libc.c, or
    port/host/libc64.c) */
 int sprintf(char *buf, const char *fmt, ...);
-
-/* The original's syscall at pc (a state it doesn't expect): the game
-   stops, as with the translation (port/host/engine.c). */
-void engine_trap(u32 pc);
 
 /* Registers the original saves on its stack and loads back before it
    returns: engine_save() at its entry and engine_restore() before each
@@ -95,26 +75,9 @@ void engine_leave64(unsigned int reg, u32 lo, u32 hi);
 #define N64_PC(pc) ((u32)(pc))
 #define N64_VALUE(v) ((u32)(v))
 
-/* the original's `break` (IDO's division checks: code 7 for a zero
-   divisor, 6 for an overflow): it stops the port as the translation's
-   recomp_trap does.  pc is us.v11's address of the break, for the report. */
-void engine_break(u32 pc, u32 code) __attribute__((noreturn));
-/* and its `syscall` (Rare's "can't happen" in a switch) */
-void engine_syscall(u32 pc) __attribute__((noreturn));
 /* the port's own "can't happen": data past what an engine array has room
    for (port/host) */
 void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
-/* q = n / d, as IDO's checked div: bz and bov name its two breaks (a zero
-   divisor, the overflow of 0x80000000 / -1) for the report */
-#define ENGINE_DIV(q, n, d, bz, bov)                                        \
-    do {                                                                    \
-        s32 n_ = (n), d_ = (d);                                             \
-        if (d_ == 0)                                                        \
-            engine_break(N64_PC(0x##bz), 7);                                        \
-        if (d_ == -1 && n_ == (s32)0x80000000)                              \
-            engine_break(N64_PC(0x##bov), 6);                                       \
-        (q) = n_ / d_;                                                      \
-    } while (0)
 #define ENGINE_LEAVE64(gpr, v) engine_leave64((gpr), (u32)(v), (u32)((u64)(v) >> 32))
 
 /* The other way: what a register holds that the original reads without
@@ -147,8 +110,6 @@ u32 engine_frame_lw(u32 off);
 void engine_frame_s(void);
 #define ENGINE_FRAME_S (0x30 + 0x58)
 
-/* a COP0 register (mfc0), as the translated code reads it */
-u32 engine_mfc0(unsigned int reg);
 #define ENGINE_REG(gpr) engine_reg(gpr)
 
 /* ---- display lists ---------------------------------------------------------
