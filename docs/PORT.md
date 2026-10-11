@@ -1303,7 +1303,9 @@ animation's index.
 - `port/tools/decl_check.py BUILD --version all`: every `D_`/`func_`
   name's declarations across the N64 side's files (clang's AST), and
   asm2c's word for it: a pointer declared as an integer in one file, or
-  4 bytes in one and 8 in another, fails (`decl_allow.txt` is empty).
+  4 bytes in one and 8 in another, or a variable declared bigger than
+  its definition (an `extern u64` over a `u8[4]`), fails
+  (`decl_allow.txt` is empty).
 - `port/tools/ptrcast_scan.py BUILD --version all`: clang's
   pointer/integer conversions (`-Wpointer-to-int-cast`,
   `-Wint-to-pointer-cast`, `-Wint-conversion`) and incompatible pointer

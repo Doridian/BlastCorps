@@ -1,5 +1,6 @@
 # decl_check.py's allow-list: the D_/func_ names whose declarations
 # disagree about a pointer (`class name`; mix: pointer and integer, width:
-# PTR32 and native, asm: a pointer against asm2c's word).  P6-E makes
+# PTR32 and native, asm: a pointer against asm2c's word; size: a
+# declaration bigger than the definition).  P6-E makes
 # every declaration of a name agree and empties it.  decl_check.py BUILD
 # --version all --update rewrites it (asm: the build's own version only).

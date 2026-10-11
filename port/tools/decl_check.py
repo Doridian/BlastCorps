@@ -19,10 +19,13 @@ differ is put in a class:
   width   a PTR32 pointer in one, a native one in another
   asm     a pointer in the C, a word in a structure of asm2c's in its
           data (port/tools/asm2c.py: 4 bytes, whatever the C's pointer)
+  size    a variable whose declaration is bigger than its definition,
+          where both are scalars, pointers or arrays of them (an extern
+          u64 over a u8[4]: the read runs past the object)
   type    any other difference (an integer's width or sign, a struct
           against bytes); not pointer-width, only listed
 
-mix, width and asm are checked against the allow-list (port/tools/
+mix, width, asm and size are checked against the allow-list (port/tools/
 decl_allow.txt, `class name`: P6-E fixes them and empties it); type is
 counted.  Also counted: the pointer variables declared in more than one
 file, asm2c's own declarations aside (P6-E declares each once, in a
@@ -74,6 +77,32 @@ def category(t):
     if INTS.match(t) or t in ("u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64"):
         return "int"
     return "other"
+
+
+# the sizes of the scalars a declaration can be made of (LP64)
+SIZES = {"char": 1, "signed char": 1, "unsigned char": 1, "u8": 1, "s8": 1, "_Bool": 1,
+         "short": 2, "unsigned short": 2, "u16": 2, "s16": 2,
+         "int": 4, "unsigned int": 4, "u32": 4, "s32": 4, "float": 4, "f32": 4,
+         "long": 8, "unsigned long": 8, "long long": 8, "unsigned long long": 8,
+         "u64": 8, "s64": 8, "double": 8, "f64": 8}
+
+
+def size_of(t):
+    """the size of a (normalized) object type made of scalars and pointers,
+    or None: a struct, or an array without its bound"""
+    n = 1
+    m = re.search(r"((?:\s*\[\d*\])+)$", t)
+    if m:
+        for b in re.findall(r"\[(\d*)\]", m.group(1)):
+            if not b:
+                return None
+            n *= int(b)
+        t = t[:m.start()].strip()
+    if t.endswith("*") or t.endswith("*32"):
+        return n * (4 if t.endswith("*32") else 8)
+    t = re.sub(r"\b(?:const|volatile)\b", "", t).strip()
+    t = re.sub(r"\s+", " ", t)
+    return n * SIZES[t] if t in SIZES else None
 
 
 def unbound(t):
@@ -205,6 +234,12 @@ def check(build, version, jobs):
                 c = {category(d[1]) for d in ds if "/gen/data_c/" not in "/" + d[2]}
                 if "other" in data and c & {"ptr", "ptr32"}:
                     cls = "asm"
+            if cls == "type" and kinds == {"var"}:
+                defs = {size_of(d[1]) for d in ds if d[4] == "def"}
+                decls_ = {size_of(d[1]) for d in ds if d[4] == "decl"}
+                if len(defs) == 1 and None not in defs and None not in decls_ and decls_ \
+                        and max(decls_) > next(iter(defs)):
+                    cls = "size"
         found[name] = (cls, sorted(ds, key=lambda d: (d[2], d[3])))
     # the pointer variables declared in more than one place
     multi = {}
@@ -249,7 +284,7 @@ def main():
             print(f"{v}: clang failed on {len(errors)} files:\n  " + "\n  ".join(errors[:5]))
         n = collections.Counter(c for c, _ in found.values())
         print(f"{v}: {len(found)} names declared differently: mix {n['mix']}, width {n['width']}, asm {n['asm']}, "
-              f"type {n['type']}; "
+              f"size {n['size']}, type {n['type']}; "
               f"{len(multi)} pointer variables declared in more than one file")
         if a.list:
             items = sorted(found.items()) if a.list != "multi" else []
@@ -262,7 +297,7 @@ def main():
                 for name, ds in sorted(multi.items()):
                     print(f"  multi {name}: " + "; ".join(f"{t} {f}:{line}" + ("*" if s == "def" else "")
                                                          for _, t, f, line, s, _ in ds))
-        bad = {name: cls for name, (cls, _) in found.items() if cls in ("mix", "width", "asm")}
+        bad = {name: cls for name, (cls, _) in found.items() if cls in ("mix", "width", "asm", "size")}
         for name, cls in bad.items():
             seen[name] = cls
         new = sorted(name for name, cls in bad.items() if allow.get(name) != cls)
@@ -270,7 +305,7 @@ def main():
             fails += 1
             print(f"{v}: FAIL, {len(new)} not in the allow-list: " + ", ".join(f"{bad[x]} {x}" for x in new))
         elif not a.update:
-            print(f"{v}: the {len(bad)} pointer disagreements are the allow-list's")
+            print(f"{v}: the {len(bad)} pointer and size disagreements are the allow-list's")
     if a.update:
         head = [l for l in (open(a.allow).readlines() if os.path.exists(a.allow) else []) if l.startswith("#")]
         with open(a.allow, "w") as f:
