@@ -710,7 +710,7 @@
      "name": "unk58",
      "type": "ptr",
      "count": 1,
-     "to": "void"
+     "to": "Gfx"
     },
     {
      "off": 92,
@@ -905,6 +905,31 @@
     }
    ],
    "header": "include/game/game.h"
+  },
+  "UnkStruct_8036C7A0": {
+   "size": 6,
+   "align": 2,
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 2,
+     "name": "unk2",
+     "type": "s16",
+     "count": 1
+    },
+    {
+     "off": 4,
+     "name": "unk4",
+     "type": "s16",
+     "count": 1
+    }
+   ],
+   "header": "include/game/level.h"
   },
   "UnkStruct_803643C8": {
    "size": 4160,
@@ -1574,6 +1599,92 @@
    ],
    "header": "include/game/objects.h"
   },
+  "TerrainSpan": {
+   "size": 24,
+   "align": 4,
+   "fields": [
+    {
+     "off": 0,
+     "name": "dl",
+     "type": "offset",
+     "count": 1,
+     "base": "the level file's start (LevelHeader), into the _dl file after it"
+    },
+    {
+     "off": 4,
+     "name": "dlNoTex",
+     "type": "offset",
+     "count": 1,
+     "base": "the level file's start (LevelHeader), into the _dl file after it"
+    },
+    {
+     "off": 8,
+     "name": "dlEnd",
+     "type": "offset",
+     "count": 1,
+     "base": "the level file's start (LevelHeader), into the _dl file after it"
+    },
+    {
+     "off": 12,
+     "name": "key",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 16,
+     "name": "n",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 20,
+     "name": "cells",
+     "type": "s32",
+     "count": 1
+    }
+   ],
+   "header": "include/game/level.h"
+  },
+  "TerrainGroup": {
+   "size": 20,
+   "align": 4,
+   "fields": [
+    {
+     "off": 0,
+     "name": "dl",
+     "type": "offset",
+     "count": 1,
+     "base": "the level file's start (LevelHeader), into the _dl file after it"
+    },
+    {
+     "off": 4,
+     "name": "dlNoTex",
+     "type": "offset",
+     "count": 1,
+     "base": "the level file's start (LevelHeader), into the _dl file after it"
+    },
+    {
+     "off": 8,
+     "name": "dlEnd",
+     "type": "offset",
+     "count": 1,
+     "base": "the level file's start (LevelHeader), into the _dl file after it"
+    },
+    {
+     "off": 12,
+     "name": "key",
+     "type": "s32",
+     "count": 1
+    },
+    {
+     "off": 16,
+     "name": "cell",
+     "type": "s32",
+     "count": 1
+    }
+   ],
+   "header": "include/game/level.h"
+  },
   "SynConfig": {
    "size": 36,
    "align": 4,
@@ -1607,7 +1718,7 @@
      "name": "dmaproc",
      "type": "ptr",
      "count": 1,
-     "to": "void"
+     "to": "code"
     },
     {
      "off": 20,
@@ -1993,27 +2104,6 @@
    ],
    "header": "include/2.0I/PR/libaudio.h"
   },
-  "SndInstrument": {
-   "size": 16,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u8",
-     "count": 12
-    },
-    {
-     "off": 12,
-     "name": "soundArray",
-     "type": "ptr",
-     "count": 1,
-     "to": "ALSound",
-     "rom": true
-    }
-   ],
-   "header": "include/game/audio.h"
-  },
   "SndEvent": {
    "size": 16,
    "align": 4,
@@ -2081,27 +2171,6 @@
      "name": "unk10",
      "type": "u16",
      "count": 1
-    }
-   ],
-   "header": "include/game/audio.h"
-  },
-  "SndBank": {
-   "size": 16,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u8",
-     "count": 12
-    },
-    {
-     "off": 12,
-     "name": "inst",
-     "type": "ptr",
-     "count": 1,
-     "to": "SndInstrument",
-     "rom": true
     }
    ],
    "header": "include/game/audio.h"
@@ -3358,10 +3427,10 @@
     },
     {
      "off": 24,
-     "name": "pad18",
-     "type": "bytes",
-     "count": 4,
-     "note": "padding"
+     "name": "unk18",
+     "type": "offset",
+     "count": 1,
+     "base": "Model"
     },
     {
      "off": 28,
@@ -3421,10 +3490,10 @@
     },
     {
      "off": 60,
-     "name": "pad3C",
-     "type": "bytes",
-     "count": 4,
-     "note": "padding"
+     "name": "unk3C",
+     "type": "offset",
+     "count": 1,
+     "base": "Model"
     },
     {
      "off": 64,
@@ -4533,17 +4602,79 @@
     {
      "off": 20,
      "name": "unk14",
-     "type": "s32",
-     "count": 1
+     "type": "ptr",
+     "count": 1,
+     "to": "CollisionTri"
     },
     {
      "off": 24,
      "name": "unk18",
-     "type": "s32",
-     "count": 1
+     "type": "ptr",
+     "count": 1,
+     "to": "CollisionTri"
     }
    ],
    "header": "include/game/objects.h"
+  },
+  "GroupDls": {
+   "size": 16,
+   "align": 4,
+   "fields": [
+    {
+     "off": 0,
+     "name": "dl0",
+     "type": "offset",
+     "count": 1,
+     "base": "the model's start (Model), into the _dl file after it"
+    },
+    {
+     "off": 4,
+     "name": "dl0_end",
+     "type": "offset",
+     "count": 1,
+     "base": "the model's start (Model), into the _dl file after it"
+    },
+    {
+     "off": 8,
+     "name": "dl1",
+     "type": "offset",
+     "count": 1,
+     "base": "the model's start (Model), into the _dl file after it"
+    },
+    {
+     "off": 12,
+     "name": "dl1_end",
+     "type": "offset",
+     "count": 1,
+     "base": "the model's start (Model), into the _dl file after it"
+    }
+   ],
+   "header": "include/game/model.h"
+  },
+  "GroupCond": {
+   "size": 4,
+   "align": 2,
+   "fields": [
+    {
+     "off": 0,
+     "name": "group",
+     "type": "u16",
+     "count": 1
+    },
+    {
+     "off": 2,
+     "name": "below",
+     "type": "u8",
+     "count": 1
+    },
+    {
+     "off": 3,
+     "name": "limit",
+     "type": "u8",
+     "count": 1
+    }
+   ],
+   "header": "include/game/model.h"
   },
   "FxParams": {
    "size": 264,
@@ -4637,8 +4768,8 @@
     {
      "off": 41888,
      "name": "unkA3A0",
-     "type": "u8",
-     "count": 320
+     "type": "gfx",
+     "count": 40
     },
     {
      "off": 42208,
@@ -4796,8 +4927,8 @@
     {
      "off": 15392,
      "name": "unk3C20",
-     "type": "u8",
-     "count": 3216
+     "type": "gfx",
+     "count": 402
     },
     {
      "off": 18608,
@@ -4806,6 +4937,26 @@
      "count": 14717
     }
    ],
+   "header": "include/game/frame.h"
+  },
+  "Frame": {
+   "size": 136344,
+   "align": 8,
+   "fields": [
+    {
+     "off": 0,
+     "name": "buf",
+     "type": "FrameBuf",
+     "count": 1
+    },
+    {
+     "off": 0,
+     "name": "game",
+     "type": "FrameGame",
+     "count": 1
+    }
+   ],
+   "union": true,
    "header": "include/game/frame.h"
   },
   "EepromSave": {
@@ -5012,68 +5163,33 @@
     },
     {
      "off": 72,
-     "name": "unk48",
+     "name": "falling",
      "type": "u16",
-     "count": 1
-    },
-    {
-     "off": 74,
-     "name": "pad4A",
-     "type": "bytes",
-     "count": 30,
-     "note": "padding"
+     "count": 16
     },
     {
      "off": 104,
-     "name": "unk68",
-     "type": "s16",
-     "count": 1
-    },
-    {
-     "off": 106,
-     "name": "pad6A",
-     "type": "bytes",
-     "count": 28,
-     "note": "padding"
-    },
-    {
-     "off": 134,
-     "name": "unk86",
-     "type": "s16",
-     "count": 1
+     "name": "fall_t",
+     "type": "u16",
+     "count": 16
     },
     {
      "off": 136,
-     "name": "pad88",
-     "type": "bytes",
-     "count": 30,
-     "note": "padding"
-    },
-    {
-     "off": 166,
-     "name": "unkA6",
+     "name": "spin_x",
      "type": "s16",
-     "count": 1
+     "count": 16
     },
     {
      "off": 168,
-     "name": "padA8",
-     "type": "bytes",
-     "count": 30,
-     "note": "padding"
-    },
-    {
-     "off": 198,
-     "name": "unkC6",
-     "type": "s16",
-     "count": 1
+     "name": "spin_y",
+     "type": "u16",
+     "count": 16
     },
     {
      "off": 200,
-     "name": "padC8",
-     "type": "bytes",
-     "count": 32,
-     "note": "padding"
+     "name": "spin_z",
+     "type": "u16",
+     "count": 16
     },
     {
      "off": 232,
@@ -5101,16 +5217,9 @@
     },
     {
      "off": 236,
-     "name": "unkEC",
+     "name": "damage",
      "type": "u8",
-     "count": 1
-    },
-    {
-     "off": 237,
-     "name": "padED",
-     "type": "bytes",
-     "count": 15,
-     "note": "padding"
+     "count": 16
     }
    ],
    "header": "include/game/objects.h"
@@ -6187,6 +6296,25 @@
    ],
    "header": "(tools/fieldscan.py)",
    "note": "a list walked with a pointer: the first record's fields, repeated"
+  },
+  "asm_D_8020C488": {
+   "size": 4968,
+   "align": 4,
+   "fields": [
+    {
+     "off": 0,
+     "name": "unk0",
+     "type": "u32",
+     "count": 1
+    },
+    {
+     "off": 1620,
+     "name": "unk654",
+     "type": "u32",
+     "count": 1
+    }
+   ],
+   "header": "(tools/fieldscan.py)"
   },
   "asm_D_8020CBF4_eu": {
    "size": 36,
@@ -9440,45 +9568,6 @@
    ],
    "header": "(tools/fieldscan.py)"
   },
-  "asm_D_803BE6F8": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_803BE704": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_803BE708": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
   "asm_D_803BE740": {
    "size": 64,
    "align": 4,
@@ -10972,19 +11061,6 @@
    ],
    "header": "(tools/fieldscan.py)",
    "note": "a list walked with a pointer: the first record's fields, repeated"
-  },
-  "asm_D_803EBBEC": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
   },
   "asm_D_803EBBF0": {
    "size": 4,
@@ -13632,19 +13708,6 @@
    ],
    "header": "(tools/fieldscan.py)"
   },
-  "asm_D_803F77D0": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
   "asm_D_803F77D4": {
    "size": 4,
    "align": 4,
@@ -13723,58 +13786,6 @@
    ],
    "header": "(tools/fieldscan.py)"
   },
-  "asm_D_803F7820": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_803F7824": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_803F7828": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
-  "asm_D_803F782C": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
-  },
   "asm_D_803F7830": {
    "size": 4,
    "align": 4,
@@ -13815,19 +13826,6 @@
    ],
    "header": "(tools/fieldscan.py)",
    "note": "a list walked with a pointer: the first record's fields, repeated"
-  },
-  "asm_D_803F7844": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)"
   },
   "asm_D_803F7848": {
    "size": 4,
@@ -15017,20 +15015,6 @@
    ],
    "header": "(tools/fieldscan.py)"
   },
-  "asm_D_803FB8B0": {
-   "size": 4,
-   "align": 4,
-   "fields": [
-    {
-     "off": 0,
-     "name": "unk0",
-     "type": "u32",
-     "count": 1
-    }
-   ],
-   "header": "(tools/fieldscan.py)",
-   "note": "a list walked with a pointer: the first record's fields, repeated"
-  },
   "asm_D_803FB8B8": {
    "size": 20,
    "align": 4,
@@ -15812,12 +15796,6 @@
    "declared": "yoshi.h",
    "storage": "asm/data/hd_front_end/25070.data.s"
   },
-  "D_8020C488": {
-   "type": "UnkStruct_8020C488",
-   "count": 181,
-   "declared": "yoshi.h",
-   "storage": "asm/data/hd_front_end/25070.data.s"
-  },
   "D_803BDAF0": {
    "type": "ptr",
    "count": 1,
@@ -15879,23 +15857,22 @@
    "count": 102,
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
-   "to": "void",
-   "note": "LevelHeader.terrain: one pointer per group (func_802A4464)"
+   "to": "u8",
+   "note": "LevelHeader.terrain: each group's first triangle (func_802A4464)"
   },
   "D_803BDCA8": {
    "type": "ptr",
    "count": 102,
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
-   "to": "void",
-   "note": "LevelHeader.collisionXZ: one per group (func_802A3D54)"
+   "to": "CollisionTri"
   },
   "D_803BDE40": {
    "type": "ptr",
-   "count": 101,
+   "count": 0,
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
-   "to": "void"
+   "to": "CollisionTri"
   },
   "D_803BE6E0": {
    "type": "ptr",
@@ -15935,11 +15912,20 @@
    "note": "the model table (DMA'd, func_802A2BB0)"
   },
   "D_803BE6F4": {
-   "type": "s32",
+   "type": "ptr",
    "count": 1,
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
-   "note": "func_802A1674's second argument"
+   "to": "u8",
+   "note": "func_802A1674's second argument: the Controller Pak's"
+  },
+  "D_803BE6F8": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/5CB60.bss.s",
+   "to": "void",
+   "note": "LevelHeader.vehicles: the vehicles' records, read as their start points"
   },
   "D_803BE6FC": {
    "type": "ptr",
@@ -15956,6 +15942,22 @@
    "storage": "asm/data/hd_code/5CB60.bss.s",
    "to": "LevelUnk58",
    "note": "... to LevelHeader.buildings"
+  },
+  "D_803BE704": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/5CB60.bss.s",
+   "to": "u8",
+   "note": "the level's building groups (0x18-byte records): the next one ..."
+  },
+  "D_803BE708": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/5CB60.bss.s",
+   "to": "u8",
+   "note": "... and the first"
   },
   "D_803BE70C": {
    "type": "s32",
@@ -16077,6 +16079,14 @@
    "declared": "level.h",
    "storage": "asm/data/hd_code/5CB60.bss.s",
    "note": "LevelHeader.unk1C"
+  },
+  "D_803EBBEC": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/62740.bss.s",
+   "to": "u8",
+   "note": "62740's: the end of D_803EBDB0's records"
   },
   "D_803ED390": {
    "type": "s16",
@@ -16495,11 +16505,58 @@
    "to": "Building",
    "note": "one past the last"
   },
+  "D_803F77D0": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "vehicle.h",
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "to": "UnkStruct_803ED460",
+   "note": "the player vehicle's parts"
+  },
   "D_803F7806": {
    "type": "u8",
    "count": 1,
    "declared": "objects.h",
    "storage": "asm/data/hd_code/77E20.bss.s"
+  },
+  "D_803F7820": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "to": "u8",
+   "note": "77E20's: the moving sections' matrices (segment 10), two sets"
+  },
+  "D_803F7824": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "to": "u8"
+  },
+  "D_803F7828": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "to": "void",
+   "note": "... their triangles (0x28 bytes each) ..."
+  },
+  "D_803F782C": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "level.h",
+   "storage": "asm/data/hd_code/77E20.bss.s",
+   "to": "void",
+   "note": "... to here"
+  },
+  "D_803F7844": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "vehicle.h",
+   "storage": "asm/data/hd_code/7F8B0.bss.s",
+   "to": "SndState",
+   "note": "its engine (rolling) sound: a sound handle (func_80260650)"
   },
   "D_803F7850": {
    "type": "UnkStruct_803ED460",
@@ -16603,6 +16660,13 @@
    "declared": "vehicle.h",
    "storage": "asm/data/hd_code/88160.bss.s",
    "note": "ATEAM"
+  },
+  "D_803FB8B0": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "objects.h",
+   "storage": "asm/data/hd_code/8A080.bss.s",
+   "to": "CollisionTri"
   },
   "D_803FC200": {
    "type": "UnkStruct_803ED460",
@@ -16802,13 +16866,6 @@
    "type": "bytes",
    "count": 16,
    "declared": "src/hd_front_end/C450.c",
-   "placeholder": true,
-   "note": "memory the C doesn't name (tools/bss_c.py filler)"
-  },
-  "D_80218430": {
-   "type": "bytes",
-   "count": 768,
-   "declared": "src/hd_front_end/DE70.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
   },
@@ -17133,6 +17190,13 @@
    "declared": "src/hd_code/1D990.c",
    "placeholder": true,
    "note": "memory the C doesn't name (tools/bss_c.py filler)"
+  },
+  "D_80367BDC": {
+   "type": "ptr",
+   "count": 1,
+   "declared": "src/hd_code/1D990.c",
+   "placeholder": true,
+   "note": "declared u8 *[1]: only its first element is named; see the uses for the real count"
   },
   "D_80368050": {
    "type": "bytes",
@@ -19559,6 +19623,12 @@
    "storage": "asm/data/hd_front_end/25070.data.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
+  "D_8020C488": {
+   "type": "asm_D_8020C488",
+   "count": 1,
+   "storage": "asm/data/hd_front_end/25070.data.s",
+   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
+  },
   "D_8020CBF4_eu": {
    "type": "asm_D_8020CBF4_eu",
    "count": 1,
@@ -20519,24 +20589,6 @@
    "storage": "asm/data/hd_code/5CB60.bss.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
-  "D_803BE6F8": {
-   "type": "asm_D_803BE6F8",
-   "count": 1,
-   "storage": "asm/data/hd_code/5CB60.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803BE704": {
-   "type": "asm_D_803BE704",
-   "count": 1,
-   "storage": "asm/data/hd_code/5CB60.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803BE708": {
-   "type": "asm_D_803BE708",
-   "count": 1,
-   "storage": "asm/data/hd_code/5CB60.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
   "D_803BE73A": {
    "type": "bytes",
    "count": 6,
@@ -20768,12 +20820,6 @@
   "D_803EBBD8": {
    "type": "asm_D_803EBBD8",
    "count": 5,
-   "storage": "asm/data/hd_code/62740.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803EBBEC": {
-   "type": "asm_D_803EBBEC",
-   "count": 1,
    "storage": "asm/data/hd_code/62740.bss.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
@@ -21923,12 +21969,6 @@
    "storage": "asm/data/hd_code/77E20.bss.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
-  "D_803F77D0": {
-   "type": "asm_D_803F77D0",
-   "count": 1,
-   "storage": "asm/data/hd_code/77E20.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
   "D_803F77D4": {
    "type": "asm_D_803F77D4",
    "count": 1,
@@ -22085,30 +22125,6 @@
    "storage": "asm/data/hd_code/77E20.bss.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py): bytes only"
   },
-  "D_803F7820": {
-   "type": "asm_D_803F7820",
-   "count": 1,
-   "storage": "asm/data/hd_code/77E20.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803F7824": {
-   "type": "asm_D_803F7824",
-   "count": 1,
-   "storage": "asm/data/hd_code/77E20.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803F7828": {
-   "type": "asm_D_803F7828",
-   "count": 1,
-   "storage": "asm/data/hd_code/77E20.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803F782C": {
-   "type": "asm_D_803F782C",
-   "count": 1,
-   "storage": "asm/data/hd_code/77E20.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
   "D_803F7830": {
    "type": "asm_D_803F7830",
    "count": 1,
@@ -22124,12 +22140,6 @@
   "D_803F7840": {
    "type": "asm_D_803F7840",
    "count": 2,
-   "storage": "asm/data/hd_code/7F8B0.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803F7844": {
-   "type": "asm_D_803F7844",
-   "count": 1,
    "storage": "asm/data/hd_code/7F8B0.bss.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
@@ -22802,12 +22812,6 @@
   "D_803F9330": {
    "type": "asm_D_803F9330",
    "count": 100,
-   "storage": "asm/data/hd_code/8A080.bss.s",
-   "derived": "the handwritten code's accesses (tools/fieldscan.py)"
-  },
-  "D_803FB8B0": {
-   "type": "asm_D_803FB8B0",
-   "count": 2,
    "storage": "asm/data/hd_code/8A080.bss.s",
    "derived": "the handwritten code's accesses (tools/fieldscan.py)"
   },
@@ -31903,6 +31907,68 @@
     8,
     48,
     235
+   ]
+  },
+  "Frame": {
+   "func_802A4DE8": [
+    42208,
+    42212
+   ],
+   "func_802BD1F8": [
+    42368,
+    42372,
+    42376,
+    42380,
+    43288,
+    43292,
+    43296,
+    43300,
+    44208,
+    44212,
+    112208,
+    112212
+   ],
+   "func_802BE228": [
+    44208,
+    44212,
+    44216,
+    44220,
+    44224,
+    44228
+   ],
+   "func_802BE3C8": [
+    112208,
+    112212,
+    112216,
+    112220,
+    112224,
+    112228
+   ],
+   "func_802C08C4": [
+    136208,
+    136212,
+    136216,
+    136220,
+    136224,
+    136228
+   ],
+   "func_802C0CBC": [
+    136312,
+    136316,
+    136320,
+    136324,
+    136328,
+    136332
+   ],
+   "func_802C12E0": [
+    42368,
+    42372,
+    42376,
+    42380,
+    43288,
+    43292,
+    43296,
+    43300
    ]
   },
   "LevelHeader": {
@@ -46652,14 +46718,16 @@
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x4"
   },
   {
    "where": "D_803156F8[0x21498]+0x8",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x8"
   },
   {
    "where": "D_803156F8[0x21498]+0x48BC",
@@ -46667,7 +46735,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x48BC"
   },
   {
    "where": "D_803156F8[0x21498]+0x48C4",
@@ -46675,7 +46744,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x48C4"
   },
   {
    "where": "D_803156F8[0x21498]+0x48CC",
@@ -46683,7 +46753,8 @@
    "evidence": [
     "seg",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x48CC"
   },
   {
    "where": "D_803156F8[0x21498]+0x48D4",
@@ -46691,14 +46762,16 @@
    "evidence": [
     "seg",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x48D4"
   },
   {
    "where": "D_803156F8[0x21498]+0x490C",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x490C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4914",
@@ -46706,14 +46779,16 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4914"
   },
   {
    "where": "D_803156F8[0x21498]+0x491C",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x491C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4924",
@@ -46721,7 +46796,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4924"
   },
   {
    "where": "D_803156F8[0x21498]+0x492C",
@@ -46729,28 +46805,32 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x492C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4934",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x4934"
   },
   {
    "where": "D_803156F8[0x21498]+0x493C",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x493C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4944",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x4944"
   },
   {
    "where": "D_803156F8[0x21498]+0x494C",
@@ -46758,7 +46838,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x494C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4954",
@@ -46766,7 +46847,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4954"
   },
   {
    "where": "D_803156F8[0x21498]+0x495C",
@@ -46774,7 +46856,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x495C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4964",
@@ -46782,7 +46865,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4964"
   },
   {
    "where": "D_803156F8[0x21498]+0x496C",
@@ -46790,7 +46874,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x496C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4974",
@@ -46798,14 +46883,16 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4974"
   },
   {
    "where": "D_803156F8[0x21498]+0x497C",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0x497C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4984",
@@ -46813,7 +46900,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4984"
   },
   {
    "where": "D_803156F8[0x21498]+0x498C",
@@ -46821,7 +46909,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x498C"
   },
   {
    "where": "D_803156F8[0x21498]+0x4994",
@@ -46829,7 +46918,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x4994"
   },
   {
    "where": "D_803156F8[0x21498]+0x499C",
@@ -46837,7 +46927,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x499C"
   },
   {
    "where": "D_803156F8[0x21498]+0x49A4",
@@ -46845,7 +46936,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x49A4"
   },
   {
    "where": "D_803156F8[0x21498]+0x49AC",
@@ -46853,7 +46945,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x49AC"
   },
   {
    "where": "D_803156F8[0x21498]+0x49B4",
@@ -46861,7 +46954,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x49B4"
   },
   {
    "where": "D_803156F8[0x21498]+0x49BC",
@@ -46869,7 +46963,8 @@
    "evidence": [
     "ptr",
     "dump:ptr"
-   ]
+   ],
+   "field": "Frame+0x49BC"
   },
   {
    "where": "D_803156F8[0x21498]+0x49C4",
@@ -46877,7 +46972,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x49C4"
   },
   {
    "where": "D_803156F8[0x21498]+0x49CC",
@@ -46885,7 +46981,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x49CC"
   },
   {
    "where": "D_803156F8[0x21498]+0x49D4",
@@ -46893,7 +46990,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0x49D4"
   },
   {
    "where": "D_803156F8[0x21498]+0x49DC",
@@ -46901,7 +46999,8 @@
    "evidence": [
     "ptr",
     "dump:ptr"
-   ]
+   ],
+   "field": "Frame+0x49DC"
   },
   {
    "where": "D_803156F8[0x21498]+0xA584",
@@ -46909,7 +47008,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xA584"
   },
   {
    "where": "D_803156F8[0x21498]+0xA91C",
@@ -46917,7 +47017,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xA91C"
   },
   {
    "where": "D_803156F8[0x21498]+0xACB4",
@@ -46925,7 +47026,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xACB4"
   },
   {
    "where": "D_803156F8[0x21498]+0xACBC",
@@ -46933,7 +47035,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xACBC"
   },
   {
    "where": "D_803156F8[0x21498]+0xACC4",
@@ -46941,14 +47044,16 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xACC4"
   },
   {
    "where": "D_803156F8[0x21498]+0xACCC",
    "kind": "ptr",
    "evidence": [
     "ptr"
-   ]
+   ],
+   "field": "Frame+0xACCC"
   },
   {
    "where": "D_803156F8[0x21498]+0xACD4",
@@ -46956,7 +47061,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xACD4"
   },
   {
    "where": "D_803156F8[0x21498]+0xACDC",
@@ -46964,7 +47070,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xACDC"
   },
   {
    "where": "D_803156F8[0x21498]+0xACF4",
@@ -46972,7 +47079,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xACF4"
   },
   {
    "where": "D_803156F8[0x21498]+0xAD1C",
@@ -46980,7 +47088,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xAD1C"
   },
   {
    "where": "D_803156F8[0x21498]+0xAD24",
@@ -46988,7 +47097,8 @@
    "evidence": [
     "ptr",
     "dump:int"
-   ]
+   ],
+   "field": "Frame+0xAD24"
   },
   {
    "where": "D_80358030+0x0",
