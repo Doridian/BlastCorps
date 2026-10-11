@@ -524,10 +524,14 @@ static void tri_grid(LevelHeader *h, u8 *base, CollisionTri **table) {
         *table++ = t;
         end = base + UNALIGNED_W(p);
         for (p += 4; p != end; p += sizeof(LevelCollisionTri)) {
-            LevelCollisionTri *f = (LevelCollisionTri *)p;
+            /* (the file's triangles are at any byte: the list's start is the
+               section's plus a 4-byte offset, and the section is the file's,
+               so a LevelCollisionTri * to one is misaligned: bytes) */
+            u8 f14 = p[0x14];
+            u8 f15 = p[0x15];
 
-            t = func_802A41B0(t, p, cells, f->unk14, 0, 0, 0, (u32)(uintptr_t)end, 0);
-            t[-1].unk59 = f->unk15;
+            t = func_802A41B0(t, p, cells, f14, 0, 0, 0, (u32)(uintptr_t)end, 0);
+            t[-1].unk59 = f15;
         }
     } while (--cells != 0);
     *table = t;
