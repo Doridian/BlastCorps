@@ -398,7 +398,10 @@ static inline void mem_w32_(uint8_t *rdram, uint32_t a, uint32_t v) { v = recomp
 static inline uint8_t  mem_r8 (uint8_t *rdram, uint32_t a) { uint8_t v = *HOST(a); RECOMP_ACC(a, 1, v); return v; }
 static inline uint16_t mem_r16(uint8_t *rdram, uint32_t a) { uint16_t v; memcpy(&v, HOST(a), 2); RECOMP_ACC(a, 2, v); return recomp_be16(v); }
 static inline uint32_t mem_r32(uint8_t *rdram, uint32_t a) { uint32_t v; memcpy(&v, HOST(a), 4); RECOMP_ACC(a, 4, v); return recomp_be32(v); }
-/* doublewords are two words, high word first, in either memory mode */
+/* doublewords are two words, high word first, in either memory mode.  In the
+   native-endian mode that is not a host-order u64 (the port's native-endian
+   builds keep one so), but nothing builds that mode: the check build, the
+   only user of this runtime, is big-endian. */
 static inline uint64_t mem_r64(uint8_t *rdram, uint32_t a) {
 #ifdef RECOMP_ACCESS
     { uint64_t raw; memcpy(&raw, HOST(a), 8); RECOMP_ACC(a, 8, raw); }
