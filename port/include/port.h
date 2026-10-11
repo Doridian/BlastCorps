@@ -38,6 +38,11 @@ extern "C" {
 
 /* ---- memory ------------------------------------------------------------ */
 
+/* The plain build (PORT_PLAIN) has none of the fixed map below: game
+   memory is ordinary variables and buffers (src/regions.c), the fibers'
+   stacks come from the host's allocator, and no N64 address is an address
+   (port_ptr isn't there: a host read through one fails to build). */
+#ifndef PORT_PLAIN
 /* RDRAM: the N64's 4 MB, mapped at its KSEG0 address.  The port's own
    image is linked right above it (0x80400000), so every address the game
    sees, whether a fixed RDRAM buffer or one of its variables, is a KSEG0
@@ -55,17 +60,17 @@ extern "C" {
 #else
 #define PORT_STACK_BASE 0x90000000u
 #endif
-#define PORT_STACK_SIZE 0x00100000u
-#define PORT_MAX_THREADS 16
-/* thread idx's host stack (runtime.c): at PORT_STACK_BASE, which in the
-   movable build is in the arena */
-void *host_thread_stack(int idx, uint32_t *size);
-
 static inline void *port_ptr(uint32_t addr) {
     if (addr - 0xA0000000u < 0x20000000u)
         addr -= 0x20000000u;        /* KSEG1 -> KSEG0 */
     return port_host(addr);
 }
+#endif
+#define PORT_STACK_SIZE 0x00100000u
+#define PORT_MAX_THREADS 16
+/* thread idx's host stack (runtime.c): at PORT_STACK_BASE, which in the
+   movable build is in the arena; the plain build's allocated */
+void *host_thread_stack(int idx, uint32_t *size);
 /* a function value of the N64 side's, as the host calls it: in the movable
    build it is the function's N64 address (bepass/Arena.cpp), found by
    port_fn (port/host/runtime.c).  The N64 side's function pointers are
@@ -202,7 +207,11 @@ static inline void port_wg64(void *p, uint64_t v) {
    pad with port_wbe16 (main.c, video.c): in the native-endian build
    those files map them here, which reads RDRAM at its own width and
    anything else (the ROM file) big-endian as before. */
-#ifdef PORT_NATIVE_ENDIAN
+#ifdef PORT_PLAIN
+/* (what is read through these is game memory, in host order) */
+#define port_var32 port_g32
+#define port_var16 port_g16
+#elif defined(PORT_NATIVE_ENDIAN)
 /* game memory: RDRAM and the image's data after it, where the LP64 build
    puts the variables that outgrew their N64 addresses (gen_ld.py); the ROM
    file comes from malloc, after _end */

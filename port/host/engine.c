@@ -341,7 +341,9 @@ void engine_leave64(unsigned int reg, uint32_t lo, uint32_t hi) {
 }
 
 /* engine.h's engine_frame and its stores: the original's stack frame, in
-   RDRAM as the translated code's addiu, sd, sdc1 and sw leave it */
+   RDRAM as the translated code's addiu, sd, sdc1 and sw leave it (not in
+   the plain build, which has no RDRAM; nothing calls them) */
+#ifndef PORT_PLAIN
 uint32_t engine_frame(int32_t n) {
     recomp_context *ctx = port_ctx();
 #ifdef PORT_ENGINE_TAINT
@@ -434,6 +436,7 @@ void engine_frame_s(void) {
     t_over = 0;
 #endif
 }
+#endif
 
 /* engine.h's ENGINE_REG: what the context holds, in the same numbering */
 uint32_t engine_reg(unsigned int reg) {

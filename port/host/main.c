@@ -105,7 +105,7 @@ void host_fatal(const char *fmt, ...) {
    malloc goes to mmap instead.) */
 static char **main_argv;
 
-#ifndef PORT_MOVABLE
+#if !defined(PORT_MOVABLE) && !defined(PORT_PLAIN)
 static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
 #ifdef MAP_FIXED_NOREPLACE
     void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
@@ -919,7 +919,7 @@ int main(int argc, char **argv) {
     sigaltstack(&ss, NULL);
 #endif
     /* RDRAM itself is the image's .rdram section (tools/gen_ld.py) */
-#ifndef PORT_MOVABLE      /* (the movable build maps nothing fixed: the stacks are in the arena, runtime.c) */
+#if !defined(PORT_MOVABLE) && !defined(PORT_PLAIN)  /* (the movable build maps nothing fixed: the stacks are in the arena, runtime.c; nor does the plain one) */
     map_fixed(PORT_HWREG_BASE, PORT_HWREG_SIZE, "hardware registers");
     map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");
 #endif
