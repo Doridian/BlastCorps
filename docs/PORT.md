@@ -1336,9 +1336,10 @@ animation's index.
 - Where retyping a matched function's parameter would move IDO's output,
   it keeps its `s32` and the call casts.
   `func_80257490` (00000.c) is called with a pointer's address cast to
-  `s32 *`; the port's own body rounds the pointer itself (`TARGET_PC`),
-  with the N64's result (its signed `%` of a KSEG0 address takes an
-  unaligned one a step past the next multiple), at any width and order.
+  `s32 *`; the port's own body rounds the pointer itself up
+  (`TARGET_PC`), at any width and order (the N64's signed `%` of a KSEG0
+  address would take an unaligned one a step past the next multiple; no
+  call in the quick tier or the TAS passes one).
 - `asm2c.py` types the asm data's pointers as the C declares them:
   `POINTERS` (the words the C has as pointers, tables to a sentinel
   included), `TYPES` and `LABEL_TYPES` (the engine's structures for the
