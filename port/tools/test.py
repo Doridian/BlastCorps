@@ -260,12 +260,16 @@ class Build:
         self.lp64, self.native, self.bits64, self.movable = (
             on("PORT_LP64"), on("PORT_NATIVE_ENDIAN"), on("PORT_64BIT"), on("PORT_MOVABLE"))
         self.rom_data = on("PORT_ROM_DATA")
+        # the plain build (P10): ordinary C, no plugin, no fixed addresses
+        self.plain = on("PORT_PLAIN")
         self.engine_check = on("PORT_ENGINE_CHECK")
         self.gl = cache.get("EPOXY_FOUND", "") == "1"
         self.threads = cache.get("PORT_THREADS", "ucontext")
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
         self.variant = ("m" if self.movable else "") + (
             "lp64" if self.lp64 else ("n" if self.native else "") + ("64" if self.bits64 else "32"))
+        if self.plain:
+            self.variant = "plain"
         if cache.get("PORT_SCATTER"):       # (the scattered layout: seed, g with the guard)
             self.variant += "-s" + cache["PORT_SCATTER"] + ("g" if on("PORT_SCATTER_GUARD") else "")
         self.node = None
@@ -574,7 +578,7 @@ def quick_run(build, jobs, scenarios):
             rom, why = pack_for(build.version, PACK_SCENARIOS[name])
             if rom is None:
                 return name, why, 0
-        if build.lp64:          # (a malformed display list or audio command is fatal: gfx.c)
+        if build.lp64 or build.plain:   # (a malformed display list or audio command is fatal: gfx.c)
             env = dict(env, PORT_GFX_STRICT="1")
         rc, t = run_port(build, os.path.join(out, name), frames, autostart, args, env,
                          shots=True, exe=exe, rom=rom)
@@ -785,15 +789,18 @@ POINTER_CHECKS = (
 
 def pointer_checks(build):
     """the LP64 build (not the movable one, which has the same sources and
-    layouts): P6's checks of the pointers, against their allow-lists
+    layouts) and the plain one: P6's checks of the pointers, against their allow-lists
     (ptr32_check.py from the DWARF, decl_check.py and ptrcast_scan.py from
     the N64 side's sources, for all four versions); the failures"""
-    if not build.lp64 or build.movable or build.wasm:
+    if not (build.lp64 or build.plain) or build.movable or build.wasm:
         return 0
     fails = 0
     for tool, args, what in POINTER_CHECKS:
         t = time.time()
         label = f"{build.name} {os.path.splitext(tool)[0]}"
+        if tool == "ptr32_check.py" and build.plain:
+            say("SKIP", label, "PTR32 is the LP64 variants' (the plain build's structures are the host's)")
+            continue
         need = "llvm-dwarfdump" if tool == "ptr32_check.py" else "ninja"
         if not shutil.which(need):
             say("SKIP", label, f"no {need}")

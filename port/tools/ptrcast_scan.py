@@ -188,7 +188,7 @@ def main():
     ap.add_argument("-j", "--jobs", type=int, default=os.cpu_count())
     a = ap.parse_args()
     if not n64_tus.is_lp64(a.build):
-        raise SystemExit(f"{a.build}: not an LP64 build (-DPORT_LP64=ON): its pointers are 4 bytes, no cast is seen")
+        raise SystemExit(f"{a.build}: not an LP64 build (-DPORT_LP64=ON) or the plain one (-DPORT_PLAIN=ON): its pointers are 4 bytes, no cast is seen")
     versions = VERSIONS if a.version == "all" else [a.version or n64_tus.build_version(a.build)]
     allow = read_allow(a.allow)
     fails = 0
