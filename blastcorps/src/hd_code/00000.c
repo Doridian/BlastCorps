@@ -5161,6 +5161,23 @@ void func_80257234(void) {
 #endif
 }
 
+#ifdef TARGET_PC
+/* Every caller passes the address of a pointer variable (the heap's top,
+   D_80358070, or a cursor into a list), which this rounds up to arg1, a
+   power of 2.  The N64 reads the pointer as an s32 and takes a signed %:
+   its addresses are KSEG0's, negative as an s32, so an unaligned one ends
+   arg1 past the next multiple (aligned ones, all the quick tier sees, stay
+   put).  The same here from the pointer itself, whatever its width and
+   byte order. */
+void func_80257490(s32 *arg0, s32 arg1) {
+    u8 **p = (u8 **)arg0;
+    s32 sp4 = (s32)((uintptr_t)*p % (u32)arg1);
+
+    if (sp4 != 0) {
+        *p += 2 * arg1 - sp4;
+    }
+}
+#else
 void func_80257490(s32 *arg0, s32 arg1) {
     s32 sp4 = *arg0 % arg1;
 
@@ -5169,6 +5186,7 @@ void func_80257490(s32 *arg0, s32 arg1) {
     }
     *arg0 += sp4;
 }
+#endif
 
 f32 func_802574F0(f32 arg0) {
     return sinf(arg0);
