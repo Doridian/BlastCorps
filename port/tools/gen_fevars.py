@@ -108,7 +108,11 @@ def main():
         o = [x for x in objs if os.path.basename(x) in (b + ".o", b + ".obj")]
         if len(o) != 1:
             sys.exit(f"gen_fevars.py: {len(o)} objects for {s}")
-        per_src.append((s, defined_data(a.nm, o[0])))
+        # (a name asm2c.py puts inside another variable, `.set NAME, VAR +
+        # OFF`, is that variable's, which is put back whole: not one of its
+        # own, and not a C declaration's size)
+        inner = set(re.findall(r"\.set ([A-Za-z_]\w*),", open(s).read()))
+        per_src.append((s, [(n, w) for n, w in defined_data(a.nm, o[0]) if n not in inner]))
 
     # an N64 variable's room, as port-arena has it (bepass/Arena.cpp): its
     # size or up to the next sized one, and never past the next variable

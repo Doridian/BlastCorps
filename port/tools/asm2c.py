@@ -1082,9 +1082,16 @@ class Gen:
         text = bool(rel) and rel.endswith(HALF_FILES)
         n = len(blob)
         vars_, pending = [], []
-        cur, cur_end = None, 0
+        cur, cur_end, declared = None, 0, False
         for k, (off, name) in enumerate(labels):
             nxt = next((o for o, _ in labels[k + 1:] if o > off), n)
+            # (a name the N64 link has inside a table the C declares whole,
+            # the inventory's count of its type, is a place in that table:
+            # eu's hd_code names D_8020C178, entry 9's text in the front
+            # end's D_8020C070, for which its file has no label)
+            if cur is not None and off < cur_end and declared and name in blob.named and not text:
+                cur.inner.append((off - cur.off, name))
+                continue
             if cur is not None and (off < cur_end or off >= n) and \
                     not (off < n and (name in blob.named or text)):
                 cur.inner.append((off - cur.off, name))
@@ -1098,10 +1105,12 @@ class Gen:
             cur.inner += [(0, p) for p in pending]
             pending = []
             cur_end = nxt
+            declared = False
             sym = inv.get(name)
             if sym and sym.get("storage") == rel and "fieldscan" not in sym.get("derived", "") and \
                     name not in GROWN:
                 cur_end = max(nxt, min(off + type_size(sym["type"]) * sym.get("count", 1), n))
+                declared = "declared" in sym
             vars_.append(cur)
         for a, b in zip(vars_, vars_[1:]):
             a.end = b.off
