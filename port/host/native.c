@@ -71,6 +71,26 @@ static void warn(const char *fmt, uint32_t a, uint32_t b) {
     }
 }
 
+#ifdef PORT_NATIVE_ENDIAN
+/* the big-endian scalar of w bytes (1, 2, 4 or 8) at p into host order, in
+   place, whatever the host's order is (the identity on a big-endian one);
+   its own inverse */
+static void be_to_host(uint8_t *p, unsigned w) {
+    uint64_t v = 0;
+    for (unsigned k = 0; k < w; k++)
+        v = v << 8 | p[k];
+    if (w == 2) {
+        uint16_t h = (uint16_t)v;
+        memcpy(p, &h, 2);
+    } else if (w == 4) {
+        uint32_t h = (uint32_t)v;
+        memcpy(p, &h, 4);
+    } else if (w == 8) {
+        memcpy(p, &v, 8);
+    }
+}
+#endif
+
 /* n bytes at offset off, in units of w bytes (8: two words, the high one
    first, as every 64-bit scalar is kept), into host order */
 static void cv(uint32_t off, uint32_t n, unsigned w) {
@@ -85,11 +105,7 @@ static void cv(uint32_t off, uint32_t n, unsigned w) {
     unsigned u = w > 4 ? 4 : w;
     if (u > 1)
         for (uint32_t k = 0; k + u <= n; k += u)
-            for (unsigned a = 0, b = u - 1; a < b; a++, b--) {
-                uint8_t t = p[k + a];
-                p[k + a] = p[k + b];
-                p[k + b] = t;
-            }
+            be_to_host(p + k, u);
 #endif
 #ifdef PORT_ACCESS_PROFILE
     port_access_conv(base_addr + off, n, w > 4 ? 4 : w);
@@ -787,11 +803,7 @@ void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused) {
         }
         if (k + w > n)
             break;
-        for (uint32_t a = 0, b = w - 1; a < b; a++, b--) {
-            uint8_t t = p[k + a];
-            p[k + a] = p[k + b];
-            p[k + b] = t;
-        }
+        be_to_host(p + k, w);
         k += w;
     }
 #else
