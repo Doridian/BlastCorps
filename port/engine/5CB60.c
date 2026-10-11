@@ -22,6 +22,7 @@
 #include "game/objects.h"
 #include "game/model.h"
 #include "collision.h"
+#include "buildings.h"
 #include "level_tables.h"
 
 /* ---- the level file's and the run-time records -------------------------- */
@@ -970,7 +971,9 @@ u8 *func_802C4108(u8 *src, u8 *dst, struct huft *heap, u8 **dst_end);
 extern OSMesgQueue D_803150A0;
 extern OSIoMesg D_80370C58;
 extern u8 D_8036EB93;
-extern u8 D_803EFED0[], D_803F0900[], D_803F1BE0[];
+extern Dust D_803EFED0[NDUST];
+extern Smoke D_803F0900[NSMOKE];
+extern FallShadow D_803F1BE0[NSHADOW];
 extern s16 D_803F767C, D_803F767E, D_803F7680;
 
 /* init's memory (where models are DMA'd before inflating) and the pool's
@@ -1104,32 +1107,27 @@ void func_802A21AC(u8 *m, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {    
     D_80358070 = (u8 *)t;
 }
 
-/* the vehicle modules' blocks that func_802A1D54 resets, by their size */
-#define EFED0_SIZE 0xA30
-#define F0900_SIZE 0x4B8
-#define F1BE0_SIZE 0x478
-
 /* func_802A1D54: the buildings (LevelHeader.buildings), after the
    destruction tables are reset and the model table is in */
 REGS(t0)
 void func_802A1D54(LevelHeader *h) {
     FileBuilding *p, *end;
-    u8 *q;
     s32 i;
 
     D_8036EB93 = 0;
     func_802A1EC8();
-    for (i = 0, q = D_803EFED0; i < 1; i++, q += EFED0_SIZE) {
-        q[0xA2A] = 0;
-        q[0xA2B] = 0;
+    /* the buildings' effects (buildings.h) put out */
+    for (i = 0; i < NDUST; i++) {
+        D_803EFED0[i].active = 0;
+        D_803EFED0[i].wait = 0;
     }
-    for (i = 0, q = D_803F0900; i < 4; i++, q += F0900_SIZE) {
-        *(s16 *)(q + 0x4B0) = 0;
-        q[0x4B2] = 0;
+    for (i = 0; i < NSMOKE; i++) {
+        D_803F0900[i].alpha = 0;
+        D_803F0900[i].wait = 0;
     }
-    for (i = 0, q = D_803F1BE0; i < 2; i++, q += F1BE0_SIZE) {
-        q[0x470] = 0;
-        q[0x472] = 0;
+    for (i = 0; i < NSHADOW; i++) {
+        D_803F1BE0[i].active = 0;
+        D_803F1BE0[i].wait = 0;
     }
     D_803F7654 = D_803F4030;
     func_802A2BB0();
