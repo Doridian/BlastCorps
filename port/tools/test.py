@@ -73,6 +73,11 @@ or emcmake on the PATH), and it must equal mn32 in every hash, the
 layout-dependent screenshots included.  guard is mn32 in the scattered
 layout with the guard on (docs/PORT.md, "The guard"): it must give the
 references' hashes too.
+The plain build's kinds (`--only plain,plain-gcc,plain-asan,plain-m32`:
+clang, gcc, clang with ASan and UBSan, i386) are built into build/test-<kind>/
+when named, and give the same references' hashes; a quick or tas run on any
+build with PORT_SANITIZE set runs it with ASAN_OPTIONS=detect_leaks=0 unless
+the environment has its own.
 
 Exit status: 0 when everything passed (known drifts included), 1 on a
 failure, 77 when nothing could run (no ROM, no log, no venv: CTest's skip).
@@ -117,6 +122,20 @@ VARIANTS = {
     # the movable 32-bit native-endian build for wasm32, under node (emsdk)
     "wasm": ["-DPORT_WASM_TARGET=node"],
 }
+# the plain build's kinds (P10): not in the default set (`variants --only plain,plain-gcc,...`);
+# the compiler and the flags come after CMAKE's, so they replace them.  Every kind
+# gives the same hashes (the references': they don't depend on the layout).
+PLAIN = ["-DPORT_PLAIN=ON"]
+VARIANTS_PLAIN = {
+    "plain": PLAIN,
+    "plain-gcc": PLAIN + ["-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++", "-DCMAKE_ASM_COMPILER=gcc"],
+    "plain-asan": PLAIN + ["-DPORT_SANITIZE=address,undefined"],
+    # i386, SSE arithmetic (the build adds -msse2 -mfpmath=sse -malign-double itself); its SDL is
+    # the multilib one's (/usr/lib32), which pkg-config is pointed at
+    "plain-m32": PLAIN + ["-DCMAKE_C_FLAGS=-m32", "-DCMAKE_CXX_FLAGS=-m32", "-DCMAKE_ASM_FLAGS=-m32"],
+}
+# (the environment of a kind's configure)
+PLAIN_ENV = {"plain-m32": {"PKG_CONFIG_LIBDIR": "/usr/lib32/pkgconfig:/usr/share/pkgconfig"}}
 # builds whose layouts are the same, so that they must be identical in
 # every hash, the layout-dependent screenshots included (docs/PORT.md,
 # "WebAssembly": the escaping locals' frames are port-arena's)
@@ -268,8 +287,19 @@ class Build:
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
         self.variant = ("m" if self.movable else "") + (
             "lp64" if self.lp64 else ("n" if self.native else "") + ("64" if self.bits64 else "32"))
+        # (the plain build's kinds, in the same variant: the references are
+        # the same, whatever the compiler, the sanitizers or the pointer size)
+        self.sanitize = cache.get("PORT_SANITIZE", "")
+        self.kind = self.variant
         if self.plain:
             self.variant = "plain"
+            self.kind = "plain"
+            if "gcc" in os.path.basename(cache.get("CMAKE_C_COMPILER", "")) and "clang" not in cache.get("CMAKE_C_COMPILER", ""):
+                self.kind += "-gcc"
+            if self.sanitize:
+                self.kind += "-asan" if "address" in self.sanitize else "-san"
+            if "-m32" in cache.get("CMAKE_C_FLAGS", ""):
+                self.kind += "-m32"
         if cache.get("PORT_SCATTER"):       # (the scattered layout: seed, g with the guard)
             self.variant += "-s" + cache["PORT_SCATTER"] + ("g" if on("PORT_SCATTER_GUARD") else "")
         self.node = None
@@ -278,6 +308,18 @@ class Build:
             self.exe = os.path.join(self.path, "blastcorps.js")
             self.node = cache.get("CMAKE_CROSSCOMPILING_EMULATOR") or shutil.which("node")
         self.name = os.path.relpath(self.path, ROOT) if self.path.startswith(ROOT) else self.path
+
+    def sanitizer_env(self):
+        """a sanitized build's options, unless the environment has its own: no leak report
+        (the one leak is in the system's SDL, 256 bytes under any driver, in a library
+        this build doesn't have the symbols of), UBSan's stacks"""
+        if not self.sanitize:
+            return {}
+        e = {}
+        for k, v in (("ASAN_OPTIONS", "detect_leaks=0"), ("UBSAN_OPTIONS", "print_stacktrace=1")):
+            if k not in os.environ:
+                e[k] = v
+        return e
 
     def rom(self):
         return os.path.join(ROOT, f"baserom.{self.version}.z64")
@@ -311,6 +353,7 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
     for k in list(e):
         if k.startswith("PORT_"):
             del e[k]
+    e.update(build.sanitizer_env())
     e.update(PORT_AUTOSTART=autostart, SDL_VIDEODRIVER="offscreen",
              SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST)
     if shots:
@@ -609,7 +652,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
     """one build's quick tier; returns the number of failures (None: skipped).
     gameplay: the gameplay digest decides, the references' hashes are only
     reported (for a change meant to keep the game and change its timing)"""
-    emit(f"== quick: {build.name} ({build.version}, {build.variant}"
+    emit(f"== quick: {build.name} ({build.version}, {build.kind}"
          f"{', no OpenGL' if not build.gl else ''})")
     if not os.path.exists(build.rom()):
         say("SKIP", build.name, f"no {os.path.basename(build.rom())} in the repo's root")
@@ -854,6 +897,7 @@ def tas_one(build, polls, again=False, pack=None, timing="free"):
     os.makedirs(out)
     exe = build.copy_exe(out)
     e = {k: v for k, v in os.environ.items() if not k.startswith("PORT_")}
+    e.update(build.sanitizer_env())
     e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST, PORT_REPLAY_TIMING=timing)
     t = time.time()
     with open(os.path.join(out, "log.txt"), "w") as log:
@@ -1045,6 +1089,7 @@ def variants(args, refs):
     except OSError:
         extracted = None
     names = args.only.split(",") if args.only else list(VARIANTS)
+    allv = dict(VARIANTS, **VARIANTS_PLAIN)
     builds = []
     t0 = time.time()
     emcmake = emsdk_cmake(args.emsdk)
@@ -1064,7 +1109,8 @@ def variants(args, refs):
             with open(log, "w") as f:
                 start, flags = (emcmake, ["-G", "Ninja"]) if n == "wasm" else (["cmake"], CMAKE)
                 rc = subprocess.call(start + ["-S", os.path.join(ROOT, "port"), "-B", d] + flags
-                                     + [f"-DPORT_VERSION={version}"] + VARIANTS[n],
+                                     + [f"-DPORT_VERSION={version}"] + allv[n],
+                                     env=dict(os.environ, **PLAIN_ENV.get(n, {})),
                                      stdout=f, stderr=subprocess.STDOUT)
                 rc = rc or subprocess.call(["cmake", "--build", d], stdout=f, stderr=subprocess.STDOUT)
             if rc:
@@ -1219,7 +1265,8 @@ def main():
     d.add_argument("builds", nargs="+")
     v = sub.add_parser("variants")
     v.add_argument("--version", default="us.v10")
-    v.add_argument("--only", help="comma-separated variant names (" + ", ".join(VARIANTS) + ")")
+    v.add_argument("--only", help="comma-separated variant names (" + ", ".join(VARIANTS)
+                   + "; the plain build's kinds, not in the default set: " + ", ".join(VARIANTS_PLAIN) + ")")
     v.add_argument("--no-build", action="store_true", help="use build/test-* as they are")
     v.add_argument("--tas", action="store_true", help="and the TAS on each")
     v.add_argument("--tas-pack", action="store_true", help="with --tas: from the resource pack, not the ROM")
