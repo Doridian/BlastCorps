@@ -296,6 +296,12 @@ LABEL_TYPES = {
     # reads them as doublewords): commands, as the engine reads them
     "D_802F46C0": ("Gfx", 24),
     "D_802F4780": ("Gfx", 6),
+    # 60F60's effect sprites' display lists, two passes of two frames
+    # (func_802A64A4): 0xC00 bytes of commands each on the N64
+    "D_803C5770": ("Gfx", 0x180),
+    "D_803C6370": ("Gfx", 0x180),
+    "D_803C6F70": ("Gfx", 0x180),
+    "D_803C7B70": ("Gfx", 0x180),
     # the engine's types for the inventory's words (TYPES)
     "D_803F3910": ("HitPair", 128),
     "D_803F3968": ("bytes", 30 * 0x38),
