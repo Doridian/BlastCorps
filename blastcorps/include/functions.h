@@ -812,4 +812,15 @@ void func_802D97E0(ALCSPlayer *, ALBank *);
 /* hd_code 9FE20.c (src/libultra/audio/reverb.c) */
 s32 func_802E4C78(void *, s32, void *);
 
+#if defined(TARGET_PC) && defined(PORT_PLAIN)
+/* The port's plain build: --replay answers what the game asks of the audio
+   thread by the calling function (port/src/replay_hooks.c), which it names
+   itself (the other builds wrap the two at link time and go by the return
+   address). */
+s32 port_hook_802D4E10(ALCSPlayer *, const char *);
+void port_hook_alCSeqGetLoc(ALCSeq *, ALCSeqMarker *, const char *);
+#define func_802D4E10(p) port_hook_802D4E10((p), __func__)
+#define alCSeqGetLoc(s, m) port_hook_alCSeqGetLoc((s), (m), __func__)
+#endif
+
 #endif

@@ -427,6 +427,8 @@ uint32_t port_vi_sent(void);        /* port/src: retrace messages sent */
    kind 0 the sequence player's state, 1 the sequence's lastTicks; `caller`
    the return address into the game */
 int32_t host_replay_audio(int kind, int32_t real, uint64_t caller);
+/* the same, the caller by its name (the plain build's: replay_hooks.c) */
+int32_t host_replay_audio_named(int kind, int32_t real, const char *caller);
 /* whether the pak/EEPROM thread may go on with the command it took (`sync`:
    the game waits for its reply) */
 int host_replay_save_due(int sync);

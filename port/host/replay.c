@@ -41,7 +41,8 @@
  * (logged with the mode at each change), the log's reads skipped, the
  * retraces given anyway, and in the end the save (port/tools/tas_check.py).
  */
-#ifdef __linux__
+#if defined(PORT_MOVABLE) || defined(PORT_PLAIN)
+#elif defined(__linux__)
 #include <elf.h>
 #else
 #include <dlfcn.h>
@@ -545,8 +546,9 @@ unsigned int port_counter(int timer, const char *func) {
    address.  Elsewhere dladdr, which sees the exported symbols only (on
    macOS every global of the executable); WebAssembly has no return
    addresses to go by (docs/PORT.md, "Threads without ucontext").  The
-   movable build is told the names instead (port_replay_set_caller). */
-#ifdef PORT_MOVABLE
+   movable build is told the names instead (port_replay_set_caller), and
+   the plain build's hooks pass them (host_replay_audio_named). */
+#if defined(PORT_MOVABLE) || defined(PORT_PLAIN)
 #elif defined(__linux__)
 typedef struct { uint64_t addr, size; const char *name; } HostFunc;
 static HostFunc *hfuncs;
@@ -631,15 +633,9 @@ static const char *host_func_name(uint64_t addr) {
 static const char *set_caller;
 void port_replay_set_caller(const char *name) { set_caller = name; }
 
-int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
+int32_t host_replay_audio_named(int kind, int32_t real, const char *name) {
     if (!audio || !cur_read || free_audio)
         return real;
-#ifdef PORT_MOVABLE
-    const char *name = set_caller ? set_caller : "?";
-    (void)caller;
-#else
-    const char *name = host_func_name(caller);
-#endif
     int id = func_named(name);
     unsigned k, n = 0;
     for (k = 0; k < nframe_audio && !(frame_audio[k].func == id && frame_audio[k].kind == kind); k++)
@@ -669,6 +665,20 @@ int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
                  name, kind ? "sequence's lastTicks" : "player's state");
     return real;
 }
+
+#ifndef PORT_PLAIN
+int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
+    if (!audio || !cur_read || free_audio)
+        return real;
+#ifdef PORT_MOVABLE
+    const char *name = set_caller ? set_caller : "?";
+    (void)caller;
+#else
+    const char *name = host_func_name(caller);
+#endif
+    return host_replay_audio_named(kind, real, name);
+}
+#endif
 
 /* 45BB0.c: whether this frame reads the pad.  The game skips the read while
    the save thread has the SI (D_8039C4B0), which is that thread's timing;

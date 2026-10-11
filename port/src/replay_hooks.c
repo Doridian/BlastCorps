@@ -7,6 +7,11 @@
  * of the results screens (17E10.c, 00000.c) wait on them.  The link wraps
  * both (CMakeLists.txt) so that --replay can give the game the movie's
  * answers (port/host/replay.c); otherwise they are the real ones.
+ *
+ * The plain build has no --wrap and no return addresses to name the caller
+ * by (not every host has a symbol table to look them up in): functions.h
+ * makes the game's calls calls of port_hook_802D4E10 and
+ * port_hook_alCSeqGetLoc, with the calling function's name (__func__).
  */
 #include "common.h"
 #include "functions.h"
@@ -15,6 +20,20 @@
 
 s32 __real_func_802D4E10(ALCSPlayer *seqp);
 void __real_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m);
+#ifdef PORT_PLAIN
+/* (the real ones, not functions.h's hooks) */
+#undef func_802D4E10
+#undef alCSeqGetLoc
+
+s32 port_hook_802D4E10(ALCSPlayer *seqp, const char *caller) {
+    return host_replay_audio_named(0, func_802D4E10(seqp), caller);
+}
+
+void port_hook_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m, const char *caller) {
+    alCSeqGetLoc(seq, m);
+    m->lastTicks = host_replay_audio_named(1, m->lastTicks, caller);
+}
+#else
 #ifdef PORT_AUDIO_RECORD
 /* (through the libaudio oracle's recorder, audio_record.c) */
 s32 rec_func_802D4E10(ALCSPlayer *seqp);
@@ -41,6 +60,7 @@ void __wrap_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m) {
     __real_alCSeqGetLoc(seq, m);
     m->lastTicks = host_replay_audio(1, m->lastTicks, CALLER);
 }
+#endif
 
 /* The pak/EEPROM thread, having taken a command: it changes the save record
    the game plays on, so with --replay it waits for the frame the movie's
