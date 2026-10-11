@@ -9,8 +9,10 @@
 #include <PR/ultratypes.h>
 #include <PR/sptask.h>
 
+#ifndef MAX
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
 
 #define M_PI 3.14159265358979323846
 #define M_DTOR (3.14159265358979323846 / 180.0)

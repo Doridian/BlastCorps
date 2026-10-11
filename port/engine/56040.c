@@ -2114,7 +2114,7 @@ static u8 *anim_frame(Anim *a, AnimPart *rec, u8 *out) {
 
 /* anim_frame() with the mode checked: one that is neither keys nor a
    spline stops the game, as the original's syscall at `bad` does */
-#define ANIM_FRAME(a, rec, out, bad)                                                                           \
+#define ANIM_FRAME_CHECKED(a, rec, out, bad)                                                                           \
     do {                                                                                                     \
         if ((a)->interp != ANIM_KEYS && (a)->interp != ANIM_SPLINE)                                          \
             engine_syscall(0x##bad);                                                                         \
@@ -2179,8 +2179,8 @@ void func_8029F9D4(s32 a, s32 b, Part *parts_) {
             ((s32 *)out)[1] = ra->rest;
             out += 8;
             n++;
-            ANIM_FRAME(pa, ra, out, 8029FB30);
-            ANIM_FRAME(pb, rb, out, 8029FB7C);
+            ANIM_FRAME_CHECKED(pa, ra, out, 8029FB30);
+            ANIM_FRAME_CHECKED(pb, rb, out, 8029FB7C);
         }
     }
     BLEND_FINISH(&parts[31], n, D_803B37C0);
@@ -2200,7 +2200,7 @@ static u8 *held_frames(Anim *p, u8 *out, s32 *n) {
         ((s32 *)out)[1] = r->rest;
         out += 8;
         (*n)++;
-        ANIM_FRAME(p, r, out, 8029FD74);
+        ANIM_FRAME_CHECKED(p, r, out, 8029FD74);
         out = (u8 *)func_8029FF2C((s16 *)out);
     }
     return out;
