@@ -467,7 +467,13 @@ Gfx *func_801F2000(void) {
                     sp40 = 1;
                 }
             }
+#ifdef TARGET_PC
+            /* sp44 is one past the match (1-6): the shift is 32-37, which
+               the N64's sllv takes mod 32, the match's own bit */
+            if (sp40 != 0 && (D_80364AF0[D_80364AE8].unk90 & (1 << ((sp44 + 0x1F) & 0x1F)))) {
+#else
             if (sp40 != 0 && (D_80364AF0[D_80364AE8].unk90 & (1 << (sp44 + 0x1F)))) {
+#endif
                 func_801FCE74(sp84, sp74, sp70 * 1.5 + 2.5, sp70 * 1.5 + 4.0, 0x20, 0x20, 2.25f, 1);
                 gSPVertex(gfx++, sp84, 4, 0);
                 gSP1Triangle(gfx++, 0, 1, 2, 0);
