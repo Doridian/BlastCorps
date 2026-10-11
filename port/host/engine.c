@@ -1,9 +1,9 @@
 /*
  * The engine's replacement, host side (docs/PORT.md, "Replacing the
- * engine"): the VR4300's float conversions as the translated code does
- * them, for the native code (port/engine/engine.h), and the check build's
- * comparison of each replaced function with its translation
- * (PORT_ENGINE_CHECK).
+ * engine"): what the native code leaves in the thread's context and its
+ * frames for the translated code (port/engine/engine.h), and the check
+ * build's comparison of each replaced function with its translation
+ * (PORT_ENGINE_CHECK).  The conversions and traps are cvt.c's.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,44 +15,7 @@
 #include "port.h"
 #include "port_recomp.h"
 
-int32_t engine_cvt_w_s(float x) { return (int32_t)recomp_f2w(recomp_rintf(x)); }
-int32_t engine_cvt_w_d(double x) { return (int32_t)recomp_f2w(recomp_rint(x)); }
-int32_t engine_trunc_w_s(float x) { return (int32_t)recomp_f2w(truncf(x)); }
-int32_t engine_trunc_w_d(double x) { return (int32_t)recomp_f2w(trunc(x)); }
-int64_t engine_cvt_l_d(double x) { return (int64_t)recomp_f2l(recomp_rint(x)); }
-int64_t engine_cvt_l_s(float x) { return (int64_t)recomp_f2l_s(recomp_rintf(x)); }
-
-/* IDO's float to unsigned int (engine.h): cvt.w.s with the FCSR set to
-   truncate, its V flag read back (recomp_cvt_w_fcsr's range) */
-static int ido_trunc_ok(float x, int32_t *v) {
-    double r = trunc((double)x);
-    if (!(r >= -2147483648.0 && r <= 2147483647.0))
-        return 0;
-    *v = (int32_t)r;
-    return 1;
-}
-
-uint32_t engine_ido_cvt_u_s(float x) {
-    int32_t v;
-    if (ido_trunc_ok(x, &v))
-        return v < 0 ? 0xFFFFFFFFu : (uint32_t)v;
-    if (ido_trunc_ok(x - 2147483648.0f, &v))
-        return (uint32_t)v | 0x80000000u;
-    return 0xFFFFFFFFu;
-}
-
 extern recomp_context *port_ctx(void);
-
-void engine_break(uint32_t pc, uint32_t code) {
-    recomp_trap(port_ctx(), RECOMP_TRAP_BREAK, pc, code);
-}
-
-
-/* engine.h's engine_trap: the original's syscall (Rare's "can't happen"),
-   which stops the game as the translation's recomp_trap does */
-void engine_trap(uint32_t pc) {
-    host_fatal("the engine trapped: syscall at %08X", pc);
-}
 
 
 #ifdef PORT_ENGINE_TAINT
@@ -352,10 +315,6 @@ void engine_restore(void) {
     save_n--;
 }
 
-void engine_syscall(uint32_t pc) {
-    recomp_trap(port_ctx(), RECOMP_TRAP_SYSCALL, pc, 0);
-}
-
 /* engine.h's ENGINE_LEAVE: 0-31 a GPR (the word sign-extended, as the
    VR4300 holds one), 34-65 an FPR word */
 void engine_leave(unsigned int reg, uint32_t value) {
@@ -474,11 +433,6 @@ void engine_frame_s(void) {
 #ifdef PORT_ENGINE_TAINT
     t_over = 0;
 #endif
-}
-
-/* engine.h's: a COP0 register, as the translated code's mfc0 reads it */
-uint32_t engine_mfc0(unsigned int reg) {
-    return (uint32_t)recomp_mfc0(port_ctx(), (int)reg);
 }
 
 /* engine.h's ENGINE_REG: what the context holds, in the same numbering */

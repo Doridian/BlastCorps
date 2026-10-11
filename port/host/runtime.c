@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "host.h"
+#include "../engine/cvt.h"
 
 /* ---- startup fixups ------------------------------------------------------ */
 
@@ -386,16 +387,13 @@ void recomp_call_external(uint8_t *rdram, recomp_context *ctx, uint32_t addr) {
     host_fatal("unhandled call out of translated code to %08X", addr);
 }
 
-/* --replay's rounding (recomp.h) */
+/* --replay's rounding for the translation (recomp.h; the engine's is
+   cvt.h's port_round_half_up, replay.c sets both) */
 int recomp_round_half_up;
 
 uint64_t recomp_mfc0(recomp_context *ctx, int reg) {
     (void)ctx;
-    if (reg == 12)          /* Status: interrupts enabled, CU1 */
-        return 0x2000FF01u;
-    if (reg == 9)           /* Count */
-        return (uint32_t)host_ticks();
-    return 0;
+    return engine_mfc0((unsigned int)reg);
 }
 
 void recomp_mtc0(recomp_context *ctx, int reg, uint64_t value) {

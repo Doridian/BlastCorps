@@ -1,10 +1,10 @@
 /*
- * recomp.h's rounding (recomp_rint, recomp_rintf: its own round-to-even
+ * port/engine/cvt.h's rounding (port_rint, port_rintf: its own round-to-even
  * and floor) against libm's nearbyint, nearbyintf and floor, bit for bit,
  * in both of its modes, over edge cases and random doubles and floats:
  *
- *   cc -O2 -m32 -msse2 -mfpmath=sse -I tools/recomp/runtime port/tools/rint_check.c -lm && ./a.out
- *   cc -O2 -I tools/recomp/runtime port/tools/rint_check.c -lm && ./a.out
+ *   cc -O2 -m32 -msse2 -mfpmath=sse -I port/engine port/tools/rint_check.c -lm && ./a.out
+ *   cc -O2 -I port/engine port/tools/rint_check.c -lm && ./a.out
  *
  * (also under emcc and node).  Exit status 1 on a difference.
  */
@@ -13,9 +13,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "recomp.h"
+#include "cvt.h"
 
-int recomp_round_half_up;
+int port_round_half_up;
 
 static uint64_t bits_d(double x) { uint64_t u; memcpy(&u, &x, 8); return u; }
 static uint32_t bits_f(float x) { uint32_t u; memcpy(&u, &x, 4); return u; }
@@ -32,30 +32,30 @@ static int same_f(float a, float b) { return (isnan(a) && isnan(b)) || bits_f(a)
 static void one_d(double x) {
     double want, got;
     n++;
-    recomp_round_half_up = 0;
-    want = nearbyint(x), got = recomp_rint(x);
+    port_round_half_up = 0;
+    want = nearbyint(x), got = port_rint(x);
     if (!same_d(want, got) && bad++ < 20)
-        printf("rint(%a): nearbyint %a, recomp %a\n", x, want, got);
-    recomp_round_half_up = 1;
-    want = floor(x + 0.5), got = recomp_rint(x);
+        printf("rint(%a): nearbyint %a, port %a\n", x, want, got);
+    port_round_half_up = 1;
+    want = floor(x + 0.5), got = port_rint(x);
     if (!same_d(want, got) && bad++ < 20)
-        printf("rint half up(%a): floor %a, recomp %a\n", x, want, got);
-    want = floor(x), got = recomp_floor(x);
+        printf("rint half up(%a): floor %a, port %a\n", x, want, got);
+    want = floor(x), got = port_floor(x);
     if (!same_d(want, got) && bad++ < 20)
-        printf("floor(%a): floor %a, recomp %a\n", x, want, got);
+        printf("floor(%a): floor %a, port %a\n", x, want, got);
 }
 
 static void one_f(float x) {
     float want, got;
     n++;
-    recomp_round_half_up = 0;
-    want = nearbyintf(x), got = recomp_rintf(x);
+    port_round_half_up = 0;
+    want = nearbyintf(x), got = port_rintf(x);
     if (!same_f(want, got) && bad++ < 20)
-        printf("rintf(%a): nearbyintf %a, recomp %a\n", (double)x, (double)want, (double)got);
-    recomp_round_half_up = 1;
-    want = (float)floor(x + 0.5), got = recomp_rintf(x);
+        printf("rintf(%a): nearbyintf %a, port %a\n", (double)x, (double)want, (double)got);
+    port_round_half_up = 1;
+    want = (float)floor(x + 0.5), got = port_rintf(x);
     if (!same_f(want, got) && bad++ < 20)
-        printf("rintf half up(%a): floor %a, recomp %a\n", (double)x, (double)want, (double)got);
+        printf("rintf half up(%a): floor %a, port %a\n", (double)x, (double)want, (double)got);
     one_d(x);
 }
 
