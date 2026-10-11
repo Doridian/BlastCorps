@@ -84,12 +84,11 @@ typedef u32 DlAddr;
 
 /* A compile-time check that a struct has its N64 size. */
 #define SIZE_CHECK(type, size) typedef char type##_size_check[(sizeof(type) == (size)) ? 1 : -1]
-/* The same for a struct only the C uses, with its own pointers: the LP64
-   port lays it out as the host does (docs/PORT.md, "The LP64 build"). */
-#ifdef PORT_LP64
-#define SIZE_CHECK_C(type, size) typedef char type##_size_check
-#else
-#define SIZE_CHECK_C(type, size) SIZE_CHECK(type, size)
-#endif
+/* The same for a struct only the C uses, with its own pointers: where
+   pointers are wider than the N64's 4 bytes the port lays it out as the
+   host does (docs/PORT.md, "The LP64 build"), so it is checked only where
+   they are 4. */
+#define SIZE_CHECK_C(type, size) \
+    typedef char type##_size_check[(sizeof(void *) != 4 || sizeof(type) == (size)) ? 1 : -1]
 
 #endif
