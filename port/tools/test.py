@@ -778,7 +778,7 @@ def no_translation(build):
 POINTER_CHECKS = (
     # (tool, arguments after the build, what it checks)
     ("ptr32_check.py", [], "the structures still PTR32 are the allow-list's"),
-    ("decl_check.py", ["--version", "all"], "the declarations' pointer disagreements are the allow-list's"),
+    ("decl_check.py", ["--version", "all"], "the declarations' pointer and size disagreements are the allow-list's"),
     ("ptrcast_scan.py", ["--version", "all"], "the pointer/integer conversions are within the allow-list"),
 )
 
