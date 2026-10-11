@@ -1,7 +1,7 @@
 /*
  * Where untyped bytes from the ROM arrive in game memory (docs/PORT.md,
  * "Native-endian memory"): the two decompressors' entry points, wrapped at
- * link time (--wrap), hand what they produced to the host's loaders
+ * link time (--wrap; the plain build renames the originals instead), hand what they produced to the host's loaders
  * (host/native.c), which convert it by type in the native-endian build and
  * tag it for the access-width profiler in either.  Raw PI DMAs go there
  * from host_rom_read.
@@ -20,6 +20,15 @@
 #include "common.h"
 #include "functions.h"
 #include "port.h"
+
+#ifdef PORT_PLAIN
+/* (the plain build has no --wrap: these are the functions themselves, and
+   the files that define the originals have them as __real_<name>, by
+   CMake's per-file definitions) */
+#define __wrap_func_8025C230 func_8025C230
+#define __wrap_func_8028B4C4 func_8028B4C4
+#define __wrap___osContDataCrc __osContDataCrc
+#endif
 
 /* the wrapped functions' types, functions.h's */
 __typeof__(func_8025C230) __real_func_8025C230, __wrap_func_8025C230;
