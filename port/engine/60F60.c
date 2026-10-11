@@ -646,7 +646,8 @@ void func_802A68D4(EffectSlot *s, s32 *m) {
    them) with the current frame's textures, then the frame advanced (the
    slot freed after the last); the buffers alternate with D_8035805C. */
 extern u8 D_8035805C;
-extern u8 D_803C4F70[], D_803C5370[], D_803C5770[], D_803C6370[], D_803C6F70[], D_803C7B70[];
+extern u8 D_803C4F70[], D_803C5370[];
+extern Gfx D_803C5770[], D_803C6370[], D_803C6F70[], D_803C7B70[];     /* 0x180 commands each */
 extern u8 D_803C8770[], D_803C9770[], D_803CA770[], D_803DA770[];
 
 void func_802A64A4(void) {
@@ -657,14 +658,14 @@ void func_802A64A4(void) {
     u32 t6;
 
     if (D_8035805C != 0) {
-        D_803EB780 = (Gfx *)D_803C6370;
-        D_803EB784 = (Gfx *)D_803C7B70;
+        D_803EB780 = D_803C6370;
+        D_803EB784 = D_803C7B70;
         mtx = D_803C5370;
         vtx = D_803C9770;
         cells = D_803DA770;
     } else {
-        D_803EB780 = (Gfx *)D_803C5770;
-        D_803EB784 = (Gfx *)D_803C6F70;
+        D_803EB780 = D_803C5770;
+        D_803EB784 = D_803C6F70;
         mtx = D_803C4F70;
         vtx = D_803C8770;
         cells = D_803CA770;
