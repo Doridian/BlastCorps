@@ -5,7 +5,8 @@
  * RDP's documented command formats (n64brew's "RDP commands" and "Fast3D"
  * pages): the opcodes, the bit fields of each command, the other-mode,
  * combiner and blender encodings and the structs the commands point at.
- * Only what the game uses is here.
+ * Only what the game uses is here.  A command is two words as wide as a
+ * pointer: the N64's 8 bytes where pointers are 4, 16 in the LP64 builds.
  *
  * The macros keep the C types of the forms the game was written against
  * (a field is an `unsigned int`, the RSP's immediate opcodes are negative

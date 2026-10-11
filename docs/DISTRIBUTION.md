@@ -70,7 +70,7 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 | 4b | third-party, native | SDL2 (zlib), libepoxy (MIT), glibc (LGPL), libgcc_s: dynamic | — | system |
 | 4c | third-party, wasm | emscripten's SDL2 (zlib), musl (MIT), emscripten runtime (MIT/UIUC), compiler-rt (Apache-2.0 with LLVM exception) | in .wasm/.js | emsdk |
 | 4d | third-party, all builds | Stardos Stencil Bold (SIL OFL 1.1, Vernon Adams; `--hd-text`'s built-in font, docs/FONTS.md), stb_truetype 1.26 (public domain or MIT) | 33 K font in the executable; hdtext.c with stb_truetype ~28 K x86 | `port/fonts/` via `port/tools/embed.cmake`, `port/third_party/stb/` |
-| 4e | the port's own, movable builds | `PORT_ROM_DATA`'s operations: copies from the ROM's modules by address, and 2.9–3.4 K of literal bytes, all the port's (pointer words to data port-arena moved, clang's switch tables of the game's C, `port/src`'s strings; `gen/romdata_report.txt` lists them); an inflate of its own | 11–26 K, inflate ~3 K x86 | `port/tools/rom_data.py` → `gen/romdata_ops.c`, `port/host/romdata.c` |
+| 4e | the port's own, movable builds | `PORT_ROM_DATA`'s operations: copies from the ROM's modules by address, and 4.6–6.1 K of literal bytes, all the port's (pointer words to data port-arena moved, clang's switch tables of the game's C, `port/src`'s strings; `gen/romdata_report.txt` lists them); an inflate of its own | 14–40 K, inflate ~3 K x86 | `port/tools/rom_data.py` → `gen/romdata_ops.c`, `port/host/romdata.c` |
 | 4f | the port's own | libaudio (`port/libaudio`, header `port/include/sdk/PR/libaudio.h`), exact; the eqpower table is computed at startup | 35 K x86-64 (the 64-bit build; the decompiled one was 44 K) | `port/libaudio` |
 | 4g | the port's own | the engine: Rare's handwritten code and jp's IDO asm as hand-written C, charged the original's instructions block by block (docs/PORT.md, "Replacing the engine") | ~42,000 lines of C | `port/engine` |
 | 4h | third-party, all builds | gzip 1.2.4's deflate (`deflate.c`, `trees.c`, `bits.c`, unchanged; GPLv2 or later, Jean-loup Gailly; its `COPYING`), the only deflate that gives back the ROM's gzip members; stb_image 2.30 (public domain or MIT; PNGs and the zip's inflate) | 16 K and 37 K x86-64 | `port/third_party/gzip-1.2.4`, `port/third_party/stb/stb_image.h` |
@@ -101,7 +101,7 @@ to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,002 K, the web build's .
      copies from elsewhere (what port-arena moved above 0x400000, LP64's outgrown variables), and literal
      bytes.
    - The build fails unless the operations, applied to the build machine's ROM, give the image byte for
-     byte; the port checks a hash of what it made.  The literal bytes (2.9–3.4 K) are listed by variable
+     byte; the port checks a hash of what it made.  The literal bytes (4.6–6.1 K) are listed by variable
      in `gen/romdata_report.txt`, and are all the port's (row 4e).
    - The ROM's sha1 is checked at startup, in every build (`PORT_ROM_ANY=1` downgrades it to a warning).
    - The RSP microcode text is zeros, in every build.
@@ -397,7 +397,7 @@ replaces. So the interface to keep is the one the game's C uses.
 | `sins`/`coss`, `sintable` | 0.2 K + 2 K | 1C40.c, 6790.c, 20460.c | generate the table: `(int)(32767*sin(i*pi/2046))` gives all 1,024 entries | exhaustive over 65,536 inputs | ¼ agent-hour |
 | `sinf`/`fcos` | 2.3 K | direct calls, and inside guRotateF, guLookAt*, guPerspective | range reduction plus an odd polynomial. Only SGI's constants are exact: a correctly rounded sinf differs on about 0.9% of inputs | exhaustive over all 2^32 floats against the original (in a test tool only) | ½ agent-hour, plus a decision on the constants |
 | gu matrices (F2L/L2F, Ident, Translate, Scale, Rotate(F), Ortho, Perspective, LookAt(Reflect), MtxCatF/L, XFMF/L, Normalize) | ~7 K | about 20 files; the order of float operations and `FTOFIX32`'s rounding matter | from the function reference's formulas, computed in the same order and precision | bit for bit on random inputs and on arguments traced from the suite's runs; then the quick tier | about 1 agent-hour |
-| Headers (types; os.h's `OS*` structs and constants; rcp.h, sptask.h, abi.h, gu.h, mbi.h; libaudio.h's public structs) | layouts only | struct layouts, the `.ctl`/`.seq` formats, the port's `PTR32`/`_GBI_W` edits | `port/include/sdk/`, written from the documentation and what the code needs, ahead of `2.0I` | exact by construction: every game object's `.text`/`.data`/`.rodata` is byte-identical with either header set, plus `layout_cmp.py` | 1–2 agent-hours |
+| Headers (types; os.h's `OS*` structs and constants; rcp.h, sptask.h, abi.h, gu.h, mbi.h; libaudio.h's public structs) | layouts only | struct layouts, the `.ctl`/`.seq` formats, the port's `_GBI_W`/`_GBI_D` edits and its `Gwords`/`Awords` of pointer-wide words | `port/include/sdk/`, written from the documentation and what the code needs, ahead of `2.0I` | exact by construction: every game object's `.text`/`.data`/`.rodata` is byte-identical with either header set, plus `layout_cmp.py` | 1–2 agent-hours |
 | gbi.h (F3D: 64 macros, 95 `G_` constants) | macros only | display-list encoding | from the public command formats (n64brew), as facts only. Not GLideN64's (GPL-2.0-only) and not libultraship's gbi.h (the SDK's, with the notices removed) | the same object-identity check; the renderer's decoder is already the port's own | in the row above |
 | libaudio | 44 K (≈2 K dead: `seq.c`, `alSeqpNew`) | below | from the reference manual and the observed behaviour, with a differential oracle | below | **done** (2026-10-01): `port/libaudio`, exact (docs/PORT.md, "libaudio"); about 1.2 agent-hours, the oracle included |
 
@@ -445,7 +445,7 @@ include) until the port's own libaudio.h is in `port/include/sdk/PR/` (it is, si
 - The sizes and offsets of the structs the game embeds, holds or saves: `ALLink`, `ALVoice` (inside
   `SndState` at 0x0C), `ALPlayer`, `ALEvent`/`ALEventQueue`, `ALCSeq`, `ALCSeqMarker`, `ALCSPlayer`.
 - The ROM's bank and sequence file formats, with `alBnkfNew`'s relocation.
-- `PTR32` on every pointer field.
+- Native pointers in every pointer field (nothing is `PTR32` any more: the LP64 build's libaudio structures are the host's).
 - The game uses custom reverb parameters, so `initfx.h`'s presets aren't needed.
 
 **Exact libaudio means:**

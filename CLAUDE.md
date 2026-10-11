@@ -88,10 +88,12 @@ busy-wait in the game's C (a loop spinning on what another thread or an
 interrupt changes) calls `port_spin_wait()` in its body there: the port
 runs one thread at a time with no polls in loops, so without it the loop
 spins forever (docs/PORT.md, "Memory model").  Pointers in
-memory are native (8 bytes in the LP64 port); `T *PTR32 p` (4 bytes there,
-nothing to IDO) is only for the words of the display lists and the audio
-command lists, and a variable's declarations all agree (docs/PORT.md,
-"The LP64 build").
+memory are native (8 bytes in the LP64 port), and a variable's declarations
+all agree (docs/PORT.md, "The LP64 build").  `T *PTR32 p` (4 bytes there,
+nothing to IDO) is left as a mechanism but nothing uses it: the words of
+the display lists and the audio command lists are as wide as a pointer
+(`Gfx` is 16 bytes in the LP64 port, "Graphics"), and an integer that holds
+an address for a list is a `DlAddr`.
 
 The port's improvements for the player (`--interpolate` with
 `--display-hz auto`, `--hd-text`, `--model-icons`, and any added later) are
