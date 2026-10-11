@@ -14,7 +14,11 @@ extern u8 D_006D3D30[];
 extern u8 D_006E8980[];
 
 /* .bss, 0x8021AB80-0x8021AB90 (tools/bss_c.py) */
+#ifdef TARGET_PC
+u8 *__additional_scanline;      /* the image, which the RDP reads: a pointer */
+#else
 u32 __additional_scanline;
+#endif
 u8 D_8021AB84;
 
 void func_802006F0(void) {
@@ -47,7 +51,11 @@ void func_80200714(u8 arg0) {
     u8 b;
     u8 t;
 
+#ifdef TARGET_PC
+    __additional_scanline = D_80358070;
+#else
     __additional_scanline = (u32)(uintptr_t)D_80358070;
+#endif
     D_8021AB84 = arg0;
     switch (arg0) {
         case 1:
@@ -109,7 +117,11 @@ void func_80200714(u8 arg0) {
 }
 
 void osViExtendVStart(u32 value) {
+#ifdef TARGET_PC
+    __additional_scanline = (u8 *)(uintptr_t)value;     /* (nothing calls it) */
+#else
     __additional_scanline = value;
+#endif
 }
 
 Gfx *func_80200BE0(Gfx *arg0, Frame *arg1, s32 *arg2) {
