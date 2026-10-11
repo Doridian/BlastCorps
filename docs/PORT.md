@@ -904,8 +904,11 @@ data (`func_802A3D54`, `func_802A3DF8`, `func_802A3F80`, `func_802A4464`),
 once those data are converted.  Doublewords stay two words, high word
 first, which is not what a host-order `u64` is (low word first on a
 little-endian host): any `u64` or double shared between the C and the asm
-needs one convention.  The differential test can't check this mode as it
-is, since unicorn runs a big-endian image; with a type map it can: convert
+needs one convention.  (No build runs this mode now: the translated code
+is only the engine check build's reference, which is big-endian; the
+native-endian builds keep a `u64` in host order, below.)  The
+differential test can't check this mode as it is, since unicorn runs a
+big-endian image; with a type map it can: convert
 each trial's memory to host order by the map before the translated run and
 back after, then compare as now.  So the map is the test's input too.
 
@@ -942,7 +945,7 @@ source's writers along.  `PORT_ACCESS=FILE` writes the table;
   `func_8029EC68`) that the RSP and `func_802AA890`/`func_802AC8CC` read as
   halves: in host order those stores need their halves swapped, per
   instruction.  Then the game mode `D_80364A90` (a `u64` the port's own
-  `video.c` reads as two words) and a few asm/C locals.
+  `video.c` read as two words then) and a few asm/C locals.
 
 So the stages are:
 
@@ -968,33 +971,38 @@ Stages 1 and 2 are done for us.v11: `-DPORT_NATIVE_ENDIAN=ON` (with either
 `PORT_64BIT`) builds the port with every datum in host order at its N64
 offset.  The big-endian build stays the default and is unchanged by it.
 
-**Conventions.**  Scalars are host-order where the N64 has them.  A 64-bit
-scalar (`u64`, `s64`, `double`) is two host-order words, the high one
-first: that is what the asm's `ld`/`sd` and the FPU's register pairs see,
-so the C (BEPass rotates its 64-bit loads and stores by 32 bits) and the
-asm share `D_80364A90`, `D_803649D8` and the rest without a case each.  An
-`Mtx` is sixteen host-order words (element 2n the high half of word n), a
-`Vtx` its fields, a display list pairs of words.  What only the RDP, the
-RSP's DMA or the audio reads as bytes stays in the N64's byte order:
-texels, palettes, framebuffers, samples, the microcode's data.
+**Conventions.**  Scalars are host-order where the N64 has them, the
+64-bit ones (`u64`, `s64`, `double`) too: a plain host-order scalar,
+which the host reads whole (`port_g64`: the game mode `D_80364A90`, the
+LP64 builds' command words).  An `Mtx` is sixteen host-order words
+(element 2n the high half of word n), a `Vtx` its fields, a display list
+`Gfx` commands of two words (`gbi.h`'s `Gwords`, as wide as a pointer).
+What only the RDP, the RSP's DMA or the audio reads as bytes stays in the
+N64's byte order: texels, palettes, framebuffers, samples, the
+microcode's data.
 
-The 64-bit words stay in that order with no asm left (checked on
-2026-10-05) because of the display lists: the game's C and `port/engine`
-move a command as a `u64` in places (77E20's copies through
-`func_802C0C64`, which compares them with the smoke's command tables
-`D_802F46C0` and `D_802F4780`, typed `u64`; `func_8026A5CC`'s copies),
-while gbi.h's macros, the renderer and the audio microcode write and read
-its two words.  With the high word first both see the same command.  A
-build with every 64-bit scalar in plain host order (BEPass's exchange and
-its initializer fixups gone, the loaders, the asm data, the save and the
-host's readers of `D_80364A90` changed to match) played differently from
-the CMO intro's first frame on, in every native-endian variant, and the
-big-endian ones the same as before; to drop the exchange, those `u64`
-display-list accesses have to become word pairs first.
+Until P8 a 64-bit scalar was two host-order words, the high one first (BEPass
+exchanged the halves of every 64-bit load and store), first for the asm's
+`ld`/`sd`, then, with no asm left, for the display lists: the C moved a
+command as a `u64` in places (77E20's smoke copies through `func_802C0C64`
+and its `u64` command tables `D_802F46C0`/`D_802F4780`) while gbi.h's
+macros and the renderer wrote and read its two words.  A build without the
+exchange then played differently from the CMO intro's first frame on.
+With every display-list access a `Gfx` one (P8), the exchange went:
+`func_8026A5CC`'s `u64` copies of vertices are copies in either order, and
+what still read or wrote a `u64` as two words was changed with it (the
+host's readers of `D_80364A90`, `D_80364A98` and `D_8036C778`; 56040's
+planes of `func_8029D24C`, stored word by word; the save's semaphore and
+eu's language; the loaders' 8-byte units).  Against the build with the
+exchange, the 64-bit native-endian build's attract mode (12,000 frames)
+and `PORT_AUTOSTART=1` and `=2` (6,000) gave the same screenshots,
+`--wav`, digests and saves and the same call traces (but for the store
+helper that went), and every variant's quick tier and the TAS (n64,
+lp64) the same hashes.
 
-**BEPass** (`BEPASS_NATIVE=1`) swaps nothing but those 64-bit halves, so
-both builds keep the same time and can be compared run for run.  The N64
-side is built without the vectorizers there (`ilp32cc.py`): they raise globals' alignment, which
+**BEPass** (`BEPASS_NATIVE=1`) swaps nothing, so both builds keep the same
+time and can be compared run for run.  The N64 side is built without the
+vectorizers there (`ilp32cc.py`): they raise globals' alignment, which
 would move them off their N64 addresses.
 
 **What arrives as bytes is converted by type where it arrives**
