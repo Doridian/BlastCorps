@@ -298,9 +298,10 @@ extern int host_verbose;
 uint32_t host_rom_size(void);
 void host_rom_read(uint32_t dst, uint32_t rom, uint32_t len);
 uint32_t host_rom_word(uint32_t rom);
-/* the loaders (host/native.c): untyped bytes from the ROM arrived */
-void host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t len);
-void host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t len);
+/* the loaders (host/native.c): untyped bytes from the ROM arrived; the
+   first two return what they were (romclass.h's ROM_*) */
+int host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t len);
+int host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t len);
 void host_loaded_dma(uint32_t dst, uint32_t rom, uint32_t len);
 void host_layout_to_be(uint32_t addr, uint32_t n, const char *layout, int to_bytes);
 void host_layout_to_be_n(uint32_t addr, uint32_t stride, uint32_t count, uint32_t n, const char *layout);
