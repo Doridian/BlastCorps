@@ -1509,7 +1509,7 @@ def main():
             if aliases:
                 lines += ["__asm__("] + [f'    "{a}"' for a in aliases] + [");"]
             if aliases32:
-                lines += ["#ifndef PORT_LP64", "__asm__("] + [f'    "{a}"' for a in aliases32] + [");", "#endif"]
+                lines += ["#if __SIZEOF_POINTER__ == 4", "__asm__("] + [f'    "{a}"' for a in aliases32] + [");", "#endif"]
             lines += ["#endif"]
         bodies[out] = (lines, top)
     # asm_data.h
