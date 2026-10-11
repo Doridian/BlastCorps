@@ -328,6 +328,7 @@ static inline float max_f(float x, float y) {
    fits in 24 bits. */
 uint8_t *gfx_host_mem;
 
+#ifndef PORT_PLAIN
 /* what the display lists read: RDRAM, or the renderer's own memory */
 static inline void *gfx_ptr(uint32_t a) {
     if (a - GFX_HOST_BASE < GFX_HOST_SPAN && gfx_host_mem)
@@ -339,9 +340,10 @@ static uint32_t seg_to_k0(uint32_t a) {
     uint32_t seg = (a >> 24) & 0x0F;
     return 0x80000000u | (((uint32_t)gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
 }
+#endif
 
 unsigned gfx_cmd;
-int gfx_wide, gfx_strict;
+int gfx_wide, gfx_strict, gfx_ptr_words;
 uint32_t gfx_seg_tag;
 
 void gfx_layout_init(void) {
@@ -357,6 +359,15 @@ void gfx_layout_init(void) {
     if (gfx_seg_tag > 1 || (gfx_wide && !gfx_seg_tag))
         host_fatal("gfx: the N64 side's segment tag is %u: this host reads 1, or 0 with 8-byte commands\n",
                    gfx_seg_tag);
+    gfx_ptr_words = (int)host_layout(PORT_LAYOUT_PTR_WORDS);
+#ifdef PORT_PLAIN
+    if (!gfx_ptr_words || !gfx_seg_tag)
+        host_fatal("gfx: the plain build's lists hold pointers and tagged segmented addresses\n");
+#else
+    if (gfx_ptr_words != gfx_wide)
+        host_fatal("gfx: the N64 side's address words are %s, its commands %u bytes\n",
+                   gfx_ptr_words ? "pointers" : "N64 addresses", n);
+#endif
     const char *e = getenv("PORT_GFX_STRICT");
     gfx_strict = e && atoi(e) != 0;
 }
@@ -369,9 +380,13 @@ static void __attribute__((noreturn, format(printf, 1, 2))) strict_fail(const ch
 /* the segment table's entry s, as a host address (no checks: also for the
    renderer's own uses of segment 2) */
 static inline GfxAddr seg_base(int s) {
-    if (gfx_wide)
+#ifdef PORT_PLAIN
+    return gs.seg[s];
+#else
+    if (gfx_ptr_words)
         return gs.seg[s];
     return (GfxAddr)gfx_ptr(0x80000000u | (uint32_t)gs.seg[s]);
+#endif
 }
 
 /* A pointer word of the N64 side's as a host address.  Until P10 every
@@ -381,6 +396,10 @@ static inline GfxAddr seg_base(int s) {
    renderer's own host pointer (micons.c's lists).  Strict mode stops at a
    word that is none of these: a segmented address without the tag. */
 static inline GfxAddr gfx_of_word(uintptr_t w) {
+#ifdef PORT_PLAIN
+    /* (the plain build's: a host pointer, whatever its value) */
+    return w;
+#else
 #if UINTPTR_MAX > 0xFFFFFFFFu
     if (w >> 32)
         return w;
@@ -388,25 +407,33 @@ static inline GfxAddr gfx_of_word(uintptr_t w) {
     if (gfx_strict && w && (uint32_t)w < 0x80000000u)
         strict_fail("the address %08lX isn't an N64 address (a segmented one without its tag?)", (unsigned long)w);
     return (GfxAddr)gfx_ptr(0x80000000u | ((uint32_t)w & 0x1FFFFFFFu));      /* (see seg_to_k0) */
+#endif
 }
 
 /* G_MOVEWORD's segment: the narrow form's word masked (see seg_to_k0), the
    wide one's a host address (0: none) */
 static inline void seg_set(int s, uintptr_t w1) {
-    gs.seg[s & 15] = gfx_wide ? (w1 ? gfx_of_word(w1) : 0) : (w1 & 0x1FFFFFFFu);
+    gs.seg[s & 15] = gfx_ptr_words ? (w1 ? gfx_of_word(w1) : 0) : (w1 & 0x1FFFFFFFu);
 }
 
 /* a command's word as an address (gfx.h) */
 static inline GfxAddr gfx_addr(uintptr_t w) {
+#ifdef PORT_PLAIN
+    /* (a pointer into a name that is a segment address: that address) */
+    w = port_seg_unproxy(w);
+#else
     if (!gfx_seg_tag)                       /* (the check build's: the RSP's rule for all) */
         return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w));
+#endif
     if (!gfx_segmented(w))
         return gfx_of_word(w);
     int s = (int)((w >> 24) & 15);
     if (gfx_strict && !gs.seg[s])
         strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w, s);
-    if (!gfx_wide)
+#ifndef PORT_PLAIN
+    if (!gfx_ptr_words)
         return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w & ~gfx_seg_tag));
+#endif
     return gs.seg[s] + gfx_seg_offset(w);
 }
 
@@ -2312,8 +2339,11 @@ extern char D_80215A70[];
 static GfxAddr globe_tex[3];
 static unsigned globe_gen;
 
-/* (D_80215A70's pointers: 8 bytes in the LP64 build) */
-#ifdef PORT_LP64
+/* (D_80215A70's pointers: 8 bytes in the LP64 build, the host's in the
+   plain one) */
+#ifdef PORT_PLAIN
+#define GAME_PTR_SIZE sizeof(void *)
+#elif defined(PORT_LP64)
 #define GAME_PTR_SIZE 8
 #else
 #define GAME_PTR_SIZE 4

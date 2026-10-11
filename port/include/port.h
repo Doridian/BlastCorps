@@ -296,6 +296,10 @@ enum PortLayout {
     PORT_LAYOUT_ACMD_SIZE,              /* Acmd: an audio command (aspmain.c) */
     PORT_LAYOUT_FRAME_SIZE,             /* Frame (game/frame.h): segment 2's buffer */
     PORT_LAYOUT_SEG_TAG,                /* gbi.h's G_SEGTAG: the segmented addresses' tag (gfx.h) */
+    /* 1 where a display list's and an audio command's address words are
+       host pointers (the LP64 builds and the plain build, at either
+       width), 0 where they are N64 addresses (the other ILP32 builds) */
+    PORT_LAYOUT_PTR_WORDS,
     PORT_LAYOUT_COUNT
 };
 /* the N64 side's number (port/src/layout.c); 0 for an id it doesn't know */
@@ -323,6 +327,13 @@ static inline void *port_game_ptr_n(const void *p, uint32_t size) {
     }
     return (void *)(uintptr_t)port_var32(p);
 }
+
+#ifdef PORT_PLAIN
+/* a word of a display list that is a pointer into one of the names that
+   are segment addresses (D_02000000...: src/segments.c's proxies) as that
+   segmented address, tagged; any other word as it is */
+uintptr_t port_seg_unproxy(uintptr_t w);
+#endif
 
 /* ---- host services (port/host) ----------------------------------------- */
 

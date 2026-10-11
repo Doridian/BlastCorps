@@ -44,6 +44,10 @@ typedef uintptr_t GfxAddr;
 extern unsigned gfx_cmd;        /* a command's bytes: 8, or 16 (gfx_wide) */
 extern int gfx_wide;            /* its words are 8 bytes (64-bit scalars: port_g64) */
 extern int gfx_strict;          /* PORT_GFX_STRICT=1: a malformed list is fatal (gfx.c) */
+/* its address words are pointers (the LP64 builds', and the plain build's
+   at either width: host pointers), not N64 addresses (port_layout's
+   PORT_LAYOUT_PTR_WORDS) */
+extern int gfx_ptr_words;
 extern uint32_t gfx_seg_tag;    /* the N64 side's segment tag (gbi.h's G_SEGTAG): 1, or 0 in the check build */
 void gfx_layout_init(void);     /* gfx_cmd, gfx_wide and gfx_seg_tag from port_layout (idempotent) */
 
@@ -76,8 +80,12 @@ static inline void gfx_put(uint8_t *c, uintptr_t w0, uintptr_t w1) {
 static inline int gfx_segmented(uintptr_t w) { return (w & gfx_seg_tag) != 0; }
 /* a segmented word's offset into its segment */
 static inline uint32_t gfx_seg_offset(uintptr_t w) { return (uint32_t)w & 0x00FFFFFFu & ~gfx_seg_tag; }
+#ifdef PORT_PLAIN
+static inline GfxAddr gfx_of_ptr(const void *p) { return (GfxAddr)p; }
+#else
 static inline GfxAddr gfx_of_n64(uint32_t a) { return a ? (GfxAddr)port_ptr(a) : 0; }
 static inline GfxAddr gfx_of_ptr(const void *p) { return p ? gfx_of_n64(port_n64(p)) : 0; }
+#endif
 /* a host address as an integer for a hash (its two halves folded) */
 static inline uint32_t gfx_addr_hash(GfxAddr a) { return (uint32_t)a ^ (uint32_t)((uint64_t)a >> 32); }
 

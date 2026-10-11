@@ -98,7 +98,7 @@ static uint8_t *mem(uint32_t off) { return gfx_host_mem + off; }
 /* the word for the address of off in that memory: narrow, through segment
    SEG_HOST (with the N64 side's segment tag: gfx.h); wide, its pointer */
 static uintptr_t haddr(uint32_t off) {
-    return gfx_wide ? (uintptr_t)mem(off) : (uint32_t)SEG_HOST << 24 | off | gfx_seg_tag;
+    return gfx_ptr_words ? (uintptr_t)mem(off) : (uint32_t)SEG_HOST << 24 | off | gfx_seg_tag;
 }
 /* a ROM display list's w1 as the N64 side's lists have it: a segmented
    address (G_MTX, G_MOVEMEM, G_VTX, G_DL to segments 1..15) with the
@@ -112,12 +112,16 @@ static uint32_t rom_w1(uint32_t w0, uint32_t w1) {
 /* a segment's value for off: narrow, the N64 address's physical one (the
    segment table's form); wide, its pointer */
 static uintptr_t seg_word(uint32_t off) {
-    return gfx_wide ? (uintptr_t)mem(off) : (GFX_HOST_BASE & 0x1FFFFFFFu) + off;
+    return gfx_ptr_words ? (uintptr_t)mem(off) : (GFX_HOST_BASE & 0x1FFFFFFFu) + off;
 }
 /* the word for the color or z image at a (gfx.h's host address): narrow,
    its physical address, through segment 0 (0); wide, the pointer */
 static uintptr_t img_word(GfxAddr a) {
-    return gfx_wide ? a : port_n64((const void *)a) & 0x00FFFFFFu;
+#ifdef PORT_PLAIN
+    return a;
+#else
+    return gfx_ptr_words ? a : port_n64((const void *)a) & 0x00FFFFFFu;
+#endif
 }
 /* the bytes of n bytes of the ROM's 8-byte commands, as this build's */
 static uint32_t cmd_bytes(uint32_t n) { return gfx_wide ? n / 8 * gfx_cmd : n; }
