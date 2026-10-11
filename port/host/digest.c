@@ -63,20 +63,8 @@
 
 /* (the native-endian build keeps scalars in host order; the ROM file and
    what the LP64 build moved past RDRAM are read as main.c does) */
-static uint32_t g32(const void *p) {
-#ifdef PORT_NATIVE_ENDIAN
-    return port_var32(p);
-#else
-    return port_be32(p);
-#endif
-}
-static uint16_t g16(const void *p) {
-#ifdef PORT_NATIVE_ENDIAN
-    return port_in_rdram(p) ? port_g16(p) : port_be16(p);
-#else
-    return port_be16(p);
-#endif
-}
+static uint32_t g32(const void *p) { return port_var32(p); }
+static uint16_t g16(const void *p) { return port_var16(p); }
 static uint8_t g8(const void *p) { return *(const uint8_t *)p; }
 /* where the game's structures have what is read here, and how wide its
    pointer variables are: the N64 side's numbers (port.h's host_layout,

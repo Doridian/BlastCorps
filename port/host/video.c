@@ -18,12 +18,6 @@
 #include "host.h"
 #include "gfx.h"
 
-#ifdef PORT_NATIVE_ENDIAN
-/* game variables are read with port_be32 (and the pad written with
-   port_wbe16) below: at their own width in RDRAM (port.h) */
-#define port_be32(p) port_var32(p)
-#define port_wbe16(p, v) port_wvar16((p), (v))
-#endif
 
 int host_max_frames;
 const char *host_screenshot_prefix;
@@ -391,12 +385,12 @@ static uint16_t scripted_buttons(int *sy) {
             port_wg32(D_802E8BDC, (uint32_t)atoi(lv));
         if (in_level) {
             *sy = 80;
-            if (*s == '3' && (int)port_be32(SCHED_FRAMECOUNT) % 120 < 4)
+            if (*s == '3' && (int)port_g32(SCHED_FRAMECOUNT) % 120 < 4)
                 return B_A;
             return 0;
         }
     }
-    int f = *s >= '2' ? (int)port_be32(SCHED_FRAMECOUNT) : frame;
+    int f = *s >= '2' ? (int)port_g32(SCHED_FRAMECOUNT) : frame;
     /* nothing for the first half second: a button held at the game's first
        read asks to erase the save (00000.c's mode 0x40000000000000), and
        the first read is at once now that the controllers' power-on wait is
@@ -702,7 +696,7 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     } else if (type_env == 2 && name_screen()) {
         b &= ~(B_A | B_B);          /* PORT_TYPE's name, as typed: PORT_AUTOSTART only confirms it */
     }
-    port_wbe16(buttons, b);         /* N64-side memory: big-endian */
+    port_wg16(buttons, b);          /* N64-side memory, at its own width */
     *x = (int8_t)sx;
     *y = (int8_t)sy;
 }

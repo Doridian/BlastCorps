@@ -59,13 +59,6 @@
 #define ROM_TITLE "Blast Corps (USA) v1.1"
 #endif
 
-#ifdef PORT_NATIVE_ENDIAN
-/* game variables are read with port_be32 (and the pad written with
-   port_wbe16) below: at their own width in RDRAM (port.h) */
-#define port_be32(p) port_var32(p)
-#define port_wbe16(p, v) port_wvar16((p), (v))
-#endif
-
 int host_verbose;
 static uint8_t *rom;
 static uint32_t rom_size;
@@ -616,8 +609,8 @@ void host_controller_poll(void) {
     }
 #endif
     if (pace)
-        fprintf(pace, "%u,%u,%u,%016llX,%llu\n", polls, port_be32(SCHED_FRAMECOUNT),
-                port_be32(D_80358064), (unsigned long long)port_g64(D_80364A90),
+        fprintf(pace, "%u,%u,%u,%016llX,%llu\n", polls, port_g32(SCHED_FRAMECOUNT),
+                port_g32(D_80358064), (unsigned long long)port_g64(D_80364A90),
                 (unsigned long long)host_audio_samples());
     if (!spec)
         return;
@@ -1003,7 +996,7 @@ int main(int argc, char **argv) {
             vi_wait_from = 0;
             double late_ms = host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6;
             if (host_perf_on)
-                host_perf_vi(late_ms, gfx_st_images, port_be32(D_80358064));
+                host_perf_vi(late_ms, gfx_st_images, port_g32(D_80358064));
             /* (with the queue, what is late is a present after its slot:
                the last retrace's, whose slot is now at the latest) */
             if (queue_on)
