@@ -23,7 +23,6 @@ Each is put in a class by where it is and the macros it comes through:
               the like (segment addresses)
   P8-acmd     port/libaudio: the audio command list's words (Acmd), the
               addresses the RSP reads
-  P10-host    port/src: the host interface takes N64 addresses (u32)
   P7-rom      a ROM address: (u32)D_00xxxxxx, ROM_RANGE, TABLE_ROM, *_ROM_START
   P7-rebase   ROM data rebased by an offset: LEVEL_PTR, MODEL_PTR,
               VMODEL_PTR, `p->offset + (u32)p` (DE70.c)
@@ -36,7 +35,9 @@ Each is put in a class by where it is and the macros it comes through:
 P6 and P7 brought their classes to nothing (ROM addresses are RomAddr
 constants, `ROM(sym)`; rebased data is ASSET_PTR; libaudio's banks are
 parsed into native objects): they stay so that a new conversion of that
-kind is named for what it is, and none is allowed.
+kind is named for what it is, and none is allowed.  P10's class, the
+host interface's u32 addresses in port/src (P10-host), went when the
+interface took pointers (P10-B): one there now is `other`.
 
 The allow-list (port/tools/ptrcast_allow.txt) has a line per class and
 file: `class file count-us.v10 count-us.v11 count-jp count-eu` (- where a
@@ -58,8 +59,7 @@ import n64_tus  # noqa: E402
 ROOT = n64_tus.ROOT
 VERSIONS = n64_tus.VERSIONS
 ALLOW = os.path.join(ROOT, "port", "tools", "ptrcast_allow.txt")
-CLASSES = ("P8-gbi", "P8-acmd", "P7-rom", "P7-rebase", "P10-host", "P6-x3", "P6-game", "P6-engine", "ptrtype",
-           "other")
+CLASSES = ("P8-gbi", "P8-acmd", "P7-rom", "P7-rebase", "P6-x3", "P6-game", "P6-engine", "ptrtype", "other")
 FLAGS = ["-fsyntax-only", "-Wno-everything", "-Wpointer-to-int-cast", "-Wint-to-pointer-cast",
          "-Wint-conversion", "-Wincompatible-pointer-types", "-Wno-incompatible-function-pointer-types",
          "-Wno-error", "-fno-caret-diagnostics", "-fmacro-backtrace-limit=0",
@@ -124,8 +124,6 @@ def classify(path, line, macros, flag=""):
         return "P7-rebase"
     if rel.startswith("port/libaudio/"):
         return "P8-acmd"
-    if rel.startswith("port/src/"):
-        return "P10-host"
     if "X3" in names or X3_TEXT.search(text):
         return "P6-x3"
     if rel.startswith("blastcorps/"):

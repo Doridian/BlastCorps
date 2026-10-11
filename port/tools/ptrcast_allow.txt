@@ -3,8 +3,7 @@
 # not counted).  P6 brought its classes (P6-game, P6-engine, P6-x3) to
 # nothing, P7 its (P7-rom, P7-rebase, and libaudio's bank relocation) and
 # P8 its (the display list words and segment addresses, P8-gbi; the audio
-# command list's, P8-acmd), and ptrtype (incompatible pointer types) has
-# no allowance: what is left is P10's (the host interface).
+# command list's, P8-acmd) and P10-B its (the host interface, which takes
+# pointers), and ptrtype (incompatible pointer types) has no allowance:
+# nothing is left.
 # ptrcast_scan.py BUILD --version all --update rewrites the counts.
-P10-host port/src/loads.c 19 19 19 19
-P10-host port/src/ultra.c 23 23 23 23
