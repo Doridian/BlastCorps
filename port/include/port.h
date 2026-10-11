@@ -16,6 +16,7 @@
 #ifndef PORT_H
 #define PORT_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include "port_arena.h"
 
