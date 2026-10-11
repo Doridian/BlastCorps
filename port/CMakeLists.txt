@@ -54,13 +54,6 @@ if(PORT_LP64)
     set(PORT_64BIT ON CACHE BOOL "" FORCE)
     set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
 endif()
-# display lists and audio commands with pointer-wide words, 16-byte Gfx and
-# Acmd (P8's switch, LP64 only, until the wide form is the LP64 builds'
-# own): the renderer and the audio take the size from port_layout()
-option(PORT_WIDE_GFX "Gfx and Acmd with pointer-wide words (LP64 only; temporary)" OFF)
-if(PORT_WIDE_GFX AND NOT PORT_LP64)
-    message(FATAL_ERROR "PORT_WIDE_GFX is for the LP64 builds (-DPORT_LP64=ON)")
-endif()
 # WebAssembly (emcmake cmake ...; docs/PORT.md, "WebAssembly"): the 32-bit
 # native-endian movable build for wasm32, the host side through emcc and
 # the N64 side through the system's clang, which loads BEPass
@@ -156,7 +149,10 @@ find_program(N64_NM NAMES mips-linux-gnu-nm llvm-nm HINTS ${CLANG_BINDIR} REQUIR
 find_program(N64_READELF NAMES mips-linux-gnu-readelf llvm-readelf HINTS ${CLANG_BINDIR} REQUIRED)
 # the generators read the stage-2 build of PORT_VERSION
 # (and the port's display-list command size: gen_syms.py's names inside one)
-if(PORT_WIDE_GFX)
+# (16 bytes in the LP64 builds, whose display-list and audio command words
+# are as wide as a pointer: gbi.h's Gwords; the renderer and the audio take
+# the size from port_layout())
+if(PORT_LP64)
     set(PY_GFX_SIZE 16)
 else()
     set(PY_GFX_SIZE 8)
@@ -457,9 +453,6 @@ endif()
 if(PORT_LP64)
     list(APPEND N64_DEFINES PORT_LP64)
     list(APPEND M32 -fms-extensions)    # PTR32: __ptr32 __uptr
-endif()
-if(PORT_WIDE_GFX)
-    list(APPEND N64_DEFINES PORT_WIDE_GFX)
 endif()
 # (a display-list command's size, for port_regions.h's pool)
 list(APPEND N64_DEFINES PORT_GFX_SIZE=${PY_GFX_SIZE})

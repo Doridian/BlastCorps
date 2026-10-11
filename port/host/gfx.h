@@ -21,8 +21,8 @@
  *
  * A command is the N64 side's Gfx: two words, w0 (the opcode and its
  * fields) and w1 (a field, or an address), each 4 bytes in game memory's
- * order, or, where the N64 side's Gfx has pointer-wide words
- * (PORT_WIDE_GFX, the LP64 builds), 8 bytes, a 64-bit scalar of game
+ * order, or, where the N64 side's Gfx has pointer-wide words (the LP64
+ * builds), 8 bytes, a 64-bit scalar of game
  * memory's (port.h: two of its words, the high one first): gfx_cmd is its
  * size, from port_layout (8 or 16), and gfx_w0/gfx_w1 read its words.
  *

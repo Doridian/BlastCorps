@@ -178,7 +178,7 @@ typedef struct SndStateLists {
  * (1C460.c's seqConfig: 0x10 channels, 0x18 voices, 0x20 events) and the
  * sound player's (sndConfig: 0x20 sounds, 0x40 events), and the two command
  * lists (22EE0.c: MAX_RSP_CMDS Acmds, 16 bytes each where the words are
- * pointer-wide: the wide build).  A heap that grew
+ * pointer-wide: the LP64 builds).  A heap that grew
  * isn't at its N64 address, which is 16-aligned, and alHeapInit takes the
  * rounding to 16 off a buffer that isn't: up to 15 bytes more then. */
 #ifndef TARGET_PC

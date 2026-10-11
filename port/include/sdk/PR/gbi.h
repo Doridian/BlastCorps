@@ -17,15 +17,10 @@
 
 #include <PR/ultratypes.h>
 
-/* A word of a display list that holds an address: as wide as a pointer
-   (Gwords, below), which it is converted from; in the LP64 port's narrow
-   build through a 32-bit pointer, so that the conversion is the game's
-   32-bit address.  _GBI_D: a word that holds data, 32 bits. */
-#if defined(PORT_LP64) && !defined(PORT_WIDE_GFX)
-#define _GBI_W(x) ((unsigned int)(void *PTR32)(x))
-#else
+/* A word of a display list that holds an address: the pointer's value, as
+   wide as a pointer (Gwords, below).  _GBI_D: a word that holds data, its
+   32 bits. */
 #define _GBI_W(x) ((__UINTPTR_TYPE__)(x))
-#endif
 #define _GBI_D(x) ((unsigned int)(x))
 
 /* A segmented address in a list (segment << 24 | offset, the RSP's): in
@@ -186,16 +181,12 @@ typedef struct {
 
 /* ---- the display list ----------------------------------------------------------- */
 
-/* (PORT_WIDE_GFX, the LP64 port's switch while display lists take
-   pointers: words as wide as a pointer, 16-byte commands) */
+/* A command's two words, as wide as a pointer (an address is one: _GBI_W):
+   4 bytes where pointers are, the N64's 8-byte commands, and 8 in the LP64
+   builds, 16-byte commands */
 typedef struct {
-#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
     __UINTPTR_TYPE__ w0;
     __UINTPTR_TYPE__ w1;
-#else
-    unsigned int w0;
-    unsigned int w1;
-#endif
 } Gwords;
 
 typedef union {

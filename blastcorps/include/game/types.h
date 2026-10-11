@@ -82,14 +82,8 @@ typedef u32 DlAddr;
 #define osRecvMesgInt(mq, var, flag) osRecvMesg(mq, (OSMesg *)&(var), flag)
 #endif
 
-/* A compile-time check that a struct has its N64 size.  (Not in the LP64
-   port's wide-display-list build, PORT_WIDE_GFX, a temporary switch: the
-   structs that hold a display list grow there.) */
-#ifdef PORT_WIDE_GFX
-#define SIZE_CHECK(type, size) typedef char type##_size_check
-#else
+/* A compile-time check that a struct has its N64 size. */
 #define SIZE_CHECK(type, size) typedef char type##_size_check[(sizeof(type) == (size)) ? 1 : -1]
-#endif
 /* The same for a struct only the C uses, with its own pointers: the LP64
    port lays it out as the host does (docs/PORT.md, "The LP64 build"). */
 #ifdef PORT_LP64

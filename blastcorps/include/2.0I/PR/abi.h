@@ -211,8 +211,8 @@ typedef struct {
  */
 
 typedef struct {
-#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
-	__UINTPTR_TYPE__ w0;	/* (the LP64 port's switch: pointer-wide words) */
+#if defined(TARGET_PC)
+	__UINTPTR_TYPE__ w0;	/* (the port: as wide as a pointer, 8 bytes in LP64) */
 	__UINTPTR_TYPE__ w1;
 #else
 	unsigned int w0;

@@ -84,27 +84,15 @@ N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 UPTR = "__UINTPTR_TYPE__"       # (asm_data.h has no stdint.h)
 # a display list command (TYPES' and LABEL_TYPES' kind `Gfx`): gbi.h's Gfx,
 # which asm_data.h can't include (its Mtx and Vtx are the inventory's), as
-# asm_Gfx: the same two words, as wide as a pointer in the wide build
+# asm_Gfx: the same two words, as wide as a pointer
 ASM_GFX = "asm_Gfx"
-ASM_GFX_DEF = """/* a display list command: gbi.h's Gfx (its words as wide as a pointer in the
-   LP64 port's wide build, PORT_WIDE_GFX) */
+ASM_GFX_DEF = """/* a display list command: gbi.h's Gfx (its words as wide as a pointer) */
 typedef union asm_Gfx {
     struct {
-#ifdef PORT_WIDE_GFX
         __UINTPTR_TYPE__ w0, w1;
-#else
-        unsigned int w0, w1;
-#endif
     } words;
     long long force_structure_alignment;
-} asm_Gfx;
-/* an address in a command's word: the pointer's value (in the LP64 port's
-   narrow build through a 32-bit pointer, as gbi.h's _GBI_W) */
-#if defined(PORT_LP64) && !defined(PORT_WIDE_GFX)
-#define ASM_GFX_ADDR(p) ((unsigned int)(void *PTR32)(p))
-#else
-#define ASM_GFX_ADDR(p) ((__UINTPTR_TYPE__)(p))
-#endif"""
+} asm_Gfx;"""
 
 # a display list's segmented addresses (gbi.h's G_SEGTAG: the words of
 # G_MTX, G_MOVEMEM, G_VTX and G_DL to segments 1..15 get bit 0; CMake: none
@@ -842,7 +830,7 @@ class Scalar:
 
     def native(self):
         """the offset of its first native pointer (None: none; a uintptr_t
-        is as wide as one, and so are a command's words in the wide build)"""
+        is as wide as one, and so are a command's words)"""
         return 0 if (self.kind == "ptr" and not self.ptr32) or self.kind in (UPTR, ASM_GFX) else None
 
 
@@ -1303,9 +1291,7 @@ class Gen:
             if base in blob.syms:
                 sys.exit(f"asm2c.py: a display list command at 0x{base:X} has a symbol for its opcode")
             w0, w1 = (self.value(blob, base + o, sc) for o, _, sc in ctype.units())
-            if base + 4 in blob.syms:
-                w1 = f"ASM_GFX_ADDR({self.pointer(blob.syms[base + 4], 'u8')})"
-            elif None not in blob.val[base:base + 8]:
+            if base + 4 not in blob.syms and None not in blob.val[base:base + 8]:
                 op = blob.val[base]
                 v1 = int.from_bytes(bytes(blob.val[base + 4:base + 8]), "big")
                 if op in SEG_OPS and (v1 >> 24) & 15:

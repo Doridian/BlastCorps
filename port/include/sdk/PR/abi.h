@@ -39,15 +39,10 @@
 #define A_MAIN 0x00
 #define A_MIX 0x10
 
-/* (PORT_WIDE_GFX: as gbi.h's Gwords) */
+/* (as gbi.h's Gwords: as wide as a pointer) */
 typedef struct {
-#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
     __UINTPTR_TYPE__ w0;
     __UINTPTR_TYPE__ w1;
-#else
-    unsigned int w0;
-    unsigned int w1;
-#endif
 } Awords;
 
 typedef union {
@@ -71,8 +66,7 @@ typedef short ENVMIX_STATE[40];
 #define _SHIFTL(v, s, w) ((unsigned int)(((unsigned int)(v) & ((0x01 << (w)) - 1)) << (s)))
 #endif
 
-/* an address in a command: the host's pointer (a word as wide as one where
-   PORT_WIDE_GFX makes them so; the narrow form keeps the low 32 bits) */
+/* an address in a command: the pointer's value (a word is as wide as one) */
 #define _A_ADDR(a) ((__UINTPTR_TYPE__)(a))
 
 #define A_CMD(pkt, w0v, w1v)                                                                                \
