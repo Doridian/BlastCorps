@@ -161,10 +161,12 @@ static void list_add(list *l, char *key, ynode *v) {
 static void list_done(P *p, list *l, ynode *n) {
     n->n = l->n;
     n->items = aalloc(p->a, sizeof *n->items * (l->n + 1));
-    memcpy(n->items, l->items, sizeof *n->items * l->n);
+    if (l->n)               /* (an empty list has no array to copy from) */
+        memcpy(n->items, l->items, sizeof *n->items * l->n);
     if (n->type == Y_MAP) {
         n->keys = aalloc(p->a, sizeof *n->keys * (l->n + 1));
-        memcpy(n->keys, l->keys, sizeof *n->keys * l->n);
+        if (l->n)
+            memcpy(n->keys, l->keys, sizeof *n->keys * l->n);
     }
     free(l->items);
     free(l->keys);
