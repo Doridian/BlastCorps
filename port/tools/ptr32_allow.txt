@@ -4,8 +4,7 @@
 # its container's name and member's, `huft.v`), each with the package
 # that makes it native.  P6 and P7 took out everything else (P7: libaudio,
 # its banks parsed into native objects, the sound player, the audio DMA,
-# the level's group sets); what is left is P8's, the display list's and
-# the audio command list's words.  P10 has none here (its host interface
-# is ptrcast_scan.py's).
+# the level's group sets), and P8 the display lists' and the audio command
+# lists' words: none is left.  P10 has none here (its host interface is
+# ptrcast_scan.py's).
 # ptr32_check.py BUILD --update rewrites it, keeping each name's note.
-D_80300A68_t     # P8: asm2c's display list D_80300A68 (PTR32_VARS), its words

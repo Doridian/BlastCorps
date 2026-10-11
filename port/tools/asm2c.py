@@ -49,8 +49,8 @@ field's type is another, or `(u8 *)&D_X + n` into a variable).  A pointer
 is native, as the C that reads it declares it (8 bytes in the LP64 build,
 which lays out what holds one as the host does; decl_check.py compares
 the two): the inventory's pointers and POINTERS' (the words the C has as
-pointers, tables to a sentinel included).  Only PTR32_VARS' stay 4 bytes
-(D_80300A68's display list words, P8).  Nothing reads this data at the
+pointers, tables to a sentinel included).  A display list's address word is
+a pointer's value, as wide as one (asm_Gfx).  Nothing reads this data at the
 N64's offsets any more: the engine is C (port/engine), and only the
 32-bit check build compiles the translated code, where pointers are 4
 bytes anyway.  A name inside a variable past a native pointer is none in
@@ -97,7 +97,14 @@ typedef union asm_Gfx {
 #endif
     } words;
     long long force_structure_alignment;
-} asm_Gfx;"""
+} asm_Gfx;
+/* an address in a command's word: the pointer's value (in the LP64 port's
+   narrow build through a 32-bit pointer, as gbi.h's _GBI_W) */
+#if defined(PORT_LP64) && !defined(PORT_WIDE_GFX)
+#define ASM_GFX_ADDR(p) ((unsigned int)(void *PTR32)(p))
+#else
+#define ASM_GFX_ADDR(p) ((__UINTPTR_TYPE__)(p))
+#endif"""
 
 _GAME = os.path.join(BLAST, "include", "game")
 INVENTORY = os.path.join(_GAME, f"inventory.{VERSION}.json")
@@ -296,6 +303,10 @@ LABEL_TYPES = {
     # reads them as doublewords): commands, as the engine reads them
     "D_802F46C0": ("Gfx", 24),
     "D_802F4780": ("Gfx", 6),
+    # the carrier's explosion's dome (39050.c): a display list, 187 commands
+    # to its G_ENDDL (SPLIT_LABELS: what follows isn't its); its G_SETTIMG's
+    # word is the texture's address (D_802FF738)
+    "D_80300A68": ("Gfx", 187),
     # 60F60's effect sprites' display lists, two passes of two frames
     # (func_802A64A4): 0xC00 bytes of commands each on the N64
     "D_803C5770": ("Gfx", 0x180),
@@ -456,11 +467,11 @@ POINTERS = {
     "D_802C4A20": ("struct UnkStruct_8036EC30", None),
 }
 
-# Pointers kept 4 bytes (PTR32) while the C's are: the display list's
-# words (P8).
+# Pointers kept 4 bytes (PTR32) while the C's are (none: a display list's
+# words are Gfx's, as wide as a pointer)
 PTR32_POINTEES = set()
 PTR32_TYPES = set()
-PTR32_VARS = {"D_80300A68"}
+PTR32_VARS = set()
 
 
 def keep32(t):
@@ -687,6 +698,24 @@ def parse_bin(path, label):
     return blob
 
 
+# A variable that ends before the next label: {label: (its bytes, the
+# rest's name)}.  D_80300A68 is a display list to its G_ENDDL; the words
+# after it (8 bytes in us, 4 in jp, before the next label) are the start of
+# the table after it, which nothing names: a variable of their own.
+SPLIT_LABELS = {"D_80300A68": (187 * 8, "D_80300A68_after")}
+
+
+def split_labels(blob):
+    for o, n in list(blob.labels):
+        if n in SPLIT_LABELS:
+            size, rest = SPLIT_LABELS[n]
+            nxt = min((p for p, _ in blob.labels if p > o), default=len(blob))
+            if o + size < nxt:
+                blob.labels.append((o + size, rest))
+                blob.breaks.add(o + size)
+    blob.labels.sort(key=lambda x: x[0])
+
+
 def n64_labels(blob, nm):
     """The names the N64 link has inside the blob that its file has no
     label for, as labels: a data island's (splat keeps it as bytes, the code
@@ -801,9 +830,8 @@ class Scalar:
         return f"{self.kind} {name}"
 
     def units(self):
-        if self.kind == ASM_GFX:
-            w = Scalar("u32")
-            return [(0, 4, w), (4, 4, w)]
+        if self.kind == ASM_GFX:      # (w1 may be an address: a symbol there is the pointer's value)
+            return [(0, 4, Scalar("u32")), (4, 4, Scalar(UPTR))]
         return [(0, self.size, self)]
 
     def native(self):
@@ -1028,7 +1056,7 @@ def units_match(blob, base, ctype):
             return f"+0x{k - base:X}: a {x}-byte unit inside the type's"
         if h[0] != x:
             return f"+0x{k - base:X}: {h[0]} bytes where the data has {x}"
-        if k in blob.syms and h[1].kind != "ptr":
+        if k in blob.syms and h[1].kind not in ("ptr", UPTR):
             return f"+0x{k - base:X}: a pointer in a {h[1].kind}"
         if h[1].kind == "ptr" and k not in blob.syms and blob.val[k] is not None:
             v = int.from_bytes(bytes(blob.val[k:k + 4]), "big")
@@ -1222,6 +1250,8 @@ class Gen:
 
     # -- initializers
     def value(self, blob, k, sc):
+        if sc.kind == UPTR and k in blob.syms:      # (an address as an integer: the pointer's value)
+            return f"({UPTR}){self.pointer(blob.syms[k], 'u8')}"
         if sc.kind == "ptr":
             if k in blob.syms:
                 return self.pointer(blob.syms[k], sc.pointee)
@@ -1264,10 +1294,12 @@ class Gen:
 
     def init(self, blob, base, ctype, depth=0):
         if isinstance(ctype, Scalar) and ctype.kind == ASM_GFX:
-            if base in blob.syms or base + 4 in blob.syms:
-                sys.exit(f"asm2c.py: a display list command at 0x{base:X} holds a symbol")
-            w = Scalar("u32")
-            return "{ { " + self.value(blob, base, w) + ", " + self.value(blob, base + 4, w) + " } }"
+            if base in blob.syms:
+                sys.exit(f"asm2c.py: a display list command at 0x{base:X} has a symbol for its opcode")
+            w0, w1 = (self.value(blob, base + o, sc) for o, _, sc in ctype.units())
+            if base + 4 in blob.syms:
+                w1 = f"ASM_GFX_ADDR({self.pointer(blob.syms[base + 4], 'u8')})"
+            return "{ { " + w0 + ", " + w1 + " } }"
         if isinstance(ctype, Scalar):
             return self.value(blob, base, ctype)
         if isinstance(ctype, Array):
@@ -1416,6 +1448,7 @@ def main():
             label = f"{mm.group(1)}_{mm.group(2)}_bin"
         b = parse_s(a, rel, label)
         n64_labels(b, nm)
+        split_labels(b)
         resolve(b, rel, island=ISLANDS.get(os.path.basename(a)) if a.endswith(".bin.s") else None)
         files.append((out_name(a), rel, [b], a))
 
