@@ -83,8 +83,8 @@ static uint8_t g8(const void *p) { return *(const uint8_t *)p; }
    port/src/layout.c), not the N64's offsets, which the LP64 build's
    native structures don't keep */
 #define L(x) host_layout(PORT_LAYOUT_##x)
-/* the pointer variable `sym`: the N64 address it holds */
-#define GPTR(sym) port_game_ptr_n(VAR(sym), L(PTR_##sym))
+/* the pointer variable `sym`: where it points, for the host */
+#define GPTR(sym) ((const char *)port_hptr(port_game_ptr_n(VAR(sym), L(PTR_##sym))))
 
 #define VAR(sym) PORT_VAR(sym)
 extern char D_80364A90[], D_802E8BDC[], D_80358064[], D_80358060[], D_8036B968[];
@@ -165,11 +165,11 @@ static void vehicles(void) {
     unsigned i;
 
     uint32_t size = L(VEHICLE_SIZE);
-    uint32_t first = PORT_ADDR(D_80364460), end = GPTR(D_803649D0);
+    const char *first = VAR(D_80364460), *end = GPTR(D_803649D0);
     if (end < first || end > first + 12 * size)
         end = first;
-    for (uint32_t a = first; a < end; a += size) {
-        uint32_t type = g32((const char *)port_ptr(a) + L(VEHICLE_TYPE));
+    for (const char *a = first; a < end; a += size) {
+        uint32_t type = g32(a + L(VEHICLE_TYPE));
         if (type == 0x0B || type == 0x11 || type == 0x12) {
             barge = 1;
             continue;
@@ -194,11 +194,11 @@ static void vehicles(void) {
 
 static void buildings(void) {
     uint32_t size = L(BUILDING_SIZE);
-    uint32_t first = PORT_ADDR(D_803F4030), end = GPTR(D_803F7654);
+    const char *first = VAR(D_803F4030), *end = GPTR(D_803F7654);
     if (end < first || end > first + 0x100 * size)
         end = first;
-    for (uint32_t a = first, k = 0; a < end; a += size, k++) {
-        const char *b = (const char *)port_ptr(a);
+    uint32_t k = 0;
+    for (const char *b = first; b < end; b += size, k++) {
         char key[8], dmg[2 * 0x10 + 1];
         unsigned groups = g8(b + L(BUILDING_GROUPS)), j;
         if (groups > 0x10)
@@ -246,9 +246,10 @@ static void level(void) {
     put("ammo", "%d,%d", (int16_t)g16(VAR(D_803F8B72)), (int16_t)g16(VAR(D_803EDC00)));
     vehicles();
     buildings();
-    uint32_t n = g16(VAR(D_8036EB90)), rdus = GPTR(D_8036BED8);
+    uint32_t n = g16(VAR(D_8036EB90));
+    const char *rdus = GPTR(D_8036BED8);
     if (rdus && n)
-        bits("rdu", (const char *)port_ptr(rdus), n, L(RDU_SIZE), L(RDU_COLLECTED));
+        bits("rdu", rdus, n, L(RDU_SIZE), L(RDU_COLLECTED));
     n = g32(VAR(D_8039B610));
     if (n <= 20) {
         char s[VALLEN];
