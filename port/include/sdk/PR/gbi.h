@@ -44,8 +44,10 @@
 #define _SHIFTL(v, s, w) ((unsigned int)(((unsigned int)(v) & ((0x01 << (w)) - 1)) << (s)))
 #define _SHIFT _SHIFTL
 
+#ifndef MAX
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#endif
 
 /* ---- opcodes ------------------------------------------------------------------
  *

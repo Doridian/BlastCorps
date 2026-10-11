@@ -1177,7 +1177,7 @@ static void tmem_put_bytes(uint32_t a, int odd, const uint8_t *px, uint32_t n) {
         for (; i < whole; i += 8) {
             uint64_t v;
             memcpy(&v, px + i, 8);
-            v = __builtin_rotateleft64(v, rot);
+            v = (v << rot) | (v >> ((64 - rot) & 63));      /* a rotation, in any compiler */
             memcpy(d + i, &v, 8);
         }
         i = whole;

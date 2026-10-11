@@ -296,7 +296,7 @@ static const Field *field(int i) {
     if (!g || !stbtt_GetGlyphBox(&font, g, &ix0, &iy0, &ix1, &iy1))
         return NULL;
     float scale = stbtt_ScaleForMappingEmToPixels(&font, SDF_EM);
-    int xo, yo;
+    int xo = 0, yo = 0;     /* (left alone when there is no glyph) */
     fd->sdf = stbtt_GetGlyphSDF(&font, scale, g, SDF_PAD, 128, SDF_SCALE, &fd->w, &fd->h, &xo, &yo);
     fd->gx0 = ix0 * scale - xo;
     fd->gy0 = -iy1 * scale - yo;

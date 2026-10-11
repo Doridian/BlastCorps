@@ -60,7 +60,7 @@ static const struct rom_segment *segment_named(const char *name) {
 /* the load being converted: [base, base + len) of game memory */
 static uint8_t *base;
 static uint32_t len;
-static const char *load_name;
+static char load_name[64];       /* (a copy: the caller's name is a local) */
 static int nwarn;
 
 static void warn(const char *fmt, uint32_t a, uint32_t b) {
@@ -649,7 +649,7 @@ static void conv_bank(void) {
 static void begin(const char *name, void *dst, uint32_t n, uint32_t off) {
     base = dst;
     len = n;
-    load_name = name;
+    snprintf(load_name, sizeof load_name, "%s", name);
     (void)off;
 #ifdef PORT_ACCESS_PROFILE
     port_access_origin(port_n64(dst), n, port_access_asset(name), off);
