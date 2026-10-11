@@ -16,8 +16,9 @@
       the same between the big-endian build and a native-endian one: a
       word of the native dump matches if it is the big-endian word in one
       of the orders its fields can have (a u32 or two u16s or bytes, in any
-      mix: the word, its bytes reversed, either half's bytes reversed);
-      64-bit scalars are two words, high first, in both.  Where the native
+      mix: the word, its bytes reversed, either half's bytes reversed), or
+      an aligned pair of words that is a 64-bit scalar's (its eight bytes
+      reversed).  Where the native
       run is a PORT_ACCESS_PROFILE build's, its dumps come with the width
       every byte was last written or converted at (rdram_N.widths), and the
       comparison is byte by byte at those widths, which is exact.
@@ -118,10 +119,8 @@ def rdram_typed(a, b, n):
         whole = np.ones(len(idx), bool)
         for k in range(1, u):
             whole &= (width[idx + k] == u) & (pos[idx + k] == k)
-        # a u64 is two host-order words, the high one first
         for k in range(u):
-            src = k // 4 * 4 + 3 - k % 4 if u == 8 else u - 1 - k
-            exp[idx[whole] + k] = x[idx[whole] + src]
+            exp[idx[whole] + k] = x[idx[whole] + u - 1 - k]
             known[idx[whole] + k] = True
     cut = (width > 1) & ~known
     bad = np.nonzero(known & (exp != y))[0]
@@ -161,6 +160,11 @@ def rdram_native(a, b, ns, widths=None):
         hi = (x & 0x0000FFFF) | (bs16(x) & 0xFFFF0000)
         lo = (x & 0xFFFF0000) | (bs16(x) & 0x0000FFFF)
         ok = (x == y) | (rev == y) | (both == y) | (hi == y) | (lo == y)
+        # a 64-bit scalar: the aligned pair's eight bytes reversed
+        xb = np.fromfile(f"{a}/rdram_{n}.bin", "u1")
+        m = len(xb) // 8 * 8
+        d64 = (xb[:m].reshape(-1, 8)[:, ::-1] == yb[:m].reshape(-1, 8)).all(axis=1)
+        ok[:m // 4] |= np.repeat(d64, 2)
         yn = y.byteswap()               # the native word as a value
         ok |= image(x) & image(yn) | stack(x) & stack(yn)
         d = np.nonzero(~ok)[0]
