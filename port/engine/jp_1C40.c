@@ -31,7 +31,10 @@ extern u16 D_8020832C_jp[];
 extern u16 D_80208330_jp[];
 extern u16 D_80208340_jp[];
 extern u16 D_80208348_jp[];
-extern u16 D_802156A0[];
+/* (jp's line: the second of D_802155A0's 0x300 bytes, 1C40.c's, which
+   is all the C defines there) */
+extern u8 D_802155A0[];
+#define D_802156A0 ((u16 *)(D_802155A0 + 0x100))
 extern u16 D_803041B8[];
 extern u8 D_80365060[];
 extern s32 D_80215458;
