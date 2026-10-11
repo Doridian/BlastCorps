@@ -75,7 +75,7 @@ def clang_cmd():
            os.path.join(BLAST, "include", "2.0I"), os.path.join(BLAST, "include", "2.0I", "PR")]
     return (["clang", "-m32", "-malign-double", "-std=gnu89", "-fsyntax-only", "-nostdinc", "-isystem",
              os.path.join(rd, "include")] + ["-I" + i for i in inc] +
-            ["-D_LANGUAGE_C", "-D_FINALROM", "-DTARGET_PC"] + VERSION_DEFINE + ["-D_MIPS_SZLONG=32",
+            ["-D_LANGUAGE_C", "-D_FINALROM", "-DTARGET_PC", "-DPORT_GFX_SIZE=8"] + VERSION_DEFINE + ["-D_MIPS_SZLONG=32",
              "-D_MIPS_SZINT=32", "-Wno-everything"])
 
 
@@ -819,7 +819,7 @@ def build_punning(prog, an, res, regions, elem):
 
 KNOWN_PUNNING = [
     {"where": "D_80364A90 (u64 game_mode), D_80364A98", "as": ["u64", "u32 halves"],
-     "note": "the C uses ld/sd; the handwritten code reads and writes the words (high word first, at the lower address)"},
+     "note": "the C uses ld/sd; the handwritten code reads and writes the words (on the N64 the high word is at the lower address; the port's native-endian builds keep a host-order u64, which the host reads whole)"},
     {"where": "D_8021A830", "as": ["u64 (hd.c, 17990.c)", "u8[4] (10850.c's definition)"],
      "note": "10850.c defines 4 bytes; the u64 view covers the next variable too"},
     {"where": "D_8039C4B8", "as": ["u8[0x40] (the Controller Pak block)", "u64 (409D0.c: the 0x1234567887654321 marker)"]},

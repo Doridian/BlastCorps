@@ -903,10 +903,12 @@ them: unaligned copies (`func_802AC7DC`, `func_802AC85C`, `func_802A75DC`,
 data (`func_802A3D54`, `func_802A3DF8`, `func_802A3F80`, `func_802A4464`),
 once those data are converted.  Doublewords stay two words, high word
 first, which is not what a host-order `u64` is (low word first on a
-little-endian host): any `u64` or double shared between the C and the asm
-needs one convention.  (No build runs this mode now: the translated code
-is only the engine check build's reference, which is big-endian; the
-native-endian builds keep a `u64` in host order, below.)  The
+little-endian host).  That was the mismatch a `u64` or double shared
+between the C and the asm had to settle; it is settled now by there being
+no such sharing, and the mode's doubleword handling is dead code: no build
+runs this mode, since the translated code is only the engine check build's
+reference, which is big-endian, and the native-endian builds keep a `u64`
+in host order, below.  The
 differential test can't check this mode as it is, since unicorn runs a
 big-endian image; with a type map it can: convert
 each trial's memory to host order by the map before the translated run and
@@ -6052,7 +6054,11 @@ void recomp_func_8029A800(uint8_t *rdram, recomp_context *ctx);
   a port whose native C shares those structs. Words, halves and bytes then
   read the same from both sides, but `lwl`/`lwr`/`swl`/`swr` (32 uses) and
   anything that reads one datum at two widths would need checking. Doubles
-  and `ld`/`sd` are two words, high word first, in both modes.
+  and `ld`/`sd` are two words, high word first, in both modes.  In the
+  native-endian mode that is not a host-order `u64`, which is what the
+  port's native-endian builds keep ("Native-endian memory"); the mode is
+  dead code, because the check build, the translated code's only user, is
+  big-endian.
 
 How the PC build meets this interface (RDRAM at `0x80000000`, big-endian
 memory, the glue generated from the C) is under "Memory model" and "The

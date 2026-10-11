@@ -110,8 +110,9 @@ One JSON object:
   table models, textures).  `reloc` says what the game turns into pointers.
 - **`punning`**: `{where, as, sites}`: a field accessed at two widths at the
   same offset, or as float and integer, outside copy loops; plus the known
-  cases: the `u64` game mode words (`ld`/`sd` in the C, words in the asm,
-  high word first), `D_8021A830` (4 bytes defined, 8 read), the Controller
+  cases: the `u64` game mode words (`ld`/`sd` in the C, words in the asm, the
+  high word at the lower address on the N64; the port's native-endian
+  builds keep a host-order `u64`), `D_8021A830` (4 bytes defined, 8 read), the Controller
   Pak block `D_8039C4B8`, the per-frame buffer's two layouts, `Mtx`.
 - **`packed`**: `{site, op, where, fields}`: the handwritten code's word
   and doubleword accesses that carry narrower fields, found two ways: where

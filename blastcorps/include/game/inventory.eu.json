@@ -29094,7 +29094,7 @@
     "u64",
     "u32 halves"
    ],
-   "note": "the C uses ld/sd; the handwritten code reads and writes the words (high word first, at the lower address)"
+   "note": "the C uses ld/sd; the handwritten code reads and writes the words (on the N64 the high word is at the lower address; the port's native-endian builds keep a host-order u64, which the host reads whole)"
   },
   {
    "where": "D_8021A830",
