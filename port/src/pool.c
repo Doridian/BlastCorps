@@ -97,6 +97,10 @@ void *port_pool_n64(void) {
 void *port_pool_slots(void *end) {
     D_80358070 = end;
     check("the effects' heap");
+    /* (the heap runs to the N64's limits, inside the front end's area: the
+       level loader has let the front end go by then, 5CB60.c) */
+    if (D_80370C50)
+        host_fatal("pool: the effects' heap while the front end is loaded\n");
     slots = 1;
     host_pool_report((D_80364AA8 & 0x20) ? "effects (the lower limit)" : "effects", level, D_80358070, port_pool_n64(),
                      POOL_END);

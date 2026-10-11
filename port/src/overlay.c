@@ -23,7 +23,12 @@
  * copy made then; the area itself gets the .data the inflate would leave
  * there, and its .bss cleared, as in the other builds.
  *
- * The link wraps func_8028B3E0 (--wrap) with this.
+ * The plain build (PORT_PLAIN) is the same: its front end's variables are
+ * ordinary globals, listed at build time (port_fe_tables:
+ * tools/gen_fevars.py).
+ *
+ * The link wraps func_8028B3E0 (--wrap) with this; the plain build's
+ * defining file has it as __real_func_8028B3E0 instead (CMake).
  */
 #include "common.h"
 #include "functions.h"
@@ -43,7 +48,37 @@ extern void *memset(void *, int, unsigned int);
 
 static u8 fe_data[FE_BSS - FE_DATA];
 
-#ifdef PORT_SCATTER_FE
+#ifdef PORT_PLAIN
+/* tools/gen_fevars.py's (port_game.h's PortFeVar): a table a source of the
+   front end's, each a row a variable, then a row of zeros */
+extern const PortFeVar *const port_fe_tables[];
+
+void port_overlay_init(void) {
+    const PortFeVar *const *t;
+    const PortFeVar *v;
+
+    for (t = port_fe_tables; *t; t++)
+        for (v = *t; v->size; v++) {
+            u32 at = v->n64 - PORT_FE_DATA;
+
+            if (v->snap)
+                memmove(v->snap, v->at, v->size);
+            if (v->n64 && at < sizeof fe_data)
+                memmove(fe_data + at, v->at, MIN(MIN(v->n64room, v->size), sizeof fe_data - at));
+        }
+}
+
+static void restore_vars(void) {
+    const PortFeVar *const *t;
+    const PortFeVar *v;
+
+    for (t = port_fe_tables; *t; t++)
+        for (v = *t; v->size; v++)
+            if (v->snap)
+                memmove(v->at, v->snap, v->size);
+}
+#define __wrap_func_8028B3E0 func_8028B3E0
+#elif defined(PORT_SCATTER_FE)
 /* port-arena's (bepass/Arena.cpp, feTableMake): a row a variable, by N64
    address, then a row of zeros */
 extern const struct {
@@ -55,6 +90,7 @@ extern const struct {
 extern u8 __port_fe_snap[];
 #endif
 
+#ifndef PORT_PLAIN
 void port_overlay_init(void) {
 #ifdef PORT_SCATTER_FE
     int i;
@@ -69,19 +105,22 @@ void port_overlay_init(void) {
                     MIN(__port_fe_vars[i].n64size, sizeof fe_data - at));
     }
 #else
-    memmove(fe_data, D_801E7000 + FE_DATA, sizeof fe_data);
+    memmove(fe_data, MEM_FRONT_END + FE_DATA, sizeof fe_data);
 #endif
 }
+#endif
 
 void __wrap_func_8028B3E0(void) {
     u32 len = *D_802FDB34 - *D_802FDB30;
 
     osViBlack(1);
     if (D_80370C50 == 0) {
-        func_8028B4C4(*D_802FDB30, D_801E7000, &len, 13, 10, 1);
-        memmove(D_801E7000 + FE_DATA, fe_data, sizeof fe_data);
-        memset(D_801E7000 + FE_BSS, 0, FE_SIZE - FE_BSS);
-#ifdef PORT_SCATTER_FE
+        func_8028B4C4(*D_802FDB30, MEM_FRONT_END, &len, 13, 10, 1);
+        memmove(MEM_FRONT_END + FE_DATA, fe_data, sizeof fe_data);
+        memset(MEM_FRONT_END + FE_BSS, 0, FE_SIZE - FE_BSS);
+#ifdef PORT_PLAIN
+        restore_vars();
+#elif defined(PORT_SCATTER_FE)
         {
             int i;
 
@@ -90,7 +129,7 @@ void __wrap_func_8028B3E0(void) {
         }
 #endif
 #ifdef PORT_ACCESS_PROFILE
-        __port_access_set(D_801E7000 + FE_DATA, FE_SIZE - FE_DATA, 0);    /* the image's data again */
+        __port_access_set(MEM_FRONT_END + FE_DATA, FE_SIZE - FE_DATA, 0);    /* the image's data again */
 #endif
         D_80370C50 = 1;
         func_801F57B0();
