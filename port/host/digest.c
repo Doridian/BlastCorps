@@ -297,7 +297,7 @@ void host_digest_poll(unsigned poll) {
     }
     if (!out)
         return;
-    uint64_t mode = (uint64_t)g32(VAR(D_80364A90)) << 32 | g32(VAR(D_80364A90) + 4);
+    uint64_t mode = port_g64(VAR(D_80364A90));
     int32_t lvl = (int32_t)g32(VAR(D_802E8BDC));
     uint32_t frame = g32(VAR(D_80358064));
 

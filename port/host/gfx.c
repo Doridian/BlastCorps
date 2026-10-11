@@ -2183,7 +2183,7 @@ static void hud_scan(GfxAddr dl, int depth, GfxAddr *proj) {
 }
 
 static void hud_begin(GfxAddr dl, int rdp) {
-    uint64_t mode = (uint64_t)port_g32(D_80364A90) << 32 | port_g32(D_80364A90 + 4);
+    uint64_t mode = port_g64(D_80364A90);
     hud_task = rdp && gfx_hud_edges && gfx_wide_off > 0 && (mode & HUD_MODES) && !(mode & (mode - 1));
     if (!hud_task)
         return;
@@ -2322,9 +2322,9 @@ static unsigned globe_gen;
 /* (the frames' textures by their physical addresses, made host ones: the
    texture image's, from gfx_addr, is KSEG0's whatever its word was) */
 static void globe_begin(void) {
-    uint32_t hi = micons_on ? port_g32(D_80364A90) : 1, lo = micons_on ? port_g32(D_80364A90 + 4) : 0;
+    int map = micons_on && port_g64(D_80364A90) == MODE_WORLD_MAP;
     for (int k = 0; k < 3; k++) {
-        uint32_t phys = !hi && lo == MODE_WORLD_MAP ? game_ptr(D_80215A70 + GAME_PTR_SIZE * k) & 0x1FFFFFFFu : 0;
+        uint32_t phys = map ? game_ptr(D_80215A70 + GAME_PTR_SIZE * k) & 0x1FFFFFFFu : 0;
         globe_tex[k] = phys ? gfx_of_n64(0x80000000u | phys) : 0;
     }
 }
