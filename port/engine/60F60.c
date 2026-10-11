@@ -13,6 +13,7 @@
  */
 #include "engine.h"
 #include "texture.h"
+#include "game/memmap.h"
 
 extern u8 D_803C3250[0x1000];           /* the stream's copy */
 extern TexDecode D_803C4250[144];       /* decodes waiting for their DMAs */
@@ -283,7 +284,6 @@ extern u8 D_803EB770[16];       /* the cells in use */
 extern u8 *D_803EB788, *D_803EB78C;                /* the effects' heap */
 extern s16 D_803EB790;          /* ... in 0x1010-byte pieces */
 extern u8 D_803EB792;
-extern u8 D_8020ED00[], D_8021DD00[];
 extern char D_80305C34[], D_80305C48[];
 REGS(t6, s1)
 void func_802A11C4(u32 id, u8 *dst);
@@ -339,9 +339,9 @@ void func_802A5FA8(void) {
     u32 n;
 
     if (D_80364AA8 & 0x20) {
-        limit = D_8020ED00;
+        limit = MEM_LIMIT_LOW;
     } else {
-        limit = D_8021DD00;
+        limit = MEM_LIMIT;
     }
     left = limit - (u8 *)port_pool_n64();
     if (left < 0)
