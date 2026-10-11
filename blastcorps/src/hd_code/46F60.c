@@ -38,8 +38,14 @@ void func_8028B734(s8 *arg0, s8 *arg1, u8 arg2) {
     sp30 = -D_80370C70 * 16 + 0x7FF0;
     sp37 = *arg0;
     sp36 = *arg1;
+#ifdef TARGET_PC
+    /* both conversions can be out of an s16's range (a half-turn is 32768) */
+    sp34 = (s16)port_f2i((s16)port_f2i((360.0 - (D_80364414 + 180.0)) / 360.0 * 65536.0) +
+                         (func_8028BBF4(0, 0, sp37, -sp36) * 65536.0 / 360.0 + 32768.0));
+#else
     sp34 = (s16) ((360.0 - (D_80364414 + 180.0)) / 360.0 * 65536.0) +
            (func_8028BBF4(0, 0, sp37, -sp36) * 65536.0 / 360.0 + 32768.0);
+#endif
     sp32 = sqrtf(sp37 * sp37 + sp36 * sp36);
     *arg1 = sp32;
     D_80370C74 = 0;
