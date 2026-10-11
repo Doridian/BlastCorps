@@ -16,7 +16,6 @@ typedef struct {
     /* 0x12 */ u8 unk12[0xA];
 } UnkStruct_802F8BDC_1C; /* size = 0x1C */
 
-u32 osVirtualToPhysical(void *);
 
 extern OSMesgQueue D_80219F50;
 extern u16 D_8036BB16;

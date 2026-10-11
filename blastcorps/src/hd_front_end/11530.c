@@ -23,7 +23,6 @@ void func_801FD748(void);
 void func_801FDE98(void);
 void guMtxXFMF(float mf[4][4], float x, float y, float z, float *ox, float *oy, float *oz);
 void guRotateF(float mf[4][4], float a, float x, float y, float z);
-u32 osVirtualToPhysical(void *);
 f32 sqrtf(f32);
 
 extern Gfx D_01000010[];

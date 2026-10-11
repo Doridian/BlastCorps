@@ -639,7 +639,7 @@ void func_80266248(Gfx **gfxp, Frame *arg1) {
     u8 found;
     u8 frame;
     u16 *tex;
-    u32 phys;
+    DlAddr phys;
     u8 flip;
     f32 mf[4][4];
     f32 x[4];

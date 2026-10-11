@@ -22,16 +22,19 @@
 #define	_GBI_H_
 
 
-/* A word of a display list: in the LP64 port through a 32-bit pointer, so
- * that an address in a static list is a 32-bit relocation (clang won't
- * truncate a 64-bit one in a constant). */
-#if defined(TARGET_PC) && defined(PORT_WIDE_GFX)
-#define _GBI_W(x)	((__UINTPTR_TYPE__)(x))	/* (the wide switch: as wide as a pointer) */
-#elif defined(TARGET_PC) && defined(PORT_LP64)
+/* A word of a display list that holds an address: in the port as wide as
+ * a pointer (Gwords), which it is converted from; in the LP64 port's narrow
+ * build through a 32-bit pointer, so that an address in a static list is a
+ * 32-bit relocation (clang won't truncate a 64-bit one in a constant).
+ * _GBI_D: a word that holds data, 32 bits. */
+#if defined(TARGET_PC) && defined(PORT_LP64) && !defined(PORT_WIDE_GFX)
 #define _GBI_W(x)	((unsigned int)(void *PTR32)(x))
+#elif defined(TARGET_PC)
+#define _GBI_W(x)	((__UINTPTR_TYPE__)(x))
 #else
 #define _GBI_W(x)	((unsigned int)(x))
 #endif
+#define _GBI_D(x)	((unsigned int)(x))
 /*
  * To use the F3DEX ucodes, define F3DEX_GBI before include this file.
  *
@@ -1815,12 +1818,12 @@ typedef union {
 	Gfx *_g = (Gfx *)(pkt);						\
 									\
 	_g->words.w0 = _SHIFTL((c), 24, 8);				\
-	_g->words.w1 = _GBI_W(p0);				\
+	_g->words.w1 = _GBI_D(p0);				\
 }
 
 #define	gsImmp1(c, p0)							\
 {									\
-	_SHIFTL((c), 24, 8), _GBI_W(p0)				\
+	_SHIFTL((c), 24, 8), _GBI_D(p0)				\
 }
 
 #define	gImmp2(pkt, c, p0, p1)						\
@@ -1857,13 +1860,13 @@ typedef union {
 									\
 	_g->words.w0 = (_SHIFTL((c), 24, 8)  | _SHIFTL((p0), 8, 16) |	\
 			_SHIFTL((p1), 0, 8));				\
-	_g->words.w1 = (unsigned int) (dat);				\
+	_g->words.w1 = _GBI_W(dat);				\
 }
 
 #define	gsImmp21(c, p0, p1, dat)					\
 {									\
 	_SHIFTL((c), 24, 8) | _SHIFTL((p0), 8, 16) | _SHIFTL((p1), 0, 8),\
-        (unsigned int) (dat)						\
+        _GBI_W(dat)						\
 }
 
 #ifdef	F3DEX_GBI_2x
@@ -2074,7 +2077,7 @@ typedef union {
 									\
 	_g->words.w0 = _SHIFTL(G_CULLDL, 24, 8) |			\
                        ((0x0f & (vstart))*40);				\
-	_g->words.w1 = _GBI_W((0x0f & ((vend)+1))*40);		\
+	_g->words.w1 = _GBI_D((0x0f & ((vend)+1))*40);		\
 }
 
 #define gsSPCullDisplayList(vstart,vend)				\
@@ -2257,14 +2260,14 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	_g = (Gfx *)(pkt);						\
 	_g->words.w0 = (_SHIFTL(G_BRANCH_Z,24,8)|			\
 		        _SHIFTL((vtx)*5,12,12)|_SHIFTL((vtx)*2,0,12));	\
-	_g->words.w1 = _GBI_W(zval);				\
+	_g->words.w1 = _GBI_D(zval);				\
 }
 
 #define	gsSPBranchLessZraw(dl, vtx, zval)				\
 {	_SHIFTL(G_RDPHALF_1,24,8),					      \
 	_GBI_W(dl),						},    \
 {	_SHIFTL(G_BRANCH_Z,24,8)|_SHIFTL((vtx)*5,12,12)|_SHIFTL((vtx)*2,0,12),\
-	_GBI_W(zval),						}
+	_GBI_D(zval),						}
 
 /*
  * gSPLoadUcode   RSP loads specified ucode.
@@ -2688,12 +2691,12 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	Gfx *_g = (Gfx *)(pkt);						\
 									\
 	_g->words.w0 = _SHIFTL(G_SETGEOMETRYMODE, 24, 8);		\
-	_g->words.w1 = _GBI_W(word);				\
+	_g->words.w1 = _GBI_D(word);				\
 }
 
 #define	gsSPSetGeometryMode(word)					\
 {									\
-	_SHIFTL(G_SETGEOMETRYMODE, 24, 8), _GBI_W(word)		\
+	_SHIFTL(G_SETGEOMETRYMODE, 24, 8), _GBI_D(word)		\
 }
 
 #define	gSPClearGeometryMode(pkt, word)					\
@@ -2701,12 +2704,12 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	Gfx *_g = (Gfx *)(pkt);						\
 									\
 	_g->words.w0 = _SHIFTL(G_CLEARGEOMETRYMODE, 24, 8);		\
-	_g->words.w1 = _GBI_W(word);				\
+	_g->words.w1 = _GBI_D(word);				\
 }
 
 #define	gsSPClearGeometryMode(word)					\
 {									\
-	_SHIFTL(G_CLEARGEOMETRYMODE, 24, 8), _GBI_W(word)	\
+	_SHIFTL(G_CLEARGEOMETRYMODE, 24, 8), _GBI_D(word)	\
 }
 #endif	/* F3DEX_GBI_2 */
 
@@ -2716,13 +2719,13 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	Gfx *_g = (Gfx *)(pkt);						\
 	_g->words.w0 = (_SHIFTL(cmd,24,8)|_SHIFTL(32-(sft)-(len),8,8)|	\
 			_SHIFTL((len)-1,0,8));				\
-	_g->words.w1 = _GBI_W(data);				\
+	_g->words.w1 = _GBI_D(data);				\
 }
 
 #define	gsSPSetOtherMode(cmd, sft, len, data)				\
 {									\
 	_SHIFTL(cmd,24,8)|_SHIFTL(32-(sft)-(len),8,8)|_SHIFTL((len)-1,0,8), \
-	_GBI_W(data)						\
+	_GBI_D(data)						\
 }
 #else
 #define	gSPSetOtherMode(pkt, cmd, sft, len, data)			\
@@ -2731,13 +2734,13 @@ ERROR!! gSPInsertMatrix is no longer supported.
 									\
 	_g->words.w0 = (_SHIFTL(cmd, 24, 8) | _SHIFTL(sft, 8, 8) |	\
 			_SHIFTL(len, 0, 8));				\
-	_g->words.w1 = _GBI_W(data);				\
+	_g->words.w1 = _GBI_D(data);				\
 }
 
 #define	gsSPSetOtherMode(cmd, sft, len, data)				\
 {									\
 	_SHIFTL(cmd, 24, 8) | _SHIFTL(sft, 8, 8) | _SHIFTL(len, 0, 8),	\
-	_GBI_W(data)						\
+	_GBI_D(data)						\
 }
 #endif
 
@@ -2871,13 +2874,13 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	Gfx *_g = (Gfx *)(pkt);						\
 									\
 	_g->words.w0 = _SHIFTL(G_SETCOMBINE, 24, 8) | _SHIFTL(muxs0, 0, 24);\
-	_g->words.w1 = _GBI_W(muxs1);				\
+	_g->words.w1 = _GBI_D(muxs1);				\
 }
 
 #define	gsDPSetCombine(muxs0, muxs1)					\
 {									\
 	_SHIFTL(G_SETCOMBINE, 24, 8) | _SHIFTL(muxs0, 0, 24),		\
-	_GBI_W(muxs1)						\
+	_GBI_D(muxs1)						\
 }
 
 #define	GCCc0w0(saRGB0, mRGB0, saA0, mA0)				\
@@ -2906,7 +2909,7 @@ ERROR!! gSPInsertMatrix is no longer supported.
 				       G_ACMUX_##Aa0, G_ACMUX_##Ac0) |	\
 			       GCCc1w0(G_CCMUX_##a1, G_CCMUX_##c1), 	\
 			       0, 24);					\
-	_g->words.w1 =	_GBI_W(GCCc0w1(G_CCMUX_##b0, 		\
+	_g->words.w1 =	_GBI_D(GCCc0w1(G_CCMUX_##b0, 		\
 					       G_CCMUX_##d0,		\
 					       G_ACMUX_##Ab0, 		\
 					       G_ACMUX_##Ad0) |		\
@@ -2925,7 +2928,7 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	_SHIFTL(GCCc0w0(G_CCMUX_##a0, G_CCMUX_##c0,			\
 		       G_ACMUX_##Aa0, G_ACMUX_##Ac0) |			\
 	       GCCc1w0(G_CCMUX_##a1, G_CCMUX_##c1), 0, 24),		\
-	_GBI_W(GCCc0w1(G_CCMUX_##b0, G_CCMUX_##d0,		\
+	_GBI_D(GCCc0w1(G_CCMUX_##b0, G_CCMUX_##d0,		\
 			       G_ACMUX_##Ab0, G_ACMUX_##Ad0) |		\
 		       GCCc1w1(G_CCMUX_##b1, G_ACMUX_##Aa1,		\
 			       G_ACMUX_##Ac1, G_CCMUX_##d1,		\
@@ -2950,12 +2953,12 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	Gfx *_g = (Gfx *)(pkt);						\
 									\
 	_g->words.w0 = _SHIFTL(c, 24, 8);				\
-	_g->words.w1 = _GBI_W(d);				\
+	_g->words.w1 = _GBI_D(d);				\
 }
 
 #define	gsDPSetColor(c, d)						\
 {									\
-	_SHIFTL(c, 24, 8), _GBI_W(d)				\
+	_SHIFTL(c, 24, 8), _GBI_D(d)				\
 }
 
 #define	DPRGBColor(pkt, cmd, r, g, b, a)				\
@@ -3042,13 +3045,13 @@ ERROR!! gSPInsertMatrix is no longer supported.
 	Gfx *_g = (Gfx *)(pkt);						\
 									\
 	_g->words.w0 = _SHIFTL(G_RDPSETOTHERMODE,24,8)|_SHIFTL(mode0,0,24);\
-	_g->words.w1 = _GBI_W(mode1);				\
+	_g->words.w1 = _GBI_D(mode1);				\
 }
 
 #define	gsDPSetOtherMode(mode0, mode1)					\
 {									\
 	_SHIFTL(G_RDPSETOTHERMODE,24,8)|_SHIFTL(mode0,0,24),		\
-	_GBI_W(mode1)						\
+	_GBI_D(mode1)						\
 }
 
 /*
@@ -4380,15 +4383,15 @@ ERROR!! gSPInsertMatrix is no longer supported.
 }
 
 #define gsDPWord(wordhi, wordlo)			\
-    gsImmp1(G_RDPHALF_1, _GBI_W(wordhi)),	\
-    gsImmp1(G_RDPHALF_2, _GBI_W(wordlo))
+    gsImmp1(G_RDPHALF_1, _GBI_D(wordhi)),	\
+    gsImmp1(G_RDPHALF_2, _GBI_D(wordlo))
 
 #define gDPWord(pkt, wordhi, wordlo)      		\
 {							\
     Gfx *_g = (Gfx *)(pkt);				\
 							\
-    gImmp1(pkt, G_RDPHALF_1, _GBI_W(wordhi));	\
-    gImmp1(pkt, G_RDPHALF_2, _GBI_W(wordlo));	\
+    gImmp1(pkt, G_RDPHALF_1, _GBI_D(wordhi));	\
+    gImmp1(pkt, G_RDPHALF_2, _GBI_D(wordlo));	\
 }
 
 #define	gDPFullSync(pkt)	gDPNoParam(pkt, G_RDPFULLSYNC)
