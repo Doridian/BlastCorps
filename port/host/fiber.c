@@ -59,12 +59,14 @@ const char *fiber_backend(void) { return ops->name; }
 void fiber_enter(void (*fn)(void *), void *arg, void *stack, size_t size) {
     volatile char *pad = NULL;
     if (stack) {
-        char here;
+        /* (the frame's address, not a local's: under ASan's fake stacks a
+           local is on the heap, and the frame is where the real stack is) */
+        uintptr_t here = (uintptr_t)__builtin_frame_address(0);
         uintptr_t target = (uintptr_t)stack + size - FIBER_TOP_GAP;
-        if ((uintptr_t)&here < target + 256)
+        if (here < target + 256)
             host_fatal("fiber_enter: %s's stack top is %#lx bytes in use (the gap is %#x)", ops->name,
-                       (unsigned long)((uintptr_t)stack + size - (uintptr_t)&here), FIBER_TOP_GAP);
-        pad = __builtin_alloca((uintptr_t)&here - target);
+                       (unsigned long)((uintptr_t)stack + size - here), FIBER_TOP_GAP);
+        pad = __builtin_alloca(here - target);
         pad[0] = 0;
     }
     fn(arg);
