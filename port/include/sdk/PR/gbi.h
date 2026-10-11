@@ -17,15 +17,16 @@
 
 #include <PR/ultratypes.h>
 
-/* A word of a display list holding a pointer: in the LP64 port through a
-   32-bit pointer, so that the conversion is the game's 32-bit address */
-#if defined(PORT_WIDE_GFX)
-#define _GBI_W(x) ((__UINTPTR_TYPE__)(x))     /* (the wide switch: as wide as a pointer) */
-#elif defined(PORT_LP64)
+/* A word of a display list that holds an address: as wide as a pointer
+   (Gwords, below), which it is converted from; in the LP64 port's narrow
+   build through a 32-bit pointer, so that the conversion is the game's
+   32-bit address.  _GBI_D: a word that holds data, 32 bits. */
+#if defined(PORT_LP64) && !defined(PORT_WIDE_GFX)
 #define _GBI_W(x) ((unsigned int)(void *PTR32)(x))
 #else
-#define _GBI_W(x) ((unsigned int)(x))
+#define _GBI_W(x) ((__UINTPTR_TYPE__)(x))
 #endif
+#define _GBI_D(x) ((unsigned int)(x))
 
 /* v's low w bits, at bit s of a command word */
 #define _SHIFTL(v, s, w) ((unsigned int)(((unsigned int)(v) & ((0x01 << (w)) - 1)) << (s)))
@@ -198,10 +199,10 @@ typedef union {
 #define gDma1p(pkt, c, s, l, p)                                                                             \
     G_CMD(pkt, (_SHIFTL((c), 24, 8) | _SHIFTL((p), 16, 8) | _SHIFTL((l), 0, 16)), _GBI_W(s))
 #define gsDma1p(c, s, l, p) { (_SHIFTL((c), 24, 8) | _SHIFTL((p), 16, 8) | _SHIFTL((l), 0, 16)), _GBI_W(s) }
-#define gImmp1(pkt, c, p0) G_CMD(pkt, _SHIFTL((c), 24, 8), _GBI_W(p0))
+#define gImmp1(pkt, c, p0) G_CMD(pkt, _SHIFTL((c), 24, 8), _GBI_D(p0))
 #define gImmp21(pkt, c, p0, p1, dat)                                                                        \
-    G_CMD(pkt, (_SHIFTL((c), 24, 8) | _SHIFTL((p0), 8, 16) | _SHIFTL((p1), 0, 8)), (unsigned int)(dat))
-#define gsImmp21(c, p0, p1, dat) { _SHIFTL((c), 24, 8) | _SHIFTL((p0), 8, 16) | _SHIFTL((p1), 0, 8), (unsigned int)(dat) }
+    G_CMD(pkt, (_SHIFTL((c), 24, 8) | _SHIFTL((p0), 8, 16) | _SHIFTL((p1), 0, 8)), _GBI_W(dat))
+#define gsImmp21(c, p0, p1, dat) { _SHIFTL((c), 24, 8) | _SHIFTL((p0), 8, 16) | _SHIFTL((p1), 0, 8), _GBI_W(dat) }
 #define gDPNoParam(pkt, cmd) G_CMD(pkt, _SHIFTL(cmd, 24, 8), 0)
 #define gsDPNoParam(cmd) { _SHIFTL(cmd, 24, 8), 0 }
 
@@ -239,7 +240,7 @@ typedef union {
 /* skip the rest of the list when vertices vstart..vend (bounding a model) are
    all outside the view: buffer offsets, 40 bytes a vertex */
 #define gSPCullDisplayList(pkt, vstart, vend)                                                               \
-    G_CMD(pkt, _SHIFTL(G_CULLDL, 24, 8) | ((0x0f & (vstart)) * 40), _GBI_W((0x0f & ((vend) + 1)) * 40))
+    G_CMD(pkt, _SHIFTL(G_CULLDL, 24, 8) | ((0x0f & (vstart)) * 40), _GBI_D((0x0f & ((vend) + 1)) * 40))
 
 /* the geometry mode */
 #define G_ZBUFFER 0x00000001
@@ -254,10 +255,10 @@ typedef union {
 #define G_TEXTURE_GEN_LINEAR 0x00080000
 #define G_LOD 0x00100000
 
-#define gSPSetGeometryMode(pkt, word) G_CMD(pkt, _SHIFTL(G_SETGEOMETRYMODE, 24, 8), _GBI_W(word))
-#define gsSPSetGeometryMode(word) { _SHIFTL(G_SETGEOMETRYMODE, 24, 8), _GBI_W(word) }
-#define gSPClearGeometryMode(pkt, word) G_CMD(pkt, _SHIFTL(G_CLEARGEOMETRYMODE, 24, 8), _GBI_W(word))
-#define gsSPClearGeometryMode(word) { _SHIFTL(G_CLEARGEOMETRYMODE, 24, 8), _GBI_W(word) }
+#define gSPSetGeometryMode(pkt, word) G_CMD(pkt, _SHIFTL(G_SETGEOMETRYMODE, 24, 8), _GBI_D(word))
+#define gsSPSetGeometryMode(word) { _SHIFTL(G_SETGEOMETRYMODE, 24, 8), _GBI_D(word) }
+#define gSPClearGeometryMode(pkt, word) G_CMD(pkt, _SHIFTL(G_CLEARGEOMETRYMODE, 24, 8), _GBI_D(word))
+#define gsSPClearGeometryMode(word) { _SHIFTL(G_CLEARGEOMETRYMODE, 24, 8), _GBI_D(word) }
 
 /* the texture scale and the tile drawn with */
 #define BOWTIE_VAL 0
@@ -408,7 +409,7 @@ typedef union {
 #define G_AD_DISABLE (3 << G_MDSFT_ALPHADITHER)
 
 #define gSPSetOtherMode(pkt, cmd, sft, len, data)                                                           \
-    G_CMD(pkt, (_SHIFTL(cmd, 24, 8) | _SHIFTL(sft, 8, 8) | _SHIFTL(len, 0, 8)), _GBI_W(data))
+    G_CMD(pkt, (_SHIFTL(cmd, 24, 8) | _SHIFTL(sft, 8, 8) | _SHIFTL(len, 0, 8)), _GBI_D(data))
 #define gDPPipelineMode(pkt, mode) gSPSetOtherMode(pkt, G_SETOTHERMODE_H, G_MDSFT_PIPELINE, 1, mode)
 #define gDPSetCycleType(pkt, type) gSPSetOtherMode(pkt, G_SETOTHERMODE_H, G_MDSFT_CYCLETYPE, 2, type)
 #define gDPSetTexturePersp(pkt, type) gSPSetOtherMode(pkt, G_SETOTHERMODE_H, G_MDSFT_TEXTPERSP, 1, type)
@@ -569,11 +570,11 @@ typedef union {
               _SHIFTL(GCCc0w0(G_CCMUX_##a0, G_CCMUX_##c0, G_ACMUX_##Aa0, G_ACMUX_##Ac0) |                   \
                           GCCc1w0(G_CCMUX_##a1, G_CCMUX_##c1),                                              \
                       0, 24),                                                                               \
-          _GBI_W(GCCc0w1(G_CCMUX_##b0, G_CCMUX_##d0, G_ACMUX_##Ab0, G_ACMUX_##Ad0) |                        \
+          _GBI_D(GCCc0w1(G_CCMUX_##b0, G_CCMUX_##d0, G_ACMUX_##Ab0, G_ACMUX_##Ad0) |                        \
                  GCCc1w1(G_CCMUX_##b1, G_ACMUX_##Aa1, G_ACMUX_##Ac1, G_CCMUX_##d1, G_ACMUX_##Ab1,           \
                          G_ACMUX_##Ad1)))
 #define gDPSetCombineMode(pkt, a, b) gDPSetCombineLERP(pkt, a, b)
-#define gsDPSetCombine(muxs0, muxs1) { _SHIFTL(G_SETCOMBINE, 24, 8) | _SHIFTL(muxs0, 0, 24), _GBI_W(muxs1) }
+#define gsDPSetCombine(muxs0, muxs1) { _SHIFTL(G_SETCOMBINE, 24, 8) | _SHIFTL(muxs0, 0, 24), _GBI_D(muxs1) }
 
 /* the modes the game names: a, b, c, d for colour, then for alpha */
 #define G_CC_PRIMITIVE 0, 0, 0, PRIMITIVE, 0, 0, 0, PRIMITIVE
@@ -725,7 +726,7 @@ typedef union {
     }
 
 /* colours */
-#define gDPSetColor(pkt, c, d) G_CMD(pkt, _SHIFTL(c, 24, 8), _GBI_W(d))
+#define gDPSetColor(pkt, c, d) G_CMD(pkt, _SHIFTL(c, 24, 8), _GBI_D(d))
 #define DPRGBColor(pkt, cmd, r, g, b, a)                                                                    \
     gDPSetColor(pkt, cmd, (_SHIFTL(r, 24, 8) | _SHIFTL(g, 16, 8) | _SHIFTL(b, 8, 8) | _SHIFTL(a, 0, 8)))
 #define gDPSetEnvColor(pkt, r, g, b, a) DPRGBColor(pkt, G_SETENVCOLOR, r, g, b, a)

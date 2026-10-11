@@ -22,6 +22,10 @@
  *                stored in, added to that asset's address at run time.
  *   SegAddr      an RSP segmented address (segment << 24 | offset), only
  *                meaningful to the display-list microcode.
+ *   DlAddr       an address the game keeps as an integer to put in a display
+ *                list (K0_TO_PHYS's, osVirtualToPhysical's result): on the
+ *                N64 the physical address, a u32; in the port a pointer's
+ *                value, as wide as one (PR/R4300.h).
  *
  *   T *PTR32 p   a pointer kept 4 bytes in the LP64 port too
  *                (ultratypes.h), where something other than the C fixes the
@@ -62,6 +66,11 @@ typedef u32 AssetOffset;
 #define ASSET_PTR(base, off) ((void *)((off) + (u32)(base)))
 #endif
 typedef u32 SegAddr;
+#ifdef TARGET_PC
+typedef __UINTPTR_TYPE__ DlAddr;
+#else
+typedef u32 DlAddr;
+#endif
 
 /* osRecvMesg into an integer variable.  OSMesg is a pointer, so in the port
    (where it is as wide as the host's) the message goes through one and is then

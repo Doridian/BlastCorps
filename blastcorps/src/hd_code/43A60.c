@@ -48,14 +48,18 @@ typedef struct {
 
 typedef struct {
     /* 0x0 */ u8 unk0;
+#ifdef TARGET_PC
+    /* 0x4 */ DlAddr unk4;  /* (func_8028A0A0's: in the port a pointer's value) */
+#else
     /* 0x4 */ s32 unk4;
-} UnkStruct_8028A1D0; /* size = 0x8 */
+#endif
+} UnkStruct_8028A1D0; /* size = 0x8 on the N64 */
 
 extern UnkStruct_8036EC30 *D_802C4A20[]; /* hd_code 800DC's table, to -1 */
 
 
 void func_80289EF4(Gfx **);
-u32 func_8028A0A0(s16);
+DlAddr func_8028A0A0(s16);
 void func_8028A1D0(UnkStruct_8028A1D0 *, s32);
 
 /* .bss, 0x8036EC30-0x80370BC0 (tools/bss_c.py) */
@@ -294,7 +298,11 @@ void func_80288DF0(Gfx **arg0, u8 arg1) {
     s32 sp25C;
     UnkStruct_8028A1D0 spCC[50];
     s32 spC8;
+#ifdef TARGET_PC
+    DlAddr spC4;
+#else
     s32 spC4;
+#endif
 
     gfx = *arg0;
     spC8 = 0;
@@ -404,7 +412,7 @@ void func_80289EF4(Gfx **arg0) {
     *arg0 = gfx;
 }
 
-u32 func_8028A0A0(s16 arg0) {
+DlAddr func_8028A0A0(s16 arg0) {
     u8 found;
     s32 i;
     u8 *sp1C;
