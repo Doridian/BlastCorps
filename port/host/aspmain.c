@@ -182,7 +182,7 @@ static void adpcm(int flags, uintptr_t state) {
             int16_t p2 = last[14], p1 = last[15];
             int16_t y[8];
             for (int i = 0; i < 8; i++) {
-                int32_t acc = book[i] * p2 + book[8 + i] * p1 + (x[i] << 11);
+                int32_t acc = book[i] * p2 + book[8 + i] * p1 + (int32_t)((uint32_t)x[i] << 11);
                 for (int j = 0; j < i; j++)
                     acc += book[8 + i - 1 - j] * x[j];
                 y[i] = clamp16(acc >> 11);
@@ -371,7 +371,7 @@ static void polef(int flags, int16_t gain, uintptr_t state) {
         for (int i = 0; i < 8; i++)
             gx[i] = (ld(in + 2 * (b + i)) * gain) >> 14;
         for (int i = 0; i < 8; i++) {
-            int32_t acc = (gx[i] << 14) + table[i] * y2 + table[8 + i] * y1;
+            int32_t acc = (int32_t)((uint32_t)gx[i] << 14) + table[i] * y2 + table[8 + i] * y1;
             for (int j = 0; j < i; j++)
                 acc += table[8 + i - 1 - j] * gx[j];
             y[i] = clamp16(acc >> 14);

@@ -455,7 +455,7 @@ static void load_mtx(float m[4][4], GfxAddr addr) {
             int k = i * 4 + j;
             int16_t hi = (int16_t)port_g16_of32(p, k);             /* Mtx: words */
             uint16_t lo = port_g16_of32(p + 32, k);
-            m[i][j] = (float)(((int32_t)hi << 16) | lo) / 65536.0f;
+            m[i][j] = (float)(int32_t)((uint32_t)(uint16_t)hi << 16 | lo) / 65536.0f;
         }
 }
 
