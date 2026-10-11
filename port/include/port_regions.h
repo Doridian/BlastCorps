@@ -45,6 +45,11 @@
  * data island (us.v10's at 0x802ACF50: tools/gen_syms.py stops at any N64
  * variable in the way). */
 #define PORT_POOL_GFX_N64 0x8E000
+#ifndef PORT_GFX_SIZE
+/* (the plain build's: two words as wide as a pointer, gbi.h's Gwords;
+   src/pool.c checks it is sizeof(Gfx)) */
+#define PORT_GFX_SIZE (2 * __SIZEOF_POINTER__)
+#endif
 #define PORT_POOL_GROWTH ((PORT_GFX_SIZE - 8) / 8 * PORT_POOL_GFX_N64)
 /* init's area, the depth buffer and where compressed loads are staged
    (46C20.c, port/engine/5CB60.c: MEM_INIT_AREA), at 0x8021ED00 on the N64
