@@ -19,7 +19,14 @@ s8 D_80370C74;
 u8 D_80370C75;
 s16 D_80370C76;
 u8 D_80370C78[8];
+#ifdef TARGET_PC
+/* 16-aligned, as the N64's is (0x80370C80): where the heap is exactly full, alHeapInit's
+   rounding up of an unaligned base would take what the last block needs (the port's AUDIO_HEAP_SIZE,
+   audio.h, has slack only where it grew) */
+u8 D_80370C80[AUDIO_HEAP_SIZE] __attribute__((aligned(16)));
+#else
 u8 D_80370C80[AUDIO_HEAP_SIZE];
+#endif
 
 void func_8028B720(void) {
     D_80370C75 = 0;
