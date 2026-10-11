@@ -5,10 +5,10 @@
  * priority; equal priorities are FIFO.  The main loop (main.c) runs
  * whenever none is runnable, and stands in for the interrupts.
  *
- * Each thread has two stacks: a host stack for the native C (a fiber stack
- * inside the KSEG0 window, see port.h), and its N64 stack, the one the game
- * passed to osCreateThread, which only the translated code uses (through
- * ctx->sp).  Each also has its own recomp_context.
+ * Each thread has a host stack for the native C (a fiber stack inside the
+ * KSEG0 window, see port.h); in the check build also its N64 stack, the one
+ * the game passed to osCreateThread, which only the translated code uses
+ * (through ctx->sp, host_thread_n64_sp).  Each has its own recomp_context.
  *
  * The game's work takes no time: the clock moves only in the loop, from
  * one retrace, timer or event to the next (docs/PORT.md, "Timing").
@@ -24,11 +24,11 @@ static const char *state_names[] = { "free", "stopped", "runnable", "waiting", "
 
 typedef struct {
     int state;
-    uint32_t key;               /* the OSThread's address */
+    uintptr_t key;              /* the OSThread's address (port.h) */
     int pri;
     uint64_t seq;               /* FIFO order among equal priorities */
-    uint32_t wait_key;
-    uint32_t recv_key;          /* the queue of the osRecvMesg it is in (host_recv_mark), or 0 */
+    const void *wait_key;
+    const void *recv_key;       /* the queue of the osRecvMesg it is in (host_recv_mark), or NULL */
     void (*entry)(void *);
     void *arg;
     HostFiber *fiber;
@@ -48,7 +48,7 @@ recomp_context *port_ctx(void) {
     return &cur->ctx;
 }
 
-static HThread *find(uint32_t key) {
+static HThread *find(uintptr_t key) {
     if (key == 0)
         return cur;
     for (int i = 0; i < PORT_MAX_THREADS; i++)
@@ -69,7 +69,7 @@ static void fiber_main(void *p) {
 /* whether another thread than the running one is in osRecvMesg on this
    key: blocked, woken and not yet run, or preempted at the call's entry
    (host_recv_mark), and so will take the next message */
-int host_receiving(uint32_t key) {
+int host_receiving(const void *key) {
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (&threads[i] != cur && threads[i].state != T_FREE && threads[i].state != T_DEAD &&
             threads[i].recv_key == key)
@@ -78,14 +78,14 @@ int host_receiving(uint32_t key) {
 }
 
 /* whether a thread is blocked waiting on `wait_key` (host_block's key) */
-int host_blocked_on(uint32_t wait_key) {
+int host_blocked_on(const void *wait_key) {
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (threads[i].state == T_WAITING && threads[i].wait_key == wait_key)
             return 1;
     return 0;
 }
 
-void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t mips_sp, int pri) {
+void host_thread_create(uintptr_t key, void (*entry)(void *), void *arg, int pri) {
     HThread *t = find(key);
     if (!t || key == 0) {
         for (int i = 0; i < PORT_MAX_THREADS && !t; i++)
@@ -105,7 +105,6 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
     t->pri = pri;
     t->entry = entry;
     t->arg = arg;
-    t->ctx.sp = (uint64_t)(int64_t)(int32_t)mips_sp;
     uint32_t stack_size;
     void *stack = host_thread_stack(idx, &stack_size);
     t->fiber = fiber_create(fiber_main, t, stack, stack_size);
@@ -113,8 +112,16 @@ void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t
     t->locals_sp = 0x80000000u | (PORT_ARENA_LOCALS + (uint32_t)(idx + 1) * PORT_LOCALS_SIZE);
 #endif
     if (host_verbose)
-        host_log("thread %08X created, pri %d, entry %p\n", key, pri, (void *)entry);
+        host_log("thread %08lX created, pri %d, entry %p\n", (unsigned long)key, pri, (void *)entry);
 }
+
+#ifdef PORT_ENGINE_CHECK
+void host_thread_n64_sp(uintptr_t key, uint32_t sp) {
+    HThread *t = find(key);
+    if (t)
+        t->ctx.sp = (uint64_t)(int64_t)(int32_t)sp;
+}
+#endif
 
 static void to_loop(void) { fiber_yield(cur->fiber); }
 
@@ -135,7 +142,7 @@ int host_time_stopped(void) { return CHECKING(); }
 void host_preempt(void) {
     if (!cur || CHECKING())
         return;
-    cur->recv_key = 0;          /* osRecvMesg's end: it has its message */
+    cur->recv_key = NULL;       /* osRecvMesg's end: it has its message */
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (threads[i].state == T_RUNNABLE && threads[i].pri > cur->pri) {
             cur->seq = seq_counter++;
@@ -144,10 +151,10 @@ void host_preempt(void) {
         }
 }
 
-void host_thread_start(uint32_t key) {
+void host_thread_start(uintptr_t key) {
     HThread *t = find(key);
     if (!t)
-        host_fatal("osStartThread on unknown thread %08X", key);
+        host_fatal("osStartThread on unknown thread %08lX", (unsigned long)key);
     if (t->state == T_STOPPED) {
         t->state = T_RUNNABLE;
         t->seq = seq_counter++;
@@ -155,7 +162,7 @@ void host_thread_start(uint32_t key) {
     host_preempt();
 }
 
-void host_thread_stop(uint32_t key) {
+void host_thread_stop(uintptr_t key) {
     HThread *t = find(key);
     if (!t)
         return;
@@ -167,7 +174,7 @@ void host_thread_stop(uint32_t key) {
     }
 }
 
-void host_thread_destroy(uint32_t key) {
+void host_thread_destroy(uintptr_t key) {
     HThread *t = find(key);
     if (!t)
         return;
@@ -180,7 +187,7 @@ void host_thread_destroy(uint32_t key) {
     t->fiber = NULL;
 }
 
-void host_thread_set_pri(uint32_t key, int pri) {
+void host_thread_set_pri(uintptr_t key, int pri) {
     HThread *t = find(key);
     if (!t)
         return;
@@ -189,7 +196,7 @@ void host_thread_set_pri(uint32_t key, int pri) {
         /* the idle thread drops to priority 0 and spins forever: park it
            instead, as nothing ever runs at priority 0 but it */
         if (host_verbose)
-            host_log("thread %08X parked (idle)\n", t->key);
+            host_log("thread %08lX parked (idle)\n", (unsigned long)t->key);
         t->state = T_PARKED;
         to_loop();
         host_fatal("parked thread resumed");
@@ -197,27 +204,27 @@ void host_thread_set_pri(uint32_t key, int pri) {
     host_preempt();
 }
 
-int host_thread_get_pri(uint32_t key) {
+int host_thread_get_pri(uintptr_t key) {
     HThread *t = find(key);
     return t ? t->pri : 0;
 }
 
-uint32_t host_thread_current(void) {
-    return cur ? cur->key : 0;
+void *host_thread_current(void) {
+    return cur ? (void *)cur->key : NULL;
 }
 
-void host_block(uint32_t key) {
+void host_block(const void *key) {
     if (!cur)
-        host_fatal("blocking receive outside a thread (key %08X)", key);
+        host_fatal("blocking receive outside a thread (key %p)", key);
     if (CHECKING())
-        host_fatal("a blocking receive in the C a checked function calls (key %08X): "
+        host_fatal("a blocking receive in the C a checked function calls (key %p): "
                    "it is no check_repeatable.txt function", key);
     cur->state = T_WAITING;
     cur->wait_key = key;
     to_loop();
 }
 
-void host_wake(uint32_t key) {
+void host_wake(const void *key) {
     for (int i = 0; i < PORT_MAX_THREADS; i++)
         if (threads[i].state == T_WAITING && threads[i].wait_key == key) {
             threads[i].state = T_RUNNABLE;
@@ -260,7 +267,7 @@ int host_spinning(void) {
    returns (host_preempt), for host_receiving.  A non-blocking receive that
    finds nothing leaves the mark behind; the game's only one on the SI
    queue is the pak/EEPROM thread's own. */
-void host_recv_mark(uint32_t key) {
+void host_recv_mark(const void *key) {
     if (cur)
         cur->recv_key = key;
 }
@@ -289,7 +296,7 @@ int host_run_one(void) {
     if (!best || best->pri < spin_pri)
         return 0;
     if (host_verbose > 3)
-        host_log("run %08X pri %d at %.3f\n", best->key, best->pri, host_now_ns() / 1e6);
+        host_log("run %08lX pri %d at %.3f\n", (unsigned long)best->key, best->pri, host_now_ns() / 1e6);
     cur = best;
 #ifdef PORT_MOVABLE
     port_locals_sp = best->locals_sp;
@@ -311,7 +318,7 @@ void host_threads_dump(void) {
         HThread *t = &threads[i];
         if (t->state == T_FREE)
             continue;
-        host_log("  thread %08X pri %3d %-8s wait %08X%s\n", t->key, t->pri, state_names[t->state],
+        host_log("  thread %08lX pri %3d %-8s wait %p%s\n", (unsigned long)t->key, t->pri, state_names[t->state],
                  t->wait_key, t == cur ? " (current)" : "");
     }
 }

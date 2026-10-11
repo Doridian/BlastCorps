@@ -32,13 +32,13 @@ void __wrap_func_8025C230(u8 **src, u8 **dst, struct huft *heap) {
     u8 *s = *src, *d = *dst;
 
     __real_func_8025C230(src, dst, heap);
-    *dst = port_rom_loaded(host_loaded_gzip((u32)s, (u32)d, (u32)(*dst - d)), d, *dst);
+    *dst = port_rom_loaded(host_loaded_gzip(s, d, (u32)(*dst - d)), d, *dst);
 }
 
 void __wrap_func_8028B4C4(u32 rom, u8 *dst, u32 *len, u8 bits, u8 bits2, u8 method) {
     __real_func_8028B4C4(rom, dst, len, bits, bits2, method);
     if (method == 2 && (bits != 0 || bits2 != 0))
-        *len = (u32)(port_rom_loaded(host_loaded_lzss(rom, (u32)dst, *len), dst, dst + *len) - dst);
+        *len = (u32)(port_rom_loaded(host_loaded_lzss(rom, dst, *len), dst, dst + *len) - dst);
 }
 
 /*
@@ -57,12 +57,12 @@ u8 __real___osContDataCrc(u8 *data);
 u8 __wrap___osContDataCrc(u8 *data) {
 #ifdef PORT_NATIVE_ENDIAN
     u8 be[32];
-    u32 a = (u32)data;
+    uintptr_t a = (uintptr_t)data;
 
     __builtin_memcpy(be, data, 32);
-    if (a - (u32)D_80364AF0 < 4 * 0x100)
-        host_save_order(be, (a - (u32)D_80364AF0) & 0xFF, 32, 0);
-    else if (a - (u32)D_80364EF0 < 4 * 0x20)
+    if (a - (uintptr_t)D_80364AF0 < 4 * 0x100)
+        host_save_order(be, (u32)(a - (uintptr_t)D_80364AF0) & 0xFF, 32, 0);
+    else if (a - (uintptr_t)D_80364EF0 < 4 * 0x20)
         host_save_order(be, 0x100, 32, 0);      /* u16s */
     return __real___osContDataCrc(be);
 #else
@@ -101,17 +101,17 @@ extern u16 D_8020B1D0[0x55c];
 /* (no loops here: BEPass's polls would make the boot take longer than the
    big-endian build's, and the two couldn't be compared run for run) */
 void port_native_fixups(void) {
-    host_layout_to_be_n((u32)D_802F49F4[0].unk6, sizeof D_802F49F4[0], 0x4B, sizeof D_802F49F4[0].unk6, "h");
-    host_layout_to_be((u32)D_802E9FF0, sizeof D_802E9FF0, "h", 1);
-    host_layout_to_be((u32)D_802FCEB0, sizeof D_802FCEB0, "h", 1);
-    host_layout_to_be((u32)D_802F9A00, sizeof D_802F9A00, "hhhhhhbbbb", 1);
-    host_layout_to_be((u32)D_802F9E00, sizeof D_802F9E00, "hhhhhhbbbb", 1);
-    host_layout_to_be((u32)D_802FC5B0, sizeof D_802FC5B0, "h", 1);
-    host_layout_to_be((u32)D_802FC6B0, sizeof D_802FC6B0, "h", 1);
-    host_layout_to_be((u32)D_802084F0, sizeof D_802084F0, "h", 1);
-    host_layout_to_be((u32)D_80209028, sizeof D_80209028, "h", 1);
-    host_layout_to_be((u32)D_80209B60, sizeof D_80209B60, "h", 1);
-    host_layout_to_be((u32)D_8020A698, sizeof D_8020A698, "h", 1);
-    host_layout_to_be((u32)D_8020B1D0, sizeof D_8020B1D0, "h", 1);
+    host_layout_to_be_n(D_802F49F4[0].unk6, sizeof D_802F49F4[0], 0x4B, sizeof D_802F49F4[0].unk6, "h");
+    host_layout_to_be(D_802E9FF0, sizeof D_802E9FF0, "h", 1);
+    host_layout_to_be(D_802FCEB0, sizeof D_802FCEB0, "h", 1);
+    host_layout_to_be(D_802F9A00, sizeof D_802F9A00, "hhhhhhbbbb", 1);
+    host_layout_to_be(D_802F9E00, sizeof D_802F9E00, "hhhhhhbbbb", 1);
+    host_layout_to_be(D_802FC5B0, sizeof D_802FC5B0, "h", 1);
+    host_layout_to_be(D_802FC6B0, sizeof D_802FC6B0, "h", 1);
+    host_layout_to_be(D_802084F0, sizeof D_802084F0, "h", 1);
+    host_layout_to_be(D_80209028, sizeof D_80209028, "h", 1);
+    host_layout_to_be(D_80209B60, sizeof D_80209B60, "h", 1);
+    host_layout_to_be(D_8020A698, sizeof D_8020A698, "h", 1);
+    host_layout_to_be(D_8020B1D0, sizeof D_8020B1D0, "h", 1);
 }
 #endif

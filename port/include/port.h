@@ -89,6 +89,25 @@ void *port_fn(uint32_t addr);
 #define PORT_ADDR(sym) ((uint32_t)(uintptr_t)(sym))
 #endif
 
+/* A pointer of the N64 side's, as the host reads through it: one handed to
+   a host_ function (an argument), or one the host read out of game memory.
+   The identity in the fixed builds, where game memory
+   is where its addresses say.  In the movable ones port-arena maps a host_
+   function's pointer arguments into the arena (bepass/Arena.cpp,
+   hostCallee: a null one to the arena's start, N64 0x80000000, where
+   nothing of the game's is), while a pointer in game memory is an N64
+   address, which port_ptr finds. */
+static inline void *port_hptr(const void *p) {
+#ifdef PORT_MOVABLE
+    uintptr_t off = (uintptr_t)p - (uintptr_t)port_arena;
+    if (off < PORT_ARENA_SIZE)
+        return off ? (void *)(uintptr_t)p : NULL;
+    return p ? port_ptr((uint32_t)(uintptr_t)p) : NULL;
+#else
+    return (void *)(uintptr_t)p;
+#endif
+}
+
 #ifdef PORT_ACCESS_PROFILE
 /* host/access.c: the access-width profiler */
 void port_access_host(const void *p, unsigned width);
@@ -310,20 +329,20 @@ static inline uint32_t port_game_ptr_n(const void *p, uint32_t size) {
 void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));
 void host_log(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 extern int host_verbose;
-/* the level pool's top, as the N64 has it and its end (src/pool.c) */
-void host_pool_report(const char *what, int level, uint32_t top, uint32_t n64_top, uint32_t end);
+/* the level pool's top, where the N64 has it and its end (src/pool.c) */
+void host_pool_report(const char *what, int level, const void *top, const void *n64_top, const void *end);
 
 /* the cartridge */
 uint32_t host_rom_size(void);
-void host_rom_read(uint32_t dst, uint32_t rom, uint32_t len);
+void host_rom_read(void *dst, uint32_t rom, uint32_t len);
 uint32_t host_rom_word(uint32_t rom);
 /* the loaders (host/native.c): untyped bytes from the ROM arrived; the
    first two return what they were (romclass.h's ROM_*) */
-int host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t len);
-int host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t len);
-void host_loaded_dma(uint32_t dst, uint32_t rom, uint32_t len);
-void host_layout_to_be(uint32_t addr, uint32_t n, const char *layout, int to_bytes);
-void host_layout_to_be_n(uint32_t addr, uint32_t stride, uint32_t count, uint32_t n, const char *layout);
+int host_loaded_gzip(const void *src, void *dst, uint32_t len);
+int host_loaded_lzss(uint32_t rom, void *dst, uint32_t len);
+void host_loaded_dma(void *dst, uint32_t rom, uint32_t len);
+void host_layout_to_be(void *p, uint32_t n, const char *layout, int to_bytes);
+void host_layout_to_be_n(void *p, uint32_t stride, uint32_t count, uint32_t n, const char *layout);
 /* the save's bytes between game memory and the N64's order (native.c) */
 void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused);
 
@@ -335,17 +354,28 @@ int host_load_waits(void);
 /* 46.875 MHz CPU count since boot */
 uint64_t host_ticks(void);
 
-/* threads: the game's OSThreads, run as fibers, one at a time */
-void host_thread_create(uint32_t key, void (*entry)(void *), void *arg, uint32_t mips_sp, int pri);
-void host_thread_start(uint32_t key);
-void host_thread_stop(uint32_t key);
-void host_thread_destroy(uint32_t key);
-void host_thread_set_pri(uint32_t key, int pri);
-int host_thread_get_pri(uint32_t key);
-uint32_t host_thread_current(void);
-/* block the current thread until host_wake(key); then return */
-void host_block(uint32_t key);
-void host_wake(uint32_t key);
+/* threads: the game's OSThreads, run as fibers, one at a time, each known
+   by its key: the OSThread's address as the N64 side has it (port/src/
+   ultra.c), which host_thread_current gives back.  (Integers, not
+   pointers: port-arena leaves them as the game's values, so the key the
+   host hands back is the game's pointer.) */
+void host_thread_create(uintptr_t key, void (*entry)(void *), void *arg, int pri);
+#ifdef PORT_ENGINE_CHECK
+/* the thread's N64 $sp, for the translated code (the check build's) */
+void host_thread_n64_sp(uintptr_t key, uint32_t sp);
+#endif
+void host_thread_start(uintptr_t key);
+void host_thread_stop(uintptr_t key);
+void host_thread_destroy(uintptr_t key);
+void host_thread_set_pri(uintptr_t key, int pri);
+int host_thread_get_pri(uintptr_t key);
+void *host_thread_current(void);
+/* block the current thread until host_wake(key); then return.  A wait's
+   key is a message queue's address (ultra.c), only compared: a pointer, so
+   that in the movable builds port-arena makes it the host's, as the host's
+   own are (replay.c's PORT_VAR) */
+void host_block(const void *key);
+void host_wake(const void *key);
 /* let a higher-priority runnable thread run now (libultra preemption) */
 void host_preempt(void);
 void host_yield(void);
@@ -390,15 +420,15 @@ int32_t host_replay_audio(int kind, int32_t real, uint64_t caller);
    the game waits for its reply) */
 int host_replay_save_due(int sync);
 /* whether a thread waits in host_block on this key (threads.c) */
-int host_blocked_on(uint32_t wait_key);
+int host_blocked_on(const void *wait_key);
 /* whether a thread other than the running one is in osRecvMesg on this key */
-int host_receiving(uint32_t key);
+int host_receiving(const void *key);
 /* osRecvMesg marks the thread as receiving on key until it returns */
-void host_recv_mark(uint32_t key);
+void host_recv_mark(const void *key);
 
 /* EEPROM (4 Kbit) */
-void host_eeprom_read(int block, uint32_t dst);
-void host_eeprom_write(int block, uint32_t src);
+void host_eeprom_read(int block, void *dst);
+void host_eeprom_write(int block, const void *src);
 
 /* audio: the RSP's audio task (port/host/aspmain.c) and the AI
    (port/host/audio.c) */

@@ -24,14 +24,15 @@
 #include "game/audio.h"
 #include "audio_log.h"
 
+/* an address as a word of the log, the N64's (the recorder is the ILP32
+   build's: CMakeLists.txt) */
 #define A(p) ((uint32_t)(uintptr_t)(p))
 
 static s32 depth[PORT_MAX_THREADS + 1];
 
 static s32 *my_depth(void) {
-    u32 t = host_thread_current();
-    OSThread *th = (OSThread *)(uintptr_t)t;
-    s32 id = t != 0 ? th->id : 0;
+    OSThread *th = host_thread_current();
+    s32 id = th != NULL ? th->id : 0;
     if (id < 0 || id > PORT_MAX_THREADS)
         id = 0;
     return &depth[id];
@@ -123,10 +124,10 @@ void __wrap_alHeapInit(ALHeap *hp, u8 *base, s32 len) {
     if (*my_depth() == 0 && !host_alog_started()) {
         /* what the library and the game share: the audio heap and the
            audio objects' .data and .bss (1A630, 1C460, 22EE0) */
-        host_alog_track(A(D_80370C80), AUDIO_HEAP_SIZE);
-        host_alog_track(A(D_80366BD0), A(D_8036AFB0) + 0x900 - A(D_80366BD0));
-        host_alog_track(A(D_802E8CE0), 0x20);
-        host_alog_track(A(D_802F3AF0), 0x120);
+        host_alog_track(D_80370C80, AUDIO_HEAP_SIZE);
+        host_alog_track(D_80366BD0, A(D_8036AFB0) + 0x900 - A(D_80366BD0));
+        host_alog_track(D_802E8CE0, 0x20);
+        host_alog_track(D_802F3AF0, 0x120);
         host_alog_start();
     }
     {
@@ -166,9 +167,9 @@ void __wrap_alInit(ALGlobals *g, ALSynConfig *c) {
     SynConfig *sc = (SynConfig *)c;
     ENTER(ALOG_alInit, A(g), A(c), 0, 0, 0, 0);
     if (top_) {
-        host_alog_in(A(c), sizeof(SynConfig));
+        host_alog_in(c, sizeof(SynConfig));
         if (sc->fxType == AL_FX_CUSTOM && sc->params != NULL)
-            host_alog_in(A(sc->params), (2 + 8 * sc->params[0]) * 4);
+            host_alog_in(sc->params, (2 + 8 * sc->params[0]) * 4);
         game_dmanew = (ALDMANew)sc->dmaproc;
         sc->dmaproc = (void *)rec_dmanew;
     }
@@ -200,17 +201,17 @@ Acmd *__wrap_alAudioFrame(Acmd *cmdList, s32 *cmdLen, s16 *outBuf, s32 outLen) {
         if (!excluded) {
             excluded = 1;
             for (i = 0; i < NUM_DMA_MESSAGES; i++)
-                host_alog_untrack(A(D_8036A318[i].ptr), 0x200);
+                host_alog_untrack(D_8036A318[i].ptr, 0x200);
             for (i = 0; i < 2; i++)
-                host_alog_untrack(A(D_80368070.ACMDList[i]), MAX_RSP_CMDS * sizeof(Acmd));
+                host_alog_untrack(D_80368070.ACMDList[i], MAX_RSP_CMDS * sizeof(Acmd));
             for (i = 0; i < 3; i++)
-                host_alog_untrack(A(D_80368070.audioInfo[i]->data), D_8036A8C0 * 4);
+                host_alog_untrack(D_80368070.audioInfo[i]->data, D_8036A8C0 * 4);
         }
     }
     r = __real_alAudioFrame(cmdList, cmdLen, outBuf, outLen);
     if (top_) {
-        host_alog_out(A(cmdLen), 4);
-        host_alog_acmd(A(cmdList), (u32)((u8 *)r - (u8 *)cmdList));
+        host_alog_out(cmdLen, 4);
+        host_alog_acmd(cmdList, (u32)((u8 *)r - (u8 *)cmdList));
     }
     LEAVE(A(r));
     return r;
@@ -243,7 +244,7 @@ ALMicroTime __wrap_alEvtqNextEvent(ALEventQueue *q, ALEvent *evt) {
     ENTER(ALOG_alEvtqNextEvent, A(q), A(evt), 0, 0, 0, 0);
     r = __real_alEvtqNextEvent(q, evt);
     if (top_)
-        host_alog_out(A(evt), sizeof(ALEvent));
+        host_alog_out(evt, sizeof(ALEvent));
     LEAVE((u32)r);
     return r;
 }
@@ -252,7 +253,7 @@ void __real_alEvtqPostEvent(ALEventQueue *q, ALEvent *evt, ALMicroTime delta);
 void __wrap_alEvtqPostEvent(ALEventQueue *q, ALEvent *evt, ALMicroTime delta) {
     ENTER(ALOG_alEvtqPostEvent, A(q), A(evt), (u32)delta, 0, 0, 0);
     if (top_)
-        host_alog_in(A(evt), sizeof(ALEvent));
+        host_alog_in(evt, sizeof(ALEvent));
     __real_alEvtqPostEvent(q, evt, delta);
     LEAVE(0);
 }
@@ -278,10 +279,10 @@ s32 __wrap_alSynAllocVoice(ALSynth *s, ALVoice *v, ALVoiceConfig *vc) {
     s32 r;
     ENTER(ALOG_alSynAllocVoice, A(s), A(v), A(vc), 0, 0, 0);
     if (top_)
-        host_alog_in(A(vc), sizeof(ALVoiceConfig));
+        host_alog_in(vc, sizeof(ALVoiceConfig));
     r = __real_alSynAllocVoice(s, v, vc);
     if (top_)
-        host_alog_out(A(v), sizeof(ALVoice));
+        host_alog_out(v, sizeof(ALVoice));
     LEAVE((u32)r);
     return r;
 }
@@ -292,7 +293,7 @@ s32 __wrap_alSynAllocVoice(ALSynth *s, ALVoice *v, ALVoiceConfig *vc) {
         ENTER(ALOG_##name, A(s), A(v), 0, 0, 0, 0);                           \
         __real_##name(s, v);                                                  \
         if (top_)                                                             \
-            host_alog_out(A(v), sizeof(ALVoice));                             \
+            host_alog_out(v, sizeof(ALVoice));                             \
         LEAVE(0);                                                             \
     }
 VOICE_FN(alSynFreeVoice)
@@ -348,7 +349,7 @@ void __real_alCSPNew(ALCSPlayer *p, ALSeqpConfig *c);
 void __wrap_alCSPNew(ALCSPlayer *p, ALSeqpConfig *c) {
     ENTER(ALOG_alCSPNew, A(p), A(c), 0, 0, 0, 0);
     if (top_)
-        host_alog_in(A(c), sizeof(ALSeqpConfig));
+        host_alog_in(c, sizeof(ALSeqpConfig));
     __real_alCSPNew(p, c);
     LEAVE(0);
 }
@@ -392,7 +393,7 @@ void rec_alCSeqGetLoc(ALCSeq *seq, ALCSeqMarker *m) {
     ENTER(ALOG_alCSeqGetLoc, A(seq), A(m), 0, 0, 0, 0);
     __real_alCSeqGetLoc(seq, m);
     if (top_)
-        host_alog_out(A(m), sizeof(ALCSeqMarker));
+        host_alog_out(m, sizeof(ALCSeqMarker));
     LEAVE(0);
 }
 
@@ -439,7 +440,7 @@ void __real_alCSeqSetLoc(ALCSeq *seq, ALCSeqMarker *m);
 void __wrap_alCSeqSetLoc(ALCSeq *seq, ALCSeqMarker *m) {
     ENTER(ALOG_alCSeqSetLoc, A(seq), A(m), 0, 0, 0, 0);
     if (top_)
-        host_alog_in(A(m), sizeof(ALCSeqMarker));
+        host_alog_in(m, sizeof(ALCSeqMarker));
     __real_alCSeqSetLoc(seq, m);
     LEAVE(0);
 }

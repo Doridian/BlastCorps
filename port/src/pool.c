@@ -58,8 +58,7 @@ static s32 level = -1, slots;
 void port_pool_reset(void) {
     if (level >= 0) {
         /* (its top only grows: where it is now is the level's high-water) */
-        host_pool_report(slots ? "end" : "end (front end)", level, N64(D_80358070), N64(port_pool_n64()),
-                         N64(POOL_END));
+        host_pool_report(slots ? "end" : "end (front end)", level, D_80358070, port_pool_n64(), POOL_END);
         /* the front end ran with its variables in the pool's tail: the
            pool kept below them, as the N64's (where the N64's own top
            is past them too, that is the game's) */
@@ -99,6 +98,7 @@ void *port_pool_slots(void *end) {
     D_80358070 = end;
     check("the effects' heap");
     slots = 1;
-    host_pool_report((D_80364AA8 & 0x20) ? "effects (the lower limit)" : "effects", level, N64(D_80358070), N64(port_pool_n64()), N64(POOL_END));
+    host_pool_report((D_80364AA8 & 0x20) ? "effects (the lower limit)" : "effects", level, D_80358070, port_pool_n64(),
+                     POOL_END);
     return end;
 }

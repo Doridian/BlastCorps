@@ -75,16 +75,17 @@ typedef struct {
 #define ALOG_BANK_MAP "alog_bank_map"
 
 #ifndef ALOG_NO_HOST
-/* port/host/audiolog.c (addresses are N64 addresses) */
+/* port/host/audiolog.c (the log's addresses are N64 addresses: the
+   arguments' words, and where the memory it is given is) */
 int host_alog_started(void);
-void host_alog_track(uint32_t addr, uint32_t len);
-void host_alog_untrack(uint32_t addr, uint32_t len);
+void host_alog_track(const void *p, uint32_t len);
+void host_alog_untrack(const void *p, uint32_t len);
 void host_alog_start(void);
 void host_alog_call(uint32_t fn, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4,
                     uint32_t a5);
-void host_alog_in(uint32_t addr, uint32_t len);
-void host_alog_out(uint32_t addr, uint32_t len);
-void host_alog_acmd(uint32_t addr, uint32_t len);
+void host_alog_in(const void *p, uint32_t len);
+void host_alog_out(const void *p, uint32_t len);
+void host_alog_acmd(const void *p, uint32_t len);
 void host_alog_ret(uint32_t value);
 void host_alog_cb_enter(uint32_t kind, uint32_t a0, uint32_t a1, uint32_t a2);
 void host_alog_cb_leave(uint32_t value, uint32_t extra);

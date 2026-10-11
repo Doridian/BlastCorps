@@ -80,15 +80,16 @@ void host_log(const char *fmt, ...) {
 
 /* the level pool's use (port/src/pool.c): with PORT_POOL_LOG=1, a line for
    each level's effects' heap and each level's end (its high-water) */
-void host_pool_report(const char *what, int level, uint32_t top, uint32_t n64_top, uint32_t end) {
+void host_pool_report(const char *what, int level, const void *top, const void *n64_top, const void *end) {
     static int on = -1;
     if (on < 0) {
         const char *e = getenv("PORT_POOL_LOG");
         on = e && atoi(e) != 0;
     }
     if (on)
-        fprintf(stderr, "pool: level %d %s: top 0x%08X (N64 0x%08X, display lists 0x%X more), end 0x%08X, room 0x%X\n",
-                level, what, top, n64_top, top - n64_top, end, end - top);
+        fprintf(stderr, "pool: level %d %s: top %p (N64 %p, display lists 0x%X more), end %p, room 0x%X\n",
+                level, what, top, n64_top, (unsigned)((const char *)top - (const char *)n64_top), end,
+                (unsigned)((const char *)end - (const char *)top));
 }
 
 void host_fatal(const char *fmt, ...) {
@@ -204,17 +205,17 @@ const uint8_t *host_rom(void) { return rom; }
 
 uint32_t host_rom_size(void) { return rom_size; }
 
-void host_rom_read(uint32_t dst, uint32_t addr, uint32_t len) {
-    uint8_t *d = port_ptr(dst);
+void host_rom_read(void *dst, uint32_t addr, uint32_t len) {
+    uint8_t *d = port_hptr(dst);
     addr &= 0x0FFFFFFFu;
     if (host_verbose > 1)
-        host_log("pi: rom %06X -> %08X (%X)\n", addr, dst, len);
+        host_log("pi: rom %06X -> %p (%X)\n", addr, (void *)d, len);
     for (uint32_t i = 0; i < len; i++)
         d[i] = addr + i < rom_size ? rom[addr + i] : 0;
 #ifdef PORT_ACCESS_PROFILE
-    port_access_dma(dst, addr, len);
+    port_access_dma(port_n64(d), addr, len);
 #endif
-    host_loaded_dma(dst, addr, len);
+    host_loaded_dma(d, addr, len);
 }
 
 uint32_t host_rom_word(uint32_t addr) {
