@@ -316,13 +316,6 @@ static int symmetric(uint64_t raw, unsigned w) {
 }
 
 static void read_at(uint32_t a, unsigned w, uint32_t site, unsigned kind, uint64_t raw) {
-#ifdef PORT_NATIVE_ENDIAN
-    if (w == 8) {       /* two words, the high one first, in every piece of code */
-        read_at(a, 4, site, kind, raw >> 32);
-        read_at(a + 4, 4, site, kind, (uint32_t)raw);
-        return;
-    }
-#endif
     if (origin)
         orecord(a, w, site, kind);
     int b = mismatch(a, w);
@@ -360,13 +353,6 @@ static void read_at(uint32_t a, unsigned w, uint32_t site, unsigned kind, uint64
 }
 
 static void write_at(uint32_t a, unsigned w, uint32_t site, unsigned kind, uint64_t raw) {
-#ifdef PORT_NATIVE_ENDIAN
-    if (w == 8) {
-        write_at(a, 4, site, kind, raw >> 32);
-        write_at(a + 4, 4, site, kind, (uint32_t)raw);
-        return;
-    }
-#endif
     uint32_t off = sh(a);
     int q = kind == K_ASM;
     for (int i = (int)pend_n[q] - 1; i >= 0; i--) {

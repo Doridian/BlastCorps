@@ -132,10 +132,10 @@ static inline void port_wbe16(void *p, uint16_t v) {
 
 /* A scalar of game memory at its own width: big-endian in the default
    build, host order in the native-endian one (PORT_NATIVE_ENDIAN, docs/
-   PORT.md "Native-endian memory").  A 64-bit scalar is two of these words,
-   the high one first, in both.  port_be* stay big-endian: they are for
-   what is bytes in either build (the ROM file, texels, framebuffers, the
-   audio microcode's DMEM and what it saves). */
+   PORT.md "Native-endian memory"), a 64-bit one too (port_g64).  port_be*
+   stay big-endian: they are for what is bytes in either build (the ROM
+   file, texels, framebuffers, the audio microcode's DMEM and what it
+   saves). */
 #ifdef PORT_NATIVE_ENDIAN
 static inline uint32_t port_g32(const void *p) {
     uint32_t v;
@@ -156,22 +156,29 @@ static inline void port_wg16(void *p, uint16_t v) { __builtin_memcpy(p, &v, 2); 
 static inline uint16_t port_g16_of32(const void *p, int k) {
     return (uint16_t)(port_g32((const uint8_t *)p + 4 * (k >> 1)) >> ((k & 1) ? 0 : 16));
 }
+/* a 64-bit scalar of game memory (a u64 or s64 variable, the LP64 builds'
+   command words), whole */
+static inline uint64_t port_g64(const void *p) {
+    uint64_t v;
+    PORT_ACCESS_HOST(p, 8);
+    __builtin_memcpy(&v, p, 8);
+    return v;
+}
+static inline void port_wg64(void *p, uint64_t v) { __builtin_memcpy(p, &v, 8); }
 #else
 #define port_g32 port_be32
 #define port_g16 port_be16
 #define port_wg32 port_wbe32
 #define port_wg16 port_wbe16
 static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((const uint8_t *)p + 2 * k); }
-#endif
-/* a 64-bit scalar of game memory (a u64 or s64 variable, the LP64 builds'
-   command words), whole */
 static inline uint64_t port_g64(const void *p) {
-    return (uint64_t)port_g32(p) << 32 | port_g32((const uint8_t *)p + 4);
+    return (uint64_t)port_be32(p) << 32 | port_be32((const uint8_t *)p + 4);
 }
 static inline void port_wg64(void *p, uint64_t v) {
-    port_wg32(p, (uint32_t)(v >> 32));
-    port_wg32((uint8_t *)p + 4, (uint32_t)v);
+    port_wbe32(p, (uint32_t)(v >> 32));
+    port_wbe32((uint8_t *)p + 4, (uint32_t)v);
 }
+#endif
 
 /* For host code that reads game variables with port_be32 and writes the
    pad with port_wbe16 (main.c, video.c): in the native-endian build

@@ -31,20 +31,6 @@ void __bepass_fixup(const struct bepass_entry *e, uint32_t n) {
             swap_bytes(e[i].p + k * e[i].size, e[i].size);
 }
 
-/* BEPass in native mode (PORT_NATIVE_ENDIAN): the 64-bit scalars in C
-   initializers, whose words go high one first */
-void __bepass_fixup_rot64(const struct bepass_entry *e, uint32_t n) {
-    for (uint32_t i = 0; i < n; i++)
-        for (uint32_t k = 0; k < e[i].count; k++) {
-            uint32_t w[2];
-            memcpy(w, e[i].p + k * 8, 8);
-            uint32_t t = w[0];
-            w[0] = w[1];
-            w[1] = t;
-            memcpy(e[i].p + k * 8, w, 8);
-        }
-}
-
 /* A thread's host stack: inside the KSEG0 window (at PORT_STACK_BASE,
    port.h), so that the address of a local means the same to the translated
    code; in the movable build that range is in the arena (port_arena.h). */
