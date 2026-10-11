@@ -106,6 +106,12 @@ typedef union asm_Gfx {
 #define ASM_GFX_ADDR(p) ((__UINTPTR_TYPE__)(p))
 #endif"""
 
+# a display list's segmented addresses (gbi.h's G_SEGTAG: the words of
+# G_MTX, G_MOVEMEM, G_VTX and G_DL to segments 1..15 get bit 0; CMake: none
+# in the engine check build)
+SEG_TAG = int(os.environ.get("PORT_SEG_TAG", "1"))
+SEG_OPS = (0x01, 0x03, 0x04, 0x06)
+
 _GAME = os.path.join(BLAST, "include", "game")
 INVENTORY = os.path.join(_GAME, f"inventory.{VERSION}.json")
 if not os.path.exists(INVENTORY):
@@ -1299,6 +1305,11 @@ class Gen:
             w0, w1 = (self.value(blob, base + o, sc) for o, _, sc in ctype.units())
             if base + 4 in blob.syms:
                 w1 = f"ASM_GFX_ADDR({self.pointer(blob.syms[base + 4], 'u8')})"
+            elif None not in blob.val[base:base + 8]:
+                op = blob.val[base]
+                v1 = int.from_bytes(bytes(blob.val[base + 4:base + 8]), "big")
+                if op in SEG_OPS and (v1 >> 24) & 15:
+                    w1 = f"0x{v1 | SEG_TAG:X}"          # (a segmented address, tagged)
             return "{ { " + w0 + ", " + w1 + " } }"
         if isinstance(ctype, Scalar):
             return self.value(blob, base, ctype)

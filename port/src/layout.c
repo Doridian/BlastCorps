@@ -66,6 +66,7 @@ static const u32 layout[PORT_LAYOUT_COUNT] = {
     [PORT_LAYOUT_GFX_SIZE] = sizeof(Gfx),
     [PORT_LAYOUT_ACMD_SIZE] = sizeof(Acmd),
     [PORT_LAYOUT_FRAME_SIZE] = sizeof(Frame),
+    [PORT_LAYOUT_SEG_TAG] = G_SEGTAG,
 };
 /* (the host reads a command's words at its start and its middle) */
 _Static_assert(OFF(Gfx, words.w1) == sizeof(Gfx) / 2 && sizeof(Gfx) / 2 == sizeof(((Gfx *)0)->words.w0),

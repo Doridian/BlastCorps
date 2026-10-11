@@ -110,9 +110,11 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
 /* A command is the N64 side's Acmd (port_layout): two words, 4 bytes each
    in game memory's order, or 8 in the host's where its words are
    pointer-wide (PORT_WIDE_GFX), as gfx.h's display lists (a 64-bit
-   scalar's two words, the high one first).  An address in
-   one is then a pointer, or a segment's plus an offset (gfx_wide_segmented);
-   in the narrow form, RDRAM through the segment table (bit 28, a host
+   scalar's two words, the high one first).  An address in one is a
+   segment's plus an offset where it has the segment tag (gfx.h's
+   gfx_segmented; libaudio makes none: its one segment, 0, is 0), else the
+   pointer, an N64 address until P10 (port_ptr); in the check build's
+   untagged words, RDRAM through the segment table (bit 28, a host
    stack's, kept as in gfx.c's seg_to_k0). */
 static unsigned acmd_size;
 static int acmd_wide, acmd_strict;
@@ -126,15 +128,19 @@ static inline uintptr_t acmd_word(const uint8_t *p) {
 }
 
 static uint8_t *ram(uintptr_t so) {
+    if (gfx_seg_tag && !gfx_segmented(so)) {
+        if (acmd_strict && (uint32_t)so < PORT_RDRAM_BASE)
+            host_fatal("audio (PORT_GFX_STRICT): address %08lX isn't an N64 address (a segmented one without its "
+                       "tag?)\n", (unsigned long)so);
+        return port_ptr((uint32_t)so);
+    }
     if (acmd_wide) {
-        if (!gfx_wide_segmented(so))
-            return (uint8_t *)so;
         if (acmd_strict && !segments[(so >> 24) & 0xF])
             host_fatal("audio (PORT_GFX_STRICT): address %08lX through segment %d, which isn't set\n",
                        (unsigned long)so, (int)((so >> 24) & 0xF));
-        return (uint8_t *)(segments[(so >> 24) & 0xF] + (so & 0xFFFFFF));
+        return (uint8_t *)(segments[(so >> 24) & 0xF] + gfx_seg_offset(so));
     }
-    uint32_t a = (uint32_t)segments[(so >> 24) & 0xF] + ((uint32_t)so & 0xFFFFFF) + ((uint32_t)so & 0xF0000000u);
+    uint32_t a = (uint32_t)segments[(so >> 24) & 0xF] + gfx_seg_offset(so) + ((uint32_t)so & 0xF0000000u);
     return port_ptr(PORT_RDRAM_BASE | (a & 0x1FFFFFFFu));      /* KSEG0, as gfx.c's */
 }
 /* game memory at its own widths (the codebooks, the loop state, the state
@@ -437,7 +443,7 @@ static void audio_task(const uint8_t *cmd, uint32_t data_size, const uint8_t *uc
             break;
         }
         case A_SEGMENT:
-            segments[(w1 >> 24) & 0xF] = acmd_wide ? w1a : (w1 & 0x1FFFFFFF);
+            segments[(w1 >> 24) & 0xF] = acmd_wide ? (w1a ? (uintptr_t)port_ptr((uint32_t)w1a) : 0) : (w1 & 0x1FFFFFFF);
             break;
         case A_SETBUFF:
             if (flags & F_AUX) {
@@ -523,6 +529,7 @@ void host_audio_task(const void *data_ptr, uint32_t data_size, const void *ucode
             host_fatal("audio: the N64 side's Acmd is %u bytes: this host reads 8%s\n", acmd_size,
                        sizeof(uintptr_t) == 8 ? " or 16" : "");
         acmd_wide = acmd_size == 16;
+        gfx_layout_init();          /* (gfx_seg_tag) */
         const char *e = getenv("PORT_GFX_STRICT");
         acmd_strict = e && atoi(e) != 0;
     }

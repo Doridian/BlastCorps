@@ -260,6 +260,7 @@ enum PortLayout {
     PORT_LAYOUT_GFX_SIZE,               /* Gfx: a display-list command, two words (gfx.h) */
     PORT_LAYOUT_ACMD_SIZE,              /* Acmd: an audio command (aspmain.c) */
     PORT_LAYOUT_FRAME_SIZE,             /* Frame (game/frame.h): segment 2's buffer */
+    PORT_LAYOUT_SEG_TAG,                /* gbi.h's G_SEGTAG: the segmented addresses' tag (gfx.h) */
     PORT_LAYOUT_COUNT
 };
 /* the N64 side's number (port/src/layout.c); 0 for an id it doesn't know */

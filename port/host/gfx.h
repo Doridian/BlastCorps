@@ -28,20 +28,24 @@
  *
  * Every address the renderer holds (a list, the images, a vertex load's,
  * the segment table's entries in the wide form) is a host pointer, as an
- * integer: GfxAddr.  gfx_addr() makes one of a command's word: in the
- * narrow form (32-bit words) the RSP's rule, a segment (bits 24..27) and
- * an offset, resolved to KSEG0 and then to where the host has it
- * (port_ptr, or the renderer's own memory, GFX_HOST_BASE); in the wide
- * one a word below 0x10000000 is a segment's pointer plus the offset, and
- * anything else the pointer itself.  An N64 address the game hands the
- * host some other way (a texture it reports, a variable's) is made one
- * with gfx_of_n64, a pointer of the N64 side's with gfx_of_ptr, so that
- * both are compared in one domain. */
+ * integer: GfxAddr.  gfx_addr() makes one of a command's word.  A word
+ * with the segment tag (gbi.h's G_SEGTAG, bit 0: the N64 side sets it on
+ * every segmented address, which no pointer a list holds has) is a
+ * segment (bits 24..27) and an offset; any other is the pointer itself,
+ * an N64 address until P10 (to where the host has it: port_ptr, or the
+ * renderer's own memory, GFX_HOST_BASE, or in the wide form the
+ * renderer's own host pointer).  The engine check build's lists have the
+ * N64's words, without the tag: there the RSP's rule holds for every one
+ * (seg_to_k0).  An N64 address the game hands the host some other way (a
+ * texture it reports, a variable's) is made one with gfx_of_n64, a
+ * pointer of the N64 side's with gfx_of_ptr, so that both are compared
+ * in one domain. */
 typedef uintptr_t GfxAddr;
 extern unsigned gfx_cmd;        /* a command's bytes: 8, or 16 (gfx_wide) */
 extern int gfx_wide;            /* its words are 8 bytes (64-bit scalars: gfx_g64) */
 extern int gfx_strict;          /* PORT_GFX_STRICT=1: a malformed list is fatal (gfx.c) */
-void gfx_layout_init(void);     /* gfx_cmd and gfx_wide from port_layout (idempotent) */
+extern uint32_t gfx_seg_tag;    /* the N64 side's segment tag (gbi.h's G_SEGTAG): 1, or 0 in the check build */
+void gfx_layout_init(void);     /* gfx_cmd, gfx_wide and gfx_seg_tag from port_layout (idempotent) */
 
 /* a 64-bit scalar of game memory (port.h: the high word first) */
 static inline uint64_t gfx_g64(const uint8_t *p) { return (uint64_t)port_g32(p) << 32 | port_g32(p + 4); }
@@ -71,12 +75,14 @@ static inline void gfx_put(uint8_t *c, uintptr_t w0, uintptr_t w1) {
     port_wg32(c, (uint32_t)w0);
     port_wg32(c + 4, (uint32_t)w1);
 }
-/* A word of a wide list (or audio command) that is a segmented address,
-   not a pointer.  The one place that decides it: today the RSP's own
-   range, below 0x10000000, which no host pointer of the LP64 builds is in;
-   a host whose memory is low (a 32-bit one, PS2's, wasm's) needs a tag
-   here instead, and only here (gfx_addr, aspmain.c's ram). */
-static inline int gfx_wide_segmented(uintptr_t w) { return w < 0x10000000u; }
+/* A word of a list (or an audio command) that is a segmented address, not
+   a pointer: the one place that decides it (gfx_addr, aspmain.c's ram).
+   By the tag, whatever the host's addresses are, low ones (a 32-bit host's,
+   PS2's, wasm's) too; not in the check build, whose words have none and
+   are all resolved by the RSP's rule (gfx.c's seg_to_k0). */
+static inline int gfx_segmented(uintptr_t w) { return (w & gfx_seg_tag) != 0; }
+/* a segmented word's offset into its segment */
+static inline uint32_t gfx_seg_offset(uintptr_t w) { return (uint32_t)w & 0x00FFFFFFu & ~gfx_seg_tag; }
 static inline GfxAddr gfx_of_n64(uint32_t a) { return a ? (GfxAddr)port_ptr(a) : 0; }
 static inline GfxAddr gfx_of_ptr(const void *p) { return p ? gfx_of_n64(port_n64(p)) : 0; }
 /* a host address as an integer for a hash (its two halves folded) */

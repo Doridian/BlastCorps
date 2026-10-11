@@ -72,6 +72,16 @@ def dl_name_address(name, addrs):
     """a DL_NAMES name's address with the port's commands"""
     base, cmds = DL_NAMES[name]
     return addrs[base] + cmds * GFX_SIZE
+
+# the segmented addresses' tag (gbi.h's G_SEGTAG; CMake: 0 in the
+# engine check build, whose words are the N64's)
+SEG_TAG = int(os.environ.get("PORT_SEG_TAG", "1"))
+
+
+def seg_tagged(addr):
+    """a name's address as the port has it: one that is a segmented address
+    (segments 1..15: D_01000010, D_02000000...) with the segment tag"""
+    return addr | SEG_TAG if 0x01000000 <= addr < 0x10000000 else addr
 ASSIGN_RE = re.compile(r"^\s*([A-Za-z_][\w.]*)\s*=\s*([^;]+);\s*(?:/\*\s*(.*?)\s*\*/)?")
 REL_COMMENT_RE = re.compile(r"^([A-Za-z_]\w*)\s*\+\s*(0x[0-9A-Fa-f]+)\s+in\s+(\w+)")
 
@@ -204,7 +214,9 @@ def script(out, objects):
         """RHS usable in the port: base symbols must exist."""
         rhs = assigns[name]
         if name in DL_NAMES:
-            return f"0x{dl_name_address(name, n64):08X}"
+            return f"0x{seg_tagged(dl_name_address(name, n64)):08X}"
+        if re.fullmatch(r"0x[0-9A-Fa-f]+", rhs):
+            return f"0x{seg_tagged(int(rhs, 16)):08X}"
         # the game's data is at its N64 addresses (gen_ld.py), so anything
         # in RDRAM the port doesn't define is simply there
         if name in n64 and 0x80000000 <= n64[name] < 0x80400000 and not name.startswith("func_"):
@@ -365,6 +377,7 @@ def table(out):
     for name in DL_NAMES:
         if name in seen:
             seen[name] = (dl_name_address(name, {n: a for n, (a, k, z) in seen.items()}),) + seen[name][1:]
+    seen = {n: (seg_tagged(v[0]),) + v[1:] for n, v in seen.items()}
     with open(out, "w") as f:
         for name, (addr, kind, size) in seen.items():
             f.write(f"{name} {addr:08X} {kind} {size:X}\n")

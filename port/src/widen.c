@@ -33,8 +33,9 @@
  * The header's other offsets must be into the header (a warning if not:
  * a list nobody rescaled).  A list widened in the pool's free part counts
  * as a carve-out of the pool's (src/pool.c).  With the N64's 8-byte
- * commands (every build but the wide one) all of this is the identity,
- * and nothing is written.
+ * commands (every build but the wide one) all of this is the identity.
+ * In every build the lists' segmented addresses get the port's tag here
+ * (dl_tag, gbi.h's G_SEGTAG).
  */
 #include "common.h"
 #include "port.h"
@@ -86,6 +87,20 @@ static u32 dl_widen(u8 *p, u32 n) {
         g->words.w1 = w1;
     }
     return cmds * GFX_SIZE;
+}
+
+/* Its segmented addresses tagged (gbi.h's G_SEGTAG): the words of
+   G_MTX, G_MOVEMEM, G_VTX and G_DL to segments 1..15.  A level's G_DL
+   words are offsets from its first list, segment 0 (func_802A1C88 makes
+   them addresses). */
+static void dl_tag(Gfx *p, Gfx *end) {
+    for (; p < end; p++) {
+        u32 op = (u32)p->words.w0 >> 24, w1 = (u32)p->words.w1;
+
+        if ((op == G_MTX || op == G_MOVEMEM || op == G_VTX || op == G_DL) && (w1 >> 24 & 15) != 0) {
+            p->words.w1 = w1 | G_SEGTAG;
+        }
+    }
 }
 
 static void vehicle_rescale(VehicleModel *m, u32 b) {
@@ -186,12 +201,15 @@ u8 *port_rom_loaded(int klass, u8 *start, u8 *end) {
         hdr_class = klass;
         return end;
     case ROM_DL:
+        if (WIDE) {
+            w = dl_widen(start, (u32)(end - start));
+            port_pool_widened(start, (u32)(end - start), w);
+            end = start + w;
+        }
+        dl_tag((Gfx *)start, (Gfx *)end);
         if (!WIDE) {
             return end;
         }
-        w = dl_widen(start, (u32)(end - start));
-        port_pool_widened(start, (u32)(end - start), w);
-        end = start + w;
         if (hdr_class == ROM_BYTES || hdr_end != start) {
             host_log("widen: a display list at %p without its header\n", (void *)start);
             return end;
@@ -207,12 +225,16 @@ u8 *port_rom_loaded(int klass, u8 *start, u8 *end) {
         hdr_class = ROM_BYTES;
         return end;
     case ROM_STATIC:            /* a Vp, then the lists */
-        if (!WIDE || end - start <= (s32)sizeof(Vp)) {
+        if (end - start <= (s32)sizeof(Vp)) {
             return end;
         }
-        w = dl_widen(start + sizeof(Vp), (u32)(end - start - sizeof(Vp)));
-        port_pool_widened(start, (u32)(end - start - sizeof(Vp)), w);
-        return start + sizeof(Vp) + w;
+        if (WIDE) {
+            w = dl_widen(start + sizeof(Vp), (u32)(end - start - sizeof(Vp)));
+            port_pool_widened(start, (u32)(end - start - sizeof(Vp)), w);
+            end = start + sizeof(Vp) + w;
+        }
+        dl_tag((Gfx *)(start + sizeof(Vp)), (Gfx *)end);
+        return end;
     default:
         hdr_class = ROM_BYTES;
         return end;
