@@ -229,6 +229,30 @@ typedef struct LevelHeader {
 } LevelHeader;
 SIZE_CHECK(LevelHeader, 0xC8);
 
+/*
+ * LevelHeader.unkA0's records, the terrain's pieces of display list (port/
+ * engine/5FD50.c builds the four terrain lists from them each frame):
+ * [unkA0[i], unkA0[i + 1]) for i = 0..3 the groups of list i, for i = 4..7
+ * its spans (the groups and spans over several cells).  Their offsets are
+ * from the level file's start, into its display lists.
+ */
+typedef struct TerrainGroup {   /* 0x14 bytes */
+    /* 0x00 */ AssetOffset dl;          /* its display list, */
+    /* 0x04 */ AssetOffset dlNoTex;     /* the same after its texture setup, */
+    /* 0x08 */ AssetOffset dlEnd;       /* and its end */
+    /* 0x0C */ s32 key;         /* its texture animation */
+    /* 0x10 */ s32 cell;
+} TerrainGroup;
+SIZE_CHECK(TerrainGroup, 0x14);
+
+typedef struct TerrainSpan {    /* 0x14 + 4 n bytes */
+    /* 0x00 */ AssetOffset dl, dlNoTex, dlEnd;  /* as TerrainGroup's */
+    /* 0x0C */ s32 key;
+    /* 0x10 */ s32 n;
+    /* 0x14 */ s32 cells[1];    /* n of them, ascending */
+} TerrainSpan;
+#define SPAN_NEXT(s) ((TerrainSpan *)((u8 *)(s) + 0x14 + (s)->n * 4))
+
 /* The current level's file, at the bottom of the level's heap allocations. */
 extern LevelHeader *D_80358074;
 

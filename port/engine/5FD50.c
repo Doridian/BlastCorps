@@ -37,21 +37,7 @@ typedef struct QuadNode {
     s16 x, z, w, h;     /* in cells */
 } QuadNode;
 
-typedef struct TerrainGroup {   /* 0x14 bytes */
-    /* 0x00 */ u32 dl;          /* offsets from the header: its display list, */
-    /* 0x04 */ u32 dlNoTex;     /* the same after its texture setup, */
-    /* 0x08 */ u32 dlEnd;       /* and its end */
-    /* 0x0C */ s32 key;         /* its texture animation */
-    /* 0x10 */ s32 cell;
-} TerrainGroup;
-SIZE_CHECK(TerrainGroup, 0x14);
-
-typedef struct TerrainSpan {    /* 0x14 + 4 n bytes */
-    /* 0x00 */ u32 dl, dlNoTex, dlEnd;  /* as TerrainGroup's */
-    /* 0x0C */ s32 key;
-    /* 0x10 */ s32 n;
-    /* 0x14 */ s32 cells[1];    /* n of them, ascending */
-} TerrainSpan;
+/* TerrainGroup, TerrainSpan, SPAN_NEXT(): game/level.h */
 
 typedef struct TexAnim {        /* 8 + 4 n bytes */
     /* 0x00 */ s32 key;
@@ -67,7 +53,6 @@ typedef struct TexAnim {        /* 8 + 4 n bytes */
 /* frame i's texture (i >= 1: tex1[i - 1]), its physical address */
 #define ANIM_TEX(a, i) tex_phys(*(u32 *)((u8 *)(a) + 8 + (i) * 4))
 #define ANIM_NEXT(a) ((TexAnim *)((u8 *)(a) + 8 + (a)->n * 4))
-#define SPAN_NEXT(s) ((TerrainSpan *)((u8 *)(s) + 0x14 + (s)->n * 4))
 /* the level file at header offset `off` */
 #define AT(h, off) ((u8 *)(h) + (off))
 

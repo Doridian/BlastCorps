@@ -59,6 +59,9 @@ MARKERS = {"AssetOffset": "offset", "RomAddr": "romoff", "SegAddr": "segptr"}
 # what an AssetOffset field is relative to, per structure (default: itself)
 OFFSET_BASE = {
     "LevelHeader": "the level file's start (LevelHeader); displayLists and unkA0 point into the _dl file after it",
+    "TerrainGroup": "the level file's start (LevelHeader), into the _dl file after it",
+    "TerrainSpan": "the level file's start (LevelHeader), into the _dl file after it",
+    "GroupDls": "the model's start (Model), into the _dl file after it",
 }
 
 
