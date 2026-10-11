@@ -22,6 +22,12 @@ if(NOT PORT_VERSION MATCHES "^(us\\.v1[01]|jp|eu)$")
 endif()
 string(TOUPPER "VERSION_${PORT_VERSION}" PORT_VERSION_DEFINE)
 string(REPLACE "." "_" PORT_VERSION_DEFINE ${PORT_VERSION_DEFINE})
+# the plain build (P10): the game's C, port/src, port/libaudio and
+# port/engine as ordinary C, in the host's byte order and pointer size,
+# linked with the host into an ordinary program (PIE): no BEPass, no fixed
+# link, no arena; a pointer is a host pointer and a variable is wherever
+# the linker puts it.  For now beside the variants below, which it refuses.
+option(PORT_PLAIN "the plain build: ordinary C, no plugin, no fixed addresses" OFF)
 option(PORT_64BIT "a 64-bit program (the game's C through port-ilp32)" OFF)
 option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in 32 bits" OFF)
 # diagnostics (docs/PORT.md, "Comparing builds"): a call trace of the
@@ -53,6 +59,21 @@ endif()
 if(PORT_LP64)
     set(PORT_64BIT ON CACHE BOOL "" FORCE)
     set(PORT_NATIVE_ENDIAN ON CACHE BOOL "" FORCE)
+endif()
+if(PORT_PLAIN)
+    foreach(v PORT_64BIT PORT_ILP32_CHECK PORT_TRACE_CALLS PORT_ACCESS_PROFILE PORT_NATIVE_ENDIAN PORT_LP64
+              PORT_MOVABLE PORT_AUDIO_RECORD PORT_ROM_DATA PORT_SCATTER_GUARD PORT_SCATTER_CHECK
+              PORT_ENGINE_CHECK PORT_ENGINE_TAINT PORT_EA_GUARD PORT_TRACE_ASM)
+        if(${v})
+            message(FATAL_ERROR "PORT_PLAIN is a build of its own: not with ${v}")
+        endif()
+    endforeach()
+    if(NOT "${PORT_SCATTER}" STREQUAL "")
+        message(FATAL_ERROR "PORT_PLAIN is a build of its own: not with PORT_SCATTER")
+    endif()
+    if(EMSCRIPTEN)
+        message(FATAL_ERROR "PORT_PLAIN isn't for WebAssembly yet")
+    endif()
 endif()
 # WebAssembly (emcmake cmake ...; docs/PORT.md, "WebAssembly"): the 32-bit
 # native-endian movable build for wasm32, the host side through emcc and
@@ -152,7 +173,7 @@ find_program(N64_READELF NAMES mips-linux-gnu-readelf llvm-readelf HINTS ${CLANG
 # (16 bytes in the LP64 builds, whose display-list and audio command words
 # are as wide as a pointer: gbi.h's Gwords; the renderer and the audio take
 # the size from port_layout())
-if(PORT_LP64)
+if(PORT_LP64 OR (PORT_PLAIN AND CMAKE_SIZEOF_VOID_P EQUAL 8))
     set(PY_GFX_SIZE 16)
 else()
     set(PY_GFX_SIZE 8)
@@ -170,7 +191,13 @@ else()
     set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_N64_NM=${N64_NM} PORT_GFX_SIZE=${PY_GFX_SIZE} PORT_SEG_TAG=${PY_SEG_TAG} ${Python3_EXECUTABLE})
 endif()
 
-foreach(f ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${RECOMP_GEN}/recomp_funcs.h)
+# (the plain build compiles nothing of the translation: tools/recomp's
+# output isn't needed)
+set(PORT_NEEDS ${BLAST}/build/hd_code.${PORT_VERSION}.elf)
+if(NOT PORT_PLAIN)
+    list(APPEND PORT_NEEDS ${RECOMP_GEN}/recomp_funcs.h)
+endif()
+foreach(f ${PORT_NEEDS})
     if(NOT EXISTS ${f})
         message(FATAL_ERROR "${f} is missing: build blastcorps (${PORT_VERSION}) and tools/recomp first")
     endif()
@@ -221,10 +248,13 @@ if(NOT FE_SECTIONS MATCHES "\\.hd_front_end +[A-Z]+ +([0-9a-f]+)")
 endif()
 set(PORT_FE_TEXT 0x${CMAKE_MATCH_1})
 # The fixed buffers' regions (include/port_regions.h), for the version:
-# port-arena's table and the fixed builds' absolute symbols
+# port-arena's table and the fixed builds' absolute symbols (the plain
+# build's are buffers of port/src/regions.c)
 file(MAKE_DIRECTORY ${GEN})
+if(NOT PORT_PLAIN)
 execute_process(COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py regions
         ${GEN}/port_regions.txt ${GEN}/port_fixed.ld COMMAND_ERROR_IS_FATAL ANY)
+endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
 # The ROM addresses the game's C names (game/types.h's ROM(sym))
@@ -243,6 +273,11 @@ endif()
 message(STATUS "${PORT_VERSION}: static data from ${PORT_STATIC_START}, front end .data ${PORT_FE_DATA}, .bss ${PORT_FE_BSS}")
 
 # ---- BEPass (a host LLVM plugin, 64-bit) ------------------------------------
+if(PORT_PLAIN)
+    # nothing of it: the N64 side is ordinary C
+    add_custom_target(BEPass)
+    set(BEPASS)
+else()
 find_program(LLVM_CONFIG llvm-config HINTS ${CLANG_BINDIR} REQUIRED)
 # A cross build (CMAKE_C_COMPILER_TARGET, port/tools/cross-aarch64.cmake)
 # can't build the plugin clang loads: it takes one from a native build.
@@ -279,6 +314,7 @@ else()
     endif()
     set(BEPASS ${CMAKE_BINARY_DIR}/libBEPass${CMAKE_SHARED_MODULE_SUFFIX})
 endif()
+endif()
 
 if(EMSCRIPTEN)
     execute_process(COMMAND ${PORT_N64_CC} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -299,7 +335,7 @@ if(EMSCRIPTEN)
         message(FATAL_ERROR "no wasm32 data layout from ${PORT_N64_CC}")
     endif()
     set(WASM_DATALAYOUT ${CMAKE_MATCH_1})
-elseif(PORT_LP64)
+elseif(PORT_LP64 OR PORT_PLAIN)
     # the host's own layout: no i386 frontend, no port-ilp32
     set(M32)
 elseif(PORT_64BIT)
@@ -352,7 +388,12 @@ endif()
 if(N64_LAUNCHER)
     list(PREPEND N64_LAUNCHER env)
 endif()
-if(PORT_LP64)
+if(PORT_PLAIN)
+    # an ordinary program, position-independent
+    set(HOST_ARCH -fPIE)
+    list(APPEND M32 -fPIE)
+    message(STATUS "the plain build (${CMAKE_SIZEOF_VOID_P}-byte pointers)")
+elseif(PORT_LP64)
     set(HOST_ARCH -fPIE)
     list(APPEND M32 -fPIE)
     message(STATUS "LP64 build")
@@ -454,8 +495,11 @@ if(PORT_LP64)
     list(APPEND N64_DEFINES PORT_LP64)
     list(APPEND M32 -fms-extensions)    # PTR32: __ptr32 __uptr
 endif()
-# (a display-list command's size, for port_regions.h's pool)
-list(APPEND N64_DEFINES PORT_GFX_SIZE=${PY_GFX_SIZE})
+# (a display-list command's size, for port_regions.h's pool; the plain
+# build's is the pointers', port_regions.h's own)
+if(NOT PORT_PLAIN)
+    list(APPEND N64_DEFINES PORT_GFX_SIZE=${PY_GFX_SIZE})
+endif()
 if(PORT_ACCESS_PROFILE)
     list(APPEND N64_DEFINES PORT_ACCESS_PROFILE)
 endif()
@@ -466,11 +510,16 @@ if(PORT_ENGINE_CHECK)
     # (the N64 side's K0_TO_PHYS and the like keep the N64's form: PR/R4300.h)
     list(APPEND N64_DEFINES PORT_ENGINE_CHECK)
 endif()
-if(PORT_NATIVE_ENDIAN)
+if(PORT_NATIVE_ENDIAN OR PORT_PLAIN)
     list(APPEND N64_DEFINES PORT_NATIVE_ENDIAN)
     # without the byte swaps clang vectorizes the game's float arrays and
     # raises their alignment, which would move them off their N64 addresses
+    # (the plain build keeps the same code: the vectorizer's is the same
+    # arithmetic, but there is no reason to differ from the variants yet)
     list(APPEND M32 -fno-vectorize -fno-slp-vectorize)
+endif()
+if(PORT_PLAIN)
+    list(APPEND N64_DEFINES PORT_PLAIN)
 endif()
 # The decompiled C is IDO's dialect: pointers and ints used
 # interchangeably, narrow and wide types mixed.  These flags make clang
@@ -483,7 +532,7 @@ endif()
 # declarations that disagree are anyway).
 set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks
     -ftrivial-auto-var-init=zero -ffp-contract=off -fno-common -fno-builtin
-    -nostdinc -isystem ${CLANG_RESOURCE_DIR}/include -fpass-plugin=${BEPASS}
+    -nostdinc -isystem ${CLANG_RESOURCE_DIR}/include
     -include ${CMAKE_CURRENT_SOURCE_DIR}/include/port_game.h
     -Wall -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
     -Wno-unused-label -Wno-unused-value -Wno-missing-braces -Wno-pointer-sign
@@ -501,7 +550,10 @@ set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrap
     -Wno-implicit-const-int-float-conversion -Wno-pointer-bool-conversion
     -Wno-string-plus-int -Wno-null-pointer-arithmetic -Wno-gnu-folding-constant
     -Wno-macro-redefined -Wno-ignored-pragma-intrinsic)   # (IDO's sqrtf, not one on AArch64)
-if(PORT_LP64)
+if(BEPASS)
+    list(APPEND N64_FLAGS -fpass-plugin=${BEPASS})
+endif()
+if(PORT_LP64 OR PORT_PLAIN)
     # Where pointers are 8 bytes, an implicit pointer/integer conversion or
     # a pointer to one type passed as a pointer to another is where a
     # 4-byte slot can meet an 8-byte pointer (docs/PORT.md, "The LP64
@@ -529,7 +581,7 @@ if(NOT PORT_LIBAUDIO_ORIGINAL)
     target_compile_definitions(libaudio_c PRIVATE ${N64_DEFINES})
     target_compile_options(libaudio_c PRIVATE ${N64_FLAGS})
     add_dependencies(libaudio_c BEPass)
-    set_source_files_properties(${LIBAUDIO_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+    set_source_files_properties(${LIBAUDIO_C} PROPERTIES OBJECT_DEPENDS "${BEPASS}")
     set(LIBAUDIO_LAUNCHER ${N64_LAUNCHER})
     if(PORT_MOVABLE)
         list(FIND LIBAUDIO_LAUNCHER env ENV_AT)
@@ -546,13 +598,24 @@ if(NOT PORT_LIBAUDIO_ORIGINAL)
     set(LIBAUDIO_OBJECTS $<TARGET_OBJECTS:libaudio_c>)
 endif()
 
+# (the plain build's front end is compiled twice: below, "the front end's
+# variables")
+set(FE_SRC)
+if(PORT_PLAIN)
+    foreach(f ${GAME_C})
+        if(f MATCHES "/src/hd_front_end/[^/]*$")
+            list(APPEND FE_SRC ${f})
+        endif()
+    endforeach()
+    list(REMOVE_ITEM GAME_C ${FE_SRC})
+endif()
 add_library(game_c OBJECT ${GAME_C})
 target_compile_options(game_c PRIVATE -fdata-sections)
 target_include_directories(game_c PRIVATE ${N64_INCLUDES})
 target_compile_definitions(game_c PRIVATE ${N64_DEFINES})
 target_compile_options(game_c PRIVATE ${N64_FLAGS})
 add_dependencies(game_c BEPass)
-set_source_files_properties(${GAME_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+set_source_files_properties(${GAME_C} PROPERTIES OBJECT_DEPENDS "${BEPASS}")
 if(N64_LAUNCHER)
     set_target_properties(game_c PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
@@ -586,15 +649,18 @@ if(ENGINE_C)
     target_compile_definitions(engine_c PRIVATE ${N64_DEFINES})
     target_compile_options(engine_c PRIVATE ${N64_FLAGS})
     add_dependencies(engine_c BEPass)
-    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+    set_source_files_properties(${ENGINE_C} PROPERTIES OBJECT_DEPENDS "${BEPASS}")
     set(ENGINE_LAUNCHER ${N64_LAUNCHER})
     list(FIND ENGINE_LAUNCHER env ENV_AT)
-    if(ENV_AT EQUAL 0)
+    if(PORT_PLAIN)
+    elseif(ENV_AT EQUAL 0)
         list(INSERT ENGINE_LAUNCHER 1 BEPASS_PORT_SRC=1)
     else()
         list(PREPEND ENGINE_LAUNCHER env BEPASS_PORT_SRC=1)
     endif()
-    set_target_properties(engine_c PROPERTIES C_COMPILER_LAUNCHER "${ENGINE_LAUNCHER}")
+    if(ENGINE_LAUNCHER)
+        set_target_properties(engine_c PROPERTIES C_COMPILER_LAUNCHER "${ENGINE_LAUNCHER}")
+    endif()
     if(PORT_ENGINE_CHECK)
         target_compile_definitions(engine_c PRIVATE PORT_ENGINE_CHECK)
         target_compile_options(engine_c PRIVATE "SHELL:-include ${GEN}/engine_check_names.h")
@@ -612,12 +678,27 @@ add_library(port_n64 OBJECT ${PORT_N64_C})
 target_include_directories(port_n64 PRIVATE ${N64_INCLUDES})
 target_compile_definitions(port_n64 PRIVATE ${N64_DEFINES})
 target_compile_options(port_n64 PRIVATE ${N64_FLAGS})
-target_compile_definitions(port_n64 PRIVATE PORT_FE_TEXT=${PORT_FE_TEXT} PORT_FE_DATA=${PORT_FE_DATA} PORT_FE_BSS=${PORT_FE_BSS})
+target_compile_definitions(port_n64 PRIVATE PORT_FE_TEXT=${PORT_FE_TEXT} PORT_FE_DATA=${PORT_FE_DATA} PORT_FE_BSS=${PORT_FE_BSS}
+    PORT_STATIC_START=${PORT_STATIC_START}u)
+if(PORT_PLAIN)
+    # The functions the other builds' link wraps (--wrap, PORT_WRAPS below:
+    # the overlay, the loaders, the save's CRC): their defining files have
+    # them as __real_<name>, and port/src defines <name> itself (overlay.c,
+    # loads.c), which is what every other file calls.  A file's own calls
+    # stay its own, as --wrap leaves them; any compiler, any linker.  (The
+    # replay's two audio hooks are functions.h's: replay_hooks.c.)
+    set_property(SOURCE ${BLAST}/src/hd_code/46C20.c APPEND PROPERTY COMPILE_DEFINITIONS
+        func_8028B3E0=__real_func_8028B3E0 func_8028B4C4=__real_func_8028B4C4)
+    set_property(SOURCE ${BLAST}/src/hd_code/17A70.c APPEND PROPERTY COMPILE_DEFINITIONS
+        func_8025C230=__real_func_8025C230)
+    set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/gu.c APPEND PROPERTY COMPILE_DEFINITIONS
+        __osContDataCrc=__real___osContDataCrc)
+endif()
 if(NOT PORT_SCATTER STREQUAL "" AND PORT_SCATTER_FE)
     target_compile_definitions(port_n64 PRIVATE PORT_SCATTER_FE)
 endif()
 add_dependencies(port_n64 BEPass)
-set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS ${BEPASS})
+set_source_files_properties(${PORT_N64_C} PROPERTIES OBJECT_DEPENDS "${BEPASS}")
 # sins()'s table, generated
 add_custom_command(OUTPUT ${GEN}/sdk/sintable.h
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_sintable.py ${GEN}/sdk/sintable.h
@@ -685,7 +766,16 @@ add_custom_command(OUTPUT ${DATA_C}
             ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
     VERBATIM)
 file(MAKE_DIRECTORY ${GEN}/data_c)
-set_source_files_properties(${DATA_C} PROPERTIES GENERATED TRUE OBJECT_DEPENDS ${BEPASS})
+set_source_files_properties(${DATA_C} PROPERTIES GENERATED TRUE OBJECT_DEPENDS "${BEPASS}")
+if(PORT_PLAIN)
+    foreach(f ${DATA_C})
+        get_filename_component(b ${f} NAME)
+        if(b MATCHES "hd_front_end.*\\.c$")
+            list(APPEND FE_SRC ${f})
+            list(REMOVE_ITEM DATA_C ${f})
+        endif()
+    endforeach()
+endif()
 add_library(game_data OBJECT ${DATA_C})
 target_compile_options(game_data PRIVATE -fdata-sections)
 target_include_directories(game_data PRIVATE ${GEN}/data_c ${N64_INCLUDES})
@@ -696,7 +786,11 @@ if(N64_LAUNCHER)
     set_target_properties(game_data PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
 
+set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
+
 # ---- the translated handwritten engine (host side) ---------------------------
+# (none in the plain build, which needs nothing of tools/recomp's output)
+if(NOT PORT_PLAIN)
 file(GLOB RECOMP_C ${RECOMP_GEN}/hd_code_*.c ${RECOMP_GEN}/hd_front_end_*.c)
 add_custom_command(OUTPUT ${GEN}/port_recomp_syms.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py header ${GEN}/port_recomp_syms.h
@@ -717,7 +811,6 @@ if(TARGET engine_c)
 endif()
 add_custom_target(recomp_headers DEPENDS ${GEN}/port_recomp_syms.h)
 
-set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
 # Every function of the engine is native (port/engine), so the translated
 # code (derived from the ROM) is built only for the check build, which runs
 # it against the native code.  Elsewhere entry.c is all that is left: the
@@ -741,6 +834,7 @@ if(NOT PORT_MOVABLE)
     target_compile_options(recomp PRIVATE "SHELL:-include ${GEN}/port_recomp_syms.h")
     add_dependencies(recomp recomp_headers)
 endif()
+endif()
 
 # ---- host side -----------------------------------------------------------------
 if(EMSCRIPTEN)
@@ -749,7 +843,7 @@ if(EMSCRIPTEN)
     set(SDL2_LDFLAGS -sUSE_SDL=2)
 else()
 find_package(PkgConfig REQUIRED)
-if(NOT PORT_64BIT)
+if(NOT PORT_64BIT AND NOT PORT_PLAIN)
     set(ENV{PKG_CONFIG_LIBDIR} "/usr/lib32/pkgconfig:/usr/share/pkgconfig")
 endif()
 pkg_check_modules(SDL2 REQUIRED sdl2)
@@ -770,6 +864,10 @@ set(GZIP124 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/gzip-1.2.4)
 set(GZIP124_C ${GZIP124}/gzip124.c ${GZIP124}/deflate.c ${GZIP124}/trees.c ${GZIP124}/bits.c)
 set_source_files_properties(${GZIP124_C} PROPERTIES COMPILE_OPTIONS "-w;-std=gnu89;-include;${GZIP124}/gzip124_names.h")
 add_library(host OBJECT ${HOST_C} ${GZIP124_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
+if(PORT_PLAIN)
+    # (game memory in host order, pointers the host's: port.h)
+    target_compile_definitions(host PRIVATE PORT_PLAIN PORT_NATIVE_ENDIAN)
+endif()
 if(PORT_AUDIO_RECORD)
     target_compile_definitions(host PRIVATE PORT_AUDIO_RECORD)
 endif()
@@ -931,7 +1029,40 @@ endif()
 
 # ---- link ----------------------------------------------------------------------
 # The port's image sits right above the 4 MB of RDRAM (port.h), but for the
-# movable build's, which has no fixed address.
+# movable build's, which has no fixed address, and the plain build's, which
+# is an ordinary program.
+if(PORT_PLAIN)
+# The front end's variables, which src/overlay.c puts back as they were at
+# startup whenever the game loads the front end: every variable its sources
+# (its C and its asm data) define, with the address and size the compiler
+# gives them (tools/gen_fevars.py).  The sources are compiled as they are
+# for their symbol tables (fe_scan, which isn't linked), then again, each
+# #included by a file of gen/fe/ followed by its table (fe_c).
+add_library(fe_scan OBJECT ${FE_SRC})
+target_compile_options(fe_scan PRIVATE -fdata-sections)
+target_include_directories(fe_scan PRIVATE ${GEN}/data_c ${N64_INCLUDES})
+target_compile_definitions(fe_scan PRIVATE ${N64_DEFINES})
+target_compile_options(fe_scan PRIVATE ${N64_FLAGS})
+set(FE_WRAPPED ${GEN}/fe/fe_vars.c)
+foreach(f ${FE_SRC})
+    get_filename_component(b ${f} NAME)
+    list(APPEND FE_WRAPPED ${GEN}/fe/${b})
+endforeach()
+add_custom_command(OUTPUT ${FE_WRAPPED}
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fevars.py ${GEN}/fe --nm ${CMAKE_NM}
+            --sources "${FE_SRC}" --objects "$<TARGET_OBJECTS:fe_scan>"
+    DEPENDS fe_scan $<TARGET_OBJECTS:fe_scan>
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fevars.py ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
+    COMMAND_EXPAND_LISTS)
+add_library(fe_c OBJECT ${FE_WRAPPED})
+target_compile_options(fe_c PRIVATE -fdata-sections)
+target_include_directories(fe_c PRIVATE ${GEN}/data_c ${N64_INCLUDES})
+target_compile_definitions(fe_c PRIVATE ${N64_DEFINES})
+target_compile_options(fe_c PRIVATE ${N64_FLAGS})
+add_executable(blastcorps ${N64_OBJECTS} $<TARGET_OBJECTS:game_data> $<TARGET_OBJECTS:fe_c> $<TARGET_OBJECTS:host>)
+set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C)
+target_link_options(blastcorps PRIVATE -pie)
+else()
 if(NOT PORT_MOVABLE)
 add_custom_command(OUTPUT ${GEN}/port_syms.ld
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py script ${GEN}/port_syms.ld
@@ -1058,6 +1189,7 @@ if(NOT PORT_MOVABLE)
         target_link_options(blastcorps PRIVATE -Wl,--wrap=${w})
     endforeach()
 endif()
+endif()
 target_link_libraries(blastcorps PRIVATE ${SDL2_LDFLAGS} ${EPOXY_LDFLAGS} Threads::Threads m)
 
 # ---- the loaders (host/native.c, src/loads.c) ---------------------------------
@@ -1118,7 +1250,7 @@ if(PORT_MOVABLE)
     target_compile_options(host PRIVATE "SHELL:-include ${GEN}/arena_syms.h" "SHELL:-include ${GEN}/n64_syms.h")
     target_compile_options(recomp PRIVATE "SHELL:-include ${GEN}/arena_syms.h")
     message(STATUS "movable memory")
-else()
+elseif(NOT PORT_PLAIN)
     # every game variable where the N64 has it?
     add_custom_command(TARGET blastcorps POST_BUILD
         COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py check $<TARGET_FILE:blastcorps>)

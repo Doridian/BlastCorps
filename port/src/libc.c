@@ -8,14 +8,14 @@
  *
  * The 64-bit build has sprintf and the copies in port/host/libc64.c
  * instead: port-ilp32 can't take a va_start, and the host's memmove wants
- * a size_t.
+ * a size_t (so do the movable and plain builds).
  */
 #include <stdarg.h>
 #include "common.h"
 #include "port.h"
 
 typedef unsigned int port_size_t;
-#if !defined(PORT_64BIT) && !defined(PORT_MOVABLE)
+#if !defined(PORT_64BIT) && !defined(PORT_MOVABLE) && !defined(PORT_PLAIN)
 extern int vsprintf(char *, const char *, va_list);
 extern void *memmove(void *, const void *, port_size_t);
 extern void *memset(void *, int, port_size_t);
