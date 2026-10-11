@@ -7,7 +7,7 @@
  * table, loaded by func_80272C5C (hd_code 2E490.c) and drawn by
  * func_80272ED8 as texture rectangles or quads, a drop shadow in one
  * colour first.  The game's C tells the host where it loaded each one
- * (port_icon_texture, a call only: game memory is as it was), and the
+ * (host_icon_texture, a call only: game memory is as it was), and the
  * renderer (gfx.c) asks here about every draw from a texture: a picture
  * listed below isn't drawn, and once its last row is, the model it shows
  * is, in the rectangle the picture covered, from a display list this file
@@ -580,10 +580,10 @@ static uint32_t texel_sum(GfxAddr addr, uint32_t len) {
     return h;
 }
 
-void port_icon_texture(unsigned int n64, int tex, int row, int rows, int flags) {
+void host_icon_texture(const void *at, int tex, int row, int rows, int flags) {
     if (!micons_on)
         return;
-    GfxAddr addr = gfx_of_n64(n64);
+    GfxAddr addr = (GfxAddr)port_hptr(at);
     if (tex < 0) {
         npic = 0;
         micons_serial++;

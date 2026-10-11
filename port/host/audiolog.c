@@ -20,7 +20,8 @@
 #define MAX_RANGES 256
 
 typedef struct {
-    uint32_t addr, len;
+    const uint8_t *p;           /* the host's */
+    uint32_t len;
     uint8_t *shadow;
 } Range;
 
@@ -41,6 +42,9 @@ static void wbytes(const void *p, uint32_t n) {
         fwrite(zero, 1, 4 - (n & 3), out);
 }
 
+/* an address as the log has it: the N64's */
+static uint32_t log_addr(const void *p) { return port_n64(p); }
+
 static void finish(void) {
     if (out != NULL) {
         w32(ALOG_END);
@@ -53,55 +57,56 @@ int host_alog_started(void) {
     return started;
 }
 
-/* add [addr, addr+len) (merged with nothing: the caller gives disjoint ones) */
-void host_alog_track(uint32_t addr, uint32_t len) {
+/* add [p, p+len) (merged with nothing: the caller gives disjoint ones) */
+void host_alog_track(const void *p, uint32_t len) {
     if (nranges == MAX_RANGES)
         host_fatal("audiolog: too many ranges");
-    ranges[nranges].addr = addr;
+    ranges[nranges].p = port_hptr(p);
     ranges[nranges].len = len;
     ranges[nranges].shadow = NULL;
     nranges++;
 }
 
-/* take [addr, addr+len) out of the tracked ranges, splitting one */
-void host_alog_untrack(uint32_t addr, uint32_t len) {
+/* take [p, p+len) out of the tracked ranges, splitting one */
+void host_alog_untrack(const void *p, uint32_t len) {
+    const uint8_t *addr = port_hptr(p), *end = addr + len;
     int i;
     if (len == 0)
         return;
     for (i = 0; i < nranges; i++) {
         Range *r = &ranges[i];
-        uint32_t end = addr + len, rend = r->addr + r->len;
-        if (addr >= rend || end <= r->addr)
+        const uint8_t *rend = r->p + r->len;
+        if (addr >= rend || end <= r->p)
             continue;
-        if (addr <= r->addr && end >= rend) {      /* all of it */
+        if (addr <= r->p && end >= rend) {         /* all of it */
             r->len = 0;
-        } else if (addr <= r->addr) {              /* its start */
-            uint32_t cut = end - r->addr;
+        } else if (addr <= r->p) {                 /* its start */
+            uint32_t cut = (uint32_t)(end - r->p);
             if (r->shadow != NULL)
                 memmove(r->shadow, r->shadow + cut, r->len - cut);
-            r->addr = end;
+            r->p = end;
             r->len -= cut;
         } else if (end >= rend) {                  /* its end */
-            r->len = addr - r->addr;
+            r->len = (uint32_t)(addr - r->p);
         } else {                                   /* its middle */
             Range *n;
             if (nranges == MAX_RANGES)
                 host_fatal("audiolog: too many ranges");
             n = &ranges[nranges++];
             r = &ranges[i];
-            n->addr = end;
-            n->len = rend - end;
+            n->p = end;
+            n->len = (uint32_t)(rend - end);
             n->shadow = NULL;
             if (r->shadow != NULL) {
                 n->shadow = malloc(n->len);
-                memcpy(n->shadow, r->shadow + (end - r->addr), n->len);
+                memcpy(n->shadow, r->shadow + (end - r->p), n->len);
             }
-            r->len = addr - r->addr;
+            r->len = (uint32_t)(addr - r->p);
         }
     }
     if (out != NULL) {
         w32(ALOG_UNTRACK);
-        w32(addr);
+        w32(log_addr(addr));
         w32(len);
     }
 }
@@ -123,12 +128,12 @@ void host_alog_start(void) {
     for (i = 0; i < nranges; i++) {
         Range *r = &ranges[i];
         r->shadow = malloc(r->len);
-        memcpy(r->shadow, port_ptr(r->addr), r->len);
+        memcpy(r->shadow, r->p, r->len);
         w32(ALOG_TRACK);
-        w32(r->addr);
+        w32(log_addr(r->p));
         w32(r->len);
         w32(ALOG_MEM);
-        w32(r->addr);
+        w32(log_addr(r->p));
         w32(r->len);
         wbytes(r->shadow, r->len);
     }
@@ -140,7 +145,7 @@ static void diff(void) {
     int i;
     for (i = 0; i < nranges; i++) {
         Range *r = &ranges[i];
-        const uint8_t *cur = port_ptr(r->addr);
+        const uint8_t *cur = r->p;
         uint32_t o = 0;
         while (o < r->len) {
             uint32_t n = r->len - o < 64 ? r->len - o : 64, s, e;
@@ -169,7 +174,7 @@ static void diff(void) {
                 while (s < e && cur[s] != r->shadow[s])
                     s++;
                 w32(ALOG_MEM);
-                w32(r->addr + rs);
+                w32(log_addr(r->p) + rs);
                 w32(s - rs);
                 wbytes(cur + rs, s - rs);
                 memcpy(r->shadow + rs, cur + rs, s - rs);
@@ -183,7 +188,7 @@ static void snapshot(void) {
     int i;
     for (i = 0; i < nranges; i++)
         if (ranges[i].len != 0)
-            memcpy(ranges[i].shadow, port_ptr(ranges[i].addr), ranges[i].len);
+            memcpy(ranges[i].shadow, ranges[i].p, ranges[i].len);
 }
 
 void host_alog_call(uint32_t fn, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4,
@@ -201,20 +206,21 @@ void host_alog_call(uint32_t fn, uint32_t a0, uint32_t a1, uint32_t a2, uint32_t
     w32(a5);
 }
 
-static void blob(uint32_t tag, uint32_t addr, uint32_t len) {
+static void blob(uint32_t tag, const void *addr, uint32_t len) {
+    const uint8_t *p = port_hptr(addr);
     if (out == NULL)
         return;
     w32(tag);
-    w32(addr);
+    w32(log_addr(p));
     w32(len);
-    wbytes(port_ptr(addr), len);
+    wbytes(p, len);
 }
 
-void host_alog_in(uint32_t addr, uint32_t len) { blob(ALOG_IN, addr, len); }
-void host_alog_out(uint32_t addr, uint32_t len) { blob(ALOG_OUT, addr, len); }
+void host_alog_in(const void *p, uint32_t len) { blob(ALOG_IN, p, len); }
+void host_alog_out(const void *p, uint32_t len) { blob(ALOG_OUT, p, len); }
 
-void host_alog_acmd(uint32_t addr, uint32_t len) {
-    const uint8_t *p = port_ptr(addr);
+void host_alog_acmd(const void *addr, uint32_t len) {
+    const uint8_t *p = port_hptr(addr);
     uint64_t h = 0xcbf29ce484222325ull;
     uint32_t i;
     if (out == NULL)

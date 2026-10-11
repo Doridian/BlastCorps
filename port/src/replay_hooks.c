@@ -56,7 +56,7 @@ void port_replay_save_started(void) {
     OSTimer t;
 
     osCreateMesgQueue(&q, &m, 1);
-    while (!host_replay_save_due(host_blocked_on((uint32_t)(uintptr_t)&D_80219F50))) {
+    while (!host_replay_save_due(host_blocked_on(&D_80219F50))) {
         osSetTimer(&t, OS_USEC_TO_CYCLES(1000), 0, &q, NULL);
         osRecvMesg(&q, NULL, OS_MESG_BLOCK);
     }

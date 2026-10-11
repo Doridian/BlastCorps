@@ -469,7 +469,7 @@ const uint8_t *host_tex_texels(uint32_t id, uint32_t *len) {
     return tex_override[id].texels;
 }
 
-void host_tex_decoded(uint32_t id, uint32_t dst, uint32_t size) {
+void host_tex_decoded(uint32_t id, void *dst, uint32_t size) {
     if (id >= NTEX || !tex_override[id].texels)
         return;
     if (size != tex_override[id].len) {
@@ -478,9 +478,10 @@ void host_tex_decoded(uint32_t id, uint32_t dst, uint32_t size) {
                      tex_override[id].len);
         return;
     }
-    memcpy(port_ptr(dst), tex_override[id].texels, size);
+    uint8_t *d = port_hptr(dst);
+    memcpy(d, tex_override[id].texels, size);
     if (tex_override[id].hires) {
-        uintptr_t a = (uintptr_t)port_ptr(dst);
+        uintptr_t a = (uintptr_t)d;
         unsigned h = hires_hash(a);
         while (hires_at[h].addr && hires_at[h].addr != a)
             h = (h + 1) % NHIRES;
@@ -518,7 +519,7 @@ void host_tex_queued(uint32_t slot, uint32_t id) {
         tex_slot_id[slot] = (uint16_t)(id + 1);
 }
 
-void host_tex_decoded_slot(uint32_t slot, uint32_t dst, uint32_t size) {
+void host_tex_decoded_slot(uint32_t slot, void *dst, uint32_t size) {
     if (slot < 144 && tex_slot_id[slot])
         host_tex_decoded(tex_slot_id[slot] - 1u, dst, size);
 }

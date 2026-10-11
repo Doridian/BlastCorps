@@ -56,7 +56,7 @@ static u32 tex_load_now(u32 id, TextureEntry *e, u8 *dst) {
     tex_dma(&D_80370C58, e, dst);
     osRecvMesg(&D_80315180, NULL, OS_MESG_BLOCK);
     size = func_802A57DC(&D_803C4B58);
-    host_tex_decoded(id, (u32)(uintptr_t)D_803C4B58.dst, size);
+    host_tex_decoded(id, D_803C4B58.dst, size);
     return size;
 }
 

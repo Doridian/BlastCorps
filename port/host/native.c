@@ -59,7 +59,7 @@ static const struct rom_segment *segment_named(const char *name) {
 
 /* the load being converted: [base, base + len) of game memory */
 static uint8_t *base;
-static uint32_t base_addr, len;
+static uint32_t len;
 static const char *load_name;
 static int nwarn;
 
@@ -106,7 +106,7 @@ static void cv(uint32_t off, uint32_t n, unsigned w) {
             be_to_host(p + k, w);
 #endif
 #ifdef PORT_ACCESS_PROFILE
-    port_access_conv(base_addr + off, n, w);
+    port_access_conv(port_n64(base + off), n, w);
 #endif
 }
 
@@ -264,7 +264,7 @@ static void conv_vehicle(void) {
                 continue;
             uint32_t n = base[a], count = a + n + 1 < len ? base[a + n + 1] : 0;
             uint32_t q = a + n + 2;
-            q = ((base_addr + q + 3) & ~3u) - base_addr;       /* aligned in memory */
+            q = (uint32_t)((((uintptr_t)base + q + 3) & ~(uintptr_t)3) - (uintptr_t)base);   /* aligned in memory */
             for (uint32_t k = 0; k < count && q + 8 + 20 * n <= e; k++) {
                 cv(q, 8, 4);
                 cv(q + 8, 20 * n, 2);
@@ -646,14 +646,13 @@ static void conv_bank(void) {
 
 /* ---- entry points ---------------------------------------------------------- */
 
-static void begin(const char *name, uint32_t dst, uint32_t n, uint32_t off) {
-    base = port_ptr(dst);
-    base_addr = dst;
+static void begin(const char *name, void *dst, uint32_t n, uint32_t off) {
+    base = dst;
     len = n;
     load_name = name;
     (void)off;
 #ifdef PORT_ACCESS_PROFILE
-    port_access_origin(dst, n, port_access_asset(name), off);
+    port_access_origin(port_n64(dst), n, port_access_asset(name), off);
 #endif
 }
 
@@ -674,17 +673,19 @@ static void gzip_name(const uint8_t *s, char *out, size_t n) {
     out[k] = 0;
 }
 
-int host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t n) {
+int host_loaded_gzip(const void *src, void *dst, uint32_t n) {
     char name[40];
-    gzip_name(port_ptr(src), name, sizeof name);
+    src = port_hptr(src);
+    dst = port_hptr(dst);
+    gzip_name(src, name, sizeof name);
     if (!name[0])
-        snprintf(name, sizeof name, "gzip@%08X", src);
+        snprintf(name, sizeof name, "gzip@%p", src);
     const struct rom_segment *s = segment_named(name);
     int k = s ? s->klass : ROM_BYTES;
     if (strstr(name, "_dl"))
         k = ROM_DL;
     if (host_verbose > 1)
-        host_log("load: gzip %s (class %d) -> %08X (%X)\n", name, k, dst, n);
+        host_log("load: gzip %s (class %d) -> %p (%X)\n", name, k, dst, n);
     begin(name, dst, n, 0);
     switch (k) {
     case ROM_DL: conv_dl(); break;
@@ -697,12 +698,13 @@ int host_loaded_gzip(uint32_t src, uint32_t dst, uint32_t n) {
     return k;
 }
 
-int host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t n) {
+int host_loaded_lzss(uint32_t rom, void *dst, uint32_t n) {
+    dst = port_hptr(dst);
     const struct rom_segment *s = rom_segment(rom & 0x0FFFFFFFu);
     char name[48];
     snprintf(name, sizeof name, "lzss:%s", s ? s->name : "?");
     if (host_verbose > 1)
-        host_log("load: %s -> %08X (%X)\n", name, dst, n);
+        host_log("load: %s -> %p (%X)\n", name, dst, n);
     begin(name, dst, n, 0);
     int k = s ? s->klass : ROM_BYTES;
     switch (k) {
@@ -717,7 +719,7 @@ int host_loaded_lzss(uint32_t rom, uint32_t dst, uint32_t n) {
     return k;
 }
 
-void host_loaded_dma(uint32_t dst, uint32_t rom, uint32_t n) {
+void host_loaded_dma(void *dst, uint32_t rom, uint32_t n) {
     const struct rom_segment *s = rom_segment(rom);
     char name[48];
     snprintf(name, sizeof name, "rom:%s", s ? s->name : "?");
@@ -750,8 +752,8 @@ void host_loaded_dma(uint32_t dst, uint32_t rom, uint32_t n) {
 /* n bytes of game memory between host order and the N64's, by a layout
    that repeats (src/loads.c: the C's texels that its declarations type as
    u16 or Vtx, to_bytes; and bytes it reads as u16s) */
-void host_layout_to_be(uint32_t addr, uint32_t n, const char *layout, int to_bytes) {
-    begin("(the C's data)", addr, n, 0);
+void host_layout_to_be(void *p, uint32_t n, const char *layout, int to_bytes) {
+    begin("(the C's data)", port_hptr(p), n, 0);
     uint32_t size = 0;
     for (const char *p = layout; *p; p++)
         size += *p == 'h' ? 2 : *p == 'w' ? 4 : *p == 'd' ? 8 : 1;
@@ -759,15 +761,15 @@ void host_layout_to_be(uint32_t addr, uint32_t n, const char *layout, int to_byt
         rec(o, layout);
 #ifdef PORT_ACCESS_PROFILE
     if (to_bytes)
-        port_access_conv(addr, n, 1);   /* bytes now */
+        port_access_conv(port_n64(base), n, 1);   /* bytes now */
 #endif
 }
 
 /* the same for count records stride bytes apart (to host order: tagged at
    their widths) */
-void host_layout_to_be_n(uint32_t addr, uint32_t stride, uint32_t count, uint32_t n, const char *layout) {
+void host_layout_to_be_n(void *p, uint32_t stride, uint32_t count, uint32_t n, const char *layout) {
     for (uint32_t i = 0; i < count; i++)
-        host_layout_to_be(addr + i * stride, n, layout, 0);
+        host_layout_to_be((uint8_t *)p + i * stride, n, layout, 0);
 }
 
 /* ---- the save ---------------------------------------------------------------- */

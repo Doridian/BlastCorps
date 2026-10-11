@@ -69,10 +69,10 @@ float port_camera_pitch(int what, float h, float dy);
    input is the original's (port/host/video.c) */
 int port_intro_skip(void);
 /* an icon's picture (2E490.c, func_80272C5C) is texture tex of the texture
-   table, row `row` of `rows`, loaded at addr, with the icon's flags; tex -1:
+   table, row `row` of `rows`, loaded at p, with the icon's flags; tex -1:
    the icons are all gone (func_80272C50).  The renderer may draw the model
    the picture shows in its place (port/host/micons.c) */
-void port_icon_texture(unsigned int addr, int tex, int row, int rows, int flags);
+void host_icon_texture(const void *p, int tex, int row, int rows, int flags);
 /* The level pool's display lists (port/src/pool.c): the pool's top
    (D_80358070) moved to `end`, past display-list commands from it, which
    are 8 bytes on the N64 and sizeof(Gfx) here; the N64's own position

@@ -27,8 +27,10 @@ extern u8 D_80000300[];
 
 /* ---- messages ------------------------------------------------------------ */
 
-#define KEY_NOT_EMPTY(mq) ((u32)(mq))
-#define KEY_NOT_FULL(mq) ((u32)(mq) + 1)
+/* a thread waits on a queue's address (not empty) or the byte after it
+   (not full); the keys are only compared */
+#define KEY_NOT_EMPTY(mq) ((const void *)(mq))
+#define KEY_NOT_FULL(mq) ((const void *)((const u8 *)(mq) + 1))
 
 void osCreateMesgQueue(OSMesgQueue *mq, OSMesg *msg, s32 count) {
     mq->mtqueue = NULL;
@@ -82,7 +84,7 @@ static struct { OSMesgQueue *mq; OSMesg msg; } events[OS_NUM_EVENTS];
 
 void osSetEventMesg(OSEvent e, OSMesgQueue *mq, OSMesg msg) {
     if (host_verbose)
-        host_log("osSetEventMesg(%u, %08X, %X)\n", (unsigned)e, (unsigned)mq, (unsigned)msg);
+        host_log("osSetEventMesg(%u, %08X, %X)\n", (unsigned)e, (unsigned)(uintptr_t)mq, (unsigned)(uintptr_t)msg);
     if (e < OS_NUM_EVENTS) {
         events[e].mq = mq;
         events[e].msg = msg;
@@ -97,6 +99,9 @@ void port_irq_event(int e) {
 
 /* ---- threads ----------------------------------------------------------------- */
 
+/* the host knows a thread by its OSThread's address (port.h) */
+#define THREAD_KEY(t) ((uintptr_t)(t))
+
 void osCreateThread(OSThread *t, OSId id, void (*entry)(void *), void *arg, void *sp, OSPri pri) {
     t->next = NULL;
     t->priority = pri;
@@ -106,37 +111,40 @@ void osCreateThread(OSThread *t, OSId id, void (*entry)(void *), void *arg, void
     t->flags = 0;
     t->id = id;
     t->fp = 0;
-    host_thread_create((u32)t, entry, arg, (u32)sp, pri);
+    host_thread_create(THREAD_KEY(t), entry, arg, pri);
+#ifdef PORT_ENGINE_CHECK
+    host_thread_n64_sp(THREAD_KEY(t), (u32)(uintptr_t)sp);
+#endif
 }
 
 void osStartThread(OSThread *t) {
     t->state = OS_STATE_RUNNABLE;
-    host_thread_start((u32)t);
+    host_thread_start(THREAD_KEY(t));
 }
 
 void osStopThread(OSThread *t) {
     if (t != NULL)
         t->state = OS_STATE_STOPPED;
-    host_thread_stop((u32)t);
+    host_thread_stop(THREAD_KEY(t));
 }
 
 void osDestroyThread(OSThread *t) {
-    host_thread_destroy((u32)t);
+    host_thread_destroy(THREAD_KEY(t));
 }
 
 void osSetThreadPri(OSThread *t, OSPri pri) {
     if (t != NULL)
         t->priority = pri;
-    host_thread_set_pri((u32)t, pri);
+    host_thread_set_pri(THREAD_KEY(t), pri);
 }
 
 OSPri osGetThreadPri(OSThread *t) {
-    return host_thread_get_pri((u32)t);
+    return host_thread_get_pri(THREAD_KEY(t));
 }
 
 OSId osGetThreadId(OSThread *t) {
     if (t == NULL)
-        t = (OSThread *)host_thread_current();
+        t = host_thread_current();
     return t != NULL ? t->id : 0;
 }
 
@@ -349,7 +357,7 @@ s32 osPiStartDma(OSIoMesg *mb, s32 pri, s32 dir, u32 devAddr, void *vAddr, u32 n
     mb->devAddr = devAddr;
     mb->size = nbytes;
     if (dir == OS_READ)
-        host_rom_read((u32)vAddr, devAddr, nbytes);
+        host_rom_read(vAddr, devAddr, nbytes);
     else
         host_log("PI write to %08X ignored\n", (unsigned)devAddr);
     pi_complete(mq, (OSMesg)mb, nbytes);
@@ -358,7 +366,7 @@ s32 osPiStartDma(OSIoMesg *mb, s32 pri, s32 dir, u32 devAddr, void *vAddr, u32 n
 
 s32 osPiRawStartDma(s32 dir, u32 devAddr, void *dramAddr, u32 size) {
     if (dir == OS_READ)
-        host_rom_read((u32)dramAddr, devAddr, size);
+        host_rom_read(dramAddr, devAddr, size);
     return 0;
 }
 
@@ -459,18 +467,18 @@ s32 osContSetCh(u8 ch) {
 s32 osEepromProbe(OSMesgQueue *mq) { return EEPROM_TYPE_4K; }
 
 s32 osEepromRead(OSMesgQueue *mq, u8 addr, u8 *buf) {
-    host_eeprom_read(addr, (u32)buf);
+    host_eeprom_read(addr, buf);
     return 0;
 }
 
 s32 osEepromWrite(OSMesgQueue *mq, u8 addr, u8 *buf) {
-    host_eeprom_write(addr, (u32)buf);
+    host_eeprom_write(addr, buf);
     return 0;
 }
 
 s32 osEepromLongRead(OSMesgQueue *mq, u8 addr, u8 *buf, int n) {
     for (; n > 0; n -= 8, addr++, buf += 8)
-        host_eeprom_read(addr, (u32)buf);
+        host_eeprom_read(addr, buf);
     return 0;
 }
 
@@ -479,7 +487,7 @@ s32 osEepromLongRead(OSMesgQueue *mq, u8 addr, u8 *buf, int n) {
 s32 osEepromLongWrite(OSMesgQueue *mq, u8 addr, u8 *buf, int n) {
     static Delay d;
     for (; n > 0; n -= 8, addr++, buf += 8) {
-        host_eeprom_write(addr, (u32)buf);
+        host_eeprom_write(addr, buf);
         if (host_load_waits())
             delay(&d, OS_USEC_TO_CYCLES(12000));
     }
@@ -526,7 +534,7 @@ void osViSetEvent(OSMesgQueue *mq, OSMesg msg, u32 retraceCount) {
     vi_count = 0;
     vi_sent = 0;                /* the new client counts from here */
     if (host_verbose)
-        host_log("osViSetEvent(%08X, %X, %u)\n", (unsigned)mq, (unsigned)msg, (unsigned)retraceCount);
+        host_log("osViSetEvent(%08X, %X, %u)\n", (unsigned)(uintptr_t)mq, (unsigned)(uintptr_t)msg, (unsigned)retraceCount);
 }
 
 void osViSwapBuffer(void *fb) { vi_next_fb = fb; }

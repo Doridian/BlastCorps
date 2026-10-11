@@ -244,7 +244,7 @@ void func_802A57AC(void) {
     {
         u32 size = func_802A57DC(q);
 
-        host_tex_decoded_slot(q - D_803C4250, (u32)(uintptr_t)q->dst, size);
+        host_tex_decoded_slot(q - D_803C4250, q->dst, size);
     }
     D_803C4B54 = q + 1;
 }
