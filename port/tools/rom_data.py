@@ -19,7 +19,9 @@ native-endian ones with each datum in host order; what port-arena moved
 (the C's string literals and statics, LP64's outgrown variables) is the
 source somewhere else.  This writes OUT.c: a list of operations that makes
 the image from the source, each a copy of a range of it (as it is, or with
-every 2-, 4- or 8-byte unit reversed: host order) or a few literal bytes
+every 2-, 4- or 8-byte unit reversed: host order; or a display list's
+4-byte words, each reversed, as the halves of 8-byte ones: the wide Gfx of
+PORT_WIDE_GFX's static lists) or a few literal bytes
 (what isn't the ROM's: the port's own data, addresses that aren't the
 N64's, the game's data that the port changed), plus the image's hash.
 port/host/romdata.c does the same at startup from the user's ROM.
@@ -42,8 +44,16 @@ from assetlib import codemask  # noqa: E402
 INIT, HD_CODE, HD_FRONT_END = 0x21ED00, 0x2447C0, 0x1E7000
 RDRAM = 0x400000
 UNITS = (1, 2, 4, 8)            # the transforms: a unit of this many bytes reversed
+# and the display lists' words widened (PORT_WIDE_GFX): each 4-byte unit of
+# the source reversed, in one half of an 8-byte unit, the other half zero:
+# the high half (GFX_HI: a 64-bit scalar's words high first, the native-
+# endian builds' convention) or the low one (GFX_LO: one in host order)
+GFX_HI, GFX_LO = "gfx_hi", "gfx_lo"
+TRANSFORMS = UNITS + (GFX_HI, GFX_LO)
 MIN_FOUND = 8                   # a copy from elsewhere than its own address: at least this long
-LITERAL = 4                     # op kinds: 0-3 a copy with UNITS[k], 4 literal bytes
+LITERAL = 4                     # op kinds: 0-3 a copy with UNITS[k], 4 literal bytes, 5-6 GFX_HI, GFX_LO
+KIND = {1: 0, 2: 1, 4: 2, 8: 3, GFX_HI: 5, GFX_LO: 6}
+TRANSFORM = {k: w for w, k in KIND.items()}
 
 
 def rom_ranges(map_path, version_tag):
@@ -98,24 +108,51 @@ def source(rom, ranges, version):
 
 
 def src_index(x, w):
-    """the source byte a copy with unit w puts at x (relative): x's unit reversed"""
+    """the source byte a copy with transform w puts at x (relative): x's
+    unit reversed; None where a widened word's other half is zero"""
+    if w in (GFX_HI, GFX_LO):
+        j = (x & 7) - (4 if w == GFX_HI else 0)
+        if j < 0 or j > 3:
+            return None
+        return ((x >> 3) << 2) + 3 - j
     return (x & ~(w - 1)) + (w - 1 - (x & (w - 1)))
+
+
+def widened(r, w):
+    """the source as the transform w would put all of it: twice as long"""
+    b = bytearray(2 * len(r))
+    lo = 4 if w == GFX_HI else 0
+    for k in range(4):
+        b[lo + k::8] = r[3 - k::4]
+    return bytes(b)
 
 
 class Differ:
     def __init__(self, img, r, cover):
         self.img, self.r = img, r
         self.cover = cover
-        # the source with every w-unit reversed, for the searches
+        # the source with every w-unit reversed, for the searches (the
+        # widened ones twice as long, their positions twice the source's)
         self.t = {}
-        for w in UNITS:
+        for w in TRANSFORMS:
             if w == 1:
                 self.t[w] = r
+                continue
+            if w in (GFX_HI, GFX_LO):
+                self.t[w] = widened(r, w)
                 continue
             b = bytearray(r)
             for k in range(w):
                 b[k::w] = r[w - 1 - k::w]
             self.t[w] = bytes(b)
+
+    def byte(self, x, w, d):
+        """what a copy (w, d) puts at x, or None if it can't"""
+        s = src_index(x, w)
+        if s is None:
+            return 0
+        s += d
+        return self.r[s] if 0 <= s < RDRAM else None
 
     def run(self, p, w, d, limit):
         """how many bytes from p a copy (w, source p+d) gets right"""
@@ -129,8 +166,7 @@ class Differ:
             return n
         while p + n < limit:
             x = p + n
-            s = src_index(x, w) + d
-            if s < 0 or s >= RDRAM or img[x] != r[s]:
+            if img[x] != self.byte(x, w, d):
                 break
             n += 1
         return n
@@ -153,9 +189,12 @@ class Differ:
         # whose unit phase matches the destination's)
         found = {}
         if want:
-            for w in UNITS:
+            for w in TRANSFORMS:
                 t = self.t[w]
+                wide = w in (GFX_HI, GFX_LO)
                 for a, e in self.cover:
+                    if wide:
+                        a, e = 2 * a, 2 * e
                     for k in range(a, e - MIN_FOUND + 1):
                         g = t[k:k + MIN_FOUND]
                         if g in want:
@@ -167,6 +206,11 @@ class Differ:
             g = img[p:p + MIN_FOUND]
             out = []
             for w, k in found.get(g, ()):
+                if w in (GFX_HI, GFX_LO):
+                    if (k - p) % 8:
+                        continue    # (whole commands: the phase in one is the destination's)
+                    out.append((w, (k - p) // 2))
+                    continue
                 if (k - p) % w:
                     continue        # (the unit's phase must be the destination's)
                 out.append((w, k - p))
@@ -182,6 +226,7 @@ class Differ:
         p = 0
         cur = None                  # (w, d) of the copy being extended
         cur_at = 0
+        last_d = 0                  # the last copy from elsewhere's distance
 
         def flush_lit():
             nonlocal lit, lit_at
@@ -193,14 +238,13 @@ class Differ:
         def end_copy(at):
             nonlocal cur
             if cur is not None and at > cur_at:
-                out.append((UNITS.index(cur[0]), cur_at, at - cur_at, cur[1], None))
+                out.append((KIND[cur[0]], cur_at, at - cur_at, cur[1], None))
             cur = None
 
         while p < n:
             if cur is not None:
                 w, d = cur
-                s = src_index(p, w) + d
-                if 0 <= s < RDRAM and img[p] == self.r[s]:
+                if img[p] == self.byte(p, w, d):
                     p += 1
                     continue
                 end_copy(p)
@@ -219,6 +263,13 @@ class Differ:
                 ln = self.run(p, c[0], c[1], limit)
                 if ln >= MIN_FOUND and ln > blen:
                     best, blen = c, ln
+            # the last copy's distance again, in any unit: the records that
+            # moved whole, field by field (the Vtx after a widened list)
+            if last_d:
+                for w in UNITS:
+                    ln = self.run(p, w, last_d, limit)
+                    if ln >= 4 and ln > blen:
+                        best, blen = (w, last_d), ln
             # a copy costs about four bytes of operation: shorter than that
             # (and not its own address), literal
             if best is None or (blen < 3 and best[1] != 0) or blen == 0:
@@ -229,6 +280,8 @@ class Differ:
                 continue
             flush_lit()
             cur, cur_at = best, p
+            if best[1] != 0:
+                last_d = best[1]
             p += 1
         end_copy(p)
         flush_lit()
@@ -239,7 +292,8 @@ class Differ:
 #
 # A byte stream of operations, each
 #   header byte: bits 0-2 the kind (0-3 a copy with unit 1, 2, 4, 8; 4
-#                literal bytes), bit 3 "the source is elsewhere" (a signed
+#                literal bytes; 5, 6 a copy of words widened, GFX_HI,
+#                GFX_LO), bit 3 "the source is elsewhere" (a signed
 #                distance follows, else the copy is from its own address)
 #   varint: the distance from the end of the previous operation
 #   varint: the length
@@ -306,9 +360,10 @@ def decode(stream, r, size):
             img[dst:dst + ln] = stream[k:k + ln]
             k += ln
         else:
-            w = UNITS[kind]
+            w = TRANSFORM[kind]
             for x in range(dst, dst + ln):
-                img[x] = r[src_index(x, w) + d]
+                s = src_index(x, w)
+                img[x] = 0 if s is None else r[s + d]
         end = dst + ln
     return bytes(img)
 

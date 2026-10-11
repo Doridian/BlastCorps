@@ -413,7 +413,24 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size) {
             if ((int64_t)dst + d < 0 || (int64_t)dst + d + len > RDRAM)
                 host_fatal("the ROM's data operations go outside the modules");
             memcpy(arena + dst, src + dst + d, len);
-        } else {
+        } else if ((h & 7) == 5 || (h & 7) == 6) {
+            /* a display list's words widened (PORT_WIDE_GFX): each 4-byte
+               unit of the source reversed, in the high (5: a 64-bit
+               scalar's words high first) or the low half (6) of an 8-byte
+               unit, the other half zero */
+            uint32_t lo = (h & 7) == 5 ? 4 : 0;
+            for (uint32_t x = dst; x < dst + len; x++) {
+                uint32_t j = (x & 7) - lo;
+                if (j > 3) {
+                    arena[x] = 0;
+                    continue;
+                }
+                int64_t s = (int64_t)(((x >> 3) << 2) + 3 - j) + d;
+                if (s < 0 || s >= RDRAM)
+                    host_fatal("the ROM's data operations go outside the modules");
+                arena[x] = src[s];
+            }
+        } else if ((h & 7) < 4) {
             uint32_t w = 1u << (h & 7);
             for (uint32_t x = dst; x < dst + len; x++) {
                 int64_t s = (int64_t)((x & ~(w - 1)) + (w - 1 - (x & (w - 1)))) + d;
@@ -421,6 +438,8 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size) {
                     host_fatal("the ROM's data operations go outside the modules");
                 arena[x] = src[s];
             }
+        } else {
+            host_fatal("the ROM's data operations have an unknown kind %u", h & 7);
         }
         end = dst + len;
     }
