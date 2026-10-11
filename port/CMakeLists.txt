@@ -28,6 +28,16 @@ string(REPLACE "." "_" PORT_VERSION_DEFINE ${PORT_VERSION_DEFINE})
 # link, no arena; a pointer is a host pointer and a variable is wherever
 # the linker puts it.  For now beside the variants below, which it refuses.
 option(PORT_PLAIN "the plain build: ordinary C, no plugin, no fixed addresses" OFF)
+# the plain build's sanitizers, for clang and gcc: -DPORT_SANITIZE=address,undefined
+# (its -fsanitize list; every report stops the program, as the gate wants:
+# -DPORT_SANITIZE_RECOVER=ON for the reports to go on)
+# what a local nothing set holds (the game's C reads some: 1h's maybe-uninitialized):
+# zero, as the build has always had it, or pattern, to find what reads one (a run
+# whose hashes move with the pattern read an uninitialized local)
+set(PORT_AUTO_INIT zero CACHE STRING "-ftrivial-auto-var-init= of the N64 side: zero or pattern")
+set_property(CACHE PORT_AUTO_INIT PROPERTY STRINGS zero pattern)
+set(PORT_SANITIZE "" CACHE STRING "the plain build's -fsanitize= list, for the game and the host")
+option(PORT_SANITIZE_RECOVER "a sanitizer's report doesn't stop the program" OFF)
 option(PORT_64BIT "a 64-bit program (the game's C through port-ilp32)" OFF)
 option(PORT_ILP32_CHECK "64-bit: check every pointer the game's C stores fits in 32 bits" OFF)
 # diagnostics (docs/PORT.md, "Comparing builds"): a call trace of the
@@ -74,6 +84,16 @@ if(PORT_PLAIN)
     if(EMSCRIPTEN)
         message(FATAL_ERROR "PORT_PLAIN isn't for WebAssembly yet")
     endif()
+elseif(PORT_SANITIZE)
+    message(FATAL_ERROR "PORT_SANITIZE is the plain build's (-DPORT_PLAIN=ON)")
+endif()
+set(PORT_SAN_FLAGS)
+if(PORT_SANITIZE)
+    set(PORT_SAN_FLAGS -fsanitize=${PORT_SANITIZE} -fno-omit-frame-pointer)
+    if(NOT PORT_SANITIZE_RECOVER)
+        list(APPEND PORT_SAN_FLAGS -fno-sanitize-recover=all)
+    endif()
+    message(STATUS "sanitizers: ${PORT_SANITIZE}")
 endif()
 # WebAssembly (emcmake cmake ...; docs/PORT.md, "WebAssembly"): the 32-bit
 # native-endian movable build for wasm32, the host side through emcc and
@@ -144,10 +164,10 @@ elseif(PORT_ROM_DATA)
     message(FATAL_ERROR "PORT_ROM_DATA is the movable build's (-DPORT_MOVABLE=ON)")
 endif()
 
-if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+if(NOT PORT_PLAIN AND NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "the port needs clang (BEPass is an LLVM plugin): -DCMAKE_C_COMPILER=clang")
 endif()
-if(CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
+if(NOT PORT_PLAIN AND CMAKE_C_COMPILER_ID STREQUAL "AppleClang")
     # (Apple's clang loads no pass plugins and ships no LLVM headers)
     message(FATAL_ERROR "the port needs LLVM's own clang, not Apple's: "
         "-DCMAKE_C_COMPILER=$(brew --prefix llvm)/bin/clang (docs/PORT.md, \"macOS\")")
@@ -316,10 +336,16 @@ else()
 endif()
 endif()
 
+# the compiler's own headers (stddef.h, stdarg.h: the game's C includes no
+# libc's), clang's resource dir or gcc's include dir
 if(EMSCRIPTEN)
     execute_process(COMMAND ${PORT_N64_CC} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-else()
+    set(N64_CC_INCLUDE ${CLANG_RESOURCE_DIR}/include)
+elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
     execute_process(COMMAND ${CMAKE_C_COMPILER} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(N64_CC_INCLUDE ${CLANG_RESOURCE_DIR}/include)
+else()
+    execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=include OUTPUT_VARIABLE N64_CC_INCLUDE OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 # the N64 side's layout: i386 with 8-byte aligned doubles and long longs,
 # as MIPS o32 has them
@@ -392,6 +418,14 @@ if(PORT_PLAIN)
     # an ordinary program, position-independent
     set(HOST_ARCH -fPIE)
     list(APPEND M32 -fPIE)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86|i.86|AMD64)")
+        # i386 (CMAKE_C_FLAGS=-m32): the float arithmetic in SSE, as the
+        # N64's and every other host's is (x87 would round differently),
+        # and doubles and long longs 8-aligned, as MIPS o32 has them
+        # (the structures' sizes the game's C checks)
+        list(APPEND M32 -msse2 -mfpmath=sse -malign-double)
+        list(APPEND HOST_ARCH -msse2 -mfpmath=sse -malign-double)
+    endif()
     message(STATUS "the plain build (${CMAKE_SIZEOF_VOID_P}-byte pointers)")
 elseif(PORT_LP64)
     set(HOST_ARCH -fPIE)
@@ -516,7 +550,11 @@ if(PORT_NATIVE_ENDIAN OR PORT_PLAIN)
     # raises their alignment, which would move them off their N64 addresses
     # (the plain build keeps the same code: the vectorizer's is the same
     # arithmetic, but there is no reason to differ from the variants yet)
-    list(APPEND M32 -fno-vectorize -fno-slp-vectorize)
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        list(APPEND M32 -fno-vectorize -fno-slp-vectorize)
+    else()
+        list(APPEND M32 -fno-tree-vectorize)
+    endif()
 endif()
 if(PORT_PLAIN)
     list(APPEND N64_DEFINES PORT_PLAIN)
@@ -531,8 +569,8 @@ endif()
 # declaration and a non-void function that doesn't return are errors (two
 # declarations that disagree are anyway).
 set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrapv -fno-delete-null-pointer-checks
-    -ftrivial-auto-var-init=zero -ffp-contract=off -fno-common -fno-builtin
-    -nostdinc -isystem ${CLANG_RESOURCE_DIR}/include
+    -ftrivial-auto-var-init=${PORT_AUTO_INIT} -ffp-contract=off -fno-common -fno-builtin
+    -nostdinc -isystem ${N64_CC_INCLUDE}
     -include ${CMAKE_CURRENT_SOURCE_DIR}/include/port_game.h
     -Wall -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-function
     -Wno-unused-label -Wno-unused-value -Wno-missing-braces -Wno-pointer-sign
@@ -550,6 +588,28 @@ set(N64_FLAGS ${M32} -std=gnu89 -O2 -g -fsigned-char -fno-strict-aliasing -fwrap
     -Wno-implicit-const-int-float-conversion -Wno-pointer-bool-conversion
     -Wno-string-plus-int -Wno-null-pointer-arithmetic -Wno-gnu-folding-constant
     -Wno-macro-redefined -Wno-ignored-pragma-intrinsic)   # (IDO's sqrtf, not one on AArch64)
+if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+    # gcc (the plain build only): the options of the list that are clang's
+    # are taken out (it rejects the -Werror ones it doesn't know, and says
+    # so of any -Wno- one beside a diagnostic), gcc's own put in
+    set(N64_CLANG_ONLY -Werror=deprecated-non-prototype -Wno-incompatible-library-redeclaration
+        -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast
+        -Wno-tautological-constant-out-of-range-compare -Wno-constant-conversion -Wno-self-assign
+        -Wno-parentheses-equality -Wno-main-return-type -Wno-builtin-requires-header
+        -Wno-incompatible-function-pointer-types -Wno-implicit-const-int-float-conversion
+        -Wno-pointer-bool-conversion -Wno-string-plus-int -Wno-null-pointer-arithmetic
+        -Wno-gnu-folding-constant -Wno-macro-redefined -Wno-ignored-pragma-intrinsic
+        -Wno-sometimes-uninitialized -Wno-error=return-mismatch -Werror=return-mismatch)
+    list(REMOVE_ITEM N64_FLAGS ${N64_CLANG_ONLY})
+    # (-ffreestanding: gcc's stdint.h is its own then, not libc's, which
+    # -nostdinc keeps out)
+    list(APPEND N64_FLAGS -ffreestanding
+        -Wno-builtin-declaration-mismatch -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast
+        -Wno-misleading-indentation -Wno-maybe-uninitialized
+        -Wno-stringop-overflow -Wno-address -Wno-format -Wno-overflow -Wno-restrict
+        -Wno-unterminated-string-initialization)
+endif()
+list(APPEND N64_FLAGS ${PORT_SAN_FLAGS})
 if(BEPASS)
     list(APPEND N64_FLAGS -fpass-plugin=${BEPASS})
 endif()
@@ -564,8 +624,10 @@ if(PORT_LP64 OR PORT_PLAIN)
     # this order because CMake keeps only the first of two equal options.)
     list(REMOVE_ITEM N64_FLAGS -Wno-error=incompatible-pointer-types -Wno-incompatible-pointer-types
         -Wno-error=int-conversion -Wno-int-conversion -Wno-incompatible-function-pointer-types)
-    list(APPEND N64_FLAGS -Werror=int-conversion -Werror=incompatible-pointer-types
-        -Werror=incompatible-function-pointer-types)
+    list(APPEND N64_FLAGS -Werror=int-conversion -Werror=incompatible-pointer-types)
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+        list(APPEND N64_FLAGS -Werror=incompatible-function-pointer-types)
+    endif()
 endif()
 if(PORT_MOVABLE)
     list(APPEND N64_FLAGS -emit-llvm)       # bitcode, for the arena link
@@ -786,7 +848,7 @@ if(N64_LAUNCHER)
     set_target_properties(game_data PROPERTIES C_COMPILER_LAUNCHER "${N64_LAUNCHER}")
 endif()
 
-set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall)
+set(HOST_FLAGS ${HOST_ARCH} -O2 -g -ffp-contract=off -fno-strict-aliasing -Wall ${PORT_SAN_FLAGS})
 
 # ---- the translated handwritten engine (host side) ---------------------------
 # (none in the plain build, which needs nothing of tools/recomp's output)
@@ -862,7 +924,11 @@ add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c
 # gives back the ROM's gzip members, and stb_image (host/pack_stb.c)
 set(GZIP124 ${CMAKE_CURRENT_SOURCE_DIR}/third_party/gzip-1.2.4)
 set(GZIP124_C ${GZIP124}/gzip124.c ${GZIP124}/deflate.c ${GZIP124}/trees.c ${GZIP124}/bits.c)
-set_source_files_properties(${GZIP124_C} PROPERTIES COMPILE_OPTIONS "-w;-std=gnu89;-include;${GZIP124}/gzip124_names.h")
+set(GZIP124_STD gnu89)
+if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+    set(GZIP124_STD gnu99)      # (gcc's gnu89 has no for (int i...))
+endif()
+set_source_files_properties(${GZIP124_C} PROPERTIES COMPILE_OPTIONS "-w;-std=${GZIP124_STD};-include;${GZIP124}/gzip124_names.h")
 add_library(host OBJECT ${HOST_C} ${GZIP124_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
 if(PORT_PLAIN)
     # (game memory in host order, pointers the host's: port.h)
@@ -1061,7 +1127,7 @@ target_compile_definitions(fe_c PRIVATE ${N64_DEFINES})
 target_compile_options(fe_c PRIVATE ${N64_FLAGS})
 add_executable(blastcorps ${N64_OBJECTS} $<TARGET_OBJECTS:game_data> $<TARGET_OBJECTS:fe_c> $<TARGET_OBJECTS:host>)
 set_target_properties(blastcorps PROPERTIES LINKER_LANGUAGE C)
-target_link_options(blastcorps PRIVATE -pie)
+target_link_options(blastcorps PRIVATE -pie ${PORT_SAN_FLAGS})
 else()
 if(NOT PORT_MOVABLE)
 add_custom_command(OUTPUT ${GEN}/port_syms.ld
