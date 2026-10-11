@@ -416,8 +416,9 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size) {
         } else if ((h & 7) == 5 || (h & 7) == 6) {
             /* a display list's words widened (the LP64 builds'): each 4-byte
                unit of the source reversed, in the high (5: a 64-bit
-               scalar's words high first) or the low half (6) of an 8-byte
-               unit, the other half zero */
+               scalar's words high first, which no build has now) or the
+               low half (6: a little-endian host's) of an 8-byte unit, the
+               other half zero */
             uint32_t lo = (h & 7) == 5 ? 4 : 0;
             for (uint32_t x = dst; x < dst + len; x++) {
                 uint32_t j = (x & 7) - lo;

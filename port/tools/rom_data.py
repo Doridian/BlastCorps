@@ -46,8 +46,9 @@ RDRAM = 0x400000
 UNITS = (1, 2, 4, 8)            # the transforms: a unit of this many bytes reversed
 # and the display lists' words widened (the LP64 builds'): each 4-byte unit of
 # the source reversed, in one half of an 8-byte unit, the other half zero:
-# the high half (GFX_HI: a 64-bit scalar's words high first, the native-
-# endian builds' convention) or the low one (GFX_LO: one in host order)
+# the high half (GFX_HI: a 64-bit scalar's words high first, as the native-
+# endian builds kept them until they had every scalar in host order) or the
+# low one (GFX_LO: a little-endian host's 64-bit scalar)
 GFX_HI, GFX_LO = "gfx_hi", "gfx_lo"
 TRANSFORMS = UNITS + (GFX_HI, GFX_LO)
 MIN_FOUND = 8                   # a copy from elsewhere than its own address: at least this long

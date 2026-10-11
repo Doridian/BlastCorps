@@ -19,12 +19,9 @@
  * argument area are host memory written by the caller's native call.
  *
  * BEPASS_NATIVE=1 when compiling (the native-endian build, PORT_NATIVE_ENDIAN;
- * docs/PORT.md "Native-endian memory"): memory is in host order, so nothing
- * is swapped but the 64-bit scalars (u64, s64, double), whose two 32-bit
- * halves are exchanged: in memory they are two host-order words, the high
- * one first, as the translated asm's ld/sd/ldc1/sdc1 and every piece of code
- * that reads one half of a u64 as a word (the game mode D_80364A90) have
- * them.  Only their initializers need fixing then (__bepass_fixup_rot64).
+ * docs/PORT.md "Native-endian memory"): memory is in host order, every
+ * scalar the 64-bit ones too, so nothing is swapped and the initializers
+ * need no fixing; the pass keeps only its alignment and its checks there.
  *
  * The pass runs at the start of the pipeline, before anything can combine
  * or reorder accesses; later passes see explicit bswaps and optimise them
@@ -139,7 +136,7 @@ struct AccessHooks {
 struct BEPass : PassInfoMixin<BEPass> {
     static bool isRequired() { return true; }
 
-    /* BEPASS_NATIVE=1: host-order memory, 64-bit scalars as two words */
+    /* BEPASS_NATIVE=1: host-order memory, nothing swapped */
     static bool native;
 
     /* integer type of the same size, or null if nothing to swap */
@@ -152,9 +149,7 @@ struct BEPass : PassInfoMixin<BEPass> {
             it = cast<IntegerType>(t);
         } else if (t->isFloatTy() || t->isDoubleTy() || t->isPointerTy() || t->isHalfTy())
             it = IntegerType::get(c, dl.getTypeSizeInBits(t));
-        /* native: only the 64-bit scalars, not an LP64 build's pointers,
-           whose low word first is what a 32-bit reader of them sees */
-        if (it && native && (it->getBitWidth() != 64 || t->isPointerTy()))
+        if (native)
             return nullptr;
         return it;
     }
@@ -162,11 +157,6 @@ struct BEPass : PassInfoMixin<BEPass> {
     static Value *bswap(IRBuilder<> &b, Value *v) {
         IntegerType *t = cast<IntegerType>(v->getType());
         unsigned bits = t->getBitWidth();
-        if (native) {       /* exchange the words: its own inverse */
-            if (bits != 64)
-                report_fatal_error("BEPass: native mode swaps only 64-bit scalars");
-            return b.CreateIntrinsic(Intrinsic::fshl, {t}, {v, v, b.getInt64(32)});
-        }
         if (bits % 8)
             report_fatal_error("BEPass: swap of a non-byte-sized integer");
         unsigned wide = (bits + 15) / 16 * 16;
@@ -267,11 +257,10 @@ struct BEPass : PassInfoMixin<BEPass> {
     }
 
     /* (offset, size) of each scalar inside an initializer that `mode` wants:
-       0 every multi-byte one (big-endian memory's swaps), 1 the 64-bit ones
-       (native memory's word exchange), 2 all, bytes too (the profiler's
-       map of the C's initialized data) */
+       0 every multi-byte one (big-endian memory's swaps), 2 all, bytes too
+       (the profiler's map of the C's initialized data) */
     static bool wanted(unsigned sz, int mode) {
-        return mode == 2 ? sz >= 1 : mode == 1 ? sz == 8 : sz > 1;
+        return mode == 2 ? sz >= 1 : sz > 1;
     }
 
     static void collect(Constant *k, uint64_t off, const DataLayout &dl,
@@ -307,8 +296,6 @@ struct BEPass : PassInfoMixin<BEPass> {
         }
         if (t->isIntegerTy() || t->isFloatingPointTy() || t->isPointerTy()) {
             unsigned sz = dl.getTypeStoreSize(t);
-            if (mode == 1 && t->isPointerTy())
-                return;         /* an LP64 pointer isn't two words (swapType) */
             if (wanted(sz, mode))
                 out.push_back({off, sz});
             return;
@@ -434,10 +421,8 @@ struct BEPass : PassInfoMixin<BEPass> {
             if (items.empty())
                 continue;
             g->setConstant(false);          /* its multi-byte scalars are read from memory */
-            if (native) {
-                items.clear();
-                collect(g->getInitializer(), 0, dl, items, 1);
-            }
+            if (native)
+                continue;                   /* (in host order already) */
             addRuns(items, g, c, ent, table);
         }
         if (widths && !wtable.empty()) {
@@ -456,7 +441,7 @@ struct BEPass : PassInfoMixin<BEPass> {
         auto *tg = new GlobalVariable(m, at, true, GlobalValue::PrivateLinkage,
                                       ConstantArray::get(at, table), "__bepass_table");
         FunctionType *fixty = FunctionType::get(Type::getVoidTy(c), {ptr, i32}, false);
-        FunctionCallee fix = m.getOrInsertFunction(native ? "__bepass_fixup_rot64" : "__bepass_fixup", fixty);
+        FunctionCallee fix = m.getOrInsertFunction("__bepass_fixup", fixty);
         Function *ctor = Function::Create(FunctionType::get(Type::getVoidTy(c), false),
                                           GlobalValue::InternalLinkage, "__bepass_ctor", &m);
         IRBuilder<> b(BasicBlock::Create(c, "entry", ctor));

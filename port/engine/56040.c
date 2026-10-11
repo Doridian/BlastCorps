@@ -1863,12 +1863,6 @@ typedef struct ObjTris {
 } ObjTris;
 #define OBJTRI(o, i) ((s16 *)((u8 *)(o) + 4 + (o)->nmtx * 4 + (i) * 0x14))
 
-/* a 64-bit plane component into game memory, the high word first */
-static void put_dword(s64 *p, s64 v) {
-    ((u32 *)p)[0] = (u32)((u64)v >> 32);
-    ((u32 *)p)[1] = (u32)v;
-}
-
 /* the triangle's corner i through the matrices at base (func_802AA890,
    / 4) */
 #define PLACE_CORNER(i)                                                                                        \
@@ -1926,10 +1920,10 @@ void func_8029D24C(ObjTris *data, s32 owner, u8 *base) {
         ny = (s64)((u64)(s64)dz2 * (u64)(s64)dx3 - (u64)(s64)dx2 * (u64)(s64)dz3);
         nz = (s64)((u64)(s64)dx2 * (u64)(s64)dy3 - (u64)(s64)dy2 * (u64)(s64)dx3);
         d = (s64)(0 - ((u64)nx * (u64)(s64)x2 + (u64)ny * (u64)(s64)y2 + (u64)nz * (u64)(s64)z2));
-        put_dword(&t->nx, nx);
-        put_dword(&t->ny, ny);
-        put_dword(&t->nz, nz);
-        put_dword(&t->d, d);
+        t->nx = nx;
+        t->ny = ny;
+        t->nz = nz;
+        t->d = d;
         len2 = (f32)nx * (f32)nx + (f32)ny * (f32)ny + (f32)nz * (f32)nz;
         t->nlen2 = len2;
         t->nlen = __builtin_sqrtf(len2);

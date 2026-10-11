@@ -91,8 +91,7 @@ static void be_to_host(uint8_t *p, unsigned w) {
 }
 #endif
 
-/* n bytes at offset off, in units of w bytes (8: two words, the high one
-   first, as every 64-bit scalar is kept), into host order */
+/* n bytes at offset off, in units of w bytes, into host order */
 static void cv(uint32_t off, uint32_t n, unsigned w) {
     if (off > len || n > len - off) {
         warn("conversion past the end (+0x%X, 0x%X bytes)", off, n);
@@ -102,13 +101,12 @@ static void cv(uint32_t off, uint32_t n, unsigned w) {
     }
 #ifdef PORT_NATIVE_ENDIAN
     uint8_t *p = base + off;
-    unsigned u = w > 4 ? 4 : w;
-    if (u > 1)
-        for (uint32_t k = 0; k + u <= n; k += u)
-            be_to_host(p + k, u);
+    if (w > 1)
+        for (uint32_t k = 0; k + w <= n; k += w)
+            be_to_host(p + k, w);
 #endif
 #ifdef PORT_ACCESS_PROFILE
-    port_access_conv(base_addr + off, n, w > 4 ? 4 : w);
+    port_access_conv(base_addr + off, n, w);
 #endif
 }
 
@@ -794,11 +792,11 @@ void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused) {
                     w = pi[i].w;
         } else if (o < 0x1F0) {
             w = 2;
-        } else if (o >= 0x1F8) {
-            w = 4;
+        } else if (o == 0x1F8) {
+            w = 8;
 #ifdef VERSION_EU
-        } else {
-            w = 4;
+        } else if (o == 0x1F0) {
+            w = 8;
 #endif
         }
         if (k + w > n)

@@ -18,8 +18,8 @@
  *     the host's (-port-arena-host names more);
  *   - writes the arena's initial contents (__port_arena_runs), from the
  *     initializers, in the build's byte order: big-endian (what BEPass's
- *     __bepass_fixup did at run time), or native with 64-bit scalars' words
- *     exchanged (-port-arena-native); a pointer to a function or to the
+ *     __bepass_fixup did at run time), or native (-port-arena-native: as
+ *     the compiler has them); a pointer to a function or to the
  *     host's data is left to startup (__port_arena_relocs);
  *     -port-arena-image writes the contents to a file too, and
  *     -port-arena-no-runs leaves them out of the module: PORT_ROM_DATA's
@@ -1109,8 +1109,8 @@ struct Arena : PassInfoMixin<Arena> {
 
     /* the initializers in host order, as the compiler would have emitted
        them; then what BEPass's tables say to swap is swapped (big-endian
-       memory: every scalar the C's initializers had; native: the words of
-       their 64-bit ones). */
+       memory: every scalar the C's initializers had; native memory has no
+       table). */
     void putInt(uint64_t off, uint64_t v, unsigned size) {
         if (off + size > image.size())
             fail("an initializer outside the arena image");
@@ -1132,14 +1132,9 @@ struct Arena : PassInfoMixin<Arena> {
                 continue;           /* the host's */
             for (unsigned n = 0; n < s.count; n++) {
                 uint8_t *p = image.data() + it->second + s.off + (uint64_t)n * s.size;
-                if (Native) {       /* __bepass_fixup_rot64: the two words exchanged */
-                    if (s.size != 8)
-                        fail("a native fixup that isn't 8 bytes");
-                    for (unsigned k = 0; k < 4; k++)
-                        std::swap(p[k], p[4 + k]);
-                } else {
-                    std::reverse(p, p + s.size);
-                }
+                if (Native)
+                    fail("a byte-order fixup in a native-endian build");
+                std::reverse(p, p + s.size);
             }
         }
     }
