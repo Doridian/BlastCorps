@@ -155,7 +155,7 @@ u32 engine_mfc0(unsigned int reg);
 
    The engine's display lists are Gfx arrays, walked a command at a time
    and read and written by their two words (gbi.h's Gwords: 4 bytes each,
-   as wide as a pointer in the LP64 port's wide build), never as bytes or
+   as wide as a pointer: 8 in the LP64 builds), never as bytes or
    doublewords.  An address in a word is DL_ADDR's: the pointer itself (the
    N64's physical address in the engine check build, whose translations
    write that word). */

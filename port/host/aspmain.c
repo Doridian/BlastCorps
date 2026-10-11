@@ -109,7 +109,7 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
 
 /* A command is the N64 side's Acmd (port_layout): two words, 4 bytes each
    in game memory's order, or 8 in the host's where its words are
-   pointer-wide (PORT_WIDE_GFX), as gfx.h's display lists (a 64-bit
+   pointer-wide (the LP64 builds), as gfx.h's display lists (a 64-bit
    scalar's two words, the high one first).  An address in one is a
    segment's plus an offset where it has the segment tag (gfx.h's
    gfx_segmented; libaudio makes none: its one segment, 0, is 0), else the

@@ -59,8 +59,8 @@ N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 MODULES = ("hd_code", "hd_front_end")
 
 REGIONS_H = os.path.join(ROOT, "port", "include", "port_regions.h")
-# a display-list command in the port (CMake: 16 with PORT_WIDE_GFX, else the
-# N64's 8)
+# a display-list command in the port (CMake: 16 in the LP64 builds, else
+# the N64's 8)
 GFX_SIZE = int(os.environ.get("PORT_GFX_SIZE", "8"))
 # names inside a display list the ROM loads into game memory, which the port
 # widens there (port/src/widen.c): name -> (the list's start, commands from

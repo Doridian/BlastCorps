@@ -65,18 +65,10 @@ typedef u32 uintptr_t;
  * as K0_TO_PHYS is (port/include/sdk/PR/R4300.h), but in its engine check
  * build. */
 #if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
-#if defined(PORT_LP64) && !defined(PORT_WIDE_GFX)
-#define STATIC_K0_TO_PHYS(x) ((u32)(void *PTR32)(x))    /* see gbi.h's _GBI_W */
-#else
 #define STATIC_K0_TO_PHYS(x) ((uintptr_t)(x))           /* (as gbi.h's _GBI_W) */
-#endif
 #define K0_TO_PHYS_ADD(x) ((uintptr_t)(const void *)(x))
 #else
-#if defined(TARGET_PC) && defined(PORT_LP64)
-#define STATIC_K0_TO_PHYS(x) ((u32)(void *PTR32)(x) - K0BASE)    /* see gbi.h's _GBI_W */
-#else
 #define STATIC_K0_TO_PHYS(x) ((u32)(x) - K0BASE)
-#endif
 #define K0_TO_PHYS_ADD(x) ((u32)(x) + 0x80000000)
 #endif
 

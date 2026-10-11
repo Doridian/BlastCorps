@@ -20,8 +20,8 @@ native-endian ones with each datum in host order; what port-arena moved
 source somewhere else.  This writes OUT.c: a list of operations that makes
 the image from the source, each a copy of a range of it (as it is, or with
 every 2-, 4- or 8-byte unit reversed: host order; or a display list's
-4-byte words, each reversed, as the halves of 8-byte ones: the wide Gfx of
-PORT_WIDE_GFX's static lists) or a few literal bytes
+4-byte words, each reversed, as the halves of 8-byte ones: the LP64
+builds' wide Gfx in the static lists) or a few literal bytes
 (what isn't the ROM's: the port's own data, addresses that aren't the
 N64's, the game's data that the port changed), plus the image's hash.
 port/host/romdata.c does the same at startup from the user's ROM.
@@ -44,7 +44,7 @@ from assetlib import codemask  # noqa: E402
 INIT, HD_CODE, HD_FRONT_END = 0x21ED00, 0x2447C0, 0x1E7000
 RDRAM = 0x400000
 UNITS = (1, 2, 4, 8)            # the transforms: a unit of this many bytes reversed
-# and the display lists' words widened (PORT_WIDE_GFX): each 4-byte unit of
+# and the display lists' words widened (the LP64 builds'): each 4-byte unit of
 # the source reversed, in one half of an 8-byte unit, the other half zero:
 # the high half (GFX_HI: a 64-bit scalar's words high first, the native-
 # endian builds' convention) or the low one (GFX_LO: one in host order)
