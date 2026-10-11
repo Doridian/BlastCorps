@@ -95,4 +95,20 @@ void *port_pool_n64(void);
    returns end */
 void *port_pool_slots(void *end);
 
+#ifdef PORT_PLAIN
+/* The boot code's words (osTvType...) are libultra's variables in the
+   plain build (src/ultra.c), not a region at 0x80000300: the game reads
+   osTvType as D_80000300 (hd_code 00000.c, 22EE0.c). */
+#define D_80000300 osTvType
+/* the front end's variables, which src/overlay.c puts back whenever the
+   game loads it: tools/gen_fevars.py's tables, a row a variable (n64 its
+   N64 address, 0: none, and n64room what of it is there; snap its copy,
+   NULL for read-only data) */
+typedef struct {
+    unsigned char *at;
+    unsigned int size, n64, n64room;
+    unsigned char *snap;
+} PortFeVar;
+#endif
+
 #endif

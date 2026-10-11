@@ -21,9 +21,17 @@
 
 /* osTvType, osRomBase, osResetType and osMemSize live in the boot code's
    words, as it leaves them: the region D_80000300 (port_regions.h), where
-   the game reads osTvType as D_80000300. */
+   the game reads osTvType as D_80000300.  In the plain build they are
+   variables, and the game's D_80000300 is osTvType (port_game.h). */
+#ifdef PORT_PLAIN
+void *osRomBase;
+s32 osTvType, osResetType, osCicId, osVersion;
+u32 osMemSize;
+s32 osAppNMIBuffer[16];
+#else
 extern u8 D_80000300[];
 #define BOOT_WORD(off) (*(volatile u32 *)(D_80000300 + (off)))
+#endif
 
 /* ---- messages ------------------------------------------------------------ */
 
@@ -308,6 +316,16 @@ u64 port_irq_timers(u64 now) {
 u64 osClockRate = OS_CLOCK_RATE;
 
 void osInitialize(void) {
+#ifdef PORT_PLAIN
+#ifdef VERSION_EU
+    osTvType = OS_TV_PAL;
+#else
+    osTvType = OS_TV_NTSC;
+#endif
+    osRomBase = (void *)(uintptr_t)0xB0000000u;     /* (the cartridge's, as a number: nothing reads through it) */
+    osResetType = 0;                    /* cold */
+    osMemSize = 0x400000;
+#else
 #ifdef VERSION_EU
     BOOT_WORD(0x00) = OS_TV_PAL;        /* osTvType */
 #else
@@ -316,9 +334,17 @@ void osInitialize(void) {
     BOOT_WORD(0x08) = 0xB0000000;       /* osRomBase */
     BOOT_WORD(0x0C) = 0;                /* osResetType: cold */
     BOOT_WORD(0x18) = 0x400000;         /* osMemSize */
+#endif
 }
 
 u32 osGetMemSize(void) { return 0x400000; }
+
+#ifdef PORT_PLAIN
+/* the RCP's registers (PR/rcp.h's IO_READ, IO_WRITE): nothing the port
+   keeps there */
+unsigned int port_io_read(unsigned int addr) { return 0; }
+void port_io_write(unsigned int addr, unsigned int data) { }
+#endif
 
 /* ---- caches, TLB, addresses ------------------------------------------------------ */
 

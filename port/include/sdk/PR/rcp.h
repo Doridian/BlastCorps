@@ -7,9 +7,19 @@
 
 #include <PR/R4300.h>
 
-/* uncached reads and writes of a physical address */
+/* uncached reads and writes of a physical address.  In the port's plain
+   build no number is an address: a register is read and written through
+   port/src/ultra.c (the game only reads the DP's and the SP's for a debug
+   print: zeros, as the other builds' mapped page gives them) */
+#ifdef PORT_PLAIN
+unsigned int port_io_read(unsigned int addr);
+void port_io_write(unsigned int addr, unsigned int data);
+#define IO_READ(addr) port_io_read(addr)
+#define IO_WRITE(addr, data) port_io_write((addr), (u32)(data))
+#else
 #define IO_READ(addr) (*(vu32 *)PHYS_TO_K1(addr))
 #define IO_WRITE(addr, data) (*(vu32 *)PHYS_TO_K1(addr) = (u32)(data))
+#endif
 
 /* the RSP */
 #define SP_BASE_REG 0x04040000
