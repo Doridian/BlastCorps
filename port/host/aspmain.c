@@ -110,7 +110,7 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
 /* A command is the N64 side's Acmd (port_layout): two words, 4 bytes each
    in game memory's order, or 8 in the host's where its words are
    pointer-wide (the LP64 builds), as gfx.h's display lists (a 64-bit
-   scalar's two words, the high one first).  An address in one is a
+   scalar of game memory's, port_g64).  An address in one is a
    segment's plus an offset where it has the segment tag (gfx.h's
    gfx_segmented; libaudio makes none: its one segment, 0, is 0), else the
    pointer, an N64 address until P10 (port_ptr); in the check build's
@@ -122,7 +122,7 @@ static int acmd_wide, acmd_strict;
 static inline uintptr_t acmd_word(const uint8_t *p) {
 #if UINTPTR_MAX > 0xFFFFFFFFu
     if (acmd_wide)
-        return (uintptr_t)gfx_g64(p);           /* (gfx.h: a 64-bit scalar's words) */
+        return (uintptr_t)port_g64(p);          /* (a 64-bit scalar of game memory's) */
 #endif
     return port_g32(p);
 }

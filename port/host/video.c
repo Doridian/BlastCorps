@@ -354,7 +354,7 @@ extern char D_80364A90[], D_802E8BDC[];
    until a retrace has gone by since the last swap showed, so that each
    frame is on screen for two retraces at least. */
 int host_frame_held(void) {
-    uint64_t mode = (uint64_t)port_be32(D_80364A90) << 32 | port_be32(D_80364A90 + 4);
+    uint64_t mode = port_g64(D_80364A90);
     return !(mode & 0xC9FD0FE79BFF80B0ull);
 }
 
@@ -379,7 +379,7 @@ static uint16_t scripted_buttons(int *sy) {
         return 0;
     if (*s == '2' || *s == '3') {
         static int in_level;
-        if (port_be32(D_80364A90) == 0 && port_be32(D_80364A90 + 4) == 4)
+        if (port_g64(D_80364A90) == 4)
             in_level = 1;
         /* PORT_LEVEL=N: level N (D_802E8BDC, docs/blast_corps_levels.txt's
            IDs) instead of the world map's choice, on the map (mode 0x4000)
@@ -387,8 +387,7 @@ static uint16_t scripted_buttons(int *sy) {
            the logos and the attract mode have levels of their own, and
            another one there crashes their set-up (Carrick Point's, 15) */
         const char *lv = getenv("PORT_LEVEL");
-        if (!in_level && lv && port_be32(D_80364A90) == 0 &&
-            (port_be32(D_80364A90 + 4) & 0x4800))
+        if (!in_level && lv && port_g64(D_80364A90) >> 32 == 0 && (port_g64(D_80364A90) & 0x4800))
             port_wg32(D_802E8BDC, (uint32_t)atoi(lv));
         if (in_level) {
             *sy = 80;

@@ -372,7 +372,7 @@ void host_replay_load(const char *path) {
 }
 
 static uint64_t mode_now(void) {
-    return (uint64_t)port_be32(D_80364A90) << 32 | port_be32(D_80364A90 + 4);
+    return port_g64(D_80364A90);
 }
 
 /* the log's retraces for its read k's frame */
@@ -725,8 +725,7 @@ static void force_mode(unsigned k) {
             next_switch = i + 1;
             break;
         }
-    port_wg32(D_80364A98, (uint32_t)(first >> 32));
-    port_wg32(D_80364A98 + 4, (uint32_t)first);
+    port_wg64(D_80364A98, first);
     memset(D_80364AA0, 0, 8);
     memset(D_8036C778, 0, 8);
     D_8036C784[0] = 0;
@@ -741,7 +740,7 @@ static void force_mode(unsigned k) {
    isn't where it would go, it goes there instead, with the state the movie
    had (force_mode). */
 void port_replay_mode_switch(void) {
-    uint64_t want = (uint64_t)port_be32(D_80364A98) << 32 | port_be32(D_80364A98 + 4);
+    uint64_t want = port_g64(D_80364A98);
     /* a level's end: the time in it, as the results screen counts it
        (1D990.c: the level timer since the level's intro, 0x2000, which
        sets D_80364A58, or its 0x800; in tenths), the frames it took, and
@@ -775,8 +774,7 @@ void port_replay_mode_switch(void) {
             return;
         }
     next_switch++;
-    port_wg32(D_80364A98, (uint32_t)(w->mode >> 32));
-    port_wg32(D_80364A98 + 4, (uint32_t)w->mode);
+    port_wg64(D_80364A98, w->mode);
     host_log("(no change at the reads)\n");
 }
 

@@ -615,9 +615,9 @@ void host_controller_poll(void) {
     }
 #endif
     if (pace)
-        fprintf(pace, "%u,%u,%u,%08X%08X,%llu\n", polls, port_be32(SCHED_FRAMECOUNT),
-                port_be32(D_80358064), port_be32(D_80364A90),
-                port_be32(D_80364A90 + 4), (unsigned long long)host_audio_samples());
+        fprintf(pace, "%u,%u,%u,%016llX,%llu\n", polls, port_be32(SCHED_FRAMECOUNT),
+                port_be32(D_80358064), (unsigned long long)port_g64(D_80364A90),
+                (unsigned long long)host_audio_samples());
     if (!spec)
         return;
     for (const char *p = spec; *p;) {

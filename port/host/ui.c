@@ -67,7 +67,7 @@ static float gf(const char *p) {
     return f;
 }
 static uint64_t mode(void) {
-    return (uint64_t)port_g32(V(D_80364A90)) << 32 | port_g32(V(D_80364A90) + 4);
+    return port_g64(V(D_80364A90));
 }
 
 /* ---- what is on the screen ------------------------------------------------ */
@@ -878,7 +878,7 @@ static int map_poll(int *sx, int *sy, int last_stick) {
                 host_log("ui: map: level %d at %.0f, %.0f\n", i, lx, ly);
         }
     }
-    int idle = port_g16(V(D_8021A924)) == 1 && !port_g32(V(D_8036C778)) && !port_g32(V(D_8036C778) + 4) &&
+    int idle = port_g16(V(D_8021A924)) == 1 && !port_g64(V(D_8036C778)) &&
                port_g32(V(D_80358060)) >= 6;
     int sel = g8(V(D_8021A905));
     mapcheck(earth, idle, sel);

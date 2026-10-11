@@ -163,6 +163,15 @@ static inline uint16_t port_g16_of32(const void *p, int k) {
 #define port_wg16 port_wbe16
 static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((const uint8_t *)p + 2 * k); }
 #endif
+/* a 64-bit scalar of game memory (a u64 or s64 variable, the LP64 builds'
+   command words), whole */
+static inline uint64_t port_g64(const void *p) {
+    return (uint64_t)port_g32(p) << 32 | port_g32((const uint8_t *)p + 4);
+}
+static inline void port_wg64(void *p, uint64_t v) {
+    port_wg32(p, (uint32_t)(v >> 32));
+    port_wg32((uint8_t *)p + 4, (uint32_t)v);
+}
 
 /* For host code that reads game variables with port_be32 and writes the
    pad with port_wbe16 (main.c, video.c): in the native-endian build
