@@ -34,6 +34,7 @@
 #include "host.h"
 #include "fiber.h"
 #include "gfx.h"
+#include "port_f2i.h"
 #include "hdtext.h"
 #include "micons.h"
 
@@ -1430,7 +1431,7 @@ static void tlut(int idx, uint8_t *o) {
 }
 
 static inline int ifloor(float f) {
-    int i = (int)f;
+    int i = port_f2i(f);                    /* (NaN from a degenerate triangle) */
     return i - (f < (float)i);
 }
 
@@ -1564,7 +1565,7 @@ static void sample(int tile, float fs, float ft, uint8_t *o, int filt) {
             v = c00[ch] + fx * (c10[ch] - c00[ch]) + fy * (c01[ch] - c00[ch]);
         else
             v = c11[ch] + (1 - fx) * (c01[ch] - c11[ch]) + (1 - fy) * (c10[ch] - c11[ch]);
-        o[ch] = (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v + 0.5f);
+        o[ch] = (uint8_t)port_f2i(v < 0 ? 0 : v > 255 ? 255 : v + 0.5f);   /* (NaN) */
     }
 }
 
@@ -1761,7 +1762,8 @@ NOINLINE static void raster(const SV *v0, const SV *v1, const SV *v2, const floa
         gfx_tmem_sync();
     float minx = min_f(v0->x, min_f(v1->x, v2->x)), maxx = max_f(v0->x, max_f(v1->x, v2->x));
     float miny = min_f(v0->y, min_f(v1->y, v2->y)), maxy = max_f(v0->y, max_f(v1->y, v2->y));
-    int x0 = (int)floorf(minx), x1 = (int)ceilf(maxx), y0 = (int)floorf(miny), y1 = (int)ceilf(maxy);
+    /* (a degenerate triangle's corners can be infinite) */
+    int x0 = port_f2i(floorf(minx)), x1 = port_f2i(ceilf(maxx)), y0 = port_f2i(floorf(miny)), y1 = port_f2i(ceilf(maxy));
     int sx0 = gs.sc_x0, sx1 = gs.sc_x1;
     if (cur_wfb)
         gfx_wide_span(gs.sc_x0, gs.sc_x1, &sx0, &sx1);
