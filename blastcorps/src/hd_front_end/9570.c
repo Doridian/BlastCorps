@@ -55,6 +55,16 @@ s32 D_80217390[0x40];
 s32 D_80217490[0x40];
 s32 D_80217590[0x40];
 
+/* The five pictures below are 0x55C texels each, and their lists load
+   1373 (LoadBlock's lrs, the last texel, is 0x55C): the RDP reads one
+   texel, and its 64-bit word, past the picture, which nothing samples
+   (the last mipmap is texel 0x558).  The port loads the 0x55C. */
+#ifdef TARGET_PC
+#define PICTURE_LRS 1371
+#else
+#define PICTURE_LRS 1372
+#endif
+
 /* .data, 0x802084F0-0x8020BD30 (tools/data_c.py) */
 extern u16 D_802084F0[0x55c];
 #ifdef ASSET_INIT
@@ -65,7 +75,7 @@ u16 D_802084F0[0x55c] = { 0 };
 Gfx D_80208FA8[0x10] = {
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_802084F0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0x0, 7, 0, 0, 0, 0, 0, 0, 0),
-    gsDPLoadBlock(7, 0, 0, 1372, 0),
+    gsDPLoadBlock(7, 0, 0, PICTURE_LRS, 0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0x0, 0, 0, 2, 5, 0, 2, 5, 0),
     gsDPSetTileSize(0, 0, 0, 124, 124),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0x100, 1, 0, 2, 4, 1, 2, 4, 1),
@@ -89,7 +99,7 @@ u16 D_80209028[0x55c] = { 0 };
 Gfx D_80209AE0[0x10] = {
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_80209028),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0x0, 7, 0, 0, 0, 0, 0, 0, 0),
-    gsDPLoadBlock(7, 0, 0, 1372, 0),
+    gsDPLoadBlock(7, 0, 0, PICTURE_LRS, 0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0x0, 0, 0, 2, 5, 0, 2, 5, 0),
     gsDPSetTileSize(0, 0, 0, 124, 124),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0x100, 1, 0, 2, 4, 1, 2, 4, 1),
@@ -113,7 +123,7 @@ u16 D_80209B60[0x55c] = { 0 };
 Gfx D_8020A618[0x10] = {
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_80209B60),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0x0, 7, 0, 0, 0, 0, 0, 0, 0),
-    gsDPLoadBlock(7, 0, 0, 1372, 0),
+    gsDPLoadBlock(7, 0, 0, PICTURE_LRS, 0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0x0, 0, 0, 0, 5, 0, 0, 5, 0),
     gsDPSetTileSize(0, 0, 0, 124, 124),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0x100, 1, 0, 0, 4, 1, 0, 4, 1),
@@ -137,7 +147,7 @@ u16 D_8020A698[0x55c] = { 0 };
 Gfx D_8020B150[0x10] = {
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_8020A698),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0x0, 7, 0, 0, 0, 0, 0, 0, 0),
-    gsDPLoadBlock(7, 0, 0, 1372, 0),
+    gsDPLoadBlock(7, 0, 0, PICTURE_LRS, 0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0x0, 0, 0, 2, 5, 0, 2, 5, 0),
     gsDPSetTileSize(0, 0, 0, 124, 124),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0x100, 1, 0, 2, 4, 1, 2, 4, 1),
@@ -161,7 +171,7 @@ u16 D_8020B1D0[0x55c] = { 0 };
 Gfx D_8020BC88[0x10] = {
     gsDPSetTextureImage(G_IM_FMT_RGBA, G_IM_SIZ_16b, 1, D_8020B1D0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 0, 0x0, 7, 0, 0, 0, 0, 0, 0, 0),
-    gsDPLoadBlock(7, 0, 0, 1372, 0),
+    gsDPLoadBlock(7, 0, 0, PICTURE_LRS, 0),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 8, 0x0, 0, 0, 0, 5, 0, 0, 5, 0),
     gsDPSetTileSize(0, 0, 0, 124, 124),
     gsDPSetTile(G_IM_FMT_RGBA, G_IM_SIZ_16b, 4, 0x100, 1, 0, 0, 4, 1, 0, 4, 1),
