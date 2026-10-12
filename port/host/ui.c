@@ -385,7 +385,11 @@ static int menu_hit(int w, float x, float y) {
             ew = 64;
             chh = 32;
         } else {
-            int len = 0;        /* (the text isn't measured: see the next commit) */
+            /* (the text the window shows: in eu the English one) */
+            const char *t = e->text;
+            int len = 0;
+            for (; t && len < 64 && t[len]; len++)
+                ;
             ew = len ? (0.6f * (len - 1) + 1) * cw : 4 * cw;
         }
         if (!(wflags & 0x40)) {                 /* a list: the window's width */
