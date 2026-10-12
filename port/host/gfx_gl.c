@@ -1638,7 +1638,8 @@ static void save_bmp(const char *path, const uint8_t *rgba, int w, int h) {
     uint32_t rowbytes = (uint32_t)w * 3, pad4 = (4 - rowbytes % 4) % 4, size = (rowbytes + pad4) * (uint32_t)h;
     uint8_t hdr[54] = { 'B', 'M' };
     uint32_t v[] = { 54 + size, 0, 54, 40, (uint32_t)w, (uint32_t)h, 1 | (24 << 16), 0, size, 2835, 2835, 0, 0 };
-    memcpy(hdr + 2, v, sizeof v);
+    for (int i = 0; i < 13; i++)                    /* (little-endian, as BMP is) */
+        port_wle32(hdr + 2 + 4 * i, v[i]);
     fwrite(hdr, 1, 54, f);
     for (int y = 0; y < h; y++) {                   /* GL rows are bottom-up, as BMP's */
         for (int x = 0; x < w; x++) {

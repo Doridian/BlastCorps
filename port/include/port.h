@@ -152,6 +152,15 @@ static inline void port_wbe16(void *p, uint16_t v) {
     uint8_t *b = (uint8_t *)p;
     b[0] = v >> 8; b[1] = v;
 }
+/* and little-endian, for the host's files (WAV, BMP) */
+static inline void port_wle32(void *p, uint32_t v) {
+    uint8_t *b = (uint8_t *)p;
+    b[0] = v; b[1] = v >> 8; b[2] = v >> 16; b[3] = v >> 24;
+}
+static inline void port_wle16(void *p, uint16_t v) {
+    uint8_t *b = (uint8_t *)p;
+    b[0] = v; b[1] = v >> 8;
+}
 
 /* A scalar of game memory at its own width: big-endian in the default
    build, host order in the native-endian one (PORT_NATIVE_ENDIAN, docs/
