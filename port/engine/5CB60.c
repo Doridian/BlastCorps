@@ -32,29 +32,13 @@
 #define MODEL_PTR(m, field) ((u8 *)(m) + ((Model *)(m))->field)
 #define VMODEL_PTR(m, field) ((u8 *)(m) + ((VehicleModel *)(m))->field)
 
-/* a big-endian u32 at any alignment in the level file: in native-endian
-   memory the loaders have put it in host order where it is (docs/PORT.md,
-   "Native-endian memory": the lwl/lwr pairs) */
-#ifdef PORT_NATIVE_ENDIAN
-#define UNALIGNED_W(p) ((u32)((p)[3] << 24 | (p)[2] << 16 | (p)[1] << 8 | (p)[0]))
-#else
-#define UNALIGNED_W(p) ((u32)((p)[0] << 24 | (p)[1] << 16 | (p)[2] << 8 | (p)[3]))
-#endif
+/* a u32 at any alignment in the level file, which the loaders have put in
+   host order where it is (docs/PORT.md, "Native-endian memory": the
+   lwl/lwr pairs; big-endian where memory is): its bytes as they are */
+typedef u32 u32_unaligned __attribute__((aligned(1)));
+#define UNALIGNED_W(p) (*(const u32_unaligned *)(p))
 
-/* a byte of a wider datum that the original reaches at its N64 address
-   (tools/recomp/native_sites.txt's x3): in native-endian memory it is at
-   the address ^ 3; and a halfword it keeps big-endian (`be`) */
-#ifdef PORT_NATIVE_ENDIAN
-#define X3(p) (*(u8 *)((uintptr_t)(p) ^ 3))
-#define STORE_BE16(p, v) (*(u16 *)(p) = (u16)__builtin_bswap16((u16)(v)))
-#else
-#define X3(p) (*(u8 *)(p))
-#define STORE_BE16(p, v) (*(u16 *)(p) = (u16)(v))
-#endif
-
-/* a big-endian halfword at any alignment, read a byte at a time */
-#define BE16S(p) ((s16)(((s8 *)(p))[0] << 8 | ((u8 *)(p))[1]))
-#define BE16U(p) ((u32)(((u8 *)(p))[0] << 8 | ((u8 *)(p))[1]))
+/* (BE16S, BE16U: engine.h) */
 
 #define GBI_DL 0x06             /* F3D's G_DL: a display list call */
 #define LIST_END (-1)           /* the end of the run-time tables' lists */
@@ -139,7 +123,7 @@ typedef struct ModelEffect {
     /* 0x0C */ u8 padC[0x1C];
     /* 0x28 */ s32 unk28;           /* a height: moves with y */
     /* 0x2C */ u8 pad2C[4];
-    /* 0x30 */ u8 unk30[4];         /* a word elsewhere; 0x31 its byte (X3) */
+    /* 0x30 */ u8 unk30[4];         /* a word (FX_AMOUNT..FX_LIMIT: buildings.h) */
     /* 0x34 */ u8 pad34[4];
 } ModelEffect;
 SIZE_CHECK(ModelEffect, 0x38);
@@ -571,7 +555,7 @@ void func_802A3E9C(LevelHeader *h) {
         if (w == &D_803BD310[NWALLS] || p[1] > WALL_KINDS)
             host_fatal("level %d: more walls or kinds than D_803BD310 has room for", (int)D_802E8BDC);
 
-        X3((u8 *)&w->info + 1) = p[0];      /* WALL_SIDED */
+        w->info = (w->info & ~0x00FF0000) | (u32)p[0] << 16;     /* WALL_SIDED */
         n = p[1];
         w->nkinds = n;
         p += 2;
@@ -579,7 +563,7 @@ void func_802A3E9C(LevelHeader *h) {
             w->kinds[k] = *p++;
         }
         n = *p++;
-        X3((u8 *)&w->info) = n;             /* WALL_COUNT */
+        w->info = (w->info & 0x00FFFFFF) | n << 24;              /* WALL_COUNT */
         for (k = 0; k < n; k++) {
             w->tris[k] = t;
             /* 0x52 the section's end, 0x56 the next slot's address, 0x57
@@ -668,7 +652,7 @@ void func_802A3F80(LevelHeader *h) {
 
             do {
                 last = (u32)(s32)BE16S(p);
-                STORE_BE16(q, last);
+                be_put16(q, last);
                 p += 2;
                 q++;
             } while (--n != 0);
@@ -783,7 +767,7 @@ void func_802A23E0(Building *b) {
     ModelEffect *end = (ModelEffect *)MODEL_PTR(m, unk38);
 
     for (; e != end; e++) {
-        X3(&e->unk30[1]) = D_8030631F[X3(&e->unk30[1])];
+        FX_SET_B(e, FX_KIND, D_8030631F[FX_B(e, FX_KIND)]);
     }
 }
 

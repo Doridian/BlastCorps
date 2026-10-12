@@ -139,6 +139,25 @@ static inline void dl_copy_cmd(Gfx *d, const Gfx *s) {
 /* a command's opcode */
 #define DL_OP(g) ((u32)(g)->words.w0 >> 24)
 
+/* What stays in the N64's byte order (the ROM's files where they are read
+   a byte at a time, the tables kept big-endian, the RDP's texels): read
+   and written a byte at a time, so the same in either byte order (and at
+   any alignment) */
+#define BE16S(p) ((s16)(((s8 *)(p))[0] << 8 | ((u8 *)(p))[1]))
+#define BE16U(p) ((u32)(((u8 *)(p))[0] << 8 | ((u8 *)(p))[1]))
+#define BE32U(p) ((u32)((u32)((u8 *)(p))[0] << 24 | (u32)((u8 *)(p))[1] << 16 | (u32)((u8 *)(p))[2] << 8 | \
+                        (u32)((u8 *)(p))[3]))
+static inline void be_put16(void *p, u32 v) {
+    ((u8 *)p)[0] = (u8)(v >> 8);
+    ((u8 *)p)[1] = (u8)v;
+}
+static inline void be_put32(void *p, u32 v) {
+    ((u8 *)p)[0] = (u8)(v >> 24);
+    ((u8 *)p)[1] = (u8)(v >> 16);
+    ((u8 *)p)[2] = (u8)(v >> 8);
+    ((u8 *)p)[3] = (u8)v;
+}
+
 /* A count for the taint build (-DPORT_ENGINE_TAINT=ON, port/host/engine.c;
    port/tools/taint.py --probes): whether a path some leftover feeds is
    ever taken, say.  Nothing in the other builds. */

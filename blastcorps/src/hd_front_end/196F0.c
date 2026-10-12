@@ -29,13 +29,14 @@ void func_802006F0(void) {
  * Loads one of three RGBA16 images into D_80358070 and tints it for arg0:
  * 3/7/9 and 2/6/8 shift the colours, the rest keep them.
  *
- * The texels are the RDP's, big-endian, which the native-endian PC port
- * keeps in memory as bytes (docs/PORT.md): there IMG reads and writes them
- * byte-swapped.  Everywhere else it is the plain access.
+ * The texels are the RDP's, big-endian, which the PC port keeps in memory
+ * as bytes (docs/PORT.md): there IMG reads and writes them a byte at a
+ * time, which is the same in either byte order.  Everywhere else it is the
+ * plain access.
  */
-#if defined(TARGET_PC) && defined(PORT_NATIVE_ENDIAN)
-#define IMG_RD(p) ((u16)__builtin_bswap16(*(p)))
-#define IMG_WR(p, v) (*(p) = __builtin_bswap16(v))
+#ifdef TARGET_PC
+#define IMG_RD(p) ((u16)(((u8 *)(p))[0] << 8 | ((u8 *)(p))[1]))
+#define IMG_WR(p, v) (((u8 *)(p))[0] = (u16)(v) >> 8, ((u8 *)(p))[1] = (u8)(v))
 #else
 #define IMG_RD(p) (*(p))
 #define IMG_WR(p, v) (*(p) = (v))

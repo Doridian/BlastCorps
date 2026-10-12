@@ -50,7 +50,7 @@ REGS(a0, a1, a3 -> a3)
 u8 *func_802A5958(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
-        s32 w = (s16)TEX_BE16(*in);
+        s32 w = BE16S(in);
 
         in++;
         if (w >= 0) {
@@ -72,7 +72,7 @@ REGS(a0, a1, a3 -> a3)
 u8 *func_802A5A2C(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
-        s32 w = (s16)TEX_BE16(*in);
+        s32 w = BE16S(in);
 
         in++;
         if (w >= 0) {
@@ -92,11 +92,11 @@ REGS(a0, a1, a3 -> a3)
 u8 *func_802A5AE0(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
-        s32 w = (s16)TEX_BE16(*in);
+        s32 w = BE16S(in);
 
         in++;
         if (w >= 0) {
-            *(u16 *)out = TEX_BE16(((w & 0xFFC0) << 1) | (w & 0x3F));
+            be_put16(out, ((w & 0xFFC0) << 1) | (w & 0x3F));
             out += 2;
             len -= 2;
         } else {
@@ -111,12 +111,12 @@ REGS(a0, a1, a3 -> a3)
 u8 *func_802A5B90(s16 *in, s32 len, u8 *out) {
 
     while (len != 0) {
-        s32 w = (s16)TEX_BE16(*in);
+        s32 w = BE16S(in);
 
         in++;
         if (w >= 0) {
-            *(u32 *)out = TEX_BE32(((w & 0x7800) << 17) | ((w & 0x780) << 13) | ((w & 0x78) << 9) |
-                                   ((w & 7) << 5));
+            be_put32(out, ((w & 0x7800) << 17) | ((w & 0x780) << 13) | ((w & 0x78) << 9) |
+                          ((w & 7) << 5));
             out += 4;
             len -= 2;
         } else {
@@ -132,16 +132,16 @@ REGS(a0, a1, a3, t4 -> a3)
 u8 *func_802A5C5C(s16 *in, s32 len, u8 *out, u8 *pal) {
 
     while (len != 0) {
-        s32 w = (s16)TEX_BE16(*in);
+        s32 w = BE16S(in);
 
         in++;
         if (w >= 0) {
             u32 hi = (u32)w >> 8;
 
             out += 4;
-            ((u16 *)out)[-2] = TEX_BE16((TEX_BE16(*(u16 *)(pal + (hi & 0xFE))) << 1) | (hi & 1));
+            be_put16(out - 4, (BE16U(pal + (hi & 0xFE)) << 1) | (hi & 1));
             len -= 2;
-            ((u16 *)out)[-1] = TEX_BE16((TEX_BE16(*(u16 *)(pal + (w & 0xFE))) << 1) | (w & 1));
+            be_put16(out - 2, (BE16U(pal + (w & 0xFE)) << 1) | (w & 1));
         } else {
             BACKREF32();
         }
@@ -155,14 +155,14 @@ REGS(a0, a1, a3, t4 -> a3)
 u8 *func_802A5D34(s16 *in, s32 len, u8 *out, u8 *pal) {
 
     while (len != 0) {
-        s32 w = (s16)TEX_BE16(*in);
+        s32 w = BE16S(in);
 
         in++;
         if (w >= 0) {
-            u32 c = TEX_BE16(*(u16 *)(pal + (((u32)w >> 4) << 1)));
+            u32 c = BE16U(pal + (((u32)w >> 4) << 1));
 
-            *(u32 *)out = TEX_BE32(((c & 0x7C00) << 17) | ((c & 0x3E0) << 14) | ((c & 0x1F) << 11) |
-                                   ((w & 0xF) << 4));
+            be_put32(out, ((c & 0x7C00) << 17) | ((c & 0x3E0) << 14) | ((c & 0x1F) << 11) |
+                          ((w & 0xF) << 4));
             out += 4;
             len -= 2;
         } else {

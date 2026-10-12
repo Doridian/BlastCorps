@@ -229,7 +229,7 @@ void func_802CF3E0(CommPoint *c) {
         FX_W(d, FX_Z) = z;
         FX_W(d, FX_UNK28) = FX_UNK28_INIT;
         FX_W(d, FX_SPEED) = speed;
-        FX_H(d, FX_DELAY) = k;
+        FX_SET_H(d, FX_DELAY, k);
         y += COMM_SPARK_RISE;
         speed += COMM_SPARK_FASTER;
         FX_W(d, FX_VEL) = 0;
@@ -238,11 +238,11 @@ void func_802CF3E0(CommPoint *c) {
         FX_W(d, FX_UNK14) = 0;
         FX_W(d, FX_UNK14 + 4) = 0;
         FX_W(d, FX_UNK14 + 8) = 0;
-        FX_B(d, FX_RADIUS) = 0;
-        FX_B(d, FX_AMOUNT) = 0;
-        FX_B(d, FX_KIND) = FX_KIND_SPARK;
-        FX_B(d, FX_DONE) = 0;
-        FX_B(d, FX_UNK35) = 0;
+        FX_SET_B(d, FX_RADIUS, 0);
+        FX_SET_B(d, FX_AMOUNT, 0);
+        FX_SET_B(d, FX_KIND, FX_KIND_SPARK);
+        FX_SET_B(d, FX_DONE, 0);
+        FX_SET_B(d, FX_UNK35, 0);
         func_802C04F0(d);
     }
     func_80260650(D_80367738, 0x5E, NULL);
