@@ -268,15 +268,16 @@ static FILE *wav;
 static uint32_t wav_rate;
 
 static void wav_header(void) {
+    /* (little-endian, as WAV is, whatever the host's order) */
     uint32_t data = (uint32_t)(samples_out * 4);
     uint8_t h[44] = { 'R', 'I', 'F', 'F' };
-    uint32_t v[] = { 36 + data };
-    memcpy(h + 4, v, 4);
+    port_wle32(h + 4, 36 + data);
     memcpy(h + 8, "WAVEfmt ", 8);
     uint32_t fmt[] = { 16, 1 | 2 << 16, wav_rate, wav_rate * 4, 4 | 16 << 16 };
-    memcpy(h + 16, fmt, sizeof fmt);
+    for (int i = 0; i < 5; i++)
+        port_wle32(h + 16 + 4 * i, fmt[i]);
     memcpy(h + 36, "data", 4);
-    memcpy(h + 40, &data, 4);
+    port_wle32(h + 40, data);
     fseek(wav, 0, SEEK_SET);
     fwrite(h, 1, sizeof h, wav);
     fseek(wav, 0, SEEK_END);
@@ -385,8 +386,12 @@ int host_ai_submit(const void *addr, uint32_t len) {
     for (uint32_t i = 0; i < n; i++)
         buf[i] = (int16_t)port_be16(src + 2 * i);
     samples_out += len / 4;
-    if (wav)
-        fwrite(buf, 2, n, wav);
+    if (wav) {                      /* (the file's samples little-endian) */
+        static uint8_t le[sizeof buf];
+        for (uint32_t i = 0; i < n; i++)
+            port_wle16(le + 2 * i, (uint16_t)buf[i]);
+        fwrite(le, 2, n, wav);
+    }
 #ifdef PORT_WASM_WEB
     if (web_audio)
         web_audio_push(buf, (int)(len / 4));
