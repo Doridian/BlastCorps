@@ -5,6 +5,8 @@
                              [--qemu ARCH] [--all]
     port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack] [--update] [--gameplay]
                            [--timing free|movie|both] [--qemu ARCH] [--frames N]
+    port/tools/test.py budget BUILD [BUILD...] [--ceiling MB] [--static | --long | --tas [--polls FILE]]
+                              [--qemu ARCH]
     port/tools/test.py recomp [--trials N]
     port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
                                 [--emsdk DIR] [--gameplay]
@@ -66,13 +68,27 @@ A cross build runs under its emulator (qemu-user: port/tools/cross-*.cmake
 name it, CMake's CMAKE_CROSSCOMPILING_EMULATOR), or --qemu ARCH's
 (qemu-ARCH-static), with every timeout QEMU_SLOWER times as long.  quick
 runs only the four scenarios compared with the references there (attract,
-auto1, auto2, auto3: about 4 minutes each under qemu-ppc, all at once),
+auto1, auto2, auto3, all at once: 35 minutes under qemu-ppc, 12 under
+qemu-mipsel),
 --all every one the build can (no OpenGL without SDL); the pointer checks,
 which read the sources, are the native builds'.  tas --frames N plays the
 movie's first N frames only (the TAS's prefix, for an emulated build: the
-whole replay is ~50 times its 17 minutes there) and compares its gameplay
+whole replay is 30-90 times its 17 minutes there) and compares its gameplay
 digest with the reference's as far as it goes (build/digest-refs/us.v10/
 tas.digest, which tas --save-digests on a native build puts there).
+
+budget: what a build takes of memory (include/port_budget.h; docs/PORT.md,
+"Memory budgets"): the executable's static footprint (llvm-size), the N64
+side's part of it (the game's C and data, port/src, port/engine,
+port/libaudio) and the host's, the named buffers (the framebuffers, the
+level pool, init's area, the static data, the audio heap) and the game's
+thread stacks (GAME_THREADS of PORT_STACK_SIZE); and, from runs with
+PORT_POOL_LOG=1 (the four scenarios, --long attract.long, --tas the TAS
+too; --static none), the level pool's high-water and the most its display lists took
+beyond the N64's (what PORT_POOL_GFX_N64 must cover), each level's
+effects' heap.  It fails where the footprint is over the ceiling (--ceiling
+MB; 32 by default where pointers are 4 bytes, none where they are 8) or a
+run didn't finish.
 
 recomp: the translated engine's differential test (make -C tools/recomp
 test, for blastcorps/'s version).
@@ -1127,6 +1143,148 @@ def tas_check(b, refs, out, rc, t, update=False, gameplay=False, timing="movie")
     return 1 + dfail
 
 
+# ---- budget ------------------------------------------------------------------
+
+# the N64 side's objects (CMake's targets), the rest is the host's
+N64_TARGETS = ("game_c", "game_data", "port_n64", "engine_c", "libaudio_c", "fe_c")
+# the named buffers of include/port_budget.h, by their symbols
+BUDGET_SYMS = (("D_80000400", "framebuffers"), ("D_8004B400", "level pool"), ("port_init_area", "init's area"),
+               ("D_803FF600", "static data (segment 1)"), ("D_80370C80", "audio heap"))
+# the threads the game creates (boot, idle, main, the audio's, the
+# scheduler's, the front end's, the PI and VI managers'), each with a host stack
+GAME_THREADS = 8
+STACK_SIZE = 0x100000           # (port_budget.h's PORT_STACK_SIZE)
+ILP32_CEILING_MB = 32
+POOL_LINE = re.compile(r"pool: level (-?\d+) (.+?): top \S+ \(N64 \S+, display lists 0x([0-9A-Fa-f]+) more\), "
+                       r"end \S+, room 0x([0-9A-Fa-f]+)")
+
+
+def llvm_tool(name):
+    return shutil.which(f"llvm-{name}") or shutil.which(name)
+
+
+def sizes(files):
+    """llvm-size's (text, data, bss) summed over files"""
+    tool = llvm_tool("size")
+    t = [0, 0, 0]
+    for i in range(0, len(files), 500):
+        r = subprocess.run([tool, "-B"] + files[i:i + 500], capture_output=True, text=True)
+        for line in r.stdout.splitlines()[1:]:
+            f = line.split()
+            if len(f) >= 3 and f[0].isdigit():
+                for k in range(3):
+                    t[k] += int(f[k])
+    return t
+
+
+def budget(build, args):
+    """one build's budget report; the failures (None: skipped)"""
+    mb = lambda n: f"{n / (1 << 20):.2f} MB"
+    emit(f"== budget: {build.name} ({build.version}, {build.kind})")
+    if not build.runnable():
+        say("FAIL", build.name, "not built")
+        return 1
+    with open(build.exe, "rb") as f:
+        ilp32 = f.read(5)[4] == 1       # (ELFCLASS32)
+    fails = 0
+    objs = {}
+    for t in N64_TARGETS:
+        d = os.path.join(build.path, "CMakeFiles", f"{t}.dir")
+        objs[t] = [os.path.join(dp, f) for dp, _, fs in os.walk(d) for f in fs if f.endswith((".o", ".obj"))]
+    n64 = sizes([f for t in N64_TARGETS for f in objs[t]])
+    exe = sizes([build.exe])
+    host = [exe[k] - n64[k] for k in range(3)]
+    emit(f"   the executable: text {mb(exe[0])}, data {mb(exe[1])}, bss {mb(exe[2])}: {mb(sum(exe))}")
+    emit(f"     the N64 side's: text {mb(n64[0])}, data {mb(n64[1])}, bss {mb(n64[2])}: {mb(sum(n64))}")
+    emit(f"     the host's (and the libraries'): {mb(sum(host))}")
+    nm = subprocess.run([llvm_tool("nm"), "-S", build.exe], capture_output=True, text=True).stdout
+    have = {}
+    for line in nm.splitlines():
+        f = line.split()
+        if len(f) == 4:
+            have[f[3]] = int(f[1], 16)
+    for sym, what in BUDGET_SYMS:
+        if sym in have:
+            emit(f"     {what:26} {have[sym]:#9x} ({mb(have[sym])})  {sym}")
+    stacks = GAME_THREADS * STACK_SIZE
+    total = sum(exe) + stacks
+    emit(f"   the game's threads' stacks: {GAME_THREADS} x {STACK_SIZE:#x}: {mb(stacks)}")
+    ceiling = args.ceiling if args.ceiling is not None else (ILP32_CEILING_MB if ilp32 else None)
+    label = f"{build.name} footprint {mb(total)} (the executable and the stacks; the heap's own besides)"
+    if ceiling is None:
+        say("NOTE", label, "no ceiling where pointers are 8 bytes (--ceiling MB)")
+    elif total > ceiling << 20:
+        say("FAIL", label, f"over the ceiling, {ceiling} MB")
+        fails += 1
+    else:
+        say("PASS", label, f"within {ceiling} MB")
+    if args.static:
+        return fails
+    # the pool's use, from runs
+    names = list(EMULATED) + (["attract.long"] if args.long else [])
+    out = os.path.join(build.path, "test", "budget")
+    exe_copy = build.copy_exe(out)
+    pool = have.get("D_8004B400")
+    runs = []
+
+    def one(name):
+        autostart, frames, rargs, env, _, _ = SCENARIOS[name]
+        d = os.path.join(out, name)
+        rc, t = run_port(build, d, frames, autostart, rargs, dict(env, PORT_POOL_LOG="1"), shots=False, exe=exe_copy)
+        return name, d, rc, t
+
+    with cf.ThreadPoolExecutor(max(1, args.jobs)) as ex:
+        runs = list(ex.map(one, names))
+    if args.tas:
+        d = os.path.join(out, "tas")
+        if not os.path.exists(args.polls):
+            say("SKIP", f"{build.name} budget tas", f"no {args.polls}")
+        else:
+            os.makedirs(d, exist_ok=True)
+            e = {k: v for k, v in os.environ.items() if not k.startswith("PORT_")}
+            e.update(build.sanitizer_env())
+            e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy", PORT_POOL_LOG="1",
+                     PORT_REPLAY_TIMING="free")
+            t = time.time()
+            with open(os.path.join(d, "log.txt"), "w") as log:
+                try:
+                    rc = subprocess.call(build.command(exe_copy) + ["--headless", "--replay", os.path.abspath(args.polls),
+                                         "--save", "save.eep", build.rom()], cwd=d, env=e, stdout=log,
+                                         stderr=subprocess.STDOUT, timeout=TAS_TIMEOUT * build.slower())
+                except subprocess.TimeoutExpired:
+                    rc = "timeout"
+            runs.append(("tas", d, rc, time.time() - t))
+    top, top_at, excess, excess_at, effects = 0, None, 0, None, {}
+    for name, d, rc, t in runs:
+        log = open(os.path.join(d, "log.txt"), errors="replace").read()
+        if rc != 0:
+            say("FAIL", f"{build.name} budget {name}", f"exit {rc} ({' | '.join(log.splitlines()[-2:])})")
+            fails += 1
+            continue
+        for m in POOL_LINE.finditer(log):
+            lvl, what, more, room = int(m.group(1)), m.group(2), int(m.group(3), 16), int(m.group(4), 16)
+            if pool is not None and pool - room > top:
+                top, top_at = pool - room, f"{name}, level {lvl} {what}"
+            if more > excess:
+                excess, excess_at = more, f"{name}, level {lvl} {what}"
+            if what.startswith("effects"):
+                effects[lvl] = max(effects.get(lvl, 0), pool - room if pool else 0)
+        emit(f"   {name}: ran ({t:.0f}s)")
+    if pool is not None and top_at:
+        emit(f"   the level pool's high-water: {top:#x} of {pool:#x} ({100 * top / pool:.0f}%): {top_at}")
+    if excess_at:
+        emit(f"   its display lists beyond the N64's 8 bytes a command, the most: {excess:#x} ({excess_at})"
+             + (": with 16-byte commands as much as the N64's lists take themselves (port_budget.h's "
+                "PORT_POOL_GFX_N64 must cover it)" if not ilp32 else ""))
+    elif ilp32:
+        emit("   its display lists take the N64's room (8-byte commands): no growth")
+    low = sorted(k for k in effects)
+    if low:
+        emit("   the effects' heap, by level (the pool's top after it): "
+             + ", ".join(f"{k}: {effects[k]:#x}" for k in low))
+    return fails
+
+
 # ---- recomp ------------------------------------------------------------------
 
 def venv_python():
@@ -1373,6 +1531,15 @@ def main():
                    help="play only the movie's first N frames, and compare the gameplay digest as far as it goes")
     t.add_argument("--gameplay", action="store_true",
                    help="the gameplay digest decides: a save that differs (the times) is only reported")
+    bu = sub.add_parser("budget")
+    bu.add_argument("builds", nargs="+")
+    bu.add_argument("--ceiling", type=int, metavar="MB",
+                    help=f"fail above it (default {ILP32_CEILING_MB} where pointers are 4 bytes, none where 8)")
+    bu.add_argument("--long", action="store_true", help="attract.long too")
+    bu.add_argument("--static", action="store_true", help="only the footprint: no runs")
+    bu.add_argument("--tas", action="store_true", help="the TAS replay too (its log: --polls)")
+    bu.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
+    bu.add_argument("-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     r = sub.add_parser("recomp")
     r.add_argument("--trials", type=int, default=48)
     d = sub.add_parser("table", help="every hash of the builds' last quick runs, against the first's")
@@ -1391,7 +1558,7 @@ def main():
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
     v.add_argument("--gameplay", action="store_true",
                    help="the gameplay digest decides; the references' hashes are only reported")
-    for p in (q, t):
+    for p in (q, t, bu):
         p.add_argument("--qemu", metavar="ARCH",
                        help="run the builds under qemu-ARCH-static (a cross build names its own emulator)")
     for p in (q, t, v):
@@ -1399,7 +1566,7 @@ def main():
                        help="copy each run's gameplay digest that hashes as the reference into build/digest-refs")
     args = ap.parse_args()
     global SAVE_DIGESTS
-    SAVE_DIGESTS = args.save_digests
+    SAVE_DIGESTS = getattr(args, "save_digests", False)
     refs = load_refs()
     t0 = time.time()
     if args.cmd == "quick":
@@ -1411,6 +1578,9 @@ def main():
         builds = [build_for(b, args.qemu) for b in args.builds]
         fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again, args.pack, args.update,
                     args.gameplay, args.timing, args.frames)
+    elif args.cmd == "budget":
+        rs = [budget(build_for(b, args.qemu), args) for b in args.builds]
+        fails = None if all(x is None for x in rs) else sum(x or 0 for x in rs)
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return

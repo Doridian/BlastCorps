@@ -34,28 +34,8 @@
 #ifndef PORT_REGIONS_H
 #define PORT_REGIONS_H
 
-/* The pool's display lists take sizeof(Gfx) a command where the N64's take
- * 8 (PORT_GFX_SIZE, CMake's: 16 in the LP64 builds, whose words are as wide
- * as a pointer).  The pool grows by what that adds to the most the N64's
- * pool holds of display lists at once, PORT_POOL_GFX_N64 (src/pool.c stops
- * the port if a level needs more): measured over the TAS, level 4's 0x72820
- * is the most, and this is that and nearly a quarter more.  It grows past
- * where init's area is on the N64 (the port's own buffer here:
- * PORT_INIT_AREA_SIZE) into what is hd_code's .text there, up to its first
- * data island (us.v10's at 0x802ACF50: tools/gen_syms.py stops at any N64
- * variable in the way). */
-#define PORT_POOL_GFX_N64 0x8E000
-#ifndef PORT_GFX_SIZE
-/* (the plain build's: two words as wide as a pointer, gbi.h's Gwords;
-   src/pool.c checks it is sizeof(Gfx)) */
-#define PORT_GFX_SIZE (2 * __SIZEOF_POINTER__)
-#endif
-#define PORT_POOL_GROWTH ((PORT_GFX_SIZE - 8) / 8 * PORT_POOL_GFX_N64)
-/* init's area, the depth buffer and where compressed loads are staged
-   (46C20.c, port/engine/5CB60.c: MEM_INIT_AREA), at 0x8021ED00 on the N64
-   up to hd_code's load address: in the port a buffer of its own
-   (src/pool.c), wherever the layout puts it */
-#define PORT_INIT_AREA_SIZE (0x802447C0 - 0x8021ED00)
+/* the sizes: the pool's growth (PORT_POOL_GROWTH), init's area and the rest */
+#include "port_budget.h"
 
 #define PORT_REGIONS(PORT_REGION, PORT_REGION_LINK, PORT_SUBREGION) \
     /* the boot code's words: osTvType, osRomBase, osResetType, osMemSize, \
@@ -66,7 +46,7 @@
     /* the level pool (bump pointer D_80358070): at its start the RSP task's \
        output buffer, the decompression scratch and the boot sound-bank \
        staging, all in one */ \
-    PORT_REGION(D_8004B400, pool, 0x8004B400, 0x8021ED00 + PORT_POOL_GROWTH, 0) \
+    PORT_REGION(D_8004B400, pool, 0x8004B400, 0x8004B400 + PORT_POOL_SIZE, 0) \
     /* the ghost's two buffers (50670.c), after the output buffer */ \
     PORT_SUBREGION(D_80055400, ghost0, D_8004B400, 0xA000, 0x10000) \
     PORT_SUBREGION(D_80065400, ghost1, D_8004B400, 0x1A000, 0x10000) \

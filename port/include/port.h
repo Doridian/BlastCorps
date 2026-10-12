@@ -66,8 +66,8 @@ static inline void *port_ptr(uint32_t addr) {
     return port_host(addr);
 }
 #endif
-#define PORT_STACK_SIZE 0x00100000u
-#define PORT_MAX_THREADS 16
+/* (PORT_STACK_SIZE, PORT_MAX_THREADS: port_budget.h) */
+#include "port_budget.h"
 /* thread idx's host stack (runtime.c): at PORT_STACK_BASE, which in the
    movable build is in the arena; the plain build's allocated */
 void *host_thread_stack(int idx, uint32_t *size);

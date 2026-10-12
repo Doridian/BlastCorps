@@ -276,7 +276,8 @@ execute_process(COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py regi
         ${GEN}/port_regions.txt ${GEN}/port_fixed.ld COMMAND_ERROR_IS_FATAL ANY)
 endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h ${CMAKE_CURRENT_SOURCE_DIR}/include/port_budget.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
 # The ROM addresses the game's C names (game/types.h's ROM(sym))
 execute_process(COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py romaddrs ${GEN}/rom_addrs.h
         COMMAND_ERROR_IS_FATAL ANY)
@@ -1153,7 +1154,7 @@ add_custom_command(OUTPUT ${GEN}/port_syms.ld
             "${N64_OBJECTS}" "$<TARGET_OBJECTS:game_data>"
             "$<TARGET_OBJECTS:recomp>" "$<TARGET_OBJECTS:host>"
     DEPENDS ${N64_OBJECTS_DEPENDS} game_data recomp host $<TARGET_OBJECTS:game_data>
-            ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py ${CMAKE_CURRENT_SOURCE_DIR}/include/port_regions.h ${CMAKE_CURRENT_SOURCE_DIR}/include/port_budget.h
     COMMAND_EXPAND_LISTS)
 add_custom_command(OUTPUT ${GEN}/port_rdram.ld
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_ld.py script ${GEN}/port_rdram.ld
