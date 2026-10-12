@@ -5,7 +5,7 @@
                                       [--no-exhaustive] [--arch m32,m64]
 
 Builds check.c (this directory) twice over, for i386 and for x86-64 with the
-LP64 port's `long`: once against port/src/gu.c, the port's own graphics
+a 64-bit host's `long`: once against port/src/gu.c, the port's own graphics
 utilities, sine tables and pak CRC, and once against the originals in
 blastcorps/src/libultra (and orig_rotate.c here), compiled as the port
 compiled them before (clang, -ffp-contract=off, the port's headers).  Then:

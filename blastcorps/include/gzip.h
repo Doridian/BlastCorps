@@ -32,7 +32,7 @@ typedef unsigned long  ulg;
 #define get_byte()  (inbuf[inptr++])
 #define NEXTBYTE()  (uch)get_byte()
 
-/* Huffman code lookup table entry, as in gzip.  In the LP64 port it is 16
+/* Huffman code lookup table entry, as in gzip.  On a 64-bit host it is 16
  * bytes, not the N64's 8: the tables still come from the pool's start, and
  * huft_build() checks that they fit before the ghost's buffers. */
 struct huft {

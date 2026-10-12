@@ -16,7 +16,7 @@
  * The heap blocks are allocated in the same order and sizes
  * (libaudio_heap.h, which also has what this code keeps in them) and the
  * structures the game holds (ALSynth, ALVoice, the players) have the
- * public layouts.  Where pointers are 8 bytes (the LP64 port) a structure
+ * public layouts.  Where pointers are 8 bytes (a 64-bit host) a structure
  * can be bigger than its block was on the N64: the block is then its size,
  * the heap grows by that (game/audio.h's AUDIO_HEAP_SIZE) and its
  * addresses aren't the reference's, which only the oracle's i386 replay

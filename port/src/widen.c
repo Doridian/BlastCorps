@@ -1,7 +1,7 @@
 /*
  * The ROM's display lists in the port's Gfx (docs/PORT.md, "Graphics").
- * Where a command is wider than the N64's two 32-bit words (the LP64
- * builds': words as wide as a pointer), a display list still arrives from
+ * Where a command is wider than the N64's two 32-bit words (a 64-bit
+ * host's: words as wide as a pointer), a display list still arrives from
  * the ROM in the N64's form, and is widened where it lands: in place in the pool,
  * spread backwards from its last command over twice its room, its words
  * kept (texture numbers, segment addresses, offsets).  The decompressor
@@ -33,7 +33,7 @@
  * The header's other offsets must be into the header (a warning if not:
  * a list nobody rescaled).  A list widened in the pool's free part counts
  * as a carve-out of the pool's (src/pool.c).  With the N64's 8-byte
- * commands (the ILP32 builds) all of this is the identity.  In every build
+ * commands (where pointers are 4 bytes) all of this is the identity.  In every build
  * the lists' segmented addresses get the port's tag here (dl_tag, gbi.h's
  * G_SEGTAG).
  */

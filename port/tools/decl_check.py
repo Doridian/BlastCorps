@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Whether the N64 side's declarations of each D_/func_ name agree (P6:
-docs/PORT.md, "The LP64 build").
+docs/PORT.md, "Where pointers are 8 bytes").
 
     decl_check.py BUILD [--version V|all] [--allow FILE] [--list [CLASS]] [--update]
 

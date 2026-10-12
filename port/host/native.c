@@ -1,6 +1,6 @@
 /*
  * The loaders: what the ROM's untyped bytes become in game memory
- * (docs/PORT.md, "Native-endian memory").  src/loads.c (the two
+ * (docs/PORT.md, "Byte order and the data's types").  src/loads.c (the two
  * decompressors, which port/src stands in front of) and host_rom_read (PI
  * DMA) call in here with every load.  Each load is converted by what it
  * is, once, where it arrives: its scalars go into host order at their own

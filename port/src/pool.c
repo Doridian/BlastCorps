@@ -6,7 +6,7 @@
  * (00000.c), the vehicles' copies (34430.c's func_80278BF0, 5CB60.c's
  * func_802A1388), the water's (39050.c), the front end's built in place
  * (9570.c) and the ROM's, widened where they land (src/widen.c).  Where the
- * port's Gfx is wider than the N64's 8 bytes (the LP64 builds' 16), they
+ * port's Gfx is wider than the N64's 8 bytes (16 where pointers are 8 bytes), they
  * take more of it, and every one of them is carved out here, so that the
  * N64's own position, what the top would be with 8-byte commands, is kept
  * beside the real one: port_pool_n64.  The effects' heap, which takes what

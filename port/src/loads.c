@@ -1,6 +1,6 @@
 /*
  * Where untyped bytes from the ROM arrive in game memory (docs/PORT.md,
- * "Native-endian memory"): the two decompressors' entry points, which
+ * "Byte order and the data's types"): the two decompressors' entry points, which
  * port/src stands in front of (their defining file has the originals as
  * __real_<name>), hand what they produced to the host's loaders
  * (host/native.c), which convert it by type.  Raw PI DMAs go there from

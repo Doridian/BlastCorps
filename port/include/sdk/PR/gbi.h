@@ -6,7 +6,7 @@
  * pages): the opcodes, the bit fields of each command, the other-mode,
  * combiner and blender encodings and the structs the commands point at.
  * Only what the game uses is here.  A command is two words as wide as a
- * pointer: the N64's 8 bytes where pointers are 4, 16 in the LP64 builds.
+ * pointer: the N64's 8 bytes where pointers are 4, 16 where they are 8.
  *
  * The macros keep the C types of the forms the game was written against
  * (a field is an `unsigned int`, the RSP's immediate opcodes are negative
@@ -184,8 +184,8 @@ typedef struct {
 /* ---- the display list ----------------------------------------------------------- */
 
 /* A command's two words, as wide as a pointer (an address is one: _GBI_W):
-   4 bytes where pointers are, the N64's 8-byte commands, and 8 in the LP64
-   builds, 16-byte commands */
+   4 bytes where pointers are, the N64's 8-byte commands, and 8 where they
+   are 8 bytes, 16-byte commands */
 typedef struct {
     __UINTPTR_TYPE__ w0;
     __UINTPTR_TYPE__ w1;

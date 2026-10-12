@@ -414,7 +414,7 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size) {
                 host_fatal("the ROM's data operations go outside the modules");
             memcpy(arena + dst, src + dst + d, len);
         } else if ((h & 7) == 5 || (h & 7) == 6) {
-            /* a display list's words widened (the LP64 builds'): each 4-byte
+            /* a display list's words widened (where pointers are 8 bytes): each 4-byte
                unit of the source reversed, in the high (5: a 64-bit
                scalar's words high first, which no build has now) or the
                low half (6: a little-endian host's) of an 8-byte unit, the

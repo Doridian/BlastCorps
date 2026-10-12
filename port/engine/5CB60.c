@@ -40,7 +40,7 @@
 #define ADDR_LO16(p) ((u32)((uintptr_t)(p) & 0xFFFF))
 
 /* a u32 at any alignment in the level file, which the loaders have put in
-   host order where it is (docs/PORT.md, "Native-endian memory": the
+   host order where it is (docs/PORT.md, "Byte order and the data's types": the
    lwl/lwr pairs; big-endian where memory is): its bytes as they are */
 typedef u32 u32_unaligned __attribute__((aligned(1)));
 #define UNALIGNED_W(p) (*(const u32_unaligned *)(p))

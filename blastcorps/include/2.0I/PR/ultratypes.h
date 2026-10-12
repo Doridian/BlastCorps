@@ -35,8 +35,8 @@
 #if defined(_LANGUAGE_C) || defined(_LANGUAGE_C_PLUS_PLUS)
 
 #ifdef TARGET_PC
-/* the port: 32-bit whatever the host's long is (docs/PORT.md, "The LP64
-   build") */
+/* the port: 32-bit whatever the host's long is (docs/PORT.md, "Where pointers are
+   8 bytes") */
 typedef unsigned char			u8;	/* unsigned  8-bit */
 typedef unsigned short			u16;	/* unsigned 16-bit */
 typedef unsigned int			u32;	/* unsigned 32-bit */

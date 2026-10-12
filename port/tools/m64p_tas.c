@@ -43,8 +43,10 @@
  *   OUTDIR/switches.csv  (the same) every mode the game's loop switches to
  *                      (D_80364A98), with the controller reads so far
  *   OUTDIR/eeprom.bin  the EEPROM at the end (from blank, as the movie is)
- *   OUTDIR/rdram.bin   RDRAM at the end, big-endian (TAS_DUMP=N,...: also
- *                      rdram_N.bin as the Nth controller read starts)
+ *   OUTDIR/rdram.bin   the emulator's RDRAM at the end, big-endian (TAS_DUMP=N,...:
+ *                      also rdram_N.bin as the Nth controller read starts; the
+ *                      port's PORT_DUMP writes game_N.bin, its own regions and
+ *                      variables, which this is not comparable with)
  *
  *   cc -O1 -Wall -I<core>/src/api -rdynamic -o m64p_tas m64p_tas.c -ldl
  */

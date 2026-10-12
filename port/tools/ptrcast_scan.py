@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The N64 side's pointer/integer conversions, classified, against an
-allow-list (P6's inventory of them: docs/PORT.md, "The LP64 build").
+allow-list (P6's inventory of them: docs/PORT.md, "Where pointers are 8 bytes").
 
     ptrcast_scan.py BUILD [--version V|all] [--allow FILE] [--list [CLASS]] [--update]
 

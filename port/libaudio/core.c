@@ -16,7 +16,7 @@ void alHeapInit(ALHeap *hp, u8 *base, s32 len) {
     /* blocks start on 16 bytes (the RSP's DMA), and what that skips comes
        off the length.  (The reference keeps the length, so that its heap
        then ends past the buffer: never on the N64, whose buffer is
-       16-aligned, but the LP64 port's image can give it 8.) */
+       16-aligned, but a 64-bit host's image can give it 8.) */
     if (misalign != 0) {
         base += 16 - misalign;
         len -= 16 - misalign;

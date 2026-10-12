@@ -124,7 +124,7 @@ int huft_build(unsigned *b, unsigned n, unsigned s, ush *d, uch *e, struct huft 
                 hufts += z + 1;
 #ifdef TARGET_PC
                 /* the tables go at the pool's start (huft_heap) and the
-                   ghost's buffers begin at +0xA000: an LP64 huft is twice
+                   ghost's buffers begin at +0xA000: a huft is twice (8-byte pointers)
                    the N64's. */
                 if (hufts * sizeof(struct huft) > PORT_REGION_OFF_D_80055400) {
                     __builtin_trap();

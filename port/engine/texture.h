@@ -48,7 +48,7 @@ void host_tex_queued(u32 slot, u32 id);
 void host_tex_decoded_slot(u32 slot, void *dst, u32 size);
 
 /* Texture data stays in the N64's byte order, which is what the RDP reads
-   (docs/PORT.md, "Native-endian memory"): the packed stream's codes, the
+   (docs/PORT.md, "Byte order and the data's types"): the packed stream's codes, the
    palettes and the texels written as halves or words are big-endian
    (tools/recomp/native_sites.txt's `be`), read and written a byte at a
    time (engine.h's BE16U, be_put16, be_put32), whatever the host's order. */
