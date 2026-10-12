@@ -1,16 +1,16 @@
 # What depends on the N64's layout
 
-Every build of the port keeps each N64-named variable at its N64 address.
-The scattered layout (docs/PORT.md, "The scattered layout",
-`-DPORT_SCATTER`) moves every variable and every fixed buffer (the
-regions) somewhere else, padded, and the
-check build (`-DPORT_SCATTER_CHECK=ON`) reports each access that only
-works because of the N64's layout: a name or an address next to the data
-on the N64 instead of the variable the data is in.  This file is that
-list for us.v10, the input for making the port an ordinary C program,
-whose variables are wherever the compiler puts them.  It is empty now:
-the game's C, the engine's C (`port/engine`) and the host read their data
-through the variable it is in.
+**History** (P10, 2026-10-12).  This file was the list the scattered-layout check build made for us.v10:
+the input for making the port an ordinary C program, whose variables are wherever the compiler puts
+them.  The list went empty, the port became that program ("The build" in docs/PORT.md), and the
+builds that made the list (the fixed ones, which kept each N64-named variable at its N64 address, and
+the scattered layout, `-DPORT_SCATTER` and its check build `-DPORT_SCATTER_CHECK=ON`, which moved every
+variable and fixed buffer elsewhere, padded, and reported each access that only worked because of the
+N64's layout: a name or an address next to the data on the N64 instead of the variable the data is
+in) are gone (the last commit that has them is `engine-check-last`).  What is left of this file is how
+the list was made and the ways its rows went, which are the ways to take a dependency on the layout
+out; the standing check now is the one build itself, with the sanitizers (ASan sees an access past a
+variable's end that the scattered layout used to show).
 
 ## How it was made
 

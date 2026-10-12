@@ -2,47 +2,49 @@
 
 The PC build (`port/`, milestone 1 of ROADMAP Phase 5).  It runs the
 decompiled C natively and Rare's handwritten engine as C written from it
-(`port/engine`, "Replacing the engine"); the translator that first ran the
-handwritten asm (`tools/recomp`, "The handwritten asm") now gives the
-engine its block sizes and is the check the native code is compared with.
-The build is described first; the translator and its test follow from "The
-handwritten asm".
+(`port/engine`, "Replacing the engine"), all of it ordinary C compiled by
+the host's compiler into an ordinary program ("The build").  The
+translator that first ran the handwritten asm (`tools/recomp`, "The
+handwritten asm") is a decompilation tool now and the record of how the
+engine was verified.
 
 ## Building and running
 
 ```
 make VERSION=us.v11 -C blastcorps          # the N64 build: the port reads its ELFs and asm/
-make -C tools/recomp                       # the engine's block sizes (and the check build's translation)
-cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang \
-      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang
+cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang
 cmake --build build/port
 build/port/blastcorps baserom.us.v11.z64   # the user's own ROM
 ```
 
-`-DPORT_VERSION=us.v10` or `-DPORT_VERSION=jp` builds another version,
-from that version's stage 2 and `make -C tools/recomp VERSION=...`, in a
-build directory of its own ("Other versions").
+`port/build.py ROM` does all of it, the decompilation included, for a
+user (README, "Build it").  `-DPORT_VERSION=us.v10`, `jp` or `eu` builds
+another version, from that version's stage 2, in a build directory of its
+own ("Other versions").
 
-It needs clang/LLVM with its development headers (BEPass is an LLVM
-plugin), a 32-bit (multilib) libc and SDL2, and Python 3; the OpenGL
-renderer also needs 32-bit libepoxy and an OpenGL 3.3 driver (without
-libepoxy only the software renderer is built).  `-DPORT_64BIT=ON` builds
-a 64-bit program instead (x86-64 now, AArch64 in principle; see "The
-64-bit build"), which needs LLVM's `opt` and the ordinary 64-bit SDL2 and
-libepoxy rather than the multilib ones; `-DPORT_NATIVE_ENDIAN=ON` keeps game
-memory in host order ("The native-endian build"), and `-DPORT_LP64=ON`
-(both of those and more) compiles the game's C as an ordinary LP64 program
-("The LP64 build"); `-DPORT_MOVABLE=ON`, with any of them, puts game
-memory wherever the host allocates it and links an ordinary PIE
-("Movable memory"), which is the build for macOS (untested there: "Other
-hosts", "macOS", and `port/tools/macos_build.sh`), and which `emcmake cmake`
-builds for WebAssembly, under node or in a browser ("WebAssembly"):
+It needs a C compiler (clang, gcc or emcc: the project is C alone), CMake
+and Ninja, SDL2, and Python 3; the OpenGL renderer also needs libepoxy and
+an OpenGL 3.3 driver (without libepoxy only the software renderer is
+built).  The build reads the N64 side's ELFs with `mips-linux-gnu-nm` and
+`readelf`, or LLVM's where there are none.  Nothing needs multilib, LLVM's
+development headers or a plugin: the game's C is compiled as it is.
+`tools/recomp` isn't built.
 
-```
-cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
-      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang -DPORT_64BIT=ON
-cmake --build build/port64
-```
+The options of CMake's configuration: `-DPORT_VERSION=` (us.v11, us.v10,
+jp, eu), `-DPORT_SANITIZE=address,undefined` (and
+`-DPORT_SANITIZE_RECOVER=ON`; "The build"), `-DPORT_AUTO_INIT=pattern`,
+`-DPORT_SDL=OFF` (no window, no sound device: a headless host, as under
+qemu), `-DPORT_THREADS=ucontext|pthread` (the game's threads' default,
+"Threads without ucontext"), `-DPORT_SIMD=OFF`, `-DPORT_SDK_2_0I=ON`
+(the N64 side with the decompilation's own SDK headers),
+`-DPORT_CC_INCLUDE=` (where a compiler's own `stddef.h` is, for a
+toolchain that doesn't say), and for WebAssembly, under `emcmake`,
+`-DPORT_WASM_TARGET=node|web` ("WebAssembly").  `-m32` in
+`CMAKE_C_FLAGS` builds for i386, `-DCMAKE_TOOLCHAIN_FILE=port/tools/cross-ppc.cmake`
+(or `cross-mipsel`, `cross-armhf`, `cross-aarch64`) for the
+emulated hosts ("Other hosts", "Big-endian and 32-bit hosts"), and the
+test suite (`port/tools/test.py`, `ctest`) goes with any of them ("Testing
+the port").  macOS: "macOS".
 
 Keys: they follow what is on the screen ("Keyboard, mouse and touch",
 below): WASD or the arrows drive in a level (W/S the pedals, A/D the
@@ -86,9 +88,9 @@ retrace count and then drives forward in the level, as
 level, which clears the hint panels, so the vehicle keeps moving; with
 either, `PORT_LEVEL=N` goes into level N instead, by the IDs of
 `docs/blast_corps_levels.txt`: `=1` is Angel City, `=3` Blackridge Works);
-`PORT_DUMP=N,...` writes RDRAM at
-the Nth controller read, counted as `tools/recomp/test/snapshot.c` counts
-them in mupen64plus, so the two can be compared byte for byte.
+`PORT_DUMP=N,...` writes the game's memory (its regions and the
+variables the host names) to `game_N.bin` at the Nth controller read
+("Comparing builds").
 `PORT_SHOT_EVERY=N` saves a screenshot every N frames (at the internal
 resolution with OpenGL; `PORT_SHOT_FROM=M`: from the Mth on); `PORT_GL_QUANT=1` makes the OpenGL renderer write
 5-bit color, as the RDRAM framebuffer holds it, and `PORT_GL_READBACK=1`
@@ -153,8 +155,8 @@ characters; only the screen's title is in kana), with doubled letters,
 Backspaces before anything was typed (the screen stays), and more than
 seven characters; and in the page (headless Chromium, Playwright's
 `page.keyboard`): typed, deleted, skipped characters, Escape deleting and
-then going back, and the save holding the name.  The variants' quick tier
-and the TAS on all of them, wasm's included, are unchanged.  Not tried: a
+then going back, and the save holding the name.  The quick tier
+and the TAS on every kind of build, wasm's included, are unchanged.  Not tried: a
 person at a real keyboard, an IME.  (A key pressed and released between
 two controller reads is missed, as before: the pad comes from SDL's
 keyboard state, and Playwright's `press` without `delay` is that fast; a
@@ -282,9 +284,9 @@ world map by clicks (the intro, the name typed by clicks on the wheel
 and confirmed by one in the middle), and with a save: a level picked by
 a click and gone into by another, its menu's EXIT pointed at and
 clicked, back on the map, and the globe dragged (the paths followed the
-pointer to the right); the same log, byte for byte, from all seven
-variants.  The port's tests are unchanged: the quick tier on every
-variant in us.v11 and us.v10, the TAS on every us.v10 variant.  Not
+pointer to the right); the same log, byte for byte, from every
+build.  The port's tests are unchanged: the quick tier on every kind of
+build in us.v11 and us.v10, the TAS on every us.v10 one.  Not
 tried yet: jp, the page (wasm), and by hand a real mouse, keyboard and
 touchscreen, driving with the keys among them.
 
@@ -336,93 +338,90 @@ ended at its 131st frame, the Rare logo at its 100th), on the title 59
 frames in (the name entry), and on Amber's introduction (the name entry,
 without a save); before the change each of those clicks did nothing.
 
-## Memory model
+## The build
 
-The decompiled C, the translated asm, the game's data and whatever the ROM
-holds all have to agree on memory.  The port keeps the N64's view of it
-exactly, and adapts the host to that, rather than the other way round:
+The port is one build: the game's C, the engine (`port/engine`),
+`port/src` (libultra's replacement), `port/libaudio` and the data
+`asm2c.py` makes of the handwritten objects' are compiled as ordinary C by
+the host's C compiler (clang, gcc or emcc), in the host's byte order and
+with the host's pointers, and linked with the host (`port/host`) into an
+ordinary program, a PIE.  A pointer is a host pointer, a variable is
+wherever the linker puts it, and nothing is at an N64 address.  The rest
+of this chapter is what that takes; the builds it replaced (a 32-bit
+big-endian one at the N64's addresses, then 64-bit, native-endian, LP64
+and movable ones) are in "History", at its end.
 
-- **32-bit addresses.**  The whole program is a 32-bit x86 program
-  (`-m32 -malign-double`), so a pointer is 4 bytes and every struct has its
-  N64 layout.  The executable is linked at `0x80400000`.  (The 64-bit build
-  keeps the layout and the addresses and changes only the code: see "The
-  64-bit build".)
-- **RDRAM at `0x80000000`.**  The first 4 MB of the address space is the
-  image's `.rdram` section (`tools/gen_ld.py`), so a KSEG0 address *is* the
-  host address.  The translated code's `rdram + (addr & 0x1FFFFFFF)` with
-  `rdram = 0x80000000` is the identity.  The hardware registers
-  (`0xA4000000`) are mapped as plain memory, and the fibers' host stacks
-  sit at `0x90000000`, inside the KSEG0 window, so the address of a local
-  means the same to the translated code.  A 64-bit
-  kernel puts the brk heap anywhere up to 1 GB above a non-PIE image (a
-  32-bit program's within 32 MB), so in a 64-bit build it is, a few starts
-  in a hundred, already in one of those two windows when `main` maps them;
-  then the port runs itself again with `ADDR_NO_RANDOMIZE`, which puts the
-  heap right above the image (`map_fixed`, `host/main.c`).
-- **The fixed buffers are regions.**  What the game uses by address
-  rather than as a variable is a table, `port/include/port_regions.h`: the
-  boot words at `0x80000300`, the two framebuffers from `0x80000400`, the
-  level pool from `0x8004B400` (and inside it the ghost's buffers, the
-  front end's area from `0x801E7000` and the effects heap's two limits),
-  init's area at `0x8021ED00` (the depth buffer, and where compressed
-  loads are staged), segment 1's static data after hd_code's `.bss`
-  (`D_803FF600`, the version's own) and the two hand-over words at
-  `0x803FFFF8`.  A region is a name (the address name), an N64 place and a
-  size, and the name is the only spelling of the address on the N64 side:
-  the game's C has it through `game/memmap.h` (`MEM_POOL` and the like,
-  the literals as they were for IDO), the engine and `port/src` by name.
-  The fixed builds put each name at its N64 place (`gen/port_fixed.ld`,
-  from `gen_syms.py regions`), the movable build resolves it there, and the
-  scattered layout moves it ("The scattered layout").
-- **No conversions.**  `K0_TO_PHYS`, `OS_K0_TO_PHYSICAL`,
-  `osVirtualToPhysical`, their inverses, `STATIC_K0_TO_PHYS`, Rare's adds
-  of `0x80000000` (`K0_TO_PHYS_ADD`) and the engine's own give the
-  pointer's value on the N64 side (`PR/R4300.h`, `PR/os.h`, `common.h`: a
-  `uintptr_t`, the KSEG0 address where pointers are 4 bytes and the whole
-  pointer where they are 8), so display lists, segment bases and audio
-  commands hold addresses, not physical ones; what reads them (the
-  renderer's `gfx_addr`, the audio HLE's `ram`, `port_ptr`) masks to
-  physical where the word is an N64 address, as the RSP ignores the top
-  bits.  An integer the game keeps for such an address is a `DlAddr`
-  (`game/types.h`: a `u32` for IDO, a `uintptr_t` here).  The engine check
-  build keeps the N64's forms: its translations write the physical words
-  the native code's are compared with.  What looks like an address but is a number stays one,
-  marked: the trap PCs in the engine's messages (`N64_PC`) and the N64
-  values the game uses as data (`N64_VALUE`, 69BB0.c's return addresses
-  and dead stack read as angles).  The movable build fails on any other
-  ("No address literals").
-- **Every game variable at its N64 address.**  The decompiled C relies on
-  the layout of the data, not just its contents: code reads fields through
-  names of their own (other files read the scheduler's frame counter,
-  `Sched.frameCount`, as `D_803156C4`), tables are indexed from a
-  neighbour, the front end's area is cleared by address.  The game's C is
-  built with `-fdata-sections`, the handwritten objects' data is C too
-  ("The asm data as C"), and `gen_ld.py` places each variable at its
-  address in the N64 link; the build checks all 3,937 symbols afterwards.  Anything in
-  RDRAM the port doesn't define is simply there, at its N64 address
-  (`tools/gen_syms.py`).
-- **Big-endian memory.**  The data files, the ROM's assets and most of the
-  C-owned data are untyped bytes: a native little-endian reading would need
-  every structure typed first (Phase 3/4).  Instead the game's C is compiled
-  by clang with **BEPass** (`port/bepass/`), an LLVM pass that byte-swaps
-  every multi-byte load and store, so memory holds exactly the N64's bytes.
-  Type punning, unions, `u64` halves, reading a struct from the ROM: all
-  behave as on the N64.  The translated asm stays in its tested big-endian
-  mode, and DMA is a plain copy.  Initialized data is fixed at startup: the
-  pass records the scalars in C initializers and a constructor swaps them
-  (`__bepass_fixup`), the asm data's included ("The asm data as C").  Swaps on locals
-  fold away; what's left costs a `bswap` or `movbe`.  Only code built with
-  the pass is on the "N64 side"; host code (`port/host/`) that touches game
-  memory does so through `port_be32()` and friends (`port/include/port.h`).
-  Functions that use `va_start` are left unswapped (the argument area is
-  the host's); the game's are empty debug printfs, and `sprintf` is the
-  host's `vsprintf`.
-- **Why this and not native pointers.**  It is the quickest way to run the
-  code as it is: no data needs typing, the translated engine is used exactly
-  as tested, and the game's own assumptions about addresses hold.  `-m32`
-  and BEPass turned out to be separable: the 64-bit build (below) drops
-  the first and keeps the second.  Native-endian memory is the harder
-  half and needs the data typed (see "Native-endian memory").
+### Memory model
+
+- **The game's variables are variables.**  The decompiled C relies on the
+  layout of its data in places (a neighbour indexed from another name, the
+  front end's area cleared by address); where it did, the C was changed
+  until it no longer does ("The engine's arrays", "Source changes for the
+  port"), so no address of the N64's matters.  The handwritten objects'
+  data is typed C ("The asm data as C"), and a name that is inside another
+  variable (a label in the middle of a table) is an alias at its offset.
+- **The fixed buffers are regions.**  What the game uses by address rather
+  than as a variable is a table, `port/include/port_regions.h`: the boot
+  words (`0x80000300`), the two framebuffers, the level pool (and inside
+  it the ghost's buffers, the front end's area and the effects heap's two
+  limits), init's area (the depth buffer, where compressed loads are
+  staged), segment 1's static data and the two hand-over words at
+  `0x803FFFF8`.  A region is a name (the address name, us.v11's in every
+  version), and `port/src/regions.c` makes each a buffer of its own, a
+  static array sized by `port_budget.h` ("Memory budgets"); the names
+  inside one are offsets into it (`game/memmap.h`: `MEM_POOL` and the
+  like).  The game's C has the names through that header, the engine and
+  `port/src` by name.
+- **No conversions.**  `K0_TO_PHYS`, `OS_K0_TO_PHYSICAL`, `osVirtualToPhysical`,
+  `STATIC_K0_TO_PHYS` and Rare's adds of `0x80000000` give the pointer's
+  own value (`PR/R4300.h`, `PR/os.h`, `common.h`: a `uintptr_t`).  An integer
+  the game keeps for an address a list holds is a `DlAddr` (`game/types.h`:
+  a `u32` for IDO, a `uintptr_t` here).
+- **The front end** is linked in, and "loading" it restores its variables
+  from a startup copy ("The overlay", below, "The platform layer"):
+  `tools/gen_fevars.py` lists them at build time from the front end's
+  object files, with the compiler's own `sizeof`, so the table is right
+  under any compiler, layout or sanitizer.
+- **Threads and queues are keyed by `uintptr_t`**, the game's stacks are
+  allocated, and the boot words (`osTvType`, `osMemSize`...) are
+  libultra's variables (`port/src/ultra.c`).
+- **The host interface takes pointers** (`host_*(const void *)`), and the
+  host reads the game's variables by name, `host_game_vars.h` (each
+  declared with the type the game's C gives it) and the structures it
+  reads field by field as `host_game_types.h`'s (`HostYoshiEntry`,
+  `HostGfx`, `HostVtx`...), laid out as this build's compiler does and
+  checked against the game's at compile time (`port/src/layout.c`).  The
+  big structures (`Vehicle`, `Building`...) are `host_layout` entries,
+  `sizeof`/`offsetof` of what the host reads.  The bytes of the RDP's
+  and the AI's side (framebuffers, TMEM, texels, samples) stay in the
+  N64's order and are read with `be16`/`wbe16`/`be32`; the ROM's are
+  `rd16`/`rd32`.
+- **The segment rule.**  A word of a display list is a pointer or a
+  segmented address (`segment << 24 | offset`, the RSP's), and the
+  renderer tells them apart by a tag, bit 0 (`G_SEGTAG`, `GFX_SEG_TAG`),
+  which no address a list holds has (a list is 8-aligned).  Every
+  producer tags: `G_SEGADDR`, the ROM's lists where they load
+  (`port/src/widen.c`), `asm2c.py`'s lists, and the names that are segment
+  addresses on the N64 (`D_02000000`, segment 2's frame; `D_01000010` and
+  `D_01000038`, lists in segment 1's static data) are **proxies**:
+  `port/src/segments.c` defines them as real, aligned, never-written
+  objects, and `port_seg_unproxy` turns a word inside one into its
+  segment and offset before the tag rule.  So the C's addresses of those
+  names are addresses of real objects, which any compiler may assume
+  aligned.  Strict mode (`PORT_GFX_STRICT=1`, every quick run) fails on a
+  list's malformed command, an unset segment and an address word that is
+  neither tagged nor inside the program's own image, the renderer's memory
+  or a game thread's stack (`gfx_strict_known`: Linux says its image by
+  `__executable_start` and `_end`, WebAssembly by `__global_base` and
+  `__data_end`; macOS doesn't, so there any pointer but null passes).
+- **The save** is the 512-byte EEPROM image in the N64's byte order, as it
+  always was: a save moves between hosts and builds, and `__osContDataCrc`
+  is taken of those bytes (`host_save_order` converts each block in and out).
+- **Where the data comes from.**  The executable carries the game's
+  initialized data (the C's, `asm2c.py`'s: about 260 K that is the ROM's,
+  `docs/DISTRIBUTION.md` 1a-1d); it needs the ROM at run time for the
+  assets.  Making that data from the ROM at startup instead, and so
+  publishing a binary without it, is a package of its own.
 
 The game's loops are plain loops.  It busy-waits in four places on what
 another thread or an interrupt changes: `func_80244930`'s two waits for 15
@@ -435,213 +434,307 @@ holding the CPU against lower priorities as the spin did (equal and higher
 ones run), and then tests again (`port/host/threads.c`).  Being a call, it
 also makes the loop read its variable again, as IDO's code does.  A
 busy-wait without it would spin forever with nothing else running; one
-found later in the game's C needs the same.
+found later in the game's C needs the same.  (Until 2026-10-05 every loop
+back edge polled instead, which made the number of iterations part of the
+game's timing; without the polls the clock moves only from event to event,
+"Timing", and a replacement's loops needn't have the original's shape.)
 
-Until 2026-10-05 BEPass put a call to `__port_poll()` on every loop back
-edge instead, where a spinning thread let a due event in, and every 64th
-moved `--deterministic`'s clock on by 2 µs, so the number of loop
-iterations the N64 side ran was part of the game's timing (code that never
-waits was built without them, `BEPASS_NOPOLL`).  Without the polls the
-clock moves only from event to event ("Timing"), and a replacement's loops
-needn't have the original's shape.
+**Sanitizers and compilers.**  Ordinary C can be instrumented, which the
+fixed map and the arena never allowed: `-DPORT_SANITIZE=address,undefined`
+(clang or gcc) builds the whole program under ASan and UBSan, every report
+stopping the program (`-DPORT_SANITIZE_RECOVER=ON` to go on), and the
+quick tier and the TAS pass under both (`test.py`'s `asan` kind).  Its
+first runs found real bugs, each its own commit: a texture load one word
+too long, a hostage text written past its string, a collision triangle
+read through a misaligned pointer, and UB in the engine's and the
+renderer's float conversions and shifts (`port_f2i.h`, `cvt.h`: a
+conversion out of range is defined, with the N64's result).  The N64
+side is compiled `-ftrivial-auto-var-init=zero` (`-DPORT_AUTO_INIT=pattern`
+finds an uninitialized local the game reads: a run whose hashes move with
+the pattern read one).  An `-fsanitize=array-bounds` build lists the
+indices past a declared end: every store past a global array's end is in
+bounds now (the arrays have their real size, or, where the N64's layout
+makes two named arrays one, one array under `TARGET_PC`); what is left,
+reads past a data table's end and indices past a member array inside its
+struct, no optimiser acts on.  The same source builds with gcc, with
+`-m32` for i386 (SSE2 arithmetic, `-malign-double`, as the N64's
+structures' sizes want) and with `zig cc` for PowerPC, MIPS and ARM
+("Big-endian and 32-bit hosts").
 
-The polls also hid undefined behaviour: being opaque calls, they kept
-clang from concluding that a loop storing past an array's declared end
-can't happen.  Without them it removed `func_801E8DCC`'s loop over the
-name being entered (`D_802158A8`, declared `[1]` by bss_c.py's split at
-splat's labels) in the 32-bit builds and kept it in the 64-bit ones, so
-the variants' attract modes parted (us.v11's and jp's `attract.long`,
-retrace 4750).  An `-fsanitize=array-bounds` build (`CMAKE_C_FLAGS`, with
-`-fsanitize-minimal-runtime -fsanitize-recover=array-bounds`) over the
-quick tier and the TAS lists every index past a declared end; every store
-past a global array's end it found is now in bounds (the arrays have
-their real size, or, where the N64's layout makes two named arrays one,
-one array under `TARGET_PC`).  What it still lists, reads past a data
-table's end and indices past a member array inside its struct, no
-optimisation acts on.
+### Byte order and the data's types
 
-## The 64-bit build
+Memory holds native scalars at the N64's offsets where it has them: a
+datum is in host order, a 64-bit one (`u64`, `s64`, `double`) a plain host
+scalar, an `Mtx` sixteen host words (element 2n the high half of word
+n), a `Vtx` its fields, a display list a `Gfx` of two pointer-wide
+words.  What only the RDP, the RSP's DMA or the audio reads as bytes
+stays in the N64's byte order: texels, palettes, framebuffers, samples,
+the microcode's data.
 
-`-DPORT_64BIT=ON` makes the port an ordinary 64-bit program (x86-64; the
-same route works for AArch64) that keeps everything the memory model above
-depends on: RDRAM at `0x80000000`, every game variable at its N64 address,
-the N64's struct layouts, big-endian memory, the translated engine as
-tested.  Only the code changes.  The game's C (and `port/src`) is compiled
-for **i386's layout and 64-bit code**:
+**What arrives as bytes is converted by type where it arrives**
+(`port/host/native.c`; `port/src/loads.c` wraps the decompressors' entry
+points, `host_rom_read` reports every PI DMA; `port/tools/gen_romtab.py`
+names the ROM's segments from the link map): the vehicles, the models
+(header, vertices, triangles, animated textures, effect records, damage
+states), the levels (header, vertices and every section the game reads at
+a width), their display lists, the attract recordings, the sound banks
+and sequences, `static_data`, the texture and model tables.  The fields
+the handwritten code read as big-endian byte pairs stay bytes, and the
+code that reads or writes bytes of a wider datum does it by value (by
+shift and mask, `buildings.h`'s `FX_B`/`FX_H`, `be16`/`be_put16`...), so
+it gives the same result in either byte order: the build runs unchanged
+on a big-endian host.  The C needed few changes of its own:
+`func_80200714` (hd_front_end 196F0.c) tints big-endian texels a byte at a
+time (`IMG_RD`/`IMG_WR`), the textures the C declares as `u16` or `Vtx`
+arrays are put back into the N64's order at boot, and `YoshiIcon.unk6`
+(declared bytes, read as `u16`s) into host order (`port_native_fixups`,
+`port/src/loads.c`).
 
-1. clang compiles it for `i386-pc-linux-gnu -malign-double` to unoptimised
-   IR, so the frontend lays every type out as the N64 does (4-byte
-   pointers and `long`s, 8-byte aligned `u64`s and doubles);
-2. `opt -passes=port-ilp32` (`port/bepass/ILP32.cpp`, in BEPass's plugin)
-   rewrites the module for the 64-bit target without changing any layout;
-3. clang optimises it and generates 64-bit code, running BEPass as usual.
+**The type inventory** (`blastcorps/include/game/inventory.json`, one per
+version where the layouts differ, made by `tools/inventory.py`) is what
+types the untyped: `types` (every struct shared between the C, the asm
+and the ROM's data: `size`, `align`, `fields` as `{off, name, type,
+count}`, where `type` is a scalar, another type, `bytes`, `gfx` or an
+address kind: `ptr`, `romoff`, `segptr`, `offset`), `symbols` (the
+variables whose declared type isn't their real one, and the asm data's
+labels), and `loads` (every place bytes arrive untyped: the site, the
+ROM segment, the destination, the type and what the game then turns
+into pointers).  `asm2c.py` and `native.c` read it.
 
-`port/tools/ilp32cc.py` does the three steps as CMake's compiler launcher
-for the N64-side targets.  Everything else (the host side, the translated
-engine, the data files) is compiled natively; none of it depended on
-32-bit pointers, since the translated code and the host already handle game
-memory through 32-bit N64 addresses.
+### Where pointers are 8 bytes
 
-What port-ilp32 does to the i386 module:
+Every pointer the game's C, the engine and the asm data keep in memory is
+a plain `T *`, in a struct the host compiler lays out, so on a 64-bit
+host about 120 of the game's structures are bigger than the N64's: the
+OS's and the scheduler's (`OSThread`, `OSMesgQueue`, `Sched`...), the
+display lists' and the audio commands' (`Gfx` 16 bytes, `Acmd`, and what
+holds commands: `Frame`, `BlockInfo`, `Smoke`...), libaudio's (32
+`AL*` structures and its private blocks in the audio heap, which is the
+bigger of the N64's size and the structure's: `libaudio_heap.h`), Rare's
+sound player, the game's objects (`Vehicle`, `Building`, `YoshiEntry`...),
+the engine's records and gzip's `huft`.  The `SIZE_CHECK`s of these are
+`SIZE_CHECK_C`, the N64's size where pointers are 4 bytes.  Where the
+words of a command are as wide as a pointer, the ROM's lists are widened
+where they load (`port/src/widen.c`) and the pool that holds them grows by
+a formula (`port_budget.h`, `PORT_POOL_GROWTH`; "Graphics").  Where
+pointers are 4 bytes (i386, PowerPC, MIPS, ARM, wasm32) everything is the
+N64's own size.
 
-- **Pointers are 8 bytes in registers and 4 in memory.**  A load of a
-  pointer is a 32-bit load and a zero extension, a store truncates, a
-  pointer in an initializer is a 32-bit relocation.  This is sound because
-  every address the game's C ever holds is below 4 GB: RDRAM, the image
-  (non-PIE, at `0x80400000`, linked with the PIE start files and
-  `--no-pie`, since the non-PIE `crtbegin.o` addresses its data with
-  sign-extended 32-bit immediates), and the fibers' host stacks at
-  `0x90000000`.  `-DPORT_ILP32_CHECK=ON` checks every pointer store for
-  that; 12,000 frames of the attract mode and 6,000 of each
-  `PORT_AUTOSTART` mode stored none above 4 GB.
-- **The layout is made explicit.**  GEPs become byte offsets computed by
-  the i386 layout, allocas and globals whose type holds a pointer become
-  packed structs of the same size with explicit padding, `byval`/`sret`
-  types become byte arrays; then the module gets the 64-bit triple and data
-  layout (`-port-ilp32-triple`), and loses the i386 target attributes.
-- **Pointer arithmetic wraps at 32 bits**, as on the N64.  The game relied
-  on it: the original libaudio's `alBnkfNew` relocates a bank's offsets with
-  `(u8 *)offset + (s32)base`, which on a 64-bit GEP sign-extends the
-  KSEG0 base and lands below zero.  A GEP by a variable (or large) offset
-  is computed on the 32-bit address; one by a small constant (a field)
-  stays a GEP, so it still folds into the access.
-- **Accesses outside the named variable** go through an integer, so LLVM
-  can't assume they don't alias the neighbour they really touch (the
-  decompiled C's `T x[1]` placeholders and `extern T x[]` read and write
-  past their end on purpose).  Variable offsets already do, by the rule
-  above; the constant ones are all on incomplete arrays (84 accesses in 11
-  files, `PORT_ILP32_STATS=2` lists them).
-- **K&R calls behave as on the N64.**  The decompiled C declared the same
-  function differently in different files, which on MIPS (and i386) is
-  harmless and on x86-64 isn't.  Every function is declared once now
-  (`blastcorps/include/functions.h`), so a direct call has its callee's
-  type; what is left for these rules is a call through a function pointer
-  of another type.  Three rules make it so again: pointer
-  arguments are re-zero-extended on entry (a caller may have passed an
-  `int`); a `u8`/`s8`/`u16`/`s16` result is returned extended to 32 bits
-  (`00000.c` declares `s32 func_8028653C(void)`, `41930.c` defines it
-  `u8`: x86-64 leaves the upper bits of `eax` undefined, the menu took the
-  wrong branch and the game crashed two screens later); a callee
-  re-extends its own narrow arguments, as IDO's code does.  A pointer
-  result is zero-extended at the call.
-- **No varargs definitions** (the `va_list` would be i386's): the pass
-  refuses them.  The game's own are empty; `sprintf` and the copies
-  (`bcopy`, `bzero`, `memcpy`, which call the host's with a `size_t`) are
-  host code in the 64-bit build (`port/host/libc64.c`).
+In the C: `OSMesg` is a real pointer (`OS_MESG(n)`, `OS_MESG_INT(m)`,
+`osRecvMesgInt`), the frame buffer the game passes around is a `Frame`
+(`game/frame.h`), a data word that held an address keeps a number (a
+group set holds its building's index, an animated texture its texture
+number), and where retyping a matched function's parameter would move
+IDO's output it keeps its `s32` and the call casts (`func_80257490`'s
+port body rounds the pointer itself).
 
-The glue changes for both builds: `gen_glue.py` passes integer arguments
-into native functions as `uintptr_t` (the 32-bit value zero-extended, so a
-pointer parameter isn't left with an undefined upper half) and returns
-integer results the same way, narrow ones extended as MIPS returns them.
-In the 32-bit build `uintptr_t` is `uint32_t`, and its runs are unchanged
-(all ten screenshots of the run below are identical to before).
+**Rules for a change.**  A variable's definition and all its declarations
+change together, in one commit: one left `s32` beside an 8-byte one is a
+silent mismatch that x86 hides until a write leaves a stale high half; a
+pointer variable more than one file uses is declared once, in a header.
+A function that writes a pointer through an out-parameter needs every
+caller's local retyped.  An allocation sized with an N64 literal is too
+small for a native struct: size it with `sizeof`.  A struct the host reads
+goes into `host_game_types.h` (checked in `layout.c`) or `layout.c`'s
+entries, not as an offset in the host.
 
-The fixed addresses stay as they are: `gen_ld.py` and `gen_syms.py` work
-unchanged on the 64-bit objects, and the link's check finds all 3,432
-symbols in RDRAM at their N64 addresses.
+**The tools** (all on the one build; `test.py quick` runs the first three
+on a native build whose pointers are 8 bytes):
 
-**Result.**  `--headless --deterministic --renderer gl --frames 3000` with
-`PORT_AUTOSTART=1` plays the same sequence as the 32-bit build: the N64
-and Rare logos, the title, the name entry, the world map, Simian Acres and
-its pause menus.  The screenshots at 300 and 600 frames are identical;
-later ones are a few frames apart, because the C's instruction count (the
-timing model's ICount) is of x86-64 IR, not i386's; the pacing per mode is
-the same (2.00 retraces a frame in Simian Acres, 1.99-2.00 on the title).
-With the timing taken out of the comparison (see "Comparing builds") the
-two builds are identical: every screenshot of 3,000 frames, and RDRAM at
-every fifth controller read up to the 500th except the addresses of the
-port's own code and stacks.  The first difference, by the 505th, is a
-miscompile in the 32-bit build, not the 64-bit one: `2B3F0.c` stores
-`D_8036BBB0[n] = D_8036BBB0[n + 1] = i` into a `u16 D_8036BBB0[1]`, the
-N64 code stores both halves, the 64-bit build does, and the 32-bit build's
-clang drops the out-of-bounds one.  The next one is the same with
-`26570.c`'s `D_8036BB48[sp28]` (the 64-bit build writes the index, the
-32-bit one element 0), which puts a `#` into the text of an attract-mode
-panel.  4,500 deterministic frames take 2.3 s, against 2.6 s for the
-32-bit build.
+- `port/tools/decl_check.py BUILD --version all`: every `D_`/`func_`
+  name's declarations across the N64 side's files (clang's AST) and
+  asm2c's word for it: a pointer declared as an integer in one file, 4
+  bytes in one and 8 in another, or a variable declared bigger than its
+  definition fails (`decl_allow.txt` is empty);
+- `port/tools/ptrcast_scan.py BUILD --version all`: clang's
+  pointer/integer conversions and incompatible pointer types, classed by
+  where they are, counted per file and version against
+  `ptrcast_allow.txt`;
+- `port/tools/n64_tus.py`: the N64 side's translation units with the
+  build's own commands, which the last two run with each version's
+  `VERSION_` define, so one build answers for all four;
+- `port/tools/sdk_identity.py`: every object of the N64 side comes out
+  the same with the port's SDK headers (`port/include/sdk`) as with the
+  decompilation's 2.0I (`-DPORT_SDK_2_0I=ON`), in 8- and 4-byte-pointer
+  builds;
+- the N64 side is compiled with `-Werror=int-conversion`,
+  `-Werror=incompatible-pointer-types` and
+  `-Werror=incompatible-function-pointer-types` (`CMakeLists.txt`).
 
-**AArch64.**  The whole N64 side (122 files) compiles for
-`aarch64-unknown-linux-gnu` through the same pass; the host code has no x86
-code left (`gfx.c`'s `-msse4.1` is x86-only now), but neither is linked or
-run here (no AArch64 sysroot).  Linux on AArch64 can link a non-PIE image
-at `0x80000000` (ADRP reaches ±4 GB).  macOS on arm64 can't (executables
-must be PIE); there the game's variables would have to move out of the
-image into the arena, which needs every one of them reached through a
-symbol the port can relocate.  (That is the movable build, "Movable
-memory"; macOS takes it: "Other hosts", "macOS".)
+### The overlay
 
-**Alternatives.**  Kept for the record, since each was a candidate:
+On the N64, `func_8028B3E0` inflates the front end's `.text` and `.data`
+to `0x801E7000` and clears the rest of its area; gameplay reuses that
+memory for the level.  In the port the front end's code is linked in and
+its variables are ordinary globals, so "loading" it puts each back as it
+was at startup, from a copy made then (`port/src/overlay.c`, its
+variables' table from `gen_fevars.py`); it runs the N64's DMA and inflate
+first, into the region, for the time they take.
 
-- clang's `__ptr32 __uptr` (`-fms-extensions`): it works on Linux, for
-  x86-64 and (clang 22) AArch64 alike (a struct `{int *__ptr32 __uptr p;
-  int x;}` is 8 bytes, `p` a zero-extended 32-bit load).  But every
-  pointer declaration in the game and its headers would need the
-  annotation (an empty macro for IDO), `long` would still be 8 bytes, and
-  an unannotated pointer would silently be 8.  It is the natural spelling
-  for the few shared fields that stage 3 keeps 32-bit.
-- A `PTR32(T)` type (a pointer for IDO, a 32-bit handle on the PC): the
-  same annotation everywhere, plus a conversion at every use.  Worth it
-  later only for the structs that stay shared with the asm or the ROM
-  (stage 3 below).
-- The x32 ABI: exactly this model, but it needs `CONFIG_X86_X32_ABI`
-  (off in most kernels) and x32 builds of SDL and the GL driver.
-- Native LP64 C: changes every struct with a pointer in it, which the
-  translated asm and the ROM's data read at N64 offsets.  That is stage 3,
-  after the types are known.
-- Narrowing pointers in native LP64 IR: needs the frontend's layout to be
-  the N64's to begin with, which is what the i386 frontend gives.
+### The asm data as C
+
+The handwritten objects' data is typed C: `asm/data`'s `.data`, `.rodata`
+and `.bss` files of hd_code and hd_front_end (but libultra's exception
+jump table, `972A0.rodata.s`), the two pointer-bearing islands of hd_code's
+`.text` (`7D9D0.bin.s`, `800DC.bin.s`), the islands kept as `.bin` and
+jp's `GLOBAL_ASM` rodata.  `port/tools/asm2c.py` writes it at build time
+from the extracted asm (`gen/data_c/`: a `.c` per file and `asm_data.h`,
+the types and every variable's declaration; the data is the ROM's, so
+nothing of it is committed), and it is built like the game's C
+(`game_data`: the N64 side's flags, `-fdata-sections`).  A variable that is
+zeros is a plain zero-initialized one, in no section of its own.
+
+- **Types.**  Each label is a variable of the type the inventory gives it
+  (`symbols`): the header types under their names (`YoshiEntry`,
+  `VehicleState`, `Building`, `UnkStruct_803ED460`, `Mtx`, `Vtx`), each
+  handwritten-data record type as `asm_D_X` from its fields, scalars as
+  themselves; a label the inventory doesn't type is typed by its
+  directives (`u32` for `.word`, `u16`, `u8`, `f32`, a pointer for a
+  symbol).  A variable runs to the next one: what is left after its whole
+  elements (a record cut short, a terminator, padding) is a `tail` beside
+  them in a struct of its own (`D_X_t`), so that every byte of the file is
+  in a variable.  The inventory types every label (1,481 in us.v11):
+  `tools/inventory.py`'s `ASM_DATA_TYPES` gives the rest their readers'
+  types, `ASM_DATA_LAYOUTS` the records the engine names and the VI modes,
+  `ASM_DATA_TEXT16` makes hd_code BC8E0's 555 labels the `u16` text they
+  are.  What stays bytes: text (C strings, the 0xFF-terminated text), the
+  dome's texture, data read only as bytes, the chance records the code
+  reads both ways (`ASM_DATA_BE`), the islands' byte runs, and the RSP
+  microcode's text (zeros, `RSP_TEXT`: nothing reads it).
+- **Pointers.**  A symbolic `.word` is a pointer initializer: `(T *)&D_X`,
+  `&D_8030xxxx` of a member, `(u8 *)&D_X + n` for a name inside a
+  variable, a function's name for a function.  A pointer is native, as the
+  C that reads it declares it (`POINTERS`: the words the C has as pointers,
+  tables to a sentinel included).  A display list is typed by its kind,
+  `Gfx` (`asm_Gfx`: two words as wide as a pointer), and a word of it that
+  holds an address is the symbol's pointer value, a `uintptr_t`, its
+  segmented ones tagged ("Memory model"): `D_802F46C0`, `D_802F4780`,
+  the effects' two-pass buffers and `D_80300A68`, the carrier's
+  explosion's dome, which runs to its `G_ENDDL` (`SPLIT_LABELS` makes the
+  words after that a variable of their own, `D_80300A68_after`).
+- **The same bytes.**  Each datum is in host order at the width the
+  inventory's fields, the islands' layouts (`ISLANDS`, `BLOBS`) and the u16
+  text (`HALF_FILES`) give it; the generator checks each variable's C type
+  against them unit by unit, so a type that would put a datum in another
+  order gives way to the directives' runs
+  (`gen/data_c/asm_data_report.txt` lists them: three).
+- **What code walks across.**  A table the code reads across labels is
+  one variable (`LABEL_TYPES`): the first label's type runs over the
+  others, which are names inside it: the chance records of `D_80306344`,
+  `D_80306350` and `D_803063D4`, walked into `D_803063E0`, the wheels'
+  words and bytes (62740's `D_803ED398`...), the barges' (83910's
+  `D_803F8748`...) and the visibility task with its stack (5FD50's
+  `D_803BE740`); `D_8020C070[]` (`YoshiEntry`, hd_front_end 25070) is one
+  array to its file's end, over the labels splat made inside it.
+- **Names inside a variable** (a struct's members but the first, the labels
+  inside `D_8020C070[]`, a label with no bytes before the next) are
+  aliases at their offset, module-level asm in the generated file
+  (`.set D_80306350, D_80305E10 + 0x540`, with `PORT_ULP`,
+  `port_game.h`, in front of each name: the leading underscore Mach-O puts
+  on a C name, nothing on ELF), so that the C and the host link to them;
+  in C that doesn't rely on addresses they are the members
+  (`D_80305E10.D_80306350`), which is what the generated initializers use.
+
+### History: the builds before this one
+
+Until P10 (2026-10-11 and 12) the port was built the other way round: it
+kept the N64's view of memory exactly and adapted the host to it.  Each
+step below was exact against the one before (the same hashes, the same
+TAS), which is what made the next one safe; all of them were deleted when
+the plain build had passed everything they did on more hosts
+(`engine-check-last` is the last commit where they still build).
+The measurements and records in the chapters below name the builds of
+their day (`32`, `64`, `n64`, `lp64`, `m64`, `mlp64`, `mn32`, `wasm`;
+BEPass, port-arena, the check build): those are these, and every kind of
+build gives the same results now.
+
+- **The 32-bit fixed build** was an i386 program linked at `0x80400000`
+  with RDRAM as its `.rdram` section at `0x80000000`, every game variable
+  at its N64 address (`gen_ld.py`'s script, 3,937 symbols checked after
+  the link), the hardware registers at `0xA4000000` and the fibers'
+  stacks at `0x90000000` (`map_fixed`, and an `ADDR_NO_RANDOMIZE` re-exec
+  when the brk heap landed in one of those windows).  The game's C went
+  through **BEPass**, an LLVM pass plugin that byte-swapped every
+  multi-byte load and store, so that memory held the N64's bytes (and
+  `__bepass_fixup` swapped the initializers at startup).
+- **The 64-bit build** (`PORT_64BIT`) compiled the game's C for i386's
+  layout and 64-bit code (port-ilp32): pointers of 4 bytes in memory,
+  N64 addresses as the host's.  **The native-endian build**
+  (`PORT_NATIVE_ENDIAN`) kept every datum in host order at its N64
+  offset, converting what arrived as bytes by type where it arrived: that
+  is today's "Byte order and the data's types", found with an access-width
+  profiler (every byte's last writer and width) and checked against the
+  big-endian build call for call.  **The LP64 build** (`PORT_LP64`) made
+  the pointers the host's: today's "Where pointers are 8 bytes".
+- **The movable build** (`PORT_MOVABLE`: macOS and WebAssembly) kept N64
+  addresses as pointer *values* and put the memory in an arena at any
+  base: the N64 side was linked as one LLVM module, `opt -passes=port-arena`
+  mapped every access to `arena + (p & 0x1FFFFFFF)`, resolved the globals
+  and made the initial image, and typed-call checks, scattered layouts
+  (`PORT_SCATTER`: variables moved apart to find overruns, the guard that
+  trapped in the gaps), the "No address literals" check and `PORT_ROM_DATA`
+  (the arena's image made from the user's ROM at startup rather than carried)
+  were its checks.
+- **The translated engine and the check build.**  Rare's handwritten code
+  ran first as `tools/recomp`'s mechanical translation of the asm
+  (checked against the original in unicorn); `port/engine` is the same
+  code as C written by hand, and for a while `PORT_ENGINE_CHECK` ran both,
+  comparing the memory they wrote.  `tools/recomp` stays as a
+  decompilation tool (its decoder, `tools/fieldscan.py`'s type inventory)
+  and the record of how the engine was verified (`make -C tools/recomp
+  test` is its own differential test); the port needs of it only
+  `tools/recomp/config.py`'s list of jp's `GLOBAL_ASM` functions.
+- **Comparing builds** was `build_cmp.py` over `PORT_DUMP`s of RDRAM, call
+  traces and instruction traces; the plain build compares runs by their
+  hashes and the gameplay digest ("Testing the port", "The gameplay
+  digest"), and `PORT_DUMP=N,...` writes `game_N.bin`: the regions
+  and every variable the host names, each a line `name size` and its bytes
+  (`port/host/dump.c`), the same for two runs of one build with ASLR off.
 
 ## Comparing builds
 
-Two builds of the port can be compared run for run with
+Two builds of the port (two compilers, two optimisation levels, a host and
+a cross build under qemu) can be compared run for run with
 `--deterministic` and the same `--save` (or none): the game's work takes
-no time, so neither build's code moves events.  Then:
-
-- `PORT_DUMP=N,...` in both and `port/tools/build_cmp.py rdram A B N...`
-  compares RDRAM at those controller reads, leaving out words that are
-  addresses in the port's image or on the host stacks in both;
-- a `-DPORT_TRACE_CALLS=ON` build calls `__port_trace` on every entry to a
-  function of the game's C; `PORT_TRACE=FILE,FROM,TO` writes them between
-  two controller reads, and `build_cmp.py trace A.bin B.bin EXE` shows
-  where two traces part.
-
-That is how the 32-bit build's miscompiles above were found (and the
-64-bit build's early bugs: the libaudio relocation, the narrow returns).
-Against a native-endian build ("Native-endian memory"):
-
-- `build_cmp.py rdram --native BE NATIVE N...` compares RDRAM through the
-  byte orders a word can have; when the native run is a
-  `-DPORT_ACCESS_PROFILE=ON` build's, each dump comes with the width every
-  byte was last written or converted at (`rdram_N.widths`) and the compare
-  is exact, byte by byte;
-- a `-DPORT_TRACE_ASM=ON` build (the translated code built with
-  `RECOMP_TRACE`) writes, for `PORT_ITRACE=FILE,FROM,TO`, every translated
-  instruction's address and the registers before it, and `build_cmp.py
-  itrace A.bin B.bin` finds the first instruction whose registers differ
-  but for byte order (a word copy of halves or bytes, which native memory
-  holds in its own order).  The registers hold the same values in both
-  builds, so that instruction is the one after the load that read
-  something typed wrongly.  (Much slower; one or two controller reads at
-  a time.)
+no time, so neither build's code moves events.  `test.py quick BUILD
+--against BUILD` compares every hash of two builds' quick tiers; `test.py
+table BUILD...` shows them side by side; the gameplay digest says where
+two runs part ("The gameplay digest": `digest_cmp.py A B` names the first
+level, frame and field that differ); and `PORT_DUMP=N,...` in both writes
+`game_N.bin` at the Nth controller read, the game's regions and the
+variables the host names, which two runs of one build compare byte for
+byte with ASLR off (`setarch -R`), as the pointers in them are the run's.
+The N64 side can be run under the sanitizers for what a diff can't see
+("The build").
 
 ## Testing the port
 
 `port/tools/test.py` runs the checks above as a suite, and each build
-directory has them as CTest tests:
+directory has them as CTest tests (labels `quick`, `tas`, `tas-prefix` and
+`budget`):
 
 ```
-ctest --test-dir build/port.us.v10 -L quick -V    # about a minute
-ctest --test-dir build/port.us.v10 -L tas -V      # the TAS, 10-20 minutes
-ctest --test-dir build/port.us.v10 -L recomp -V   # tools/recomp's difftest, a few minutes
-port/tools/test.py variants [--tas]               # the standard variants, built and checked
+ctest --test-dir build/port -L quick -V         # about a minute
+ctest --test-dir build/port -L tas -V           # the TAS, 10-20 minutes natively
+ctest --test-dir build/port -L tas-prefix -V    # the TAS's first 3000 frames (what an emulated build runs)
+ctest --test-dir build/port -L budget -V        # the memory the build takes, against its ceiling
+port/tools/test.py kinds [--tas]                # the standard kinds, built and checked
 ```
 
 or `test.py quick BUILD...`, `test.py tas BUILD...` (several at once, in
-parallel), `test.py recomp`.  Every line says PASS, FAIL, XFAIL (a known
-failure, below) or SKIP; the exit status is 1 on any FAIL, 77 (CTest's
-skip) when nothing could run: no ROM, no TAS log (`build/tas/run/polls.csv`,
-`port/tools/tas.sh`), no venv with numpy and unicorn.  The outputs stay in
-`BUILD/test/` for a closer look.
+parallel; `--frames N` plays only the TAS's first N frames), `test.py
+budget BUILD...` ("Memory budgets") and `test.py table BUILD...`.  Every
+line says PASS, FAIL, XFAIL (a known failure, below) or SKIP; the exit
+status is 1 on any FAIL, 77 (CTest's skip) when nothing could run: no ROM,
+no TAS log (`build/tas/run/polls.csv`, `port/tools/tas.sh`), no venv with
+numpy.  The outputs stay in `BUILD/test/` for a closer look.  A build's
+**kind** is what its CMakeCache says: `plain` (clang), `gcc`, `asan`
+(sanitizers), `m32` (i386), the emulator's arch for a cross build (`ppc`,
+`mipsel`), `wasm`, joined by `-` (`gcc-asan`); the references' known
+failures are by kind (none now).  A cross build runs under its emulator
+(qemu-user, as its toolchain file names it, or `--qemu ARCH`) with every
+timeout 60 times as long, and only the four scenarios compared with the
+references ("Big-endian and 32-bit hosts").
 
 **quick.**  Deterministic runs (`--deterministic`, `--headless`, the
 software renderer, no save to start from): the attract mode for 4,000
@@ -655,9 +748,7 @@ made from the ROM ("Resource packs": `attract.pack`, `auto3.pack`,
 `auto3.pack.nocode`, every hash as from the ROM) and from edited copies of
 it (`auto3.pack.edit`, `auto3.pack.hires`, `auto3.gl.pack.hires`).  Their hashes (16 digits of sha1) are compared with
 `port/tools/test_refs.json`'s for the build's version; with `--against
-BUILD` also with another build's last results.  A `PORT_ROM_DATA` build is also
-searched for the ROM's data (`rom_scan.py`, "The data from the ROM"), and
-fails on any.  Within the build, where
+BUILD` also with another build's last results.  Within the build, where
 the executable is the same, `=3` again must give the same:
 
 - with the other thread backend (`PORT_THREADS`): every hash;
@@ -667,7 +758,7 @@ the executable is the same, `=3` again must give the same:
   sides) and with `--aspect 21:9 --hud centre` (SDL's offscreen driver;
   the OpenGL ones left out without libepoxy): the save and the sound.
 
-What's exact: with the timing taken out, every variant plays the same game,
+What's exact: with the timing taken out, every kind of build plays the same game,
 so the save and the sound are the same in all of them, and so are the
 screenshots, except where the references say otherwise:
 
@@ -681,91 +772,64 @@ screenshots, except where the references say otherwise:
   5250, 7500, 8000 and 9500 in jp), and since "The front end's waits"
   every scenario is 30 retraces further along at each of those frames
   and no screenshot falls on the static (the portrait is gone by 1500):
-  all eight variants of all three versions give every screenshot the
+  every kind of build, of all three versions, gives every screenshot the
   same.  A change of timing can put one back on it.
-- **known failures** (`known`, by variant): the build passes as XFAIL
+- **known failures** (`known`, by kind): the build passes as XFAIL
   while it gives exactly the hashes recorded there, and fails on anything
   else; when the failure goes away it passes with a note to take the
   entry out.  `test.py quick BUILD --known NOTE` records a build's
   differences as one.
 
 `test.py quick BUILD --update` writes a build's hashes as its version's
-references; take them from a build that is right (a 64-bit big-endian one
-now), after a change meant to change what the game draws or plays.  There
+references; take them from a build that is right (any: they don't depend
+on the compiler, the sanitizers, the pointer size or the byte order),
+after a change meant to change what the game draws or plays.  There
 are references for all four versions.
 
 **tas.**  The replay of "The TAS", each build in its own copy of the
 executable: `tas_check.py`'s 57 platinum, and the replay's report: all of
 the log's reads matched, none skipped, no mode forced, and the save the
-reference's (every exact build writes the same one).  A variant with a
-known drift (`test_refs.json`'s `tas`) passes as XFAIL while its matched,
-skipped and forced counts and its save are exactly the known ones.  The
-retraces given anyway are printed but not checked (they follow the CPU
-model's timing: 78 in the 32-bit build, 123 in the 64-bit one, 384 in the
-movable one).  `--again` checks the last replays' results again without
+reference's (every exact build writes the same one).  A kind with a
+known drift (`test_refs.json`'s `tas`; none now) passes as XFAIL while its
+matched, skipped and forced counts and its save are exactly the known
+ones.  The retraces given anyway are printed but not checked (they follow
+the CPU model's timing).  `--frames N` plays the movie's first N frames
+only (the TAS's prefix, for an emulated build: the whole replay is 30-90
+times its 17 minutes there) and compares the gameplay digest with the
+native run's as far as it goes (`build/digest-refs/us.v10/tas.digest`,
+which `tas --save-digests` on a native build puts there; CTest's
+`tas-prefix` runs 3000 frames).  `--again` checks the last replays' results again without
 running them.
 
-**variants.**  Configures and builds, from the stage 2 in `blastcorps/`
+**kinds.**  Configures and builds, from the stage 2 in `blastcorps/`
 (us.v10 by default, `--version`: the stage 2 has to be that version's),
-the standard set into `build/test-*/`:
-`32`, `64`, `n64` (native-endian 64-bit), `lp64`, `m64` (movable 64-bit),
-`mlp64` (movable LP64), `mn32` (movable native-endian 32-bit) and, where
-emsdk is (`--emsdk DIR`, `$EMSDK`, or `emcmake` on the `PATH`; a SKIP
-otherwise), `wasm` (the WebAssembly build under node, "WebAssembly"); runs
-quick on all of them at once, then checks `wasm` against `mn32` in every
-hash, the layout-dependent screenshots included (the two have one
-layout: "WebAssembly"), and prints a table of every variant's scenarios
-against the references; `--tas` then replays the TAS on all of them in
-parallel.  `--no-build` uses the directories as they are, `--only` picks
-variants.  `test.py table BUILD...` shows every hash of some builds' last
-quick runs side by side.  `quick` and `tas` take a WebAssembly build
-directory like any other (they run `blastcorps.js` with the node CMake
-found, and `quick --against` between it and an `mn32` compares every
-hash).  On a 32-thread machine, from empty directories: the seven Linux
-builds 38 seconds, their quick tiers 67 seconds together, and with
-`--tas` 24 minutes in all; `wasm`'s quick tier takes about 2 minutes
-beside them and its TAS 28 to 38 minutes, so the eight with `--tas` take
-30 to 40.
+the standard kinds into `build/test-*/`: `plain` (clang), `gcc`, `asan`
+(clang with ASan and UBSan) and `m32` (i386, with the multilib SDL), and
+with `--only` the others: `ppc` and `mipsel` (zig cc's cross builds,
+under qemu) and `wasm` (the WebAssembly build under node, where emsdk is:
+`--emsdk DIR`, `$EMSDK` or `emcmake` on the `PATH`; a SKIP otherwise,
+"WebAssembly").  It runs quick on all of them at once and prints a table
+of every kind's scenarios against the references (every kind must give
+the references' hashes, `=`); `--tas` then replays the TAS on all of them
+in parallel.  `--no-build` uses the directories as they are.  `quick` and
+`tas` take a WebAssembly build directory like any other (they run
+`blastcorps.js` with the node CMake found).  A quick or tas run on a
+sanitized build sets `ASAN_OPTIONS=detect_leaks=0` unless the environment
+has its own.  `test.py quick` also runs the pointer checks ("Where
+pointers are 8 bytes") on every native build whose pointers are 8 bytes,
+and the check that no translated function of `tools/recomp` is linked.
 
-Where it stands (main at the time of writing): quick passes in all seven
-for us.v10, us.v11 and jp, and in `wasm` for us.v10 (the version it was
-run for), with no known failures.  The last one was the native-endian
-builds' carrier on the globe: from retrace 1,228 to 1,285 of every
-`PORT_AUTOSTART` run (the world map's intro), about 22 pixels of the
-carrier came out slightly different in color, with both renderers.  The
-display lists and RDRAM were the same by type; the renderer's log of
-what it loaded showed five textures differing, hd_front_end 9570.c's
-RGBA16 mipmaps (`D_802084F0`, `D_80209028`, `D_80209B60`, `D_8020A698`,
-`D_8020B1D0`), which the C declares as `u16` arrays and only hands the
-RDP: they were left in host order.  `port_native_fixups` puts them back
-into the N64's, as it does hd_code's (below).
-
-With the tier running under the variants' table, us.v11 and jp: every
-variant equal to the 64-bit big-endian references but for the
-layout-dependent static (`~`), in all five scenarios.  The
-quick tiers take about two minutes together with `attract.long`.
-(Since "The front end's waits", all eight variants, `wasm` included,
-equal the references in every hash, `=`, for all three versions.)
-
-(jp's first runs found its IDO asm, translated, doing what Rare's code
-doesn't: the movable builds stopped at the pak thread's entry, which only
-the asm takes the address of; the LP64 build crashed on display list slots
-passed as `Gfx **` and on pointer arrays read by words, and lost the
-Japanese text; `sprintf` from the asm read four arguments of five; and the
-native-endian builds read a byte of an `s16` and byte pairs declared as
-halves at their big-endian places.  "Other versions" has what changed.)
-
-(The suite's first run also found the 32-bit builds reading the glue's
-narrow results as all of `eax`: three of the game's C functions the
-translated engine calls return `u8`, and i386 leaves the rest of the
-register as it was, which changed the attract demo from its 1,563rd
-controller read.  `gen_glue.py` declares them by their type now.)
-
-The TAS: all eight exact, all 125,297 reads matched, none skipped, no
-mode forced, 57 platinum and the same save (the native-endian builds'
-late drift is gone: "The native-endian build"); `wasm`'s replay log is
-`mn32`'s line for line.  Eight replays at once take 30 to 40 minutes on
-a 32-thread machine (`wasm`'s is the slowest; the Linux ones 18 to 25).
+Where it stands: every kind of build gives every reference hash for all
+four versions' scenarios, with no known failures (the last one was the
+native-endian builds' carrier on the globe, from retrace 1,228 to 1,285 of
+every `PORT_AUTOSTART` run: five RGBA16 mipmaps of hd_front_end 9570.c,
+which the C declares as `u16` arrays and only hands the RDP, were left in
+host order; `port_native_fixups` puts them back into the N64's).  The
+quick tiers take about two minutes together with `attract.long`.  The
+TAS: every build exact, all 125,297 reads matched, none skipped, no mode
+forced, 57 platinum, the same save and gameplay digest (`2e9a3a7173fe4337`);
+natively it is 17 minutes (about 45 under ASan), under node 25 minutes
+(`wasm`'s quick tier takes about a minute).
 
 ### The gameplay digest
 
@@ -839,7 +903,7 @@ game's state, the ROM's data at work, so like the TAS's logs they stay out
 of the repository: `quick --update` and `tas --update` record the hash in
 `test_refs.json` and copy the digest to `build/digest-refs/<version>/`, and
 where a hash differs and that copy is there, `digest_cmp.py` says where.
-`--gameplay` (quick, tas, variants) makes the digest the gate: a hash that
+`--gameplay` (quick, tas, kinds) makes the digest the gate: a hash that
 differs from the references is reported (NOTE) instead of failed, and so is
 the TAS's save, which holds the levels' times.  (A build's own scenarios
 are still compared with each other by every hash: they share its timing.)
@@ -874,1286 +938,6 @@ What it showed (us.v10, the 32-bit build, main as of 2026-10-02):
   again; the attract mode and the TAS (input by frame) are the scenarios
   that check it.
 
-## Native-endian memory
-
-BEPass costs little (a `movbe` or `bswap` per access), so big-endian
-memory isn't a speed problem.  It is what keeps the port from being
-ordinary C: host code has to read game memory byte by byte, the ROM's
-assets are untyped bytes, and native C can't share a struct with the
-game.  The plan, in stages, and what each needs:
-
-- **Word-swapped memory** (emulator style: 32-bit words native, bytes and
-  halves at `addr ^ 3` and `addr ^ 2`) needs no types, but every byte
-  and halfword access of the C would have to be rewritten and native C
-  still couldn't read a struct with small fields.  Rejected: no gain over
-  BEPass.
-- **Native scalars at the N64 offsets** is the target: every datum in
-  host order where it is, the layout unchanged.  Then only data produced
-  as untyped bytes need converting, once, where they're produced: PI DMA
-  from the ROM, the two decompressors' output (gzip's inflate, which
-  loads the code modules and the levels, and Rare's `func_802C41C0` in
-  hd_code 7F8B0), and the asm data files (each directive's width is
-  known).  What stays wrong is every place that reads bytes at
-  another width than they were written at: those need fixing one by one.
-
-**The translated code** (`RECOMP_NATIVE_ENDIAN`) fits this model: bytes,
-halves and words are accessed at their own addresses, as the C does.  Its
-unaligned pairs were written for big-endian memory; they are mirrored now
-in that mode, so `lwl`/`lwr` loads the host-order word at an unaligned
-address and `swl`/`swr` stores one (checked against unaligned native
-accesses at every alignment).  That is right for both ways the game uses
-them: unaligned copies (`func_802AC7DC`, `func_802AC85C`, `func_802A75DC`,
-`func_802A768C`, `bzero`) and unaligned 32-bit offsets read out of level
-data (`func_802A3D54`, `func_802A3DF8`, `func_802A3F80`, `func_802A4464`),
-once those data are converted.  Doublewords stay two words, high word
-first, which is not what a host-order `u64` is (low word first on a
-little-endian host).  That was the mismatch a `u64` or double shared
-between the C and the asm had to settle; it is settled now by there being
-no such sharing, and the mode's doubleword handling is dead code: no build
-runs this mode, since the translated code is only the engine check build's
-reference, which is big-endian, and the native-endian builds keep a `u64`
-in host order, below.  The
-differential test can't check this mode as it is, since unicorn runs a
-big-endian image; with a type map it can: convert
-each trial's memory to host order by the map before the translated run and
-back after, then compare as now.  So the map is the test's input too.
-
-**What has to be converted: the access-width profiler.**  A
-`-DPORT_ACCESS_PROFILE=ON` build (either width) records, for every byte of
-RDRAM and of the host stacks, who wrote it last (the C by function, the
-asm by instruction, DMA by ROM offset) and at what width, and counts every
-read at another width by reader and writer (`port/host/access.c`, fed by
-BEPass's `BEPASS_ACCESS` hooks, recomp.h's `RECOMP_ACCESS` and the host's
-`port_be16`/`port_be32`).  A read whose bytes are then stored again at the
-same width is a copy, which is fine in either order, and carries the
-source's writers along.  `PORT_ACCESS=FILE` writes the table;
-`port/tools/access_report.py FILE EXE` names it.  From the attract mode
-(12,000 frames) and Simian Acres (6,000, `PORT_AUTOSTART=2`):
-
-- ROM data DMA'd and read at 2 or 4 bytes: 760 (reader, segment, width)
-  rows in the attract mode, 340 in gameplay, over 110 ROM segments in
-  all.  Most are the uncompressed models and level
-  pieces (`chbar25`, `lagrage4`, `mostep1`, ...), read by the handwritten
-  engine and, as display lists and vertices, by the RSP; then the texture
-  table (`func_802A08E4`, `func_802A0B34`, `func_802A0CFC`, `func_802A1074`,
-  `func_802A11C4` read its records as words and halves), texture palettes
-  (`func_802A5958`-`func_802A5D34`, as halves), the sound banks and
-  sequence tables (libaudio's `alBnkfNew`/`alSeqFileNew`/`alCSeqNew`
-  read them in place), and `reflectlogo_dl`.
-- Decompressed data read at 2 or 4 bytes: 129 reader functions in
-  gameplay (100 of them handwritten), 184 in the attract mode (150).
-- Written at one width and read at another: 56 (writer, reader) function
-  pairs in gameplay, 71 in the attract mode.  The big ones are the RSP reading `Mtx` as halves after
-  `guMtxF2L` and friends wrote it as words (the renderer should read it as
-  words), and the handwritten engine building vertices by storing two
-  `s16`s packed in one word (`func_802ACA60`, `func_802ACC68`,
-  `func_802ACCCC`, `func_8029F4B8`-`func_8029F85C`, `func_8029E938`-
-  `func_8029EC68`) that the RSP and `func_802AA890`/`func_802AC8CC` read as
-  halves: in host order those stores need their halves swapped, per
-  instruction.  Then the game mode `D_80364A90` (a `u64` the port's own
-  `video.c` read as two words then) and a few asm/C locals.
-
-So the stages are:
-
-1. Loaders that convert what DMA and the decompressors produce, by type
-   (the inventory's `loads`), and the asm data files by directive; the
-   translated code in native mode, with the packed-store sites
-   (`packed`) translated as two halfword stores; the host's renderer and
-   audio reading native types (`Mtx` as words, `Vtx` fields, the audio
-   command list).  Checked against the big-endian build with
-   `build_cmp.py` through the type map.
-2. BEPass without the swaps, with the C's punning sites fixed under
-   `TARGET_PC`.
-3. Native LP64 structs where a struct's pointers are only the C's: those
-   the display and audio command lists fix kept 32-bit fields (`PTR32`)
-   until their words were made as wide as a pointer ("The LP64 build",
-   "Graphics"; the ROM's data and libaudio did until P7), and the
-   `-m32` layout, port-ilp32 and the fixed addresses can go once nothing
-   depends on them.  The first two are gone in the LP64 build ("The LP64
-   build"); the fixed addresses are what's left.
-
-### The native-endian build
-
-Stages 1 and 2 are done for us.v11: `-DPORT_NATIVE_ENDIAN=ON` (with either
-`PORT_64BIT`) builds the port with every datum in host order at its N64
-offset.  The big-endian build stays the default and is unchanged by it.
-
-**Conventions.**  Scalars are host-order where the N64 has them, the
-64-bit ones (`u64`, `s64`, `double`) too: a plain host-order scalar,
-which the host reads whole (`port_g64`: the game mode `D_80364A90`, the
-LP64 builds' command words).  An `Mtx` is sixteen host-order words
-(element 2n the high half of word n), a `Vtx` its fields, a display list
-`Gfx` commands of two words (`gbi.h`'s `Gwords`, as wide as a pointer).
-What only the RDP, the RSP's DMA or the audio reads as bytes stays in the
-N64's byte order: texels, palettes, framebuffers, samples, the
-microcode's data.
-
-Until P8 a 64-bit scalar was two host-order words, the high one first (BEPass
-exchanged the halves of every 64-bit load and store), first for the asm's
-`ld`/`sd`, then, with no asm left, for the display lists: the C moved a
-command as a `u64` in places (77E20's smoke copies through `func_802C0C64`
-and its `u64` command tables `D_802F46C0`/`D_802F4780`) while gbi.h's
-macros and the renderer wrote and read its two words.  A build without the
-exchange then played differently from the CMO intro's first frame on.
-With every display-list access a `Gfx` one (P8), the exchange went:
-`func_8026A5CC`'s `u64` copies of vertices are copies in either order, and
-what still read or wrote a `u64` as two words was changed with it (the
-host's readers of `D_80364A90`, `D_80364A98` and `D_8036C778`; 56040's
-planes of `func_8029D24C`, stored word by word; the save's semaphore and
-eu's language; the loaders' 8-byte units).  Against the build with the
-exchange, the 64-bit native-endian build's attract mode (12,000 frames)
-and `PORT_AUTOSTART=1` and `=2` (6,000) gave the same screenshots,
-`--wav`, digests and saves and the same call traces (but for the store
-helper that went), and every variant's quick tier and the TAS (n64,
-lp64) the same hashes.
-
-**BEPass** (`BEPASS_NATIVE=1`) swaps nothing, so both builds keep the same
-time and can be compared run for run.  The N64 side is built without the
-vectorizers there (`ilp32cc.py`): they raise globals' alignment, which
-would move them off their N64 addresses.
-
-**What arrives as bytes is converted by type where it arrives**
-(`port/host/native.c`; `port/src/loads.c` wraps the decompressors' entry
-points, `host_rom_read` reports every PI DMA; `port/tools/gen_romtab.py`
-names the ROM's segments from the link map):
-
-- the vehicles (19 sections: parts, their matrices and triangles, the
-  animation tables), the models (header, vertices, triangles, animated
-  textures, the effect records at 0x30/0x34, the damage states), the
-  levels (header, vertices and every section the game reads at a width:
-  ammo, TNT, RDUs, bounds, buildings, animated textures, the groups of
-  terrain triangles, blocks, holes, train stops, 0x74, 0xA0..0xC0), their
-  display lists, the attract recordings, the sound banks and sequences,
-  `static_data`, the texture and model tables;
-- the fields the handwritten code reads as big-endian byte pairs (the
-  vehicles, the carrier, the buildings' first bytes, collision triangles)
-  stay bytes;
-- the save: the EEPROM file keeps the N64's bytes (`host_save_order`
-  converts each block in and out), and `__osContDataCrc` is taken of them.
-
-**The asm data files** (C now, `asm2c.py`: "The asm data as C") are typed by the inventory
-(`blastcorps/include/game/inventory.json`, `symbols`): header types, and
-for the handwritten objects' own data the widths their code reads it at
-(`tools/inventory.py` from fieldscan's events), with `bytes` for text (C
-strings; 0xFF-terminated text, `func_802BEEF0`), for the targets of byte
-pointer tables (`D_80306270`), and for tables kept big-endian because a
-walk runs off their end into byte data (`D_80306344`, `D_80306350`,
-`D_803063D4`, `ASM_DATA_BE`).  What only the RSP and the RDP read is
-typed by hand: the carrier's explosion's dome, `D_802FFF38` (`Vtx[179]`,
-`ASM_DATA_LAYOUTS`), which fieldscan took for words, so that in host
-order each vertex's x and y traded places and z read the flag: the dome
-was a flat sheet (issue #1); and its texture `D_802FF738` (bytes).  The
-display lists that use asm data directly or through a segment were
-found by logging every `G_VTX`'s and `G_SETTIMG`'s address over the
-attract mode and three levels, and by a scan of the asm data for
-display-list words: those two are all.  An array of unknown length (`D_8020C070[]`)
-runs to its file's end, over the labels splat made inside it.  The data
-islands in hd_code's `.text` are laid out by their readers
-(`7D9D0`, `800DC`, `8E910`'s per-level tables); the rest stays as its
-directives say.  A record type fieldscan found repeats up to the next
-label and no further (`D_80305D74`'s 21st record would otherwise take
-`D_80305DF0`'s 0xFF terminator as the high byte of a `u16`).
-
-**The translated code** (`RECOMP_NATIVE_ENDIAN`) takes, from
-`tools/recomp/native_sites.txt`, the instructions that move data at
-another width than its type: `be` (the texture decoders' streams, LUTs and
-texels; the chance tables), `x1`/`x2`/`x3` (a byte or half inside a wider
-field: the matrix routines, the effect records' halves and bytes, the
-bytes of words the N64 reads at the word's address), `h2` (a word that
-is two halves).
-
-Some data is a word in one place and smaller fields in another because
-the handwritten code stores words over it: those are kept as host-order
-words, and the smaller accesses go to the address ^ 2 or ^ 3, so that
-every access sees what it sees on the N64.  The effect records (a
-model's 0x30/0x34 records, `D_803F3FF8`, `D_803F3968[30]`) are fourteen
-words: on the N64 the list at `D_803F3910` (ten pairs of words,
-`func_802BEA30`) runs over its end into `D_803F3968[0]`, and the effect
-code then reads the halves and bytes of what it stored (the port's list
-has the room now: "The engine's arrays", below).  The same goes for the
-count and flag after the walls' triangles (`D_803BD310`; on the N64 a
-wall's 61st triangle is stored over them), the level `D_802E8BDC` that
-`func_802AF4BC` reads with `lbu` (its high byte: 0 on the N64) and
-`D_803649E8`, which `func_802BC5E0` sets with `sb` and the C reads as
-an `s32`.
-
-**The C** needed three changes of its own: `func_80200714` (hd_front_end
-196F0.c) tints big-endian texels, through `IMG_RD`/`IMG_WR` under
-`TARGET_PC` (a byte at a time: either byte order); the textures the C declares as `u16` or
-`Vtx` arrays (hd_code's six and hd_front_end's five, before `overlay.c`
-keeps the front end's `.data` for its reloads) are put back into the
-N64's order at boot, and
-`YoshiIcon.unk6` (declared bytes, read as `u16`s) into host order
-(`port_native_fixups`, `port/src/loads.c`).  The host reads game variables
-through `port_var32` and the renderer and audio through `port_g16`/
-`port_g32`/`port_g16_of32` (`port.h`), which are the big-endian accessors
-in the default build.
-
-`-DPORT_EA_GUARD=ON` makes the translated code trap on any address the
-port doesn't map (a pointer read from mistyped data shows up there, at the
-instruction, rather than as a crash somewhere later).
-
-**How it was checked**, against the big-endian build with
-`PORT_COUNT_PER_OP=0 --deterministic`, 64-bit:
-
-- call traces (`PORT_TRACE_CALLS`) identical: attract mode, 12,000 frames
-  (23,216,880 calls); `PORT_AUTOSTART=1` and `=2`, 6,000 frames
-  (7,845,941 and 7,905,194);
-- the TAS (us.v10), replayed with `PORT_COUNT_PER_OP=0`: the same log, the
-  same pace (`PORT_PACE`: the retraces, frame, mode and audio samples at
-  every controller poll) and the same save, all 125,897 reads;
-- `--renderer gl --scale 1` screenshots every 300 frames (40, 20 and 20)
-  and `--wav` byte for byte identical, and the saves; the 32-bit native
-  build the same as the 32-bit big-endian one;
-- RDRAM by type at controller reads 2,000 and 5,000 of the attract mode and
-  1,000 and 2,500 of each autostart: no word differs at its width but the
-  game thread's N64 stack (registers spilled by the texture decoders,
-  which hold word copies of texels), and one heap halfword that
-  `func_80278E3C` rewrites by mistake (it passes `D_80358070`'s value to
-  `func_80257490`, which rounds the stale word there up: the N64 does it
-  too, in its byte order);
-- the profiler's table for all three runs and the TAS holds only rows
-  known to be harmless: the RSP reading stale heap through segment 9,
-  `D_803ED3B8`'s bytes compared with a -1 sentinel as a word (and those
-  words spilled to the N64 stack and loaded back), `func_8026A5CC`'s `u64`
-  copy, `osContGetQuery`'s stale display-list words, the C's byte reads that
-  clang merges into a halfword (`func_8026BCE0`'s of texels, at odd
-  addresses too), and the host stack's locals the C writes without the
-  profiler seeing it (`guNormalize`'s arguments);
-- the translated code's differential test passes 688/688.
-
-Speed is the same: 6,000 frames take 3.94 s of user time native against
-3.96 s big-endian (attract mode), 4.53 s against 4.44 s in Simian Acres,
-and 4.27/4.28 s and 4.95/5.21 s in the 32-bit builds; the frame is the
-renderer's more than the game's.
-
-The TAS ("The TAS") plays on it too, us.v10's build with us.v11's
-inventory, site table and island layouts (the handwritten code is the same
-in both, and every site's instruction is): 57 platinum medals, with the
-checkpoints restored by type.  It found two tables of texture ids the C
-declared as bytes (`D_802E8BF4`, `D_802E8CB0`, now the `u16`s they are,
-which the N64 build doesn't see) and a port bug of every build (the polls
-ignored `osSetIntMask`, "The platform layer").  It plays it as exactly as
-the big-endian build: all of the movie's reads matched, none skipped, the
-player where the movie has it at every read.  Getting there took the
-train stops' `u32` that `func_8029DA90` reads as two halves (`x2`; read
-as a host-order word, the stop's range was wrong, and from the movie's
-read 35,680 the player drifted), their byte pairs stored as halves and
-read as bytes (`be`), the words stored over smaller fields above (with
-`D_803F3968[0]` misread, the effect the N64 starts in it wasn't, nor did
-it take its random numbers), and the asm data's `D_80305DF0`.  The two
-builds' CPU models count the C differently (the IR is optimised with and
-without the byte swaps), so with the default `PORT_COUNT_PER_OP` their
-timing differs a little (more retraces given anyway, no mode switch the
-movie's rather than the port's); with `PORT_COUNT_PER_OP=0` they are the
-same run.
-
-What's left: levels and vehicles the runs don't reach are typed from the code but
-untested; and the profiler still leaves out the C's byte reads of wider
-data (its byte copies, often into locals it can't see).
-
-**What the type inventory needs to give**, machine-readable (JSON, one
-file), for all of this:
-
-- `types`: every struct shared between the C, the asm and the ROM's data:
-  `size`, `align`, and `fields` as `{off, name, type, count}`, where
-  `type` is a scalar (`s8 u8 s16 u16 s32 u32 f32 s64 u64 f64`), another
-  type's name, `bytes` (endian-free: texels, strings, samples), `gfx` (a
-  display-list word pair), or one of the address kinds: `ptr` (an N64
-  address, with `to`), `romoff` (a ROM offset), `segptr` (a segmented
-  address), `offset` (relative to `base`, as the level data and libaudio's
-  banks hold them).  Unions list their members; unknown bytes are `bytes`
-  with a note.
-- `symbols`: `{name: {type, count}}` for every variable whose declared type
-  isn't its real one (the `T x[1]` placeholders above, the pools and
-  buffers), and for the asm data files' symbols where their directives
-  aren't the type (a `.word` that is two `s16`s).
-- `loads`: every place bytes arrive untyped: `{site, rom (segment or
-  offset), dst, type, count, via (dma, inflate, rare), reloc}`, `reloc`
-  saying which `offset`/`romoff` fields the game then turns into pointers
-  (and where).
-- `punning`: every datum read at two widths or as two types: `{where
-  (symbol or type.field), as: [types], sites: [function or asm
-  function+offset]}`, including `u64`/double shared between the C and the
-  asm (which half first).
-- `packed`: the asm stores (and loads) that move several smaller fields in
-  one register: `{site (func+offset), fields}`.
-- `asm_uses`: per type, the handwritten functions that read or write it
-  and at which field offsets; this decides what stays `PTR32` in stage 3.
-
-`access_report.py` gives the observed side of `loads`, `punning` and
-`packed` with the exact sites; the inventory is the complete, reasoned
-side, and each checks the other.  Stage 1 needs `types`, `symbols` and
-`loads` for the ROM segments above and `packed`; stage 2 needs
-`punning`; stage 3 needs `asm_uses` and the `ptr` fields.
-
-### The LP64 build
-
-`-DPORT_LP64=ON` (which turns on `PORT_64BIT` and `PORT_NATIVE_ENDIAN`)
-compiles the game's C for the host as it is: no i386 frontend, no
-port-ilp32, 8-byte pointers, and every struct laid out by the host but
-where the N64's layout is shared.  BEPass still runs (the alignments, the
-arena; it swaps nothing here).
-
-**Pointers are the host's.**  Every pointer the game's C, the engine
-(`port/engine`) and the asm data (`asm2c.py`) keep in memory is a plain
-`T *`, 8 bytes here, in a struct the host compiler lays out.  Nothing
-reads that memory at the N64's offsets any more: the engine is C and
-reads by field, the host reads the game's structures by the N64 side's
-layout table (below), and the translated code is only in the 32-bit
-check build (`PORT_ENGINE_CHECK`), where pointers are 4 bytes anyway.
-`port/tools/layout_cmp.py A B` lists every struct whose layout differs
-between two builds from their DWARF; against the native-endian 64-bit
-build (`n64`) the LP64 build has 123 (us.v10):
-
-- the OS's and the scheduler's: `OSThread`, `OSMesgQueue`, `OSIoMesg`
-  and its header, `OSPiHandle`, `__OSBlockInfo`, `__OSTranxInfo`,
-  `OSTimer`, `OSPfs`, `OSTask`, `Sched`, `SchedTask`, `SchedClient`,
-  `AudioInfo`, `IoMesg`, `PakState`, `port/src/ultra.c`'s `Delay`, and
-  `AMAudioMgr` (the thread and queues it holds, and its command lists'
-  pointers);
-- the display lists' and the audio commands' (since P8): `Gwords` and
-  `Gfx`, `Awords` and `Acmd` (16 bytes), asm2c's `asm_Gfx`, and what holds
-  commands, `Frame` with its two views (`FrameBuf`, `FrameGame`),
-  `BlockInfo`, `UnkStruct_802FE3C0`, `Smoke`, `Dust` and `FallShadow`;
-- the sound (48, since P7): libaudio's structures (32 `AL*`: the players,
-  sequences, voices, events, the heap, and the bank objects it parses
-  the bank files into, "libaudio"), its private blocks in the audio heap
-  (`PVoice`, `Update`, `LowPass`, `Chorus`, `Section`, `Reverb`, and
-  `BankFileIn`, the parser's), Rare's sound player on it (`SndState`,
-  `SndEvent`, `SndPlayer`, `SndConfig`, `SndStateLists`, `SynConfig`), the
-  audio DMA's `AMDMABuffer`/`AMDMAState`, and `UnkStruct_80366C30`, which
-  keeps a copy of the sequence player's channel states;
-- the game's objects: `Vehicle`, `Building`, `TntCrate`, `Block`,
-  `AmmoBox`, `Hole`, `YoshiEntry`, the part (`UnkStruct_803ED460`, the
-  engine's `Anim`) and `VehicleSave`, and the front end's and the game's
-  `UnkStruct_*` (`8020BD30`, `8020D810`, `80218270`, `8036EC30`...);
-- the engine's records: the walls (`Wall`), the hit list's `HitPair`,
-  `DelayedHit`, `TexSlot`, `TexPatch`, `MtxCopy`, `EffectSlot`,
-  `TexDecode`, the decoders' `BitIn`/`BitOut`/`LzssIn`, and gzip's
-  `huft` (16 bytes; its tables still come from the pool's start, and
-  `huft_build` traps if they would reach the ghost's buffers at
-  `+0xA000`);
-- asm2c's types of the asm data with pointers in it (`D_8020C070_t`,
-  `D_802C48A0_t`...).
-
-The `SIZE_CHECK`s of these are `SIZE_CHECK_C`: the N64's size where
-pointers are 4 bytes.
-
-**What keeps `PTR32`** (`T *PTR32 p`, `ultratypes.h`: clang's
-`__ptr32 __uptr` in this build, nothing elsewhere, so IDO sees the same
-code) is nothing now.  It was what something other than the C fixed the
-layout of, and the last of that, the words of the display lists and of the
-audio command lists, which the RSP (and the renderer and the audio HLE for
-it) reads, became pointer-wide in P8 (below).  The macro stays, and
-port-lp64's handling of a `PTR32` field in a static initializer;
-`port/tools/ptr32_allow.txt` is empty, so `ptr32_check.py` fails on any
-structure that gets one.  What is left of the conversions between pointers
-and integers is **P10**'s, the host interface: `port/src` hands the host N64
-addresses as `u32` (`host_*((u32)p)`).
-
-**The display lists and the audio command lists** are native too.
-`Gwords` and `Awords` (`gbi.h`, `abi.h`, the port's and `2.0I`'s alike)
-are two `uintptr_t` words: where pointers are 4 bytes (the ILP32 builds,
-and the engine check build) a command is the N64's 8 bytes with its words,
-and in the LP64 builds it is 16, each word as wide as a pointer.  A word
-that holds an address is the pointer's value (`_GBI_W`, `STATIC_K0_TO_PHYS`,
-the audio macros' arguments, `K0_TO_PHYS`), a word that holds data its 32
-bits (`_GBI_D`).  The host learns the command sizes from `port_layout()`
-(`PORT_LAYOUT_GFX_SIZE`, `ACMD_SIZE`; CMake's `PORT_GFX_SIZE` is 16 wherever
-`PORT_LP64` is on), so nothing in the host tests the build.  The structs
-that hold commands (`Frame`'s two views, `BlockInfo`, `Smoke`, `Dust`, the
-static lists) are `SIZE_CHECK_C`, their gaps typed as `Gfx`, their counts
-in commands; the ROM's lists are widened where they load, and the pool
-that holds them grows by a formula ("Graphics").
-
-P7 made the rest native: libaudio's structures and private blocks (a
-block in the audio heap is the bigger of the N64's size and its
-structure's, so the 32-bit builds keep the original's heap and the LP64
-one grows, by a formula, `libaudio_heap.h`), its function-pointer types (`ALDMAproc`,
-`ALDMANew`, `ALVoiceHandler`, the oscillators) and `OSDevMgr`'s two;
-the bank files parsed into objects of the port's own instead of
-relocated in place ("libaudio"), and the sound effects' bank an `ALBank`
-read through `SND_SOUND` (Rare's `SndBank`/`SndInstrument` and `ROMPTR`
-are gone); the sound player's structures, `SndState.unk30` (a plain
-`SndState **`) and the audio DMA's buffers; the ROM addresses, `RomAddr`
-constants from a generated header (`ROM(D_00xxxxxx)`, `types.h`); the
-front end's model file rebased by `ASSET_PTR`; and the data words that
-held addresses keep numbers: a group set (`GroupSet`, in the level's
-tables `D_802D30D0`..., 0x18 bytes a record) holds its building's index
-in `D_803F4030` (+ 1), the animated textures their texture numbers (the
-drawing looks the address up), and the effects' heap a piece by its
-animation's index.
-
-**The tools.**
-
-- `port/src/layout.c`: `sizeof` and `offsetof` of what the host reads
-  inside the game's structures (the vehicles, buildings, crates, blocks,
-  boxes, RDUs, the player and level stats, `Sched`'s counters) and the
-  widths of the pointer variables it follows, compiled by each variant's
-  N64-side compiler.  The host asks for an entry by its name in `port.h`
-  (`host_layout`) and reads a game pointer of the width the table gives
-  (`port_game_ptr_n`); `digest.c`, `sched_vars.h` and `gfx.c` spell no
-  offset of the game's.
-- `port/tools/ptr32_check.py BUILD`: from an LP64 build's DWARF, every
-  structure or union (one without a name goes by its container's and
-  member's, `huft.v`) with a 4-byte pointer, against `ptr32_allow.txt`
-  (empty).  One that isn't listed fails, and so does one listed that has
-  none.
-- `port/tools/decl_check.py BUILD --version all`: every `D_`/`func_`
-  name's declarations across the N64 side's files (clang's AST), and
-  asm2c's word for it: a pointer declared as an integer in one file, or
-  4 bytes in one and 8 in another, or a variable declared bigger than
-  its definition (an `extern u64` over a `u8[4]`), fails
-  (`decl_allow.txt` is empty).
-- `port/tools/ptrcast_scan.py BUILD --version all`: clang's
-  pointer/integer conversions (`-Wpointer-to-int-cast`,
-  `-Wint-to-pointer-cast`, `-Wint-conversion`) and incompatible pointer
-  types, classed by where they are and the macros they come through,
-  counted per file and version against `ptrcast_allow.txt`; what is left
-  is P10's (the host interface: `port/src/loads.c` and `ultra.c`, 42
-  diagnostics in every version).  P8's class, the display lists' and the
-  audio command lists' words (135 casts), is gone.
-- `port/tools/n64_tus.py`: the N64 side's translation units with the
-  build's own commands, which the last two run with each version's
-  `VERSION_` define, so one build answers for all four.
-- `port/tools/test.py quick` runs the three on an LP64 build (not the
-  movable one, which has the same sources), and the LP64 builds compile
-  the N64 side with `-Werror=int-conversion` and
-  `-Werror=incompatible-pointer-types` (`CMakeLists.txt`), the function
-  pointer subgroup (`-Werror=incompatible-function-pointer-types`)
-  included.
-
-**In the C.**
-
-- `OSMesg` is a real pointer: a message that is a number goes in as
-  `OS_MESG(n)` and comes out as `OS_MESG_INT(m)` (`common.h`), and a
-  receive into an integer variable is `osRecvMesgInt(mq, var, flag)`
-  (`game/types.h`), which is the original's cast for IDO and goes
-  through an `OSMesg` in the port.
-- The frame buffer the game passes around is a `Frame` (`game/frame.h`),
-  the union of its two views (`FrameBuf`, `FrameGame`), not an `s32`.
-- Where retyping a matched function's parameter would move IDO's output,
-  it keeps its `s32` and the call casts.
-  `func_80257490` (00000.c) is called with a pointer's address cast to
-  `s32 *`; the port's own body rounds the pointer itself up
-  (`TARGET_PC`), at any width and order (the N64's signed `%` of a KSEG0
-  address would take an unaligned one a step past the next multiple: 13
-  of the TAS's 7,932 calls pass one, none of the quick tier's, and every
-  hash and the TAS's digest are the same either way).
-- `asm2c.py` types the asm data's pointers as the C declares them:
-  `POINTERS` (the words the C has as pointers, tables to a sentinel
-  included), `TYPES` and `LABEL_TYPES` (the engine's structures for the
-  handwritten `.bss`), `GROWN` (the arrays with more room than the N64's,
-  "The engine's arrays"); a name inside a variable past a native pointer
-  is no symbol in the LP64 build, and the C reaches it as an expression.
-
-**Rules for a change.**
-
-- A variable's definition and all its declarations change together, in
-  one commit: one left `PTR32` (or `s32`) beside an 8-byte one is a
-  silent 4/8-byte mismatch that x86 hides until a write leaves a stale
-  high half.  A pointer variable more than one file uses is declared
-  once, in a header.  decl_check finds the rest.
-- A function that writes a pointer through an out-parameter
-  (`u32 *` that becomes `T **`) needs every caller's local retyped too:
-  an 8-byte store into a 4-byte local overwrites its neighbour (P6 found
-  two, `func_802A7C28`'s and `func_802A7E70`'s callers).
-- An allocation sized with an N64 literal (`0x24C` for 21 `YoshiEntry`s,
-  `u8[0x300]` for 32 parts, the audio heap exactly full) is too small for
-  a native struct: size it with `sizeof` (the LP64 YoshiEntry list ran
-  over the next allocation, and the TAS crashed in level 13's window
-  text).
-- A struct the host reads gets its fields into `layout.c`, not an offset
-  in the host.
-
-**The variables that grew.**  `gen_ld.py` leaves a C variable to the host
-linker when it no longer fits where the N64 has it (its room up to the next
-variable, or its alignment): 333 in us.v10's LP64 build, pointers and the
-native structs' tables, listed in `gen/port_rdram_moved.txt`.  (In every
-build it also moves the engine's arrays that have more room than the
-N64's: "The engine's arrays", below.)  The translated
-code finds them through `SYM()` as before.  They live in the image, above
-RDRAM, so what reads game memory by address takes the whole KSEG0 window:
-the audio HLE (`aspmain.c`, as `gfx.c` already did) and `port_in_rdram`
-(RDRAM to the image's `_end`).
-
-**Also needed:**
-
-- `s32`/`u32` are `int` in the port (`ultratypes.h`), `Mtx_t`, `Hilite`,
-  `Gsetcolor` and `TexRect` in `gbi.h` 32-bit, `size_t` the host's;
-- display lists in static data: a word is a `uintptr_t` constant, the
-  address as wide as a pointer (`gbi.h`'s `_GBI_W`, `STATIC_K0_TO_PHYS`),
-  a relocation like any pointer's;
-- no over-alignment on declarations either: x86-64 clang gives an
-  `extern` array of 16 bytes or more 16-byte alignment, as it does a
-  definition, and the optimiser then clears the low bits of addresses
-  made from it; BEPass puts both at the type's own alignment (the TAS's
-  `&D_802F49F4[i]`, at ...944, lost its 4 and divided by zero); and
-  clang 23's InferAlignment raises a definition's alignment again after
-  the SLP vectoriser has read it in wide pieces (23C20.c's `float[4][4]`
-  `D_8036B8C8` went to 32, which the 32-bit link couldn't place at
-  ...818), so KeepAlign, at the optimiser's end, puts every global back
-  to what BEPass gave it and caps the accesses in the functions that use
-  one it moved at 8 bytes' alignment;
-- **port-lp64** (`bepass/LP64.cpp`, before BEPass): what port-ilp32 does
-  that isn't layout.  Pointer arithmetic by a variable or large offset
-  wraps at 32 bits, an integer made a pointer is zero-extended, accesses
-  outside a variable's name go through an integer, K&R calls are repaired
-  (pointer arguments and results re-zero-extended, narrow results
-  widened, narrow arguments extended by the callee), calls through a
-  32-bit function pointer are made through its value (clang calls through
-  the `__ptr32` operand, and the backend then loads 8 bytes), and a
-  `PTR32` field in a static initializer becomes the address's low 32 bits;
-- BEPass's native mode swaps nothing: a `u64`, an 8-byte pointer and a
-  64-bit command word are plain host-order scalars ("Native-endian
-  memory").
-
-**How it was checked** (the first LP64 build, when seven types were
-native and everything else `PTR32`), us.v10, against the native-endian 64-bit build,
-`PORT_COUNT_PER_OP=0 --deterministic`, Simian Acres (`PORT_AUTOSTART=2`):
-4,000 frames with the save, `--wav` and 16 screenshots identical; RDRAM at
-controller reads 300 and 600 the same but for the native structs' own
-layout and pointers to what moved (`build_cmp.py rdram --moved`); call
-traces identical for 631,000 calls, up to an interrupt that the LP64 build
-takes one call earlier at read 655.
-
-us.v11, the same way (the LP64 build against the native-endian 64-bit one,
-`PORT_COUNT_PER_OP=0 --deterministic`, `--renderer sw`):
-
-- `PORT_AUTOSTART=2`, 4,000 frames (in us.v11 it stops at the first
-  level's hint box), `PORT_AUTOSTART=1`, 6,000 frames (the first level,
-  driving and the pause menus), and the attract mode, 12,000 frames: the
-  saves, `--wav` and the screenshots every 250 frames (16, 24 and 48)
-  byte for byte identical;
-- call traces (`PORT_TRACE_CALLS`) identical over the whole runs:
-  5,098,000, 7,845,941 and 23,216,880 calls;
-- RDRAM (`build_cmp.py rdram --moved`) at controller reads 300 and 600 of
-  `=2`, 300, 1,000, 2,000 and 3,000 of `=1`, and 2,000 and 5,000 of the
-  attract mode: the same but for `D_8020E430` (hd_front_end 1A240's
-  `char *[4]`, a native pointer array that still fits where the N64 has
-  it, so it isn't moved; only the C reads it);
-- `layout_cmp.py`: the same seven native types as us.v10;
-- `--renderer gl --headless` (SDL's offscreen driver on Mesa): the
-  `PORT_AUTOSTART=1` screenshots every 500 frames identical to the
-  native-endian build's.
-
-The one thing the runs found wasn't the LP64 build's: a 64-bit build of
-either kind now and then failed to start, with `can't map thread stacks`
-or `hardware registers ... File exists` (the brk heap, "Memory model").
-
-What was left for it then, the fixed addresses (the image non-PIE at
-`0x80400000`, RDRAM at `0x80000000`), the movable build does without
-("Movable memory", next): `-DPORT_LP64=ON -DPORT_MOVABLE=ON` is the
-`mlp64` variant.  The pointer *values* are still N64 addresses, under
-4 GB, in every build; that and the host interface's `u32` addresses are
-what an ordinary C program still lacks (nothing is `PTR32` any more).
-
-## Movable memory
-
-Every build so far keeps the N64's addresses as host addresses: RDRAM is
-the image's `.rdram` section at `0x80000000`, `gen_ld.py`'s linker script
-puts each game variable and each asm data file at its N64 address, the
-rest of the image follows at `0x80400000` (non-PIE), the fibers' stacks
-are mapped at `0x90000000` and the hardware registers at `0xA4000000`.
-The host linker fills a `.word sym` with the host address, which is the
-N64 one only because of that map, and the translated engine, the renderer
-and the audio HLE use N64 addresses as pointers.  macOS on arm64 can't do
-any of it (executables are PIE, ld64 has no linker scripts, the low 4 GB
-are `__PAGEZERO`), and neither can WebAssembly (no linker scripts, no
-fixed mappings, 32-bit pointers into one linear memory).  This is the
-design for a build where game memory is wherever the host puts it and the
-game still sees N64 addresses, and the build that does it, as far as it
-goes ("The movable build", below).
-
-### The model
-
-**Pointer values are N64 addresses; memory is an arena at any base.**  On
-the N64 side (the game's C and `port/src`), every pointer the code holds,
-compares, masks with K0/K1, stores or hands to the asm is the N64
-address, exactly as now.  Only the accesses change: a load, store or
-memory intrinsic through `p` goes to `arena + (p & 0x1FFFFFFF)`.  The
-translated engine already works that way (`HOST(a)`), and so does the
-host (`port_ptr`); the C joins them.  The other direction, for what the
-host allocated inside the arena (the fibers' stacks), is
-`0x80000000 | (h - arena)`.
-
-The alternative is host pointers in registers and N64 addresses in
-memory, converting where a pointer becomes an integer, a `PTR32` or a
-word of game memory (at `ptrtoint`, `inttoptr` and `addrspacecast`).
-That is what native C will be one day, but not before the data and the
-asm are typed: `(u32)p` and back has to round-trip for segment addresses,
-sentinels and KSEG1 addresses (so the map can't mask, so a KSEG1
-dereference misses), NULL has to stay 0 in both directions (a select at
-every conversion), and every address the asm writes as a word and the C
-reads as an integer has to go through a conversion someone found.  With
-N64 values throughout, none of that is a question: there are no
-conversions in value space, so the C's arithmetic on addresses is the
-N64's by construction.  What it costs is an `and` and an add per access
-(the base in a register; a variable's address folds: `ldr w0, [x8,
-#0x364A94]`), as the translated engine already pays.  Low mappings
-(`MAP_32BIT`, a small `__PAGEZERO`, x32) don't exist on arm64 macOS or in
-the browser.
-
-**What lives in the arena**, by physical (N64) address:
-
-- `0x000000-0x3FFFFF`: RDRAM, as now: every N64-named variable of the C
-  and of the asm data at its N64 address, and the fixed buffers (the
-  regions: the framebuffers, the level pool, the static data, the boot
-  words at `0x80000300`).
-- from `0x400000`: the N64 side's data that has no N64 address but whose
-  address escapes (string literals passed on, `__func__` for
-  `port_counter`, `port/src`'s queues, threads and boot stack), and in the
-  LP64 build the variables that outgrew their N64 room.  About 150 KB in
-  the 64-bit build, less in LP64.  What never escapes (the switch tables,
-  the front end's startup copy of its `.data`, constants only copied from)
-  stays in the image.
-- the fibers' host stacks, so that a local whose address the C passes on
-  has an N64 address.  (The main loop's calls into the N64 side,
-  `port_irq_*`, have no escaping locals; `n64()` of an address outside
-  the arena traps in a checking build.)
-- nothing else: the hardware-register window goes (neither the C nor the
-  translated code reads it; `PORT_EA_GUARD` traps what's outside the
-  arena).
-
-About 21 MB with today's 16 stacks of 1 MB, less with smaller ones.
-Code, the host's data and the ROM stay where the host has them.
-
-### The game's C: one pass over the whole program
-
-The front half of the N64 side's build stays per file and parallel
-(clang `-O2` with port-ilp32/port-lp64 and BEPass, as now), but
-ends in bitcode.  Then one "arena link": `llvm-link` of the N64 side (the
-game's C, `port/src` and the asm data, below), `opt -passes=port-arena`,
-`llc`, one object.  Measured on us.v10's N64 side: `llvm-link` 0.5 s,
-`llc -O2` of the one module 1.7 s (`llvm-split -j8` then parallel `llc`:
-0.3 s), so it costs nothing next to the front half.  The pass needs the
-whole program: per file it can't tell a host function from a translated
-one or from another file's C, nor place the data without N64 names that
-other files reference; the per-file alternatives (a fixed window of the
-arena per file; a per-file base loaded at run time and relocations at
-startup) are more machinery for less.
-
-What port-arena does, in order:
-
-1. **Resolve every global.**  An N64-named one (the table `gen_ld.py`
-   already builds from the version's ELFs) is at its N64 address; the
-   escaping rest is laid out from `0x80400000`; an undefined name the
-   N64 link resolves through its symbol files (ROM segment starts, names
-   inside islands: `gen_syms.py script`'s table) is its constant.  Every
-   reference becomes the constant (`inttoptr`), and any data symbol left
-   undefined is an error.  This replaces `gen_ld.py`'s script and check,
-   `port_syms.ld` and `port_fixed.ld` (a region's name is a constant).
-2. **Build the arena image.**  The initializers of the arena's globals,
-   serialized at their addresses in the build's byte order (big-endian:
-   swapped at build time), pointers as N64 values, functions as their N64
-   addresses: one constant blob with no relocations, copied into the
-   arena at startup like a cartridge's boot.  BEPass's `__bepass_fixup`
-   tables and `port_bswap32` go with it.
-3. **Map the accesses.**  Every load, store, atomic and memory intrinsic
-   through a pointer that isn't a host-resident global or a local gets
-   `arena + (p & 0x1FFFFFFF)`.
-4. **Locals.**  An alloca whose address escapes becomes `n64()` of its
-   host address (it is on an arena stack); one used only by loads and
-   stores stays as it is.  `byval` arguments (x86-64 passes big structs
-   by a hidden copy) are host pointers: the callee copies an escaping one
-   into its frame, the caller maps what it passes.
-5. **Functions as values** become N64 addresses (the game's functions
-   their vram; the port's own address-taken ones, `boot_entry` and the
-   like, a reserved range), and an indirect call goes through
-   `port_fn(addr)`, a table the pass emits (30 address-taken functions
-   and 16 indirect calls in us.v10's mn32 build, 40 and 19 in mlp64:
-   libaudio's handlers, thread entries, callbacks).  The host starts a
-   thread through an N64-side trampoline, so it never calls a game
-   function itself.
-6. **What the host linker did.**  The `--wrap`s (ld64 has none) are done
-   by renaming in the module; the replay hooks' `__builtin_return_address`
-   (WebAssembly has none) becomes a caller id the pass passes.
-7. **Calls whose type isn't the callee's.**  The decompiled C's K&R
-   declarations disagreed between files: 405 direct calls to 70 functions
-   in us.v10 (`s32 f()` called for a `u8 f()`, a `u8` parameter passed an
-   `int`, a pointer passed where the definition has an `s32`), plus 19 to
-   translated functions and a variadic declaration of a function defined
-   without (`func_8029A7E4`).  x86-64 and AArch64 run them (port-lp64's
-   rules make them behave); WebAssembly can't call a function through
-   another type at all (the backend makes a trap).  The pass rewrites
-   each to the definition's type, converting the arguments as the N64's
-   registers carry them, and the glue's prototypes are the declarations
-   for the translated code.  Since every function is declared once, with
-   its definition's type (`blastcorps/include/functions.h`), there are
-   none: `PORT_ARENA_STATS=1` counts 0 calls made with their callee's
-   type in `m64`, `mlp64` and `mn32`, and `=2` would name each.
-8. **Pointer arguments to the host** are an error: the host's interface
-   takes N64 addresses (`uint32_t`), as most of it already does.  What
-   doesn't yet: `host_input`, `host_save_order`, `libc64.c`'s copies and
-   `sprintf` (whose `%s` arguments are N64 addresses too),
-   `port_counter`'s `__func__`.  (As built, the pass maps those
-   arguments at the call instead, by the functions' names, and the host
-   keeps its pointers: less to change, and just as portable.  Only a
-   pointer the host keeps and hands back, `host_thread_create`'s, is left
-   as it is.)
-
-Nothing in `blastcorps/src` changes for this; `port/src` and the host
-interface do.
-
-### Pointers in memory
-
-- **ILP32 layouts** (the 64-bit build through port-ilp32, the 32-bit
-  build, and WebAssembly natively): a pointer in memory is 4 bytes and
-  holds the N64 address.  Nothing changes, and nothing moves: every
-  N64-named variable keeps its N64 address.
-- **LP64**: native 8-byte pointer fields hold the N64 value
-  zero-extended (a `PTR32` field, which nothing has now, held it in 4
-  bytes).  The moved variables get
-  addresses after RDRAM, and the translated code reads their `SYM()`s
-  from a header the arena link writes (the translated code is compiled
-  after it).
-- **wasm32** is ILP32 natively: the i386 `-malign-double` layout the
-  32-bit build uses is wasm32's (4-byte pointers and `long`s, 8-aligned
-  `u64` and `double`), and `PTR32` is empty there as in the 32-bit build.
-  So the WebAssembly build is the 32-bit native-endian build compiled for
-  wasm32, plus movable memory.  Its Linux proxy exists: the 32-bit
-  native-endian build (`-DPORT_NATIVE_ENDIAN=ON` without `PORT_64BIT`)
-  builds and runs, and does with `PORT_MOVABLE` too (below).
-- In the browser the arena can be linear memory itself: with emscripten's
-  `GLOBAL_BASE` above the arena (and its stack in linear memory, below
-  512 MB), an N64 address is `p & 0x1FFFFFFF` and every host address in
-  linear memory has an N64 alias, the C stack's included; the map is one
-  `and`, with the constant folded into the load's offset.
-
-### The translated engine
-
-- `rdram` is the arena, `HOST(a)` is `rdram + (a & 0x1FFFFFFF)` as in the
-  differential test's build, and `SYM(name)` is the N64 address from
-  `syms_<module>.h` (the ELF's), so `port_recomp_syms.h` goes; LP64's
-  moved names come from the arena link's header.
-- Jump tables: `pc_base` is `SYM(func)`, the vram, and the tables hold
-  the labels' vrams, which the asm data's conversion (below) writes.
-- The glue passes and returns N64 values already: no change.
-- **The asm data files** become LLVM IR instead of x86 assembly: per
-  file a global of byte runs and `ptrtoint (ptr @sym to i32)` words, which
-  port-arena resolves like the C's.  Mach-O's `as` and wasm have no use
-  for the x86 directives, and the arena image needs them as data anyway.
-  The same goes for the islands and the jp `GLOBAL_ASM` rodata.  (They
-  are typed C now, compiled like the game's: "The asm data as C".)
-
-### The host side
-
-- `port_ptr(a)` is `arena + (a & 0x1FFFFFFF)`; the dumps (`PORT_DUMP`,
-  `PORT_REPLAY_DUMP`, the crash dump) go through it and keep their format.
-- Game variables the host names (the replay's checkpoints and counts,
-  `PORT_PACE`, `PORT_AUTOSTART`) by their N64 addresses, from a generated
-  header, not by linking to the game's symbols (`PORT_VAR`, `n64_syms.h`).
-- The fibers' stacks come from the arena (`threads.c`); `map_fixed`, the
-  `ADDR_NO_RANDOMIZE` re-exec, `-Ttext-segment`, `--no-pie` and the
-  linker scripts go: the port links as an ordinary PIE.
-- The renderer, the audio HLE and the loaders (`native.c`) already reach
-  game memory through `port_ptr`; `port_in_rdram` becomes the arena's
-  range.
-- The access profiler's `RD_BASE` and stack ranges become arena offsets;
-  `build_cmp.py rdram`'s exclusions of "addresses in the port's image or
-  on the host stacks" become the arena's extra data and stack ranges (and
-  there are fewer: a pointer word is an N64 value in both builds);
-  `layout_cmp.py` doesn't care.  (Not done yet: the movable build refuses
-  `PORT_ACCESS_PROFILE`, and `build_cmp.py rdram` against it shows the
-  stacks' addresses, which it leaves in.)
-- The replay names the functions behind the counts by caller id (above)
-  where it now looks the return address up in the port's symbol table.
-
-### The movable build (`-DPORT_MOVABLE=ON`)
-
-The plan below is done, behind the option; the default builds are as
-they were.  The movable 64-bit build is an ordinary PIE: nothing of the
-port is at a fixed address, and ASLR moves the image and the arena every
-run.  It takes `PORT_64BIT` (big-endian or native), `PORT_LP64`, or
-neither (the 32-bit build).
-
-**The arena** is one `mmap` of 29 MB (`port_arena_init`, `host/runtime.c`,
-before anything else runs), at an offset into its page
-(`PORT_ARENA_OFFSET`, default `0x5670`, so nothing can rely on more than
-16-byte alignment).  It holds N64 physical memory from 0, and an N64
-address `a`, KSEG0 or KSEG1, is at `port_arena + (a & 0x1FFFFFFF)`
-(`port_arena.h`):
-
-- `0x000000`: RDRAM, every N64-named variable of the C and of the asm data
-  where the N64 has it, and the regions;
-- `0x400000`: the N64 side's data that has no N64 address (string
-  literals, statics, the switch tables, `port/src`'s own, which keeps
-  its own place even where its names are N64 ones: `osViClock`,
-  `D_803FDF60`): about 70 KB in us.v10;
-- `0xC00000`: the fibers' host stacks, 16 of 1 MB (`PORT_STACK_BASE` is
-  `0x80C00000`; `host_thread_stack()` is where a threads backend gets
-  one);
-- `0x1C00000`: the stacks of the C's locals that live in memory, 16 of
-  64 KB
-  (`PORT_ARENA_LOCALS`, below).
-
-**The arena link** (`CMakeLists.txt`): the N64 side (the game's C and
-`port/src`) is compiled per file as before, to bitcode, and so is the
-asm data (C, from `tools/asm2c.py`: "The asm data as C"); then
-`llvm-link`, `opt -passes=port-arena` (`bepass/Arena.cpp`) and `llc`
-make one object.  port-arena, over the whole program:
-
-- resolves every global: a definition with an N64 name in RDRAM (the
-  version's names: `gen_syms.py table`, from the three ELFs) is at its
-  N64 address, every other definition is laid out from `0x400000`, and a
-  declaration with an N64 name (a variable of the asm or of another
-  module, a name inside a data island, a ROM offset) is its value, and a
-  region's name (a fixed buffer, `-port-arena-regions`) is where its
-  region is; every reference becomes the constant.
-  What is left is the host's (the port's own `__port_` variables),
-  accessed where it is;
-- writes the arena's initial contents from the initializers, in host
-  order, then swaps what BEPass's `__bepass_table`s list (the C's
-  scalars in the big-endian build, the words of 64-bit ones in the native
-  one) and drops the tables and their constructors: the image has the
-  build's byte order, with the asm data's symbolic words in memory order.
-  It goes into the image as runs of non-zero bytes (`__port_arena_runs`),
-  which `port_arena_init` copies; a word it can't resolve (a pointer to
-  the host's data) would be left to startup (`__port_arena_relocs`), and
-  there are none;
-- maps every load, store, atomic and memory intrinsic, the pointer
-  arguments of the host's functions (by name: `host_*`, the `n64_*`
-  copies and `sprintf`, `port_counter`; `host_thread_create`'s argument
-  is handed back to the thread, so it isn't) and a struct passed by value
-  (the call copies it from its host address), to `port_arena + (p &
-  0x1FFFFFFF)`, unless it is a local that doesn't escape or the host's;
-- lays out the locals left in memory (an alloca, or a struct passed by
-  value whose address goes to a call, into memory or into an integer: the
-  escaping ones, and the few arrays and structs `-O2` kept in memory
-  without their escaping) on a stack of its own: each function's are one
-  frame, at offsets the pass decides from the IR (the target's frame
-  layout has no say), taken from the running thread's slot of the locals'
-  stacks at the entry and given back at every return.  `port_locals_sp`
-  is the pointer (an N64 address; `threads.c` keeps each thread's while
-  it doesn't run, and a thread starts at the top of its slot), and a
-  frame outside the running thread's slot (`port_locals_end`), or outside
-  a thread, stops the port (`port_arena_bad_local`).  348 locals (9 that
-  don't escape) in 160 frames in us.v10's 32-bit build, the biggest 1,360
-  bytes; 370 in 167 in LP64.  So the addresses of locals the game stores
-  in RDRAM, and what is left in the frames between calls (which the
-  decompiled C reads where IDO's code read an uninitialized local), are
-  the same wherever the module is code-generated: the WebAssembly build is
-  the Linux 32-bit native-endian one's to the byte ("WebAssembly").  (Not
-  in a variadic function, whose `va_list` is the host's.);
-- makes what is left undefined 0 (an `undef` or `poison` operand: an
-  argument the caller never set, a function that falls off its end, a phi
-  from a path that set nothing: 22 in us.v10's 32-bit build, 183 in the
-  64-bit one), which each backend would make something of its own, i386
-  whatever was in the register or on the stack;
-- makes a function used as a value its N64 address, the game's by its
-  vram and the port's own from `0x7F000000`, and a call through a value a
-  call through `port_fn(address)` (the pass's `__port_fns`, `runtime.c`):
-  30 functions and 16 calls in us.v10 (mn32; mlp64 40 and 19,
-  `PORT_ARENA_STATS=1`, after P7).  The host calls a thread's entry
-  the same way (`PORT_FN`, `threads.c`).  The function pointer types are
-  the C's own since P7 (libaudio's, `OSDevMgr`'s); a value is an N64
-  address because every pointer value is one in the movable builds, so
-  the table goes with the arena (P10);
-- names the caller of the replay's hooks (`port_replay_set_caller`, which
-  `replay.c` uses instead of looking the return address up in the port's
-  symbol table, as the other builds do);
-- first of all, makes every direct call with its callee's type: the
-  decompiled C's K&R declarations disagreed between files (449 calls in
-  us.v10's 64-bit build, 417 in the 32-bit one; none since
-  `functions.h`, `PORT_ARENA_STATS=2` lists any).  The arguments are
-  truncated or extended as the N64's registers would carry them (a
-  missing one is zero), a variadic callee gets the rest as they are
-  (34430.c declares `func_8029A7E4` with four parameters), and the result
-  is converted by the callee's extension.  x86-64 and AArch64 ran them
-  anyway; WebAssembly can't call a function through another type, and
-  i386 got narrow results wrong (below).  A call of the callee's type
-  whose narrow result it says is extended the other way has the caller's
-  extension of the result made the callee's: the N64 used `v0` as the
-  callee left it, and so does x86, which takes the call's word for it,
-  where WebAssembly extends again.  There were three, 1D990.c's `s16
-  func_8028604C(s32)` for 409D0.c's `u16 (u32)` (the level time's cap,
-  59,999, came out negative in wasm, and a countdown ran out); that
-  declaration is the definition's now, as are `func_80272C5C`'s (`s8` in
-  seven files for a `u8`, which the call repair already covered), and the
-  pass is the safety net (none left in us.v10);
-- in the LP64 build, lays out after RDRAM the C's variables that outgrew
-  their N64 room (as `gen_ld.py` decides it: bigger than the N64 symbol's
-  size and the distance to the next, or aligned where it isn't: 115 in
-  us.v10, its native pointer variables and tables), and writes where they
-  went as a header (`gen/arena_syms.h`: `SYM_` for the translated code,
-  which reads seven of them, `PORT_N64_` for the host, both ahead of the
-  N64's addresses).
-
-port-wrap, per file (`BEPASS_WRAP`), does the link's `--wrap` for the N64
-side, which is one object now, and the glue calls the `__wrap_`s itself
-(`gen_glue.py --wrap`, CMake's `PORT_WRAPS`: `externs.c` calls the
-inflate), so the movable build links without `--wrap` (ld64 has none; the
-other builds keep it for the N64 side's objects).  `port/src`'s data gets
-sections of its own (`BEPASS_PORT_SRC`), which is how the pass knows it;
-the pass drops every such section (and the asm data's `port.asmdata`) as it
-places the variables, so none reaches `llc`, where Mach-O would want
-`__DATA,__name`.  The asm data's `.ll` files carry the N64 side's triple and
-data layout (CMake asks clang for them with the N64 side's flags), so
-`llvm-link` links them without a warning.
-`PORT_ARENA_STATS=1` makes `opt` print the counts, `PORT_ARENA_MAP=FILE`
-write where each variable went.
-
-The translated code's `rdram` is the arena and its `SYM()`s are the N64
-addresses (`syms_<module>.h`'s own; no `port_recomp_syms.h`).  The host
-reaches game memory through `port_ptr`, names the game's variables by
-their N64 addresses (`PORT_VAR`, `PORT_ADDR`: `n64_syms.h`, from the same
-table), and uses the host versions of the copies and `sprintf`
-(`libc64.c`) in either width.  The movable build links no linker script
-(`gen_ld.py`'s, `port_syms.ld`, `port_fixed.ld`) and maps nothing fixed
-(RDRAM, the stacks, the hardware registers, which neither the C nor the
-translated code reads).
-
-**How it was checked**, us.v10, a step at a time (the commits say which):
-
-| step | TAS (64-bit big-endian, `--replay`) | 3,000 frames of `PORT_AUTOSTART=1` against the build without it |
-| --- | --- | --- |
-| 1, RDRAM moves | 57 platinum, all reads matched; save and replay log identical | `--wav` and save identical (LP64, 32-bit native) |
-| 2, the stacks | the same, identical | identical |
-| 3, the arena link | 57 platinum, all matched, no mode forced; 164 retraces given anyway (373) | identical with `PORT_COUNT_PER_OP=0` |
-| 4, the arena, globals by constant | 57 platinum, all matched, no mode forced; 142 given anyway | identical with `PORT_COUNT_PER_OP=0`; RDRAM the same but the stacks' addresses |
-| 5, functions, PIE | 57 platinum, all matched, no mode forced; 126 given anyway | identical with `PORT_COUNT_PER_OP=0` |
-| 1-5 on main's fibers | 57 platinum, all matched, no mode forced, 395 given anyway; `PORT_THREADS=ucontext` and `pthread` the same save and replay log | identical with `PORT_COUNT_PER_OP=0`; `--interpolate --widescreen` (GL, headless) the same screenshots |
-| 6, call types | 57 platinum, all matched, no mode forced, 384 given anyway | identical with `PORT_COUNT_PER_OP=0`, 64-bit and 32-bit native |
-| 7, LP64 | LP64 movable: 57 platinum, the same save and the same report as the LP64 build without it (both drift: 3,993 of the log's reads skipped, 11 modes forced) | LP64: identical with `PORT_COUNT_PER_OP=0` |
-
-Where the arena is doesn't matter: the step-5 TAS played again with
-another arena offset (`PORT_ARENA_OFFSET=0x10`, and whatever ASLR gave
-both runs) wrote the same save and the same replay log, line for line.
-From step 3 on the timing differs a little from the build without it:
-the string literals are laid out differently, and some of the game's
-loops over them take other paths by their alignment; the game logic
-doesn't see it (the pace log is identical over those 3,000 frames).
-(The retraces given anyway went from 126 to 395 with main's fiber API
-underneath: the build without the option went from 373 to 376 then.)
-
-The call repair found a bug of the 32-bit builds: `func_80264BA4` is
-defined `u8` (1D990.c) and declared `s32` in four other files, and i386
-leaves the upper bytes of `eax` as they were, so the map's `!= 3`
-compared garbage (IDO's `v0` has a `u8` zero-extended; the 64-bit builds
-widen narrow results, port-ilp32).  Those declarations are `u8` now
-(the ROMs don't change: IDO's caller doesn't look at the upper bits), so the default 32-bit builds are right too, and the
-32-bit native-endian movable build plays as the one without (before, the
-two had parted, on different garbage).  The 32-bit big-endian build's
-TAS gains by it: 57 platinum and all reads matched as before, but no
-mode forced any more (two were), 78 retraces given anyway (85).
-
-**What's left** for the movable build itself: the access profiler
-(refused with it) and `build_cmp.py rdram`'s view of the stacks.  (wasm-ld
-found no call to the glue whose type isn't `entry.c`'s.)
-
-For **macOS** (arm64) the movable build is all there is; what it took and
-how it was checked without a Mac is under "Other hosts", "macOS".
-
-**WebAssembly** is done on top of this: see "WebAssembly" below.
-
-The LP64 build doesn't finish the TAS at the moment, with or without
-this: it stops with SIGFPE at about the movie's read 1,620 (main's
-`build/p10lp` too), which is being looked at separately.
-
-### The data from the ROM (`PORT_ROM_DATA`)
-
-The arena image is all of the game's data a movable build carries (the
-asm data, the islands, the decompiled C's initializers: docs/DISTRIBUTION.md,
-1a-1e), and nearly all of it is the ROM's.  With `PORT_ROM_DATA` (on by
-default in a movable build; `-DPORT_ROM_DATA=OFF` carries the image as
-before) the executable has none of it: it carries a list of operations
-that make the image from the user's ROM at startup, which the port needs
-anyway.
-
-- **The build.**  port-arena writes the image to `gen/arena.img`
-  (`-port-arena-image`, in every movable build) and leaves its runs out of
-  the module (`-port-arena-no-runs`).  `tools/rom_data.py` lays the ROM's
-  code modules out at their N64 addresses as the game loads them (init as
-  it is at `0x8021ED00`; hd_code's `.text` and `.data` gzip members
-  inflated at `0x802447C0`, hd_front_end's at `0x801E7000`, each `.data`
-  right after its `.text`), from the version's `baserom.<version>.z64`
-  (`PORT_BASEROM`, sha1-checked) and the top-level map's `_ROM_START`s.
-  It covers the image greedily with copies from that source: from the
-  same address first, as it is or with every 2-, 4- or 8-byte unit
-  reversed (native-endian data, 64-bit scalars' words); from elsewhere
-  (at least 8 bytes, searched: the string literals and statics port-arena
-  moved above `0x400000`, LP64's outgrown variables); and literal bytes
-  for what neither gives.  It decodes the result as the host will, fails
-  the build unless that is the image to the byte, and writes
-  `gen/romdata_ops.c` (the operations, the members' ROM ranges and a hash
-  of the image) and `gen/romdata_report.txt` (the literal bytes by
-  variable, from `PORT_ARENA_MAP`).
-- **At startup** (`port_arena_init`, `host/romdata.c`): the ROM's sha1
-  has been checked (`main.c`, every build: `PORT_ROM_ANY=1` lets another
-  ROM through with a warning); the four members are inflated (an inflate
-  of the port's own, RFC 1951, its tables computed rather than written
-  out), the operations applied into the arena, and the hash (FNV-1a over
-  8-byte words) compared, so a ROM that inflates to other data stops the
-  port there rather than playing wrong.  7 ms on a desktop.
-- **What is literal**, us.v10 (64-bit big-endian, 32-bit native-endian,
-  LP64): 4,608, 4,806 and 6,058 bytes (2.9-3.4 K before P7 and P8), in
-  operations of 14 K, 28 K and 40 K (the image's runs were about 190 K);
-  1.49-1.57 MB of the image comes from the ROM (zeros between included),
-  21-30 K of it from other addresses (207 K in LP64, whose static display
-  lists are widened copies, "Graphics").  The literal bytes are the port's:
-  pointer words to the data port-arena moved (the game's string tables and
-  the LP64 build's native pointer tables, 1.8-2.7 K), `port/src`'s and
-  libaudio's strings and `__func__`s (1.8-2.1 K: the new messages of
-  `widen.c`, `pool.c` and libaudio's checks are among them), clang's lookup
-  tables for the game's switches (`switch.table.*`, 0.9-1.1 K) and a few
-  words of `port/src`'s own variables.
-- **The RSP microcode's text** (hd_code's after `ldiv`, hd_front_end's
-  last 0xFB0 bytes of `.text`, 18.3 K) is zeros in every build now
-  (`asm2c.py`'s `RSP_TEXT`): the HLE never runs it and nothing reads
-  it.  Its data segments stay, as the ROM's: `aspmain.c` reads the audio
-  microcode's resampling table.
-- **Checked** with `tools/rom_scan.py` (`test.py quick` runs it on every
-  `PORT_ROM_DATA` build and fails on any hit): no stretch of 24 bytes or
-  more of the ROM, or of its inflated modules as they are or with 2- or
-  4-byte units reversed, is in the executables, the .wasm or the .js.  The
-  quick tier and the TAS play as without it (the image is the same, byte
-  for byte).
-
-The non-movable builds still carry the data (about 158 K in stretches of
-24 bytes or more in the 32-bit build's executable): their game variables
-are the executable's own sections at N64 addresses, initialized by the
-loader, and the C's are swapped by constructors before `main` has the ROM;
-see docs/DISTRIBUTION.md.
-
-### The asm data as C
-
-The handwritten objects' data is typed C in every build: `asm/data`'s
-`.data`, `.rodata` and `.bss` files of hd_code and hd_front_end (but
-libultra's exception jump table, `972A0.rodata.s`), the two pointer-bearing
-islands of hd_code's `.text` (`7D9D0.bin.s`, `800DC.bin.s`), the islands
-kept as `.bin` and jp's `GLOBAL_ASM` rodata.  `port/tools/asm2c.py` writes
-it at build time from the extracted asm (`gen/data_c/`: a `.c` per file
-and `asm_data.h`, the types and every variable's declaration; the data is
-the ROM's, so nothing of it is committed), and it is built like the game's
-C (`game_data`: the N64 side's flags, BEPass, `-fdata-sections`; bitcode
-for the arena link in the movable build).  `asm2x86.py` and `asm2ll.py`
-are gone, and the `port_bswap32` words with them: BEPass swaps the
-initializers in the big-endian builds, pointers included, as it does the
-game's.
-
-- **Types.**  Each label is a variable of the type the inventory gives it
-  (`symbols`, `inventory.json`): the header types under their names
-  (`YoshiEntry`, `VehicleState`, `Building`, `UnkStruct_803ED460`, `Mtx`,
-  `Vtx`), each handwritten-data record type as `asm_D_X` from its fields
-  (a record of one field is that field), scalars as themselves; a label
-  the inventory doesn't type is typed by its directives (`u32` for
-  `.word`, `u16`, `u8`, `f32`, a pointer for a symbol).  A variable runs to
-  the next one: what is left after its whole elements (a record cut short,
-  a terminator, padding) is a `tail` beside them in a struct of its own
-  (`D_X_t`), so that every byte of the file is in a variable.
-- **Pointers.**  A symbolic `.word` is a pointer initializer: `(T *)&D_X`,
-  `&D_8030xxxx` of a member, or `(u8 *)&D_X + n` for a name inside a
-  variable (YoshiEntry's text pointers into hd_code's u16 text), and a
-  function's name for a function.  A pointer is native, as the C that
-  reads it declares it (8 bytes in the LP64 build, which lays out the
-  variables that hold one as the host does): the inventory's pointers and
-  `POINTERS`' (the words the C has as pointers, tables to a sentinel
-  included).  A display list is typed by its kind, `Gfx` (`TYPES` and
-  `LABEL_TYPES`: `asm_Gfx`, gbi.h's two words as wide as a pointer, so as
-  wide as the build's command), and a word of it that holds an address is
-  the symbol's pointer value, a `uintptr_t` (`uptr`, `ASM_GFX_ADDR`), its
-  segmented ones tagged ("Graphics"): `D_802F46C0`, `D_802F4780`, the
-  effects' two-pass buffers and `D_80300A68`, the carrier's explosion's
-  dome, which runs to its `G_ENDDL`; `SPLIT_LABELS` makes the words after
-  that a variable of their own, `D_80300A68_after`, which nothing reads as
-  part of the list.  Nothing reads this data at its N64 offsets any more
-  ("The LP64 build").
-- **The same bytes.**  The native-endian builds had each datum in host
-  order at the width `asm2x86.py --native` gave it (the inventory's
-  fields, the islands' layouts, `ISLANDS` and `BLOBS`, the u16 text of
-  `HALF_FILES`, all in `asm2c.py` now); the generator still works those
-  widths out and checks each variable's C type against them unit by unit,
-  so a type that would put a datum in another order gives way to the
-  directives' runs (`gen/data_c/asm_data_report.txt` lists them: three,
-  where a fieldscan record type is bigger than its label or has a word
-  where the display list `D_80300A68` has a pointer).
-- **The inventory types every label** now (1,481 in us.v11; it typed 900):
-  `tools/inventory.py`'s `ASM_DATA_TYPES` gives the rest their readers'
-  types (port/engine's and the C's declarations: `D_80305C50` an `f64`,
-  `D_80305C10` pointers, the effects' buffers `Mtx` and `Vtx`, the front
-  end's one-word strings), `ASM_DATA_LAYOUTS` the records the engine names
-  (`D_803059F0`, the building rules) and the VI modes (`D_80306E70`,
-  `OSViMode`), and `ASM_DATA_TEXT16` makes hd_code BC8E0's 555 labels the
-  `u16` text they are.  The native-endian builds see three of these in
-  another order than before, each now as the big-endian builds have it:
-  the front end's eight 4-byte strings (`" "` had been `""`), `D_80301098`'s
-  u16 text, and `OSViMode.type`, which nothing reads.  What the
-  generator still types by directives: the 12 islands (by their readers'
-  layouts), the report's three and hd_code's copies of `__osRcpImTable`
-  and `__osHwIntTable` (the inventory has init's).
-- **What code walks across.**  Every variable is still at its N64
-  address (`gen_ld.py`'s script, port-arena's placement), which keeps the
-  tables that a walk runs off into the next label working as on the N64.
-  For the day the variables aren't at fixed addresses, a table the code
-  reads across labels is one variable (`LABEL_TYPES`): the first label's
-  type runs over the others, which are names inside it.  So the chance
-  records of `D_80306344`, `D_80306350` and `D_803063D4`, walked into
-  `D_803063E0` (hd_code 77E20's `.data`), the
-  wheels' words and bytes (62740's `D_803ED398`, `D_803ED3A8`,
-  `D_803ED3EA`, `D_803ED3EE`, `D_803ED3F2`), the barges' (83910's
-  `D_803F8748`...) and the visibility task with its stack (5FD50's
-  `D_803BE740`); the engine reads them through that variable.  (75490's
-  `D_80305D74` needs none: its walk stops at the 0xFFFF inside it.)
-  `D_8020C070[]` (`YoshiEntry`, hd_front_end
-  25070) is one array to its file's end already, over the labels splat
-  made inside it.
-- **Names inside a variable** (a struct's members but the first, the
-  labels inside `D_8020C070[]`, a label with no bytes before the next):
-  the builds at fixed addresses define each as an alias at its offset
-  (`.set D_80306350, D_80305E10 + 0x540`, top-level asm in the generated
-  file), so the C, the engine, the host and the translated code (the
-  check build's `SYM()`s) link to them as before, and `gen_ld.py check`
-  sees them where the N64 has them; the movable build's arena link
-  resolves an undefined N64 name to its N64 address, which is where it
-  is.  In C that doesn't rely on addresses they are the members
-  (`D_80305E10.D_80306350`), which is what the generated initializers use.
-- **How it was checked.**  us.v10, before the inventory's additions: the
-  arena images of the movable builds (64-bit big-endian, LP64, 32-bit
-  native) the same as before, byte for byte; `gen_ld.py` placing the same
-  3,388 names (the aliases included), with nothing moved in LP64 but the
-  C's 107; the quick tier on all seven variants.  With them: us.v11's
-  quick tier on all seven, and us.v10's `test.py variants --tas` (the
-  eight variants, wasm included): every hash the references', and the
-  TAS on each with 57 platinum, all 125,297 of the log's reads matched
-  and the gameplay digest the reference's.  jp (its 17 `GLOBAL_ASM`
-  functions' rodata too): the quick tier on the 32-bit and the movable
-  32-bit native-endian builds.
-- **What stays bytes**: text (C strings as `char` arrays, the
-  0xFF-terminated text, the u16 text as `u16`), the dome's texture, data
-  read only as bytes, the chance records the code reads both ways (kept
-  big-endian, `ASM_DATA_BE`), the islands' byte runs (the microcode's
-  data, 8E910's per-level cells), and the RSP microcode's text (zeros,
-  `RSP_TEXT`).
-
-### No address literals
-
-A pointer the N64 side makes from a number is an address it doesn't name,
-which nothing but the N64's layout can make right.  The movable build
-fails on one: before port-arena makes constants of its own (the layout's,
-the regions', `__port_fe_vars`), it walks every function and initializer
-of the N64 side (the game's C, `port/src`, libaudio, the engine, the asm
-data) for
-
-- a pointer made from a number in RDRAM: KSEG0 or KSEG1 (`0x80000000`,
-  `0xA0000000`, 8 MB) or physical (`0x1000` to 8 MB);
-- a pointer's value moved between them, by adding, subtracting, masking
-  or or-ing `0x80000000`, `0x1FFFFFFF` and the like: a conversion left;
-- a pointer's value compared with an RDRAM address,
-
-and names each, `port-arena: FUNCTION (FILE:LINE): a pointer made from
-0x8004B400`, then stops.  None is left, so there is no allow-list: the
-fixed buffers are regions ("Memory model"), whose names the pass resolves
-itself.  What passes is what never becomes a pointer: the trap PCs
-(`N64_PC`) and `N64_VALUE`s, masks of integers (`(s32)0x80000000`,
-`INT_MIN`, jp's bit tests), the hardware registers (`0xA4000000` up) and
-the `OSMesg` numbers below `0x1000` sent as messages (`(OSMesg)5`,
-`666`; `PORT_ARENA_STATS=1` counts them).  `-DPORT_ARENA_LITERALS=warn`
-lists without stopping, `=off` skips it.  It runs in every movable build
-(m64, mlp64, mn32, WebAssembly, the scattered ones); the fixed builds
-compile the same source, and the engine check build, which keeps the
-N64's conversions, is never movable.  It sees only what the compiler
-sees: an address read as a number from data, or one the host makes, is
-the guard's to catch ("The guard", below).
-
-### The scattered layout (`PORT_SCATTER`)
-
-Every build so far keeps each N64-named variable at its N64 address, and
-the game's C and the engine C rely on that in places: a field read
-through a name of its own (`D_803156C4` for `Sched.frameCount`), a `T
-x[1]` that is really bigger, a loop from one label to the next, a range
-cleared by address.  `-DPORT_SCATTER=SEED` (a movable build) is the
-oracle that breaks all of that where it shows: port-arena gives every
-N64-named variable of RDRAM an address after the data without N64
-addresses instead, in an order the seed shuffles, keeping its N64
-address's offset in 16 bytes, with padding before it of 16 to 2,048
-bytes plus the size of the one before (up to 16 KB, so that an index the
-N64 had room for lands in padding).  2,166 variables in us.v10, to about
-`0x910000`.
-
-- **The unit** is a C variable, the asm data's included ("The asm data
-  as C": a label each, a table the code reads across labels one variable,
-  `LABEL_TYPES`), so a walk from one label into the next breaks unless
-  its labels are one of those.  (Before the asm data was C, a
-  `PORT_SCATTER_ASM=file` placed each data file whole; it only hid those
-  walks.)
-- **Names inside another variable** (a declaration whose N64 address is
-  inside something placed: a field's own name, a label inside a typed
-  array, a struct's members but the first) get room of their own, to the
-  container's end, so the C's view through them parts from the
-  container's: 256 in us.v10, 241 of them in the asm data.
-- **The front end's variables** move too (`-DPORT_SCATTER_FE`, on by
-  default; `=OFF` leaves them at their N64 addresses): port-arena lists
-  them (`__port_fe_vars`) and `port/src/overlay.c` puts each back as it
-  was at startup when the game loads the front end.  The level pool, whose
-  tail is the front end's area, moves with them.
-- **The fixed buffers** (the regions, "Memory model") move as well: each
-  gets room of its own after the variables, with padding before it and its
-  N64 address's offset in 4 KB kept (so the framebuffers' 64-byte
-  alignment too), and its N64 place joins what nothing should touch.  Its
-  sub-regions move with it.  The level pool moves only with
-  `PORT_SCATTER_FE` (`-port-arena-scatter-regions=pool`): without it the
-  front end's variables are inside its N64 range.  So with it, which is
-  the default, **nothing stays**: nothing of the game is in the arena's
-  first 4 MB, which "The guard" (below) makes inaccessible.
-- **The front end's area** (`D_801E7000`, the pool's tail) still gets
-  what the N64's load leaves there, the `.data` image and the cleared
-  `.bss` (`port/src/overlay.c`), though its variables are elsewhere.  That
-  image is made from the variables' startup values, each clipped to its
-  N64 room: in LP64 a variable can be bigger than on the N64, and the
-  area keeps the N64's size (the variables themselves are restored
-  whole), which is for native pointers to settle.
-- **What nothing should touch**: the N64 places the variables left, the
-  padding and the aliases' rooms (`__port_scatter_bad`) are filled with
-  `PORT_SCATTER_POISON` (a byte, default `0xA5`, so a pointer read there
-  is off the arena).
-- **The host** names variables by `PORT_N64_` (`n64_syms.h`); the
-  arena's header has the scattered addresses first, and a name only the
-  host uses goes where it is inside of.
-- It carries its data (no `PORT_ROM_DATA`), and the default builds are
-  unchanged (the same code and arena image; only the debug info moves).
-
-`-DPORT_SCATTER_CHECK=ON` adds the check: every load, store and
-pointer argument of the N64 side calls `port_scatter_check(address,
-size, site)` (memsets and copies are done by `port_scatter_mem`), which
-reports the first access of each site (function, file and line) to each
-such place, `scatter: SITE: N bytes at A reach WHAT`, and then takes it
-where the N64's layout has what it meant (an alias into its container, a
-byte of padding as the nearer neighbour's N64 place, an N64 place to the
-variable's new one), so the game plays on and the next one shows
-(`PORT_SCATTER_REDIRECT=0` doesn't).  With the check a name inside the
-asm data stays in its variable: the generated data points into the
-variable, not at the name, and where the code compares such pointers
-(`func_802A06B4`'s keys) no redirection can make them equal; the report
-lists those names all the same.  An access off the arena stops the
-port with its site.  `gen/scatter_report.txt` lists what was placed where
-and every name inside another variable with the lines that use it, and
-`port/tools/scatter_list.py` makes the two into the list of what
-depends on the layout, by kind: docs/LAYOUT.md, the input for removing
-those dependencies.  (`PORT_EA_GUARD` is the translated code's, which no
-default build has: it doesn't apply.)
-
-What it found (us.v10, seeds 1 to 3, the quick tier's scenarios and the
-whole TAS, which every check build plays through with 57 platinum and the
-reference's gameplay digest): nothing now; docs/LAYOUT.md has how it was
-made and how the first list's rows went.
-
-### The guard (`PORT_SCATTER_GUARD`)
-
-The check sees only the N64 side's accesses: the host's reads of game
-memory by address (the renderer's display lists and textures, the audio
-HLE, the loaders) it can't.  `-DPORT_SCATTER_GUARD=ON` (a scattered
-build with `PORT_SCATTER_FE`, not WebAssembly) covers them: once the
-arena is filled and poisoned, `port_arena_init` makes the pages inside
-its first 4 MB `PROT_NONE` (`runtime.c`), so any access to the N64's
-RDRAM, from the game's C, the engine or the host, faults, and the crash
-handler names the N64 address and the code's (`guard: N64 address
-8004B400, ... reached at PC: addr2line -f -e ./blastcorps PC`,
-`main.c`).  It costs nothing, so the whole TAS runs at full speed.  The
-RDRAM dumps (`PORT_DUMP`, `PORT_REPLAY_DUMP`, the crash dump) write zeros
-there (`port_dump_rdram`).  `test.py variants` builds it as `guard`
-(mn32, seed 1), and its quick tier and TAS give the references' hashes.
-
 ## Resource packs
 
 The port can take a resource pack instead of the ROM: a zip of the ROM's
@@ -2187,7 +971,7 @@ deflates the gzip members exactly as Rare's tool did.  Every segment goes
 where the port's link has it (`romtab.h`), but the display lists and the
 models, which the code doesn't name, follow what comes before them (docs/
 ASSETS.md).  Then the rest of the port reads the image as it reads a ROM:
-the PI DMAs, `PORT_ROM_DATA`, the ROM's sha1 (an edited pack's image isn't
+the PI DMAs, the ROM's sha1 (an edited pack's image isn't
 the ROM's; the port says what was edited instead of refusing it).  It takes
 about 570 ms natively and 650 ms in wasm (us.v10, `-v` prints it), most of
 it deflating the 738 members.
@@ -2236,10 +1020,9 @@ hand: Simian Acres' starting vehicle moved 300 units in `levels/chimp.yaml`
 **Without the code.**  The port's engine is its own now, so the code
 modules' bytes are needed for nothing but the data in them.  A pack keeps
 that data apart (`data/`, docs/ASSETS.md; `tools/assetlib/codemask.py` says
-what is code), and the movable builds make their data from it
-(`pack_data_source()` in `host/romdata.c`, which zeroes the code ranges of
-the ROM's modules too, so the operations `rom_data.py` writes never
-depended on code: us.v10 m64 3,141 literal bytes where it had 2,932).
+what is code), so that a build which makes its game data from the ROM at
+startup (the follow-up package of "The build": today the executable carries
+it) can make it from the pack's `data/` alone.
 `make_pack.py --no-code` leaves `rom/`'s code out, and the port stands in
 for the front end's members (its `.text` as zeros, its `.data`): the game
 still DMAs and inflates them when it loads the front end, for the time
@@ -2260,7 +1043,7 @@ in us.v10, the game's tables, strings, display lists and the RSP's data).
 - `make_pack.py` on all four ROMs: every gzip member deflates back through
   `gzip124_compress` (738 of 738 each); `host/pack_yaml.c` reads the 64 YAML
   files of a us.v10 pack exactly as PyYAML's `BaseLoader` does.
-- `test.py quick` (every variant, as part of its scenarios): `attract.pack`
+- `test.py quick` (every kind of build, as part of its scenarios): `attract.pack`
   and `auto3.pack` play from the pack and must give every hash the ROM's
   `attract` and `auto3` give; `auto3.pack.nocode` from the pack without the
   code, the same; `auto3.pack.edit` from a copy with texture 60F (Simian
@@ -2271,14 +1054,13 @@ in us.v10, the game's tables, strings, display lists and the RSP's data).
   PNG four times as wide and high, the same as that, and `auto3.gl.pack.hires`
   draws it with OpenGL: the save and sound as `auto3`'s.  The packs are made
   once into `build/pack/`.
-- The TAS from the pack (`test.py tas BUILD --pack`, or `variants --tas
-  --tas-pack`): us.v10, 32-bit and wasm: all of the log's 125,297 reads
+- The TAS from the pack (`test.py tas BUILD --pack`, or `kinds --tas
+  --tas-pack`): us.v10, then 32-bit and wasm: all of the log's 125,297 reads
   matched, none skipped, no mode forced, 57 platinum, the reference save
   (21 and 28 minutes); and the 32-bit build from the pack without the code,
   the same.
-- Where the quick tier ran with these scenarios: us.v11 all eight variants
-  (`variants --version us.v11`, the wasm one included), jp m64, us.v10 32
-  and m64: every one passed.  eu (all eight variants) passes them too.
+- Where the quick tier ran with these scenarios: us.v11 on every kind
+  (`kinds --version us.v11`), jp and eu: every one passed.
 - The page in headless Chromium (Playwright, SwiftShader): with no ROM in
   IndexedDB, the edited pack chosen in the picker plays into Simian Acres
   with the magenta grass, and after a reload the pack is still there and
@@ -2291,8 +1073,8 @@ in us.v10, the game's tables, strings, display lists and the RSP's data).
   each, one running at a time; see "Threads without ucontext"), scheduled
   as libultra does: the highest-priority runnable thread runs until it
   blocks, yields, or wakes a thread of higher priority.  The idle thread parks when it drops to priority 0.  Each thread
-  has its own `recomp_context`, whose `$sp` is the N64 stack the game gave
-  `osCreateThread` (only the translated code uses it).  Nothing preempts
+  has the stack the game gave `osCreateThread` (it only reads it back) and
+  a host stack of its own ("Threads without ucontext").  Nothing preempts
   a thread but its own calls into libultra, and `port_spin_wait` in the
   game's busy-waits ("Memory model"), so `osSetIntMask` has nothing to hold
   off: the game walks its list of playing sounds under it while the audio
@@ -2355,47 +1137,29 @@ loop's thread while the fiber waits; in the ucontext backend it is a plain
 call.  Everything else the game threads call into (the audio queue, the
 EEPROM file, the ROM) doesn't care which thread it is on.
 
-**The stacks.**  A fiber's native C runs on a host stack in the KSEG0
-window, `0x90000000` + 1 MB per thread slot (`PORT_STACK_BASE`, port.h),
-in both backends (`pthread_attr_setstack`).  It has to be there as things
-are, not for the game's sake but for the port's: the address of a local
-reaches game memory and the translated code (a message queue on a
-thread's stack, an argument block the game's C passes to the engine), the
-translated code reaches memory as `rdram + (addr & 0x1FFFFFFF)` with
-`rdram = 0x80000000`, and the 64-bit build stores pointers in 32 bits.  So
-the stacks move with RDRAM when the fixed addresses go (a base-relative
-RDRAM arena would hold them too); nothing in the backends depends on the
-address itself (the pthread backend takes a NULL stack for one of its
-own).  The backends do have to agree on where the frames are: the game
-stores the addresses of its locals in RDRAM, and glibc puts a new thread's
-descriptor and TLS at the top of a stack it's given (0x1210 bytes here),
-which moved every frame down by as much.  In the LP64 build the hint
-box's portrait static at frame 1500 of `PORT_AUTOSTART=2` came out
-different (the rest of that run was identical).  So both enter a fiber
-through `fiber_enter`, which `alloca`s down to 64 KB below the top of the
-stack first; RDRAM is then identical between the two, word for word, at
-every dump compared.  (In the movable build the C's locals that live in
-memory aren't on these stacks at all: port-arena gives them a stack of
-its own, laid out the same on every target, "The movable build".)  (The
-same run also showed that the LP64 build's
-pixels depend on the executable's layout: two LP64 builds whose host code
-differs draw that portrait differently, presumably from the pointers into
-the image the game stores in RDRAM.  Compare LP64 runs with one executable.)
+**The stacks.**  A fiber's native C runs on a host stack of its own,
+allocated the first time its slot is used (`host_thread_stack`,
+`runtime.c`: `PORT_STACK_SIZE`, 1 MB, 16 KB-aligned, zeroed), in both
+backends (`pthread_attr_setstack`); nothing depends on where it is (strict
+mode knows them for a display list built in a local).  The backends have
+to agree on where the frames are, though: the game stores the addresses of
+its locals in its memory, and glibc puts a new thread's descriptor and TLS
+at the top of a stack it's given (0x1210 bytes), which moved every frame
+down by as much.  So both enter a fiber through `fiber_enter`, which
+`alloca`s down to 64 KB below the top of the stack first (measured from
+its frame's address, which is the real stack's even where ASan keeps
+locals on a fake one), and the two backends run the same frames.  The
+software renderer's static (the hint box's portrait, the story's TV)
+samples memory that holds addresses of the image, so those pictures
+differed between two executables; the screenshots that fell on it are
+gone since "The front end's waits", and the references list none.
 
-**How it was checked**, us.v10, one executable each, `PORT_THREADS=ucontext`
-against `=pthread`, `PORT_COUNT_PER_OP=0 --deterministic --renderer sw`,
-`PORT_AUTOSTART=2`, 4,000 frames with the save, `--wav` and a screenshot
-every 250 frames: identical in the 32-bit and the LP64 build (and the
-ucontext run identical to the build before the change); RDRAM at
-controller reads 100 and 700 identical in both.  The TAS: the 32-bit build
-on either backend gives the log's "125297 of the log's 125297 matched (0
-skipped)", 57 platinum, with the log and the save byte for byte those of
-the build before the change; the 64-bit build the same (57 platinum, log
-and save identical between the backends).  The LP64 build doesn't finish
-the TAS on either backend, nor did it before the change: it dies of a
-SIGFPE after the log's read 1,620, identically on both.  Speed: the same
-to within a few percent (4,000 frames of `PORT_AUTOSTART=2`, 32-bit:
-22.4 s both; LP64: 18.1 s ucontext, 18.8 s pthread).
+**How it was checked**, us.v10, one executable each,
+`PORT_THREADS=ucontext` against `=pthread`, `--deterministic --renderer
+sw`, `PORT_AUTOSTART=2`: the save, `--wav` and every screenshot identical;
+the TAS: 57 platinum and the same log and save on either (the quick tier
+runs `=3` on both backends and compares every hash).  Speed: the same to
+within a few percent.
 
 **Returning to the host every frame.**  A browser's main loop can't block:
 the page gets control back once per `requestAnimationFrame`.  The loop in
@@ -2432,71 +1196,34 @@ as it was.  What the fibers needed there
 
 ### Other hosts
 
-What wasn't portable in the host code, and what became of it:
+What isn't portable in the host code, and what became of it: `main.c`'s
+`prctl(PR_SET_TIMERSLACK)` and `gfx.c`'s image bounds (`__executable_start`,
+`_end`) are Linux-only and guarded by `__linux__` (WebAssembly has its own
+bounds, "The build"); the crash handler (`sigaction`, `sigaltstack`, per
+thread in the pthread backend) is POSIX, left out under emscripten;
+`ucontext` is only used where `swapcontext` links (not macOS, emscripten
+or musl); nothing is x86-specific (no inline asm, `rdtsc` or intrinsics in
+the host code; `gfx.c` gets `-msse4.1` only on x86, `-msimd128` on wasm).
+The N64 side has no host test in it at all: where the C needs a host's
+facts it asks the compiler (`__USER_LABEL_PREFIX__` for the assembler's
+name of a symbol, `PORT_ULP`; `__UINTPTR_TYPE__` for the width of a
+pointer).
 
-- `main.c`'s ASLR re-exec (`personality(ADDR_NO_RANDOMIZE)` and `execv` of
-  `/proc/self/exe`, for a brk heap in the fixed windows) and
-  `prctl(PR_SET_TIMERSLACK)` are Linux-only and guarded by `__linux__`;
-  `MAP_FIXED_NOREPLACE` is used where it exists, and elsewhere the fixed
-  map is a hint that has to be taken (or the port stops); the movable
-  build maps nothing fixed and has none of it.  The crash
-  handler (`sigaction`, `sigaltstack`, per thread in the pthread backend)
-  is POSIX, left out under emscripten.
-- `replay.c` reads its own ELF symbol table from `/proc/self/exe` for the
-  audio answers; elsewhere it would ask `dladdr`.  The movable build does
-  neither: the arena link names the callers (`port_replay_set_caller`).
-- `ucontext` is only used where `swapcontext` links (not macOS, emscripten
-  or musl); nothing is x86-specific (no inline asm,
-  `rdtsc` or intrinsics in the host code; `gfx.c` gets `-msse4.1` only on
-  x86).
-- What the fixed builds need of the link can't be had on macOS (arm64
-  macOS reserves the low 4 GB as `__PAGEZERO`, and ld64 has no
-  `-Ttext-segment`, linker scripts, `--wrap` or `__start_`/`__stop_`
-  section symbols); the movable build needs none of it ("macOS", below).
+**AArch64.**  `port/tools/cross-aarch64.cmake` cross-builds for AArch64
+Linux with zig cc (like the three below, `cross-zig.cmake`) and runs under
+`qemu-aarch64` (headless, `--renderer sw`): its first 600 frames of attract
+give the x86 build's gameplay digest and screenshot.  The game is built
+with IDO's `-signed` (`-fsigned-char`), which is x86's default for plain
+`char` and Apple's arm64's, but not AArch64 Linux's.
 
-Checked: every file in `port/host/` compiles for `aarch64-linux-musl`
-(musl's headers: no ucontext, no glibc extensions), also with `__linux__`
-undefined, which takes the non-Linux branches.  There is no macOS SDK
-here to try that; emscripten: "WebAssembly".
+Every file in `port/host/` also compiles for `aarch64-linux-musl` (musl's
+headers: no ucontext, no glibc extensions), and with `__linux__`
+undefined, which takes the non-Linux branches; for macOS, "macOS".
 
-**AArch64.**  `port/tools/cross-aarch64.cmake` cross-builds the 64-bit port
-(`-DPORT_64BIT=ON`) for AArch64 Linux with clang, given the target's glibc
-and gcc runtime (Arch: `aarch64-linux-gnu-glibc`, `-gcc`, `-binutils`), an
-aarch64 SDL2 (through `PKG_CONFIG_LIBDIR`/`PKG_CONFIG_SYSROOT_DIR`), and
-the host's BEPass from a native build (`-DPORT_BEPASS_PLUGIN`, since clang
-loads it).  What it took: `ilp32cc.py` keeps stage 1 at i386 whatever
-`--target` CMake adds; and off x86 the optimiser raises the alignment of
-globals (AArch64 prefers 4 for `i8`/`i16` and 16 for float arrays it
-vectorizes), which moved them off their N64 addresses, so port-ilp32
-gives each global a section of its own there, named as `-fdata-sections`
-would (the x86-64 build is byte for byte what it was).  It builds, passes
-`gen_ld.py check` (3,419 symbols, 0 misplaced) and runs under
-`qemu-aarch64` (headless, `--renderer sw`): 4,000 frames of
-`PORT_AUTOSTART=2` in about 7 minutes, the same on both thread backends,
-and against the x86-64 build the save, `--wav` and 15 of the 16
-screenshots identical.  The 16th is the hint box's portrait static at
-frame 1500 again.  The only differences in RDRAM before it are host
-addresses the game stores (pointers into the image, in tables at
-`0x80209DF4`, `0x802F5760`-`0x802F8B1C` and more in us.v10), which move
-with the executable's layout, between architectures as between two LP64
-builds, so the static presumably samples memory that holds some (not
-tracked down further).  Removing the fixed addresses will move them too.
+### Big-endian and 32-bit hosts: the build under qemu
 
-The movable LP64 build (`-DPORT_LP64=ON -DPORT_MOVABLE=ON`) cross-builds
-the same way and runs under `qemu-aarch64`: 3,000 frames of
-`PORT_AUTOSTART=2` with the save, `--wav` and all 12 screenshots identical
-to the x86-64 build's, on either thread backend (no host addresses in game
-memory there, so the portrait static is the same too), with and without
-`-fsigned-char`.  The N64 side has that flag now: the game is built with
-IDO's `-signed`, which is x86's default for plain `char` (and Apple's
-arm64 one) but not AArch64 Linux's, where the LP64 build's code changed
-with it (the 64-bit build compiles its stage 1 for i386, and x86-64's code
-is byte for byte the same).
-
-### Big-endian and 32-bit hosts: the plain build under qemu
-
-The plain build (`-DPORT_PLAIN=ON`) is ordinary C in the host's byte order
-and pointer size, so it is also the build for the console-like targets: a
+The build is ordinary C in the host's byte order and pointer size, so it
+is also the build for the console-like targets: a
 32-bit big-endian PowerPC (the Wii's CPU's order and width) and a 32-bit
 little-endian MIPS (o32, hard float: the PS2's) or ARM.  They are built here
 with zig's clang (`zig cc`, which carries musl: one tarball from
@@ -2504,7 +1231,7 @@ ziglang.org, no root and no sysroot) as static executables, and run under
 qemu-user:
 
 ```
-cmake -S port -B build/plain-ppc -G Ninja -DPORT_VERSION=us.v10 -DPORT_PLAIN=ON \
+cmake -S port -B build/plain-ppc -G Ninja -DPORT_VERSION=us.v10 \
       -DCMAKE_TOOLCHAIN_FILE=port/tools/cross-ppc.cmake      # or cross-mipsel, cross-armhf
 cmake --build build/plain-ppc
 port/tools/test.py quick build/plain-ppc                     # the four scenarios, under qemu-ppc-static
@@ -2549,12 +1276,17 @@ x86 does; none of the fixes above moved anything on x86.  qemu is slow:
 attract's 4,000 frames took 2,042 s under qemu-ppc and 716 s under
 qemu-mipsel (23 s natively), and 1,000 frames of auto3 265 s, 95 s and 78 s
 under qemu-ppc, -mipsel and -arm: PowerPC's floating point is the dear
-part of qemu's (it keeps the FPSCR's flags exactly).  The TAS would take
-about 26 hours under qemu-ppc, 9 under qemu-mipsel and 7 under qemu-arm,
-which is for a machine of its own (`test.py tas build/plain-ppc`, its
-timeout scaled); the prefix, `test.py tas build/plain-ppc --frames N`,
-compares the gameplay digest with the native run's as far as it goes
-(the reference digest from `test.py tas build/plain --save-digests`).
+part of qemu's (it keeps the FPSCR's flags exactly).  The whole TAS would take about 26 hours under qemu-ppc, 9 under
+qemu-mipsel and 7 under qemu-arm (measured from the 300- and 3,000-frame
+prefixes), so a full emulated TAS is not run on a development machine: a
+long run goes to an ephemeral remote VM that is created for it, runs it
+unattended (the local machine can shut down meanwhile) and is deleted
+after.  Its inputs, the TAS's logs and the reference digests, are derived
+from the ROM and stay private, like the ROM.  Locally,
+`test.py tas build/plain-ppc --frames N` plays the TAS's prefix and
+compares the gameplay digest with the native run's as far as it goes (the
+reference digest from `test.py tas build/plain --save-digests`); CTest's
+`tas-prefix` runs 3000 frames.
 
 ### Memory budgets
 
@@ -2579,14 +1311,14 @@ high-water and the most its display lists took beyond the N64's.
 
 **Results** (us.v10): the level pool's high-water over the TAS and the
 quick tier with attract.long is the TAS's level 4 (its effects' heap ends
-0x244740 into the LP64 build's 0x261900), whose display lists are the most
+0x244740 into the 64-bit build's 0x261900), whose display lists are the most
 any level has at once, 0x72820 of the N64's (PORT_POOL_GFX_N64 is 0x8E000,
 nearly a quarter more); us.v11, jp and eu's quick tiers with attract.long
 take less (`test.py budget build/plain --long --tas`).  The seven levels
 whose effects' heap stops at the lower limit (`D_8020ED00`: 30, 31, 36,
-37, 45, 48, 54) end it 0x57460 or more below the pool's end in the LP64
+37, 45, 48, 54) end it 0x57460 or more below the pool's end in the 64-bit
 build, so it no longer reaches the front end's variables (which are
-ordinary globals in the plain build anyway).  A 32-bit build takes about
+ordinary globals anyway).  A 32-bit build takes about
 10 MB of executable (4.5 MB of it the N64 side: the pool, 1.83 MB, the
 framebuffers, init's area, the audio heap and 1.3 MB of the game's
 variables) and 8 MB of thread stacks: 18 MB in the qemu builds, 23.5 MB
@@ -2597,87 +1329,78 @@ for i386 with SDL and OpenGL, within the 32 MB ceiling.
 **Untested**: prepared for macOS on Apple silicon (arm64) and checked from
 Linux as far as that goes (below), but not built or run on a Mac yet.
 
-macOS takes the movable 64-bit build, LP64 first (`-DPORT_LP64=ON
--DPORT_MOVABLE=ON`; `-DPORT_64BIT=ON -DPORT_MOVABLE=ON` goes too, and CMake
-refuses the fixed-address builds there).  With Homebrew:
+macOS takes the build as it is, with Apple's clang or Homebrew's.  With
+Homebrew:
 
 ```
-brew install llvm sdl2 libepoxy pkgconf cmake ninja python
+brew install sdl2 libepoxy pkgconf cmake ninja python
 port/tools/macos_build.sh build/port-macos -DPORT_VERSION=us.v10
 ```
 
-which is CMake with `$(brew --prefix llvm)/bin/clang` (and `clang++`) as the
-compilers and the two options.  What the build does differently there:
+which is CMake with the system's clang (`CMAKE_C_COMPILER` to name
+another).  What the build does differently there:
 
-- **LLVM.**  Apple's clang loads no pass plugins and ships no LLVM headers
-  (CMake stops on `AppleClang`), so the compilers are Homebrew's LLVM, and
-  `llvm-config`, `opt`, `llc` and `llvm-link` are looked for next to the
-  compiler first (Homebrew's LLVM is keg-only, not on `PATH`).  BEPass is
-  a bundle linked with `-undefined dynamic_lookup`: LLVM's symbols are
-  those of the clang or opt that loads it.
 - **The N64 side** is compiled for the compiler's own triple
-  (`arm64-apple-macosx...`; `-nostdinc`, so no SDK is involved), through the
-  arena link, and `llc` makes a Mach-O object of it.  Nothing in that
-  module has a section name left, and every name is an IR name, which
-  Mach-O prefixes with `_` for host and N64 side alike; the glue's
-  `__asm__` names (`gen_glue.py`, for the libultra calls of jp's
-  `GLOBAL_ASM`) take `__USER_LABEL_PREFIX__`.  No `--wrap`, no
-  `__start_`/`__stop_` symbols, no `-pie` (every arm64 executable is one).
+  (`arm64-apple-macosx...`; `-nostdinc`, so no SDK is involved).  A name
+  spelled for the assembler takes the object format's prefix, Mach-O's
+  `_` (`PORT_ULP`, `__USER_LABEL_PREFIX__`: the aliases of `asm2c.py`'s
+  data, the one `__asm__` label in port/engine/7F8B0.c), and
+  `gen_fevars.py` reads the front end's symbols from Mach-O objects (the
+  leading underscore taken off, the compiler's own local labels `ltmpN`
+  and `lCPIn_m` skipped, the format found from the object's magic
+  number, so the same tool runs in a cross check on Linux).  No `-pie`
+  (every arm64 executable is one).
 - **Threads**: the pthread backend (ucontext is deprecated there, and not
-  looked for), which hands `pthread_attr_setstack` the whole pages inside a
-  fiber's arena stack: macOS takes nothing else, and the arena sits at
-  `PORT_ARENA_OFFSET` into its page (`fiber_enter` still starts the frames
-  `FIBER_TOP_GAP` below the stack's own top, so the runs are the same;
-  Linux does it the same way, identical runs on both backends).
+  looked for), which hands `pthread_attr_setstack` the whole pages inside
+  a fiber's stack.
 - **OpenGL**: macOS's core profile is 4.1 and only forward-compatible,
   which `gfx_gl.c` asks for there; the renderer needs 3.3 (GLSL `330
   core`, nothing newer), through libepoxy.
+- **Strict mode** has no image bounds there (`gfx_strict_known`: any
+  pointer but null passes).
 - **The N64 link's ELFs** are read with `llvm-nm`/`llvm-readelf` where
-  there are no MIPS binutils (`N64_NM`, `PORT_N64_NM` for `gen_syms.py` and
-  `tools/recomp`): the same names and addresses.  The stage-2 build itself
-  still needs the MIPS binutils and the Linux IDO recompilation, so the
-  simplest is to make it (and `make -C tools/recomp`) on Linux and copy
-  `blastcorps/build`, `asm`, `assets`, `.version` and
+  there are no MIPS binutils (`N64_NM`, `PORT_N64_NM`): the same names and
+  addresses.  The stage-2 build itself still needs the MIPS binutils and
+  the Linux IDO recompilation, so the simplest is to make it on Linux and
+  copy `blastcorps/build`, `asm`, `assets`, `.version` and
   `build/blastcorps.<version>.map`.
 
-**How it was checked from Linux.**  `port/tools/cross-macos-check.cmake`
+**How it is checked from Linux.**  `port/tools/cross-macos-check.cmake`
 configures the port for `arm64-apple-macos11` (CMake's Darwin branches,
-`APPLE`), with musl's aarch64 headers standing in for the SDK's libc and
-stand-ins for the two SDK headers SDL2 includes (`port/tools/macos-check/`),
-SDL2's and libepoxy's headers through `PKG_CONFIG_LIBDIR`, and the host's
-BEPass (`PORT_BEPASS_PLUGIN`; the file's comment has the commands);
-building its `n64_link`, `host` and `recomp` targets compiles everything,
-the N64 side to a Mach-O arm64 `n64.o`.  `port/tools/macos_check.sh`
-links the objects with `ld64.lld` (`-undefined dynamic_lookup`, there
-being no libraries) and lists what is left undefined that libSystem, SDL2
-or libepoxy wouldn't give: nothing, in the LP64 and the 64-bit build (158
-names: libc, pthreads, SDL, epoxy's GL, `___stack_chk_*`, `bzero`, which
-LLVM makes of `memset` on Darwin, `sqrtf`).
+`APPLE`), with musl's aarch64 headers standing in for the SDK's libc
+(`PORT_CHECK_LIBC`, a list: zig's are `lib/libc/include/aarch64-linux-musl`
+then `generic-musl`, in that order) and stand-ins for the two SDK headers
+SDL2 includes (`port/tools/macos-check/`); SDL2's and libepoxy's headers
+come from stand-in `.pc` files in a `PKG_CONFIG_LIBDIR` (an `sdl2.pc`
+and an `epoxy.pc` whose `Cflags` point at the headers, any
+architecture's).  Building the object libraries (`game_c libaudio_c
+port_n64 engine_c game_data fe_c host`) compiles everything to Mach-O
+arm64; `port/tools/macos_check.sh BUILD` links them with `ld64.lld`
+(`-undefined dynamic_lookup`, there being no libraries) and lists what is
+left undefined that libSystem, SDL2 or libepoxy wouldn't give.  As of
+P10's last packet it builds all 248 objects, links, and leaves only
+library names undefined (195: libc, pthreads, SDL, epoxy's GL, libSystem's
+`___sincosf_stret`, `_memset_pattern16`, `___stack_chk_*`...).
 
-On Linux the same changes leave the builds as they were: the movable
-64-bit build (no `--wrap` now, no section symbols) plays the TAS to the
-same save and the same replay log, line for line, as before them (57
-platinum, all 125,297 reads matched, no mode forced), the LP64 movable one
-gives its report as before (57 platinum; 3,993 reads skipped, 11 modes
-forced, "The movable build"), and the default 32-bit build its 57
-platinum with every read matched and no mode forced; the x86 objects'
-code is byte for byte what it was.
-
-What only a Mac can tell: whether Homebrew's clang loads the bundle (and
-`opt` does), the SDK's headers against the host code (only musl's were
-tried, and `__linux__` undefined), the link with ld64 against the real
-libraries, the pthread backend with 16 KB pages, SDL's window and GL
-context on the main thread (the loop is on it, the game's threads call
+What only a Mac can tell: whether Apple's clang compiles the N64 side
+with the flags the Linux clang takes (the `-Werror` set, `-fPIE`,
+`-ftrivial-auto-var-init`), the SDK's headers against the host code (only
+musl's were tried, and `__linux__` undefined), the link with ld64 against
+the real libraries, the pthread backend with 16 KB pages, SDL's window and
+GL context on the main thread (the loop is on it, the game's threads call
 over through `fiber_call_on_loop`), and then the TAS.
 
 ## WebAssembly
 
-The movable 32-bit native-endian build, compiled for wasm32 with
-emscripten: headless under node (for the TAS and comparisons), or a page
-that plays in a browser (WebGL 2, WebAudio, the save in IndexedDB).  Under
-node it plays exactly as the Linux build it is compiled like (`mn32`):
-the same RDRAM, save, sound and screenshots, and the TAS replayed read
-for read (below; `test.py variants` checks it).
+The build compiled for wasm32 with emscripten: headless under node (for the
+TAS and comparisons), or a page that plays in a browser (WebGL 2, WebAudio,
+the save in IndexedDB).  It is the same build as everywhere else: `emcc`
+compiles all of it, the game's C as ordinary C with the flags the other
+compilers have, and wasm32's pointers are 4 bytes and its `long long` and
+`double` 8-aligned as the i386 build's are, so every structure is the
+N64's size.  Under node it plays exactly as the Linux build (`test.py
+kinds --only wasm`: every hash of the quick tier the references', and the
+TAS replayed read for read, below).
 
 ```
 # emsdk anywhere (git clone https://github.com/emscripten-core/emsdk;
@@ -2691,58 +1414,41 @@ emcmake cmake -S port -B build/wasm-web -G Ninja -DPORT_VERSION=us.v10 -DPORT_WA
 cmake --build build/wasm-web          # blastcorps.html, .js, .wasm: serve them over HTTP
 ```
 
-**The build.**  `emcmake` makes CMake's compiler emcc, which builds the
-host side and the translated engine.  The N64 side can't go through
-emsdk's clang, which can't load BEPass (it ships no LLVM headers), so it
-goes through the clang of the system's `llvm-config` (`PORT_N64_CC`,
-`port/tools/n64cc.py` as the compiler launcher), and BEPass is built with
-that LLVM's clang++.  Its bitcode is **i386's**, exactly as the Linux
-32-bit native-endian movable build compiles it, and the arena link makes
-the linked module wasm32's (`-port-arena-triple`, `-datalayout`: the same
-layout, 4-byte pointers and longs, 8-aligned doubles and long longs as
-`-malign-double` has them; the i386 CPU, feature and stack-protector
-attributes go).  Compiled for wasm32 from the start, `-O2` made other IR
-(switch tables, where x86 has them and wasm doesn't), so other
-instruction counts and another layout of the arena's extra data, and a
-replay parted from the Linux build's in the first level.  `llc` (the
-system's, LLVM 22; emsdk's wasm-ld is 24 and links it) makes a wasm
-object.  Two more things port-arena does there:
+(`port/build.py --wasm ROM` does the same from the ROM, `--install-emsdk`
+fetching emsdk into `.emsdk/`; `--node` for the headless build.)
 
-- `-port-arena-typed-calls`: WebAssembly traps on a call through another
-  type than the callee's, and the game calls through values of other
-  types (a thread entry defined without its argument, K&R handlers).
-  Each function used as a value gets a thunk per type it is called
-  through (converting as the call repair does), and `port_fn_typed(address,
-  type)` (`runtime.c`) picks it; `port_fn`'s table has the host's type,
-  `void(ptr)`: 30 functions, 7 types, 204 thunks in us.v10 (206 at P7's
-  start, before libaudio's function pointers were typed).
-- `-port-arena-x86-fptoint`: a float to integer conversion out of range
-  is poison to LLVM, and each target gives what its instruction does.
-  x86's `cvtt*` give 0x80000000 (and i386's narrow and unsigned
-  conversions go through them: a negative float to an unsigned type
-  wraps), which is also what mupen64plus on x86 gave the game when the
-  TAS was made; WebAssembly's saturate.  The conversions are made to give
-  x86's results on any target.
-
-No `-Wl,--wrap`: wasm-ld's would wrap the N64 object's own references
-too (the `__wrap_`s' calls of the real functions among them, which
-recursed); the glue calls the `__wrap_`s itself, as in every movable
-build (`gen_glue.py --wrap`, "macOS").  The arena is `mmap`'s (emscripten's comes from
-`malloc`), with the fibers' stacks in it as everywhere.
+**The build.**  CMake's `EMSCRIPTEN` branch (`port/CMakeLists.txt`) changes
+only the choices the host can't make for emcc: no `-fPIE` and no `-pie`
+(wasm's code is position-independent), no `-msse2` and `-mfpmath` (an
+i386 matter), SDL2 from emscripten's port (`-sUSE_SDL=2`), the renderer's
+SIMD as `-msimd128` (`PORT_SIMD`), and the link's options: a 256 MB initial
+memory, binaryen's one-caller inliner capped (it inlined most of the game
+into its main loop, which Asyncify then unwound and rewound at every
+fiber switch), the fibers (below) and, for a page, WebGL 2 and the shell
+(`port/web/shell.html`).  Everything the other builds' checks demand holds
+for it: every function is declared once with its definition's type
+(`blastcorps/include/functions.h`; WebAssembly traps on a call through
+another type than the callee's, which the K&R-era declarations of the
+decompiled C used to make, and it is why packet A of P10 made the types
+agree: no thunks, no `typed-calls` pass), and a float converted to an
+integer out of range gives the N64's result through `port_f2i` and `cvt.h`
+rather than wasm's saturation or x86's `0x80000000` (LLVM calls the
+conversion undefined, and each target gave its own).  The N64 side's
+generators read the stage-2 ELFs with the MIPS binutils, or LLVM's, as on
+Linux.  `port/web/asyncify_remove.txt` lists the functions that never
+switch a fiber and so need no Asyncify instrumentation (the renderer);
+emcc warns of names in it that a build without WebGL doesn't have.
 
 What emscripten's libc does differently and the game saw: `sprintf(buf,
 "%s ...", buf, ...)`, the world map's way of building its lines
 (`hd_front_end/1C40.c`), which libultra's `_Printf` and glibc's do as
 they go and musl's garbles: `n64_sprintf` (`libc64.c`) formats apart and
-copies, the same output on glibc.  And `port_in_rdram` is false before
-the arena exists (the ROM file, read first, lies below 28 MB in linear
-memory, where an unset arena said it was RDRAM, so the ROM got
-byte-swapped as a `.n64` one).
+copies, the same output on glibc.
 
 **The threads** (`PORT_THREADS`): `asyncify` by default, emscripten's
 fibers on the one thread (`fiber_asyncify.c`, `-sASYNCIFY`; a suspended
 fiber's wasm frames go to a 512 KB buffer of its own, its C frames stay
-on its arena stack), or `pthread` (node only: a worker per fiber, and the
+on its own stack), or `pthread` (node only: a worker per fiber, and the
 loop on one too, `-sPROXY_TO_PTHREAD`, so that the page's thread is free
 to start them).  Asyncify is the faster of the two (the handovers between
 workers cost more than the instrumentation), and needs no
@@ -2793,61 +1499,41 @@ pixels (`--max-pixels 1300000`, the page's; "Performance").
 
 **How it was checked**, us.v10:
 
-- `test.py`'s quick tier under node against the Linux 32-bit
-  native-endian movable build (`mn32`): the attract mode and the three
+- `test.py`'s quick tier under node: the attract mode and the three
   `PORT_AUTOSTART` runs, 2,000 to 4,000 frames each with the save,
-  `--wav` and a screenshot every 250 frames, and the widescreen run's
-  save and sound, every hash the same, the hint box's layout-dependent
-  static included ("Testing the port").  Linux took 12.2 s for 3,000
-  frames of `PORT_AUTOSTART=2`, the asyncify build 16.7 s (5.6 ms a
-  frame, 180 a second; about 1.4 times native), the pthread one about
-  20 s.
+  `--wav` and a screenshot every 250 frames, the pack runs, the
+  widescreen run's save and sound, and the strict mode's check of every
+  address word (`gfx_strict_known`, the data's bounds): every hash the
+  references' ("Testing the port"; `test.py kinds --only wasm`, about a
+  minute).  Under node the asyncify build takes 1.4 to 2 times the native
+  time (3,000 frames of `PORT_AUTOSTART=2`: 17 s against 10 to 12), the
+  pthread one more.
 - The TAS under node (`--replay`, the asyncify build): 57 platinum, the
-  reference save, and the Linux build's report: "125297 of the log's
-  125297 matched (0 skipped)", no mode forced, 37 retraces given anyway,
-  the replay log `mn32`'s line for line.  RDRAM the same as `mn32`'s at
-  every `PORT_REPLAY_DUMP` compared (the log's reads 2,000 to 125,000),
-  and the CPU model's instruction counts and clock the same at every one
-  of the 125,582 controller reads.  28 to 38 minutes, beside the other
-  variants' replays; Linux takes 18 to 25.
-- Before the locals had a stack of port-arena's own ("The movable
-  build"), what differed from Linux was where the fibers' frames are: the
-  addresses of the C's locals (in RDRAM wherever the game stores one)
-  and what is left on the stacks between calls.  Between the log's reads
-  4,000 and 5,000 some frames began to be drawn differently, and the
-  timing parted by a retrace near read 13,413.  With it, RDRAM was the
-  same up to the log's read 112,784, where a level's countdown was out
-  from its start in wasm: `func_8028604C`'s capped level time, a `u16`
-  result its caller declares `s16`, which x86 took as the callee left it and
-  wasm extended again.  (The TAS still matched every read: the replay
-  gives the log's retraces and reads, so a game drifting in the last
-  levels didn't show there; the instruction counts parted a few frames
-  earlier, where the countdown's branch first went the other way.)
-  The declaration is fixed now (the ROMs don't change), and port-arena
-  gives any such result the callee's extension, as the N64 had it.
-- The locals' stack costs the page nothing: `web_perf.mjs` (headless
-  Chromium, SwiftShader, into Simian Acres with the sound running) against
-  main's build just before it, the game's mean per retrace in the level
-  was 0.49-0.65 ms against 0.58-0.70 at 1x and 1.5-2.2 against 2.1-2.7 at
-  4x CPU throttling, the work per retrace at 1x median 1.8 ms against 1.9.
-  (At 4x `PORT_ADAPT` gave up the in-between pictures in one build and not
-  in the other, on when its trial fell in the level's loading.)
-- In headless chromium (Playwright's `playwright-core` with the system
-  chromium, WebGL 2 through SwiftShader): the page loads, takes the ROM
-  from the file picker or `?rom=`, plays the logos, the title, the name
-  entry and the world map into Simian Acres with the keyboard (driven by
-  the test), the pause menu, at 60 retraces a second (`-v`'s frame
-  counts against the page's clock, SwiftShader's GL included),
-  widescreen and `--interpolate` too; after a reload the ROM and the
-  save are there.
-
-- Headless Chromium on the GPU and headless Firefox 153 (Playwright's):
-  the level at 60 new pictures a second, the sound playing on
-  ("Performance", with the numbers).
+  reference save and gameplay digest, and the Linux build's report:
+  "125297 of the log's 125297 matched (0 skipped)", no mode forced;
+  25.5 minutes, 0 retraces given anyway, 2 save commands let go early,
+  gameplay digest `2e9a3a7173fe4337`.
+- What once differed from Linux was where the fibers' frames are (the
+  addresses of the C's locals, in memory wherever the game stores one)
+  and, from the log's read 112,784, a level's countdown: `func_8028604C`'s
+  capped level time, a `u16` result its caller declares `s16`, which x86
+  took as the callee left it and wasm extended again.  The declaration is
+  fixed (the ROMs don't change), and the plain build's calls are made with
+  their callee's own type.
+- In headless Chromium (Playwright's `playwright-core` with the system
+  chromium, WebGL 2 through SwiftShader), on the movable build that came
+  before this one: the page loads, takes the ROM from the file picker or
+  `?rom=`, plays the logos, the title, the name entry and the world map
+  into Simian Acres with the keyboard, the pause menu, at 60 retraces a
+  second, widescreen and `--interpolate` too; after a reload the ROM and
+  the save are there; headless Chromium on the GPU and headless Firefox
+  153: the level at 60 new pictures a second, the sound playing on
+  ("Performance", with the numbers).  The page of the plain build is
+  built and links; its run in a browser is not repeated yet.
 
 Untested: a real browser with a person (the sound heard, a gamepad, the
-feel of the pacing, Safari), and the jp and us.v11 builds (the same
-code; only us.v10 was built).
+feel of the pacing, Safari), the plain build's page in any browser, and
+the jp and us.v11 builds (the same code; only us.v10 was built).
 
 ## Timing
 
@@ -3042,8 +1728,8 @@ pack can replace a bank.  A wave table's `base` and a sequence's
 `offset` (`alSeqFileNew`, which adds the ROM address to the offsets in
 place, as integers) are ROM addresses, `u32`s, not pointers.  The game
 gets its banks through `alBnkfBank(file, i)` (`1C460.c`, under
-`TARGET_PC`; a shim over `bankArray[i]` with
-`-DPORT_LIBAUDIO_ORIGINAL=ON`), and the sound effects' bank is an
+`TARGET_PC`; once a shim over `bankArray[i]` for the original library),
+and the sound effects' bank is an
 `ALBank` whose sounds `SND_SOUND(bank, id)` reads
 (`instArray[0]->soundArray[id - 1]`, which for IDO is the original's
 expression).
@@ -3055,20 +1741,22 @@ loops' shape doesn't matter to the timing.
 
 `port/tools/audio_oracle`: a recorder in the port and a replay outside it.
 
-- **Recording.**  `-DPORT_AUDIO_RECORD=ON` (a native-endian ILP32 build:
-  `-DPORT_64BIT=ON -DPORT_NATIVE_ENDIAN=ON`, with
-  `-DPORT_LIBAUDIO_ORIGINAL=ON`, which is refused with `PORT_LP64`: the
-  original's structures are the N64's, with 4-byte pointers) wraps every
-  libaudio function the game calls (`port/src/audio_record.c`), and
-  `PORT_AUDIO_LOG=FILE` writes the log (`port/host/audiolog.c`, format in
-  `port/include/audio_log.h`): each call's arguments and the structures
-  handed over and back, its result, each frame's command list (by hash),
-  the library's calls back into the game (the sound player's voice
-  handler, the DMA routine) with what they returned, and everything the
-  game, the RSP and the PI changed in the memory they share (the audio
-  heap and the audio objects' data) since the library last had it.
-  Interrupts are masked while the library runs, so that no thread runs in
-  the middle of a call.
+- **Recording** (gone, the logs stay).  The logs were recorded by a
+  build of the port with the original libaudio (`-DPORT_AUDIO_RECORD=ON`,
+  `-DPORT_LIBAUDIO_ORIGINAL=ON`: a native-endian ILP32 build at the N64's
+  addresses, which wrapped every libaudio function the game calls,
+  `port/src/audio_record.c`), and `PORT_AUDIO_LOG=FILE` wrote the log
+  (`port/host/audiolog.c`, format in `port/include/audio_log.h`): each
+  call's arguments and the structures handed over and back, its result,
+  each frame's command list (by hash), the library's calls back into the
+  game (the sound player's voice handler, the DMA routine) with what they
+  returned, and everything the game, the RSP and the PI changed in the
+  memory they share (the audio heap and the audio objects' data) since
+  the library last had it.  That build needed the game at the N64's
+  addresses, so it went with the other variants in P10 (the last commit
+  that has it is `engine-check-last`); the logs are the references, and a
+  change that needs new ones is checked against the logs recorded before
+  it.
 - **Replaying.**  `make -C port/tools/audio_oracle VERSION=...` builds
   `replay` and the two libraries for i386 (the N64's layouts) with the
   game's memory at its N64 addresses; `replay LIB.so LOG` plays the game's
@@ -3096,26 +1784,20 @@ loops' shape doesn't matter to the timing.
   out of the hashes.  `port.so` is such a library (`port/libaudio`
   parses the bank files); `orig.so` relocates in place, has no map, and
   nothing is translated.  The logs are the original's, whose loader puts
-  a bank file's records in host order for it (`host/native.c`, under
-  `PORT_LIBAUDIO_ORIGINAL`): before a parsing library's `alBnkfNew` the
+  a bank file's records in host order for it (`host/native.c`, then): before a parsing library's `alBnkfNew` the
   replay puts them back in the ROM's order, as the port's loader leaves
   them.
-- **Running it.**  `oracle.py record --version V --refs DIR` builds the
-  recorder (`build/oracle-rec-V`) and records test.py's attract (4,000
-  frames), auto1-3 and attract.long (12,000) into `DIR/V-<scenario>.alog`,
-  the same runs as `test.py quick`'s, checking each run's wav against the
-  scenario's reference hash (the original library has to give the
-  reference's sound).  `oracle.py replay --version V --refs DIR [--lib
-  port orig]` builds the replay and the libraries
-  (`build/audio_oracle/V`) and replays every log of the version: it
-  passes with no mismatch in any.  `--lock FILE` holds an flock around the
-  runs.  The logs are large (us.v10's five 340 MB, eu's 510 MB) and are
-  kept out of the repository; a change to the libaudio or to what the game
-  hands it is checked against logs recorded once from the tree before it.
-  P7's (recorded by P7-A with the original library, from the tree before
-  any of P7's libaudio changes) are kept beside the worktrees
-  (`blastcorps-wt/oracle-refs`), and each of its libaudio changes was
-  replayed against them with `--lib port orig`.
+- **Running it.**  `oracle.py replay --version V --refs DIR [--lib port
+  orig]` builds the replay and the libraries (`build/audio_oracle/V`) and
+  replays every log of the version (`DIR/V-<scenario>.alog`: the attract
+  mode's 4,000 frames, auto1-3 and attract.long, 12,000): it passes with
+  no mismatch in any.  There is no `record`.  `--lock FILE` holds an flock
+  around the runs.  The logs are large (us.v10's five 340 MB, eu's 510 MB)
+  and are kept out of the repository (P7's, recorded with the original
+  library from the tree before any of P7's libaudio changes, are kept
+  beside the worktrees, `blastcorps-wt/oracle-refs`); each change of the
+  libaudio or of what the game hands it is replayed against them with
+  `--lib port orig`.
 
 Checked again after P7 (d3efc69's tree: the libaudio's run-time
 structures native, the bank files parsed), against those logs: no
@@ -3164,34 +1846,30 @@ interface between them.
   renderers see the same timeline; it delays OS_EVENT_DP only when
   `PORT_RDP_SCALE` is set (see "Timing").
 - **Commands and addresses.**  A command is two words, `gbi.h`'s `Gwords`
-  (`uintptr_t`s): the N64's 8 bytes where pointers are 4, and 16 in the
-  LP64 builds, whose words the host reads whole as 64-bit scalars of game
-  memory's order (`port_g64`, "Native-endian memory").  The renderer takes
-  the size from `port_layout()` (`gfx_cmd`, `gfx_w0`, `gfx_w1`: the
-  interpreter, the HUD's scan, the texture rectangle's two extra commands,
-  the model icons), and every address it holds, the segment table's
-  entries, the images, a vertex load's, the TMEM sources and the
-  interpolation keys, is a host pointer (`GfxAddr`).  `gfx_addr()` makes
-  one of a command's word: a segmented address, which carries the tag
+  (`uintptr_t`s): the N64's 8 bytes where pointers are 4, and 16 where
+  they are 8, which the host reads as `HostGfx`, two pointer-wide words
+  (`host_game_types.h`).  The renderer takes the size from `sizeof(Gfx)`
+  (`gfx_cmd`: the interpreter, the HUD's scan, the texture rectangle's two
+  extra commands, the model icons), and every address it holds, the
+  segment table's entries, the images, a vertex load's, the TMEM sources
+  and the interpolation keys, is a host pointer (`GfxAddr`).  `gfx_addr()`
+  makes one of a command's word: a segmented address, which carries the tag
   `G_SEGTAG` (bit 0, which no address a list points at has, since what a
   list points at is 8-aligned) and is a segment (bits 24 to 27) and an
   offset (`G_SEGADDR(seg, off)`), goes through the segment table; any
-  other word is the pointer itself, an N64 address until P10
-  (`port_ptr`).  Every producer of a segmented address sets the tag: the
-  names that are segment addresses (`D_01000010`, `D_02000000`...,
-  `tools/gen_syms.py`), the ROM's lists where they load (`widen.c`'s
-  `dl_tag`: the words of `G_MTX`, `G_MOVEMEM`, `G_VTX` and `G_DL` to
-  segments 1 to 15), asm2c's lists, the engine's and the model icons'.  So
-  the renderer needs no assumption about where the host's memory is, a
-  low-address 32-bit host's included (it was a word below `0x10000000`
-  before).  The engine check build keeps the N64's untagged words, as its
-  translations write them, and the renderer its RSP rule for it
-  (`PORT_LAYOUT_SEG_TAG` tells which).  `PORT_GFX_STRICT=1` (on in
-  `test.py quick` for the LP64 builds) makes a malformed list fatal, with
-  its start and the command's offset: an unknown opcode, a `w0` with bits
+  other word is the pointer itself.  Every producer of a segmented address
+  sets the tag: the names that are segment addresses (`D_01000010`,
+  `D_02000000`...: proxy objects, `port_seg_unproxy`, "Memory model"),
+  the ROM's lists where they load (`widen.c`'s `dl_tag`: the words of
+  `G_MTX`, `G_MOVEMEM`, `G_VTX` and `G_DL` to segments 1 to 15), asm2c's
+  lists, the engine's and the model icons'.  So the renderer needs no
+  assumption about where the host's memory is.  `PORT_GFX_STRICT=1` (on
+  in every `test.py quick` run) makes a malformed list fatal, with its
+  start and the command's offset: an unknown opcode, a `w0` with bits
   above its 32, a list past `GFX_MAX_CMDS`, a segmented address through a
-  segment that isn't set, an untagged word that isn't an N64 address (a
-  segmented one that lost its tag); the audio commands likewise.
+  segment that isn't set, an untagged word that isn't a pointer of the
+  program's own (`gfx_strict_known`: inside its image, the renderer's
+  memory or a game thread's stack); the audio commands likewise.
 - **The ROM's lists, widened.**  A display list comes out of the ROM's
   gzip (or `static_data`'s LZSS) in the N64's form, and where the
   command is wider `src/widen.c` spreads it in place, from its last
@@ -3209,9 +1887,8 @@ interface between them.
   `VMODEL_PTR`, the terrain's, `B_SECTION`) stay as they were.
   `static_data`'s second list, `D_01000038`, is five commands after
   `D_01000010` in the port's units.  The C's static lists in `.data`
-  (`PORT_ROM_DATA`) are made by `rom_data.py`'s widening copies, the
-  words of the ROM's 4-byte units each in a half of an 8-byte one.  With
-  8-byte commands all of it is the identity.
+  are initializers of `Gfx`, whatever its size.  With 8-byte commands the
+  widening is the identity.
 - **The pool.**  The level pool (`D_8004B400`, bump pointer `D_80358070`)
   holds the level's display lists with everything else: the eight
   per-frame lists, the vehicles' copies (`func_80278BF0`, `func_802A1388`),
@@ -3290,14 +1967,10 @@ interface between them.
   the 87 boxes; writing its answer changes the attract mode's save and
   `PORT_AUTOSTART=1`'s sound, though no screenshot: the game's timing
   moves.)
-  The box is on the C's stack, which the RSP addresses as physical
-  `0x10xxxxxx` on the fibers' host stacks (at `0x90000000`): where the
-  lists hold the N64's addresses the front end and the audio HLE keep bit
-  28 of a segmented address and of a segment's base, which the RSP's 24
-  bits would drop (they read, and the
-  front end drew, whatever RDRAM held at `0x800EFCC0`: a dark sliver on
-  the title's road, frames 848 to 857).  The movable builds' stacks are
-  in the arena (`0x80C00000` and up), which fits.
+  The box is on the C's stack, which the renderer reads where it is, a
+  host stack (once, with the N64's fixed addresses, it read what RDRAM held
+  at `0x800EFCC0` instead: a dark sliver on the title's road, frames 848
+  to 857).
 
 Comparing the two (`--deterministic`, `PORT_SHOT_EVERY=150`, 1x, the attract
 mode and 4,500 frames of `PORT_AUTOSTART=1` into Simian Acres): 0.01-0.02%
@@ -3522,8 +2195,7 @@ Measured on us.v10, the 32-bit build, the whole TAS:
 
 The free-timing replay through `test.py tas` passes the same way on the
 32-bit build (22 minutes) and on `wasm` under node (30 minutes); the
-quick tier passes unchanged on all eight us.v10 variants, and on us.v11's
-and jp's 32-bit and `mn32` builds.
+quick tier passes unchanged on every kind of build.
 
 The levels' time by the level clock, the movie's (the N64's, by the
 gated replay) against no lag (`port/tools/tas_times.py REF.digest
@@ -4049,7 +2721,7 @@ instead, at the internal resolution (`port/host/micons.c`).
   that `func_80272C5C` (hd_code 2E490.c) loads and `func_80272ED8` draws,
   as texture rectangles or as quads, its drop shadow (the picture in one
   colour, moved down and left) first.  The port's C there tells the host
-  where each texture went and which one it is (`port_icon_texture`, a
+  where each texture went and which one it is (`host_icon_texture`, a
   call: nothing in game memory changes); micons.c's table names the
   model for each picture, by its textures: a building of the model table
   (the goals: `D_802F9934`'s numbers, but the containers, whose entry is
@@ -4103,8 +2775,8 @@ instead, at the internal resolution (`port/host/micons.c`).
   (animation 1), its body's outline a shadow on the globe below it.  It
   is all the renderer's: gfx.c reads the three frames' addresses as each
   task starts (on the world map, mode 0x4000, only: elsewhere the front
-  end's memory is something else; in the LP64 build they are 8-byte
-  pointers, `port_game_ptr`), skips the quad's two triangles and runs a
+  end's memory is something else; they are pointers, read as
+  `host_game_vars.h` declares them), skips the quad's two triangles and runs a
   list of micons.c's under the game's modelview, the quad's middle (from
   its vertices, in the frame's own buffer) and the scheduler's retrace
   count (`D_803156C4`) moving it on once a frame.  The globe draws
@@ -4950,25 +3622,20 @@ memo by TMEM's generation finds 4%); a load leaves TMEM as it was only
 
 ## The glue to the translated code
 
-The translated code is the check build's only now ("Replacing the
-engine"); in the default build `entry.c` is empty and nothing else of this
-is compiled.  `port/tools/gen_glue.py` generates both directions from the C:
-
-- `entry.c`: for each of the 167 translated functions the C calls, a native
-  function with the C's prototype that puts the arguments where the o32 ABI
-  does (`a0`-`a3`, `f12`/`f14` when the first argument is a float, the
-  stack from `sp+16`, doubles and `u64`s as register pairs), calls
-  `recomp_func_X` with the thread's context, and returns `v0` or `f0`.
-- `externs.c`: `recomp_extern_X` for the 53 calls out, the reverse; it saves
-  and restores the callee-saved registers around the native call, as the
-  IDO-compiled callee would.
-
-Prototypes come from the definition for a C function (K&R ones included)
-and from the most common declaration for a translated one.
-`port/tools/liveness.py` computes each translated function's live-in
-registers; the generator checks the prototypes against them (no entry reads
-an argument outside `a0`-`a3`/`f12`/`f14`) and lists disagreements in
-`glue_report.txt`.
+Gone with the check build (P10; the last commit that has it is
+`engine-check-last`).  `port/tools/gen_glue.py` generated the adapters
+between the translated code and the game's C: for each of the 167
+translated functions the C called, an `entry.c` function with the C's
+prototype that put the arguments where the o32 ABI does (`a0`-`a3`,
+`f12`/`f14` when the first argument is a float, the stack from `sp+16`,
+doubles and `u64`s as register pairs), called `recomp_func_X` with the
+thread's context and returned `v0` or `f0`; and `externs.c`, the reverse,
+for the 53 calls out, which saved and restored the callee-saved registers
+around the native call as the IDO-compiled callee would.  Its prototypes
+came from the C's definitions and `port/tools/liveness.py` checked them
+against each translated function's live-in registers.  Nothing of the
+port is translated now, so none of it is built; `liveness.py` and
+`conventions.py` remain as tools for reading Rare's asm.
 
 ## Replacing the engine
 
@@ -4980,20 +3647,26 @@ checked and had to keep the TAS.
 **It is done** (2026-10-02): every function `tools/recomp` translates is
 native in every version, Rare's 688 and jp's 18 (its 17 IDO functions the
 C still has as `GLOBAL_ASM`, and `func_802BA3E8_jp`; "Other versions").
-The default build compiles none of the translation: the `recomp` library is
-`entry.c` alone, which is empty, and a function missing from `port/engine`
-fails the link (`recomp_func_X` undefined) where it used to fall back to
-its translation.  Only the check build (`PORT_ENGINE_CHECK`, below) still
-compiles the translation, to run it against the native code.  `test.py
-quick` fails a build that compiles or links any of it ("engine": no
-`recomp_*func_` symbol, no translated object in the build's graph).
+The port compiles none of the translation, and `test.py quick` fails a
+build that links any of it ("engine": no `recomp_*func_` symbol).  The
+rest of this chapter, down to "The engine made readable", is the record of
+how it was done, against the translation and the **check build**
+(`PORT_ENGINE_CHECK`, which ran both on the same memory and compared
+them, and the fuzzers that went with it): all of that machinery went in
+P10 with the variants it needed, N64 addresses and the 32-bit big-endian
+layout (`engine-check-last` is the last commit that has it), and
+`ENGINE_BLK`, `ENGINE_LEAVE`, `ENGINE_REG` and `engine_frame*` are gone
+from the source (only `ENGINE_DIV`, `engine_break` and the conversions of
+`cvt.h` are left), and the `REGS()` annotations, the record of the
+original's registers, expand to nothing.  What the engine's source says is
+what the engine does.
 
 **The mechanism.**
 - `port/engine/replaced.txt` lists the functions that are native now, and
   `port/engine/<object>.c` defines them.  The code is readable C over the
   game's types (`#include "engine.h"`; its pointers in memory native,
-  "The LP64 build"), built like the game's C: the N64 side, through BEPass,
-  port-ilp32 and port-arena, so it works in every variant.
+  "Where pointers are 8 bytes"), built like the game's C: the N64 side,
+  ordinary C.
 - `tools/recomp/translate.py` keeps a replaced function's translation as
   `recomp_orig_X` under `RECOMP_ORIG`, for the checks.  The port doesn't
   compile it.  Translated code calls the native function as `recomp_extern_X`,
@@ -5059,7 +3732,7 @@ quick` fails a build that compiles or links any of it ("engine": no
 the engine's CPU time to the instruction, so the native code charged
 exactly what the original would have.  `ENGINE_BLK(802AC1E4)` added the
 size of the translator's basic block at that address (us.v11's in every
-version; the size from the generated `engine_blocks.h`), once each time
+version; the size from `engine_blocks.h`, generated then), once each time
 the original would have run that block; BEPass neither counted nor polled
 in this code.  All of it is gone with the model.
 - `port/tools/engine_asm.py FUNC|OBJECT` prints the asm with each basic
@@ -5171,7 +3844,7 @@ a native-endian build (n64, mn32) does.
   `$ra` is the original's too: a native call into a function that saves
   it sets it first, as the `jal` would, with `ENGINE_RA(next block)`
   (the block's address in the version built, `engine_blocks.h`'s
-  `ENGINE_ADDR_`), and the caller loads its own back (`engine_save()`
+  `ENGINE_ADDR_`, generated then), and the caller loads its own back (`engine_save()`
   with `ENGINE_GPR(31)`).  The TAS needed it: at read 108453 the shadow's
   pitch is the `$ra` that `func_802AB714`'s frame saved, the carrying's,
   and the C's instruction count drifted from there without it.  (O2 later
@@ -5531,10 +4204,8 @@ for poll.
   Every `ENGINE_REG`/`ENGINE_LEAVE` they had stays: the triangles' bytes
   from `$t9`, `$v0`, `$s1` and the rest are still the gameplay digest's
   call.
-- The debug builds are one: `-DPORT_ENGINE_TAINT=ON` also records each
-  read's first value and `engine_probe(id)` counts (what `PORT_PROV` and
-  `port_prov_probe` did), and `taint.py --feeds FILE...` lists what some
-  files' sites give readers elsewhere (`engine_prov.py --feeds`).
+- (The debug builds were one, `-DPORT_ENGINE_TAINT=ON`, with `taint.py`:
+  gone with the check build.)
 
 **Per-frame constants** (what a different tick rate has to scale; each
 runs once a game frame):
@@ -5561,10 +4232,9 @@ none: they run at a level's load, or are pure functions.
 The last code that read what other code left in registers or on the dead
 stack now takes values, so nothing reads the thread's context or the N64
 stack any more: every `ENGINE_LEAVE`, `engine_save()`/`engine_restore()`
-pair, `ENGINE_RA` and frame store in `port/engine` went with them (engine.h
-keeps the mechanism for the check build, which still runs; its one
-difference over `PORT_AUTOSTART=3` is 60F60's `func_802A5FA8`'s cost, its
-`ENGINE_COST` average).  The taint build gave each reader's values over the
+pair, `ENGINE_RA` and frame store in `port/engine` went with them (the check
+build, which still ran then, had one difference over `PORT_AUTOSTART=3`:
+60F60's `func_802A5FA8`'s cost, its `ENGINE_COST` average).  The taint build gave each reader's values over the
 TAS (`ENGINE_TAINT_VALUES=1` and `taint.py --values`: every value a read
 took, with its count), and the values chosen are:
 
@@ -5619,12 +4289,11 @@ gives them the room instead (the same code in every build):
   with more walls or kinds than the table has stops the port.
 
 Both variables are bigger than their room on the N64, so `asm2c.py`
-(`GROWN`) defines them with the engine's count, the N64 labels after them
-stay variables of their own, and `gen_ld.py` (in every build now, not
-only LP64's) and port-arena place them after RDRAM.  The translated code
-of the check build finds them through `SYM()` as before, but the
-original's stride and room are no longer the engine's: its calls of the
-walls' loader and scan and of the hit list's adds past ten don't compare.
+(`GROWN`) defines them with the engine's count, and the N64 labels after
+them stay variables of their own.  (The check build's translation found
+them through `SYM()`, and the original's stride and room were no longer
+the engine's: its calls of the walls' loader and scan and of the hit
+list's adds past ten didn't compare.)
 
 The TAS (us.v10, free timing; the 32-bit and the LP64 build alike): all
 125,297 reads, 57 platinum, the reference's save and the same level
@@ -5781,19 +4450,19 @@ angles 12-bit, a speed is a distance a frame:
 
 `PORT_VERSION` is `us.v11` (the default), `us.v10`, `jp` (Blastdozer) or
 `eu` (the PAL version, "eu" below).
-`blastcorps/` and the translator's output hold one version at a time, so
-switching means `make clean` in both directories, stages 1 and 2 for the
-other version, and `make -C tools/recomp VERSION=<v>`; CMake refuses a
-stage 2 of another version.  What differs between versions in the port:
+`blastcorps/` holds one version at a time, so switching means `make clean`
+in both directories and stages 1 and 2 for the other version; CMake
+refuses a stage 2 of another version.  What differs between versions in
+the port:
 
-- **Addresses from the version's link.**  `gen_syms.py regions` takes
-  segment 1's static data's start (the end of hd_code's `.bss`,
-  `D_803FF600`: `0x803FF600` in us.v11, `0x803FF550` in us.v10,
-  `0x803FF6E0` in jp), and CMake the front end's `.data` and `.bss`
-  (`src/overlay.c`), out of the version's ELFs.  The generators
-  (`gen_ld.py`, `gen_syms.py`, `gen_romtab.py`, `liveness.py`, the
-  replay's `n64_funcs.txt`) read the version's ELFs and link map; names
-  are us.v11's in every version, so the rest of the port is the same.
+- **Addresses from the version's link.**  CMake reads out of the
+  version's ELFs segment 1's static data's start (the end of hd_code's
+  `.bss`, `D_803FF600`: `0x803FF600` in us.v11, `0x803FF550` in us.v10,
+  `0x803FF6E0` in jp) and the front end's `.data` and `.bss`
+  (`src/overlay.c`); `gen_syms.py romaddrs` (the ROM addresses the game's C
+  names, `ROM(sym)`) and `funcs` (the replay's `n64_funcs.txt`) and
+  `gen_romtab.py` read the version's ELFs and link map; names are
+  us.v11's in every version, so the rest of the port is the same.
   `gen_romtab.py` finds the logos by the star (`usa_star`, `jap_star`).
   The host's default ROM and its header check follow the version.
 - **Compiled code that is still asm.**  us.v10's C is complete, but jp has
@@ -5802,114 +4471,39 @@ stage 2 of another version.  What differs between versions in the port:
   `func_80259EC4` and `func_8025B498`, `func_8026BCE0` (the menus), four
   in 1D990, `func_802860F0`, `func_802979E0`, and in the front end the
   pak/EEPROM thread's `func_801F57B0`, `func_801F6F18`, `func_801F7410`
-  and five more.  clang ignores the pragma, so the port's C lacks them;
-  `tools/recomp/config.py` finds each version's `GLOBAL_ASM` (through
-  `tools/version_ifs.py`, as the N64 build resolves the conditionals,
-  libultra's `gu` in 90C50 excepted: the port has its own) and translates
-  each as an object of its own.  The C calls them and they call the C, so
-  the glue covers them like the rest: jp has 184 entries and 118 externs.
-  IDO's code needed three things Rare's doesn't:
-  - **Jump tables.**  A `switch` is `jr $reg` through a table in
-    `.rodata` of `L<vram>_<rom>` labels (splat marks them `glabel`).  The
-    parser keeps those as labels of the function and reads the tables'
-    words; the translation compares the register with each label's
-    address (`pc_base + offset`, the address in the linked image) and
-    jumps there (`RECOMP_TRAP_JUMP` for anything else).
-  - **The FCSR.**  IDO's float-to-unsigned conversion sets the rounding
-    mode to truncate (`ctc1`), does `cvt.w.s` and reads the invalid flag
-    back (`cfc1`, `andi 0x78`) to handle values of 2^31 and up.  In a
-    function with a `ctc1`, `cvt.w` goes through `recomp_cvt_w_fcsr`
-    (`recomp.h`), which follows the FCSR's rounding mode and sets its V
-    and I cause and flag bits as QEMU does.  (The first differential test
-    run caught this: `func_80259EC4` took the other path.)
-  - **Their `.rodata`.**  A `GLOBAL_ASM` function's `.s` carries its
-    strings, floats and jump tables (asm-processor puts them in the C
-    file's object); `asm2c.py --global-asm` turns each label into a C
-    variable, placed at its N64 address like the rest, with a jump table's
-    labels as their addresses.
-  - libultra calls from them (the `gu` matrix functions with float
-    arguments, `osCreateThread`, `sprintf`, `alCSPGetTempo`...) have
-    their prototypes in `gen_glue.py` (`LIBULTRA_TYPED`).
-- **They are native now**, as Rare's engine is ("Replacing the engine"):
-  `port/engine/jp_<object>.c`, under `#ifdef VERSION_JP`, each written from
-  jp's asm (the US C of the same function as the guide; charged by its
-  blocks while the CPU model was there), and Rare's `func_802BA3E8_jp` in
-  75490.c.  The translation above
-  is the check build's only.  What IDO's code needed of the native code:
-  - its prototype is the US version's C definition's (the types the US
-    port's LP64 build passes), the result where jp's callers use it
-    (`func_801F7410` returns the text it made);
-  - IDO's float to unsigned conversion is `IDO_CVT_U_S` (engine.h), its
-    checked `div` `ENGINE_DIV`;
-  - a host helper returns its results (`engine_ido_cvt_u_s`): a host
-    store through a pointer into the N64 side's locals is in the host's
-    order, which BEPass reads swapped.
-  The register leftovers and the dead stack of the IDO code aren't
-  mirrored: its callers are the C, which reads neither, and long jp runs
-  (`PORT_AUTOSTART` 0 to 3, 12,000 frames each) gave the same
-  `PORT_ICOUNT_LOG`, screenshots, saves and sound as the translated build.
-- **The differential test** takes the version too:
-  `make -C tools/recomp VERSION=jp test` (`RECOMP_VERSION` for
-  `difftest.py`; the `.text` sizes come from the ELFs).  The snapshots are
-  us.v11's (`snapshot.c` plays it), so other versions run on the random
-  fills only.
+  and five more.  The compilers ignore the pragma, so the port has them
+  as C written from jp's asm, `port/engine/jp_<object>.c` under `#ifdef
+  VERSION_JP` (the US C of the same function as the guide), and Rare's
+  `func_802BA3E8_jp` in 75490.c ("Replacing the engine"); each has the
+  US definition's prototype and returns the result where jp's callers use
+  it (`func_801F7410` returns the text it made); IDO's float to unsigned
+  conversion is `IDO_CVT_U_S` (engine.h), its checked `div` `ENGINE_DIV`.
+  What the asm's `.rodata` carries (strings, floats, jump tables: a
+  `GLOBAL_ASM` function's `.s` has them, asm-processor puts them in the C
+  file's object) is data for the port: `tools/recomp/config.py` finds each
+  version's `GLOBAL_ASM` functions (through `tools/version_ifs.py`, as the
+  N64 build resolves the conditionals) and `asm2c.py --global-asm` turns
+  each label into a C variable, a jump table's labels as their addresses.
+  (The translation these functions once had, with its glue, FCSR
+  handling and jump tables, went with the check build.)
+- **eu** is PAL: its timings are `FRAMES_PER_SECOND`'s (50 retraces a
+  second, `port.h`'s `PORT_RETRACE_HZ`/`PORT_VI_CLOCK`), its text is in
+  three languages (`ENTRY_TEXT`, `LEVEL_NAME`) and its libultra is newer
+  in places; its C is complete.
 
 jp runs as us.v11 does: headless it plays the N64 and Rare logos, the
 title and the attract mode (the story, the demo levels), and
 `PORT_AUTOSTART=1` goes through the name entry and the map into Simian
 Acres, whose hints and pause menus show their Japanese text.  (`=2` stops
 at the level's first hint: jp shows one as the level starts and waits for
-A, which `=2` doesn't press once it is in a level.)  The 32-bit and 64-bit
-builds are identical with `PORT_COUNT_PER_OP=0` (every 1,000th frame of
-8,000 with `PORT_AUTOSTART=1`).
-
-The native-endian build (`-DPORT_NATIVE_ENDIAN=ON`) builds and runs for jp
-too, with two more pieces: IDO's code reads a narrow argument out of its
-word slot (`lbu 0x5B($sp)` for a `u8` the glue stored as a word), so a
-byte or half access through `$sp` to a word it or its caller stores whole
-is XORed as a site (`x3`/`x2`, translate.py); and the menus' `u16` text
+A, which `=2` doesn't press once it is in a level.)  The menus' `u16` text
 (`hd_code/BC8E0`, `D_803010A0` on, which only jp shows) is converted as
-halves (`asm2c.py`, `HALF_FILES`; `u16` arrays in the inventory now).  Two more reads of the IDO code and
-of Rare's jp-only code are sites of jp's own (`native_sites.txt` lines
-with a third field, `jp`: a version's asm at its own offsets):
+halves (`asm2c.py`, `HALF_FILES`; `u16` arrays in the inventory), and
 `func_8026BCE0` takes the fade's low byte as the byte after the `s16`
-`D_8036BB0C` (the name entry's title came out differently), and
-`func_802BA3E8_jp` reads (level, value) byte pairs that the asm data
-declares as halves (`D_8030606E_jp`; Simian Acres then played
-differently).  Found with `build_cmp.py rdram --native` and `itrace`
-(skipping `func_802A794C`'s byte copy of words, where the registers hold
-bytes in their memory's order).  With them the native-endian builds play
-as the big-endian one, the quick tier's hashes but for the carrier on the
-globe.  The type inventory and the islands' layouts are still us.v11's;
-the runs are what checks jp.
-
-The other variants needed the IDO code's calls out of it looked at (the
-translated code's, which the check build still has; the native code does
-the same in C):
-
-- **The movable builds**: `func_801F57B0` starts the pak thread with
-  `func_801F58E8`'s address, which only the asm takes (a `lui`/`addiu`
-  pair), so port-arena didn't see a function used as a value and the
-  host's `port_fn` didn't know it.  `gen_glue.py` writes `fn_values.txt`,
-  every name the translated code takes the address of, and port-arena
-  makes those of them that are functions values (`-port-arena-fn-values`).
-- **The LP64 builds**: the IDO code passes its 32-bit display list slot to
-  C that takes `Gfx **` (`func_80259BD4`, `func_80259C24`,
-  `func_8025E2CC`), and the extern gives the C a native slot (below the
-  N64 stack pointer, where the movable build's C can reach it) and copies
-  the pointer back; and the pointer arrays it reads by words
-  (`D_80208358`/`68`, `D_80208378`, `D_802FF188`, `D_80358050`,
-  `D_80365348`) were `PTR32` (the attract mode's Japanese text was missing,
-  its scroller divided by zero at frame 7,250); since jp's IDO code is C
-  (`port/engine/jp_*.c`) they are native like every other pointer.  The native pointers it
-  reads or writes whole (`D_802158A0` ...) are right as they are: their
-  low half is the N64's word on a little-endian host.
-- **Everywhere**: `sprintf` and `bcopy` from the asm went to the host's
-  libc, with N64 addresses (the movable build's are in the arena) and
-  `sprintf` with four arguments of the five `"%d MINUTE%c %d SECONDS"`
-  has; both externs are written by hand now (`gen_glue.py`, `BY_HAND`),
-  `sprintf` taking its arguments by the format, the rest off the N64
-  stack, and formatting apart as `n64_sprintf` does.
+`D_8036BB0C`; `func_802BA3E8_jp` reads (level, value) byte pairs that the
+asm data declares as halves (`D_8030606E_jp`).  The type inventory and the
+islands' layouts are still us.v11's; the runs are what checks jp (and
+`test.py quick` on jp and eu: every hash the references').
 
 ## Source changes for the port
 
@@ -5934,7 +4528,7 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   return their last call's result in every build, which IDO compiles the
   same.)
 - `hd_code/2E490.c`: `func_80272C5C` tells the host which textures an
-  icon's picture is (`port_icon_texture`, "Model icons").
+  icon's picture is (`host_icon_texture`, "Model icons").
 - `hd_code/37530.c`: the vehicles' tyre marks (`func_8027C4C8`) are
   drawn the port's way.  The marks are a ring of 80 entries (a pair of
   points across each of two tracks); the original packs each run's
@@ -5969,17 +4563,14 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   SDK parts"), checked against them by `port/tools/sdk_check/sdk_check.py`
   (sinf and fcos over every float, the rest on random arguments and on
   what a `-DPORT_SDK_TRACE=ON` build logs to `$PORT_SDK_TRACE`).
-- `tools/recomp/runtime/recomp.h`: `dmult`/`dmultu` without `__int128` on a
-  32-bit host (checked against the `__int128` version); the
-  `RECOMP_ACCESS` hooks for the profiler and the mirrored unaligned pairs
-  of `RECOMP_NATIVE_ENDIAN`, both compiled out by default (the
-  differential test passes 688/688 after them).
-
-The 64-bit build needs no change in `blastcorps/src`.  The LP64 build's are
-real pointer types where the C had integers (each checked with IDO's
-build), `osRecvMesgInt` and `OS_MESG`, `_GBI_W` and `_GBI_D` in `gbi.h`
-(and `abi.h`'s pointer-wide words), `DlAddr`, and the port's `int` typedefs in
-`ultratypes.h` ("The LP64 build").
+- The changes that make the C ordinary C for any host: real pointer types
+  where the C had integers (each checked with IDO's build),
+  `osRecvMesgInt` and `OS_MESG`, `_GBI_W` and `_GBI_D` in `gbi.h` (and
+  `abi.h`'s pointer-wide words), `DlAddr`, the port's `int` typedefs in
+  `ultratypes.h`, writable hostage texts as arrays (53220.c's `WTEXT`),
+  the audio heap 16-aligned, and the fixes P10 made where an overrun, a
+  misaligned access or an out-of-range conversion was the game's
+  ("Where pointers are 8 bytes", "The build").
 
 ## The TAS
 
@@ -6021,13 +4612,12 @@ the mode, the random number generator's state and the player's position.
 ### Replaying it on the port
 
 The movie is us.v10, so this needs a us.v10 port: extract and build stage
-2 for us.v10, `make -C tools/recomp VERSION=us.v10`, then configure with
-`-DPORT_VERSION=us.v10` (its own build directory; `blastcorps/` and the
-translator's output hold one version at a time, and CMake refuses a mismatch).
-Then
+2 for us.v10, then configure with `-DPORT_VERSION=us.v10` (its own build
+directory; `blastcorps/` holds one version at a time, and CMake refuses a
+mismatch).  Then
 
 ```
-build/port.us.v10/blastcorps --headless --replay build/tas/run/polls.csv --save run.eep baserom.us.v10.z64
+build/port/blastcorps --headless --replay build/tas/run/polls.csv --save run.eep baserom.us.v10.z64
 port/tools/tas_check.py run.eep --platinum 57
 ```
 
@@ -6087,7 +4677,7 @@ frames and gives each the movie's input for that frame:
   game's check of `D_80370C10` and its receive; the port's, waking every
   millisecond, can, and then takes the message and leaves the game waiting
   for it forever.  That hung the 64-bit build at the log's read 58,325,
-  where its CPU model put the wakeup in that window.
+  where its CPU model put the wakeup in that window (the model is gone).
 - **Checkpoints at the mode changes.**  The menus aren't worth making
   exact (the world map's cursor picks its target from the paths it draws,
   which depends on sound effects and more), so where the port goes its own
@@ -6099,8 +4689,8 @@ frames and gives each the movie's input for that frame:
   mode as the next one, and the game's own switch (and the new mode's init,
   a level's loading included) does the rest.  Levels play exactly from
   their start, so this checks every level even where the menus between
-  them don't match.  The state is the N64's bytes; the native-endian build
-  writes each datum at its own width.
+  them don't match.  The state is the N64's bytes; the replay writes each
+  datum at its own width.
 - **Timing.**  The retraces above are the movie's, its lag frames
   included.  `PORT_REPLAY_TIMING=free` gives each frame the port's own
   instead (two in a level: no lag), which is how the game plays by
@@ -6123,41 +4713,33 @@ What says the replay still plays the movie: in a level, every read compares
 the player's position with the log's and reports the first few that differ;
 the mode changes with no match, the log's reads skipped and the retraces
 given anyway are reported at the end; and the save has the medals.
-`PORT_REPLAY_DUMP=N,...` writes RDRAM as the read matching the log's Nth
-starts (`rdram_N.bin`, in the build's byte order, with `rdram_N.widths` in
-a `PORT_ACCESS_PROFILE` build), and `TAS_DUMP=N,...` makes `m64p_tas`
-write the same at its Nth read, to compare the two.  Two builds of the
-port replay the movie in step (the reads and retraces are the log's), so
-`PORT_DUMP`, `PORT_TRACE` and
-`PORT_ITRACE` compare them as in "Comparing builds"; those count the
+`PORT_REPLAY_DUMP=N,...` writes the game's memory (the regions and the
+variables the host names: `game_N.bin`) as the read matching the log's
+Nth starts, and `TAS_DUMP=N,...` makes `m64p_tas` write RDRAM at its Nth
+read (`rdram_N.bin`, the emulator's: the two are no longer comparable
+byte for byte).  Two builds of the port replay the movie in step (the
+reads and retraces are the log's), so `PORT_DUMP` and the digest compare
+them as in "Comparing builds"; those count the
 port's controller polls, about a hundred fewer than the log's reads by
 the levels (`PORT_PACE` lists the polls with their modes).
 
 Where it stands: the port beats the game with the movie's input, 57
-platinum medals like the movie, in about 20 minutes (`port/tools/tas_port.sh`
-after `tas.sh`).  All 125,297 of the movie's reads are matched, none
-skipped, and the player is where the movie has it at every frame of every
-level and on the map.  Two of the game's mode switches used to be the
-movie's rather than the port's: twice, at the world map, the 32-bit
-port's cursor picked the level it was on where the movie's picked the
-next one, and the switch hook sent it where the movie went.  That was
-the 32-bit build reading garbage in a `u8` result (`func_80264BA4`,
-"The movable build"); since that's fixed, no mode is forced (78 retraces
-given anyway, one save command let go early).  The 64-bit build plays
-it as exactly (all 125,297 reads matched, the player always where the
-movie has it, 57 platinum), with no mode forced at all; its timing
-differs (376 retraces given anyway).  Since the CPU model is off by
-default no retrace is given anyway, and with the port's own frame timing
-(`PORT_REPLAY_TIMING=free`, no lag frames) the replay is as exact: every
-read matched, none skipped, no mode forced, 57 platinum, the same save
-and the same gameplay digest ("Lag frames").  Without the loop polls and
-the CPU model (2026-10-05) nothing changed in it: all eight variants of
-us.v10 (`test.py variants --tas`, free timing) match all 125,297 reads,
-skip none, force no mode, give no retrace anyway, let 2 save commands go
-early, and end with 57 platinum, the reference's save and gameplay digest,
-and 83 levels in 95,143 frames, 52:29.1 by the level timer, as before;
-with the movie's timing (`--timing movie`, the 32-bit build) the same, the
-levels 55:46.9 by the level timer.
+platinum medals like the movie, in about 17 minutes natively (about 45
+under ASan; `port/tools/tas_port.sh` after `tas.sh`, or `test.py tas`).
+All 125,297 of the movie's reads are matched, none skipped, and the player
+is where the movie has it at every frame of every level and on the map;
+with the port's own frame timing (`PORT_REPLAY_TIMING=free`, no lag
+frames, `test.py tas`'s default) the replay is as exact: every read
+matched, none skipped, no mode forced, no retrace given anyway, 2 save
+commands let go early, 57 platinum, the reference's save and gameplay
+digest (`2e9a3a7173fe4337`), 83 levels in 95,143 frames, 52:29.1 by the
+level timer.  The same holds for every kind of build: clang, gcc, the
+sanitizers, i386, and wasm under node ("Testing the port"); with the
+movie's timing (`--timing movie`) the levels take 55:46.9 by the level
+timer.  (Until 2026-10-05 two of the game's mode switches were the
+movie's rather than the port's, from the 32-bit build reading garbage in
+a `u8` result, `func_80264BA4`; the 64-bit builds' CPU model gave 376
+retraces anyway.  All of that is gone.)
 
 - **The mode switches.**  `m64p_tas` logs every mode the game's loop
   switches to (`switches.csv`, an exec breakpoint where it prints "game mode
@@ -6172,8 +4754,8 @@ retraces given at one read the replay dumps the threads.
 
 The TAS also found a port bug on the way: the game writes a digit into a
 string literal ("0 OF THE OTHERS", `53220.c`), which the port had in
-read-only memory; `gen_ld.py` now links the game's remaining `.rodata`
-writable, as the N64 has it.
+read-only memory; the string is a writable array in the port now
+(`WTEXT`, 53220.c).
 
 ## Status
 
@@ -6193,227 +4775,35 @@ writable, as the N64 has it.
 
 ## What's left for the port
 
-- **Real call states** for the translator's test (the check of the native
-  engine).  Recording `ctx` and
-  memory at each translated function's entry during play would replace the
-  random registers, and reach the 30% of blocks the random states don't.
-- **Toward native code**: the 64-bit build is done ("The 64-bit build"),
-  native-endian memory ("The native-endian build") and the LP64 build ("The
-  LP64 build").  Next are the fixed addresses: the game's C and data should
-  work at any base, which arm64 macOS and a WebAssembly build (both wanted
-  eventually) need; the movable build ("Movable memory") is that, and the
-  WebAssembly build runs on it in node and in a browser ("WebAssembly").  The
-  32-bit build still has the out-of-bounds miscompiles the 64-bit one
-  avoids; typing those arrays fixes both.
+- **The game's data from the ROM at startup**, so that a binary can be
+  published without it: `asm2c.py`'s data and the C's initialized data as
+  fill operations made from the ROM's modules (docs/DISTRIBUTION.md, 1a-1d;
+  the executable carries about 260 K of it now).
+- **A real browser run of the plain build's page** ("WebAssembly"), and a
+  Mac for macOS ("macOS").
+- **Real call states** for the translator's test (`tools/recomp`, a
+  decompilation tool now): recording the registers and memory at each
+  translated function's entry during play would reach the 30% of blocks
+  the random states don't.
 - **Readable C**: done ("Replacing the engine").  Every function of Rare's
   engine, and jp's IDO asm, is hand-written C in `port/engine`, and the
-  default build links no translated code.
+  build links no translated code.
 
 # The handwritten asm
 
-About a third of hd_code (us.v11 `0x56040`–`0x8E910`, 31 objects, 688
+About a third of hd_code (us.v11 `0x56040`-`0x8E910`, 31 objects, 688
 functions, 55k instructions) and hd_front_end's `0x1B100` run are Rare's
-handwritten MIPS. It can't become matching C, so the port runs a mechanical
-translation of it first (ROADMAP, Phase 5). This is that translator, and the
-test that shows it's right.
-
-## Approach
-
-Our own translator over the symbolic `.s` files, in `tools/recomp/`, rather
-than N64Recomp over the linked ELF:
-
-- **Symbols survive.** Splat's `.s` already names every address (`%hi(D_…)`,
-  `jal func_…`, `.L` labels), so the C says `SYM(D_803A7410)`, not
-  `0x803A7410`. Its address comes from a generated header, so it follows the
-  shiftable build and, later, wherever the port puts the variable. N64Recomp
-  works from relocations and emits addresses.
-- **It sees exactly the code we classified.** The set of objects comes from
-  the `asm` subsegments in `hd_code.us.v11.yaml` (minus libultra's). It isn't
-  a whole-ELF pass, so the decompiled C is never pulled in again, and the data
-  islands inside `.text` are never mistaken for code.
-- **Rare's code is simple to translate.** Every `jr` is `jr $ra`, and there is
-  no `jalr`, no `j`, no jump table and no function pointer into it (none in
-  the data, none in the islands). Control flow is branches and `jal`, which
-  become `goto` and direct C calls. The only irregular spots are one
-  branch into another function's epilogue (`func_8029CB04` into
-  `func_8029CF04`), handled by merging those functions into one C body with an
-  entry switch, and 19 branches into delay slots.
-- **Small and deterministic.** It is about 1,100 lines of Python with no
-  dependencies, and it gives the same output for the same input.
-
-The instructions are decoded from the word in each line's comment
-(`tools/recomp/mips.py`), not from the mnemonic text, and cross-checked
-against the text. Only the symbolic operands come from the text.
-
-## Interface
-
-```c
-typedef struct recomp_context {
-    union { uint64_t r[32]; struct { uint64_t zero, at, v0, v1, a0, ... ra; }; };
-    uint64_t hi, lo;
-    uint32_t f[32];        /* COP1, Status.FR = 0 as the game runs it */
-    uint32_t fcr31;
-    int64_t budget;        /* test only */
-} recomp_context;
-
-void recomp_func_8029A800(uint8_t *rdram, recomp_context *ctx);
-```
-
-- **State.** All of it is N64 state. The registers live in `ctx`, 64 bits
-  wide. Memory is reached by 32-bit N64 addresses: `rdram + (addr &
-  0x1FFFFFFF)` for KSEG0 and KSEG1. The translated code never holds a host
-  pointer, and one `ctx` per game thread carries `$gp`/`$sp` between calls.
-- **Addresses** are `SYM(name)` (`syms_<module>.h`, generated from the linked
-  ELF). A port that places data elsewhere redefines those, as long as each
-  datum is still inside the arena that `rdram` points at.
-- **Calls into translated code** (IDO C calls 167 of the 688 functions by
-  name): set `a0`–`a3` (and `$sp` into the arena, since the functions build
-  frames there) in the thread's context, call `recomp_func_X(rdram, ctx)`,
-  and read `v0`. Many of these functions also take arguments in
-  `v0`/`v1`/`t*`/`s0`, and the wrapper for each one has to set those, so the
-  wrappers are hand-written as the C callers get decompiled. No function
-  pointer reaches this code, but `recomp_lookup(addr)` (`funcs.c`) resolves
-  one if that ever changes.
-- **Calls out of translated code** (53 callees: IDO C and libultra) go
-  through `recomp_extern_<name>(rdram, ctx)`. The generated default
-  (`externs.c`) forwards to `recomp_call_external(rdram, ctx, SYM(name))`.
-  The port replaces each one with glue that unpacks `a0`–`a3` (and stack
-  arguments at `sp+0x10`), converts address arguments with `rdram + (a &
-  0x1FFFFFFF)`, calls the native function, and puts the result in `v0`.
-- **Hooks the embedder provides:** `recomp_trap` (break/syscall, which are
-  Rare's asserts, plus faults in the test build), `recomp_call_external`, and
-  `recomp_mfc0`/`recomp_mtc0` (one Status read and one Compare write).
-- **Memory layout.** By default memory is a byte-exact big-endian image (what
-  the ROM's data is), and every access byte-swaps on the host. That is what
-  the test verifies. `-DRECOMP_NATIVE_ENDIAN` switches to host-order words for
-  a port whose native C shares those structs. Words, halves and bytes then
-  read the same from both sides, but `lwl`/`lwr`/`swl`/`swr` (32 uses) and
-  anything that reads one datum at two widths would need checking. Doubles
-  and `ld`/`sd` are two words, high word first, in both modes.  In the
-  native-endian mode that is not a host-order `u64`, which is what the
-  port's native-endian builds keep ("Native-endian memory"); the mode is
-  dead code, because the check build, the translated code's only user, is
-  big-endian.
-
-How the PC build meets this interface (RDRAM at `0x80000000`, big-endian
-memory, the glue generated from the C) is under "Memory model" and "The
-glue to the translated code" above.
-
-## Semantics worth knowing
-
-These are the choices where the VR4300, the MIPS spec and QEMU disagree, or
-where the obvious C is wrong:
-
-- **`sra`/`srav`** shift the whole 64-bit register and sign-extend the low
-  word. Rare does this after `dmult`/`mflo`, so it matters for fixed point.
-  QEMU leaves such inputs unextended; the test build follows QEMU there
-  (`RECOMP_QEMU_COMPAT`).
-- **FR = 0.** Doubles and 64-bit integers are even/odd pairs, and the code
-  builds a double with `mtc1 $at, $f9`. The L-format conversions (`cvt.s.l`,
-  `cvt.d.l`, `cvt.l.s`, `cvt.l.d`, 44 uses) are legal on the VR4300 with FR =
-  0. QEMU rejects them, so the test harness executes those itself.
-- **Float to int** out of range or NaN gives `0x7FFFFFFF`/`0x7FFF…F`. `cvt`
-  rounds to nearest-even (the FCSR mode the game leaves), with
-  `-ffp-contract=off` so nothing fuses.
-- **NaNs** follow MIPS legacy encoding: a quiet NaN operand propagates, and a
-  signaling NaN or an invalid operation gives `0x7FBFFFFF`. `abs`/`neg`/`mov`
-  only touch bits. The FCSR's flag and cause bits aren't kept; nothing but
-  libultra's thread switch reads them.
-- **`add`/`addi`/`sub`/`dadd`** trap on overflow in the test build and wrap
-  in the port. The game never overflows them, since that would crash on
-  hardware.
-- **Divide by zero** gives the VR4300's result (`LO = n<0 ? 1 : -1`,
-  `HI = n`), or QEMU's in the test build. The code only reaches it on paths
-  that then `break 7`.
-
-## Running it
-
-```
-make -C tools/recomp                  # translate -> blastcorps/build/recomp/src
-make -C tools/recomp port             # compile it as the port would (-Werror)
-make -C tools/recomp snapshots        # optional: RDRAM from real play (mupen64plus)
-make -C tools/recomp test PYTHON=.env/bin/python TRIALS=100
-```
-
-These need a built stage 2 (us.v11 by default, `VERSION=` for another),
-because the translator reads `blastcorps/asm/` and
-`blastcorps/build/*.elf`. The test needs `numpy` and
-`unicorn` in the venv. `tools/recomp/analyze.py` prints the opcode
-inventory and any control flow the translator would refuse (there is none
-now).
-
-### The differential test (`tools/recomp/test/difftest.py`)
-
-Each translated function runs many trials, and each trial does this:
-
-1. Build 4 MB of RDRAM from the linked `hd_code`, `hd_front_end` and `init`
-   images, plus one of these fills:
-   - one of 8 seeded random fills, mostly zeros, small integers, floats and
-     pointers back into RDRAM;
-   - one of 16 snapshots of real play. `test/snapshot.c` is a headless
-     mupen64plus front-end that is its own scripted input plugin. It plays
-     through the title, the name entry, Simian Acres, the pause menu and the
-     world map. A snapshot keeps the linked `.text` on top.
-2. Randomize the registers the same way. Registers the function
-   dereferences before writing them get pointers, taken from pointer-looking
-   words of the snapshot when there is one. Words that the code loads from a
-   symbol and then dereferences are also given pointers.
-3. Run the original in unicorn (MIPS64 big-endian, R4000 model, FR = 0) until
-   it returns, traps, or uses up its budget of 400k instructions.
-4. Reset memory and run the translated C, built into a shared library with
-   `RECOMP_TEST`, on the same state. Calls out of it run the original callee
-   in unicorn on the same buffer. So everything that isn't translated
-   executes identically in both runs, which is also why `hd_code`'s C doesn't
-   need to be available as C here. A second pass (`--stub-externs`) makes
-   every callee return a hash of its arguments in both runs instead, which
-   gets further into code whose callees fault on random state.
-5. Compare all GPRs, HI/LO, all 32 FPR words, the FCSR condition bit, every
-   byte of RDRAM, and how the run ended (return, break, syscall, overflow,
-   or address fault). Code pages are write-protected in both runs, so
-   random pointers can't rewrite instructions that only the original would
-   then execute.
-
-A trial where either side hit the budget is inconclusive. So is one where
-the random state overwrote the saved `$ra` (the translated code refuses to
-return anywhere but its caller). `--trace FUNC:TRIAL` with the
-`librecomp_trace.so` build (`make trace-lib`) replays one trial with a
-per-instruction register trace on both sides and prints where they diverge.
-
-### Results (100 trials per function, with snapshots)
-
-- **688/688 functions pass.** Across both passes, 0 of about 137,000 trials
-  differ.
-- **jp: 706/706 pass** (its 689 handwritten functions and the 17 IDO
-  ones, random fills only), 0 of 141,200 trials differing; 490 functions
-  returned normally in a trial, 517 with the callees stubbed; 53.3% of
-  the blocks and 60.4% of the instructions were executed.  The 17 alone,
-  at 200 trials: all pass, 14 returned normally.
-- 548 functions returned normally in at least one trial, and 584 when
-  callees are stubbed. The other 104 only ever faulted or trapped,
-  identically on both sides, which still compares state up to the fault.
-  100 of those dereference a register or global that neither the random
-  state nor the snapshots make valid: 62 null or small-integer pointers and
-  38 other bad addresses. Of the last four, one always overflows, one
-  always faults on alignment, one always runs past the budget, and one is
-  an assert (`syscall`, hd_front_end's `func_80202100`) that always fires.
-- Coverage of the translated code, over both passes: 69.4% of basic blocks
-  (6385 of 9203) and 75.7% of instructions executed at least once. All 102
-  opcodes the code uses are executed.
-- Mutation check: of 11 bugs planted in the runtime or the translator (slti
-  signedness, sra as logical, `lb` zero-extending, `cvt.w.s` truncating,
-  mult HI/LO swapped, dmult HI dropped, `c.le` as `c.lt`, `lwr` shift,
-  `swl` bytes, branch condition read after the delay slot), the test catches
-  10, each with 2 to 188 failing functions. The eleventh, `lwl` keeping the
-  wrong low bytes, is masked by the code: every `lwl` is paired with an
-  `lwr` that overwrites those bytes.
-
-What this can't test:
-
-- Code that reads hardware or needs another thread (libultra's message
-  queues) only gets as far as its first fault in these runs.
-- The other 30% of the blocks were never reached. Getting there
-  needs realistic arguments, not only realistic memory.
-- Undefined-behaviour cases where QEMU and the VR4300 differ (`sra` on
-  unextended values, divide by zero) are checked against QEMU's behaviour in
-  the test build. The port build's VR4300 behaviour for them is not
-  exercised.
+handwritten MIPS.  It can't become matching C, so the port first ran a
+mechanical translation of it (ROADMAP, Phase 5): our own translator over
+the symbolic `.s` files, `tools/recomp/` (parse, a per-function liveness
+and convention analysis, C emission over a `recomp_context`), tested
+against the original instruction by instruction in unicorn with random
+register and memory states (`make -C tools/recomp test`, 688 of 688
+functions, 100 trials each).  The engine is hand-written C now ("Replacing
+the engine"), the translation was the check build's reference until P10,
+and the port compiles none of it; `tools/recomp` stays as a decompilation
+tool (its decoder is `tools/fieldscan.py`'s) and the record of how the
+engine was verified.  The chapter that described the translator's design
+(the context, the ABI, the unaligned pairs, the FCSR, FR=0, the jump
+tables) and the differential test and its results is at the commit tagged
+`engine-check-last` (`git show engine-check-last:docs/PORT.md`).

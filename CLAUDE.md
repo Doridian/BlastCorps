@@ -51,48 +51,49 @@ exists because stale output from another version otherwise links in silently and
 surfaces only as a confusing sha1 mismatch.
 
 The PC port (docs/PORT.md) is a separate CMake build over the same source,
-after the N64 build and `make -C tools/recomp`:
+after the N64 build:
 
 ```
-cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang
+cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang
 cmake --build build/port && build/port/blastcorps baserom.us.v11.z64
 ```
 
 `port/build.py ROM` (or `--wasm ROM`) does all of the above for a user in one
 go (README, "Build it").  `-DPORT_VERSION=us.v10` builds the us.v10 port instead (in its own build
-directory, from a us.v10 stage 2 and `make -C tools/recomp VERSION=us.v10`),
-which is what the TAS replays on (docs/PORT.md, "The TAS").
+directory, from a us.v10 stage 2), which is what the TAS replays on
+(docs/PORT.md, "The TAS").
 `-DPORT_VERSION=jp` builds Blastdozer the same way (`VERSION=jp`
 throughout); jp's remaining `GLOBAL_ASM` functions are C in
 `port/engine/jp_*.c` like the handwritten code (docs/PORT.md, "Other versions").
 `-DPORT_VERSION=eu` builds the PAL version (its C is complete; `port.h`'s
 `PORT_RETRACE_HZ`/`PORT_VI_CLOCK` are PAL's there).
 
-`-DPORT_64BIT=ON`, `-DPORT_NATIVE_ENDIAN=ON` and `-DPORT_LP64=ON` build the
-64-bit, native-endian and LP64 variants (docs/PORT.md); compare any two with
-`port/tools/build_cmp.py` and `layout_cmp.py`.  `-DPORT_MOVABLE=ON` (with
-any of them) puts game memory at any base and links a PIE, the way to
-macOS and WebAssembly: the N64 side is one LLVM module there, through
-port-arena (docs/PORT.md, "Movable memory").  `emcmake cmake` (emsdk)
-builds that for WebAssembly, headless under node or as a page
-(`-DPORT_WASM_TARGET=web`); the N64 side is still the system clang's
-i386 IR, retargeted at the arena link (docs/PORT.md, "WebAssembly").  The game's threads switch by ucontext or by host threads one at
-a time (`port/host/fiber.h`); on Linux one executable has both and
-`PORT_THREADS=ucontext|pthread` picks, and the two must give identical
-deterministic runs (docs/PORT.md, "Threads without ucontext").
-`port/tools/cross-aarch64.cmake` cross-builds the 64-bit port for AArch64
-Linux, which runs under qemu-aarch64 ("Other hosts").
+It is one build: the game's C, `port/src`, `port/libaudio` and `port/engine`
+are ordinary C, compiled by the host's compiler (clang, gcc or emcc) in the
+host's byte order and pointer size and linked with `port/host` into a PIE; a
+pointer is a host pointer and nothing is at an N64 address (docs/PORT.md,
+"The build").  Other hosts are options and toolchain files of that build:
+`-DPORT_SANITIZE=address,undefined`, `-m32`, `-DPORT_SDL=OFF`,
+`port/tools/cross-{ppc,mipsel,armhf,aarch64}.cmake` (zig cc, run under qemu:
+"Big-endian and 32-bit hosts"), `emcmake cmake` (emsdk) for WebAssembly,
+headless under node or as a page (`-DPORT_WASM_TARGET=web`), and
+`port/tools/macos_build.sh` for macOS.  `port/tools/test.py` (`quick`, `tas`,
+`budget`, `kinds`; ctest labels `quick`, `tas`, `tas-prefix`, `budget`) tests
+any of them against the committed references.  The game's threads switch by
+ucontext or by host threads one at a time (`port/host/fiber.h`); on Linux one
+executable has both and `PORT_THREADS=ucontext|pthread` picks, and the two
+must give identical deterministic runs (docs/PORT.md, "Threads without
+ucontext").
 
 Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A
 busy-wait in the game's C (a loop spinning on what another thread or an
 interrupt changes) calls `port_spin_wait()` in its body there: the port
 runs one thread at a time with no polls in loops, so without it the loop
 spins forever (docs/PORT.md, "Memory model").  Pointers in
-memory are native (8 bytes in the LP64 port), and a variable's declarations
-all agree (docs/PORT.md, "The LP64 build").  `T *PTR32 p` (4 bytes there,
-nothing to IDO) is left as a mechanism but nothing uses it: the words of
+memory are native (8 bytes on a 64-bit host), and a variable's declarations
+all agree (docs/PORT.md, "Where pointers are 8 bytes"): the words of
 the display lists and the audio command lists are as wide as a pointer
-(`Gfx` is 16 bytes in the LP64 port, "Graphics"), and an integer that holds
+(`Gfx` is 16 bytes there, "Graphics"), and an integer that holds
 an address for a list is a `DlAddr`.
 
 The port's improvements for the player (`--interpolate` with
@@ -266,8 +267,8 @@ subsegment, not a `c` file full of `GLOBAL_ASM`. That keeps
 `gen_code_yaml.py` classifies it (see `docs/DECOMPILING.md`). About a third
 of hd_code is Rare's handwritten engine; it can't become matching C. For
 the port it is C written by hand in `port/engine/`; `tools/recomp/`'s
-mechanical translation remains only as the check build's reference, checked
-against the original in unicorn (`docs/PORT.md`).
+mechanical translation, checked against the original in unicorn, remains as
+a decompilation tool (`docs/PORT.md`).
 
 ## Versions
 

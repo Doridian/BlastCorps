@@ -170,8 +170,8 @@ spacing stay the game's, so it works on every screen at once.
   records, for each TMEM word, the RDRAM address its LoadBlock read
   (`gfx_tmem_src`, only with the option on).  A 32x32 I4 tile whose 512
   bytes came in one piece from one of font.c's 0x50 slots is a glyph, and
-  `D_803653B0[slot]` says which (`hdtext_glyph_at`, read through
-  `PORT_VAR`).  No game code changes; the game's variables are only
+  `D_803653B0[slot]` says which (`hdtext_glyph_at`, read as
+  `host_game_vars.h` declares it).  No game code changes; the game's variables are only
   read.  Hashing the texels instead would need a table of the ROM's glyph
   hashes, which is ROM-derived.
 - *Making the image*: stb_truetype (public domain or MIT, Sean Barrett,
@@ -288,8 +288,8 @@ Checks: without the option every screenshot (GL, `--scale 4`, eight frames
 of the TAS) is byte for byte the build's before the change, and the quick
 tier passes; with it the saves are the same, and the quick tier has two
 scenarios for it (`auto2.gl.hdtext`, `auto3.gl.hdtext` with
-`--interpolate`) whose save and sound must equal the plain runs' (all
-seven standard variants pass them, and their hint-box screenshots
+`--interpolate`) whose save and sound must equal the plain runs' (every kind
+of build passes them, and their hint-box screenshots
 change with the option: the glyphs are found in every memory layout).
 The TAS with `--hd-text --renderer gl --scale 2` on the 64-bit build:
 125297 of the log's 125297 reads matched, none skipped, no mode forced,

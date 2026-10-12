@@ -375,15 +375,20 @@ selected with `TARGET_PC`. The N64 build stays matching.
       per object over a register-file context and an emulated RDRAM arena,
       symbols kept. A differential test runs every function against the
       original in unicorn, on random states and on RDRAM snapshots from
-      real play. All 688 functions match. See docs/PORT.md for the
-      interface, results and what's left.
+      real play. All 688 functions match. The engine is hand-written C now
+      (`port/engine`) and the translator is a decompilation tool; see
+      docs/PORT.md, "The handwritten asm".
 - [x] First PC build (`port/`, docs/PORT.md): CMake, 32-bit x86 with RDRAM
       at `0x80000000` and every game variable at its N64 address, the game's
       C built big-endian by an LLVM pass (BEPass), libultra replaced
       (fibers, PI from the ROM file, SDL input, EEPROM file, host clock),
       generated glue to the translated engine, a software Fast3D renderer.
       Runs the Rare logo, the title screen and the attract mode, and with
-      Start/A the name entry, the world map and Simian Acres.
+      Start/A the name entry, the world map and Simian Acres. (Since P10
+      the port is one build: the game's C, the engine and libultra's
+      replacement as ordinary C in the host's byte order and pointer size,
+      with clang, gcc or emcc, for x86, ARM, PowerPC and MIPS, WebAssembly
+      included; docs/PORT.md, "The build", "History".)
 - [ ] Pacing: the RSP/RDP finish instantly, so the intro runs too fast and
       gameplay at 60 fps (docs/PORT.md, "Status").
 - [ ] Audio (audio-ucode HLE, SDL output) and an accelerated renderer.

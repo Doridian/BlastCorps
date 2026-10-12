@@ -37,21 +37,20 @@ as C rewritten from it (`port/engine`); it needs your own copy of the ROM
 (`us.v11` by default; `us.v10`, `jp`, Blastdozer, and `eu`, the PAL version, too).  It is built from the decompilation, so
 the steps are: set up the tools, build the decompilation once, then the port.
 [docs/PORT.md](docs/PORT.md) has the details.  Linux on x86-64 is what it's
-built and tested on; the 64-bit build also cross-compiles for AArch64 Linux
-(`port/tools/cross-aarch64.cmake`, PORT.md "Other hosts"), and macOS on
-Apple silicon is prepared but untested ([macOS](#macos) below).
+built and tested on (clang or gcc, also for i386 and under the sanitizers);
+it also builds and passes its tests as WebAssembly (under node, and as a
+page), and cross-built with zig under qemu for PowerPC, MIPS, ARM and
+AArch64 Linux (PORT.md "Other hosts", "Big-endian and 32-bit hosts");
+macOS on Apple silicon is prepared but untested ([macOS](#macos) below).
 
 ## Requirements
 
 * Everything the decompilation needs (see [Build](#build) below): the
   `mips-linux-gnu-` binutils, Python 3 and the venv.
-* clang and LLVM with its development headers (`llvm-config`, `opt`): the
-  port's build runs an LLVM pass plugin over the game's C.
+* A C compiler: clang or gcc (the port is C alone: no LLVM headers, no
+  plugins).
 * CMake and Ninja, SDL2, and libepoxy for the OpenGL renderer (without it only
   the software renderer is built).
-
-The recommended build below is an ordinary 64-bit program.  Only the
-32-bit variant needs the 32-bit (multilib) libc, SDL2 and libepoxy.
 
 ## Build it
 
@@ -65,13 +64,12 @@ port/build.py --wasm --serve path/to/rom.z64   # ... and serve it on http://loca
 ```
 
 It identifies the ROM by its sha1. It sets up the submodules and the venv
-if they aren't there yet, builds the decompilation and the engine's tables
-(`tools/recomp`) for that version, then the port. That's about a minute on a fast machine.
+if they aren't there yet, builds the decompilation for that version, then
+the port. That's about a minute on a fast machine.
 Run it again after a `git pull` and it redoes only what changed.
 `--wasm` needs emsdk: `--emsdk DIR`, `$EMSDK`, emcmake on the `PATH`, or
-`--install-emsdk` to fetch it into `.emsdk/`.  `--variant 32|lp64|movable|native`
-builds the other native variants, and `--node` the headless WebAssembly
-build; `port/build.py --help` has the rest.  Building another version
+`--install-emsdk` to fetch it into `.emsdk/`; `--node` builds the headless
+WebAssembly build; `port/build.py --help` has the rest.  Building another version
 replaces the decompilation's output, but not the port builds already made.
 
 The steps it runs, by hand: put `baserom.us.v11.z64` in the repo's root,
@@ -89,28 +87,22 @@ make VERSION=us.v11 -C blastcorps extract
 make -j VERSION=us.v11 -C blastcorps       # the decompilation, sha1-checked
 make VERSION=us.v11 -C blastcorps compress
 make VERSION=us.v11                        # the ROM's layout the port reads
-make -C tools/recomp                       # the glue's tables (and the check build's translation)
 
-cmake -S port -B build/port64 -G Ninja -DCMAKE_C_COMPILER=clang \
-      -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_ASM_COMPILER=clang \
-      -DPORT_LP64=ON -DPORT_MOVABLE=ON
-cmake --build build/port64
+cmake -S port -B build/port -G Ninja -DCMAKE_C_COMPILER=clang
+cmake --build build/port
 ```
 
-That is the recommended build. It is 64-bit and keeps game memory in the
-host's byte order, has no fixed addresses, and is the one macOS uses.  The
-other variants all play the same game, exactly, and are mostly for checking
-the port against itself (docs/PORT.md):
-- without `-DPORT_MOVABLE=ON`, the same at the N64's fixed addresses;
-- `-DPORT_64BIT=ON` alone, big-endian game memory;
-- `-DPORT_64BIT=ON -DPORT_NATIVE_ENDIAN=ON`, native byte order through the i386 front end;
-- no options at all, the 32-bit build, which needs multilib.
+That is the whole port: one build, ordinary C in the host's byte order and
+pointer size (gcc works as well as clang; `-DPORT_SANITIZE=address,undefined`
+instruments it; `-DCMAKE_C_FLAGS=-m32` makes an i386 one, which needs the
+multilib libc, SDL2 and libepoxy).  It plays the same game, exactly, on
+every host and compiler it builds with (docs/PORT.md, "The build").
 
 For WebAssembly (a page that plays in a browser, or headless under node),
 install [emsdk](https://github.com/emscripten-core/emsdk) (`./emsdk install
 latest && ./emsdk activate latest`), and after the steps above but the
-last two, in its environment (`source emsdk_env.sh`; the system's clang
-and LLVM still compile the game's C, since they load the pass plugin):
+last two, in its environment (`source emsdk_env.sh`; emcc compiles the
+whole port):
 
 ```
 emcmake cmake -S port -B build/wasm-web -G Ninja -DPORT_WASM_TARGET=web
@@ -133,11 +125,11 @@ late (`?env=PORT_QUEUE=0` turns that off, `2` keeps it on);
 `?env=PORT_PERF=600` logs where the time goes to the browser's console
 (docs/PORT.md, "Performance").
 Without `-DPORT_WASM_TARGET=web` it builds `blastcorps.js` for node:
-`node build/wasm/blastcorps.js --headless --frames 600 --screenshot shot
+`node build/wasm-node/blastcorps.js --headless --frames 600 --screenshot shot
 baserom.us.v11.z64` (docs/PORT.md, "WebAssembly").
 
 For `us.v10`, `jp` or `eu`, put `baserom.<version>.z64` in the root and run
-the same with `VERSION=<version>`, `make -C tools/recomp` included (after
+the same with `VERSION=<version>` (after
 `make clean` and `make -C blastcorps clean`), and configure a separate build
 directory with `-DPORT_VERSION=<version>`.  jp still has some of its
 compiled code as asm where it differs from the US versions; the port has
@@ -147,7 +139,7 @@ retraces a second, as on a PAL console (docs/PORT.md, "Other versions").
 ## Run it
 
 ```
-build/port-us.v11/blastcorps baserom.us.v11.z64      # port/build.py's; build/port64/ by hand
+build/port-us.v11/blastcorps baserom.us.v11.z64      # port/build.py's; build/port/ by hand
 ```
 
 The window's title shows the frame rate once a second: the pictures shown
@@ -158,9 +150,9 @@ The ROM argument may be left out: it defaults to `baserom.us.v11.z64` (the
 other versions' builds' to `baserom.<version>.z64`) in the
 current directory.  The port reads everything else from the ROM, so the
 binary can be run from anywhere.  It must be the exact ROM the port was
-built for (its sha1, above, is checked at startup): the movable builds,
-port/build.py's and the page's, make the game's data from it rather than
-carrying it (docs/PORT.md, "The data from the ROM").
+built for (its sha1, above, is checked at startup).  The executable still
+carries the game's initialized data (the ROM's, about 260 K), so don't
+publish a binary (docs/PORT.md, "The build"; docs/DISTRIBUTION.md).
 
 The save (the 4 Kbit EEPROM) goes to `blastcorps.eep` in the current
 directory, or wherever `--save PATH` says.
@@ -245,11 +237,12 @@ docs/PORT.md ("Resource packs") how the port reads it.
 ## Test it
 
 ```
-ctest --test-dir build/port64 -L quick -V     # a minute: deterministic runs against committed hashes (us.v10)
-ctest --test-dir build/port64 -L tas -V       # the TAS replay (us.v10 builds, 10-20 minutes)
-ctest --test-dir build/port64 -L recomp -V    # the translator's differential test (tools/recomp)
-port/tools/test.py variants                   # build the standard variants into build/test-*/ and check them all
-port/tools/test.py variants --emsdk DIR      # ... and the WebAssembly build under node, which must equal mn32's
+ctest --test-dir build/port -L quick -V       # a minute: deterministic runs against committed hashes (us.v10)
+ctest --test-dir build/port -L tas -V         # the TAS replay (us.v10 builds, 10-20 minutes)
+ctest --test-dir build/port -L tas-prefix -V  # its first 3000 frames (what an emulated build runs)
+ctest --test-dir build/port -L budget -V      # the memory the build takes
+port/tools/test.py kinds                      # build clang, gcc, ASan+UBSan and i386 into build/test-*/ and check them all
+port/tools/test.py kinds --only wasm --emsdk DIR   # the WebAssembly build under node: the same hashes
 ```
 
 These are `port/tools/test.py`'s tiers; docs/PORT.md, "Testing the port",
@@ -258,36 +251,34 @@ says what each compares.
 ## macOS
 
 **Untested**: the build is prepared for macOS on Apple silicon and checked
-from Linux as far as that goes (docs/PORT.md, "macOS"), but no one has run
-it on a Mac yet.  Reports welcome.
+from Linux as far as that goes (docs/PORT.md, "macOS": every object
+compiles for arm64-apple-macos and links, leaving only libSystem, SDL2 and
+libepoxy names undefined), but no one has run it on a Mac yet.  Reports
+welcome.
 
-macOS takes the movable LP64 build (`-DPORT_LP64=ON -DPORT_MOVABLE=ON`),
-built with Homebrew's LLVM: Apple's clang can't load the port's LLVM plugin.
+macOS takes the same build with the system's clang:
 
 ```
-brew install llvm sdl2 libepoxy pkgconf cmake ninja python
+brew install sdl2 libepoxy pkgconf cmake ninja python
 port/tools/macos_build.sh build/port-macos -DPORT_VERSION=us.v11
 build/port-macos/blastcorps baserom.us.v11.z64
 ```
 
-`macos_build.sh` runs CMake with `$(brew --prefix llvm)/bin/clang` as the
-compiler; the same by hand is
+`macos_build.sh` runs CMake with `cc` as the compiler (Homebrew's LLVM
+works as well); the same by hand is
 
 ```
-LLVM=$(brew --prefix llvm)
-cmake -S port -B build/port-macos -G Ninja -DCMAKE_C_COMPILER=$LLVM/bin/clang \
-      -DCMAKE_CXX_COMPILER=$LLVM/bin/clang++ -DCMAKE_ASM_COMPILER=$LLVM/bin/clang \
-      -DPORT_LP64=ON -DPORT_MOVABLE=ON
+cmake -S port -B build/port-macos -G Ninja -DCMAKE_C_COMPILER=cc
 cmake --build build/port-macos
 ```
 
-The port is built from the decompilation's stage 2 and the engine's
-tables (`tools/recomp`), and those need the `mips-linux-gnu-` binutils and the IDO
-recompilation this repo has for Linux.  The simplest is to run the steps up
-to `make -C tools/recomp` on Linux (or in a Linux container) and copy
-`blastcorps/build`, `blastcorps/asm`, `blastcorps/assets`,
-`blastcorps/.version` and `build/blastcorps.<version>.map` over; the port's
-own build reads the N64 ELFs with `llvm-nm` when there is no MIPS `nm`.
+The port is built from the decompilation's stage 2, which needs the
+`mips-linux-gnu-` binutils and the IDO recompilation this repo has for
+Linux.  The simplest is to run the steps up to `make VERSION=us.v11` on
+Linux (or in a Linux container) and copy `blastcorps/build`,
+`blastcorps/asm`, `blastcorps/assets`, `blastcorps/.version` and
+`build/blastcorps.<version>.map` over; the port's own build reads the N64
+ELFs with `llvm-nm` when there is no MIPS `nm`.
 
 # Build
 
