@@ -14,7 +14,7 @@
  *   level pool            0x1D3900     + PORT_POOL_GROWTH  src/regions.c, port_regions.h
  *     its front end area  0x37D00      the same (its tail)
  *   init's area           0x25AC0      the same         src/pool.c
- *   static data (seg. 1)  0xA00-0xAB0  the same         src/regions.c (the version's)
+ *   static data (seg. 1)  0x918-0xD78  the same         src/regions.c (the version's)
  *   audio heap            0x2A280      + the growth     game/audio.h's AUDIO_HEAP_SIZE
  *                         (eu 0x24540)                  (libaudio_heap.h's formula: it
  *                                                       takes libaudio's types)
@@ -22,9 +22,10 @@
  *                         own, in .bss) each            thread created (about 8)
  *
  * Everything else the N64 side has is its variables (the game's .data and
- * .bss: about 1.6 MB, the same on every host but for pointer-sized fields),
- * and the host's own (the renderer's frame and depth buffers, the texture
- * cache, the sound buffer: about 4 MB for the software renderer).
+ * .bss: about 1.3 MB where pointers are 4 bytes, 2.5 MB where they are 8),
+ * and the host's own (the software renderer's frame, depth and in-between
+ * buffers, the texture cache, the sound buffers and libc: about 5.4 MB in
+ * the qemu builds, without SDL; 11 MB on x86 with SDL and OpenGL).
  *
  * tools/gen_syms.py reads the PORT_POOL_ #defines below (and port_regions.h's
  * table) for the fixed builds' regions, one a line.

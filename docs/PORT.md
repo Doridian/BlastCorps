@@ -2493,6 +2493,105 @@ arm64 one) but not AArch64 Linux's, where the LP64 build's code changed
 with it (the 64-bit build compiles its stage 1 for i386, and x86-64's code
 is byte for byte the same).
 
+### Big-endian and 32-bit hosts: the plain build under qemu
+
+The plain build (`-DPORT_PLAIN=ON`) is ordinary C in the host's byte order
+and pointer size, so it is also the build for the console-like targets: a
+32-bit big-endian PowerPC (the Wii's CPU's order and width) and a 32-bit
+little-endian MIPS (o32, hard float: the PS2's) or ARM.  They are built here
+with zig's clang (`zig cc`, which carries musl: one tarball from
+ziglang.org, no root and no sysroot) as static executables, and run under
+qemu-user:
+
+```
+cmake -S port -B build/plain-ppc -G Ninja -DPORT_VERSION=us.v10 -DPORT_PLAIN=ON \
+      -DCMAKE_TOOLCHAIN_FILE=port/tools/cross-ppc.cmake      # or cross-mipsel, cross-armhf
+cmake --build build/plain-ppc
+port/tools/test.py quick build/plain-ppc                     # the four scenarios, under qemu-ppc-static
+```
+
+`port/tools/cross-zig.cmake` finds zig (`$ZIG`, `PATH`, `~/.local/opt/zig`),
+names `qemu-<arch>-static` as the build's `CMAKE_CROSSCOMPILING_EMULATOR`
+(test.py runs every run under it, with its timeouts 60 times as long; `--qemu
+ARCH` for a build that names none) and turns SDL off: `-DPORT_SDL=OFF`
+compiles the host against `port/host/nosdl/SDL.h`, SDL's interface with
+every call failing, so `SDL_Init` fails and the host takes the headless
+path emscripten's node build always had (no window, the software renderer,
+screenshots, `--wav` and the save to files, no sound device).  musl has no
+ucontext: the game's threads are host threads (`PORT_THREADS=pthread`).
+zig's own `stddef.h` and the like are in its `lib/include`, which its
+`-print-resource-dir` doesn't name: the toolchain file passes it as
+`PORT_CC_INCLUDE`.
+
+What a big-endian host needed of the code: nothing in the game's C and
+little in the engine, since the native-endian builds already keep what is
+big-endian as bytes (the ROM's records read a byte at a time, texels,
+framebuffers and the audio's samples through `be16`/`wbe16`) and convert
+the rest by type as it loads (`native.c`'s `be_to_host`, the identity
+there).  The places that were right only on a little-endian host reached a
+byte or half of a word at its address `^ 3` (or `^ 2`, `^ 1`) or swapped a
+big-endian datum with a `bswap`: the effect records' parts (`buildings.h`'s
+`FX_B`/`FX_H`, now the parts of the word by shift and mask), the walls'
+count and sides bytes, a model effect's kind byte and the train stops'
+halves (`5CB60.c`), jp's carrier pairs (`75490.c`), the texture decoders'
+stream, palettes and texels (`texture.h`, `60F60.c`: `BE16S`/`BE16U`/
+`be_put16`/`be_put32` of `engine.h`) and the front end's tint
+(`196F0.c`'s `IMG_RD`/`IMG_WR`); and the host's files (the WAV and BMP
+headers, `--wav`'s samples), written little-endian now by `port_wle32`/
+`port_wle16`.  Every one is written by value, the same in either order;
+nothing tests the byte order.
+
+**Results** (us.v10, 2026-10-11): the PowerPC and the MIPS builds give
+every hash of the four scenarios as the references (`test.py quick
+build/plain-ppc build/plain-mipsel`: the save, `--wav`, all 48 screenshots
+and the gameplay digests), so a big-endian 32-bit host plays exactly as
+x86 does; none of the fixes above moved anything on x86.  qemu is slow:
+attract's 4,000 frames took 2,042 s under qemu-ppc and 716 s under
+qemu-mipsel (23 s natively), and 1,000 frames of auto3 265 s, 95 s and 78 s
+under qemu-ppc, -mipsel and -arm: PowerPC's floating point is the dear
+part of qemu's (it keeps the FPSCR's flags exactly).  The TAS would take
+about 26 hours under qemu-ppc, 9 under qemu-mipsel and 7 under qemu-arm,
+which is for a machine of its own (`test.py tas build/plain-ppc`, its
+timeout scaled); the prefix, `test.py tas build/plain-ppc --frames N`,
+compares the gameplay digest with the native run's as far as it goes
+(the reference digest from `test.py tas build/plain --save-digests`).
+
+### Memory budgets
+
+`port/include/port_budget.h` has every buffer a small target cares about in
+one place, each computed at compile time from what it holds and each
+settable by `-D` from a host's toolchain file: the framebuffers, the level
+pool (the N64's 0x1D3900 plus `PORT_POOL_GROWTH`, what wider display-list
+commands add to the most the N64's pool holds of them at once,
+`PORT_POOL_GFX_N64`), the front end's area in its tail, init's area, the
+static data, the game's thread stacks (`PORT_STACK_SIZE` each); the audio
+heap's is `game/audio.h`'s `AUDIO_HEAP_SIZE` (the N64's 0x2A280, eu's
+0x24540, plus what the host's pointers add to libaudio's blocks:
+`libaudio_heap.h`).  Where pointers are 4 bytes (i386, PowerPC, MIPS, ARM,
+wasm32) every one is the N64's own size.
+
+`port/tools/test.py budget BUILD` reports what a build takes: the
+executable's text, data and bss, the N64 side's part and the host's, the
+named buffers and the stacks, against a ceiling (`--ceiling MB`: 32 by
+default where pointers are 4 bytes); and from runs with `PORT_POOL_LOG=1`
+(the four scenarios, `--long` attract.long, `--tas` the TAS) the pool's
+high-water and the most its display lists took beyond the N64's.
+
+**Results** (us.v10): the level pool's high-water over the TAS and the
+quick tier with attract.long is the TAS's level 4 (its effects' heap ends
+0x244740 into the LP64 build's 0x261900), whose display lists are the most
+any level has at once, 0x72820 of the N64's (PORT_POOL_GFX_N64 is 0x8E000,
+nearly a quarter more); us.v11, jp and eu's quick tiers with attract.long
+take less (`test.py budget build/plain --long --tas`).  The seven levels
+whose effects' heap stops at the lower limit (`D_8020ED00`: 30, 31, 36,
+37, 45, 48, 54) end it 0x57460 or more below the pool's end in the LP64
+build, so it no longer reaches the front end's variables (which are
+ordinary globals in the plain build anyway).  A 32-bit build takes about
+10 MB of executable (4.5 MB of it the N64 side: the pool, 1.83 MB, the
+framebuffers, init's area, the audio heap and 1.3 MB of the game's
+variables) and 8 MB of thread stacks: 18 MB in the qemu builds, 23.5 MB
+for i386 with SDL and OpenGL, within the 32 MB ceiling.
+
 ### macOS
 
 **Untested**: prepared for macOS on Apple silicon (arm64) and checked from
