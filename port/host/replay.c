@@ -572,7 +572,7 @@ static void force_mode(unsigned k) {
             c = &checkpoints[i];
     if (!c)
         return;
-    /* the log has the N64's bytes: each datum goes in at its own width */
+    /* the log has the movie's RDRAM bytes (big-endian): each datum goes in as its type */
     const uint8_t *st = c->state;
     memcpy(D_80364AF0, st, sizeof D_80364AF0), st += sizeof D_80364AF0;
     for (int i = 0; i < 4; i++)         /* PlayerInfo[4], as the save has them */

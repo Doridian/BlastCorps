@@ -115,7 +115,7 @@ static void load_rom(const char *path) {
     if (fread(rom, 1, rom_size, f) != rom_size)
         host_fatal("short read on %s", path);
     fclose(f);
-    uint32_t magic = port_be32(rom);
+    uint32_t magic = port_rd32(rom);
     if (magic == 0x37804012u) {             /* .v64: byte-swapped halves */
         for (uint32_t i = 0; i + 1 < rom_size; i += 2) {
             uint8_t t = rom[i]; rom[i] = rom[i + 1]; rom[i + 1] = t;
@@ -163,7 +163,7 @@ void host_rom_read(void *dst, uint32_t addr, uint32_t len) {
 
 uint32_t host_rom_word(uint32_t addr) {
     addr &= 0x0FFFFFFCu;
-    return addr + 4 <= rom_size ? port_be32(rom + addr) : 0;
+    return addr + 4 <= rom_size ? port_rd32(rom + addr) : 0;
 }
 
 /* ---- time ------------------------------------------------------------------ */
