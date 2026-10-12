@@ -1,18 +1,24 @@
 #!/bin/sh
 # macos_check.sh BUILD_DIR: after port/tools/cross-macos-check.cmake's build
-# (the targets n64_link, host and recomp), link its objects with ld64.lld
+# (the object libraries: game_c libaudio_c port_n64 engine_c game_data fe_c
+# host), link its objects with ld64.lld
 # as the macOS build would, leaving what libSystem, SDL2 and libepoxy give
 # undefined (there are no libraries to link here), and list anything else
 # still undefined: a name the port should have defined itself (a __wrap_,
 # a section symbol, a prefix gone wrong).  docs/PORT.md, "macOS".
 B=${1:?usage: macos_check.sh BUILD_DIR}
 LD=${LD64:-ld64.lld}
-objs=$(find "$B/CMakeFiles/host.dir" "$B/CMakeFiles/recomp.dir" -name '*.o' | sort)
-[ -n "$objs" ] && [ -f "$B/gen/n64.o" ] || { echo "no objects in $B: build n64_link host recomp first"; exit 1; }
+dirs=
+for t in game_c libaudio_c port_n64 engine_c game_data fe_c host; do
+    [ -d "$B/CMakeFiles/$t.dir" ] || { echo "no objects of $t in $B: build its object libraries first"; exit 1; }
+    dirs="$dirs $B/CMakeFiles/$t.dir"
+done
+# shellcheck disable=SC2086
+objs=$(find $dirs -name '*.o' | sort)
 # shellcheck disable=SC2086
 $LD -arch arm64 -platform_version macos 11.0 11.0 -execute -undefined dynamic_lookup \
-    -o "$B/blastcorps.macho" "$B/gen/n64.o" $objs || exit 1
-echo "linked $B/blastcorps.macho: $(echo "$objs" | wc -l) host objects and gen/n64.o"
+    -o "$B/blastcorps.macho" $objs || exit 1
+echo "linked $B/blastcorps.macho: $(echo "$objs" | wc -l) objects"
 # what the libraries would have to give (and what the stand-in libc's
 # headers name instead of macOS's: musl's __errno_location, stderr)
 llvm-nm -u "$B/blastcorps.macho" | sed 's/^ *U //' | sort -u > "$B/macos_undefined.txt"

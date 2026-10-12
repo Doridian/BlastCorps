@@ -1,46 +1,17 @@
 #!/usr/bin/env python3
-"""Symbols for the port's link, and the addresses the translated code uses.
-
-  gen_syms.py header OUT.h
-      For the translated code: SYM_<name> as the address of the native
-      symbol, for every name the generated syms_<module>.h lists (functions
-      of the translated code itself excepted; only funcs.c's table uses
-      those, and the port doesn't build it).
+"""What the port takes from the version's N64 link.
 
   gen_syms.py romaddrs OUT.h
       The ROM addresses the game's C names (game/types.h's ROM(sym)): one
       `#define ROM_<name> 0x...u` for every segment symbol of the version's
-      ROM layout (rom_fixed/rom.<version>.ld: the ORIGINAL ROM's positions,
-      as `script` takes them) and for every D_00xxxxxx the module links
-      define (build/<module>.<version>.syms.ld), so that the port's C holds
-      the number and no longer takes the address of a link symbol.
+      ROM layout (rom_fixed/rom.<version>.ld: the ORIGINAL ROM's positions)
+      and for every D_00xxxxxx the module links define
+      (build/<module>.<version>.syms.ld), so that the port's C holds the
+      number and doesn't take the address of a link symbol.
 
   gen_syms.py funcs OUT.txt
       The version's functions, "address T name" by address: --replay names
       the function behind each of the movie's reads of the counts with it.
-
-  gen_syms.py script OUT.ld OBJECT...
-      For the linker: every name the N64 link gets from a linker script
-      (build/<module>.<version>.syms.ld, the ROM positions) that no object of
-      the port defines.  The ROM positions are the original ROM's (the
-      port reads it), the modules' too (rom.<version>.ld, which the
-      stage-2 link of init takes them from: the boot's hand-over words,
-      src/boot.c).  Names inside another variable or a data island
-      stay relative to it (`D_X = base + off`); fixed addresses (the
-      libultra globals at 0x80000300, hardware registers, RDRAM buffers)
-      stay absolute, which works because RDRAM is mapped at 0x80000000.
-      A name relative to something the port doesn't define (libultra
-      internals it replaces) falls back to its N64 address.  The regions
-      (below) are left to port_fixed.ld.
-
-  gen_syms.py regions OUT.txt OUT.ld
-      The fixed buffers' regions (port/include/port_regions.h), resolved
-      for the version: OUT.txt for port-arena (-port-arena-regions), one
-      "name tag address size parent offset moves" a line (parent "-" and
-      offset 0 for a region of its own; the address is a sub-region's
-      too), and OUT.ld, the fixed builds' absolute symbols, each at its
-      N64 address.  A region's name the N64 link has must be where the
-      table says.
 """
 
 import os
@@ -53,64 +24,10 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLAST = os.path.join(ROOT, "blastcorps")
 # the version of the stage-2 build the port is made from (CMake sets it)
 VERSION = os.environ.get("PORT_VERSION", "us.v11")
-GEN = os.path.join(BLAST, "build", "recomp", "src")
 # what reads the N64 link's ELFs (CMake: MIPS binutils' nm or llvm-nm)
 N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 MODULES = ("hd_code", "hd_front_end")
-
-REGIONS_H = os.path.join(ROOT, "port", "include", "port_regions.h")
-BUDGET_H = os.path.join(ROOT, "port", "include", "port_budget.h")
-# a display-list command in the port (CMake: 16 in the LP64 builds, else
-# the N64's 8)
-GFX_SIZE = int(os.environ.get("PORT_GFX_SIZE", "8"))
-# names inside a display list the ROM loads into game memory, which the port
-# widens there (port/src/widen.c): name -> (the list's start, commands from
-# it).  static_data's second list follows the first's five commands.
-DL_NAMES = {"D_01000038": ("D_01000010", 5)}
-
-
-def dl_name_address(name, addrs):
-    """a DL_NAMES name's address with the port's commands"""
-    base, cmds = DL_NAMES[name]
-    return addrs[base] + cmds * GFX_SIZE
-
-# the segmented addresses' tag (gbi.h's G_SEGTAG; CMake: 0 in the
-# engine check build, whose words are the N64's)
-SEG_TAG = int(os.environ.get("PORT_SEG_TAG", "1"))
-
-
-def seg_tagged(addr):
-    """a name's address as the port has it: one that is a segmented address
-    (segments 1..15: D_01000010, D_02000000...) with the segment tag"""
-    return addr | SEG_TAG if 0x01000000 <= addr < 0x10000000 else addr
 ASSIGN_RE = re.compile(r"^\s*([A-Za-z_][\w.]*)\s*=\s*([^;]+);\s*(?:/\*\s*(.*?)\s*\*/)?")
-REL_COMMENT_RE = re.compile(r"^([A-Za-z_]\w*)\s*\+\s*(0x[0-9A-Fa-f]+)\s+in\s+(\w+)")
-
-
-def recomp_funcs():
-    return set(re.findall(r"recomp_(func_[0-9A-F]{8}(?:_[a-z0-9]+)?)\(", open(os.path.join(GEN, "recomp_funcs.h")).read()))
-
-
-def header(out):
-    names = set()
-    for m in MODULES:
-        p = os.path.join(GEN, f"syms_{m}.h")
-        names |= set(re.findall(r"#ifndef SYM_(\w+)", open(p).read()))
-    skip = recomp_funcs()
-    # replaced.txt's `inlined` and `unused` ones have no native symbol: syms_<module>.h's
-    # N64 address does for their translations (the check build's)
-    replaced = os.path.join(ROOT, "port", "engine", "replaced.txt")
-    if os.path.exists(replaced):
-        for line in open(replaced):
-            p = line.split("#", 1)[0].split()
-            if len(p) == 2 and p[1] in ("inlined", "unused"):
-                skip.add(p[0])
-    with open(out, "w") as f:
-        f.write("/* Generated by port/tools/gen_syms.py: the translated code's addresses\n"
-                "   are those of the port's own symbols. */\n#include <stdint.h>\n")
-        for n in sorted(names - skip):
-            f.write(f"extern char port_sym_{n}[] __asm__(\"{n}\");\n"
-                    f"#define SYM_{n} ((uint32_t)(uintptr_t)port_sym_{n})\n")
 
 
 def romaddrs(out):
@@ -143,200 +60,6 @@ def romaddrs(out):
             f.write(f"#define ROM_{name} 0x{rom[name]:X}u\n")
 
 
-def n64_addresses():
-    addrs = {}
-    for m in MODULES + ("init",):
-        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
-        out = subprocess.run([N64_NM, elf], capture_output=True, text=True, check=True).stdout
-        for line in out.splitlines():
-            p = line.split()
-            if len(p) == 3:
-                addrs.setdefault(p[2], int(p[0], 16))
-    return addrs
-
-
-def n64_data():
-    """{address: name} of the modules' data in the N64 link (what the port
-    places at its N64 address: tools/gen_ld.py)"""
-    data = {}
-    for m in MODULES:
-        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
-        out = subprocess.run([N64_NM, elf], capture_output=True, text=True, check=True).stdout
-        for line in out.splitlines():
-            p = line.split()
-            # (a D_ name in .text is a data island, and so are the bins')
-            island = p[1] in "tT" and len(p) == 3 and (p[2].startswith(("D_", "_binary_")) or p[2].endswith("_bin"))
-            if len(p) == 3 and (p[1] in "dDbBrR" or island):
-                data.setdefault(int(p[0], 16), p[2])
-    return data
-
-
-def script(out, objects):
-    defined = set()
-    objs = [o for arg in objects for o in arg.split(";") if o]
-    for k in range(0, len(objs), 200):
-        res = subprocess.run(["nm", "-P", "--defined-only"] + objs[k:k + 200],
-                             capture_output=True, text=True, check=True).stdout
-        for line in res.splitlines():
-            p = line.split()
-            if len(p) >= 2 and not p[0].endswith(":"):
-                defined.add(p[0])
-    n64 = n64_addresses()
-    regions_ = {r[0] for r in regions_table(n64)}
-    assigns = {}
-    order = []
-    srcs = [os.path.join(BLAST, "build", f"{m}.{VERSION}.syms.ld") for m in MODULES]
-    srcs.append(os.path.join(BLAST, "build", f"rom_fixed.{VERSION}.ld"))
-    srcs.append(os.path.join(BLAST, "build", f"rom.{VERSION}.ld"))
-    for src in srcs:
-        for line in open(src):
-            m = ASSIGN_RE.match(line)
-            if not m:
-                continue
-            name, rhs, comment = m.group(1), m.group(2).strip(), m.group(3)
-            if name in defined or name in assigns:
-                continue
-            if name in regions_:
-                continue        # port_fixed.ld (regions)
-            if comment:
-                c = REL_COMMENT_RE.match(comment)
-                if c:
-                    if c.group(1) == name:
-                        continue        # the port defines it, or doesn't need it
-                    rhs = f"{c.group(1)} + {c.group(2)}"
-                else:
-                    rm = re.match(r"originally (0x[0-9A-Fa-f]+)", comment)
-                    if rm:
-                        rhs = rm.group(1)     # ROM offsets of the original ROM
-            assigns[name] = rhs
-            order.append(name)
-
-    def resolve(name, depth=0):
-        """RHS usable in the port: base symbols must exist."""
-        rhs = assigns[name]
-        if name in DL_NAMES:
-            return f"0x{seg_tagged(dl_name_address(name, n64)):08X}"
-        if re.fullmatch(r"0x[0-9A-Fa-f]+", rhs):
-            return f"0x{seg_tagged(int(rhs, 16)):08X}"
-        # the game's data is at its N64 addresses (gen_ld.py), so anything
-        # in RDRAM the port doesn't define is simply there
-        if name in n64 and 0x80000000 <= n64[name] < 0x80400000 and not name.startswith("func_"):
-            return f"0x{n64[name]:08X}"
-        m = re.match(r"^([A-Za-z_]\w*)\s*\+\s*(0x[0-9A-Fa-f]+|\d+)$", rhs)
-        if not m:
-            m2 = re.match(r"^([A-Za-z_]\w*)$", rhs)
-            if m2:
-                base = m2.group(1)
-                if base in defined or (base in assigns and depth < 8):
-                    return rhs
-                if name in n64:
-                    return f"0x{n64[name]:08X}"
-                return None
-            return rhs
-        base = m.group(1)
-        if base in defined or base in assigns:
-            return rhs
-        if name in n64:
-            return f"0x{n64[name]:08X}"
-        return None
-
-    with open(out, "w") as f:
-        f.write("/* Generated by port/tools/gen_syms.py; see there. */\n")
-        for name in order:
-            rhs = resolve(name)
-            if rhs is None:
-                f.write(f"/* {name}: no base for {assigns[name]} */\n")
-                continue
-            f.write(f"{name} = {rhs};\n")
-
-
-def region_macros(growth=True):
-    """port_budget.h's and port_regions.h's numeric #defines of the pool,
-    PORT_GFX_SIZE's (CMake's) among them; without growth, as the N64 has
-    them (PORT_GFX_SIZE 8)"""
-    macros = {"PORT_GFX_SIZE": GFX_SIZE if growth else 8}
-    for line in open(BUDGET_H).readlines() + open(REGIONS_H).readlines():
-        m = re.match(r"^#define\s+(PORT_POOL_\w+)\s+(.+?)\s*$", line)
-        if m:
-            macros[m.group(1)] = region_value(m.group(2), macros)
-    return macros
-
-
-def region_value(v, macros):
-    """a port_regions.h number: a literal, or an expression of them and of
-    the file's macros (+ - * / and parentheses)"""
-    e = re.sub(r"[A-Za-z_]\w*", lambda m: str(macros[m.group(0)]) if m.group(0) in macros else m.group(0), v)
-    if not re.fullmatch(r"[0-9a-fA-FxX+\-*/() ]+", e):
-        sys.exit(f"gen_syms.py: {v}: not a number (port_regions.h)")
-    return int(eval(e.replace("/", "//")))
-
-
-def regions_table(n64=None):
-    """port_regions.h's table for the version: (name, tag, address, size,
-    parent, offset, moves), parents first."""
-    if n64 is None:
-        n64 = n64_addresses()
-    rows, at, grown = [], {}, []
-    macros, n64_macros = region_macros(), region_macros(growth=False)
-    num = lambda v: region_value(v, macros)
-    for line in open(REGIONS_H):
-        m = re.match(r"^\s*(PORT_REGION|PORT_REGION_LINK|PORT_SUBREGION)\(([^)]*)\)", line)
-        if not m:
-            continue
-        a = [x.strip() for x in m.group(2).split(",")]
-        if m.group(1) == "PORT_REGION":
-            name, tag, start, end, moves = a[0], a[1], num(a[2]), num(a[3]), int(a[4])
-            rows.append((name, tag, start, end - start, "-", 0, moves))
-            n64_end = region_value(a[3], n64_macros)
-            if end > n64_end:
-                grown.append((name, n64_end, end))
-        elif m.group(1) == "PORT_REGION_LINK":
-            name, tag, end, moves = a[0], a[1], num(a[2]), int(a[3])
-            if name not in n64:
-                sys.exit(f"gen_syms.py: {name} (port_regions.h) isn't in the N64 link")
-            rows.append((name, tag, n64[name], end - n64[name], "-", 0, moves))
-        else:
-            name, tag, parent, off, size = a[0], a[1], a[2], num(a[3]), num(a[4])
-            if parent not in at or rows[at[parent]][4] != "-":
-                sys.exit(f"gen_syms.py: {name}'s parent {parent} isn't a region above it (port_regions.h)")
-            p = rows[at[parent]]
-            if off + size > p[3]:
-                sys.exit(f"gen_syms.py: {name} doesn't fit in {parent} (port_regions.h)")
-            rows.append((name, tag, p[2] + off, size, parent, off, p[6]))
-        if name in at:
-            sys.exit(f"gen_syms.py: {name} twice in port_regions.h")
-        at[name] = len(rows) - 1
-        if name in n64 and n64[name] != rows[-1][2]:
-            sys.exit(f"gen_syms.py: {name} is 0x{n64[name]:08X} in the N64 link, "
-                     f"0x{rows[-1][2]:08X} in port_regions.h")
-    tops = sorted((r for r in rows if r[4] == "-"), key=lambda r: r[2])
-    for a, b in zip(tops, tops[1:]):
-        if a[2] + a[3] > b[2]:
-            sys.exit(f"gen_syms.py: the regions {a[0]} and {b[0]} overlap (port_regions.h)")
-    # a region grown past its N64 end (the pool, PORT_POOL_GROWTH) must not
-    # run into the modules' data, which is at its N64 addresses (hd_code's
-    # data islands in its .text)
-    for name, start, end in grown:
-        hit = [(a, n) for a, n in n64_data().items() if start <= a < end]
-        if hit:
-            a, n = min(hit)
-            sys.exit(f"gen_syms.py: {name} grows (to 0x{end:08X}) over {n} at 0x{a:08X} (port_regions.h)")
-    return rows
-
-
-def regions(out_txt, out_ld):
-    rows = regions_table()
-    with open(out_txt, "w") as f:
-        for name, tag, addr, size, parent, off, moves in rows:
-            f.write(f"{name} {tag} {addr:08X} {size:X} {parent} {off:X} {moves}\n")
-    with open(out_ld, "w") as f:
-        f.write("/* Generated by port/tools/gen_syms.py regions: the fixed buffers\n"
-                "   (port/include/port_regions.h), at their N64 addresses, as the\n"
-                "   fixed builds' RDRAM has them. */\n")
-        for name, tag, addr, size, parent, off, moves in rows:
-            f.write(f"{name} = 0x{addr:08X};\n")
-
-
 def funcs(out):
     """The version's functions by address, for --replay (port/host/replay.c)."""
     rows = []
@@ -352,58 +75,11 @@ def funcs(out):
             f.write(f"{addr:08x} T {name}\n")
 
 
-def table(out):
-    """Every name of the version's N64 link, "name address kind size" (F
-    for a function, D for anything else; the size nm knows, or 0),
-    hd_code's first, then the front end's, then init's: what port-arena
-    resolves the N64 side's names to in the movable build
-    (bepass/Arena.cpp).  Also OUT's .h twin, PORT_N64_<name> for the data
-    names, for the host (each unless port-arena's own header, which the
-    LP64 build's moved variables are in, has it)."""
-    seen = {}
-    for m in MODULES + ("init",):
-        elf = os.path.join(BLAST, "build", f"{m}.{VERSION}.elf")
-        res = subprocess.run([N64_NM, "-S", elf], capture_output=True, text=True, check=True).stdout
-        for line in res.splitlines():
-            p = line.split()
-            size = 0
-            if len(p) == 4:
-                size = int(p[1], 16)
-                p = [p[0], p[2], p[3]]
-            if len(p) != 3 or p[2].startswith((".L", "$")) or p[2] in seen:
-                continue
-            # (a D_ name in .text is a data island, and so are the bins')
-            island = p[2].startswith(("D_", "_binary_")) or p[2].endswith("_bin")
-            seen[p[2]] = (int(p[0], 16), "F" if p[1] in "tT" and not island else "D", size)
-    seen = dict(sorted(seen.items()))      # (whichever nm listed them)
-    for name in DL_NAMES:
-        if name in seen:
-            seen[name] = (dl_name_address(name, {n: a for n, (a, k, z) in seen.items()}),) + seen[name][1:]
-    seen = {n: (seg_tagged(v[0]),) + v[1:] for n, v in seen.items()}
-    with open(out, "w") as f:
-        for name, (addr, kind, size) in seen.items():
-            f.write(f"{name} {addr:08X} {kind} {size:X}\n")
-    with open(os.path.splitext(out)[0] + ".h", "w") as f:
-        f.write("/* Generated by port/tools/gen_syms.py table: the N64 addresses of the\n"
-                "   version's data, for host code that names game variables. */\n")
-        for name, (addr, kind, size) in seen.items():
-            if kind == "D" and re.match(r"^[A-Za-z_]\w*$", name):
-                f.write(f"#ifndef PORT_N64_{name}\n#define PORT_N64_{name} 0x{addr:08X}u\n#endif\n")
-
-
 def main():
-    if sys.argv[1] == "funcs":
+    if len(sys.argv) == 3 and sys.argv[1] == "funcs":
         funcs(sys.argv[2])
-    elif sys.argv[1] == "table":
-        table(sys.argv[2])
-    elif sys.argv[1] == "romaddrs":
+    elif len(sys.argv) == 3 and sys.argv[1] == "romaddrs":
         romaddrs(sys.argv[2])
-    elif sys.argv[1] == "header":
-        header(sys.argv[2])
-    elif sys.argv[1] == "regions":
-        regions(sys.argv[2], sys.argv[3])
-    elif sys.argv[1] == "script":
-        script(sys.argv[2], sys.argv[3:])
     else:
         sys.exit(__doc__)
 

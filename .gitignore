@@ -17,7 +17,6 @@ junk/
 permuter/
 .env/
 .version
-!port/port_fixed.ld
 vgcore.*
 .emsdk/
 .vscode/

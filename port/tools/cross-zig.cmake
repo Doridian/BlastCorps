@@ -1,8 +1,8 @@
-# The plain build (-DPORT_PLAIN=ON) cross-compiled with zig cc, a static
-# musl executable that qemu-user runs (docs/PORT.md, "Other hosts"); the
-# targets' own files set PORT_ZIG_TARGET and PORT_QEMU and include this
-# (cross-ppc.cmake, cross-mipsel.cmake, cross-armhf.cmake):
-#   cmake -S port -B build/plain-ppc -G Ninja -DPORT_VERSION=us.v10 -DPORT_PLAIN=ON \
+# The port cross-compiled with zig cc, a static musl executable that
+# qemu-user runs (docs/PORT.md, "Other hosts"); the targets' own files set
+# PORT_ZIG_TARGET and PORT_QEMU and include this (cross-ppc.cmake,
+# cross-mipsel.cmake, cross-armhf.cmake, cross-aarch64.cmake):
+#   cmake -S port -B build/plain-ppc -G Ninja -DPORT_VERSION=us.v10 \
 #         -DCMAKE_TOOLCHAIN_FILE=port/tools/cross-ppc.cmake
 #   port/tools/test.py quick build/plain-ppc          (under qemu: the emulator below)
 # zig is $ZIG, or zig on the PATH, or ~/.local/opt/zig/zig (one tarball from
