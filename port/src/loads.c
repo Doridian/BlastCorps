@@ -78,7 +78,15 @@ u8 __wrap___osContDataCrc(u8 *data) {
  * order, and nothing reads them otherwise, so in native-endian memory they
  * are put back into that order once, at boot (src/boot.c).
  */
-extern u16 D_802E9FF0[0x280];   /* 20460.c: RGBA16 20x32 */
+/* 20460.c: RGBA16 20x32, 31 frames: the people who run from a building
+   (func_80264CB4) */
+extern u16 D_802E9FF0[0x280], D_802EA4F0[0x280], D_802EA9F0[0x280], D_802EAEF0[0x280],
+    D_802EB3F0[0x280], D_802EB8F0[0x280], D_802EBDF0[0x280], D_802EC2F0[0x280], D_802EC7F0[0x280],
+    D_802ECCF0[0x280], D_802ED1F0[0x280], D_802ED6F0[0x280], D_802EDBF0[0x280], D_802EE0F0[0x280],
+    D_802EE5F0[0x280], D_802EEAF0[0x280], D_802EEFF0[0x280], D_802EF4F0[0x280], D_802EF9F0[0x280],
+    D_802EFEF0[0x280], D_802F03F0[0x280], D_802F08F0[0x280], D_802F0DF0[0x280], D_802F12F0[0x280],
+    D_802F17F0[0x280], D_802F1CF0[0x280], D_802F21F0[0x280], D_802F26F0[0x280], D_802F2BF0[0x280],
+    D_802F30F0[0x280], D_802F35F0[0x280];
 extern u16 D_802FCEB0[0x400];   /* 3E4C0.c: RGBA16 32x32 */
 extern Vtx D_802F9A00[0x40];    /* 2B3F0.c: RGBA32 16x16 */
 extern Vtx D_802F9E00[0x40];
@@ -100,8 +108,18 @@ extern u16 D_8020B1D0[0x55c];
 #include "game/yoshi.h"
 
 void port_native_fixups(void) {
+    static u16 *const frames[] = {
+        D_802E9FF0, D_802EA4F0, D_802EA9F0, D_802EAEF0, D_802EB3F0, D_802EB8F0, D_802EBDF0,
+        D_802EC2F0, D_802EC7F0, D_802ECCF0, D_802ED1F0, D_802ED6F0, D_802EDBF0, D_802EE0F0,
+        D_802EE5F0, D_802EEAF0, D_802EEFF0, D_802EF4F0, D_802EF9F0, D_802EFEF0, D_802F03F0,
+        D_802F08F0, D_802F0DF0, D_802F12F0, D_802F17F0, D_802F1CF0, D_802F21F0, D_802F26F0,
+        D_802F2BF0, D_802F30F0, D_802F35F0,
+    };
+    u32 k;
+
     host_layout_to_be_n(D_802F49F4[0].unk6, sizeof D_802F49F4[0], 0x4B, sizeof D_802F49F4[0].unk6, "h");
-    host_layout_to_be(D_802E9FF0, sizeof D_802E9FF0, "h", 1);
+    for (k = 0; k < sizeof frames / sizeof frames[0]; k++)
+        host_layout_to_be(frames[k], sizeof D_802E9FF0, "h", 1);
     host_layout_to_be(D_802FCEB0, sizeof D_802FCEB0, "h", 1);
     host_layout_to_be(D_802F9A00, sizeof D_802F9A00, "hhhhhhbbbb", 1);
     host_layout_to_be(D_802F9E00, sizeof D_802F9E00, "hhhhhhbbbb", 1);
