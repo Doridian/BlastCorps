@@ -814,8 +814,10 @@ the references' hashes, `=`); `--tas` then replays the TAS on all of them
 in parallel.  `--no-build` uses the directories as they are.  `quick` and
 `tas` take a WebAssembly build directory like any other (they run
 `blastcorps.js` with the node CMake found).  A quick or tas run on a
-sanitized build sets `ASAN_OPTIONS=detect_leaks=0` unless the environment
-has its own.  `test.py quick` also runs the pointer checks ("Where
+sanitized build sets `ASAN_OPTIONS=detect_leaks=0` (and quick's, which are
+strict, `detect_stack_use_after_return=0`: a list built in a local would be
+on ASan's fake stack, which strict mode can't tell from a stray pointer)
+unless the environment has its own.  `test.py quick` also runs the pointer checks ("Where
 pointers are 8 bytes") on every native build whose pointers are 8 bytes,
 and the check that no translated function of `tools/recomp` is linked.
 
