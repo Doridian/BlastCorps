@@ -24,6 +24,15 @@ void *host_thread_stack(int idx, uint32_t *size) {
     return stacks[idx];
 }
 
+/* is p inside one of the game's threads' stacks (strict mode: a list built in a local) */
+int host_in_thread_stack(const void *p) {
+    for (int i = 0; i < PORT_MAX_THREADS; i++)
+        if (stacks[i] && (const uint8_t *)p >= (const uint8_t *)stacks[i] &&
+            (const uint8_t *)p < (const uint8_t *)stacks[i] + PORT_STACK_SIZE)
+            return 1;
+    return 0;
+}
+
 /* RDRAM's 4 MB to a file (PORT_DUMP, the replay's dumps): there is no RDRAM
    to dump, the game's memory being its variables and buffers (P10's open
    question 9: the regions and every named variable instead, packet G) */

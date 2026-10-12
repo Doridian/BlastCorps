@@ -46,6 +46,8 @@ extern "C" {
 #include "port_budget.h"
 /* thread idx's host stack (runtime.c) */
 void *host_thread_stack(int idx, uint32_t *size);
+/* whether p is inside one of the game's threads' stacks (runtime.c) */
+int host_in_thread_stack(const void *p);
 
 /* big-endian accessors, for what stays the N64's bytes: the RDP's (the
    framebuffers, TMEM, the texels, the fill and blend colours) and the AI's

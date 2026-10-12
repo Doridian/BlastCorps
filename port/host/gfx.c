@@ -342,12 +342,36 @@ static inline void seg_set(int s, uintptr_t w1) {
     gs.seg[s & 15] = w1;
 }
 
+/* strict mode: could a list hold this pointer?  One into the program's own
+   image (its code, data and bss: the game's variables and regions, the
+   frame's and the pool's buffers), the renderer's own memory, or a thread's
+   stack; where the platform doesn't say where its image is (not Linux),
+   any but null */
+#ifdef __linux__
+extern char __executable_start __attribute__((weak)), _end __attribute__((weak));
+#endif
+int gfx_strict_known(const void *p) {
+    uintptr_t a = (uintptr_t)p;
+    if (!a)
+        return 0;
+#ifdef __linux__
+    if (&__executable_start && &_end)
+        return (a >= (uintptr_t)&__executable_start && a < (uintptr_t)&_end) ||
+               (gfx_host_mem && a >= (uintptr_t)gfx_host_mem && a < (uintptr_t)gfx_host_mem + GFX_HOST_SPAN) ||
+               host_in_thread_stack(p);
+#endif
+    return 1;
+}
+
 /* a command's word as an address (gfx.h): a pointer, or a segmented address */
 static inline GfxAddr gfx_addr(uintptr_t w) {
     /* (a pointer into a name that is a segment address: that address) */
     w = port_seg_unproxy(w);
-    if (!gfx_segmented(w))
+    if (!gfx_segmented(w)) {
+        if (gfx_strict && !gfx_strict_known((const void *)w))
+            strict_fail("address %0*lX, which is no pointer of the game's", (int)(2 * sizeof w), (unsigned long)w);
         return w;
+    }
     int s = (int)((w >> 24) & 15);
     if (gfx_strict && !gs.seg[s])
         strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w, s);
@@ -2841,8 +2865,9 @@ CALL_VIA(load_tile) CALL_VIA(fill_rect) CALL_VIA(tex_rect) CALL_VIA(tri)
    fatal, with the list's start and the command's offset: an opcode it
    doesn't know (or that F3D 2.0D hasn't), a w0 with bits above its 32
    (a pointer read as a command), a list that runs past GFX_MAX_CMDS
-   commands, a segment not set (gfx_addr), a list at a host address with
-   the tag's bit (host_gfx_task) */
+   commands, a segment not set (gfx_addr), an address word that is no
+   pointer of the game's (gfx_addr: gfx_strict_known), a list at a host
+   address with the tag's bit (host_gfx_task) */
 static void strict_fail(const char *fmt, ...) {
     char msg[256];
     va_list ap;

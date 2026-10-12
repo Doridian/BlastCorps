@@ -115,8 +115,12 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
 static int acmd_strict;
 
 static uint8_t *ram(uintptr_t so) {
-    if (!gfx_segmented(so))
+    if (!gfx_segmented(so)) {
+        if (acmd_strict && !gfx_strict_known((const void *)so))
+            host_fatal("audio (PORT_GFX_STRICT): address %0*lX, which is no pointer of the game's\n",
+                       (int)(2 * sizeof so), (unsigned long)so);
         return (uint8_t *)so;       /* (a host pointer) */
+    }
     if (acmd_strict && !segments[(so >> 24) & 0xF])
         host_fatal("audio (PORT_GFX_STRICT): address %08lX through segment %d, which isn't set\n",
                    (unsigned long)so, (int)((so >> 24) & 0xF));

@@ -35,6 +35,7 @@ typedef uintptr_t GfxAddr;
 typedef HostGfx GfxCmd;
 #define GFX_SEG_TAG 1u
 extern int gfx_strict;          /* PORT_GFX_STRICT=1: a malformed list is fatal (gfx.c) */
+int gfx_strict_known(const void *p);    /* strict mode: could a list hold this pointer? */
 void gfx_init(void);            /* reads PORT_GFX_STRICT (idempotent) */
 
 /* a command of the renderer's own (micons.c) */
