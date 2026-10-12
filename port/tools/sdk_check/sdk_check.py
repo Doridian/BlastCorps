@@ -59,8 +59,6 @@ def build(out, arch, cc):
              "-D_LANGUAGE_C", "-D_FINALROM", "-DTARGET_PC", "-D_MIPS_SZLONG=32", "-D_MIPS_SZINT=32",
              "-I", os.path.join(ROOT, "port", "include"), "-I", BLAST, "-I", os.path.join(BLAST, "include"),
              "-I", gen]
-    if arch == "m64":
-        flags += ["-DPORT_64BIT", "-DPORT_LP64", "-fms-extensions"]
     hdrs = {"orig": ["-I", os.path.join(BLAST, "include", "2.0I"), "-I", os.path.join(BLAST, "include", "2.0I", "PR")]}
     hdrs["new"] = hdrs["orig"]
     objs = []

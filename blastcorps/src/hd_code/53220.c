@@ -135,10 +135,10 @@ extern u16 D_803041B4[];
 
 u8 D_802FF180[6] = { 0x04, 0x0A, 0x0D, 0x21, 0x0E, 0x11 };
 /* A text of these is written to: func_802979E0 puts the count of those
-   still to find in place of its digit.  The port's plain build has them
-   as arrays, which may be written, not string literals, which may not be
-   (the N64's are in RDRAM, as the other builds' are). */
-#ifdef PORT_PLAIN
+   still to find in place of its digit.  The port has them as arrays,
+   which may be written, not string literals, which may not be (the N64's
+   are in RDRAM). */
+#ifdef TARGET_PC
 #define WTEXT(s) ((u8 *)(char[]){ s })
 #else
 #define WTEXT(s) (u8 *)s

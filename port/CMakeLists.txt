@@ -219,8 +219,7 @@ endif()
 set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include ${GEN}
     ${BLAST} ${BLAST}/include ${SDK_INCLUDES})
-set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32
-    PORT_PLAIN PORT_NATIVE_ENDIAN)
+set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
 # The decompiled C is IDO's dialect: pointers and ints used
 # interchangeably, narrow and wide types mixed.  These flags make the
 # compiler accept it and not optimise on the undefined behaviour it is full

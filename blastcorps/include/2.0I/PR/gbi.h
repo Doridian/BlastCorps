@@ -36,13 +36,8 @@
 /* A segmented address in a list (segment << 24 | offset): in the port
  * tagged with bit 0, which no address a list holds has, so that the
  * renderer tells it from a pointer whatever the host's addresses are
- * (port/include/sdk/PR/gbi.h has the rest).  Not in the engine check
- * build, whose words are the N64's. */
-#ifndef PORT_ENGINE_CHECK
+ * (port/include/sdk/PR/gbi.h has the rest). */
 #define G_SEGTAG	1u
-#else
-#define G_SEGTAG	0u
-#endif
 #define G_SEGADDR(seg, off)	(((unsigned int)(seg) << 24) | (unsigned int)(off) | G_SEGTAG)
 #endif
 /*

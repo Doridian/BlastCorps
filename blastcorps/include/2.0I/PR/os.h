@@ -842,14 +842,14 @@ extern u32		 osVirtualToPhysical(void *);
 extern void *		 osPhysicalToVirtual(u32);
 #endif
 
-#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+#if defined(TARGET_PC)
 #define	OS_K0_TO_PHYSICAL(x)	(__UINTPTR_TYPE__)((char *)(x))
 #else
 #define	OS_K0_TO_PHYSICAL(x)	(u32)(((char *)(x)-0x80000000))
 #endif
 #define	OS_K1_TO_PHYSICAL(x)	(u32)(((char *)(x)-0xa0000000))
 
-#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+#if defined(TARGET_PC)
 #define	OS_PHYSICAL_TO_K0(x)	((void *)(x))
 #else
 #define	OS_PHYSICAL_TO_K0(x)	(void *)(((u32)(x)+0x80000000))

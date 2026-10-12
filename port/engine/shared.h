@@ -2,8 +2,7 @@
  * The engine's shared functions as the native code calls them: REGS() and
  * the prototype of every native function the vehicle modules and the
  * others call (engine.h).  A declaration here and its definition must
- * agree (gen_glue.py, for the check build, refuses two REGS() for one
- * function).  Generated at first from the definitions; kept by hand, by
+ * agree.  Generated at first from the definitions; kept by hand, by
  * the object that defines them.
  */
 #ifndef ENGINE_SHARED_H

@@ -427,15 +427,9 @@ typedef struct {
 
 /* ---- addresses ---------------------------------------------------------------------- */
 
-/* (the K0 ones are a pointer's value and back outside the engine check
-   build: R4300.h) */
-#ifdef PORT_ENGINE_CHECK
-#define OS_K0_TO_PHYSICAL(x) (u32)(((char *)(x) - 0x80000000))
-#define OS_PHYSICAL_TO_K0(x) (void *)(((u32)(x) + 0x80000000))
-#else
+/* (the K0 ones are a pointer's value and back: R4300.h) */
 #define OS_K0_TO_PHYSICAL(x) (__UINTPTR_TYPE__)((char *)(x))
 #define OS_PHYSICAL_TO_K0(x) ((void *)(x))
-#endif
 #define OS_K1_TO_PHYSICAL(x) (u32)(((char *)(x) - 0xa0000000))
 #define OS_PHYSICAL_TO_K1(x) (void *)(((u32)(x) + 0xa0000000))
 

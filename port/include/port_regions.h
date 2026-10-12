@@ -3,20 +3,11 @@
  * rather than as a variable (docs/PORT.md, "Memory model").  Each has a
  * name (the address name the repo gives it, us.v11's address as in every
  * version) and a size, and the name is the only spelling of its address
- * on the N64 side.  This table is where they are declared, once:
- *
- *   - the fixed builds: an absolute symbol at its N64 address
- *     (gen/port_fixed.ld, from tools/gen_syms.py regions);
- *   - the movable build: port-arena resolves the name to its N64 address
- *     (bepass/Arena.cpp, -port-arena-regions=gen/port_regions.txt);
- *   - the scattered layout (PORT_SCATTER): port-arena gives the region
- *     room of its own after the scattered variables, keeping its N64
- *     address's offset in 4 KB, with padding before it, and its N64 place
- *     goes on the list of what nothing should touch (__port_scatter_bad),
- *     so that an address left as a number shows.  Its sub-regions move
- *     with it.  A region marked 0 under "moves" stays unless named in
- *     -port-arena-scatter-regions=TAG,... (the level pool, which the front
- *     end's variables are inside of: it moves with them).
+ * on the N64 side.  This table is where they are declared, once; each
+ * region is a buffer of src/regions.c (the boot words and the hand-over
+ * words variables of their own), and a sub-region an offset into its
+ * region (game/memmap.h).  (The N64 addresses and "moves" were the fixed
+ * and movable builds' and the scattered layout's, before P10.)
  *
  * PORT_REGION(name, tag, start, end, moves)
  *     a region of its own, N64 addresses [start, end)
@@ -26,9 +17,8 @@
  * PORT_SUBREGION(name, tag, parent, offset, size)
  *     a name inside another region, `offset` bytes in: it moves with it
  *
- * tools/gen_syms.py reads this file (one entry a line, as below).  The
- * game's C declares the names it uses with its own types; what the table
- * gives C is the sizes and offsets (PORT_REGION_SIZE_name,
+ * The game's C declares the names it uses with its own types; what the
+ * table gives C is the sizes and offsets (PORT_REGION_SIZE_name,
  * PORT_REGION_OFF_name).
  */
 #ifndef PORT_REGIONS_H

@@ -17,10 +17,9 @@ INPUT is one of
 OUTDIR gets one C file per input (its path from asm/ with `/` as `_`, .c
 for .s or .bin) and asm_data.h, which they all include: the types and a
 declaration of every variable.  The port compiles them like the game's C
-(the same flags, BEPass), so they are big-endian or native as the build is,
-and gen_ld.py (or port-arena) puts each variable at its N64 address, as it
-does the game's (docs/PORT.md, "The asm data as C").  The N64 build keeps
-its asm; nothing here is committed, the data being the ROM's.
+(the same flags), and they are wherever the linker puts them, as the
+game's variables are (docs/PORT.md, "The asm data as C").  The N64 build
+keeps its asm; nothing here is committed, the data being the ROM's.
 
 Each label is a variable, typed by the type inventory
 (blastcorps/include/game/inventory.json, `symbols`) or, where that has
@@ -29,9 +28,8 @@ f32 for .float, a pointer for a symbol.  A variable runs to the next one:
 what is left after its typed elements (a record cut short, a terminator,
 the padding before the next) is a `tail` beside them in a struct of its
 own.  A label inside another variable's type (D_8020C070[]'s, which runs
-over the labels splat made inside it) is no variable: in the builds at
-fixed addresses it is an alias, `.set` at its offset; the movable build's
-arena link resolves its name to its N64 address, which is where it is.
+over the labels splat made inside it) is no variable: it is an alias,
+`.set` at its offset.
 A name the N64 link has inside a file with no label there (a data
 island's, the strings the game's C names in the menus' text) is a label
 that starts a variable of its own (n64_labels), so that the code reaches
@@ -46,25 +44,22 @@ labels after them are variables of their own).
 
 A symbolic .word is a pointer initializer (`&D_X`, a cast where the
 field's type is another, or `(u8 *)&D_X + n` into a variable).  A pointer
-is native, as the C that reads it declares it (8 bytes in the LP64 build,
+is native, as the C that reads it declares it (8 bytes on a 64-bit host,
 which lays out what holds one as the host does; decl_check.py compares
 the two): the inventory's pointers and POINTERS' (the words the C has as
 pointers, tables to a sentinel included).  A display list's address word is
 a pointer's value, as wide as one (asm_Gfx).  Nothing reads this data at the
-N64's offsets any more: the engine is C (port/engine), and only the
-32-bit check build compiles the translated code, where pointers are 4
-bytes anyway.  A name inside a variable past a native pointer is none in
-the LP64 build (its offset isn't the N64's there): the C reaches it as an
-expression.  (Where pointers are 4 bytes it is the alias, for the check
-build's translations.)
+N64's offsets: the engine is C (port/engine).  A name inside a variable
+past a native pointer is none (its offset isn't the N64's where pointers
+are 8 bytes, and nothing names it where they are 4): the C reaches it as
+an expression.
 
-Where the data's units in the native-endian build come from (asm2x86.py
-before; docs/PORT.md, "The native-endian build"): the type inventory's
-widths, the islands' readers (ISLANDS, BLOBS), the u16 text of HALF_FILES;
-each variable's C type is checked against them, unit for unit, so that the
-native-endian builds keep exactly the bytes they had; a type that would
-change them gives way to the directives' runs (asm_data_report.txt says
-which).
+Where the data's units come from (asm2x86.py before; docs/PORT.md, "The
+native-endian build"): the type inventory's widths, the islands' readers
+(ISLANDS, BLOBS), the u16 text of HALF_FILES; each variable's C type is
+checked against them, unit for unit, so that the data keeps exactly the
+bytes it had; a type that would change them gives way to the directives'
+runs (asm_data_report.txt says which).
 """
 
 import json
@@ -95,9 +90,8 @@ typedef union asm_Gfx {
 } asm_Gfx;"""
 
 # a display list's segmented addresses (gbi.h's G_SEGTAG: the words of
-# G_MTX, G_MOVEMEM, G_VTX and G_DL to segments 1..15 get bit 0; CMake: none
-# in the engine check build)
-SEG_TAG = int(os.environ.get("PORT_SEG_TAG", "1"))
+# G_MTX, G_MOVEMEM, G_VTX and G_DL to segments 1..15 get bit 0)
+SEG_TAG = 1
 SEG_OPS = (0x01, 0x03, 0x04, 0x06)
 
 _GAME = os.path.join(BLAST, "include", "game")
@@ -272,7 +266,7 @@ RSP_TEXT = {"hd_code_A0C30_bin", "hd_front_end_20090_bin"}
 # Labels the code reads as one table, over the labels splat made inside it
 # (docs/LAYOUT.md, "label"): {first label: (type, count)}, the others names
 # inside it, so that the access goes through the variable it is in, wherever
-# the variables go (PORT_SCATTER).
+# the variables go.
 LABEL_TYPES = {
     # 62740's wheels' bookkeeping, three of each, wheel i at [i]:
     "D_803ED398": ("s32", 3),       # .. D_803ED3A0: the wheel's height
@@ -331,8 +325,7 @@ LABEL_TYPES = {
 # The engine's arrays with more room than the N64's, where the original
 # runs over their end (port/engine's buildings.h, HIT_PAIRS_MAX; collision.h,
 # WALL_TRIS_MAX): a .bss variable of LABEL_TYPES' count whatever its N64
-# room, and the labels after it are variables of their own.  gen_ld.py and
-# port-arena place one that outgrew its room after RDRAM.
+# room, and the labels after it are variables of their own.
 GROWN = {"D_803F3910", "D_803BD310"}
 
 
@@ -461,23 +454,6 @@ POINTERS = {
     "D_802C4A20": ("struct UnkStruct_8036EC30", None),
 }
 
-# Pointers kept 4 bytes (PTR32) while the C's are (none: a display list's
-# words are Gfx's, as wide as a pointer)
-PTR32_POINTEES = set()
-PTR32_TYPES = set()
-PTR32_VARS = set()
-
-
-def keep32(t):
-    """t with its pointers PTR32"""
-    if isinstance(t, Scalar):
-        t.ptr32 = t.kind == "ptr"
-    elif isinstance(t, Array):
-        keep32(t.elem)
-    elif isinstance(t, Struct):
-        for _, _, m in t.members:
-            keep32(m)
-    return t
 
 
 # ---- parsing --------------------------------------------------------------------
@@ -810,17 +786,16 @@ class Scalar:
     data's units), which a native pointer's C type has only where pointers
     are 4 bytes (native() says where they aren't)."""
 
-    def __init__(self, kind, pointee=None, ptr32=False):
+    def __init__(self, kind, pointee=None):
         self.kind = kind            # u8 .. f64, or "ptr"
         self.pointee = pointee      # C type the pointer points to
-        self.ptr32 = ptr32          # a pointer kept 4 bytes (PTR32) in the LP64 build
         self.size = {"char": 1, "s8": 1, "u8": 1, "s16": 2, "u16": 2, "s32": 4, "u32": 4, "f32": 4,
                      "s64": 8, "u64": 8, "f64": 8, "ptr": 4, UPTR: 4, ASM_GFX: 8}[kind]
         self.align = self.size
 
     def decl(self, name):
         if self.kind == "ptr":
-            return f"{self.pointee} *{'PTR32 ' if self.ptr32 else ''}{name}"
+            return f"{self.pointee} *{name}"
         return f"{self.kind} {name}"
 
     def units(self):
@@ -831,7 +806,7 @@ class Scalar:
     def native(self):
         """the offset of its first native pointer (None: none; a uintptr_t
         is as wide as one, and so are a command's words)"""
-        return 0 if (self.kind == "ptr" and not self.ptr32) or self.kind in (UPTR, ASM_GFX) else None
+        return 0 if self.kind in ("ptr", UPTR, ASM_GFX) else None
 
 
 class Array:
@@ -968,8 +943,6 @@ class Types:
             if covered < ty["size"]:
                 members += (fill or bytes_fill)(covered, ty["size"] - covered)
             st = Struct(name, members, ty["size"])
-        if name in PTR32_TYPES:
-            keep32(st)
         self.made[name] = st
         self.order.append(st)
         return st
@@ -1122,10 +1095,7 @@ class Gen:
     def var_type(self, v, rel):
         if v.name in POINTERS:
             return self.pointer_type(v), False
-        t, wrapped = self.var_type_(v, rel)
-        if v.name in PTR32_VARS:
-            keep32(t)
-        return t, wrapped
+        return self.var_type_(v, rel)
 
     def pointer_type(self, v):
         """POINTERS' variable: its pointers, each word of the data a symbol,
@@ -1146,7 +1116,7 @@ class Gen:
         self.stats["inventory"] += 1
         if blob.bss:
             self.stats["bss"] += 1
-        sc = Scalar("ptr", to, ptr32=to in PTR32_POINTEES)
+        sc = Scalar("ptr", to)
         return Array(sc, cnt, extra) if n != 1 else sc
 
     def var_type_(self, v, rel):
@@ -1488,13 +1458,12 @@ def main():
     for out, rel, src, top, allv in per_file:
         lines = [f"/* Generated by port/tools/asm2c.py from {os.path.relpath(src, ROOT)}: not to be committed. */",
                  '#include "asm_data.h"', ""]
-        aliases, aliases32 = [], []
+        aliases = []
         for v in top:
             if v.blob.bss:
                 lines.append(f"{v.ctype.decl(v.name)};")
             elif all(b == 0 for b in v.blob.val[v.off:v.end]):
-                # (zeros, but data: in .data, as the N64 has them, not first
-                # in .rdram as .bss)
+                # (zeros, but data: in .data, as the N64 has them)
                 lines.append(f"ASM_DATA_ZEROS({v.name}) {v.ctype.decl(v.name)};")
             else:
                 lines.append(f"{v.ctype.decl(v.name)} = {g.init(v.blob, v.off, v.ctype)};")
@@ -1503,32 +1472,22 @@ def main():
             for o, n in v.inner:
                 alias = f".globl {n}\\n.set {n}, {v.name} + 0x{o:X}\\n"
                 if nat is not None and o >= nat:
-                    # (past a native pointer, where the LP64 build's offset
-                    # isn't the N64's: no name there, the C reaches it as
-                    # an expression; where pointers are 4 bytes it is
-                    # where the N64 has it, for the check build's
-                    # translations)
+                    # (past a native pointer, where an 8-byte pointer's
+                    # offset isn't the N64's: no name there, the C reaches
+                    # it as an expression)
                     dropped.append(f"{n} ({v.name} + 0x{o:X})")
-                    aliases32.append(alias)
                     continue
                 aliases.append(alias)
-        if aliases or aliases32:
-            lines += ["", "/* names inside the variables (the movable build's arena link has them at their",
-                      "   N64 addresses, where they are) */", "#ifndef PORT_MOVABLE"]
-            if aliases:
-                lines += ["__asm__("] + [f'    "{a}"' for a in aliases] + [");"]
-            if aliases32:
-                lines += ["#if __SIZEOF_POINTER__ == 4", "__asm__("] + [f'    "{a}"' for a in aliases32] + [");", "#endif"]
-            lines += ["#endif"]
+        if aliases:
+            lines += ["", "/* names inside the variables */", "__asm__("] + [f'    "{a}"' for a in aliases] + [");"]
         bodies[out] = (lines, top)
     # asm_data.h
     h = ["/* Generated by port/tools/asm2c.py: the types and declarations of the", "   handwritten objects' data. */",
          "#ifndef ASM_DATA_H", "#define ASM_DATA_H", "", '#include "ultratypes.h"', "", ASM_GFX_DEF, ""]
     for m in MACROS:
         h.append(f"#undef {m}")
-    h += ["", "/* data that is zeros: in .data all the same where sections place it */", "#ifdef PORT_MOVABLE",
-          "#define ASM_DATA_ZEROS(name)", "#else",
-          "#define ASM_DATA_ZEROS(name) __attribute__((section(\".data.\" #name)))", "#endif", ""]
+    h += ["", "/* data that is zeros: in .data all the same */",
+          "#define ASM_DATA_ZEROS(name) __attribute__((section(\".data.\" #name)))", ""]
     for f in sorted(g.types.forward - set(g.types.made)):
         h.append(f"typedef struct {f} {f};")
     h.append("")
@@ -1555,7 +1514,7 @@ def main():
         text = "\n".join(lines) + "\n"
         with open(p, "w") as f:
             f.write(text)
-    g.log += [f"{d}: inside a variable past a native pointer: no alias in the LP64 build" for d in dropped]
+    g.log += [f"{d}: inside a variable past a native pointer: no alias" for d in dropped]
     with open(os.path.join(outdir, "asm_data_report.txt"), "w") as f:
         f.write("\n".join(g.log) + "\n")
     nv = sum(len(allv) for _, _, _, _, allv in per_file)

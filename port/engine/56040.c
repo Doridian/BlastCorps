@@ -630,7 +630,7 @@ s32 collision_flat_inside(const FlatTri *f) {
 
 /* the original's entry, with the results in $v0-$t1 where its callers took
    them; no native code calls it now (77E20's and 89250's use
-   collision_flatten()), only the check build's translated callers */
+   collision_flatten()) */
 REGS(s0, v1, a0, a1)
 void func_8029C0DC(u8 *t, s32 x, s32 y, s32 z) {
     FlatTri f;
@@ -2796,8 +2796,8 @@ void func_8029E21C(Anim *a, u8 *fp) {
 /* The texture animations (D_803B35F8's running records) one frame on.
    The original passes its caller's $fp on to the textures' decodes
    (func_802A1074's param), which the game's C never sets for it: 0, what
-   the movable build's call always gave it (the others passed whatever was
-   left, and played the same). */
+   the movable build's call always gave it before P10 (the others passed
+   whatever was left, and played the same). */
 REGS()
 void func_8029E0AC(void) {
     u8 *fp = NULL;

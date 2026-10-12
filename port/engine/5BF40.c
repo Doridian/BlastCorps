@@ -205,8 +205,7 @@ uintptr_t tex_phys(u32 id) {
     host_fatal("texture %u is not loaded", (unsigned)id);
 }
 
-/* func_802A0CC8 (the C's): the same, as a pointer (the physical address
-   in the engine check build) */
+/* func_802A0CC8 (the C's): the same, as a pointer */
 u8 *func_802A0CC8(s32 id, u8 *param) {
     return (u8 *)func_802A0CFC(id, param);
 }

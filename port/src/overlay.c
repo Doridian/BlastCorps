@@ -4,11 +4,12 @@
  * On the N64, func_8028B3E0 (hd_code/46C20.c) inflates the front end's
  * .text and .data from the ROM to 0x801E7000 and clears the rest of its
  * area, up to 0x8021ED00 (so its .bss); gameplay reuses that memory for
- * the level.  In the port the front end's code is linked in, and its data
- * sits at its N64 addresses (tools/gen_ld.py), so "loading" it means
- * putting its .data back as it was at startup and clearing its .bss, which
- * is what the inflate leaves behind.  The ROM's copy can't be used: its
- * .data holds N64 pointers to N64 code.
+ * the level.  In the port the front end's code is linked in, and its
+ * variables are ordinary globals, listed at build time (port_fe_tables:
+ * tools/gen_fevars.py), so "loading" it means putting each back as it was
+ * at startup, from a copy made then, which is what the inflate leaves
+ * behind.  The ROM's copy can't be used: its .data holds N64 pointers to
+ * N64 code.
  *
  * It still does the N64's load first (the DMA and the inflate, into the
  * same memory), for the time they take: a second or so of PI and CPU
@@ -16,19 +17,12 @@
  * wherever the game returns to the menus.  What the inflate leaves in the
  * .text area is the MIPS code, which nothing in the port reads.
  *
- * With PORT_SCATTER_FE the front end's variables aren't in its area: the
- * scattered layout put each somewhere else, and its area moved with the
- * level pool (port/include/port_regions.h).  port-arena then lists them
- * (__port_fe_vars), and each is put back as it was at startup, from a
- * copy made then; the area itself gets the .data the inflate would leave
- * there, and its .bss cleared, as in the other builds.
+ * The front end's area (the level pool's tail: port/include/
+ * port_regions.h) gets the .data the inflate would leave there, and its
+ * .bss cleared.
  *
- * The plain build (PORT_PLAIN) is the same: its front end's variables are
- * ordinary globals, listed at build time (port_fe_tables:
- * tools/gen_fevars.py).
- *
- * The link wraps func_8028B3E0 (--wrap) with this; the plain build's
- * defining file has it as __real_func_8028B3E0 instead (CMake).
+ * This is func_8028B3E0 for every caller; its defining file has the
+ * original as __real_func_8028B3E0 (CMake).
  */
 #include "common.h"
 #include "functions.h"
@@ -48,7 +42,6 @@ extern void *memset(void *, int, unsigned int);
 
 static u8 fe_data[FE_BSS - FE_DATA];
 
-#ifdef PORT_PLAIN
 /* tools/gen_fevars.py's (port_game.h's PortFeVar): a table a source of the
    front end's, each a row a variable, then a row of zeros */
 extern const PortFeVar *const port_fe_tables[];
@@ -78,37 +71,7 @@ static void restore_vars(void) {
                 memmove(v->at, v->snap, v->size);
 }
 #define __wrap_func_8028B3E0 func_8028B3E0
-#elif defined(PORT_SCATTER_FE)
-/* port-arena's (bepass/Arena.cpp, feTableMake): a row a variable, by N64
-   address, then a row of zeros */
-extern const struct {
-    u8 *at;         /* where it is */
-    u32 n64;        /* its N64 address */
-    u32 size, n64size;
-    u32 snap;       /* its copy, in __port_fe_snap */
-} __port_fe_vars[];
-extern u8 __port_fe_snap[];
-#endif
 
-#ifndef PORT_PLAIN
-void port_overlay_init(void) {
-#ifdef PORT_SCATTER_FE
-    int i;
-
-    for (i = 0; __port_fe_vars[i].size; i++)
-        memmove(__port_fe_snap + __port_fe_vars[i].snap, __port_fe_vars[i].at, __port_fe_vars[i].size);
-    for (i = 0; __port_fe_vars[i].size; i++) {
-        u32 at = __port_fe_vars[i].n64 - PORT_FE_DATA;
-
-        if (at < sizeof fe_data)
-            memmove(fe_data + at, __port_fe_vars[i].at,
-                    MIN(__port_fe_vars[i].n64size, sizeof fe_data - at));
-    }
-#else
-    memmove(fe_data, MEM_FRONT_END + FE_DATA, sizeof fe_data);
-#endif
-}
-#endif
 
 void __wrap_func_8028B3E0(void) {
     u32 len = *D_802FDB34 - *D_802FDB30;
@@ -118,19 +81,7 @@ void __wrap_func_8028B3E0(void) {
         func_8028B4C4(*D_802FDB30, MEM_FRONT_END, &len, 13, 10, 1);
         memmove(MEM_FRONT_END + FE_DATA, fe_data, sizeof fe_data);
         memset(MEM_FRONT_END + FE_BSS, 0, FE_SIZE - FE_BSS);
-#ifdef PORT_PLAIN
         restore_vars();
-#elif defined(PORT_SCATTER_FE)
-        {
-            int i;
-
-            for (i = 0; __port_fe_vars[i].size; i++)
-                memmove(__port_fe_vars[i].at, __port_fe_snap + __port_fe_vars[i].snap, __port_fe_vars[i].size);
-        }
-#endif
-#ifdef PORT_ACCESS_PROFILE
-        __port_access_set(MEM_FRONT_END + FE_DATA, FE_SIZE - FE_DATA, 0);    /* the image's data again */
-#endif
         D_80370C50 = 1;
         func_801F57B0();
         if (host_verbose)

@@ -102,8 +102,7 @@ extern TriSwitch *D_803BD304;           /* one past the last */
    N64 a wall has room for 0x3C triangles, and level 34's one wall has 96:
    the 61st is stored over the count and the flag (a count of 0x80 and a
    flag the wall doesn't have), and the rest over the next wall.  Here a
-   wall has room for as many as its count can say (asm2c.py's GROWN:
-   gen_ld.py and port-arena place D_803BD310 after RDRAM). */
+   wall has room for as many as its count can say (asm2c.py's GROWN). */
 #define NWALLS 8
 #define WALL_KINDS 7
 #define WALL_TRIS_MAX 0xFF

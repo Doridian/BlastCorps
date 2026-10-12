@@ -93,8 +93,8 @@ USED_SITES = set()
 # The engine's replacement (docs/PORT.md, "Replacing the engine"): functions
 # written as native C in port/engine.  The translated code calls them as it
 # calls the game's C (recomp_extern_X, the port's glue), and their
-# translation is kept as recomp_orig_X under RECOMP_ORIG, for the port's
-# check build (PORT_ENGINE_CHECK) and the differential test.
+# translation is kept as recomp_orig_X under RECOMP_ORIG, for the
+# differential test (and the port's engine check, before P10).
 REPLACED_FILE = os.path.join(os.path.dirname(BLAST), "port", "engine", "replaced.txt")
 
 

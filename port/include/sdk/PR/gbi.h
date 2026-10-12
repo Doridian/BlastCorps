@@ -29,11 +29,10 @@
    list points at is 8-aligned), so that the renderer tells it from a
    pointer whatever the host's addresses are, low ones too
    (port/host/gfx.h, gfx_segmented).  Every producer tags: the names that
-   are segment addresses (D_01000010, D_02000000...: port/tools/gen_syms.py),
-   the ROM's lists where they load (port/src/widen.c), asm2c's lists, the
-   engine's (G_SEGADDR).  The engine check build keeps the N64's words, as
-   its translations write them. */
-#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+   are segment addresses (D_01000010, D_02000000...: port/src/segments.c's
+   proxies, port_seg_unproxy), the ROM's lists where they load
+   (port/src/widen.c), asm2c's lists, the engine's (G_SEGADDR). */
+#if defined(TARGET_PC)
 #define G_SEGTAG 1u
 #else
 #define G_SEGTAG 0u

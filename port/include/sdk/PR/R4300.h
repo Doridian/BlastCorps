@@ -16,15 +16,9 @@
    audio take them as they are (port/host/gfx.h, "display-list commands").
    So K0_TO_PHYS is a pointer's value, an integer as wide as it (it takes a
    pointer: an address kept in a narrower integer would lose its top in
-   the LP64 builds), here and in os.h, osVirtualToPhysical (ultra.c) and
-   common.h's STATIC_K0_TO_PHYS and K0_TO_PHYS_ADD.  Not in the engine
-   check build (PORT_ENGINE_CHECK), whose translations write the N64's
-   physical words that the native code's are compared with. */
-#ifdef PORT_ENGINE_CHECK
-#define K0_TO_PHYS(x) ((u32)(x) & 0x1FFFFFFF)
-#else
+   where pointers are 8 bytes), here and in os.h, osVirtualToPhysical
+   (ultra.c) and common.h's STATIC_K0_TO_PHYS and K0_TO_PHYS_ADD. */
 #define K0_TO_PHYS(x) ((__UINTPTR_TYPE__)(const void *)(x))
-#endif
 #define K1_TO_PHYS(x) ((u32)(x) & 0x1FFFFFFF)
 #define PHYS_TO_K0(x) ((u32)(x) | 0x80000000)
 #define PHYS_TO_K1(x) ((u32)(x) | 0xA0000000)

@@ -2,9 +2,9 @@
  * libultra for the port: the OS (threads, messages, events, timers) and the
  * I/O the game uses (PI, SI, VI, SP/DP, AI), on top of port/host.
  *
- * N64 side: built with BEPass like the game, so the structures the game
- * shares with libultra (OSMesgQueue, OSContPad, OSTask, OSTimer...) have
- * their N64 layout and byte order and are used as plain C.  What needs the
+ * N64 side: built like the game, so the structures the game shares with
+ * libultra (OSMesgQueue, OSContPad, OSTask, OSTimer...) are its own and
+ * are used as plain C.  What needs the
  * host (fibers, the cartridge, the window) goes through port.h.
  *
  * Semantics follow libultra 2.0: a send that wakes a higher-priority thread
@@ -20,18 +20,13 @@
 /* ---- globals libultra defines ------------------------------------------ */
 
 /* osTvType, osRomBase, osResetType and osMemSize live in the boot code's
-   words, as it leaves them: the region D_80000300 (port_regions.h), where
-   the game reads osTvType as D_80000300.  In the plain build they are
-   variables, and the game's D_80000300 is osTvType (port_game.h). */
-#ifdef PORT_PLAIN
+   words on the N64, where the game reads osTvType as D_80000300.  Here
+   they are variables, and the game's D_80000300 is osTvType
+   (port_game.h). */
 void *osRomBase;
 s32 osTvType, osResetType, osCicId, osVersion;
 u32 osMemSize;
 s32 osAppNMIBuffer[16];
-#else
-extern u8 D_80000300[];
-#define BOOT_WORD(off) (*(volatile u32 *)(D_80000300 + (off)))
-#endif
 
 /* ---- messages ------------------------------------------------------------ */
 
@@ -120,9 +115,6 @@ void osCreateThread(OSThread *t, OSId id, void (*entry)(void *), void *arg, void
     t->id = id;
     t->fp = 0;
     host_thread_create(THREAD_KEY(t), entry, arg, pri);
-#ifdef PORT_ENGINE_CHECK
-    host_thread_n64_sp(THREAD_KEY(t), (u32)(uintptr_t)sp);
-#endif
 }
 
 void osStartThread(OSThread *t) {
@@ -225,32 +217,6 @@ static struct { OSTime due; OSMesgQueue *mq; OSMesg msg; } pi_q[PI_MAX];
 static int pi_head, pi_n;
 static OSTime pi_free_at;
 
-#ifdef PORT_ENGINE_CHECK
-/* The PI's pending completions, which the engine's check (port/host/
-   engine.c, PORT_ENGINE_CHECK) puts back between its two runs of a
-   function, as it does game memory: a DMA the C it calls starts completes
-   later, here.  Their k-th piece's address (NULL after the last) and size
-   (results, not through a pointer: the host's memory isn't BEPass's). */
-void *port_pi_piece(int k) {
-    switch (k) {
-        case 0: return pi_q;
-        case 1: return &pi_head;
-        case 2: return &pi_n;
-        case 3: return &pi_free_at;
-    }
-    return NULL;
-}
-
-u32 port_pi_piece_size(int k) {
-    switch (k) {
-        case 0: return sizeof pi_q;
-        case 1: return sizeof pi_head;
-        case 2: return sizeof pi_n;
-        case 3: return sizeof pi_free_at;
-    }
-    return 0;
-}
-#endif
 
 static void pi_complete(OSMesgQueue *mq, OSMesg msg, u32 nbytes) {
     OSTime now = host_ticks();
@@ -259,13 +225,6 @@ static void pi_complete(OSMesgQueue *mq, OSMesg msg, u32 nbytes) {
     pi_free_at += nbytes / 8 + 1;
     if (mq == NULL)
         return;
-#ifdef PORT_ENGINE_CHECK
-    if (host_time_stopped()) {
-        /* (the engine check's C: no time passes, nothing switches) */
-        osSendMesg(mq, msg, OS_MESG_NOBLOCK);
-        return;
-    }
-#endif
     if (pi_n == PI_MAX) {
         osSendMesg(pi_q[pi_head].mq, pi_q[pi_head].msg, OS_MESG_NOBLOCK);
         pi_head = (pi_head + 1) % PI_MAX;
@@ -316,7 +275,6 @@ u64 port_irq_timers(u64 now) {
 u64 osClockRate = OS_CLOCK_RATE;
 
 void osInitialize(void) {
-#ifdef PORT_PLAIN
 #ifdef VERSION_EU
     osTvType = OS_TV_PAL;
 #else
@@ -325,26 +283,14 @@ void osInitialize(void) {
     osRomBase = (void *)(uintptr_t)0xB0000000u;     /* (the cartridge's, as a number: nothing reads through it) */
     osResetType = 0;                    /* cold */
     osMemSize = 0x400000;
-#else
-#ifdef VERSION_EU
-    BOOT_WORD(0x00) = OS_TV_PAL;        /* osTvType */
-#else
-    BOOT_WORD(0x00) = OS_TV_NTSC;       /* osTvType */
-#endif
-    BOOT_WORD(0x08) = 0xB0000000;       /* osRomBase */
-    BOOT_WORD(0x0C) = 0;                /* osResetType: cold */
-    BOOT_WORD(0x18) = 0x400000;         /* osMemSize */
-#endif
 }
 
 u32 osGetMemSize(void) { return 0x400000; }
 
-#ifdef PORT_PLAIN
 /* the RCP's registers (PR/rcp.h's IO_READ, IO_WRITE): nothing the port
    keeps there */
 unsigned int port_io_read(unsigned int addr) { return 0; }
 void port_io_write(unsigned int addr, unsigned int data) { }
-#endif
 
 /* ---- caches, TLB, addresses ------------------------------------------------------ */
 
@@ -354,15 +300,9 @@ void osInvalDCache(void *p, s32 n) { }
 void osInvalICache(void *p, s32 n) { }
 void osMapTLBRdb(void) { }
 void osUnmapTLBAll(void) { }
-/* a pointer's value and back, as K0_TO_PHYS (PR/R4300.h has why); the
-   N64's in the engine check build */
-#ifdef PORT_ENGINE_CHECK
-uintptr_t osVirtualToPhysical(void *p) { return (u32)p & 0x1FFFFFFF; }
-void *osPhysicalToVirtual(uintptr_t a) { return (void *)(a | 0x80000000); }
-#else
+/* a pointer's value and back, as K0_TO_PHYS (PR/R4300.h has why) */
 uintptr_t osVirtualToPhysical(void *p) { return (uintptr_t)p; }
 void *osPhysicalToVirtual(uintptr_t a) { return (void *)a; }
-#endif
 
 /* ---- PI: the cartridge ------------------------------------------------------------- */
 
@@ -577,8 +517,7 @@ void port_irq_vi(void) {
     host_interrupt();
     if (vi_next_fb != NULL)
         vi_cur_fb = vi_next_fb;
-    /* (black, NULL, as a call of its own: a pointer argument is mapped
-       into the arena in the movable build, a constant NULL isn't) */
+    /* (black: NULL) */
     if (vi_black || vi_cur_fb == NULL)
         host_vi_set_framebuffer(NULL, vi_mode != NULL ? (int)(vi_mode->comRegs.width) : 320);
     else

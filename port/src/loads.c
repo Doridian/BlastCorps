@@ -1,10 +1,10 @@
 /*
  * Where untyped bytes from the ROM arrive in game memory (docs/PORT.md,
- * "Native-endian memory"): the two decompressors' entry points, wrapped at
- * link time (--wrap; the plain build renames the originals instead), hand what they produced to the host's loaders
- * (host/native.c), which convert it by type in the native-endian build and
- * tag it for the access-width profiler in either.  Raw PI DMAs go there
- * from host_rom_read.
+ * "Native-endian memory"): the two decompressors' entry points, which
+ * port/src stands in front of (their defining file has the originals as
+ * __real_<name>), hand what they produced to the host's loaders
+ * (host/native.c), which convert it by type.  Raw PI DMAs go there from
+ * host_rom_read.
  *
  *   func_8025C230(&src, &dst, heap)   gzip's unzip (hd_code 17A70.c): the
  *                                     models, the levels, the images; the
@@ -21,14 +21,11 @@
 #include "functions.h"
 #include "port.h"
 
-#ifdef PORT_PLAIN
-/* (the plain build has no --wrap: these are the functions themselves, and
-   the files that define the originals have them as __real_<name>, by
-   CMake's per-file definitions) */
+/* (these are the functions themselves, and the files that define the
+   originals have them as __real_<name>, by CMake's per-file definitions) */
 #define __wrap_func_8025C230 func_8025C230
 #define __wrap_func_8028B4C4 func_8028B4C4
 #define __wrap___osContDataCrc __osContDataCrc
-#endif
 
 /* the wrapped functions' types, functions.h's */
 __typeof__(func_8025C230) __real_func_8025C230, __wrap_func_8025C230;
@@ -64,7 +61,6 @@ extern u8 D_80364EF0[];         /* u16 [4][16]: the best times */
 u8 __real___osContDataCrc(u8 *data);
 
 u8 __wrap___osContDataCrc(u8 *data) {
-#ifdef PORT_NATIVE_ENDIAN
     u8 be[32];
     uintptr_t a = (uintptr_t)data;
 
@@ -74,9 +70,6 @@ u8 __wrap___osContDataCrc(u8 *data) {
     else if (a - (uintptr_t)D_80364EF0 < 4 * 0x20)
         host_save_order(be, 0x100, 32, 0);      /* u16s */
     return __real___osContDataCrc(be);
-#else
-    return __real___osContDataCrc(data);
-#endif
 }
 
 /*
@@ -85,7 +78,6 @@ u8 __wrap___osContDataCrc(u8 *data) {
  * order, and nothing reads them otherwise, so in native-endian memory they
  * are put back into that order once, at boot (src/boot.c).
  */
-#ifdef PORT_NATIVE_ENDIAN
 extern u16 D_802E9FF0[0x280];   /* 20460.c: RGBA16 20x32 */
 extern u16 D_802FCEB0[0x400];   /* 3E4C0.c: RGBA16 32x32 */
 extern Vtx D_802F9A00[0x40];    /* 2B3F0.c: RGBA32 16x16 */
@@ -107,8 +99,6 @@ extern u16 D_8020B1D0[0x55c];
    memory its bytes become the ten u16s they are. */
 #include "game/yoshi.h"
 
-/* (no loops here: BEPass's polls would make the boot take longer than the
-   big-endian build's, and the two couldn't be compared run for run) */
 void port_native_fixups(void) {
     host_layout_to_be_n(D_802F49F4[0].unk6, sizeof D_802F49F4[0], 0x4B, sizeof D_802F49F4[0].unk6, "h");
     host_layout_to_be(D_802E9FF0, sizeof D_802E9FF0, "h", 1);
@@ -123,4 +113,3 @@ void port_native_fixups(void) {
     host_layout_to_be(D_8020A698, sizeof D_8020A698, "h", 1);
     host_layout_to_be(D_8020B1D0, sizeof D_8020B1D0, "h", 1);
 }
-#endif

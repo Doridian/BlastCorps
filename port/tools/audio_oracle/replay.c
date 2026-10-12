@@ -3,7 +3,8 @@
  *
  *   replay LIB.so LOG [options]
  *
- * Replays a log the port recorded (port/src/audio_record.c, PORT_AUDIO_LOG)
+ * Replays a log the port recorded (its recorder, port/src/audio_record.c
+ * with PORT_AUDIO_LOG, was a build's at the N64's addresses: gone with P10)
  * into a libaudio built as LIB.so (the decompiled original or the port's
  * own, port/tools/audio_oracle/Makefile), and checks every answer it gives
  * against the recording: each call's result and the structures it hands
@@ -52,7 +53,6 @@
 #include <sys/personality.h>
 #include <unistd.h>
 
-#define ALOG_NO_HOST
 #include "../../include/audio_log.h"
 
 typedef int8_t s8;
@@ -326,8 +326,8 @@ static u32 alloc_len(u32 addr) {
 /*
  * A bank file's records as the ROM has them, for a library that parses the
  * file (port/libaudio/bankfile.h): the logs are of the original, whose
- * loader (port/host/native.c, PORT_LIBAUDIO_ORIGINAL) put the records'
- * scalars in host order for it to relocate in place; the port's loader
+ * loader (port/host/native.c, before P10, for the recorder's build) put the
+ * records' scalars in host order for it to relocate in place; the port's loader
  * leaves them big-endian and converts only the leaves, which stay so.
  */
 static u32 rom_file, rom_len;

@@ -62,9 +62,8 @@ typedef u32 uintptr_t;
  * can add a constant to an address but not mask it, and every address such a
  * list points at is KSEG0.  K0_TO_PHYS_ADD(x): K0_TO_PHYS as Rare spelled it
  * in places, an add of 0x80000000.  Both are a pointer's value in the port,
- * as K0_TO_PHYS is (port/include/sdk/PR/R4300.h), but in its engine check
- * build. */
-#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+ * as K0_TO_PHYS is (port/include/sdk/PR/R4300.h). */
+#if defined(TARGET_PC)
 #define STATIC_K0_TO_PHYS(x) ((uintptr_t)(x))           /* (as gbi.h's _GBI_W) */
 #define K0_TO_PHYS_ADD(x) ((uintptr_t)(const void *)(x))
 #else

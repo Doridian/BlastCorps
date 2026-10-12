@@ -5,8 +5,7 @@
 #
 # orig.so is the decompiled original (blastcorps/src/libultra/audio, through
 # the hd_code objects that include it), port.so the port's own
-# (port/libaudio); both compiled as the port compiles the game's C, less
-# BEPass.  port.so parses the bank files into objects of its own and
+# (port/libaudio); both compiled as the port compiles the game's C.  port.so parses the bank files into objects of its own and
 # exports their map (alog_bank_map, under PORT_AUDIO_ORACLE), which the
 # replay translates through.
 

@@ -183,8 +183,7 @@ typedef struct HitPair {
    and fall_mtx, the later ones on the first effect record (D_803F3968[0]),
    which then starts a piece of debris where its position is a building's
    address.  Here the list has room for HIT_PAIRS_MAX, its own variable
-   (asm2c.py's GROWN: gen_ld.py and port-arena place it after RDRAM, where
-   it has the room), and an add past that is dropped (the group can then
+   (asm2c.py's GROWN), and an add past that is dropped (the group can then
    be hit again in the frame). */
 #define HIT_PAIRS_MAX 128
 extern HitPair D_803F3910[HIT_PAIRS_MAX];

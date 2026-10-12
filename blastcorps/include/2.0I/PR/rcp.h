@@ -866,8 +866,17 @@ The Indy development board use cartridge domain 1:
  * Common macros
  */
 #if defined(_LANGUAGE_C) || defined(_LANGUAGE_C_PLUS_PLUS)
+#ifdef TARGET_PC
+/* (the port: no number is an address; the registers are port/src/ultra.c's,
+   as port/include/sdk/PR/rcp.h has them) */
+unsigned int port_io_read(unsigned int addr);
+void port_io_write(unsigned int addr, unsigned int data);
+#define	IO_READ(addr)		port_io_read(addr)
+#define	IO_WRITE(addr,data)	port_io_write((addr), (u32)(data))
+#else
 #define	IO_READ(addr)		(*(vu32 *)PHYS_TO_K1(addr))
 #define	IO_WRITE(addr,data)	(*(vu32 *)PHYS_TO_K1(addr)=(u32)(data))
+#endif
 #define RCP_STAT_PRINT							\
 	rmonPrintf("current=%x start=%x end=%x dpstat=%x spstat=%x\n",	\
         IO_READ(DPC_CURRENT_REG),					\

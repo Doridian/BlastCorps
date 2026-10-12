@@ -62,7 +62,7 @@
 
 #define	K0_TO_K1(x)	((u32)(x)|0xA0000000)	/* kseg0 to kseg1 */
 #define	K1_TO_K0(x)	((u32)(x)&0x9FFFFFFF)	/* kseg1 to kseg0 */
-#if defined(TARGET_PC) && !defined(PORT_ENGINE_CHECK)
+#if defined(TARGET_PC)
 #define	K0_TO_PHYS(x)	((__UINTPTR_TYPE__)(const void *)(x))	/* (the port: a pointer's value) */
 #else
 #define	K0_TO_PHYS(x)	((u32)(x)&0x1FFFFFFF)	/* kseg0 to physical */

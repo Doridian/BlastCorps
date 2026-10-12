@@ -34,17 +34,6 @@ typedef volatile long long vs64;
 typedef float f32;
 typedef double f64;
 
-/* A pointer whose 4 bytes something other than the C fixes: 32 bits in
-   memory even where the host's are 64 (the LP64 port; clang's
-   zero-extended __ptr32).  None is left (the ROM's data, libaudio's and
-   the display lists' words were: P6 to P8); every pointer is the host's
-   (docs/PORT.md, "The LP64 build").  `T *PTR32 p;` */
-#if defined(PORT_LP64)
-#define PTR32 __ptr32 __uptr
-#else
-#define PTR32
-#endif
-
 #ifndef _SIZE_T
 #define _SIZE_T
 typedef __SIZE_TYPE__ size_t;

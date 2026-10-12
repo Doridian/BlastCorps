@@ -26,32 +26,26 @@
  * and the host's own (the software renderer's frame, depth and in-between
  * buffers, the texture cache, the sound buffers and libc: about 5.4 MB in
  * the qemu builds, without SDL; 11 MB on x86 with SDL and OpenGL).
- *
- * tools/gen_syms.py reads the PORT_POOL_ #defines below (and port_regions.h's
- * table) for the fixed builds' regions, one a line.
  */
 #ifndef PORT_BUDGET_H
 #define PORT_BUDGET_H
 
 /* The level pool, N64 0x8004B400-0x8021ED00, its region (port_regions.h).
  * Its display lists take sizeof(Gfx) a command where the N64's take 8
- * (PORT_GFX_SIZE, CMake's in the variants: 16 in the LP64 builds, whose
- * words are as wide as a pointer).  The pool grows by what that adds to the
+ * (PORT_GFX_SIZE: 16 where pointers are 8 bytes, the words being as wide
+ * as a pointer).  The pool grows by what that adds to the
  * most the N64's pool holds of display lists at once, PORT_POOL_GFX_N64
  * (src/pool.c stops the port if a level needs more): measured over the TAS
  * (us.v10) and the quick tier with attract.long in every version (test.py
  * budget's runs: the most is the TAS's level 4, 0x72820), this is that and
- * nearly a quarter more.  It grows past where init's area is on the N64
- * (the port's own buffer here: PORT_INIT_AREA_SIZE) into what is hd_code's
- * .text there, up to its first data island (us.v10's at 0x802ACF50:
- * tools/gen_syms.py stops at any N64 variable in the way). */
+ * nearly a quarter more. */
 #define PORT_POOL_N64 0x1D3900
 #ifndef PORT_POOL_GFX_N64
 #define PORT_POOL_GFX_N64 0x8E000
 #endif
 #ifndef PORT_GFX_SIZE
-/* (the plain build's: two words as wide as a pointer, gbi.h's Gwords;
-   src/pool.c checks it is sizeof(Gfx)) */
+/* (two words as wide as a pointer, gbi.h's Gwords; src/pool.c checks it
+   is sizeof(Gfx)) */
 #define PORT_GFX_SIZE (2 * __SIZEOF_POINTER__)
 #endif
 #define PORT_POOL_GROWTH ((PORT_GFX_SIZE - 8) / 8 * PORT_POOL_GFX_N64)

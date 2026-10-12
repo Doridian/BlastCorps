@@ -2,9 +2,9 @@
  * The game's layouts as the host reads them (port.h, "the game's layouts"):
  * sizeof and offsetof of what port/host/digest.c, sched_vars.h and gfx.c
  * read inside the game's structures, by this build's N64-side compiler.
- * The N64's offsets in the 32-bit and 64-bit builds; in the LP64 ones a
- * structure whose pointers aren't PTR32 is the host's layout, and the
- * table follows it, so the host never spells an offset itself.
+ * The N64's offsets where pointers are 4 bytes; where they are 8 a
+ * structure with pointers has the host's layout, and the table follows
+ * it, so the host never spells an offset itself.
  */
 #include "common.h"
 #include "port.h"
@@ -67,9 +67,7 @@ static const u32 layout[PORT_LAYOUT_COUNT] = {
     [PORT_LAYOUT_ACMD_SIZE] = sizeof(Acmd),
     [PORT_LAYOUT_FRAME_SIZE] = sizeof(Frame),
     [PORT_LAYOUT_SEG_TAG] = G_SEGTAG,
-#if defined(PORT_PLAIN) || defined(PORT_LP64)
     [PORT_LAYOUT_PTR_WORDS] = 1,
-#endif
 };
 /* (the host reads a command's words at its start and its middle) */
 _Static_assert(OFF(Gfx, words.w1) == sizeof(Gfx) / 2 && sizeof(Gfx) / 2 == sizeof(((Gfx *)0)->words.w0),

@@ -28,7 +28,7 @@
  *                               [unkA0[4], unkA0[8]) (dl, dlNoTex, dlEnd);
  *                               the list's G_DL words (from displayLists[0])
  *   static_data (ROM_STATIC)    a Vp, then its lists (D_01000010, D_01000038:
- *                               port/tools/gen_syms.py places the second)
+ *                               src/segments.c's proxies)
  *
  * The header's other offsets must be into the header (a warning if not:
  * a list nobody rescaled).  A list widened in the pool's free part counts

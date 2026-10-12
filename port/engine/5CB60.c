@@ -1092,9 +1092,9 @@ void func_802A21AC(u8 *m, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {    
             t->active = 1;
         }
         /* (0x4F unk34, 0x50 the low byte of &D_803F7654: the original's
-           $t9 and $v0; the N64's where D_803F7654 is where the N64 has
-           it, not in the LP64 builds, where it moved.  Nothing reads a
-           piece's id: only the objects' triangles' (56040)) */
+           $t9 and $v0; the N64's only where D_803F7654 is where the N64
+           has it.  Nothing reads a piece's id: only the objects'
+           triangles' (56040)) */
         t = func_802A41B0(t, (u8 *)src, src->group, src->unk14, src->unk18, unk34,
                           ADDR_LO8(&D_803F7654), src->group2, src->pushes);
     }

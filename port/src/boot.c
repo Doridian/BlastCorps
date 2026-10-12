@@ -33,9 +33,7 @@ void port_overlay_init(void);
 void port_native_fixups(void);
 
 void port_boot(void) {
-#ifdef PORT_NATIVE_ENDIAN
     port_native_fixups();
-#endif
     port_overlay_init();
     D_803FFFF8 = ROM(hd_front_end_text_ROM_START);
     D_803FFFFC = ROM(trailer_ROM_START);
