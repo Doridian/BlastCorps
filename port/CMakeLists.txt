@@ -40,11 +40,10 @@ if(PORT_SANITIZE)
     message(STATUS "sanitizers: ${PORT_SANITIZE}")
 endif()
 # WebAssembly (emcmake cmake ...; docs/PORT.md, "WebAssembly"): emcc
-# compiles everything, the host side's choices below (the page or node, the
-# fibers) and the link's options are the build's; the N64 side's compile
-# under emcc isn't done yet (P10's packet H)
+# compiles everything (the game's C as the plain build's, for wasm32), the
+# host side's choices below (the page or node, the fibers) and the link's
+# options are the build's
 if(EMSCRIPTEN)
-    message(FATAL_ERROR "the port isn't for WebAssembly yet (emcc compiling the N64 side: P10, packet H)")
     # node: headless, the files through node's (NODERAWFS); web: a page
     set(PORT_WASM_TARGET node CACHE STRING "the WebAssembly build's host: node or web")
     set_property(CACHE PORT_WASM_TARGET PROPERTY STRINGS node web)
@@ -143,15 +142,16 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
 else()
     execute_process(COMMAND ${CMAKE_C_COMPILER} -print-file-name=include OUTPUT_VARIABLE N64_CC_INCLUDE OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
-# an ordinary program, position-independent
-set(N64_ARCH -fPIE)
+# an ordinary program, position-independent (wasm32's code always is)
 if(EMSCRIPTEN)
+    set(N64_ARCH ${WASM_PTHREAD})
     set(HOST_ARCH ${WASM_PTHREAD})
 else()
+    set(N64_ARCH -fPIE)
     set(HOST_ARCH -fPIE)
 endif()
-if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86|i.86|AMD64)")
-    # i386 (CMAKE_C_FLAGS=-m32): the float arithmetic in SSE, as the
+if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86|i.86|AMD64)" AND NOT EMSCRIPTEN)
+    # i386 (CMAKE_C_FLAGS=-m32; emcc's wasm32 has neither): the float arithmetic in SSE, as the
     # N64's and every other host's is (x87 would round differently),
     # and doubles and long longs 8-aligned, as MIPS o32 has them
     # (the structures' sizes the game's C checks)
@@ -231,7 +231,7 @@ set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZL
 # declarations that disagree are anyway).  Where a pointer can be 8 bytes,
 # an implicit pointer/integer conversion or a pointer to one type passed as
 # a pointer to another is where a 4-byte slot can meet an 8-byte pointer
-# (docs/PORT.md, "The LP64 build"): errors, on the whole N64 side.  An
+# (docs/PORT.md, "Where pointers are 8 bytes"): errors, on the whole N64 side.  An
 # explicit cast is allowed; ptrcast_scan.py counts those against its
 # allow-list.  A function passed as a pointer to another type of function
 # (clang's subgroup of the second) is one too.  (-fno-vectorize: the code
