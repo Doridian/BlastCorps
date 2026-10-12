@@ -1460,11 +1460,9 @@ def main():
                  '#include "asm_data.h"', ""]
         aliases = []
         for v in top:
-            if v.blob.bss:
+            if v.blob.bss or all(b == 0 for b in v.blob.val[v.off:v.end]):
+                # (zeros, the N64's .data too: zeros all the same)
                 lines.append(f"{v.ctype.decl(v.name)};")
-            elif all(b == 0 for b in v.blob.val[v.off:v.end]):
-                # (zeros, but data: in .data, as the N64 has them)
-                lines.append(f"ASM_DATA_ZEROS({v.name}) {v.ctype.decl(v.name)};")
             else:
                 lines.append(f"{v.ctype.decl(v.name)} = {g.init(v.blob, v.off, v.ctype)};")
             defined.add(v.name)
@@ -1486,8 +1484,7 @@ def main():
          "#ifndef ASM_DATA_H", "#define ASM_DATA_H", "", '#include "ultratypes.h"', "", ASM_GFX_DEF, ""]
     for m in MACROS:
         h.append(f"#undef {m}")
-    h += ["", "/* data that is zeros: in .data all the same */",
-          "#define ASM_DATA_ZEROS(name) __attribute__((section(\".data.\" #name)))", ""]
+    h.append("")
     for f in sorted(g.types.forward - set(g.types.made)):
         h.append(f"typedef struct {f} {f};")
     h.append("")

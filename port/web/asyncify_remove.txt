@@ -68,7 +68,6 @@ write_pixel
 host_audio_task
 host_log
 host_fatal
-port_arena_bad_local
 n64_sprintf
 __vfprintf_internal
 vfprintf
