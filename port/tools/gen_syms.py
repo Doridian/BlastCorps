@@ -59,6 +59,7 @@ N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 MODULES = ("hd_code", "hd_front_end")
 
 REGIONS_H = os.path.join(ROOT, "port", "include", "port_regions.h")
+BUDGET_H = os.path.join(ROOT, "port", "include", "port_budget.h")
 # a display-list command in the port (CMake: 16 in the LP64 builds, else
 # the N64's 8)
 GFX_SIZE = int(os.environ.get("PORT_GFX_SIZE", "8"))
@@ -250,10 +251,11 @@ def script(out, objects):
 
 
 def region_macros(growth=True):
-    """port_regions.h's numeric #defines, PORT_GFX_SIZE's (CMake's) among
-    them; without growth, as the N64 has them (PORT_GFX_SIZE 8)"""
+    """port_budget.h's and port_regions.h's numeric #defines of the pool,
+    PORT_GFX_SIZE's (CMake's) among them; without growth, as the N64 has
+    them (PORT_GFX_SIZE 8)"""
     macros = {"PORT_GFX_SIZE": GFX_SIZE if growth else 8}
-    for line in open(REGIONS_H):
+    for line in open(BUDGET_H).readlines() + open(REGIONS_H).readlines():
         m = re.match(r"^#define\s+(PORT_POOL_\w+)\s+(.+?)\s*$", line)
         if m:
             macros[m.group(1)] = region_value(m.group(2), macros)
