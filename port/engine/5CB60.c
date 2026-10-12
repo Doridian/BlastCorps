@@ -31,6 +31,13 @@
 #define LEVEL_PTR(h, field) ((u8 *)(h) + (h)->field)
 #define MODEL_PTR(m, field) ((u8 *)(m) + ((Model *)(m))->field)
 #define VMODEL_PTR(m, field) ((u8 *)(m) + ((VehicleModel *)(m))->field)
+/* an address's low byte or half, which the originals leave in a
+   triangle's byte or halfword from a register that held the address
+   (func_802A41B0's 0x4F..0x58): the host's address's, not the N64's, and
+   nothing reads them back for those triangles; taken from the whole
+   address, as many bits as the field has */
+#define ADDR_LO8(p) ((u32)((uintptr_t)(p) & 0xFF))
+#define ADDR_LO16(p) ((u32)((uintptr_t)(p) & 0xFFFF))
 
 /* a u32 at any alignment in the level file, which the loaders have put in
    host order where it is (docs/PORT.md, "Native-endian memory": the
@@ -514,7 +521,7 @@ static void tri_grid(LevelHeader *h, u8 *base, CollisionTri **table) {
             u8 f14 = p[0x14];
             u8 f15 = p[0x15];
 
-            t = func_802A41B0(t, p, cells, f14, 0, 0, 0, (u32)(uintptr_t)end, 0);
+            t = func_802A41B0(t, p, cells, f14, 0, 0, 0, ADDR_LO8(end), 0);
             t[-1].unk59 = f15;
         }
     } while (--cells != 0);
@@ -571,7 +578,7 @@ void func_802A3E9C(LevelHeader *h) {
                registers); 0x4F, 0x50, 0x58 0 (LEVEL_TRI_BYTES).  (0x56 is
                an address's low byte, not the N64's here; nothing reads it
                for a wall's triangles, whose 0x55 is 1: func_8029B614) */
-            t = func_802A41B0(t, p, (u32)(uintptr_t)end, (u32)(uintptr_t)&w->tris[k + 1], 1, 0, 0, n - 1 - k, 0);
+            t = func_802A41B0(t, p, ADDR_LO16(end), ADDR_LO8(&w->tris[k + 1]), 1, 0, 0, n - 1 - k, 0);
             p += WALL_TRI_SIZE;
         }
     }
@@ -667,7 +674,7 @@ void func_802A3F80(LevelHeader *h) {
             id = p[0x14];
             *ids++ = id;
             if (!tri_id_used(id, tris)) {
-                t = func_802A41B0(t, p, (u32)(uintptr_t)end, last, 1, 0, id, n, 0);
+                t = func_802A41B0(t, p, ADDR_LO16(end), last, 1, 0, id, n, 0);
             }
             p += STOP_TRI_SIZE;
         }
@@ -1089,7 +1096,7 @@ void func_802A21AC(u8 *m, u32 n, u32 x, u32 y, u32 z, u32 flag, u32 unk34) {    
            it, not in the LP64 builds, where it moved.  Nothing reads a
            piece's id: only the objects' triangles' (56040)) */
         t = func_802A41B0(t, (u8 *)src, src->group, src->unk14, src->unk18, unk34,
-                          (u32)(uintptr_t)&D_803F7654, src->group2, src->pushes);
+                          ADDR_LO8(&D_803F7654), src->group2, src->pushes);
     }
     b->unk8 = t;
     D_80358070 = (u8 *)t;
