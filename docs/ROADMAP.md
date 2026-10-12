@@ -12,17 +12,23 @@ libultra and the RCP.
 
 ## Where things stand
 
-| module         | IDO-compiled code | handwritten asm | us.v11 (2026-09-28) | us.v10 | jp     | eu     |
-| ---            | ---:              | ---:            | ---:                | ---:   | ---:   | ---:   |
-| `init`         | ~10 KB            | ~4 KB           | 100%                | 100%   | 100%   | 100%   |
-| `hd_code`      | ~420 KB           | ~220 KB         | 99.9% (2 left)      | 99.9%  | 94.0%  | 99.9%  |
-| `hd_front_end` | ~130 KB           | ~2 KB           | 100%                | 100%   | 92.5%  | 100%   |
+| module         | IDO-compiled code | handwritten asm | us.v11 | us.v10 | jp     | eu     |
+| ---            | ---:              | ---:            | ---:   | ---:   | ---:   | ---:   |
+| `init`         | ~10 KB            | ~4 KB           | 100%   | 100%   | 100%   | 100%   |
+| `hd_code`      | ~420 KB           | ~220 KB         | 99.9%  | 99.9%  | ~94%   | 99.9%  |
+| `hd_front_end` | ~130 KB           | ~2 KB           | 100%   | 100%   | ~92%   | 100%   |
 
-Run `tools/progress.py --version <v>` (after building that version) for
-current numbers. Its percentages are of the IDO-compiled code only. What
-isn't C in jp is the functions it has differently (its Japanese text), as
-`GLOBAL_ASM` for jp; eu's differences (three languages, PAL timings) are
-all C, so eu is as complete as us.v11 (the 2 left are libultra's `gu`).
+As of 2026-10-12 the C has 19 `GLOBAL_ASM` functions left
+(`grep -rn GLOBAL_ASM blastcorps/src --include='*.c' | grep -v 'define GLOBAL_ASM'`),
+and everything else is matching C in all four versions: 2 are libultra's
+guRotateF and guRotate (hd_code/90C50.c, non-matching in every version),
+17 are jp's Japanese text handling, under `#ifdef VERSION_JP`.  The port has
+C for those 17 in `port/engine/jp_*.c`, but that C doesn't match.  The
+percentages are 2026-09-28's from `tools/progress.py`; the N64 builds weren't
+present to rerun it, so the jp ones are the old figures and us.v11, us.v10
+and eu only say what the counts above give.  Run
+`tools/progress.py --version <v>` (after building that version) for current
+numbers; its percentages are of the IDO-compiled code only.
 
 What's known that affects the port:
 
@@ -31,8 +37,8 @@ What's known that affects the port:
   existing Fast3D-to-OpenGL/Vulkan translators (sm64-port's `gfx_pc`,
   libultraship's Fast3D) are a realistic starting point.
 - **Audio uses libultra's `libaudio`** (`alAudioFrame`, `AL_MAX_RSP_SAMPLES`)
-  with the stock audio microcode. The PC side needs a C implementation of that
-  microcode (HLE, as the Perfect Dark port does) plus the decompiled `libaudio`.
+  with the stock audio microcode. The port has the decompiled `libaudio` plus
+  an HLE of that microcode (docs/PORT.md, "Audio").
 - **The scheduler is SGI's sample `sched.c`** (the `sc->curRSPTask` asserts).
 - **Compiler:** IDO 5.3, with `-O1` for the code seen so far (every local is
   spilled to the stack). Per-file flags still have to be confirmed.
@@ -42,9 +48,9 @@ What's known that affects the port:
   `$ra` and everything else it touches with `sd`, arguments and results pass
   in `$v0`/`$v1`/`$t*`/`$s0`, it uses `$gp`, and it does 64-bit math
   (`dmult`, `dadd`). `gen_code_yaml.py` detects it (sd `$ra`, never sw) and
-  emits it as `asm`. It can't be decompiled to matching C; for the port it has
-  to be rewritten or mechanically translated (see Phase 5). The game's
-  simulation (vehicles, collision, destruction) is likely in it.
+  emits it as `asm`. It can't be decompiled to matching C, so it stays asm in
+  the N64 build; for the port it is hand-written C in `port/engine/` (Phase 5).
+  The game's simulation (vehicles, collision, destruction) is in it.
 - **`.data`, `.rodata` and `.bss` are per object**, every C file defines its
   own (typed: structs, `Vtx`, display lists as GBI macros), and every address
   is a symbol: the build can move (`SHIFT=1`, tried with us.v11). The other
@@ -64,10 +70,11 @@ decompilation.
 - [x] `tools/m2c.sh <module> <function>`.
 - [x] Per-file flag overrides in `blastcorps/Makefile` (`ll.c` is `-mips3`).
 - [x] `tools/sync_stub_names.py`: keep stubs in step with new names.
-- [ ] m2c context from `include/`, so its output uses real types.
+- [ ] m2c context from `include/`, so its output uses real types
+      (`tools/m2c.sh` still passes none).
 - [x] decomp-permuter wiring (`tools/permute.sh`; see `docs/DECOMPILING.md`).
-- [ ] `common.h`/`include/`: the base types, the `GLOBAL_ASM` macro, and
-      libultra headers from the matching SDK version.
+- [x] `common.h`/`include/`: the base types, and libultra headers
+      (`include/2.0I`, with the older gbi's forms redefined in `common.h`).
 
 ## Phase 1: data, bss, and a shiftable build
 
@@ -219,8 +226,8 @@ Matching C for every non-handwritten function, in this order:
 2. **libultra everywhere.** Most functions match ultralib's source directly.
    The ones that don't (`lib:fuzzy`) are an older revision and get their own
    copies. Share one source file across modules where the code is identical.
-   In us.v11 only guRotateF and guRotate (hd_code/90C50.c) are left; one
-   `lui` is out of place (see `docs/DECOMPILING.md`, "The permuter").
+   In every version only guRotateF and guRotate (hd_code/90C50.c) are left;
+   one `lui` is out of place (see `docs/DECOMPILING.md`, "The permuter").
 3. **`hd_code`**, the game engine. Work in file-sized units (one file per
    splat split), leaves first. Generate context with m2c and grind the
    stragglers with the permuter.
@@ -228,8 +235,8 @@ Matching C for every non-handwritten function, in this order:
 
 5. **The other versions**, from the same C. Done for everything that
    matches: us.v10 is us.v11's C with a handful of `#if`s (00000's and
-   10850's v1.1 fixes); jp's 19 functions with Japanese text handling are
-   its `GLOBAL_ASM`.  eu is all C: its three languages (German strings, and
+   10850's v1.1 fixes); jp's 17 functions with Japanese text handling are
+   its `GLOBAL_ASM` (`#ifdef VERSION_JP`).  eu is all C: its three languages (German strings, and
    three text pointers where the US versions have one, chosen by
    `D_80366F70_eu`), its PAL timings and video modes, its saved language
    and language menu, and its newer libultra (`__osViInit`, the scheduler's
@@ -284,8 +291,10 @@ Mostly done alongside Phase 2, but it's its own effort.
       offset (static analysis, relocations, RDRAM snapshots).
 - [ ] Still untyped (docs/TYPES.md, "Still unknown"): the vehicle modules'
       own variables past the state, terrain/collision/texture-cache state
-      (5FD50, 60D50, 60F60), 679E0, the communication point, the carrier's
-      path, the front end's structures, and nearly all field names.
+      (5FD50, 60D50, 60F60), debris, 679E0, the communication point, the
+      carrier's path, the front end's structures, the model formats, and
+      nearly all field names (about 4,100 `unkXX` in `blastcorps/include`,
+      2026-10-12).
 - [x] Name functions from evidence only (strings, asserts, known source, call
       graph), and write down the evidence in `symbols_known.txt`, as for gzip.
       The scheduler's functions are named after SGI's sched.c; gen_symbols.py
@@ -299,7 +308,8 @@ Mostly done alongside Phase 2, but it's its own effort.
       "libaudio".)
 - [ ] Rename the `D_` symbols the headers identify (`playerNumber`, `levelno`,
       `saveIt`, `frontEndPresent`, ...). They keep their address names for
-      now; the port refers to some of them by name.
+      now (about 3,000 distinct `D_` symbols in `src` and `include`,
+      2026-10-12); the port refers to some of them by name.
 
 ## Phase 4: assets
 
@@ -339,61 +349,53 @@ docs/ASSETS.md has the inventory and the formats.
       (and the levels' `_dl`), the level sections left as hex, the title and
       texture-set images.
 - Describe level/model data as typed records rather than blobs. The PC build
-  reads the same assets but byteswaps them and widens their pointers at load
-  time.
+  reads the same assets and converts them at load time (docs/PORT.md, "Byte
+  order and the data's types").
 
 ## Phase 5: the PC port
 
-A second build target (host compiler, CMake or meson) over the same `src/`,
-selected with `TARGET_PC`. The N64 build stays matching.
+Done as far as playing goes; docs/PORT.md has the details (its "History:
+the builds before this one" has the builds before the present one).
+`port/` is a second build over the same `src/`, selected with `TARGET_PC`;
+the N64 build stays matching.
 
-- **Platform layer** in place of libultra: threads and messages (on a single
-  thread, as sm64-port does), PI DMA reads from the ROM file or extracted
-  assets, VI swap to the window, SDL controllers, EEPROM to a save file,
-  `osGetTime` from the host clock. Look at libultraship before writing this
-  from scratch.
-- **Graphics:** feed the Fast3D display lists to a Fast3D renderer. Look for
-  Rare-specific tricks: direct RDP commands, framebuffer reads, CPU-drawn
-  textures.
-- **Audio:** decompiled `libaudio` plus a C version of the audio microcode.
-- **64-bit cleanliness:** replace `K0_TO_PHYS`/TLB/`osVirtualToPhysical` use,
-  make `u32` pointer fields in structs from ROM data into real pointers, and
-  convert on load.
-- **Handwritten asm (hd_code's 220 KB engine block, plus init's boot code):**
-  the biggest port task. Two routes, which can be mixed per function:
-  - Mechanical translation: a tool that turns each asm function into C
-    operating on a register file, as N64Recomp does for whole games. It's
-    correct by construction and quick to get running, but the output is
-    unreadable and ties the port to 32-bit N64 addresses in data.
-  - Hand-written C equivalents, checked on the N64 build against the asm
-    (same results for the same inputs, e.g. by running both in an emulator
-    or a MIPS interpreter over recorded inputs).
-  A sensible order: translate mechanically first to get the port running,
-  then replace functions with readable C as they're understood.
-- [x] Mechanical translator for Rare's engine block and hd_front_end's
-      handwritten run (`tools/recomp/`, `make -C tools/recomp`): one C file
-      per object over a register-file context and an emulated RDRAM arena,
-      symbols kept. A differential test runs every function against the
-      original in unicorn, on random states and on RDRAM snapshots from
-      real play. All 688 functions match. The engine is hand-written C now
-      (`port/engine`) and the translator is a decompilation tool; see
-      docs/PORT.md, "The handwritten asm".
-- [x] First PC build (`port/`, docs/PORT.md): CMake, 32-bit x86 with RDRAM
-      at `0x80000000` and every game variable at its N64 address, the game's
-      C built big-endian by an LLVM pass (BEPass), libultra replaced
-      (fibers, PI from the ROM file, SDL input, EEPROM file, host clock),
-      generated glue to the translated engine, a software Fast3D renderer.
-      Runs the Rare logo, the title screen and the attract mode, and with
-      Start/A the name entry, the world map and Simian Acres. (Since P10
-      the port is one build: the game's C, the engine and libultra's
-      replacement as ordinary C in the host's byte order and pointer size,
-      with clang, gcc or emcc, for x86, ARM, PowerPC and MIPS, WebAssembly
-      included; docs/PORT.md, "The build", "History".)
-- [ ] Pacing: the RSP/RDP finish instantly, so the intro runs too fast and
-      gameplay at 60 fps (docs/PORT.md, "Status").
-- [ ] Audio (audio-ucode HLE, SDL output) and an accelerated renderer.
-- Later: widescreen, higher framerate (the game loop is tied to VI retrace),
-  and mod support.
+The port is one ordinary-C build: the game's C, Rare's engine as
+hand-written C (`port/engine`, 44 `.c` files, 11 of them jp's), libultra's
+replacement (`port/src`), `port/libaudio` and `port/host`, with host
+pointers, the host's byte order, as a PIE.  Until P10 it was a 32-bit
+big-endian build at the N64's addresses (BEPass), then 64-bit, native-endian,
+LP64 and movable variants, and a check build; those are gone (docs/PORT.md,
+"History: the builds before this one").
+
+- [x] **Platform layer** in place of libultra: threads (ucontext or host
+      threads), messages, PI DMA from the ROM, SDL input, EEPROM file, host
+      clock (docs/PORT.md, "The platform layer").
+- [x] **Handwritten asm** (hd_code's ~220 KB engine block, plus hd_front_end's
+      handwritten run): hand-written C in `port/engine/`, ordinary C with no
+      register file.  `tools/recomp/`'s mechanical translation ran it first
+      and checked every function against the original in unicorn (all 688
+      match); it is only a decompilation tool now, and the tag
+      `engine-check-last` marks the last check of the engine C against it
+      (docs/PORT.md, "The handwritten asm").
+- [x] **Every version** runs: us.v10, us.v11, jp and eu.
+- [x] **Graphics:** software and OpenGL renderers for the Fast3D lists
+      (docs/PORT.md, "Graphics").
+- [x] **Audio:** libaudio plus an HLE of the audio microcode, checked
+      against an oracle (docs/PORT.md, "Audio").
+- [x] **Pacing** (docs/PORT.md, "Timing", "Frame rate").
+- [x] **Widescreen, interpolation, higher frame rates, HD text, model
+      icons**, on by default with a window, each with a `--no-` option.
+- [x] **Hosts:** x86-64, i386 (-m32), big-endian ppc and mipsel under qemu,
+      WebAssembly (node and web), and a macOS stand-in build that has not
+      been tried on a real Mac.
+- [x] **The TAS** plays the whole game, 57 platinum medals, with the
+      gameplay digest equal to the reference (docs/PORT.md, "The gameplay
+      digest").
+- [ ] **The ROM's data out of the executable:** it still carries about 260 KB
+      of it, and no binary is published until that changes
+      (docs/DISTRIBUTION.md).
+- [ ] **A real Mac:** the macOS build is untried on one.
+- Later: mod support (resource packs are in, docs/PORT.md).
 
 ## Milestones
 
@@ -403,8 +405,6 @@ selected with `TARGET_PC`. The N64 build stays matching.
 4. 50% of `hd_code` by bytes.
 5. 100% matching.
 6. The PC build reaches the title screen. (Done: docs/PORT.md.)
-7. The PC build is playable start to finish.
-
-A partial port can start before 100%: once data is symbolic, a PC build could
-run the decompiled C and statically recompile what's left (N64Recomp-style).
-Whether that's worth it depends on where Phase 2 stands then.
+7. The PC build is playable start to finish. (Done: the TAS plays the whole
+   game, 57 platinum medals, with the gameplay digest equal to the
+   reference; docs/PORT.md, "The gameplay digest".)
