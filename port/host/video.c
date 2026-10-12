@@ -58,7 +58,8 @@ void host_vi_set_framebuffer(const void *p, int width) {
 }
 
 /* SDL is up (not in emscripten's headless runs: it has no offscreen
-   driver, and node no page; the software renderer draws all the same) */
+   driver, and node no page; nor in a build without SDL: the software
+   renderer draws all the same) */
 static int sdl_up;
 
 void host_video_init(void) {
@@ -79,8 +80,16 @@ void host_video_init(void) {
     if (host_paced)
         SDL_SetHint(SDL_HINT_EMSCRIPTEN_ASYNCIFY, "0");
 #endif
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0)
-        host_fatal("SDL_Init: %s", SDL_GetError());
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) != 0) {
+        if (!host_headless)
+            host_fatal("SDL_Init: %s", SDL_GetError());
+        /* headless without SDL (a build without it, -DPORT_SDL=OFF:
+           host/nosdl/SDL.h), as in emscripten's: the software renderer */
+        if (host_renderer == 1 || host_verbose)
+            host_log("headless without SDL (%s): the software renderer\n", SDL_GetError());
+        host_renderer = 0;
+        return;
+    }
     sdl_up = 1;
     if (host_renderer < 0)
         host_renderer = !host_headless;
