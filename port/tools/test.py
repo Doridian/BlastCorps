@@ -94,8 +94,8 @@ port/tools/cross-*.cmake) and wasm (under node, where emsdk is there:
 references' hashes (they don't depend on the compiler, the sanitizers,
 the pointer size, the byte order or the layout).  --tas runs the TAS on
 all of them too.  A quick or tas run on any build with PORT_SANITIZE set
-runs it with ASAN_OPTIONS=detect_leaks=0 unless the environment has its
-own.
+runs it with ASAN_OPTIONS=detect_leaks=0 (and quick's, which are strict,
+detect_stack_use_after_return=0) unless the environment has its own.
 
 A build's kind is what its CMakeCache says: plain, or gcc for gcc, asan
 (or san) with sanitizers, m32 for i386, the emulator's arch for a cross
@@ -325,14 +325,19 @@ class Build:
             self.node = cache.get("CMAKE_CROSSCOMPILING_EMULATOR") or shutil.which("node")
         self.name = os.path.relpath(self.path, ROOT) if self.path.startswith(ROOT) else self.path
 
-    def sanitizer_env(self):
+    def sanitizer_env(self, strict=False):
         """a sanitized build's options, unless the environment has its own: no leak report
         (the one leak is in the system's SDL, 256 bytes under any driver, in a library
-        this build doesn't have the symbols of), UBSan's stacks"""
+        this build doesn't have the symbols of), UBSan's stacks.  A strict run (quick's,
+        PORT_GFX_STRICT) has no fake stacks: ASan moves a local whose address is taken
+        (a list built in a local) into one, which isn't a thread's stack, and a fiber's
+        while it is switched out is unknown even to ASan, so gfx_strict_known() would
+        call it no pointer of the game's; the TAS keeps them"""
         if not self.sanitize:
             return {}
         e = {}
-        for k, v in (("ASAN_OPTIONS", "detect_leaks=0"), ("UBSAN_OPTIONS", "print_stacktrace=1")):
+        asan = "detect_leaks=0" + (":detect_stack_use_after_return=0" if strict else "")
+        for k, v in (("ASAN_OPTIONS", asan), ("UBSAN_OPTIONS", "print_stacktrace=1")):
             if k not in os.environ:
                 e[k] = v
         return e
@@ -376,7 +381,7 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
     for k in list(e):
         if k.startswith("PORT_"):
             del e[k]
-    e.update(build.sanitizer_env())
+    e.update(build.sanitizer_env(strict=env.get("PORT_GFX_STRICT") == "1"))
     e.update(PORT_AUTOSTART=autostart, SDL_VIDEODRIVER="offscreen",
              SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST)
     if shots:
