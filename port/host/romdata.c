@@ -1,9 +1,9 @@
 /*
  * The ROM as the port's data source (docs/DISTRIBUTION.md): the ROM's
- * sha1, its gzip members inflated, and, in the PORT_ROM_DATA build, the
- * arena's initial contents made from the ROM's code modules at startup
- * instead of carried in the executable (port/tools/rom_data.py writes the operations; docs/PORT.md,
- * "The data from the ROM").
+ * sha1, its gzip members inflated, and the ROM's assets in the game's data
+ * (images, vertices, the lists that draw them), which the executable
+ * doesn't carry, filled from the ROM's code modules at startup
+ * (port_rom_fill; port/tools/rom_assets.txt).
  */
 #include <stdint.h>
 #include <stdio.h>
@@ -334,131 +334,95 @@ long host_gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn, size_t 
     return r;
 }
 
-#ifdef PORT_ROM_DATA
-
-/* ---- the arena's contents ---------------------------------------------------- */
-
-/* gen/romdata_ops.c (tools/rom_data.py) */
-extern const uint32_t port_romdata_init[2], port_romdata_hd_code_text[2], port_romdata_hd_code_data[2],
-    port_romdata_hd_front_end_text[2], port_romdata_hd_front_end_data[2];
-extern const uint32_t port_romdata_size, port_romdata_ops_n, port_romdata_code_n;
-extern const uint32_t port_romdata_code[][2];
-extern const uint64_t port_romdata_hash;
-extern const uint8_t port_romdata_ops[];
+/* ---- the ROM's assets in the game's data (port.h's port_fill) ------------------ */
 
 #define RDRAM 0x400000u
-#define INIT 0x21ED00u          /* the modules' load addresses, physical */
-#define HD_CODE 0x2447C0u
+#define HD_CODE 0x2447C0u           /* the modules' load addresses, physical */
 #define HD_FRONT_END 0x1E7000u
 
-static uint32_t uvar(const uint8_t *p, uint32_t *k) {
-    uint32_t v = 0;
-    for (int sh = 0;; sh += 7) {
-        uint8_t b = p[(*k)++];
-        v |= (uint32_t)(b & 0x7F) << sh;
-        if (!(b & 0x80))
-            return v;
-    }
-}
-
-static void module(uint8_t *src, uint32_t base, const uint8_t *rom, uint32_t rom_size, const uint32_t text[2],
-                   const uint32_t data[2], const char *name) {
-    if (text[1] > rom_size || data[1] > rom_size)
+/* a code module's .text and .data inflated from the ROM where the game loads
+   them, one after the other */
+static void module(uint8_t *src, uint32_t base, const char *name) {
+    const uint8_t *rom = host_rom();
+    uint32_t rom_size = host_rom_size();
+    char t_name[48], d_name[48];
+    uint32_t ts, te, ds, de;
+    snprintf(t_name, sizeof t_name, "%s_text." PORT_VERSION_NAME, name);
+    snprintf(d_name, sizeof d_name, "%s_data." PORT_VERSION_NAME, name);
+    if (!pack_rom_segment(t_name, &ts, &te) || !pack_rom_segment(d_name, &ds, &de))
+        host_fatal("the link has no %s", name);
+    if (te > rom_size || de > rom_size)
         host_fatal("the ROM is too short for %s", name);
-    long t = gunzip(rom + text[0], text[1] - text[0], src + base, RDRAM - base);
-    long d = t < 0 ? -1 : gunzip(rom + data[0], data[1] - data[0], src + base + t, RDRAM - base - t);
+    long t = gunzip(rom + ts, te - ts, src + base, RDRAM - base);
+    long d = t < 0 ? -1 : gunzip(rom + ds, de - ds, src + base + t, RDRAM - base - t);
     if (d < 0)
         host_fatal("can't inflate %s from the ROM", name);
 }
 
-/* The arena's first port_romdata_size bytes, made from the ROM: its code
-   modules' data where the game loads them (the code zeroed: only the data
-   is used), then the operations.  A resource pack without the code
-   (pack.c) gives the modules' data itself. */
-void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size) {
+/* The ROM's assets the executable has as zeros (gen/rom_fill.c's table,
+   port/tools/gen_fill.py), from the modules' data as the game loads them:
+   inflated from the ROM, or a resource pack's (pack.c: a pack without the
+   code has them).  Before anything reads them: src/boot.c, first. */
+void port_rom_fill(void) {
     double t0 = host_perf_now();
-    uint8_t *src = calloc(RDRAM, 1);
-    if (!src)
-        host_fatal("out of memory for the ROM's modules");
-    const uint8_t *given = pack_data_source();
-    if (given) {
-        memcpy(src, given, RDRAM);
-    } else {
-        if (port_romdata_init[1] > rom_size)
-            host_fatal("the ROM is too short for init");
-        memcpy(src + INIT, rom + port_romdata_init[0], port_romdata_init[1] - port_romdata_init[0]);
-        module(src, HD_CODE, rom, rom_size, port_romdata_hd_code_text, port_romdata_hd_code_data, "hd_code");
-        module(src, HD_FRONT_END, rom, rom_size, port_romdata_hd_front_end_text, port_romdata_hd_front_end_data,
-               "hd_front_end");
+    const uint8_t *src = pack_data_source();
+    uint8_t *own = NULL;
+    if (!src) {
+        own = calloc(RDRAM, 1);
+        if (!own)
+            host_fatal("out of memory for the ROM's modules");
+        module(own, HD_CODE, "hd_code");
+        module(own, HD_FRONT_END, "hd_front_end");
+        src = own;
     }
-    for (uint32_t k = 0; k < port_romdata_code_n; k++)
-        memset(src + port_romdata_code[k][0], 0, port_romdata_code[k][1] - port_romdata_code[k][0]);
-    const uint8_t *op = port_romdata_ops;
-    uint32_t k = 0, end = 0;
-    while (k < port_romdata_ops_n) {
-        uint8_t h = op[k++];
-        uint32_t dst = end + uvar(op, &k);
-        uint32_t len = uvar(op, &k);
-        int64_t d = 0;
-        if (h & 8) {
-            uint32_t z = uvar(op, &k);
-            d = (int64_t)(z >> 1) ^ -(int64_t)(z & 1);
-        }
-        if (dst + len > port_romdata_size)
-            host_fatal("the ROM's data operations go past the image");
-        if ((h & 7) == 4) {
-            memcpy(arena + dst, op + k, len);
-            k += len;
-        } else if ((h & 7) == 0) {
-            if ((int64_t)dst + d < 0 || (int64_t)dst + d + len > RDRAM)
-                host_fatal("the ROM's data operations go outside the modules");
-            memcpy(arena + dst, src + dst + d, len);
-        } else if ((h & 7) == 5 || (h & 7) == 6) {
-            /* a display list's words widened (where pointers are 8 bytes): each 4-byte
-               unit of the source reversed, in the high (5: a 64-bit
-               scalar's words high first, which no build has now) or the
-               low half (6: a little-endian host's) of an 8-byte unit, the
-               other half zero */
-            uint32_t lo = (h & 7) == 5 ? 4 : 0;
-            for (uint32_t x = dst; x < dst + len; x++) {
-                uint32_t j = (x & 7) - lo;
-                if (j > 3) {
-                    arena[x] = 0;
-                    continue;
+    uint32_t bytes = 0;
+    for (unsigned k = 0; k < port_fill_n; k++) {
+        const PortFill *e = &port_fill[k];
+        const uint8_t *s = src + e->n64;
+        if (e->n64 >= RDRAM || e->size > RDRAM - e->n64)
+            host_fatal("port_fill[%u]: outside the modules", k);
+        bytes += e->size;
+        switch (e->kind) {
+        case PORT_FILL_BYTES:
+            /* (texels, as the RDP reads them, whatever the C declares) */
+            memcpy(e->dst, s, e->size);
+            break;
+        case PORT_FILL_VTX:
+            /* gbi.h's Vtx: s16 ob[3], u16 flag, s16 tc[2] in host order, u8 cn[4] */
+            for (uint32_t v = 0; v < e->size; v += 16) {
+                uint8_t *d = (uint8_t *)e->dst + v;
+                for (int j = 0; j < 12; j += 2) {
+                    uint16_t h = (uint16_t)(s[v + j] << 8 | s[v + j + 1]);
+                    memcpy(d + j, &h, 2);
                 }
-                int64_t s = (int64_t)(((x >> 3) << 2) + 3 - j) + d;
-                if (s < 0 || s >= RDRAM)
-                    host_fatal("the ROM's data operations go outside the modules");
-                arena[x] = src[s];
+                memcpy(d + 12, s + v + 12, 4);
             }
-        } else if ((h & 7) < 4) {
-            uint32_t w = 1u << (h & 7);
-            for (uint32_t x = dst; x < dst + len; x++) {
-                int64_t s = (int64_t)((x & ~(w - 1)) + (w - 1 - (x & (w - 1)))) + d;
-                if (s < 0 || s >= RDRAM)
-                    host_fatal("the ROM's data operations go outside the modules");
-                arena[x] = src[s];
+            break;
+        case PORT_FILL_GFX: {
+            /* commands, each word as wide as a pointer; a segmented address
+               (G_MTX, G_MOVEMEM, G_VTX, G_DL to segments 1..15) tagged as
+               gbi.h's G_SEGTAG; the words that are addresses below */
+            uintptr_t *w = e->dst;
+            for (uint32_t c = 0; c < e->size / 8; c++) {
+                uint32_t w0 = port_rd32(s + 8 * c), w1 = port_rd32(s + 8 * c + 4);
+                uint32_t op = w0 >> 24;
+                if ((op == 0x01 || op == 0x03 || op == 0x04 || op == 0x06) && (w1 >> 24) & 15)
+                    w1 |= 1;
+                w[2 * c] = w0;
+                w[2 * c + 1] = w1;
             }
-        } else {
-            host_fatal("the ROM's data operations have an unknown kind %u", h & 7);
+            break;
         }
-        end = dst + len;
+        default:
+            host_fatal("port_fill[%u]: kind %u", k, e->kind);
+        }
     }
-    free(src);
-    /* FNV-1a over little-endian 8-byte words (the last one zero-padded) */
-    uint64_t hash = 0xcbf29ce484222325ull;
-    for (uint32_t x = 0; x < port_romdata_size; x += 8) {
-        uint64_t v = 0;
-        for (uint32_t k = 0; k < 8 && x + k < port_romdata_size; k++)
-            v |= (uint64_t)arena[x + k] << (8 * k);
-        hash = (hash ^ v) * 0x100000001b3ull;
+    for (unsigned k = 0; k < port_fill_relocs_n; k++) {
+        const PortFillReloc *r = &port_fill_relocs[k];
+        ((uintptr_t *)port_fill[r->entry].dst)[2 * r->cmd + 1] = (uintptr_t)r->to;
     }
-    if (hash != port_romdata_hash)
-        host_fatal("the game's data made from the ROM isn't what this port was built with "
-                   "(a different ROM?)");
     if (host_verbose)
-        host_log("the game's data from the ROM: %u bytes of operations, %.1f ms\n", port_romdata_ops_n,
-                 host_perf_now() - t0);
+        host_log("the ROM's assets: %u in %u bytes, %s, %.1f ms\n", port_fill_n, bytes,
+                 own ? "from the ROM" : "from the pack", host_perf_now() - t0);
+    free(own);
 }
-
-#endif

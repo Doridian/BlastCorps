@@ -33,6 +33,9 @@ void port_overlay_init(void);
 void port_native_fixups(void);
 
 void port_boot(void) {
+    /* the ROM's assets first (host/romdata.c): the front end's copy of
+       its variables (overlay.c) takes what they have */
+    port_rom_fill();
     port_native_fixups();
     port_overlay_init();
     D_803FFFF8 = ROM(hd_front_end_text_ROM_START);

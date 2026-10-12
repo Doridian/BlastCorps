@@ -1,0 +1,113 @@
+# The ROM's remakeable assets in the game's data: images, vertices and the
+# display lists that draw them (docs/DISTRIBUTION.md).  The port's executable
+# carries none of them: blastcorps/src defines them under ASSET_INIT (common.h),
+# so the port's are zeros, asm2c.py writes zeros for its three, and at startup
+# port/host/romdata.c's port_rom_fill fills them from the user's ROM (or a
+# pack's modules' data), by the table port/tools/gen_fill.py makes from this
+# list and the version's N64 link.  The names are us.v11's (every version
+# has them all, with the same bytes but for the lists' addresses).
+#
+#   module  symbol[+offset]  kind  count  source  [what the port fills]
+#
+# kind: bytes (as the ROM has them, whatever the declared type: what the RDP
+# reads), vtx (count Vtx, each field to host order), gfx (count commands:
+# each word from the ROM, an address the N64 link relocates becomes the host
+# address of what it points at, a segment address gets gbi.h's G_SEGTAG).
+# source: the file that defines it (asm: asm2c.py's, from the asm data).
+# The last column, where it isn't the symbol, is a field of a structure
+# (the structure's other fields are parameters and stay initialized).
+
+# 20460.c: the people who run from a building (func_80264CB4), RGBA16 20x32,
+# and the quad they are drawn on
+hd_code  D_802E9FB0  vtx    4      src/hd_code/20460.c
+hd_code  D_802E9FF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EA4F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EA9F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EAEF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EB3F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EB8F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EBDF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EC2F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EC7F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802ECCF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802ED1F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802ED6F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EDBF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EE0F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EE5F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EEAF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EEFF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EF4F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EF9F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802EFEF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F03F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F08F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F0DF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F12F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F17F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F1CF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F21F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F26F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F2BF0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F30F0  bytes  0x500  src/hd_code/20460.c
+hd_code  D_802F35F0  bytes  0x500  src/hd_code/20460.c
+
+# 26570.c: a frame of four quads, its vertices and triangles
+hd_code  D_802F97B0  vtx    0x10   src/hd_code/26570.c
+hd_code  D_802F98B0  gfx    0x10   src/hd_code/26570.c
+
+# 2B3F0.c: the RDUs' quad; two RGBA32 16x16 images (declared Vtx)
+hd_code  D_802F99C0  vtx    4      src/hd_code/2B3F0.c
+hd_code  D_802F9A00  bytes  0x400  src/hd_code/2B3F0.c
+hd_code  D_802F9E00  bytes  0x400  src/hd_code/2B3F0.c
+
+hd_code  D_802FA820  vtx    8      src/hd_code/2D810.c
+hd_code  D_802FA8B0  vtx    8      src/hd_code/30430.c
+# an arrow, IA8 32x32
+hd_code  D_802FA940  bytes  0x400  src/hd_code/30C70.c
+# a bevelled frame, RGBA32 32x32
+hd_code  D_802FAD50  bytes  0x1000 src/hd_code/32E00.c
+hd_code  D_802FBD50  vtx    8      src/hd_code/32E00.c
+hd_code  D_802FBEE0  vtx    0x18   src/hd_code/34430.c
+hd_code  D_802FC528  vtx    4      src/hd_code/39050.c
+hd_code  D_802FC568  vtx    4      src/hd_code/39050.c
+
+# 3E4C0.c: a quarter-circle mask (IA8 16x16), a ruler of ticks (IA4 64x64),
+# a chrome sphere (RGBA16 32x32), a needle (IA8 8x32), and their quads
+hd_code  D_802FC5B0  bytes  0x100  src/hd_code/3E4C0.c
+hd_code  D_802FC6B0  bytes  0x800  src/hd_code/3E4C0.c
+hd_code  D_802FCEB0  bytes  0x800  src/hd_code/3E4C0.c
+hd_code  D_802FD6B0  bytes  0x100  src/hd_code/3E4C0.c
+hd_code  D_802FD7B0  vtx    4      src/hd_code/3E4C0.c
+hd_code  D_802FD7F0  vtx    4      src/hd_code/3E4C0.c
+hd_code  D_802FD830  vtx    24     src/hd_code/3E4C0.c
+hd_code  D_802FD9B8  vtx    0xA    src/hd_code/3E4C0.c
+hd_code  D_802FDA80  vtx    4      src/hd_code/43A60.c
+
+# 4B5E0.c: the three push blocks (BlockInfo, objects.h): each a display list
+# and its vertices
+hd_code  D_802FDC08+0x000  gfx  0x28  src/hd_code/4B5E0.c  D_802FDC08[0].dl
+hd_code  D_802FDC08+0x140  vtx  0x14  src/hd_code/4B5E0.c  D_802FDC08[0].vtx
+hd_code  D_802FDC08+0x290  gfx  0x28  src/hd_code/4B5E0.c  D_802FDC08[1].dl
+hd_code  D_802FDC08+0x3D0  vtx  0x14  src/hd_code/4B5E0.c  D_802FDC08[1].vtx
+hd_code  D_802FDC08+0x520  gfx  0x28  src/hd_code/4B5E0.c  D_802FDC08[2].dl
+hd_code  D_802FDC08+0x660  vtx  0x14  src/hd_code/4B5E0.c  D_802FDC08[2].vtx
+# 4DA80.c: a display list and its vertices
+hd_code  D_802FE3C0+0x000  gfx  0x50  src/hd_code/4DA80.c  D_802FE3C0[0].unk0
+hd_code  D_802FE3C0+0x280  vtx  0x32  src/hd_code/4DA80.c  D_802FE3C0[0].unk280
+
+# the carrier's explosion's dome (39050.c): flame streaks (IA16 32x32), its
+# vertices (segment 6) and its display list
+hd_code  D_802FF738  bytes  0x800  asm
+hd_code  D_802FFF38  vtx    179    asm
+hd_code  D_80300A68  gfx    187    asm
+
+# the front end: 9570.c's five RGBA16 32x32 pictures with their mipmaps
+# (the world map's globe), 1C40.c's model
+hd_front_end  D_80208380  vtx    8      src/hd_front_end/1C40.c
+hd_front_end  D_80208400  gfx    9      src/hd_front_end/1C40.c
+hd_front_end  D_802084F0  bytes  0xAB8  src/hd_front_end/9570.c
+hd_front_end  D_80209028  bytes  0xAB8  src/hd_front_end/9570.c
+hd_front_end  D_80209B60  bytes  0xAB8  src/hd_front_end/9570.c
+hd_front_end  D_8020A698  bytes  0xAB8  src/hd_front_end/9570.c
+hd_front_end  D_8020B1D0  bytes  0xAB8  src/hd_front_end/9570.c

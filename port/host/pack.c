@@ -179,6 +179,15 @@ static const struct rom_segment *seg_named(const char *name) {
     return NULL;
 }
 
+int pack_rom_segment(const char *name, uint32_t *start, uint32_t *end) {
+    const struct rom_segment *s = seg_named(name);
+    if (!s)
+        return 0;
+    *start = s->start;
+    *end = s->end;
+    return 1;
+}
+
 /* ---- PNGs as N64 texels (tools/assetlib/texel.py) ---------------------------- */
 
 enum { F_RGBA16, F_RGBA32, F_IA16, F_IA8 };

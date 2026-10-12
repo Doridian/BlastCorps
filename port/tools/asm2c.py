@@ -259,9 +259,18 @@ HALF_FILES = ("hd_code/BC8E0.data.s",)
 
 # The RSP microcode's text (hd_code's after ldiv, hd_front_end's at the end
 # of its .text): the port's HLE never runs it and nothing else reads it, so
-# the port carries zeros of its size (docs/DISTRIBUTION.md).  (Its data
-# segments are kept: aspmain.c reads the audio microcode's resampling table.)
+# the port carries zeros of its size (docs/DISTRIBUTION.md).
 RSP_TEXT = {"hd_code_A0C30_bin", "hd_front_end_20090_bin"}
+# And the microcode's data: the tasks hand it over (the game's graphics
+# ucode's, the front end's, 5FD50's task's), and the HLE reads none of it but
+# the audio microcode's resampling table (aspmain.c), 512 bytes at 0xD0 of
+# its data, which stays: {label: the range kept, or None}
+RSP_DATA = {"hd_code_C9BD0_bin": None, "hd_code_CA6A0_bin": None, "hd_front_end_29690_bin": None,
+            "hd_code_CA3D0_bin": (0xD0, 0x2D0)}
+# The ROM's assets in the asm data (port/tools/rom_assets.txt: the carrier's
+# explosion's texture, vertices and display list): zeros of their size, which
+# port_rom_fill fills from the ROM at startup (host/romdata.c)
+ROM_ASSETS = {"D_802FF738", "D_802FFF38", "D_80300A68"}
 
 # Labels the code reads as one table, over the labels splat made inside it
 # (docs/LAYOUT.md, "label"): {first label: (type, count)}, the others names
@@ -662,6 +671,9 @@ def parse_bin(path, label):
     data = open(path, "rb").read()
     if label in RSP_TEXT:
         data = bytes(len(data))
+    if label in RSP_DATA:
+        lo, hi = RSP_DATA[label] or (0, 0)
+        data = bytes(lo) + data[lo:hi] + bytes(len(data) - max(lo, hi))
     blob = Blob(label, path)
     blob.label(label)
     blob.data(list(data), 1, "byte")
@@ -1460,8 +1472,9 @@ def main():
                  '#include "asm_data.h"', ""]
         aliases = []
         for v in top:
-            if v.blob.bss or all(b == 0 for b in v.blob.val[v.off:v.end]):
-                # (zeros, the N64's .data too: zeros all the same)
+            if v.blob.bss or v.name in ROM_ASSETS or all(b == 0 for b in v.blob.val[v.off:v.end]):
+                # (zeros, the N64's .data too: zeros all the same; the ROM's
+                # assets, filled at startup)
                 lines.append(f"{v.ctype.decl(v.name)};")
             else:
                 lines.append(f"{v.ctype.decl(v.name)} = {g.init(v.blob, v.off, v.ctype)};")

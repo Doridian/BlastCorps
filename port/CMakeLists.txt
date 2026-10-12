@@ -343,6 +343,26 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/gu.c PROPERTIES
 if(PORT_SDK_TRACE)
     target_compile_definitions(port_n64 PRIVATE PORT_SDK_TRACE)
 endif()
+# The ROM's assets in the game's data (port/tools/rom_assets.txt), which the
+# executable has as zeros: the table host/romdata.c's port_rom_fill fills
+# them by, from the version's N64 link (gen_fill.py), compiled with the game's
+# headers and the defining files' types
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_assets.txt FILL_LINES REGEX "^[a-z_]+ +D_")
+set(FILL_SOURCES)
+foreach(l ${FILL_LINES})
+    if(l MATCHES " (src/[^ ]+\\.c)")
+        list(APPEND FILL_SOURCES ${BLAST}/${CMAKE_MATCH_1})
+    endif()
+endforeach()
+list(REMOVE_DUPLICATES FILL_SOURCES)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_assets.txt)
+add_custom_command(OUTPUT ${GEN}/rom_fill.c ${GEN}/rom_fill.tsv
+    COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fill.py ${GEN}/rom_fill.c ${GEN}/rom_fill.tsv
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fill.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_assets.txt
+            ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
+            ${FILL_SOURCES}
+    VERBATIM)
+target_sources(port_n64 PRIVATE ${GEN}/rom_fill.c)
 
 # ---- the game's data: the handwritten objects', as C -------------------------
 # (what the N64 build links from asm/data, which holds their .bss too, and

@@ -169,6 +169,31 @@ typedef struct PortRegion {
 extern const PortRegion port_regions[];
 extern const unsigned port_nregions;
 
+/* The ROM's assets in the game's data (images, vertices, the display lists
+   that draw them: port/tools/rom_assets.txt), which the executable has as
+   zeros: port_rom_fill (host/romdata.c) fills them from the ROM's modules
+   at startup, before anything reads them (src/boot.c), by the table
+   port/tools/gen_fill.py makes from the N64 link (gen/rom_fill.c) */
+enum { PORT_FILL_BYTES, PORT_FILL_VTX, PORT_FILL_GFX };
+typedef struct PortFill {
+    void *dst;
+    uint32_t n64;               /* where the game has it, physical */
+    uint32_t size;              /* its bytes there */
+    uint32_t kind;              /* BYTES: as they are; VTX: each Vtx's fields in host order;
+                                   GFX: commands, each word as wide as a pointer */
+} PortFill;
+/* a display list's word the N64 link relocates: the host's address of what
+   it points at */
+typedef struct PortFillReloc {
+    uint32_t entry, cmd;
+    void *to;
+} PortFillReloc;
+extern const PortFill port_fill[];
+extern const unsigned int port_fill_n;
+extern const PortFillReloc port_fill_relocs[];
+extern const unsigned int port_fill_relocs_n;
+void port_rom_fill(void);
+
 /* ---- host services (port/host) ----------------------------------------- */
 
 void host_fatal(const char *fmt, ...) __attribute__((noreturn, format(printf, 1, 2)));

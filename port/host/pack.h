@@ -18,6 +18,9 @@ uint8_t *pack_build_rom(const char *path, uint32_t *size, int *edited);
 /* the code modules' data at their physical addresses (RDRAM-sized), from the
    pack's data/, or NULL: port/host/romdata.c's source */
 const uint8_t *pack_data_source(void);
+/* the link's segment of that name (its layout name: "hd_code_text.us.v10")
+   in the ROM: 1, or 0 if the link has none */
+int pack_rom_segment(const char *name, uint32_t *start, uint32_t *end);
 /* an edited texture's texels (len bytes, as the game decodes it), or NULL */
 const uint8_t *host_tex_texels(uint32_t id, uint32_t *len);
 /* an edited texture's higher-resolution image, for the renderer (gfx_gl.c) */

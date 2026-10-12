@@ -7,12 +7,10 @@
 
 #include "port.h"
 
-/* main.c: the ROM as loaded (big-endian), romdata.c: its sha1, and (kept
-   for the ROM's data made at startup, P10's open question 6; not built)
-   the movable build's arena contents made from it (PORT_ROM_DATA) */
+/* main.c: the ROM as loaded (big-endian), romdata.c: its sha1 (and
+   port.h's port_rom_fill: the ROM's assets in the game's data) */
 const uint8_t *host_rom(void);
 void host_sha1_hex(const uint8_t *p, size_t n, char out[41]);
-void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
 /* romdata.c: a gzip member's contents into out (at most outn bytes); their
    length, or -1 (and in *used, the member's own length).  pack.c: a texture's blast stream of type t (1..6) decoded
    (malloc'd, *outn bytes), or NULL */
