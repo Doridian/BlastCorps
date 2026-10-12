@@ -33,14 +33,6 @@ int host_in_thread_stack(const void *p) {
     return 0;
 }
 
-/* RDRAM's 4 MB to a file (PORT_DUMP, the replay's dumps): there is no RDRAM
-   to dump, the game's memory being its variables and buffers (P10's open
-   question 9: the regions and every named variable instead, packet G) */
-void port_dump_rdram(FILE *f) {
-    (void)f;
-    host_fatal("PORT_DUMP and the replay's dumps are RDRAM's, which the port hasn't");
-}
-
 #ifdef PORT_SDK_TRACE
 /* -DPORT_SDK_TRACE=ON builds: port/src/gu.c's calls and their arguments, to
    $PORT_SDK_TRACE (port/tools/sdk_check checks the replacements on them).

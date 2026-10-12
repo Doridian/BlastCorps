@@ -29,3 +29,13 @@ u8 D_803FF600[0x803FFFF8u - PORT_STATIC_START] __attribute__((aligned(16)));
 /* the front end's compressed ROM range, init's hand-over to hd_code
    (src/boot.c, hd_code 46C20.c) */
 u32 D_803FFFF8, D_803FFFFC;
+
+/* what the host dumps of the game's memory (PORT_DUMP, host/dump.c): these, in this order */
+const PortRegion port_regions[] = {
+    { "D_80000400", D_80000400, sizeof D_80000400 },
+    { "D_8004B400", D_8004B400, sizeof D_8004B400 },
+    { "D_803FF600", D_803FF600, sizeof D_803FF600 },
+    { "D_803FFFF8", &D_803FFFF8, sizeof D_803FFFF8 },
+    { "D_803FFFFC", &D_803FFFFC, sizeof D_803FFFFC },
+};
+const unsigned port_nregions = sizeof port_regions / sizeof port_regions[0];

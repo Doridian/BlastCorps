@@ -530,7 +530,7 @@ static void queue_account(double late_ms, double work_ms, double pms) {
 /* the scheduler's retrace count, the game's frame count and the mode */
 #include "host_game_vars.h"
 
-/* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read */
+/* PORT_DUMP=N,M,...: the game's memory to game_N.bin (dump.c) at the Nth controller read */
 void host_controller_poll(void) {
     static unsigned polls;
     static const char *spec = (const char *)1;
@@ -554,10 +554,10 @@ void host_controller_poll(void) {
         unsigned n = (unsigned)strtoul(p, (char **)&p, 10);
         if (n == polls) {
             char path[64];
-            snprintf(path, sizeof path, "rdram_%u.bin", n);
+            snprintf(path, sizeof path, "game_%u.bin", n);
             FILE *f = fopen(path, "wb");
             if (f) {
-                port_dump_rdram(f);
+                port_dump_game(f);
                 fclose(f);
                 host_log("dumped %s\n", path);
             }
@@ -569,16 +569,16 @@ void host_controller_poll(void) {
     }
 }
 
-/* on a crash, RDRAM goes to rdram_crash.bin (PORT_DUMP set) for comparing
+/* on a crash, the game's memory goes to game_crash.bin (PORT_DUMP set) for comparing
    (POSIX signals; emscripten has none to catch) */
 #ifndef __EMSCRIPTEN__
 static void on_crash(int sig, siginfo_t *si, void *uc) {
     (void)uc;
     fprintf(stderr, "crash: signal %d at address %p\n", sig, si->si_addr);
     if (getenv("PORT_DUMP")) {
-        FILE *f = fopen("rdram_crash.bin", "wb");
+        FILE *f = fopen("game_crash.bin", "wb");
         if (f) {
-            port_dump_rdram(f);
+            port_dump_game(f);
             fclose(f);
         }
     }
@@ -660,7 +660,7 @@ static void usage(const char *argv0) {
             "                       have (the controllers' power-on, the EEPROM's writes, the\n"
             "                       pak thread's SI pacing, decompression); n64: as on the\n"
             "                       N64 (PORT_LOAD_WAITS=n64 too)\n"
-            "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes RDRAM\n"
+            "environment: PORT_AUTOSTART=1 taps Start/A; PORT_DUMP=N,... writes the game's memory\n"
             "at the Nth controller read (and on a crash); PORT_PACE=FILE logs the pacing\n"
             "per controller read; PORT_PERF=N logs where the host's time goes every N retraces; PORT_PACED=1 virtual time\n"
             "between retraces; PORT_ADAPT=1 lower resolution and no in-between pictures\n"

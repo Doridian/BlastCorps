@@ -359,8 +359,8 @@ static uint32_t frame_retraces(unsigned k) {
     return k == 0 ? log_reads[0].retraces : log_reads[k].retraces - log_reads[k - 1].retraces;
 }
 
-/* PORT_REPLAY_DUMP=N,...: RDRAM (big-endian, as m64p_tas's TAS_DUMP) to
-   rdram_N.bin as the read matching the log's Nth starts */
+/* PORT_REPLAY_DUMP=N,...: the game's memory (dump.c) to
+   game_N.bin as the read matching the log's Nth starts */
 static void dump(unsigned n) {
     static const char *spec = (const char *)1;
     if (spec == (const char *)1)
@@ -369,10 +369,10 @@ static void dump(unsigned n) {
         char *end;
         if (strtoul(p, &end, 10) == n) {
             char path[64];
-            snprintf(path, sizeof path, "rdram_%u.bin", n);
+            snprintf(path, sizeof path, "game_%u.bin", n);
             FILE *f = fopen(path, "wb");
             if (f) {
-                port_dump_rdram(f);
+                port_dump_game(f);
                 fclose(f);
             }
         }

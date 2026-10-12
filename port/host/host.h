@@ -19,8 +19,8 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
 long host_gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn, size_t *used);
 uint8_t *host_blast_decode(int t, const uint8_t *s, size_t n, const uint8_t *lut, size_t lut_len, size_t *outn);
 
-/* runtime.c: RDRAM's 4 MB to a file (none: P10's open question 9) */
-void port_dump_rdram(FILE *f);
+/* dump.c: the game's memory to a file (PORT_DUMP): the regions and the named variables */
+void port_dump_game(FILE *f);
 
 /* threads.c */
 int host_run_one(void);             /* run the best runnable thread; 0 if none */

@@ -127,6 +127,16 @@ enum PortLayout {
     PORT_LAYOUT_SCHED_UNK280,           /* Sched (game/sched.h): the level's retraces */
     PORT_LAYOUT_SCHED_FRAMECOUNT,       /* the retraces */
     PORT_LAYOUT_FRAME_SIZE,             /* Frame (game/frame.h): segment 2's buffer */
+    /* the bytes of the variables the host names that are arrays of game structures, or one (the
+       game dump's: host/dump.c) */
+    PORT_LAYOUT_BYTES_SCHED,            /* D_80315440 */
+    PORT_LAYOUT_BYTES_STATS,            /* D_8036EA70 */
+    PORT_LAYOUT_BYTES_VEHICLES,         /* D_80364460 */
+    PORT_LAYOUT_BYTES_BUILDINGS,        /* D_803F4030 */
+    PORT_LAYOUT_BYTES_TNT,              /* D_8039B070 */
+    PORT_LAYOUT_BYTES_BLOCKS,           /* D_8039C550 */
+    PORT_LAYOUT_BYTES_AMMOBOXES,        /* D_8039AF00 */
+    PORT_LAYOUT_BYTES_FRAMES,           /* D_803156F8 */
     PORT_LAYOUT_COUNT
 };
 /* the N64 side's number (port/src/layout.c); 0 for an id it doesn't know */
@@ -148,6 +158,16 @@ static inline uint32_t host_layout(enum PortLayout id) {
    are segment addresses (D_02000000...: src/segments.c's proxies) as that
    segmented address, tagged; any other word as it is */
 uintptr_t port_seg_unproxy(uintptr_t w);
+
+/* The game's fixed buffers (src/regions.c, port_regions.h): the framebuffers, the level pool, the
+   static data and the hand-over words, for the host's dump of the game's memory */
+typedef struct PortRegion {
+    const char *name;           /* the N64 address's name: D_80000400 */
+    void *p;
+    uint32_t size;
+} PortRegion;
+extern const PortRegion port_regions[];
+extern const unsigned port_nregions;
 
 /* ---- host services (port/host) ----------------------------------------- */
 

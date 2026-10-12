@@ -60,6 +60,14 @@ static const u32 layout[PORT_LAYOUT_COUNT] = {
     [PORT_LAYOUT_SCHED_UNK280] = OFF(Sched, unk280),
     [PORT_LAYOUT_SCHED_FRAMECOUNT] = OFF(Sched, frameCount),
     [PORT_LAYOUT_FRAME_SIZE] = sizeof(Frame),
+    [PORT_LAYOUT_BYTES_SCHED] = sizeof(D_80315440),
+    [PORT_LAYOUT_BYTES_STATS] = sizeof(D_8036EA70),
+    [PORT_LAYOUT_BYTES_VEHICLES] = sizeof(D_80364460),
+    [PORT_LAYOUT_BYTES_BUILDINGS] = 55 * sizeof(Building),      /* (D_803F4030[55], hd_code's .bss) */
+    [PORT_LAYOUT_BYTES_TNT] = TNT_CRATE_MAX * sizeof(TntCrate),
+    [PORT_LAYOUT_BYTES_BLOCKS] = BLOCK_MAX * sizeof(Block),
+    [PORT_LAYOUT_BYTES_AMMOBOXES] = AMMO_BOX_MAX * sizeof(AmmoBox),
+    [PORT_LAYOUT_BYTES_FRAMES] = 2 * sizeof(Frame),             /* (D_803156F8[2]) */
 };
 /* host_game_types.h's structures are the game's own, field for field */
 #define SAME(h, g, hf, gf) \
