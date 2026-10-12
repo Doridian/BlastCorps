@@ -19,6 +19,17 @@ typedef u32 uintptr_t;
 #define OS_MESG_INT(m) ((u32)(uintptr_t)(m))
 
 /*
+ * ASSET_INIT: the ROM's remakeable assets (images, vertices, geometry display
+ * lists) carry their initializers.  The N64 builds always do (the sha1 checks
+ * need them); the port does not: its variables are all-zero there and
+ * filled from the user's ROM at startup (the list is port/tools/rom_assets.txt).
+ * PORT_ASSET_INIT builds the port with the initializers anyway.
+ */
+#if !defined(TARGET_PC) || defined(PORT_ASSET_INIT)
+#define ASSET_INIT
+#endif
+
+/*
  * The game was built against an older gbi.h than the 2.0I one here.  Where
  * the two build different display-list words, the older form is redefined.
  */
