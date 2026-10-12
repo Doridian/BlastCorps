@@ -11,7 +11,7 @@
 #   cmake --build build/port-macos --target game_c libaudio_c port_n64 engine_c game_data fe_c host
 #   port/tools/macos_check.sh build/port-macos
 # (PORT_CHECK_LIBC is a list: zig's musl headers are two directories,
-# lib/libc/include/generic-musl and lib/libc/include/aarch64-linux-musl.)
+# lib/libc/include/aarch64-linux-musl, then generic-musl: that order, the arch's bits/ first.)
 # SDL2's and libepoxy's headers come from pkg-config: PKG_CONFIG_LIBDIR
 # naming a directory with an sdl2.pc and an epoxy.pc whose Cflags point at
 # their headers (any architecture's; only not /usr/include itself, which

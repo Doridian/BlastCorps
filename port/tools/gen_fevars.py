@@ -41,6 +41,15 @@ BLAST = os.path.join(ROOT, "blastcorps")
 VERSION = os.environ.get("PORT_VERSION", "us.v11")
 N64_NM = os.environ.get("PORT_N64_NM", "mips-linux-gnu-nm")
 NAME = re.compile(r"^_?[A-Za-z_]\w*$")
+# what the compiler makes for itself in an object's symbol table: Mach-O's
+# section labels (ltmp0) and constant pools (lCPI0_0); never a variable's name (its
+# string literals, l_.str, have a dot and are no name at all)
+COMPILER_LOCAL = re.compile(r"^(ltmp\d+|lCPI\d+_\d+)$")
+
+
+def is_macho(obj):
+    with open(obj, "rb") as f:
+        return f.read(4) in (b"\xcf\xfa\xed\xfe", b"\xce\xfa\xed\xfe", b"\xfe\xed\xfa\xcf", b"\xfe\xed\xfa\xce")
 
 
 def defined_data(nm, obj):
@@ -49,6 +58,7 @@ def defined_data(nm, obj):
     name"""
     res = subprocess.run([nm, "--defined-only", obj], capture_output=True, text=True, check=True).stdout
     out, bad = [], []
+    macho = is_macho(obj)
     for line in res.splitlines():
         p = line.split()
         if len(p) < 2 or p[-2] not in "dDbBrRvVsS":
@@ -57,11 +67,11 @@ def defined_data(nm, obj):
         if name.startswith(("__odr_asan", "__asan")) or not NAME.match(name):
             continue        # (the compiler's own: string literals, the sanitizers' tables)
         if t.islower():
-            if t in "dbs":
+            if t in "dbs" and not COMPILER_LOCAL.match(name):
                 bad.append(name)
             continue
-        if sys.platform == "darwin" and name.startswith("_"):
-            name = name[1:]     # (Mach-O's leading underscore)
+        if macho and name.startswith("_"):
+            name = name[1:]     # (Mach-O's leading underscore: of a C name, whatever the host)
         out.append((name, t in "DBVS"))
     if bad:
         sys.exit(f"gen_fevars.py: {obj} has variables of its own (static) the overlay can't put back: "
@@ -111,7 +121,7 @@ def main():
         # (a name asm2c.py puts inside another variable, `.set NAME, VAR +
         # OFF`, is that variable's, which is put back whole: not one of its
         # own, and not a C declaration's size)
-        inner = set(re.findall(r"\.set ([A-Za-z_]\w*),", open(s).read()))
+        inner = set(re.findall(r'\.set " PORT_ULP "([A-Za-z_]\w*),', open(s).read()))
         per_src.append((s, [(n, w) for n, w in defined_data(a.nm, o[0]) if n not in inner]))
 
     # an N64 variable's room, as port-arena has it (bepass/Arena.cpp): its

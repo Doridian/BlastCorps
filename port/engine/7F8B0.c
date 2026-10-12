@@ -19,7 +19,7 @@ extern u8 *D_803F7834;
 extern s16 D_803F7840;          /* the engine sound's last speed */
 extern SndState *D_803F7848;            /* the second one, while D_80370C1A/B */
 extern u8 D_803F784C[4];        /* [0] whether that one is wanted */
-extern s32 D_80364AB0_word __asm__("D_80364AB0");   /* set: restart the engine's pitch */
+extern s32 D_80364AB0_word __asm__(PORT_ULP "D_80364AB0");   /* set: restart the engine's pitch */
 extern u8 D_80370C1A;
 extern u8 D_80370C1B;
 

@@ -18,6 +18,14 @@
 #define strlen n64_strlen
 #define strchr n64_strchr
 
+/* What the object format puts before a C name where a name is spelled for
+   the assembler (an __asm__ label, which is taken literally, or module
+   asm): "" on ELF, "_" on Mach-O, as a string literal to join:
+   __asm__(PORT_ULP "name") */
+#define PORT_ULP_(x) #x
+#define PORT_ULP_S(x) PORT_ULP_(x)
+#define PORT_ULP PORT_ULP_S(__USER_LABEL_PREFIX__)
+
 /* port_f2i: a float to an integer where it may be out of range */
 #include "port_f2i.h"
 
