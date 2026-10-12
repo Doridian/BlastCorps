@@ -337,8 +337,12 @@ endif()
 endif()
 
 # the compiler's own headers (stddef.h, stdarg.h: the game's C includes no
-# libc's), clang's resource dir or gcc's include dir
-if(EMSCRIPTEN)
+# libc's), clang's resource dir or gcc's include dir, or where a toolchain
+# file says (zig cc's are in its lib/include: port/tools/cross-zig.cmake)
+set(PORT_CC_INCLUDE "" CACHE PATH "the C compiler's own include directory, where it doesn't say itself")
+if(PORT_CC_INCLUDE)
+    set(N64_CC_INCLUDE ${PORT_CC_INCLUDE})
+elseif(EMSCRIPTEN)
     execute_process(COMMAND ${PORT_N64_CC} -print-resource-dir OUTPUT_VARIABLE CLANG_RESOURCE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
     set(N64_CC_INCLUDE ${CLANG_RESOURCE_DIR}/include)
 elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
