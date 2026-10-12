@@ -2,8 +2,9 @@
 """The port's test suite (docs/PORT.md, "Testing the port").
 
     port/tools/test.py quick BUILD [BUILD...] [--against BUILD] [--long] [--update] [--gameplay]
+                             [--qemu ARCH] [--all]
     port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack] [--update] [--gameplay]
-                           [--timing free|movie|both]
+                           [--timing free|movie|both] [--qemu ARCH] [--frames N]
     port/tools/test.py recomp [--trials N]
     port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
                                 [--emsdk DIR] [--gameplay]
@@ -60,6 +61,18 @@ time by the port's level timer is reported.  The replay's gameplay digest must
 be the reference's (test_refs.json's "digest", "tas"; --update records it);
 with --gameplay a save that differs (it holds the levels' times) is only
 reported.
+
+A cross build runs under its emulator (qemu-user: port/tools/cross-*.cmake
+name it, CMake's CMAKE_CROSSCOMPILING_EMULATOR), or --qemu ARCH's
+(qemu-ARCH-static), with every timeout QEMU_SLOWER times as long.  quick
+runs only the four scenarios compared with the references there (attract,
+auto1, auto2, auto3: about 4 minutes each under qemu-ppc, all at once),
+--all every one the build can (no OpenGL without SDL); the pointer checks,
+which read the sources, are the native builds'.  tas --frames N plays the
+movie's first N frames only (the TAS's prefix, for an emulated build: the
+whole replay is ~50 times its 17 minutes there) and compares its gameplay
+digest with the reference's as far as it goes (build/digest-refs/us.v10/
+tas.digest, which tas --save-digests on a native build puts there).
 
 recomp: the translated engine's differential test (make -C tools/recomp
 test, for blastcorps/'s version).
@@ -144,6 +157,14 @@ CMAKE = ["-G", "Ninja", "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang+
          "-DCMAKE_ASM_COMPILER=clang"]
 
 SHOT_EVERY = 250
+# the timeouts: a quick scenario's (s) natively, by its frames; the TAS's;
+# an emulated build's (qemu-user: about 50 times slower, 60 to be safe) and
+# a sanitized one's are as many times longer
+def quick_timeout(frames):
+    return 120 + frames * 0.05
+TAS_TIMEOUT = 3600
+QEMU_SLOWER = 60
+SANITIZE_SLOWER = 4
 # name: (PORT_AUTOSTART, frames, extra args, extra env, base scenario, what must equal base's)
 #   base None: compared with the references; otherwise with the base run
 #   of the same build ("all": every hash, "game": the save and the sound)
@@ -302,6 +323,15 @@ class Build:
                 self.kind += "-m32"
         if cache.get("PORT_SCATTER"):       # (the scattered layout: seed, g with the guard)
             self.variant += "-s" + cache["PORT_SCATTER"] + ("g" if on("PORT_SCATTER_GUARD") else "")
+        # a cross build's emulator (qemu-user, port/tools/cross-*.cmake): it
+        # runs every run of it (--qemu ARCH: another, or one for a build
+        # that names none)
+        emu = cache.get("CMAKE_CROSSCOMPILING_EMULATOR", "")
+        self.emulator = [] if self.wasm else [x for x in emu.split(";") if x]
+        self.native_kind = self.kind
+        if self.emulator:
+            self.kind += "-" + re.sub(r"^qemu-|-static$", "", os.path.basename(self.emulator[0]))
+        self.ucontext = cache.get("PORT_UCONTEXT_FOUND", "") == "1"
         self.node = None
         if self.wasm:       # (the movable native-endian 32-bit build, for wasm32)
             self.variant = "wasm"
@@ -332,10 +362,21 @@ class Build:
             shutil.copy2(os.path.splitext(self.exe)[0] + ".wasm", d)
         return os.path.join(d, os.path.basename(self.exe))
 
+    def qemu(self, arch):
+        """run under qemu-ARCH-static (test.py --qemu ARCH)"""
+        self.emulator = [f"qemu-{arch}-static"]
+        self.kind = f"{self.native_kind}-{arch}"
+
+    def slower(self):
+        """how many times longer than natively a run takes (the timeouts)"""
+        return (QEMU_SLOWER if self.emulator else 1) * (SANITIZE_SLOWER if self.sanitize else 1)
+
     def command(self, exe=None):
-        return ([self.node] if self.wasm else []) + [exe or self.exe]
+        return ([self.node] if self.wasm else self.emulator) + [exe or self.exe]
 
     def runnable(self):
+        if self.emulator and not shutil.which(self.emulator[0]):
+            return False
         return os.access(self.exe, os.X_OK) if not self.wasm else (
             os.path.exists(self.exe) and bool(self.node) and os.access(self.node, os.X_OK))
 
@@ -367,8 +408,13 @@ def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=
         cmd += ["--renderer", "sw"]
     cmd += list(args) + [rom or build.rom()]
     t = time.time()
+    limit = quick_timeout(frames) * build.slower()
     with open(os.path.join(outdir, "log.txt"), "w") as log:
-        rc = subprocess.call(cmd, cwd=outdir, env=e, stdout=log, stderr=subprocess.STDOUT)
+        try:
+            rc = subprocess.call(cmd, cwd=outdir, env=e, stdout=log, stderr=subprocess.STDOUT, timeout=limit)
+        except subprocess.TimeoutExpired:
+            log.write(f"\ntest.py: timed out after {limit:.0f}s\n")
+            rc = "timeout"
     return rc, time.time() - t
 
 
@@ -632,7 +678,10 @@ def quick_run(build, jobs, scenarios):
         for name, rc, t in ex.map(one, sorted(scenarios, key=lambda n: -SCENARIOS[n][1])):
             d = os.path.join(out, name)
             times[name] = t
-            if isinstance(rc, str):         # (no pack: skipped)
+            if rc == "timeout":
+                res[name] = None
+                res[name + ".error"] = f"timed out after {t:.0f}s"
+            elif isinstance(rc, str):       # (no pack: skipped)
                 res[name] = None
                 res[name + ".skip"] = rc
             elif rc != 0:
@@ -648,12 +697,17 @@ def quick_run(build, jobs, scenarios):
     return res, times
 
 
-def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=False, long=False):
+# the scenarios an emulated build runs (quick --all: all it can)
+EMULATED = ("attract", "auto1", "auto2", "auto3")
+
+
+def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=False, long=False, every=False):
     """one build's quick tier; returns the number of failures (None: skipped).
     gameplay: the gameplay digest decides, the references' hashes are only
     reported (for a change meant to keep the game and change its timing)"""
     emit(f"== quick: {build.name} ({build.version}, {build.kind}"
-         f"{', no OpenGL' if not build.gl else ''})")
+         f"{', no OpenGL' if not build.gl else ''}"
+         f"{', under ' + ' '.join(build.emulator) if build.emulator else ''})")
     if not os.path.exists(build.rom()):
         say("SKIP", build.name, f"no {os.path.basename(build.rom())} in the repo's root")
         return None
@@ -661,8 +715,12 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
         say("FAIL", build.name, "not built" + (" (or no node)" if build.wasm else ""))
         return 1
     names = [n for n in scenarios_for(build.version, long) if build.gl or "gl" not in n.split(".")]
-    if build.threads == "pthread":      # the default is the base run then
+    if build.emulator and not every:   # (the references' four)
+        names = [n for n in names if n in EMULATED]
+    elif build.threads == "pthread":    # the default is the base run then
         names.remove("auto3.pthread")
+        if not build.ucontext:          # (musl has none)
+            names.remove("auto3.ucontext")
     elif build.threads == "ucontext":
         names.remove("auto3.ucontext")
     else:                               # (asyncify: the one backend there)
@@ -771,7 +829,10 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
     fails += no_translation(build)
     if build.rom_data:
         fails += rom_scan(build)
-    fails += pointer_checks(build)
+    if build.emulator:
+        say("SKIP", f"{build.name} pointer checks", "the sources' (the native plain builds run them)")
+    else:
+        fails += pointer_checks(build)
     if update:
         refs.setdefault("quick", {})[build.version] = vref
     if update or known is not None:
@@ -884,7 +945,7 @@ def tas_dir(build, pack, timing):
     return os.path.join(build.path, "test", ("tas" if not pack else "tas-pack") + ("-free" if timing == "free" else ""))
 
 
-def tas_one(build, polls, again=False, pack=None, timing="free"):
+def tas_one(build, polls, again=False, pack=None, timing="free", frames=0):
     out = tas_dir(build, pack, timing)
     if again:           # the last run's results, checked again
         try:
@@ -900,23 +961,33 @@ def tas_one(build, polls, again=False, pack=None, timing="free"):
     e.update(build.sanitizer_env())
     e.update(SDL_VIDEODRIVER="offscreen", SDL_AUDIODRIVER="dummy", PORT_DIGEST=DIGEST, PORT_REPLAY_TIMING=timing)
     t = time.time()
+    limit = TAS_TIMEOUT * build.slower() * (min(1, frames / TAS_FRAMES) if frames else 1)
     with open(os.path.join(out, "log.txt"), "w") as log:
-        rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep",
-                                                    pack or build.rom()],
-                             cwd=out, env=e, stdout=log, stderr=subprocess.STDOUT)
+        try:
+            rc = subprocess.call(build.command(exe) + ["--headless", "--replay", polls, "--save", "save.eep"]
+                                 + (["--frames", str(frames)] if frames else []) + [pack or build.rom()],
+                                 cwd=out, env=e, stdout=log, stderr=subprocess.STDOUT, timeout=max(600, limit))
+        except subprocess.TimeoutExpired:
+            log.write(f"\ntest.py: timed out after {max(600, limit):.0f}s\n")
+            rc = 124
     t = time.time() - t
     with open(os.path.join(out, "exit.txt"), "w") as f:
         f.write(f"{rc} {t:.0f}\n")
     return out, rc, t
 
 
-def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gameplay=False, timing="free"):
+# the movie's frames, about (its level timer's; for a prefix's timeout)
+TAS_FRAMES = 150000
+
+
+def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gameplay=False, timing="free",
+        frames=0):
     """timing: "free", the port's own frame timing (no lag frames: the
     default play, docs/PORT.md "Lag frames"), "movie", the movie's retraces
     for every frame (the movie's lag), or "both" """
     if timing == "both":
-        a = tas(builds, refs, polls, jobs, again, pack, update, gameplay, "free")
-        b = tas(builds, refs, polls, jobs, again, pack, update, gameplay, "movie")
+        a = tas(builds, refs, polls, jobs, again, pack, update, gameplay, "free", frames)
+        b = tas(builds, refs, polls, jobs, again, pack, update, gameplay, "movie", frames)
         return None if a is None and b is None else (a or 0) + (b or 0)
     polls = os.path.abspath(polls)
     if not again and not os.path.exists(polls):
@@ -940,17 +1011,49 @@ def tas(builds, refs, polls, jobs, again=False, pack=False, update=False, gamepl
         else:
             todo.append(b)
     print(f"== tas, {timing} timing{' from the pack' if pack else ''}"
+          f"{f', its first {frames} frames' if frames else ''}"
           f"{' (the last runs, checked again)' if again else ''}: "
-          f"{', '.join(b.name for b in todo)} ({min(jobs, len(todo))} at a time, "
-          f"about 10-20 minutes each)", flush=True)
+          f"{', '.join(b.name + (' under ' + ' '.join(b.emulator) if b.emulator else '') for b in todo)} "
+          f"({min(jobs, len(todo))} at a time, about 10-20 minutes each natively"
+          f"{f', {QEMU_SLOWER} times that under qemu' if any(b.emulator for b in todo) else ''})", flush=True)
     with cf.ThreadPoolExecutor(max(1, jobs)) as ex:
-        futs = {ex.submit(tas_one, b, polls, again, pack_path, timing): b for b in todo}
+        futs = {ex.submit(tas_one, b, polls, again, pack_path, timing, frames): b for b in todo}
         for fut in cf.as_completed(futs):
             b = futs[fut]
             out, rc, t = fut.result()
             ran += 1
-            fails += tas_check(b, refs, out, rc, t, update, gameplay, timing)
+            if frames:
+                fails += tas_prefix_check(b, out, rc, t, frames, timing)
+            else:
+                fails += tas_check(b, refs, out, rc, t, update, gameplay, timing)
     return fails if ran else None
+
+
+def tas_prefix_check(b, out, rc, t, frames, timing):
+    """a replay of the movie's first frames: it ran to its end, and its
+    gameplay digest is the reference's as far as it goes (digest_cmp.py
+    compares by the game's frames and stops where the shorter ends)"""
+    label = f"{b.name} tas, {timing} timing, the first {frames} frames ({t / 60:.1f} min)"
+    log = open(os.path.join(out, "log.txt"), errors="replace").read()
+    if rc != 0:
+        say("FAIL", label, f"exit {rc} ({' | '.join(log.splitlines()[-2:])})")
+        return 1
+    ref = digest_ref_path(b.version, "tas")
+    got = os.path.join(out, DIGEST)
+    if not os.path.exists(ref):
+        say("SKIP", label, f"no {os.path.relpath(ref, ROOT)} to compare with (tas --save-digests on a "
+            "native build puts it there)")
+        return 0
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", "digest_cmp.py"), ref, got, "--quiet"],
+                       capture_output=True, text=True)
+    lines = [l for l in r.stdout.splitlines() if l.startswith("DIFFERS")]
+    levels = len(LEVEL_END.findall(log))
+    if r.returncode == 0:
+        say("PASS", label, f"the gameplay as the reference's as far as it goes ({levels} levels ended)")
+        return 0
+    say("FAIL", label, "the gameplay differs from the reference's: "
+        + (lines[0][9:] if lines else (r.stdout.strip().splitlines() or ["?"])[-1]))
+    return 1
 
 
 LEVEL_END = re.compile(r"replay: level \d+ ends at the log's read -?\d+: (\d+) frames, (\d+) retraces")
@@ -1230,6 +1333,13 @@ def detail(builds):
             print("   " + (f or k).ljust(7) + " ".join(c.ljust(6) for c in row))
 
 
+def build_for(path, qemu=None):
+    b = Build(path)
+    if qemu:
+        b.qemu(qemu)
+    return b
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0],
                                  formatter_class=argparse.RawDescriptionHelpFormatter, epilog=__doc__)
@@ -1245,6 +1355,8 @@ def main():
     q.add_argument("--long", action="store_true",
                    help="run attract.long whatever the version (with --against: compared with the other build)")
     q.add_argument("-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
+    q.add_argument("--all", action="store_true",
+                   help="an emulated build: every scenario it can, not only the references' four")
     t = sub.add_parser("tas")
     t.add_argument("builds", nargs="+")
     t.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
@@ -1257,6 +1369,8 @@ def main():
                    help="play from the resource pack made from the ROM (port/make_pack.py), not the ROM")
     t.add_argument("--update", action="store_true",
                    help="record the replay's gameplay digest as the reference (build/digest-refs, test_refs.json)")
+    t.add_argument("--frames", type=int, default=0,
+                   help="play only the movie's first N frames, and compare the gameplay digest as far as it goes")
     t.add_argument("--gameplay", action="store_true",
                    help="the gameplay digest decides: a save that differs (the times) is only reported")
     r = sub.add_parser("recomp")
@@ -1277,6 +1391,9 @@ def main():
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
     v.add_argument("--gameplay", action="store_true",
                    help="the gameplay digest decides; the references' hashes are only reported")
+    for p in (q, t):
+        p.add_argument("--qemu", metavar="ARCH",
+                       help="run the builds under qemu-ARCH-static (a cross build names its own emulator)")
     for p in (q, t, v):
         p.add_argument("--save-digests", action="store_true",
                        help="copy each run's gameplay digest that hashes as the reference into build/digest-refs")
@@ -1287,13 +1404,13 @@ def main():
     t0 = time.time()
     if args.cmd == "quick":
         against = Build(args.against) if args.against else None
-        rs = [quick(Build(b), refs, args.jobs, against, args.update, args.known, args.gameplay, args.long)
-              for b in args.builds]
+        rs = [quick(build_for(b, args.qemu), refs, args.jobs, against, args.update, args.known, args.gameplay,
+                    args.long, args.all) for b in args.builds]
         fails = None if all(x is None for x in rs) else sum(x or 0 for x in rs)
     elif args.cmd == "tas":
-        builds = [Build(b) for b in args.builds]
+        builds = [build_for(b, args.qemu) for b in args.builds]
         fails = tas(builds, refs, args.polls, args.jobs or len(builds), args.again, args.pack, args.update,
-                    args.gameplay, args.timing)
+                    args.gameplay, args.timing, args.frames)
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return
