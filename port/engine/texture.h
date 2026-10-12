@@ -47,16 +47,10 @@ void host_tex_decoded(u32 id, void *dst, u32 size);
 void host_tex_queued(u32 slot, u32 id);
 void host_tex_decoded_slot(u32 slot, void *dst, u32 size);
 
-/* In native-endian memory (docs/PORT.md, "Native-endian memory") texture
-   data stays in the N64's byte order, which is what the RDP reads: the
-   packed stream's codes, the palettes and the texels written as halves or
-   words are big-endian there (tools/recomp/native_sites.txt's `be`). */
-#ifdef PORT_NATIVE_ENDIAN
-#define TEX_BE16(x) ((u16)__builtin_bswap16((u16)(x)))
-#define TEX_BE32(x) ((u32)__builtin_bswap32((u32)(x)))
-#else
-#define TEX_BE16(x) ((u16)(x))
-#define TEX_BE32(x) ((u32)(x))
-#endif
+/* Texture data stays in the N64's byte order, which is what the RDP reads
+   (docs/PORT.md, "Native-endian memory"): the packed stream's codes, the
+   palettes and the texels written as halves or words are big-endian
+   (tools/recomp/native_sites.txt's `be`), read and written a byte at a
+   time (engine.h's BE16U, be_put16, be_put32), whatever the host's order. */
 
 #endif

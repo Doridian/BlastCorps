@@ -220,7 +220,7 @@ void func_802BC5E0(void) {
                 if (D_80364A90 == 0x40) {
                     func_80275390(D_80364A90);
                 } else {
-                    *((u8 *)&D_803649E8 + NE_X3(0)) = 1;
+                    D_803649E8 = (D_803649E8 & 0x00FFFFFF) | 0x01000000;   /* (its high byte) */
                     D_80364A98 = 8;
                 }
             }
@@ -1715,7 +1715,7 @@ static void fx_fire(u8 *fx, s32 damage, Building *b) {
     if (damage >= t) {
         func_802BFBF4(fx, b);
         func_802C04F0(fx);
-        FX_B(fx, FX_DONE) = 1;
+        FX_SET_B(fx, FX_DONE, 1);
     }
 }
 
@@ -1740,10 +1740,10 @@ void func_802BF898(s32 group, s32 damage, Building *b) {
 
 /* the chance tables' records (D_80306344, D_80306350, D_803063D4): kept
    big-endian, 0xC bytes, to a chance over 100 */
-#define CHANCE(t) NE_BE16(*(u16 *)(t))
-#define CHANCE_KIND(t) NE_BE16(*(u16 *)((t) + 2))
-#define CHANCE_LO(t) NE_BE32(*(u32 *)((t) + 4))
-#define CHANCE_HI(t) NE_BE32(*(u32 *)((t) + 8))
+#define CHANCE(t) BE16U(t)
+#define CHANCE_KIND(t) BE16U((t) + 2)
+#define CHANCE_LO(t) BE32U((t) + 4)
+#define CHANCE_HI(t) BE32U((t) + 8)
 
 /* the record a roll of 0..100 picks from chance table t: the first whose
    chance is over the roll, the last (chance 100) for anything left.  (The
@@ -1804,15 +1804,15 @@ void func_802BF978(u8 *model, s32 group, s32 damage, Building *b) {
         FX_W(fx, FX_UNK14 + 8) = 0;
         FX_W(fx, FX_UNK28) = FX_UNK28_INIT;
         if (k != 0) {
-            FX_H(fx, FX_DELAY) = FX_DEBRIS_DELAY;
+            FX_SET_H(fx, FX_DELAY, FX_DEBRIS_DELAY);
         } else {
-            FX_H(fx, FX_DELAY) = 0;
+            FX_SET_H(fx, FX_DELAY, 0);
         }
-        FX_B(fx, FX_RADIUS) = 0;
-        FX_B(fx, FX_AMOUNT) = 0;
-        FX_B(fx, FX_DONE) = 0;
-        FX_B(fx, FX_UNK35) = 0;
-        FX_B(fx, FX_KIND) = CHANCE_KIND(t);
+        FX_SET_B(fx, FX_RADIUS, 0);
+        FX_SET_B(fx, FX_AMOUNT, 0);
+        FX_SET_B(fx, FX_DONE, 0);
+        FX_SET_B(fx, FX_UNK35, 0);
+        FX_SET_B(fx, FX_KIND, CHANCE_KIND(t));
         func_802C04F0(fx);
     }
     func_802BFBF4(fx, b);
@@ -1888,14 +1888,14 @@ void func_802BFDAC(Building *b, s32 group) {
     FX_W(fx, FX_UNK14) = 0;
     FX_W(fx, FX_UNK14 + 4) = 0;
     FX_W(fx, FX_UNK14 + 8) = 0;
-    FX_H(fx, FX_DELAY) = 0;
-    FX_B(fx, FX_RADIUS) = 0;
-    FX_B(fx, FX_AMOUNT) = 0;
+    FX_SET_H(fx, FX_DELAY, 0);
+    FX_SET_B(fx, FX_RADIUS, 0);
+    FX_SET_B(fx, FX_AMOUNT, 0);
     FX_W(fx, FX_SPEED) = (s32)((u32)M_DEBRIS(model) * (u32)roll);
     FX_W(fx, FX_UNK28) = FX_UNK28_INIT;
-    FX_B(fx, FX_DONE) = 0;
-    FX_B(fx, FX_UNK35) = 0;
-    FX_B(fx, FX_KIND) = CHANCE_KIND(t);
+    FX_SET_B(fx, FX_DONE, 0);
+    FX_SET_B(fx, FX_UNK35, 0);
+    FX_SET_B(fx, FX_KIND, CHANCE_KIND(t));
     func_802C04F0(fx);
 }
 
@@ -2125,7 +2125,7 @@ void func_802C049C(void) {
     s32 i;
 
     for (i = 0; i < NFX; i++) {
-        FX_B(FX_RECORDS[i], FX_DONE) = 1;
+        FX_SET_B(FX_RECORDS[i], FX_DONE, 1);
     }
 }
 
@@ -2157,7 +2157,7 @@ void func_802C0574(void) {
             continue;
         t = FX_H(fx, FX_DELAY);
         if (t != 0) {
-            FX_H(fx, FX_DELAY) = t - 1;
+            FX_SET_H(fx, FX_DELAY, t - 1);
             continue;
         }
         kinds = D_80306270[FX_B(fx, FX_KIND)];
@@ -2187,7 +2187,7 @@ void func_802C0574(void) {
                 }
             }
         }
-        FX_B(fx, FX_DONE) = 1;
+        FX_SET_B(fx, FX_DONE, 1);
         t = FX_H(fx, FX_RADIUS);
         if (t != 0) {
             func_802C18D4(t, FX_W(fx, FX_X), FX_W(fx, FX_Y), FX_W(fx, FX_Z), FX_B(fx, FX_AMOUNT) << 4);

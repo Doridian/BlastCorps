@@ -1079,7 +1079,7 @@ an `s32`.
 
 **The C** needed three changes of its own: `func_80200714` (hd_front_end
 196F0.c) tints big-endian texels, through `IMG_RD`/`IMG_WR` under
-`TARGET_PC && PORT_NATIVE_ENDIAN`; the textures the C declares as `u16` or
+`TARGET_PC` (a byte at a time: either byte order); the textures the C declares as `u16` or
 `Vtx` arrays (hd_code's six and hd_front_end's five, before `overlay.c`
 keeps the front end's `.data` for its reloads) are put back into the
 N64's order at boot, and
@@ -5860,9 +5860,9 @@ Guarded with `#ifdef TARGET_PC`; the N64 build still matches.
   screenshots changed (the references were updated), the gameplay digests
   didn't.
 - `hd_front_end/196F0.c`: `func_80200714`'s texel reads and writes go
-  through `IMG_RD`/`IMG_WR`, byte-swapping only in the native-endian build
-  (`TARGET_PC && PORT_NATIVE_ENDIAN`; plain accesses otherwise, so IDO's
-  output is unchanged).
+  through `IMG_RD`/`IMG_WR`, a byte at a time in the port (`TARGET_PC`,
+  either byte order; plain accesses otherwise, so IDO's output is
+  unchanged).
 - `hd_code/90390.c`: `ll.c`'s `__ll_*` aren't built (clang does 64-bit
   arithmetic itself).
 - The SDK's graphics utilities, sines and pak CRC aren't built at all:

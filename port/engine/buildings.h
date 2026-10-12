@@ -110,30 +110,28 @@ typedef struct AnimTex {
 /* the level's goal building: drawn and hit only on terms (func_802BD8C8) */
 #define MODEL_GOAL 0x38
 
-/* Native-endian memory (docs/PORT.md): where the original reaches a field
-   at another width than its type's (tools/recomp/native_sites.txt), a byte
-   of a word (x3) or a half of one (x2) is at the address ^ 3 or ^ 2, and a
-   table kept big-endian is swapped.  The identity in big-endian memory. */
-#ifdef PORT_NATIVE_ENDIAN
-#define NE_X3(off) ((off) ^ 3)
-#define NE_X2(off) ((off) ^ 2)
-#define NE_BE16(v) ((u16)__builtin_bswap16((u16)(v)))
-#define NE_BE32(v) ((u32)__builtin_bswap32((u32)(v)))
-#else
-#define NE_X3(off) (off)
-#define NE_X2(off) (off)
-#define NE_BE16(v) ((u16)(v))
-#define NE_BE32(v) ((u32)(v))
-#endif
-
 /* The effect records (debris, sparks): 0x38 bytes, a model's (sections
    0x30 and 0x34), D_803F3968[30] and D_803F3FF8 (the one being made).
    Fourteen words, which func_802C04F0 copies as such, and whose halves
    (0x2C, 0x2E) and bytes (0x2E's high one, 0x30-0x37) are read and
-   written as the N64 has them. */
+   written as the N64 has them: as the parts of the word that holds them,
+   by value (the high byte or half first, as on the N64), which is the
+   same in either byte order.  (Where memory is big-endian, as the N64's,
+   a part is where its address says; in native-endian memory on a
+   little-endian host the word's bytes are the other way round.) */
 #define FX_W(d, off) (*(s32 *)((u8 *)(d) + (off)))
-#define FX_H(d, off) (*(u16 *)((u8 *)(d) + NE_X2(off)))
-#define FX_B(d, off) (*(u8 *)((u8 *)(d) + NE_X3(off)))
+#define FX_WORD(d, off) (*(u32 *)((u8 *)(d) + ((off) & ~3)))
+#define FX_SHIFT_B(off) (24 - 8 * ((off) & 3))         /* a byte's place in its word */
+#define FX_SHIFT_H(off) (16 - 8 * ((off) & 2))         /* a half's */
+#define FX_B(d, off) ((u8)(FX_WORD(d, off) >> FX_SHIFT_B(off)))
+#define FX_H(d, off) ((u16)(FX_WORD(d, off) >> FX_SHIFT_H(off)))
+static inline void fx_put(void *d, s32 off, s32 shift, u32 mask, u32 v) {
+    u32 *w = (u32 *)((u8 *)d + (off & ~3));
+
+    *w = (*w & ~(mask << shift)) | (v & mask) << shift;
+}
+#define FX_SET_B(d, off, v) fx_put((d), (off), FX_SHIFT_B(off), 0xFF, (v))
+#define FX_SET_H(d, off, v) fx_put((d), (off), FX_SHIFT_H(off), 0xFFFF, (v))
 enum {
     FX_X = 0x00, FX_Y = 0x04, FX_Z = 0x08,     /* W: where (16.16) */
     FX_SPEED = 0x0C,            /* W: func_802A6274's second argument */
