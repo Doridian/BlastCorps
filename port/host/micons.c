@@ -117,11 +117,7 @@ static uintptr_t seg_word(uint32_t off) {
 /* the word for the color or z image at a (gfx.h's host address): narrow,
    its physical address, through segment 0 (0); wide, the pointer */
 static uintptr_t img_word(GfxAddr a) {
-#ifdef PORT_PLAIN
     return a;
-#else
-    return gfx_ptr_words ? a : port_n64((const void *)a) & 0x00FFFFFFu;
-#endif
 }
 /* the bytes of n bytes of the ROM's 8-byte commands, as this build's */
 static uint32_t cmd_bytes(uint32_t n) { return gfx_wide ? n / 8 * gfx_cmd : n; }

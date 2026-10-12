@@ -108,8 +108,8 @@ static void f_run(HostFiber *f) {
         pthread_attr_t a;
         pthread_attr_init(&a);
         if (f->stack) {
-            /* macOS takes whole pages only (the arena's stacks are at its
-               offset into a page): the pages inside the stack, where
+            /* macOS takes whole pages only (were a stack not page-aligned):
+               the pages inside the stack, where
                fiber_enter still finds its frame (FIBER_TOP_GAP below the
                top) */
             uintptr_t pg = (uintptr_t)sysconf(_SC_PAGESIZE);

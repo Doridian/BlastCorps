@@ -47,9 +47,6 @@ extern const unsigned int hdtext_builtin_ttf_len;
 /* font.c's glyph cache: 0x50 slots of a 32x32 I4 texture, and the texture
    table index in each (0: free) */
 extern char D_8039CAF0[], D_803653B0[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_803653B0 PORT_VAR(D_803653B0)
-#endif
 #define SLOTS 0x50
 #define SLOT_BYTES 0x200
 

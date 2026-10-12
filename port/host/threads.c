@@ -5,10 +5,8 @@
  * priority; equal priorities are FIFO.  The main loop (main.c) runs
  * whenever none is runnable, and stands in for the interrupts.
  *
- * Each thread has a host stack for the native C (a fiber stack inside the
- * KSEG0 window, see port.h); in the check build also its N64 stack, the one
- * the game passed to osCreateThread, which only the translated code uses
- * (through ctx->sp, host_thread_n64_sp).  Each has its own recomp_context.
+ * Each thread has a host stack (runtime.c's host_thread_stack); the one
+ * the game passed to osCreateThread isn't used.
  *
  * The game's work takes no time: the clock moves only in the loop, from
  * one retrace, timer or event to the next (docs/PORT.md, "Timing").
@@ -32,21 +30,13 @@ typedef struct {
     void (*entry)(void *);
     void *arg;
     HostFiber *fiber;
-    recomp_context ctx;
     int started;
-    uint32_t locals_sp;         /* its port_locals_sp while it doesn't run (PORT_MOVABLE) */
     uint32_t spin_irqs;         /* T_SPIN: host_irqs when it began to wait */
 } HThread;
 
 static HThread threads[PORT_MAX_THREADS];
 static HThread *cur;
 static uint64_t seq_counter;
-
-recomp_context *port_ctx(void) {
-    if (!cur)
-        host_fatal("translated code called outside a thread");
-    return &cur->ctx;
-}
 
 static HThread *find(uintptr_t key) {
     if (key == 0)
@@ -59,7 +49,7 @@ static HThread *find(uintptr_t key) {
 
 static void fiber_main(void *p) {
     HThread *t = p;
-    PORT_FN(void (*)(void *), t->entry)(t->arg);
+    t->entry(t->arg);
     /* returning from a thread's entry: it just stops */
     t->state = T_DEAD;
     fiber_exit(t->fiber);
@@ -108,39 +98,14 @@ void host_thread_create(uintptr_t key, void (*entry)(void *), void *arg, int pri
     uint32_t stack_size;
     void *stack = host_thread_stack(idx, &stack_size);
     t->fiber = fiber_create(fiber_main, t, stack, stack_size);
-#ifdef PORT_MOVABLE
-    t->locals_sp = 0x80000000u | (PORT_ARENA_LOCALS + (uint32_t)(idx + 1) * PORT_LOCALS_SIZE);
-#endif
     if (host_verbose)
         host_log("thread %08lX created, pri %d, entry %p\n", (unsigned long)key, pri, (void *)entry);
 }
 
-#ifdef PORT_ENGINE_CHECK
-void host_thread_n64_sp(uintptr_t key, uint32_t sp) {
-    HThread *t = find(key);
-    if (t)
-        t->ctx.sp = (uint64_t)(int64_t)(int32_t)sp;
-}
-#endif
-
 static void to_loop(void) { fiber_yield(cur->fiber); }
 
-/* While the engine's check runs a function twice (PORT_ENGINE_CHECK,
-   port/host/engine.c), the C it calls (check_repeatable.txt) must neither
-   switch threads nor block: everything is put back after the first run. */
-#ifdef PORT_ENGINE_CHECK
-int engine_checking(void);
-#define CHECKING() engine_checking()
-#else
-#define CHECKING() 0
-#endif
-
-/* whether the time stands still: the check build's C under a check (a PI
-   DMA then completes at once, port/src/ultra.c) */
-int host_time_stopped(void) { return CHECKING(); }
-
 void host_preempt(void) {
-    if (!cur || CHECKING())
+    if (!cur)
         return;
     cur->recv_key = NULL;       /* osRecvMesg's end: it has its message */
     for (int i = 0; i < PORT_MAX_THREADS; i++)
@@ -216,9 +181,6 @@ void *host_thread_current(void) {
 void host_block(const void *key) {
     if (!cur)
         host_fatal("blocking receive outside a thread (key %p)", key);
-    if (CHECKING())
-        host_fatal("a blocking receive in the C a checked function calls (key %p): "
-                   "it is no check_repeatable.txt function", key);
     cur->state = T_WAITING;
     cur->wait_key = key;
     to_loop();
@@ -233,7 +195,7 @@ void host_wake(const void *key) {
 }
 
 void host_yield(void) {
-    if (!cur || CHECKING())
+    if (!cur)
         return;
     cur->seq = seq_counter++;
     to_loop();
@@ -247,7 +209,7 @@ void host_yield(void) {
 static uint32_t host_irqs;
 
 void port_spin_wait(void) {
-    if (!cur || CHECKING())
+    if (!cur)
         return;
     cur->state = T_SPIN;
     cur->spin_irqs = host_irqs;
@@ -298,17 +260,9 @@ int host_run_one(void) {
     if (host_verbose > 3)
         host_log("run %08lX pri %d at %.3f\n", (unsigned long)best->key, best->pri, host_now_ns() / 1e6);
     cur = best;
-#ifdef PORT_MOVABLE
-    port_locals_sp = best->locals_sp;
-    port_locals_end = 0x80000000u | (PORT_ARENA_LOCALS + (uint32_t)(best - threads) * PORT_LOCALS_SIZE);
-#endif
     host_perf_push(PERF_GAME);
     fiber_run(best->fiber);
     host_perf_pop();
-#ifdef PORT_MOVABLE
-    best->locals_sp = port_locals_sp;
-    port_locals_sp = port_locals_end = 0;
-#endif
     cur = NULL;
     return 1;
 }

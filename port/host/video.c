@@ -348,10 +348,6 @@ int host_quit_requested(void) { return quit || host_replay_done(); }
 /* the scheduler's retrace count and the mode, where the version has them */
 #include "sched_vars.h"
 extern char D_80364A90[], D_802E8BDC[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_802E8BDC PORT_VAR(D_802E8BDC)
-#define D_80364A90 PORT_VAR(D_80364A90)
-#endif
 
 /* The scheduler (2C560.c's __scHandleRDP) swaps as soon as a frame is
    drawn in the modes of this mask; in every other mode it holds a frame
@@ -472,26 +468,6 @@ int host_window_to_n64(float wx, float wy, float *x, float *y) {
 extern char D_8036BB18[], D_8036BB1C[], D_802154B2[], D_802154B4[], D_802154BC[], D_802154BE[],
     D_80215924[], D_802082FC[], D_80208314[], D_80208350[], D_80215944[], D_80215948[], D_8021594C[],
     D_80215950[], D_80215440[], D_80215444[], D_80215448[], D_8021544C[];
-#ifdef PORT_MOVABLE
-#define D_8036BB18 PORT_VAR(D_8036BB18)
-#define D_8036BB1C PORT_VAR(D_8036BB1C)
-#define D_802154B2 PORT_VAR(D_802154B2)
-#define D_802154B4 PORT_VAR(D_802154B4)
-#define D_802154BC PORT_VAR(D_802154BC)
-#define D_802154BE PORT_VAR(D_802154BE)
-#define D_80215924 PORT_VAR(D_80215924)
-#define D_802082FC PORT_VAR(D_802082FC)
-#define D_80208314 PORT_VAR(D_80208314)
-#define D_80208350 PORT_VAR(D_80208350)
-#define D_80215944 PORT_VAR(D_80215944)
-#define D_80215948 PORT_VAR(D_80215948)
-#define D_8021594C PORT_VAR(D_8021594C)
-#define D_80215950 PORT_VAR(D_80215950)
-#define D_80215440 PORT_VAR(D_80215440)
-#define D_80215444 PORT_VAR(D_80215444)
-#define D_80215448 PORT_VAR(D_80215448)
-#define D_8021544C PORT_VAR(D_8021544C)
-#endif
 
 enum { WHEEL_N = 33, WHEEL_STEP = 1986 };
 

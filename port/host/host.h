@@ -6,10 +6,10 @@
 #include <stdio.h>
 
 #include "port.h"
-#include "recomp.h"
 
-/* main.c: the ROM as loaded (big-endian), romdata.c: its sha1, and the
-   arena's contents made from it (PORT_ROM_DATA) */
+/* main.c: the ROM as loaded (big-endian), romdata.c: its sha1, and (kept
+   for the ROM's data made at startup, P10's open question 6; not built)
+   the movable build's arena contents made from it (PORT_ROM_DATA) */
 const uint8_t *host_rom(void);
 void host_sha1_hex(const uint8_t *p, size_t n, char out[41]);
 void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
@@ -19,15 +19,12 @@ void port_romdata_apply(uint8_t *arena, const uint8_t *rom, uint32_t rom_size);
 long host_gunzip(const uint8_t *in, size_t n, uint8_t *out, size_t outn, size_t *used);
 uint8_t *host_blast_decode(int t, const uint8_t *s, size_t n, const uint8_t *lut, size_t lut_len, size_t *outn);
 
-/* runtime.c: RDRAM's 4 MB to a file (zeros where the guard is); the N64
-   address of a fault in the guard (PORT_SCATTER_GUARD), or 0 */
+/* runtime.c: RDRAM's 4 MB to a file (none: P10's open question 9) */
 void port_dump_rdram(FILE *f);
-uint32_t port_guard_hit(const void *p);
 
 /* threads.c */
 int host_run_one(void);             /* run the best runnable thread; 0 if none */
 void host_threads_dump(void);
-recomp_context *port_ctx(void);
 
 void host_charge(uint64_t ns);
 int host_rdp_scaled(void);             /* PORT_RDP_SCALE isn't 0: host_charge counts */

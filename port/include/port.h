@@ -1,24 +1,24 @@
 /*
  * The interface between the two halves of the port.
  *
- * "N64 side": the decompiled game C and port/src/ (the libultra
- * replacement).  Built by clang with BEPass, so its memory is big-endian,
- * byte for byte what the N64 would hold (docs/PORT.md, "Memory model").
+ * "N64 side": the decompiled game C, port/src/ (the libultra
+ * replacement), port/engine/ (Rare's handwritten engine as C) and
+ * port/libaudio/.  Built as the IDO dialect needs (CMakeLists.txt), in the
+ * host's byte order and pointer size (docs/PORT.md, "Memory model").
  *
- * "Host side": port/host/ (SDL, files, fibers, the renderer) and the
- * translated handwritten code (which does its own byte swapping).  Built
+ * "Host side": port/host/ (SDL, files, fibers, the renderer).  Built
  * normally.
  *
- * Only scalars and addresses cross between the two.  A host function that
- * reads or writes game memory through an address must do it in big-endian
- * order (port_be32 etc. below) or byte by byte.
+ * Scalars and pointers cross between the two.  Game memory is in host
+ * order at each scalar's own width (port_g32 etc. below); what stays the
+ * N64's bytes (the ROM file, texels, framebuffers, the audio microcode's
+ * DMEM) is read big-endian (port_be32) or byte by byte.
  */
 #ifndef PORT_H
 #define PORT_H
 
 #include <stddef.h>
 #include <stdint.h>
-#include "port_arena.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -38,110 +38,31 @@ extern "C" {
 
 /* ---- memory ------------------------------------------------------------ */
 
-/* The plain build (PORT_PLAIN) has none of the fixed map below: game
-   memory is ordinary variables and buffers (src/regions.c), the fibers'
-   stacks come from the host's allocator, and no N64 address is an address
-   (port_ptr isn't there: a host read through one fails to build). */
-#ifndef PORT_PLAIN
-/* RDRAM: the N64's 4 MB, mapped at its KSEG0 address.  The port's own
-   image is linked right above it (0x80400000), so every address the game
-   sees, whether a fixed RDRAM buffer or one of its variables, is a KSEG0
-   address (K0_TO_PHYS is the identity: PR/R4300.h). */
-#define PORT_RDRAM_BASE 0x80000000u
-#define PORT_RDRAM_SIZE 0x00400000u
-/* hardware registers (KSEG1 0xA4000000-0xA4900000): plain memory, so the
-   odd debug read of one gets a zero */
-#define PORT_HWREG_BASE 0xA4000000u
-#define PORT_HWREG_SIZE 0x00900000u
-/* fiber stacks for the game's threads, inside the KSEG0 window so that the
-   address of a local means the same thing to the translated code */
-#ifdef PORT_MOVABLE
-#define PORT_STACK_BASE (0x80000000u | PORT_ARENA_STACKS)   /* in the arena */
-#else
-#define PORT_STACK_BASE 0x90000000u
-#endif
-static inline void *port_ptr(uint32_t addr) {
-    if (addr - 0xA0000000u < 0x20000000u)
-        addr -= 0x20000000u;        /* KSEG1 -> KSEG0 */
-    return port_host(addr);
-}
-#endif
+/* Game memory is ordinary variables and buffers (src/regions.c), the
+   fibers' stacks come from the host's allocator, and no N64 address is an
+   address (a host read through one fails to build). */
 /* (PORT_STACK_SIZE, PORT_MAX_THREADS: port_budget.h) */
 #include "port_budget.h"
-/* thread idx's host stack (runtime.c): at PORT_STACK_BASE, which in the
-   movable build is in the arena; the plain build's allocated */
+/* thread idx's host stack (runtime.c) */
 void *host_thread_stack(int idx, uint32_t *size);
-/* a function value of the N64 side's, as the host calls it: in the movable
-   build it is the function's N64 address (bepass/Arena.cpp), found by
-   port_fn (port/host/runtime.c).  The N64 side's function pointers are
-   typed and native in every build (P7); what makes the value an address is
-   the arena, which keeps every pointer value an N64 address, so the table
-   goes with it (P10), not before. */
-#ifdef PORT_MOVABLE
-void *port_fn(uint32_t addr);
-#define PORT_FN(type, f) ((type)port_fn((uint32_t)(uintptr_t)(f)))
-#else
-#define PORT_FN(type, f) ((type)(f))
-#endif
 
 /* a game variable the host names (extern char D_X[]): where it is */
-#ifdef PORT_MOVABLE
-/* (the game's variables aren't symbols of the host's link: by their N64
-   addresses, gen_syms.py table's header) */
-#define PORT_VAR(sym) ((char *)port_ptr(PORT_N64_##sym))
-#else
 #define PORT_VAR(sym) ((char *)(sym))
-#endif
 
 /* A pointer of the N64 side's, as the host reads through it: one handed to
-   a host_ function (an argument), or one the host read out of game memory.
-   The identity in the fixed builds, where game memory
-   is where its addresses say.  In the movable ones port-arena maps a host_
-   function's pointer arguments into the arena (bepass/Arena.cpp,
-   hostCallee: a null one to the arena's start, N64 0x80000000, where
-   nothing of the game's is), while a pointer in game memory is an N64
-   address, which port_ptr finds. */
+   a host_ function (an argument), or one the host read out of game memory
+   (the identity) */
 static inline void *port_hptr(const void *p) {
-#ifdef PORT_MOVABLE
-    uintptr_t off = (uintptr_t)p - (uintptr_t)port_arena;
-    if (off < PORT_ARENA_SIZE)
-        return off ? (void *)(uintptr_t)p : NULL;
-    return p ? port_ptr((uint32_t)(uintptr_t)p) : NULL;
-#else
     return (void *)(uintptr_t)p;
-#endif
 }
 
-#ifdef PORT_ACCESS_PROFILE
-/* host/access.c: the access-width profiler */
-void port_access_host(const void *p, unsigned width);
-void port_access_dma(uint32_t dst, uint32_t rom, uint32_t len);
-void __port_access_copy(void *dst, const void *src, uint32_t n, uint32_t site);
-void __port_access_set(void *dst, uint32_t n, uint32_t site);
-void port_access_bytes(const void *p, uint32_t n);
-void port_access_dump_widths(unsigned n);
-#define PORT_ACCESS_HOST(p, w) port_access_host((p), (w))
-#define PORT_ACCESS_BYTES(p, n) port_access_bytes((p), (n))
-#else
-#define PORT_ACCESS_HOST(p, w) ((void)0)
-#define PORT_ACCESS_BYTES(p, n) ((void)0)
-#endif
-
-/* big-endian accessors for host-side code touching game memory */
-/* (the profiler: in native memory these read bytes) */
-#ifdef PORT_NATIVE_ENDIAN
-#define PORT_ACCESS_BE(p, w) PORT_ACCESS_BYTES((p), (w))
-#else
-#define PORT_ACCESS_BE(p, w) PORT_ACCESS_HOST((p), (w))
-#endif
+/* big-endian accessors, for what stays the N64's bytes */
 static inline uint32_t port_be32(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
-    PORT_ACCESS_BE(p, 4);
     return ((uint32_t)b[0] << 24) | ((uint32_t)b[1] << 16) | ((uint32_t)b[2] << 8) | b[3];
 }
 static inline uint16_t port_be16(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
-    PORT_ACCESS_BE(p, 2);
     return (uint16_t)((b[0] << 8) | b[1]);
 }
 static inline void port_wbe32(void *p, uint32_t v) {
@@ -162,22 +83,17 @@ static inline void port_wle16(void *p, uint16_t v) {
     b[0] = v; b[1] = v >> 8;
 }
 
-/* A scalar of game memory at its own width: big-endian in the default
-   build, host order in the native-endian one (PORT_NATIVE_ENDIAN, docs/
-   PORT.md "Native-endian memory"), a 64-bit one too (port_g64).  port_be*
-   stay big-endian: they are for what is bytes in either build (the ROM
-   file, texels, framebuffers, the audio microcode's DMEM and what it
-   saves). */
-#ifdef PORT_NATIVE_ENDIAN
+/* A scalar of game memory at its own width, in host order (docs/PORT.md
+   "Native-endian memory"), a 64-bit one too (port_g64).  port_be* stay
+   big-endian: they are for what is bytes (the ROM file, texels,
+   framebuffers, the audio microcode's DMEM and what it saves). */
 static inline uint32_t port_g32(const void *p) {
     uint32_t v;
-    PORT_ACCESS_HOST(p, 4);
     __builtin_memcpy(&v, p, 4);
     return v;
 }
 static inline uint16_t port_g16(const void *p) {
     uint16_t v;
-    PORT_ACCESS_HOST(p, 2);
     __builtin_memcpy(&v, p, 2);
     return v;
 }
@@ -188,74 +104,29 @@ static inline void port_wg16(void *p, uint16_t v) { __builtin_memcpy(p, &v, 2); 
 static inline uint16_t port_g16_of32(const void *p, int k) {
     return (uint16_t)(port_g32((const uint8_t *)p + 4 * (k >> 1)) >> ((k & 1) ? 0 : 16));
 }
-/* a 64-bit scalar of game memory (a u64 or s64 variable, the LP64 builds'
-   command words), whole */
+/* a 64-bit scalar of game memory (a u64 or s64 variable, the command
+   words where pointers are 8 bytes), whole */
 static inline uint64_t port_g64(const void *p) {
     uint64_t v;
-    PORT_ACCESS_HOST(p, 8);
     __builtin_memcpy(&v, p, 8);
     return v;
 }
 static inline void port_wg64(void *p, uint64_t v) { __builtin_memcpy(p, &v, 8); }
-#else
-#define port_g32 port_be32
-#define port_g16 port_be16
-#define port_wg32 port_wbe32
-#define port_wg16 port_wbe16
-static inline uint16_t port_g16_of32(const void *p, int k) { return port_be16((const uint8_t *)p + 2 * k); }
-static inline uint64_t port_g64(const void *p) {
-    return (uint64_t)port_be32(p) << 32 | port_be32((const uint8_t *)p + 4);
-}
-static inline void port_wg64(void *p, uint64_t v) {
-    port_wbe32(p, (uint32_t)(v >> 32));
-    port_wbe32((uint8_t *)p + 4, (uint32_t)v);
-}
-#endif
 
-/* For host code that reads game variables with port_be32 and writes the
-   pad with port_wbe16 (main.c, video.c): in the native-endian build
-   those files map them here, which reads RDRAM at its own width and
-   anything else (the ROM file) big-endian as before. */
-#ifdef PORT_PLAIN
 /* (what is read through these is game memory, in host order) */
 #define port_var32 port_g32
 #define port_var16 port_g16
-#elif defined(PORT_NATIVE_ENDIAN)
-/* game memory: RDRAM and the image's data after it, where the LP64 build
-   puts the variables that outgrew their N64 addresses (gen_ld.py); the ROM
-   file comes from malloc, after _end */
-extern char _end[];
-static inline int port_in_rdram(const void *p) {
-#ifdef PORT_MOVABLE
-    /* (none before port_arena_init: the ROM file is read first, and in
-       wasm's linear memory it is below 28 MB) */
-    return port_arena && (uintptr_t)p - (uintptr_t)port_arena < PORT_ARENA_SIZE;
-#endif
-    return (uintptr_t)p - PORT_RDRAM_BASE < (uintptr_t)_end - PORT_RDRAM_BASE;
-}
-static inline uint32_t port_var32(const void *p) { return port_in_rdram(p) ? port_g32(p) : port_be32(p); }
-static inline uint16_t port_var16(const void *p) { return port_in_rdram(p) ? port_g16(p) : port_be16(p); }
-static inline void port_wvar16(void *p, uint16_t v) {
-    if (port_in_rdram(p) || port_n64(p) - PORT_STACK_BASE < PORT_STACK_SIZE * PORT_MAX_THREADS)
-        port_wg16(p, v);
-    else
-        port_wbe16(p, v);
-}
-#else
-#define port_var32 port_be32    /* (all of it big-endian) */
-#define port_var16 port_be16
-#endif
 
 /* ---- the game's layouts, as the host reads them ------------------------ */
 
 /* What the host reads inside the game's structures (port/host/digest.c,
    sched_vars.h, gfx.c), as this build's N64 side lays them out:
    port/src/layout.c's sizeof and offsetof, by the N64 side's own compiler,
-   so right in every variant (in the LP64 ones a struct without PTR32 has
-   native pointers, and its fields move).  The host doesn't include the
-   game's headers: it asks for a number by its name here (host_layout).  A
-   PTR_ entry is the size of one of the game's pointer variables (4, or 8
-   in the LP64 build where it isn't PTR32), for port_game_ptr_n. */
+   so right whatever the host's pointer size (a struct with pointers has
+   its fields move with it).  The host doesn't include the game's headers:
+   it asks for a number by its name here (host_layout).  A PTR_ entry is
+   the size of one of the game's pointer variables (the host's), for
+   port_game_ptr_n. */
 enum PortLayout {
     PORT_LAYOUT_VEHICLE_SIZE,           /* Vehicle (game/vehicle.h) */
     PORT_LAYOUT_VEHICLE_TYPE,
@@ -305,9 +176,9 @@ enum PortLayout {
     PORT_LAYOUT_ACMD_SIZE,              /* Acmd: an audio command (aspmain.c) */
     PORT_LAYOUT_FRAME_SIZE,             /* Frame (game/frame.h): segment 2's buffer */
     PORT_LAYOUT_SEG_TAG,                /* gbi.h's G_SEGTAG: the segmented addresses' tag (gfx.h) */
-    /* 1 where a display list's and an audio command's address words are
-       host pointers (the LP64 builds and the plain build, at either
-       width), 0 where they are N64 addresses (the other ILP32 builds) */
+    /* 1: a display list's and an audio command's address words are host
+       pointers (at either width; 0, N64 addresses, was the ILP32 builds'
+       before P10) */
     PORT_LAYOUT_PTR_WORDS,
     PORT_LAYOUT_COUNT
 };
@@ -337,12 +208,10 @@ static inline void *port_game_ptr_n(const void *p, uint32_t size) {
     return (void *)(uintptr_t)port_var32(p);
 }
 
-#ifdef PORT_PLAIN
 /* a word of a display list that is a pointer into one of the names that
    are segment addresses (D_02000000...: src/segments.c's proxies) as that
    segmented address, tagged; any other word as it is */
 uintptr_t port_seg_unproxy(uintptr_t w);
-#endif
 
 /* ---- host services (port/host) ----------------------------------------- */
 
@@ -376,14 +245,8 @@ uint64_t host_ticks(void);
 
 /* threads: the game's OSThreads, run as fibers, one at a time, each known
    by its key: the OSThread's address as the N64 side has it (port/src/
-   ultra.c), which host_thread_current gives back.  (Integers, not
-   pointers: port-arena leaves them as the game's values, so the key the
-   host hands back is the game's pointer.) */
+   ultra.c), which host_thread_current gives back. */
 void host_thread_create(uintptr_t key, void (*entry)(void *), void *arg, int pri);
-#ifdef PORT_ENGINE_CHECK
-/* the thread's N64 $sp, for the translated code (the check build's) */
-void host_thread_n64_sp(uintptr_t key, uint32_t sp);
-#endif
 void host_thread_start(uintptr_t key);
 void host_thread_stop(uintptr_t key);
 void host_thread_destroy(uintptr_t key);
@@ -391,17 +254,12 @@ void host_thread_set_pri(uintptr_t key, int pri);
 int host_thread_get_pri(uintptr_t key);
 void *host_thread_current(void);
 /* block the current thread until host_wake(key); then return.  A wait's
-   key is a message queue's address (ultra.c), only compared: a pointer, so
-   that in the movable builds port-arena makes it the host's, as the host's
-   own are (replay.c's PORT_VAR) */
+   key is a message queue's address (ultra.c), only compared */
 void host_block(const void *key);
 void host_wake(const void *key);
 /* let a higher-priority runnable thread run now (libultra preemption) */
 void host_preempt(void);
 void host_yield(void);
-/* the check build's C under a check (PORT_ENGINE_CHECK): no time passes and no
-   thread switches (threads.c) */
-int host_time_stopped(void);
 /* an interrupt taken: a thread in port_spin_wait tests again (threads.c) */
 void host_interrupt(void);
 
@@ -432,11 +290,9 @@ int host_replay_active(void);
 void host_replay_read_started(void);
 void port_replay_si_done(void);     /* port/src: the held SI completion */
 uint32_t port_vi_sent(void);        /* port/src: retrace messages sent */
-/* the audio thread's state as the game asks for it (port/src/replay_audio.c):
+/* the audio thread's state as the game asks for it (port/src/replay_hooks.c):
    kind 0 the sequence player's state, 1 the sequence's lastTicks; `caller`
-   the return address into the game */
-int32_t host_replay_audio(int kind, int32_t real, uint64_t caller);
-/* the same, the caller by its name (the plain build's: replay_hooks.c) */
+   the calling function's name */
 int32_t host_replay_audio_named(int kind, int32_t real, const char *caller);
 /* whether the pak/EEPROM thread may go on with the command it took (`sync`:
    the game waits for its reply) */

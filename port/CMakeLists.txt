@@ -472,8 +472,6 @@ if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
 endif()
 set_source_files_properties(${GZIP124_C} PROPERTIES COMPILE_OPTIONS "-w;-std=${GZIP124_STD};-include;${GZIP124}/gzip124_names.h")
 add_library(host OBJECT ${HOST_C} ${GZIP124_C} ${CMAKE_CURRENT_BINARY_DIR}/gen/hdtext_font.c)
-# (game memory in host order, pointers the host's: port.h)
-target_compile_definitions(host PRIVATE PORT_PLAIN PORT_NATIVE_ENDIAN)
 # the game's threads' context switch (host/fiber.h): ucontext on the one OS
 # thread, or a host thread each, one running at a time.  ucontext is the
 # cheaper switch; macOS has deprecated it and WebAssembly and musl have
@@ -505,7 +503,7 @@ elseif(NOT PORT_THREADS STREQUAL "ucontext" OR NOT PORT_UCONTEXT_FOUND)
     message(FATAL_ERROR "PORT_THREADS is pthread, or ucontext where there is one (not macOS, emscripten or musl), not ${PORT_THREADS}")
 endif()
 message(STATUS "game threads: ${PORT_THREADS}")
-target_include_directories(host PRIVATE ${ROOT}/tools/recomp/runtime ${CMAKE_CURRENT_SOURCE_DIR}/include
+target_include_directories(host PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/host ${SDL2_INCLUDE_DIRS})
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
 target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE} PORT_ROM_SHA1="${PORT_ROM_SHA1}"

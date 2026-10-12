@@ -1,5 +1,5 @@
 /*
- * The host program: memory map, cartridge, the "interrupt" loop.
+ * The host program: cartridge, the "interrupt" loop.
  *
  * The game runs as fibers (threads.c) on the main OS thread.  This loop
  * runs whenever no game thread can: it delivers the events the hardware
@@ -16,17 +16,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
 #ifdef __linux__
-#include <dlfcn.h>
-#include <sys/personality.h>
 #include <sys/prctl.h>
-#include <ucontext.h>
-#endif
-#ifndef MAP_NORESERVE
-#define MAP_NORESERVE 0
 #endif
 
 #include "port.h"
@@ -96,44 +89,6 @@ void host_fatal(const char *fmt, ...) {
     exit(1);
 }
 
-/* The kernel puts the brk heap at a random place above the image: up to
-   32 MB above it for a 32-bit program, but up to 1 GB for a 64-bit one, and
-   so, now and then, inside one of the windows below (the heap is there by
-   main(), from what the libraries allocated first).  Then the port runs
-   itself again without the randomization, which puts the heap right above
-   the image.  (Once the windows are mapped, the heap can't grow into them:
-   malloc goes to mmap instead.) */
-static char **main_argv;
-
-#if !defined(PORT_MOVABLE) && !defined(PORT_PLAIN)
-static void map_fixed(uint32_t addr, uint32_t size, const char *what) {
-#ifdef MAP_FIXED_NOREPLACE
-    void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE | MAP_NORESERVE, -1, 0);
-#else
-    /* elsewhere the address is only a hint: whatever is there stays */
-    void *p = mmap((void *)(uintptr_t)addr, size, PROT_READ | PROT_WRITE,
-                   MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
-    if (p != MAP_FAILED && p != (void *)(uintptr_t)addr) {
-        munmap(p, size);
-        p = MAP_FAILED;
-        errno = EEXIST;
-    }
-#endif
-#ifdef __linux__
-    if (p == MAP_FAILED && errno == EEXIST && !(personality(0xFFFFFFFF) & ADDR_NO_RANDOMIZE)) {
-        if (host_verbose)
-            host_log("%s at %08X taken (the heap?): running again without address randomization\n", what, addr);
-        personality(personality(0xFFFFFFFF) | ADDR_NO_RANDOMIZE);
-        execv("/proc/self/exe", main_argv);
-        errno = EEXIST;
-    }
-#endif
-    if (p == MAP_FAILED || p != (void *)(uintptr_t)addr)
-        host_fatal("can't map %s at %08X: %s", what, addr, strerror(errno));
-}
-#endif
-
 /* ---- cartridge ------------------------------------------------------------ */
 
 static void load_rom(const char *path) {
@@ -174,9 +129,7 @@ static void load_rom(const char *path) {
         host_fatal("%s is not an N64 ROM", path);
     }
     /* the version this port was built for, exactly (CMake's PORT_ROM_SHA1,
-       from blastcorps.<version>.sha1).  The movable build takes the game's
-       data from it (PORT_ROM_DATA), and checks what it made against what it
-       was built with besides; PORT_ROM_ANY=1 lets another ROM through
+       from blastcorps.<version>.sha1); PORT_ROM_ANY=1 lets another ROM through
        (an edited one) with a warning. */
     char sha1[41];
     host_sha1_hex(rom, rom_size, sha1);
@@ -205,9 +158,6 @@ void host_rom_read(void *dst, uint32_t addr, uint32_t len) {
         host_log("pi: rom %06X -> %p (%X)\n", addr, (void *)d, len);
     for (uint32_t i = 0; i < len; i++)
         d[i] = addr + i < rom_size ? rom[addr + i] : 0;
-#ifdef PORT_ACCESS_PROFILE
-    port_access_dma(port_n64(d), addr, len);
-#endif
     host_loaded_dma(d, addr, len);
 }
 
@@ -577,22 +527,15 @@ static void queue_account(double late_ms, double work_ms, double pms) {
         n = late = 0;
 }
 
-void port_trace_poll(void);     /* runtime.c: PORT_TRACE counts controller reads */
 /* the scheduler's retrace count, the game's frame count and the mode */
 #include "sched_vars.h"
 extern char D_80358064[], D_80364A90[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_80358064 PORT_VAR(D_80358064)
-#define D_80364A90 PORT_VAR(D_80364A90)
-#endif
 
-/* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read
-   (compare with tools/recomp/test/snapshot.c, which counts the same way) */
+/* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read */
 void host_controller_poll(void) {
     static unsigned polls;
     static const char *spec = (const char *)1;
     static FILE *pace;
-    port_trace_poll();
     if (spec == (const char *)1) {
         spec = getenv("PORT_DUMP");
         /* PORT_PACE=FILE: what port/tools/m64p_pace.c records in mupen64plus */
@@ -602,12 +545,6 @@ void host_controller_poll(void) {
     }
     polls++;
     host_digest_poll(polls);    /* PORT_DIGEST=FILE: the gameplay digest (digest.c) */
-#ifdef PORT_ENGINE_CHECK
-    {
-        void engine_fuzz_poll(unsigned polls);  /* (port/host/engine.c) */
-        engine_fuzz_poll(polls);
-    }
-#endif
     if (pace)
         fprintf(pace, "%u,%u,%u,%016llX,%llu\n", polls, port_g32(SCHED_FRAMECOUNT),
                 port_g32(D_80358064), (unsigned long long)port_g64(D_80364A90),
@@ -624,9 +561,6 @@ void host_controller_poll(void) {
                 port_dump_rdram(f);
                 fclose(f);
                 host_log("dumped %s\n", path);
-#ifdef PORT_ACCESS_PROFILE
-                port_access_dump_widths(n);     /* rdram_N.widths, for build_cmp.py */
-#endif
             }
         }
         if (*p == ',')
@@ -640,32 +574,6 @@ void host_controller_poll(void) {
    (POSIX signals; emscripten has none to catch) */
 #ifndef __EMSCRIPTEN__
 static void on_crash(int sig, siginfo_t *si, void *uc) {
-    uint32_t n64 = port_guard_hit(si->si_addr);
-    if (n64) {
-        /* (the guard: where the code was, for addr2line) */
-        void *pc = NULL;
-#ifdef __linux__
-        const ucontext_t *u = uc;
-#if defined(__x86_64__)
-        pc = (void *)u->uc_mcontext.gregs[REG_RIP];
-#elif defined(__i386__)
-        pc = (void *)u->uc_mcontext.gregs[REG_EIP];
-#elif defined(__aarch64__)
-        pc = (void *)u->uc_mcontext.pc;
-#endif
-        /* (addr2line takes a PIE's or a library's offset, an executable's address:
-           the ELF header's e_type, ET_DYN 3) */
-        Dl_info di;
-        if (pc && dladdr(pc, &di) && di.dli_fname)
-            fprintf(stderr, "guard: N64 address %08X, the N64's RDRAM, where nothing is in this layout, "
-                            "reached at %p: addr2line -f -e %s 0x%lx\n", n64, pc, di.dli_fname,
-                    (unsigned long)((char *)pc - (*(uint16_t *)((char *)di.dli_fbase + 16) == 3
-                                                      ? (char *)di.dli_fbase : (char *)0)));
-        else
-#endif
-            fprintf(stderr, "guard: N64 address %08X, the N64's RDRAM, where nothing is in this layout, "
-                            "reached at %p\n", n64, pc);
-    }
     (void)uc;
     fprintf(stderr, "crash: signal %d at address %p\n", sig, si->si_addr);
     if (getenv("PORT_DUMP")) {
@@ -683,7 +591,6 @@ static void on_crash(int sig, siginfo_t *si, void *uc) {
 /* ---- main ------------------------------------------------------------------ */
 
 extern void port_boot(void);
-extern void port_arena_init(void);   /* runtime.c, PORT_MOVABLE */
 
 /* --hd-text's optional FONT: a name ending in a font's extension (so that
    "--hd-text ROM" still takes ROM as the ROM) */
@@ -766,7 +673,6 @@ int main(int argc, char **argv) {
     const char *rom_path = ROM_DEFAULT;
     const char *load_waits_arg = NULL;
     int aspect_set = 0;
-    main_argv = argv;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v"))
             host_verbose++;
@@ -918,16 +824,8 @@ int main(int argc, char **argv) {
     stack_t ss = { .ss_sp = altstack, .ss_size = sizeof altstack };
     sigaltstack(&ss, NULL);
 #endif
-    /* RDRAM itself is the image's .rdram section (tools/gen_ld.py) */
-#if !defined(PORT_MOVABLE) && !defined(PORT_PLAIN)  /* (the movable build maps nothing fixed: the stacks are in the arena, runtime.c; nor does the plain one) */
-    map_fixed(PORT_HWREG_BASE, PORT_HWREG_SIZE, "hardware registers");
-    map_fixed(PORT_STACK_BASE, PORT_STACK_SIZE * PORT_MAX_THREADS, "thread stacks");
-#endif
     fiber_init();
     load_rom(rom_path);
-#ifdef PORT_MOVABLE
-    port_arena_init();
-#endif
     host_video_init();
     hdtext_init();
     if (deterministic && gfx_interp_hz > PORT_RETRACE_HZ) {

@@ -2,7 +2,7 @@
  * fiber.h on emscripten's fibers (Asyncify): every fiber on the page's one
  * thread, as with ucontext.  A switch unwinds the wasm stack into the
  * fiber's Asyncify buffer and rewinds the other's from its own, so the C
- * stacks (the arena's, as everywhere) stay where they are; the build's
+ * stacks (runtime.c's, as everywhere) stay where they are; the build's
  * -sASYNCIFY instruments whatever can be on the stack at a switch.  The
  * browser build's backend: no SharedArrayBuffer, no workers, and the loop
  * can hand the page its thread back between two fiber_run()s

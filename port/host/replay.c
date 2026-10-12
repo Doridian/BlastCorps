@@ -41,12 +41,6 @@
  * (logged with the mode at each change), the log's reads skipped, the
  * retraces given anyway, and in the end the save (port/tools/tas_check.py).
  */
-#if defined(PORT_MOVABLE) || defined(PORT_PLAIN)
-#elif defined(__linux__)
-#include <elf.h>
-#else
-#include <dlfcn.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,18 +54,8 @@
    random number generator's state */
 #include "sched_vars.h"
 extern char D_80358064[], D_80364A90[], D_8036B968[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_80358064 PORT_VAR(D_80358064)
-#define D_80364A90 PORT_VAR(D_80364A90)
-#define D_8036B968 PORT_VAR(D_8036B968)
-#endif
 /* the player's position */
 extern char D_803643E0[], D_803643E4[], D_803643E8[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_803643E0 PORT_VAR(D_803643E0)
-#define D_803643E4 PORT_VAR(D_803643E4)
-#define D_803643E8 PORT_VAR(D_803643E8)
-#endif
 
 typedef struct {
     uint32_t retraces, frames, pad, rng;
@@ -364,9 +348,8 @@ void host_replay_load(const char *path) {
     }
     /* the movie's emulator rounds cvt.w halves up (port/engine/cvt.h), and
        the movie depends on it (PORT_REPLAY_VR4300_ROUNDING=1: the
-       hardware's); the check build's translation follows it too */
-    extern int recomp_round_half_up;
-    port_round_half_up = recomp_round_half_up = getenv("PORT_REPLAY_VR4300_ROUNDING") == NULL;
+       hardware's) */
+    port_round_half_up = getenv("PORT_REPLAY_VR4300_ROUNDING") == NULL;
     host_log("replay: %u reads from %s\n", nreads, path);
 }
 
@@ -394,9 +377,6 @@ static void dump(unsigned n) {
             if (f) {
                 port_dump_rdram(f);
                 fclose(f);
-#ifdef PORT_ACCESS_PROFILE
-                port_access_dump_widths(n);     /* rdram_N.widths, for build_cmp.py */
-#endif
             }
         }
         p = *end ? end + 1 : end;
@@ -541,98 +521,11 @@ unsigned int port_counter(int timer, const char *func) {
     return port_g32(timer ? SCHED_LEVEL_TIME : SCHED_FRAMECOUNT);
 }
 
-/* The port's own functions by address (its symbol table, from
-   /proc/self/exe): the audio queries name their caller by its return
-   address.  Elsewhere dladdr, which sees the exported symbols only (on
-   macOS every global of the executable); WebAssembly has no return
-   addresses to go by (docs/PORT.md, "Threads without ucontext").  The
-   movable build is told the names instead (port_replay_set_caller), and
-   the plain build's hooks pass them (host_replay_audio_named). */
-#if defined(PORT_MOVABLE) || defined(PORT_PLAIN)
-#elif defined(__linux__)
-typedef struct { uint64_t addr, size; const char *name; } HostFunc;
-static HostFunc *hfuncs;
-static unsigned nhfuncs;
-
-static int cmp_hfunc(const void *a, const void *b) {
-    uint64_t x = ((const HostFunc *)a)->addr, y = ((const HostFunc *)b)->addr;
-    return x < y ? -1 : x > y;
-}
-
-static void load_host_funcs(void) {
-    FILE *f = fopen("/proc/self/exe", "rb");
-    if (!f)
-        return;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    unsigned char *img = malloc(size);
-    if (fread(img, 1, size, f) != (size_t)size) {
-        fclose(f);
-        return;
-    }
-    fclose(f);
-    int wide = img[EI_CLASS] == ELFCLASS64;
-#define FIELD(T32, T64, p, m) (wide ? ((T64 *)(p))->m : ((T32 *)(p))->m)
-    uint64_t shoff = FIELD(Elf32_Ehdr, Elf64_Ehdr, img, e_shoff);
-    unsigned shnum = FIELD(Elf32_Ehdr, Elf64_Ehdr, img, e_shnum);
-    unsigned shentsize = FIELD(Elf32_Ehdr, Elf64_Ehdr, img, e_shentsize);
-    unsigned cap = 0;
-    for (unsigned i = 0; i < shnum; i++) {
-        unsigned char *sh = img + shoff + (uint64_t)i * shentsize;
-        if (FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_type) != SHT_SYMTAB)
-            continue;
-        unsigned char *strsh = img + shoff + (uint64_t)FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_link) * shentsize;
-        const char *strtab = (const char *)img + FIELD(Elf32_Shdr, Elf64_Shdr, strsh, sh_offset);
-        uint64_t off = FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_offset), n = FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_size);
-        uint64_t ent = FIELD(Elf32_Shdr, Elf64_Shdr, sh, sh_entsize);
-        for (uint64_t k = 0; k + ent <= n; k += ent) {
-            unsigned char *sym = img + off + k;
-            unsigned info = FIELD(Elf32_Sym, Elf64_Sym, sym, st_info);
-            if ((info & 0xF) != STT_FUNC)
-                continue;
-            if (nhfuncs == cap)
-                hfuncs = realloc(hfuncs, (cap = cap ? cap * 2 : 8192) * sizeof *hfuncs);
-            hfuncs[nhfuncs++] = (HostFunc){ FIELD(Elf32_Sym, Elf64_Sym, sym, st_value),
-                                            FIELD(Elf32_Sym, Elf64_Sym, sym, st_size),
-                                            strtab + FIELD(Elf32_Sym, Elf64_Sym, sym, st_name) };
-        }
-    }
-#undef FIELD
-    qsort(hfuncs, nhfuncs, sizeof *hfuncs, cmp_hfunc);
-}
-
-static const char *host_func_name(uint64_t addr) {
-    if (!hfuncs)
-        load_host_funcs();
-    unsigned lo = 0, hi = nhfuncs;
-    while (hi - lo > 1) {
-        unsigned mid = (lo + hi) / 2;
-        if (hfuncs[mid].addr <= addr)
-            lo = mid;
-        else
-            hi = mid;
-    }
-    return nhfuncs && hfuncs[lo].addr <= addr && addr < hfuncs[lo].addr + hfuncs[lo].size ? hfuncs[lo].name : "?";
-}
-#else
-static const char *host_func_name(uint64_t addr) {
-    Dl_info di;
-    if (dladdr((void *)(uintptr_t)addr, &di) && di.dli_sname)
-        return di.dli_sname;
-    return "?";
-}
-#endif
-
 /* alCSPGetState and alCSeqGetLoc (replay_audio.c): in a matched frame, what
    they told the movie's game in the same calling function in that frame (the
-   n-th time for the n-th, or the last); the real answer otherwise. */
-/* the movable build: the arena link names the caller of the hooks before
-   the call (bepass/Arena.cpp), for want of return addresses the symbol
-   table knows */
-static const char *set_caller;
-void port_replay_set_caller(const char *name) { set_caller = name; }
-
+   n-th time for the n-th, or the last); the real answer otherwise.  The
+   hooks name their caller (port/src/replay_hooks.c: the calling function's
+   __func__). */
 int32_t host_replay_audio_named(int kind, int32_t real, const char *name) {
     if (!audio || !cur_read || free_audio)
         return real;
@@ -666,20 +559,6 @@ int32_t host_replay_audio_named(int kind, int32_t real, const char *name) {
     return real;
 }
 
-#ifndef PORT_PLAIN
-int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
-    if (!audio || !cur_read || free_audio)
-        return real;
-#ifdef PORT_MOVABLE
-    const char *name = set_caller ? set_caller : "?";
-    (void)caller;
-#else
-    const char *name = host_func_name(caller);
-#endif
-    return host_replay_audio_named(kind, real, name);
-}
-#endif
-
 /* 45BB0.c: whether this frame reads the pad.  The game skips the read while
    the save thread has the SI (D_8039C4B0), which is that thread's timing;
    with --replay the frame reads if the movie's did (a read with this mode
@@ -690,20 +569,7 @@ int32_t host_replay_audio(int kind, int32_t real, uint64_t caller) {
    this frame (00000.c's loop, its init included); a fade still going is
    dropped (the loop asserts none is). */
 extern char D_80364AF0[], D_80364EF0[], D_80364F70[], D_802E8BDC[], D_80364AE8[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_80364AF0 PORT_VAR(D_80364AF0)
-#define D_80364EF0 PORT_VAR(D_80364EF0)
-#define D_80364F70 PORT_VAR(D_80364F70)
-#define D_802E8BDC PORT_VAR(D_802E8BDC)
-#define D_80364AE8 PORT_VAR(D_80364AE8)
-#endif
 extern char D_80364A98[], D_80364AA0[], D_8036C778[], D_8036C784[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_80364A98 PORT_VAR(D_80364A98)
-#define D_80364AA0 PORT_VAR(D_80364AA0)
-#define D_8036C778 PORT_VAR(D_8036C778)
-#define D_8036C784 PORT_VAR(D_8036C784)
-#endif
 
 static void force_mode(unsigned k) {
     const Checkpoint *c = NULL;

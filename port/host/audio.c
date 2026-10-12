@@ -377,11 +377,7 @@ int host_ai_submit(const void *addr, uint32_t len) {
     nfifo++;
 
     static int16_t buf[0x10000];
-#ifdef PORT_PLAIN
     const uint8_t *src = addr;
-#else
-    const uint8_t *src = port_ptr(port_n64(addr));     /* (a KSEG1 buffer: KSEG0's memory) */
-#endif
     uint32_t n = len / 2;
     for (uint32_t i = 0; i < n; i++)
         buf[i] = (int16_t)port_be16(src + 2 * i);

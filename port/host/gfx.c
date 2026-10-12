@@ -312,35 +312,7 @@ static inline float max_f(float x, float y) {
 #define CALL_VIA(f)
 #endif
 
-/* The narrow form's addresses (gfx.h, "display-list commands"): a
-   segmented address is a segment (bits 24..27) and a 24-bit offset, and
-   the RSP ignores the top nibble.  The port's lists hold KSEG0 addresses
-   where the N64's hold physical ones (its K0_TO_PHYS is the identity:
-   PR/R4300.h), and both mask to the same physical address here.  But the
-   game's C keeps its locals on the fibers' host stacks at 0x90000000
-   (port.h), physical 0x10xxxxxx: bit 28 is the only thing telling them
-   from RDRAM, so it stays, here and in a segment's base.
-   (func_8024B8F4's visibility test loads its box from its stack; without
-   the bit its vertices were read from RDRAM at 0x800EFCC0, whatever the
-   build had there, and drawn.)  Any other top nibble (a KSEG0 or KSEG1
-   address used as a physical one) masks away as before.  The movable
-   builds' stacks are in the arena, at physical 0x00C00000 and up, which
-   fits in 24 bits. */
 uint8_t *gfx_host_mem;
-
-#ifndef PORT_PLAIN
-/* what the display lists read: RDRAM, or the renderer's own memory */
-static inline void *gfx_ptr(uint32_t a) {
-    if (a - GFX_HOST_BASE < GFX_HOST_SPAN && gfx_host_mem)
-        return gfx_host_mem + (a - GFX_HOST_BASE);
-    return port_ptr(a);
-}
-
-static uint32_t seg_to_k0(uint32_t a) {
-    uint32_t seg = (a >> 24) & 0x0F;
-    return 0x80000000u | (((uint32_t)gs.seg[seg] + (a & 0x00FFFFFFu) + (a & 0xF0000000u)) & 0x1FFFFFFFu);
-}
-#endif
 
 unsigned gfx_cmd;
 int gfx_wide, gfx_strict, gfx_ptr_words;
@@ -360,14 +332,8 @@ void gfx_layout_init(void) {
         host_fatal("gfx: the N64 side's segment tag is %u: this host reads 1, or 0 with 8-byte commands\n",
                    gfx_seg_tag);
     gfx_ptr_words = (int)host_layout(PORT_LAYOUT_PTR_WORDS);
-#ifdef PORT_PLAIN
     if (!gfx_ptr_words || !gfx_seg_tag)
-        host_fatal("gfx: the plain build's lists hold pointers and tagged segmented addresses\n");
-#else
-    if (gfx_ptr_words != gfx_wide)
-        host_fatal("gfx: the N64 side's address words are %s, its commands %u bytes\n",
-                   gfx_ptr_words ? "pointers" : "N64 addresses", n);
-#endif
+        host_fatal("gfx: the N64 side's lists hold pointers and tagged segmented addresses\n");
     const char *e = getenv("PORT_GFX_STRICT");
     gfx_strict = e && atoi(e) != 0;
 }
@@ -380,60 +346,30 @@ static void __attribute__((noreturn, format(printf, 1, 2))) strict_fail(const ch
 /* the segment table's entry s, as a host address (no checks: also for the
    renderer's own uses of segment 2) */
 static inline GfxAddr seg_base(int s) {
-#ifdef PORT_PLAIN
     return gs.seg[s];
-#else
-    if (gfx_ptr_words)
-        return gs.seg[s];
-    return (GfxAddr)gfx_ptr(0x80000000u | (uint32_t)gs.seg[s]);
-#endif
 }
 
-/* A pointer word of the N64 side's as a host address.  Until P10 every
-   pointer value the N64 side holds is an N64 address (KSEG0, or a stack's
-   at 0x90000000: port.h), at port_ptr, or the renderer's own memory in its
-   window (GFX_HOST_BASE); in the wide form a word above 32 bits is the
-   renderer's own host pointer (micons.c's lists).  Strict mode stops at a
-   word that is none of these: a segmented address without the tag. */
+/* A pointer word of the N64 side's as a host address: a host pointer,
+   whatever its value */
 static inline GfxAddr gfx_of_word(uintptr_t w) {
-#ifdef PORT_PLAIN
-    /* (the plain build's: a host pointer, whatever its value) */
     return w;
-#else
-#if UINTPTR_MAX > 0xFFFFFFFFu
-    if (w >> 32)
-        return w;
-#endif
-    if (gfx_strict && w && (uint32_t)w < 0x80000000u)
-        strict_fail("the address %08lX isn't an N64 address (a segmented one without its tag?)", (unsigned long)w);
-    return (GfxAddr)gfx_ptr(0x80000000u | ((uint32_t)w & 0x1FFFFFFFu));      /* (see seg_to_k0) */
-#endif
 }
 
-/* G_MOVEWORD's segment: the narrow form's word masked (see seg_to_k0), the
-   wide one's a host address (0: none) */
+/* G_MOVEWORD's segment: the narrow form's word masked, the wide one's a
+   host address (0: none) */
 static inline void seg_set(int s, uintptr_t w1) {
     gs.seg[s & 15] = gfx_ptr_words ? (w1 ? gfx_of_word(w1) : 0) : (w1 & 0x1FFFFFFFu);
 }
 
 /* a command's word as an address (gfx.h) */
 static inline GfxAddr gfx_addr(uintptr_t w) {
-#ifdef PORT_PLAIN
     /* (a pointer into a name that is a segment address: that address) */
     w = port_seg_unproxy(w);
-#else
-    if (!gfx_seg_tag)                       /* (the check build's: the RSP's rule for all) */
-        return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w));
-#endif
     if (!gfx_segmented(w))
         return gfx_of_word(w);
     int s = (int)((w >> 24) & 15);
     if (gfx_strict && !gs.seg[s])
         strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w, s);
-#ifndef PORT_PLAIN
-    if (!gfx_ptr_words)
-        return (GfxAddr)gfx_ptr(seg_to_k0((uint32_t)w & ~gfx_seg_tag));
-#endif
     return gs.seg[s] + gfx_seg_offset(w);
 }
 
@@ -441,9 +377,8 @@ static inline GfxAddr gfx_addr(uintptr_t w) {
    x86, NEON on AArch64, WebAssembly's SIMD128 with -msimd128, scalar code
    anywhere else).  Each lane's arithmetic is the scalar code's, in its
    order, and the build has no FMA contraction (-ffp-contract=off), so the
-   results are the same bits.  Not with the access profiler, whose byte
-   reads they would skip. */
-#if defined(PORT_SIMD) && !defined(PORT_ACCESS_PROFILE)
+   results are the same bits. */
+#if defined(PORT_SIMD)
 #define GFX_SIMD 1
 typedef float f4 __attribute__((vector_size(16)));
 typedef int32_t i4 __attribute__((vector_size(16)));
@@ -973,10 +908,6 @@ NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3],
         Vtx4 *v = &gs.v[v0 + i];
         u8x16 b;
         memcpy(&b, p, 16);
-#ifndef PORT_NATIVE_ENDIAN
-        /* the halfwords from big-endian (the bytes, 12-15, as they are) */
-        b = __builtin_shufflevector(b, b, 1, 0, 3, 2, 5, 4, 7, 6, 9, 8, 11, 10, 12, 13, 14, 15);
-#endif
         i16x8 h = (i16x8)b;
         f4 ob = __builtin_convertvector(__builtin_shufflevector(h, h, 0, 1, 2, 4), f4);   /* x, y, z, s */
         f4 pos = __builtin_shufflevector(ob, ob, 0, 0, 0, 0) * m0 + __builtin_shufflevector(ob, ob, 1, 1, 1, 1) * m1 +
@@ -1227,7 +1158,6 @@ static void tload_copy(const TLoad *l) {
         const uint8_t *p = (const uint8_t *)src;
         if (bytes > 4096)
             bytes = 4096;
-        PORT_ACCESS_BYTES(p, bytes);        /* texels are bytes in either byte order */
         if (hdtext_on)
             tmem_src_set(dst, src, bytes);
         /* the RDP counts rows by adding dxt for every 8-byte word */
@@ -1260,7 +1190,6 @@ static void tload_copy(const TLoad *l) {
             const uint8_t *p = (const uint8_t *)(l->timg_addr + ((uint32_t)y * l->timg_w + uls) * bpt2 / 2);
             int odd = (y - ult) & 1;
             uint32_t dst = l->tmem * 8 + (uint32_t)(y - ult) * l->line * 8;
-            PORT_ACCESS_BYTES(p, rowbytes < 4096 ? rowbytes : 4096);
             if (l->timg_siz == 3) {
                 for (uint32_t i = 0; i < rowbytes && i / 2 < 2048; i += 4)
                     tmem_put(dst + i / 2, odd, p + i, 3);
@@ -1272,7 +1201,6 @@ static void tload_copy(const TLoad *l) {
         int uls = ((w0 >> 12) & 0xFFF) >> 2, lrs = ((w1 >> 12) & 0xFFF) >> 2;
         const uint8_t *p = (const uint8_t *)(l->timg_addr + (uint32_t)uls * 2);
         uint32_t dst = l->tmem * 8;
-        PORT_ACCESS_BYTES(p, 2 * (uint32_t)(lrs - uls + 1));
         if (hdtext_on)
             tmem_src_set(dst, 0, 2 * (uint32_t)(lrs - uls + 1));
         for (int i = 0; i <= lrs - uls && dst + 2 * i + 1 < 4096; i++) {
@@ -2025,11 +1953,6 @@ static void wide_2d(GfxVtx *s, int n) {
 #define HUD_RAMP 48.0f
 
 extern char D_80364A90[], D_80365348[], D_80365350[];
-#ifdef PORT_MOVABLE      /* where the variables are (port.h) */
-#define D_80364A90 PORT_VAR(D_80364A90)
-#define D_80365348 PORT_VAR(D_80365348)
-#define D_80365350 PORT_VAR(D_80365350)
-#endif
 
 enum { HUD_NO, HUD_FLAT, HUD_PERSP };
 static GfxAddr hud_txt[2];                      /* drawtext.c's vertex buffers, */
@@ -2332,22 +2255,12 @@ static void micon_draw(int h, float x0, float y0, float x1, float y1) {
    each task starts, on the world map only (elsewhere the front end's
    memory is something else). */
 extern char D_80215A70[];
-#ifdef PORT_MOVABLE
-#define D_80215A70 PORT_VAR(D_80215A70)
-#endif
 #define MODE_WORLD_MAP 0x4000u
 static GfxAddr globe_tex[3];
 static unsigned globe_gen;
 
-/* (D_80215A70's pointers: 8 bytes in the LP64 build, the host's in the
-   plain one) */
-#ifdef PORT_PLAIN
+/* (D_80215A70's pointers: the host's) */
 #define GAME_PTR_SIZE sizeof(void *)
-#elif defined(PORT_LP64)
-#define GAME_PTR_SIZE 8
-#else
-#define GAME_PTR_SIZE 4
-#endif
 
 /* (the frames' textures, as the host has them) */
 static void globe_begin(void) {

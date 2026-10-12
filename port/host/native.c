@@ -1,14 +1,12 @@
 /*
  * The loaders: what the ROM's untyped bytes become in game memory
  * (docs/PORT.md, "Native-endian memory").  src/loads.c (the two
- * decompressors, wrapped at link time) and host_rom_read (PI DMA) call in
- * here with every load.  In the native-endian build (PORT_NATIVE_ENDIAN)
- * each load is converted by what it is, once, where it arrives: its
- * scalars go into host order at their own widths, its bytes (texels,
- * samples, strings, flags) stay as they are.  In either build the
- * access-width profiler (PORT_ACCESS_PROFILE, PORT_ACCESS_ORIGIN) is told
- * where the bytes came from and at what width they were converted, which
- * is how the layouts below were found and are checked.
+ * decompressors, which port/src stands in front of) and host_rom_read (PI
+ * DMA) call in here with every load.  Each load is converted by what it
+ * is, once, where it arrives: its scalars go into host order at their own
+ * widths, its bytes (texels, samples, strings, flags) stay as they are.
+ * (The access-width profiler of the builds before P10 found the layouts
+ * below.)
  *
  * What a load is comes from its gzip member's own name (Rare's headers
  * carry it: "chimp_dl.raw") or, for LZSS and raw DMA, from its ROM
@@ -25,12 +23,6 @@
 #include "romclass.h"
 
 #include "romtab.h"
-
-#ifdef PORT_ACCESS_PROFILE
-int port_access_asset(const char *name);
-void port_access_origin(uint32_t dst, uint32_t len, int asset, uint32_t off);
-void port_access_conv(uint32_t dst, uint32_t len, unsigned width);
-#endif
 
 #define NSEG (sizeof rom_segments / sizeof rom_segments[0])
 
@@ -71,7 +63,6 @@ static void warn(const char *fmt, uint32_t a, uint32_t b) {
     }
 }
 
-#ifdef PORT_NATIVE_ENDIAN
 /* the big-endian scalar of w bytes (1, 2, 4 or 8) at p into host order, in
    place, whatever the host's order is (the identity on a big-endian one);
    its own inverse */
@@ -89,7 +80,6 @@ static void be_to_host(uint8_t *p, unsigned w) {
         memcpy(p, &v, 8);
     }
 }
-#endif
 
 /* n bytes at offset off, in units of w bytes, into host order */
 static void cv(uint32_t off, uint32_t n, unsigned w) {
@@ -99,15 +89,10 @@ static void cv(uint32_t off, uint32_t n, unsigned w) {
             return;
         n = len - off;
     }
-#ifdef PORT_NATIVE_ENDIAN
     uint8_t *p = base + off;
     if (w > 1)
         for (uint32_t k = 0; k + w <= n; k += w)
             be_to_host(p + k, w);
-#endif
-#ifdef PORT_ACCESS_PROFILE
-    port_access_conv(port_n64(base + off), n, w);
-#endif
 }
 
 /* big-endian reads of the data as it arrived (before cv) */
@@ -539,16 +524,12 @@ static void conv_attract(void) {
    tables: port/libaudio/bankfile.h) stay as the ROM has them: the port's
    libaudio parses them with a big-endian reader of its own.  Only the
    leaves they point at (envelopes, books, loops), which the library and
-   the RSP read where they are, are converted.  The original library
-   (PORT_LIBAUDIO_ORIGINAL, the oracle's recorder) makes the records its
-   objects in place, so there they are converted too. */
-#ifdef PORT_LIBAUDIO_ORIGINAL
-#define bank_rec rec
-#define bank_cv cv
-#else
+   the RSP read where they are, are converted.  (The records' layouts stay
+   noted below: the decompiled original library, which the port built
+   before P10 for the libaudio oracle's recorder, made them its objects in
+   place, and they were converted too.) */
 #define bank_rec(off, f) ((void)(off))
 #define bank_cv(off, n, w) ((void)(off))
-#endif
 
 /* the objects of a bank file already converted (they are shared) */
 #define MAX_DONE 4096
@@ -651,9 +632,6 @@ static void begin(const char *name, void *dst, uint32_t n, uint32_t off) {
     len = n;
     snprintf(load_name, sizeof load_name, "%s", name);
     (void)off;
-#ifdef PORT_ACCESS_PROFILE
-    port_access_origin(port_n64(dst), n, port_access_asset(name), off);
-#endif
 }
 
 /* a gzip member's own name (Rare's headers have FNAME: "chimp_dl.raw"),
@@ -759,10 +737,6 @@ void host_layout_to_be(void *p, uint32_t n, const char *layout, int to_bytes) {
         size += *p == 'h' ? 2 : *p == 'w' ? 4 : *p == 'd' ? 8 : 1;
     for (uint32_t o = 0; o + size <= n; o += size)
         rec(o, layout);
-#ifdef PORT_ACCESS_PROFILE
-    if (to_bytes)
-        port_access_conv(port_n64(base), n, 1);   /* bytes now */
-#endif
 }
 
 /* the same for count records stride bytes apart (to host order: tagged at
@@ -784,7 +758,6 @@ void host_layout_to_be_n(void *p, uint32_t stride, uint32_t count, uint32_t n, c
  */
 void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused) {
     (void)unused;
-#ifdef PORT_NATIVE_ENDIAN
     static const struct { uint32_t off, w; } pi[] = {{0x0A, 2}, {0x10, 4}, {0x14, 4}, {0xF0, 4}};
     for (uint32_t k = 0; k < n; ) {
         uint32_t o = off + k, w = 1;
@@ -806,7 +779,4 @@ void host_save_order(uint8_t *p, uint32_t off, uint32_t n, int unused) {
         be_to_host(p + k, w);
         k += w;
     }
-#else
-    (void)p; (void)off; (void)n;
-#endif
 }

@@ -130,29 +130,15 @@ static inline uintptr_t acmd_word(const uint8_t *p) {
 }
 
 static uint8_t *ram(uintptr_t so) {
-#ifdef PORT_PLAIN
     if (!gfx_segmented(so))
         return (uint8_t *)so;       /* (a host pointer) */
-#else
-    if (gfx_seg_tag && !gfx_segmented(so)) {
-        if (acmd_strict && (uint32_t)so < PORT_RDRAM_BASE)
-            host_fatal("audio (PORT_GFX_STRICT): address %08lX isn't an N64 address (a segmented one without its "
-                       "tag?)\n", (unsigned long)so);
-        return port_ptr((uint32_t)so);
-    }
-#endif
     if (acmd_ptr_words) {
         if (acmd_strict && !segments[(so >> 24) & 0xF])
             host_fatal("audio (PORT_GFX_STRICT): address %08lX through segment %d, which isn't set\n",
                        (unsigned long)so, (int)((so >> 24) & 0xF));
         return (uint8_t *)(segments[(so >> 24) & 0xF] + gfx_seg_offset(so));
     }
-#ifdef PORT_PLAIN
-    return NULL;        /* (none: the plain build's words are pointers) */
-#else
-    uint32_t a = (uint32_t)segments[(so >> 24) & 0xF] + gfx_seg_offset(so) + ((uint32_t)so & 0xF0000000u);
-    return port_ptr(PORT_RDRAM_BASE | (a & 0x1FFFFFFFu));      /* KSEG0, as gfx.c's */
-#endif
+    return NULL;        /* (none: the words are pointers) */
 }
 /* game memory at its own widths (the codebooks, the loop state, the state
    the microcode keeps between frames, which only it reads) */
@@ -454,11 +440,7 @@ static void audio_task(const uint8_t *cmd, uint32_t data_size, const uint8_t *uc
             break;
         }
         case A_SEGMENT:
-#ifdef PORT_PLAIN
             segments[(w1 >> 24) & 0xF] = w1a;      /* (a host pointer) */
-#else
-            segments[(w1 >> 24) & 0xF] = acmd_ptr_words ? (w1a ? (uintptr_t)port_ptr((uint32_t)w1a) : 0) : (w1 & 0x1FFFFFFF);
-#endif
             break;
         case A_SETBUFF:
             if (flags & F_AUX) {
@@ -550,10 +532,6 @@ void host_audio_task(const void *data_ptr, uint32_t data_size, const void *ucode
         acmd_strict = e && atoi(e) != 0;
     }
     host_perf_push(PERF_AUDIO);
-#ifdef PORT_PLAIN
     audio_task(data_ptr, data_size, ucode_data);
-#else
-    audio_task(port_ptr(port_n64(data_ptr)), data_size, port_ptr(port_n64(ucode_data)));
-#endif
     host_perf_pop();
 }

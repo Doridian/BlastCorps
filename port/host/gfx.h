@@ -80,12 +80,7 @@ static inline void gfx_put(uint8_t *c, uintptr_t w0, uintptr_t w1) {
 static inline int gfx_segmented(uintptr_t w) { return (w & gfx_seg_tag) != 0; }
 /* a segmented word's offset into its segment */
 static inline uint32_t gfx_seg_offset(uintptr_t w) { return (uint32_t)w & 0x00FFFFFFu & ~gfx_seg_tag; }
-#ifdef PORT_PLAIN
 static inline GfxAddr gfx_of_ptr(const void *p) { return (GfxAddr)p; }
-#else
-static inline GfxAddr gfx_of_n64(uint32_t a) { return a ? (GfxAddr)port_ptr(a) : 0; }
-static inline GfxAddr gfx_of_ptr(const void *p) { return p ? gfx_of_n64(port_n64(p)) : 0; }
-#endif
 /* a host address as an integer for a hash (its two halves folded) */
 static inline uint32_t gfx_addr_hash(GfxAddr a) { return (uint32_t)a ^ (uint32_t)((uint64_t)a >> 32); }
 
