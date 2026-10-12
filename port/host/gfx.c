@@ -345,10 +345,14 @@ static inline void seg_set(int s, uintptr_t w1) {
 /* strict mode: could a list hold this pointer?  One into the program's own
    image (its code, data and bss: the game's variables and regions, the
    frame's and the pool's buffers), the renderer's own memory, or a thread's
-   stack; where the platform doesn't say where its image is (not Linux),
-   any but null */
+   stack; where the platform doesn't say where its image is (macOS), any
+   but null.  Linux says it by __executable_start and _end, WebAssembly's
+   linker by __global_base and __data_end (static data; the heap's buffers
+   are the renderer's own memory or the pool's, which is in the data) */
 #ifdef __linux__
 extern char __executable_start __attribute__((weak)), _end __attribute__((weak));
+#elif defined(__EMSCRIPTEN__)
+extern char __global_base, __data_end;
 #endif
 int gfx_strict_known(const void *p) {
     uintptr_t a = (uintptr_t)p;
@@ -359,6 +363,10 @@ int gfx_strict_known(const void *p) {
         return (a >= (uintptr_t)&__executable_start && a < (uintptr_t)&_end) ||
                (gfx_host_mem && a >= (uintptr_t)gfx_host_mem && a < (uintptr_t)gfx_host_mem + GFX_HOST_SPAN) ||
                host_in_thread_stack(p);
+#elif defined(__EMSCRIPTEN__)
+    return (a >= (uintptr_t)&__global_base && a < (uintptr_t)&__data_end) ||
+           (gfx_host_mem && a >= (uintptr_t)gfx_host_mem && a < (uintptr_t)gfx_host_mem + GFX_HOST_SPAN) ||
+           host_in_thread_stack(p);
 #endif
     return 1;
 }
