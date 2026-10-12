@@ -4,14 +4,14 @@ allow-list (P6's inventory of them: docs/PORT.md, "The LP64 build").
 
     ptrcast_scan.py BUILD [--version V|all] [--allow FILE] [--list [CLASS]] [--update]
 
-BUILD is a configured LP64 port build (-DPORT_LP64=ON): its commands for
+BUILD is a configured port build for a 64-bit host: its commands for
 the N64 side's files (n64_tus.py), run by clang with only
 -Wpointer-to-int-cast, -Wint-to-pointer-cast, -Wint-conversion and
 -Wincompatible-pointer-types on.  With 8-byte pointers each of the first
 three is a place where a pointer goes through a 32-bit integer, or one
 comes from it; the last is a pointer passed or stored as a pointer to
 another type, which hides a pointer slot written as a 32-bit word (the
-LP64 build has the last two as errors, CMakeLists.txt; this sees every
+build has the last two as errors, CMakeLists.txt; this sees every
 version's `#if`s).  Another version's diagnostics are the same
 commands with its VERSION_ define (all: the four), so each version's `#if`
 branches are seen.  A diagnostic is counted once however many files
@@ -188,7 +188,7 @@ def main():
     ap.add_argument("-j", "--jobs", type=int, default=os.cpu_count())
     a = ap.parse_args()
     if not n64_tus.is_lp64(a.build):
-        raise SystemExit(f"{a.build}: not an LP64 build (-DPORT_LP64=ON) or the plain one (-DPORT_PLAIN=ON): its pointers are 4 bytes, no cast is seen")
+        raise SystemExit(f"{a.build}: not a 64-bit build: its pointers are 4 bytes, no cast is seen")
     versions = VERSIONS if a.version == "all" else [a.version or n64_tus.build_version(a.build)]
     allow = read_allow(a.allow)
     fails = 0

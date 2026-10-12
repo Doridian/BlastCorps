@@ -7,8 +7,8 @@
 
 It names the ROM by its sha1 (us.v10, us.v11, jp or eu; .z64, .v64 and .n64 byte
 orders are all fine), copies it to baserom.<version>.z64, sets up the venv and
-the submodules if they aren't there yet, builds the decompilation and the
-translated engine for that version (README, "The PC port"), and then the port
+the submodules if they aren't there yet, builds the decompilation for that
+version (README, "The PC port"), and then the port
 into build/port-<version> (or build/web-<version>, build/node-<version> with
 --node).  Run it again after a `git pull` and it only redoes what changed.
 
@@ -21,16 +21,11 @@ Options:
                      .emsdk/)
     --node           the WebAssembly build for node (headless) instead
     --serve [PORT]   after --wasm, serve the page (default port 8000)
-    --variant V      native only: movable (the default: 64-bit, native byte
-                     order, no fixed addresses; macOS's too), lp64 (the same
-                     at fixed addresses), native (native-endian through the
-                     i386 front end), 64 (big-endian game memory), 32
     -j N             parallel jobs
     --cmake ARG      pass a -D... to CMake (repeatable)
 
-Needs: the mips-linux-gnu- binutils, Python 3, clang and LLVM with its
-headers (llvm-config, opt), CMake, Ninja, SDL2 and libepoxy (README,
-"Requirements").
+Needs: the mips-linux-gnu- binutils, Python 3, clang, CMake, Ninja, SDL2 and
+libepoxy (README, "Requirements").
 """
 import argparse
 import hashlib
@@ -51,13 +46,6 @@ VERSIONS = {
     "460212600f8b9f0da95219c4c7330f2e626d9a7e": "eu",
 }
 PORTED = ("us.v10", "us.v11", "jp", "eu")
-VARIANTS = {
-    "64": ["-DPORT_64BIT=ON"],
-    "32": [],
-    "lp64": ["-DPORT_LP64=ON"],
-    "movable": ["-DPORT_LP64=ON", "-DPORT_MOVABLE=ON"],
-    "native": ["-DPORT_64BIT=ON", "-DPORT_NATIVE_ENDIAN=ON"],
-}
 
 
 def say(msg):
@@ -92,8 +80,7 @@ def rom_z64(path):
 
 def check_tools(wasm):
     missing = []
-    need = ["mips-linux-gnu-ld", "mips-linux-gnu-as", "clang", "clang++", "llvm-config", "opt",
-            "cmake", "ninja", "git", "make"]
+    need = ["mips-linux-gnu-ld", "mips-linux-gnu-as", "clang", "cmake", "ninja", "git", "make"]
     if not wasm:
         need.append("pkg-config")
     for t in need:
@@ -160,8 +147,6 @@ def build_decomp(v, env, jobs):
     run(["make", f"-j{jobs}", V, "-C", "blastcorps"], env)
     run(["make", V, "-C", "blastcorps", "compress"], env)
     run(["make", V], env)
-    say("translating the handwritten engine")
-    run(["make", f"-j{jobs}", "-C", "tools/recomp", V, f"PYTHON={ROOT / '.env/bin/python'}"], env)
 
 
 def find_emsdk(args):
@@ -201,7 +186,6 @@ def main():
     ap.add_argument("--serve", nargs="?", const=8000, type=int)
     ap.add_argument("--emsdk")
     ap.add_argument("--install-emsdk", action="store_true")
-    ap.add_argument("--variant", choices=sorted(VARIANTS))
     ap.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 4)
     ap.add_argument("--cmake", action="append", default=[])
     args = ap.parse_args()
@@ -229,12 +213,10 @@ def main():
     build_decomp(v, env, args.jobs)
 
     if not wasm:
-        variant = args.variant or "movable"
-        out = ROOT / f"build/port-{v}" if variant == "movable" else ROOT / f"build/port-{v}-{variant}"
-        say(f"the port ({variant}) into {out.relative_to(ROOT)}")
+        out = ROOT / f"build/port-{v}"
+        say(f"the port into {out.relative_to(ROOT)}")
         run(["cmake", "-S", "port", "-B", str(out), "-G", "Ninja", "-DCMAKE_C_COMPILER=clang",
-             "-DCMAKE_CXX_COMPILER=clang++", "-DCMAKE_ASM_COMPILER=clang", f"-DPORT_VERSION={v}"]
-            + VARIANTS[variant] + args.cmake, env)
+             f"-DPORT_VERSION={v}"] + args.cmake, env)
         run(["cmake", "--build", str(out), "-j", str(args.jobs)], env)
         rel = out.relative_to(ROOT)
         say(f"done: run it with\n   {rel}/blastcorps {dst.name}\n(from the repo's root; README, \"Run it\", has the keys and options)")

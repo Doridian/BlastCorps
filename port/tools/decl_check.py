@@ -4,7 +4,7 @@ docs/PORT.md, "The LP64 build").
 
     decl_check.py BUILD [--version V|all] [--allow FILE] [--list [CLASS]] [--update]
 
-BUILD is a configured LP64 port build (-DPORT_LP64=ON), where PTR32 is
+BUILD is a configured port build for a 64-bit host, where PTR32 is
 __ptr32 and a pointer without it is 8 bytes: clang's AST of every N64-side
 file (n64_tus.py: the game's C, port/src, port/engine, port/libaudio and,
 for the build's own version, asm2c's data), each declaration and definition
@@ -273,7 +273,7 @@ def main():
     ap.add_argument("-j", "--jobs", type=int, default=os.cpu_count())
     a = ap.parse_args()
     if not n64_tus.is_lp64(a.build):
-        raise SystemExit(f"{a.build}: not an LP64 build (-DPORT_LP64=ON) or the plain one (-DPORT_PLAIN=ON): PTR32 is empty there")
+        raise SystemExit(f"{a.build}: not a 64-bit build: its pointers are 4 bytes, as wide as the integers they meet")
     versions = VERSIONS if a.version == "all" else [a.version or n64_tus.build_version(a.build)]
     allow = read_allow(a.allow)
     fails, seen = 0, {}

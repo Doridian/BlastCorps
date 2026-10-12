@@ -12,7 +12,7 @@
 # program (a PIE): a pointer is a host pointer and a variable is wherever
 # the linker puts it.
 cmake_minimum_required(VERSION 3.20)
-project(blastcorps_pc C CXX ASM)
+project(blastcorps_pc C)
 set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11, us.v10, jp or eu")
 set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10 jp eu)
 if(NOT PORT_VERSION MATCHES "^(us\\.v1[01]|jp|eu)$")
@@ -159,6 +159,8 @@ if(CMAKE_SIZEOF_VOID_P EQUAL 4 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86|i.86|AM
     list(APPEND HOST_ARCH -msse2 -mfpmath=sse -malign-double)
 endif()
 message(STATUS "${CMAKE_SIZEOF_VOID_P}-byte pointers")
+# (for port/tools: test.py, n64_tus.py)
+set(PORT_PTR_SIZE ${CMAKE_SIZEOF_VOID_P} CACHE INTERNAL "the host's pointer size")
 
 # ---- the game's C -------------------------------------------------------------
 file(GLOB GAME_C ${BLAST}/src/hd_code/*.c ${BLAST}/src/hd_front_end/*.c)

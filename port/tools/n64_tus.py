@@ -44,10 +44,9 @@ def build_version(build):
 
 
 def is_lp64(build):
-    """an LP64 build, or the plain one (P10: the host's pointers, which are
-    8 bytes on the 64-bit hosts it is checked on)"""
-    on = lambda k: cache(build).get(k, "OFF").upper() in ("ON", "1", "TRUE", "YES")
-    return on("PORT_LP64") or on("PORT_PLAIN")
+    """a build for a host whose pointers are 8 bytes (an x86-64 one, not
+    -m32), where a pointer in a 4-byte slot shows"""
+    return cache(build).get("PORT_PTR_SIZE") == "8"
 
 
 def kind(path):
@@ -110,7 +109,7 @@ def tus(build, version=None):
         if not f.endswith(".c") or f in seen:
             continue
         if "/gen/fe/" in f:
-            continue    # (the plain build's front end again, with its variables' table: fe_scan has it as it is)
+            continue    # (the front end again, with its variables' table: fe_scan has it as it is)
         argv = shlex.split(e["command"]) if "command" in e else list(e["arguments"])
         if not any(a.endswith("port_game.h") for a in argv):
             continue

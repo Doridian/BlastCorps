@@ -7,9 +7,8 @@
                            [--timing free|movie|both] [--qemu ARCH] [--frames N]
     port/tools/test.py budget BUILD [BUILD...] [--ceiling MB] [--static | --long | --tas [--polls FILE]]
                               [--qemu ARCH]
-    port/tools/test.py recomp [--trials N]
-    port/tools/test.py variants [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
-                                [--emsdk DIR] [--gameplay]
+    port/tools/test.py kinds [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
+                             [--emsdk DIR] [--gameplay]
 
 quick: deterministic headless runs (--deterministic, the software
 renderer), a few thousand frames each; the save, the --wav and
@@ -17,18 +16,14 @@ a screenshot every 250 frames are hashed and compared with the committed
 references (port/tools/test_refs.json, by version), with --against another
 build's results, and within the build (the pthread backend against
 ucontext, --widescreen, --interpolate with either renderer against
-the plain run: the save and the sound must not change).  No build but the
-check build (PORT_ENGINE_CHECK) may compile or link any of the translated
-engine (tools/recomp's recomp_func_X): the engine is port/engine's.  A build that takes
-its data from the ROM (PORT_ROM_DATA, the movable ones by default) is also
-searched for the ROM's data (rom_scan.py), and must carry none.  An LP64
-build's runs are in the renderer's strict mode (PORT_GFX_STRICT=1: a
-malformed display list or audio command is fatal).  An LP64
-build (not the movable one) also runs P6's pointer checks against their
-allow-lists: ptr32_check.py (the structures still PTR32), decl_check.py
-(declarations that disagree about a pointer) and ptrcast_scan.py (the
-pointer/integer conversions and incompatible pointer types), the last two
-for all four versions.  It also plays
+the plain run: the save and the sound must not change).  No build may
+link any of the translated engine (tools/recomp's recomp_func_X): the
+engine is port/engine's.  The runs are in the renderer's strict mode
+(PORT_GFX_STRICT=1: a malformed display list or audio command is fatal).
+A native 64-bit build also runs P6's pointer checks against their allow-lists:
+decl_check.py (declarations that disagree about a pointer) and
+ptrcast_scan.py (the pointer/integer conversions and incompatible pointer
+types), for all four versions.  It also plays
 from a resource pack made from the ROM (port/make_pack.py, into build/pack/):
 the same hashes as from the ROM; and from a copy with a texture painted over:
 the same save and sound, the screenshots changed only toward its colour.
@@ -52,9 +47,9 @@ timing: docs/PORT.md, "The gameplay digest").
 tas: the TAS replay (docs/PORT.md, "The TAS"), several builds at once:
 57 platinum (tas_check.py), and the replay's report: every one of the log's
 reads matched, none skipped, no mode forced, unless the references list
-the variant's current report as a known drift (then that report, exactly,
-passes as a known failure and anything else fails).  --pack: from the
-resource pack made from the ROM instead.  --timing free (the default) plays
+the build's kind's current report as a known drift (then that report,
+exactly, passes as a known failure and anything else fails).  --pack: from
+the resource pack made from the ROM instead.  --timing free (the default) plays
 it with the port's own frame timing, as the game plays by default (no lag
 frames: every level frame two retraces), movie with the movie's retraces
 for every frame (its lag frames), both both (docs/PORT.md, "Lag frames");
@@ -90,23 +85,22 @@ effects' heap.  It fails where the footprint is over the ceiling (--ceiling
 MB; 32 by default where pointers are 4 bytes, none where they are 8) or a
 run didn't finish.
 
-recomp: the translated engine's differential test (make -C tools/recomp
-test, for blastcorps/'s version).
+kinds: configures and builds the standard kinds of the build into
+build/test-<kind>/ (from the stage 2 blastcorps/ holds) and runs quick on
+each: plain (clang), gcc, asan (clang with ASan and UBSan) and m32 (i386);
+--only names others: ppc and mipsel (zig cc's cross builds, under qemu:
+port/tools/cross-*.cmake) and wasm (under node, where emsdk is there:
+--emsdk, $EMSDK or emcmake on the PATH).  Every kind must give the
+references' hashes (they don't depend on the compiler, the sanitizers,
+the pointer size, the byte order or the layout).  --tas runs the TAS on
+all of them too.  A quick or tas run on any build with PORT_SANITIZE set
+runs it with ASAN_OPTIONS=detect_leaks=0 unless the environment has its
+own.
 
-variants: configures and builds the standard variants into build/test-*/
-(from the stage 2 blastcorps/ holds) and runs quick on each; every variant
-must give the references' hashes, which makes them all equal to each
-other.  --tas runs the TAS on all of them too.  The WebAssembly build
-(wasm, under node) is one of them where emsdk is there (--emsdk, $EMSDK,
-or emcmake on the PATH), and it must equal mn32 in every hash, the
-layout-dependent screenshots included.  guard is mn32 in the scattered
-layout with the guard on (docs/PORT.md, "The guard"): it must give the
-references' hashes too.
-The plain build's kinds (`--only plain,plain-gcc,plain-asan,plain-m32`:
-clang, gcc, clang with ASan and UBSan, i386) are built into build/test-<kind>/
-when named, and give the same references' hashes; a quick or tas run on any
-build with PORT_SANITIZE set runs it with ASAN_OPTIONS=detect_leaks=0 unless
-the environment has its own.
+A build's kind is what its CMakeCache says: plain, or gcc for gcc, asan
+(or san) with sanitizers, m32 for i386, the emulator's arch for a cross
+build, joined by "-" (gcc-asan); test_refs.json's known failures are by
+kind.
 
 Exit status: 0 when everything passed (known drifts included), 1 on a
 failure, 77 when nothing could run (no ROM, no log, no venv: CTest's skip).
@@ -135,42 +129,28 @@ import digest_cmp  # noqa: E402  (the gameplay digest: port/tools/digest_cmp.py)
 DIGEST_REFS = os.path.join(ROOT, "build", "digest-refs")
 DIGEST = "digest.txt"
 
-# name: (cmake options) -- the standard variant set, in build/test-<name>
-VARIANTS = {
-    "32": [],
-    "64": ["-DPORT_64BIT=ON"],
-    "n64": ["-DPORT_64BIT=ON", "-DPORT_NATIVE_ENDIAN=ON"],
-    "lp64": ["-DPORT_LP64=ON"],
-    "m64": ["-DPORT_64BIT=ON", "-DPORT_MOVABLE=ON"],
-    "mlp64": ["-DPORT_LP64=ON", "-DPORT_MOVABLE=ON"],
-    "mn32": ["-DPORT_NATIVE_ENDIAN=ON", "-DPORT_MOVABLE=ON"],
-    # mn32 in the scattered layout (seed 1), with the guard: nothing of the
-    # game's at an N64 address, and the N64's RDRAM faults (docs/PORT.md,
-    # "The guard")
-    "guard": ["-DPORT_NATIVE_ENDIAN=ON", "-DPORT_MOVABLE=ON", "-DPORT_SCATTER=1", "-DPORT_SCATTER_GUARD=ON"],
-    # the movable 32-bit native-endian build for wasm32, under node (emsdk)
-    "wasm": ["-DPORT_WASM_TARGET=node"],
-}
-# the plain build's kinds (P10): not in the default set (`variants --only plain,plain-gcc,...`);
-# the compiler and the flags come after CMAKE's, so they replace them.  Every kind
-# gives the same hashes (the references': they don't depend on the layout).
-PLAIN = ["-DPORT_PLAIN=ON"]
-VARIANTS_PLAIN = {
-    "plain": PLAIN,
-    "plain-gcc": PLAIN + ["-DCMAKE_C_COMPILER=gcc", "-DCMAKE_CXX_COMPILER=g++", "-DCMAKE_ASM_COMPILER=gcc"],
-    "plain-asan": PLAIN + ["-DPORT_SANITIZE=address,undefined"],
+# kind: (cmake options) -- the build's kinds, in build/test-<kind>; the compiler and
+# the flags come after CMAKE's, so they replace them.  Every kind gives the same
+# hashes (the references': they don't depend on the layout).
+TOOLS = os.path.join(ROOT, "port", "tools")
+KINDS = {
+    "plain": [],
+    "gcc": ["-DCMAKE_C_COMPILER=gcc"],
+    "asan": ["-DPORT_SANITIZE=address,undefined"],
     # i386, SSE arithmetic (the build adds -msse2 -mfpmath=sse -malign-double itself); its SDL is
     # the multilib one's (/usr/lib32), which pkg-config is pointed at
-    "plain-m32": PLAIN + ["-DCMAKE_C_FLAGS=-m32", "-DCMAKE_CXX_FLAGS=-m32", "-DCMAKE_ASM_FLAGS=-m32"],
+    "m32": ["-DCMAKE_C_FLAGS=-m32"],
+    # zig cc's cross builds, run under qemu (the whole quick tier: 35 and 12 minutes)
+    "ppc": [f"-DCMAKE_TOOLCHAIN_FILE={TOOLS}/cross-ppc.cmake"],
+    "mipsel": [f"-DCMAKE_TOOLCHAIN_FILE={TOOLS}/cross-mipsel.cmake"],
+    # wasm32 under node (emsdk)
+    "wasm": ["-DPORT_WASM_TARGET=node"],
 }
+# the kinds `kinds` builds unless --only names others
+KINDS_DEFAULT = ("plain", "gcc", "asan", "m32")
 # (the environment of a kind's configure)
-PLAIN_ENV = {"plain-m32": {"PKG_CONFIG_LIBDIR": "/usr/lib32/pkgconfig:/usr/share/pkgconfig"}}
-# builds whose layouts are the same, so that they must be identical in
-# every hash, the layout-dependent screenshots included (docs/PORT.md,
-# "WebAssembly": the escaping locals' frames are port-arena's)
-TWINS = {frozenset(("wasm", "mn32"))}
-CMAKE = ["-G", "Ninja", "-DCMAKE_C_COMPILER=clang", "-DCMAKE_CXX_COMPILER=clang++",
-         "-DCMAKE_ASM_COMPILER=clang"]
+KIND_ENV = {"m32": {"PKG_CONFIG_LIBDIR": "/usr/lib32/pkgconfig:/usr/share/pkgconfig"}}
+CMAKE = ["-G", "Ninja", "-DCMAKE_C_COMPILER=clang"]
 
 SHOT_EVERY = 250
 # the timeouts: a quick scenario's (s) natively, by its frames; the TAS's;
@@ -264,7 +244,7 @@ _tl = threading.local()
 
 
 def emit(s):
-    """print, or collect into this thread's buffer (variants runs builds at once)"""
+    """print, or collect into this thread's buffer (kinds runs builds at once)"""
     buf = getattr(_tl, "buf", None)
     if buf is not None:
         buf.append(s)
@@ -311,46 +291,36 @@ class Build:
                         cache[m.group(1)] = m.group(2)
         except OSError:
             raise SystemExit(f"{path}: not a configured port build (no CMakeCache.txt)")
-        on = lambda k: cache.get(k, "OFF").upper() in ("ON", "1", "TRUE", "YES")
         self.version = cache.get("PORT_VERSION", "us.v11")
-        self.lp64, self.native, self.bits64, self.movable = (
-            on("PORT_LP64"), on("PORT_NATIVE_ENDIAN"), on("PORT_64BIT"), on("PORT_MOVABLE"))
-        self.rom_data = on("PORT_ROM_DATA")
-        # the plain build (P10): ordinary C, no plugin, no fixed addresses
-        self.plain = on("PORT_PLAIN")
-        self.engine_check = on("PORT_ENGINE_CHECK")
         self.gl = cache.get("EPOXY_FOUND", "") == "1"
         self.threads = cache.get("PORT_THREADS", "ucontext")
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
-        self.variant = ("m" if self.movable else "") + (
-            "lp64" if self.lp64 else ("n" if self.native else "") + ("64" if self.bits64 else "32"))
-        # (the plain build's kinds, in the same variant: the references are
-        # the same, whatever the compiler, the sanitizers or the pointer size)
+        self.ptr_size = int(cache.get("PORT_PTR_SIZE") or 8)
+        # the kind (the references are the same, whatever the compiler, the
+        # sanitizers, the pointer size or the byte order)
         self.sanitize = cache.get("PORT_SANITIZE", "")
-        self.kind = self.variant
-        if self.plain:
-            self.variant = "plain"
-            self.kind = "plain"
-            if "gcc" in os.path.basename(cache.get("CMAKE_C_COMPILER", "")) and "clang" not in cache.get("CMAKE_C_COMPILER", ""):
-                self.kind += "-gcc"
-            if self.sanitize:
-                self.kind += "-asan" if "address" in self.sanitize else "-san"
-            if "-m32" in cache.get("CMAKE_C_FLAGS", ""):
-                self.kind += "-m32"
-        if cache.get("PORT_SCATTER"):       # (the scattered layout: seed, g with the guard)
-            self.variant += "-s" + cache["PORT_SCATTER"] + ("g" if on("PORT_SCATTER_GUARD") else "")
+        parts = []
+        cc = cache.get("CMAKE_C_COMPILER", "")
+        if "gcc" in os.path.basename(cc) and "clang" not in cc:
+            parts.append("gcc")
+        if self.sanitize:
+            parts.append("asan" if "address" in self.sanitize else "san")
+        if "-m32" in cache.get("CMAKE_C_FLAGS", ""):
+            parts.append("m32")
         # a cross build's emulator (qemu-user, port/tools/cross-*.cmake): it
         # runs every run of it (--qemu ARCH: another, or one for a build
         # that names none)
         emu = cache.get("CMAKE_CROSSCOMPILING_EMULATOR", "")
         self.emulator = [] if self.wasm else [x for x in emu.split(";") if x]
-        self.native_kind = self.kind
+        self.native_parts = parts
         if self.emulator:
-            self.kind += "-" + re.sub(r"^qemu-|-static$", "", os.path.basename(self.emulator[0]))
+            parts = parts + [re.sub(r"^qemu-|-static$", "", os.path.basename(self.emulator[0]))]
+        if self.wasm:
+            parts = parts + ["wasm"]
+        self.kind = "-".join(parts) or "plain"
         self.ucontext = cache.get("PORT_UCONTEXT_FOUND", "") == "1"
         self.node = None
-        if self.wasm:       # (the movable native-endian 32-bit build, for wasm32)
-            self.variant = "wasm"
+        if self.wasm:       # (wasm32, under node)
             self.exe = os.path.join(self.path, "blastcorps.js")
             self.node = cache.get("CMAKE_CROSSCOMPILING_EMULATOR") or shutil.which("node")
         self.name = os.path.relpath(self.path, ROOT) if self.path.startswith(ROOT) else self.path
@@ -381,7 +351,7 @@ class Build:
     def qemu(self, arch):
         """run under qemu-ARCH-static (test.py --qemu ARCH)"""
         self.emulator = [f"qemu-{arch}-static"]
-        self.kind = f"{self.native_kind}-{arch}"
+        self.kind = "-".join(self.native_parts + [arch])
 
     def slower(self):
         """how many times longer than natively a run takes (the timeouts)"""
@@ -395,10 +365,6 @@ class Build:
             return False
         return os.access(self.exe, os.X_OK) if not self.wasm else (
             os.path.exists(self.exe) and bool(self.node) and os.access(self.node, os.X_OK))
-
-
-def twins(a, b):
-    return frozenset((a.variant, b.variant)) in TWINS
 
 
 def run_port(build, outdir, frames, autostart, args=(), env=(), shots=True, exe=None, rom=None):
@@ -525,10 +491,10 @@ def compare(a, b, what, layout=()):
 
 
 def known_for(refs, build, name):
-    """the known failures' hashes for this build's variant in one scenario"""
+    """the known failures' hashes for this build's kind in one scenario"""
     out, notes = {"shots": {}}, []
     for k in refs.get("known", {}).get(build.version, []):
-        if build.variant in k["variants"] and name in k["scenarios"]:
+        if build.kind in k["kinds"] and name in k["scenarios"]:
             s = k["scenarios"][name]
             out.update({x: s[x] for x in ("save", "wav") if x in s})
             out["shots"].update(s.get("shots", {}))
@@ -537,19 +503,19 @@ def known_for(refs, build, name):
 
 
 def add_known(refs, build, name, h, keys, note):
-    """records h's hashes at keys as a known failure of the build's variant"""
+    """records h's hashes at keys as a known failure of the build's kind"""
     s = {k: h[k] for k in keys if k in ("save", "wav")}
     shots = {k: val(h, k) for k in keys if k not in ("save", "wav")}
     if shots:
         s["shots"] = shots
     lst = refs.setdefault("known", {}).setdefault(build.version, [])
-    for k in lst:     # the same failure in another variant, or more of this one's
-        if k["note"] == note and (k["scenarios"].get(name) == s or k["variants"] == [build.variant]):
+    for k in lst:     # the same failure in another kind, or more of this one's
+        if k["note"] == note and (k["scenarios"].get(name) == s or k["kinds"] == [build.kind]):
             k["scenarios"][name] = s
-            if build.variant not in k["variants"]:
-                k["variants"].append(build.variant)
+            if build.kind not in k["kinds"]:
+                k["kinds"].append(build.kind)
             return
-    lst.append({"note": note, "variants": [build.variant], "scenarios": {name: s}})
+    lst.append({"note": note, "kinds": [build.kind], "scenarios": {name: s}})
 
 
 # ---- resource packs -------------------------------------------------------------
@@ -683,8 +649,7 @@ def quick_run(build, jobs, scenarios):
             rom, why = pack_for(build.version, PACK_SCENARIOS[name])
             if rom is None:
                 return name, why, 0
-        if build.lp64 or build.plain:   # (a malformed display list or audio command is fatal: gfx.c)
-            env = dict(env, PORT_GFX_STRICT="1")
+        env = dict(env, PORT_GFX_STRICT="1")   # (a malformed display list or audio command is fatal: gfx.c)
         rc, t = run_port(build, os.path.join(out, name), frames, autostart, args, env,
                          shots=True, exe=exe, rom=rom)
         return name, rc, t
@@ -707,7 +672,7 @@ def quick_run(build, jobs, scenarios):
             else:
                 res[name] = hashes(d)
     with open(os.path.join(build.path, "test", "quick.json"), "w") as f:
-        json.dump({"version": build.version, "variant": build.variant,
+        json.dump({"version": build.version, "kind": build.kind,
                    "results": {k: v for k, v in res.items() if not k.endswith((".error", ".skip"))}},
                   f, indent=1, sort_keys=True)
     return res, times
@@ -825,11 +790,10 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
             say("FAIL", f"{build.name} against {against.name}", "no results there (run quick on it first)")
             fails += 1
         else:
-            exact = twins(build, against)
             for name in names:
                 if res[name] is None or name not in other["results"]:
                     continue
-                lay = [] if exact else layout.get(SCENARIOS[name][4] or name, [])
+                lay = layout.get(SCENARIOS[name][4] or name, [])
                 # the OpenGL screenshots are the host's GL's, but the same on
                 # one machine
                 d = compare(res[name], other["results"][name], "all", lay)
@@ -841,18 +805,16 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
                     say("FAIL", label, "; ".join(d))
                     fails += 1
                 else:
-                    say("PASS", label, "identical" + (", the layout-dependent screenshots too" if exact else ""))
+                    say("PASS", label, "identical")
     fails += no_translation(build)
-    if build.rom_data:
-        fails += rom_scan(build)
-    if build.emulator:
+    if build.emulator or build.wasm:
         say("SKIP", f"{build.name} pointer checks", "the sources' (the native plain builds run them)")
     else:
         fails += pointer_checks(build)
     if update:
         refs.setdefault("quick", {})[build.version] = vref
     if update or known is not None:
-        with _refs_lock:        # (variants: several builds' quick tiers at once)
+        with _refs_lock:        # (kinds: several builds' quick tiers at once)
             save_refs(refs)
     emit(f"   {build.name}: {fails} failed, {time.time() - t0:.0f}s")
     return fails
@@ -862,24 +824,9 @@ TRANSLATED = re.compile(r"\brecomp_(?:orig_)?(?:func|group)_\w+")
 
 
 def no_translation(build):
-    """the engine is native (port/engine): no translated function
-    (tools/recomp's recomp_func_X) is compiled or linked into the build,
-    but for the check build's (PORT_ENGINE_CHECK); the failures"""
+    """the engine is native (port/engine): nothing of the translated engine
+    (tools/recomp's recomp_func_X) is linked into the build; the failures"""
     label = f"{build.name} engine"
-    if build.engine_check:
-        say("SKIP", label, "the check build runs the translation against the native code")
-        return 0
-    # the translated objects (blastcorps/build/recomp/src/hd_*.c): none in
-    # the build's graph (or, without one, among its objects)
-    obj = re.compile(r"recomp\.dir/\S*?((?:hd_code|hd_front_end)_\w+\.c\.o(?:bj)?)\b")
-    ninja = os.path.join(build.path, "build.ninja")
-    if os.path.exists(ninja):
-        objs = set(obj.findall(open(ninja).read()))
-    else:
-        objs = set()
-        for d, _, files in os.walk(os.path.join(build.path, "CMakeFiles", "recomp.dir")):
-            objs |= set(obj.findall("\n".join("recomp.dir/" + f for f in files)))
-    # and no symbol of one in what was linked (the .wasm's names where it has them)
     files = [build.exe] + ([os.path.splitext(build.exe)[0] + ".wasm"] if build.wasm else [])
     nm = shutil.which("llvm-nm") or shutil.which("nm")
     syms, looked = set(), []
@@ -890,38 +837,33 @@ def no_translation(build):
         if r.returncode == 0 and r.stdout.strip():
             looked.append(os.path.basename(f))
             syms |= set(TRANSLATED.findall(r.stdout))
-    if objs or syms:
-        say("FAIL", label, f"translated code in the build: {len(objs)} objects ({', '.join(sorted(objs)[:3])}), "
-            f"{len(syms)} functions ({', '.join(sorted(syms)[:5])})")
+    if syms:
+        say("FAIL", label, f"translated code in the build: {len(syms)} functions ({', '.join(sorted(syms)[:5])})")
         return 1
-    say("PASS", label, "no translated function compiled" +
-        (f", none in {', '.join(looked)}'s symbols" if looked else " (no symbols to look in)"))
+    say("PASS", label, "no translated function" +
+        (f" in {', '.join(looked)}'s symbols" if looked else " (no symbols to look in)"))
     return 0
 
 
 POINTER_CHECKS = (
     # (tool, arguments after the build, what it checks)
-    ("ptr32_check.py", [], "the structures still PTR32 are the allow-list's"),
     ("decl_check.py", ["--version", "all"], "the declarations' pointer and size disagreements are the allow-list's"),
     ("ptrcast_scan.py", ["--version", "all"], "the pointer/integer conversions are within the allow-list"),
 )
 
 
 def pointer_checks(build):
-    """the LP64 build (not the movable one, which has the same sources and
-    layouts) and the plain one: P6's checks of the pointers, against their allow-lists
-    (ptr32_check.py from the DWARF, decl_check.py and ptrcast_scan.py from
-    the N64 side's sources, for all four versions); the failures"""
-    if not (build.lp64 or build.plain) or build.movable or build.wasm:
+    """P6's checks of the pointers, against their allow-lists (decl_check.py
+    and ptrcast_scan.py, from the N64 side's sources, for all four
+    versions), where pointers are 8 bytes; the failures"""
+    if build.ptr_size != 8:
+        say("SKIP", f"{build.name} pointer checks", "pointers are 4 bytes here (a 64-bit build runs them)")
         return 0
     fails = 0
     for tool, args, what in POINTER_CHECKS:
         t = time.time()
         label = f"{build.name} {os.path.splitext(tool)[0]}"
-        if tool == "ptr32_check.py" and build.plain:
-            say("SKIP", label, "PTR32 is the LP64 variants' (the plain build's structures are the host's)")
-            continue
-        need = "llvm-dwarfdump" if tool == "ptr32_check.py" else "ninja"
+        need = "ninja"
         if not shutil.which(need):
             say("SKIP", label, f"no {need}")
             continue
@@ -935,24 +877,6 @@ def pointer_checks(build):
             say("FAIL", label, out[-3000:])
             fails += 1
     return fails
-
-
-def rom_scan(build):
-    """a PORT_ROM_DATA build carries none of the ROM (rom_scan.py: no
-    stretch of 24 bytes of it or of its inflated modules); the failures"""
-    files = [build.exe] + ([os.path.splitext(build.exe)[0] + ".wasm"] if build.wasm else [])
-    t = time.time()
-    r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", "rom_scan.py"), "--version",
-                        build.version, "--max-bytes", "0", "--top", "5"] + files, capture_output=True, text=True)
-    label = f"{build.name} rom_scan ({time.time() - t:.0f}s)"
-    if r.returncode == 0:
-        say("PASS", label, "none of the ROM's data in " + ", ".join(os.path.basename(f) for f in files))
-        return 0
-    if r.returncode == SKIP:
-        say("SKIP", label, r.stderr.strip())
-        return 0
-    say("FAIL", label, "the ROM's data in the build:\n" + r.stdout + r.stderr)
-    return 1
 
 
 # ---- tas ---------------------------------------------------------------------
@@ -1112,7 +1036,7 @@ def tas_check(b, refs, out, rc, t, update=False, gameplay=False, timing="movie")
     if timing == "free":        # its own save (docs/PORT.md, "Lag frames")
         tref["save"] = tref.get("save_free")
     exact = matched == total and skipped == 0 and forced == 0
-    known = next((k for k in tref.get("known", []) if b.variant in k["variants"]), None)
+    known = next((k for k in tref.get("known", []) if b.kind in k["kinds"]), None)
     dpath = os.path.join(out, DIGEST)
     dfail = digest_check(f"{b.name} tas, {timing} timing{pk} gameplay", dpath,
                          digest_cmp.gameplay_hash(digest_cmp.parse(dpath)) if os.path.exists(dpath) else None,
@@ -1286,43 +1210,7 @@ def budget(build, args):
     return fails
 
 
-# ---- recomp ------------------------------------------------------------------
-
-def venv_python():
-    for p in (os.path.join(ROOT, ".env", "bin", "python"), sys.executable):
-        if os.path.exists(p) and subprocess.run([p, "-c", "import numpy, unicorn"],
-                                                capture_output=True).returncode == 0:
-            return p
-    return None
-
-
-def recomp(trials):
-    try:
-        version = open(os.path.join(ROOT, "blastcorps", ".version")).read().strip()
-    except OSError:
-        say("SKIP", "recomp difftest", "no stage 2 extracted (blastcorps/.version)")
-        return None
-    py = venv_python()
-    if py is None:
-        say("SKIP", "recomp difftest", "no Python with numpy and unicorn (.env)")
-        return None
-    print(f"== recomp: difftest, {version}, {trials} trials a function", flush=True)
-    t = time.time()
-    log = os.path.join(ROOT, "blastcorps", "build", "recomp", "difftest.log")
-    os.makedirs(os.path.dirname(log), exist_ok=True)
-    with open(log, "w") as f:
-        rc = subprocess.call(["make", "-C", os.path.join(ROOT, "tools", "recomp"), "test",
-                              f"VERSION={version}", f"PYTHON={py}", f"TRIALS={trials}"],
-                             stdout=f, stderr=subprocess.STDOUT)
-    lines = [l for l in open(log, errors="replace").read().splitlines()
-             if re.search(r"\d+/\d+ functions|pass|fail", l, re.I)]
-    detail = " | ".join(lines[-2:]) if lines else ""
-    say("PASS" if rc == 0 else "FAIL", f"recomp difftest ({(time.time() - t) / 60:.1f} min)",
-        detail + f" (log: {os.path.relpath(log, ROOT)})")
-    return 0 if rc == 0 else 1
-
-
-# ---- variants ----------------------------------------------------------------
+# ---- kinds ----------------------------------------------------------------
 
 def emsdk_cmake(given):
     """how to configure a WebAssembly build: the cmake command's start, or None"""
@@ -1344,14 +1232,16 @@ def emsdk_cmake(given):
     return None
 
 
-def variants(args, refs):
+def kinds(args, refs):
     version = args.version
     try:
         extracted = open(os.path.join(ROOT, "blastcorps", ".version")).read().strip()
     except OSError:
         extracted = None
-    names = args.only.split(",") if args.only else list(VARIANTS)
-    allv = dict(VARIANTS, **VARIANTS_PLAIN)
+    names = args.only.split(",") if args.only else list(KINDS_DEFAULT)
+    for n in names:
+        if n not in KINDS:
+            raise SystemExit(f"no kind {n}: {', '.join(KINDS)}")
     builds = []
     t0 = time.time()
     emcmake = emsdk_cmake(args.emsdk)
@@ -1369,10 +1259,13 @@ def variants(args, refs):
             t = time.time()
             log = d + ".build.log"
             with open(log, "w") as f:
-                start, flags = (emcmake, ["-G", "Ninja"]) if n == "wasm" else (["cmake"], CMAKE)
+                # (a toolchain file names its own compiler)
+                start, flags = ((emcmake, ["-G", "Ninja"]) if n == "wasm" else
+                                (["cmake"], ["-G", "Ninja"]) if any("TOOLCHAIN" in o for o in KINDS[n]) else
+                                (["cmake"], CMAKE))
                 rc = subprocess.call(start + ["-S", os.path.join(ROOT, "port"), "-B", d] + flags
-                                     + [f"-DPORT_VERSION={version}"] + allv[n],
-                                     env=dict(os.environ, **PLAIN_ENV.get(n, {})),
+                                     + [f"-DPORT_VERSION={version}"] + KINDS[n],
+                                     env=dict(os.environ, **KIND_ENV.get(n, {})),
                                      stdout=f, stderr=subprocess.STDOUT)
                 rc = rc or subprocess.call(["cmake", "--build", d], stdout=f, stderr=subprocess.STDOUT)
             if rc:
@@ -1399,38 +1292,14 @@ def variants(args, refs):
             skipped += 1
         else:
             fails += r
-    # the builds that must be identical, layout and all
-    for a in builds:
-        for b in builds:
-            if a.variant > b.variant and twins(a, b):
-                fails += twin_check(a, b)
-    # the equivalences, as a table: every variant's hashes against the first's
+    # the equivalences, as a table: every kind's hashes against the references
     table(builds, refs)
-    print(f"== variants: build {tb - t0:.0f}s, quick {time.time() - tb:.0f}s", flush=True)
+    print(f"== kinds: build {tb - t0:.0f}s, quick {time.time() - tb:.0f}s", flush=True)
     if args.tas:
         r = tas(builds, refs, args.polls, args.jobs or len(builds), pack=args.tas_pack, gameplay=args.gameplay,
                 timing=args.timing)
         fails += r or 0
     return None if skipped == len(builds) and not fails else fails
-
-
-def twin_check(a, b):
-    """two builds' last quick results, every hash the same; the failures"""
-    try:
-        ra, rb = (json.load(open(os.path.join(x.path, "test", "quick.json")))["results"] for x in (a, b))
-    except OSError:
-        say("FAIL", f"{a.variant} against {b.variant}", "no quick results")
-        return 1
-    fails = 0
-    for n in sorted(set(ra) & set(rb)):
-        d = compare(ra[n], rb[n], "all")
-        label = f"{a.variant} {n} against {b.variant}"
-        if d:
-            say("FAIL", label, "; ".join(d))
-            fails += 1
-        else:
-            say("PASS", label, "identical, the layout-dependent screenshots too")
-    return fails
 
 
 def table(builds, refs):
@@ -1445,7 +1314,7 @@ def table(builds, refs):
         return
     version = got[0][0].version
     ref = refs.get("quick", {}).get(version)
-    against = "the references" if ref else got[0][0].variant
+    against = "the references" if ref else got[0][0].kind
     ref = ref or got[0][1]
     names = [n for n in scenarios_for(version) if SCENARIOS[n][4] is None]
     lay = refs.get("layout", {}).get(version, {})
@@ -1464,7 +1333,7 @@ def table(builds, refs):
             kn, _ = known_for(refs, b, n)
             cells.append("=" if not keys else "~" if not rest else
                          "k" if all(val(kn, k) == val(r[n], k) for k in rest) else "x")
-        print("   " + b.variant.ljust(8) + " ".join(c.ljust(x) for c, x in zip(cells, w)))
+        print("   " + b.kind.ljust(8) + " ".join(c.ljust(x) for c, x in zip(cells, w)))
 
 
 def detail(builds):
@@ -1472,7 +1341,7 @@ def detail(builds):
     got = []
     for b in builds:
         try:
-            got.append((b.variant, json.load(open(os.path.join(b.path, "test", "quick.json")))["results"]))
+            got.append((b.kind, json.load(open(os.path.join(b.path, "test", "quick.json")))["results"]))
         except OSError:
             say("SKIP", b.name, "no quick results")
     if not got:
@@ -1541,20 +1410,18 @@ def main():
     bu.add_argument("--tas", action="store_true", help="the TAS replay too (its log: --polls)")
     bu.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     bu.add_argument("-j", "--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
-    r = sub.add_parser("recomp")
-    r.add_argument("--trials", type=int, default=48)
     d = sub.add_parser("table", help="every hash of the builds' last quick runs, against the first's")
     d.add_argument("builds", nargs="+")
-    v = sub.add_parser("variants")
+    v = sub.add_parser("kinds")
     v.add_argument("--version", default="us.v10")
-    v.add_argument("--only", help="comma-separated variant names (" + ", ".join(VARIANTS)
-                   + "; the plain build's kinds, not in the default set: " + ", ".join(VARIANTS_PLAIN) + ")")
+    v.add_argument("--only", help="comma-separated kinds (" + ", ".join(KINDS) + "; by default "
+                   + ", ".join(KINDS_DEFAULT) + ")")
     v.add_argument("--no-build", action="store_true", help="use build/test-* as they are")
     v.add_argument("--tas", action="store_true", help="and the TAS on each")
     v.add_argument("--tas-pack", action="store_true", help="with --tas: from the resource pack, not the ROM")
     v.add_argument("--timing", choices=("free", "movie", "both"), default="free",
                    help="with --tas: the port's own frame timing (no lag, the default), the movie's, or both")
-    v.add_argument("--emsdk", help="emsdk's directory, for the wasm variant (default: $EMSDK, or emcmake)")
+    v.add_argument("--emsdk", help="emsdk's directory, for the wasm kind (default: $EMSDK, or emcmake)")
     v.add_argument("--polls", default=os.path.join(ROOT, "build", "tas", "run", "polls.csv"))
     v.add_argument("-j", "--jobs", type=int, default=0, help="TAS replays at a time (default: all)")
     v.add_argument("--gameplay", action="store_true",
@@ -1585,10 +1452,8 @@ def main():
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return
-    elif args.cmd == "recomp":
-        fails = recomp(args.trials)
     else:
-        fails = variants(args, refs)
+        fails = kinds(args, refs)
     dt = time.time() - t0
     if fails is None:
         print(f"== skipped ({dt:.0f}s)")
