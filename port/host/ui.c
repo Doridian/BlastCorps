@@ -49,43 +49,32 @@
 #include "host.h"
 #include "gfx.h"
 
-#define V(s) PORT_VAR(s)
+#include "host_game_vars.h"
 
 /* (us.v11's names, docs/PORT.md has what they are) */
-extern char D_80364A90[], D_802E8BD0[], D_8036BB18[], D_8036BB1C[], D_8036BB30[], D_8036BB3C[], D_8036BB3E[],
-    D_802F8BDC[], D_8020C070[], D_802F5804[], D_802F49F4[], D_80364456[], D_80364AF0[], D_80364AE8[],
-    D_8036C778[], D_80358060[], D_8035805C[], D_8035807C[], D_803156F8[], D_80217B6C[], D_80217B70[],
-    D_8020D810[], D_8021A905[], D_8021A907[], D_8021A90C[], D_8021A910[], D_8021A914[], D_8021A91C[],
-    D_8021A920[], D_8021A924[], D_802E8F94[], D_8021AB2C[], D_802154B4[], D_80208350[], D_80208314[], D_802082FC[],
-    D_802154BC[];
-
-static uint8_t g8(const char *p) { return *(const uint8_t *)p; }
-static float gf(const char *p) {
-    uint32_t v = port_g32(p);
-    float f;
-    memcpy(&f, &v, 4);
-    return f;
-}
 static uint64_t mode(void) {
-    return port_g64(V(D_80364A90));
+    return D_80364A90;
 }
 
 /* ---- what is on the screen ------------------------------------------------ */
 
+/* the slot's PlayerInfo (D_80364AF0[D_80364AE8]) */
+static HostPlayerInfo *player(void) { return &D_80364AF0[D_80364AE8 & 3]; }
+
 enum { UI_OTHER, UI_NAME, UI_MENU, UI_MAP, UI_DRIVE };
 
-static char *yoshi_window(int w) { return V(D_802F8BDC) + w * 0x1C; }
+static HostYoshiWindow *yoshi_window(int w) { return &D_802F8BDC[w]; }
 
 /* the window taking input (yoshi.c's state 2, a window with input), or -1 */
 static int menu_window(void) {
-    int w = (int16_t)port_g16(V(D_8036BB18));
-    if (w < 0 || w >= 0x6C || (int16_t)port_g16(V(D_8036BB1C)) != 2)
+    int w = D_8036BB18;
+    if (w < 0 || w >= 0x6C || D_8036BB1C != 2)
         return -1;
-    return port_g32(yoshi_window(w) + 8) & 0x20 ? w : -1;
+    return yoshi_window(w)->flags & 0x20 ? w : -1;
 }
 
 static int name_up(void) {
-    return (int16_t)port_g16(V(D_8036BB18)) == 0xB && (int16_t)port_g16(V(D_8036BB1C)) != 1;
+    return D_8036BB18 == 0xB && D_8036BB1C != 1;
 }
 
 static int ui_context(void) {
@@ -99,7 +88,7 @@ static int ui_context(void) {
     if (m == 0x4000)
         return UI_MAP;
     if (m == 4 || m == 0x100)
-        return g8(V(D_802E8BD0)) ? UI_MENU : UI_DRIVE;
+        return D_802E8BD0 ? UI_MENU : UI_DRIVE;
     return UI_OTHER;
 }
 
@@ -109,9 +98,8 @@ static int ui_context(void) {
    and 16 with their control-method bit clear) or the bit is set ("speed
    on 3D stick", PlayerInfo.unkF0) */
 static int pedals(void) {
-    int type = g8(V(D_80364456));
-    int slot = g8(V(D_80364AE8)) & 3;
-    int bit = type < 32 && (port_g32(V(D_80364AF0) + slot * 0x100 + 0xF0) >> type & 1);
+    int type = D_80364456;
+    int bit = type < 32 && ((uint32_t)player()->unkF0 >> type & 1);
     return !bit && type != 0 && type != 2 && type != 9 && type != 16;
 }
 
@@ -367,43 +355,37 @@ static uint16_t pulse_take(uint16_t last_out) {
    y in it, and the ones that scroll by D_8036BB30; the text's cells unk6
    wide, 0.6 of that apart).  A list's entries take its whole width. */
 static int menu_hit(int w, float x, float y) {
-    char *win = yoshi_window(w);
-    uint32_t wflags = port_g32(win + 8);
+    const HostYoshiWindow *win = yoshi_window(w);
+    int32_t wflags = win->flags;
     if (wflags & 0x8000)                        /* a list the front end sorts (D_8036BB24) */
         return -1;
-    char *table = wflags & 0x800 ? V(D_8020C070) : V(D_802F5804);
-    int wx = (int16_t)port_g16(win + 4), wy = (int16_t)port_g16(win + 6);
-    int ww = port_g16(win), wh = port_g16(win + 2);
-    int first = port_g16(win + 0xE), count = port_g16(win + 0x10);
-    int scroll = (int32_t)port_g32(V(D_8036BB30));
+    const HostYoshiEntry *table = wflags & 0x800 ? D_8020C070 : D_802F5804;
+    int wx = win->x, wy = win->y;
+    int ww = win->w, wh = win->h;
+    int first = win->first, count = win->count;
+    int scroll = D_8036BB30;
     int best = -1;
     float best_d = 6;
     for (int i = first; i < first + count; i++) {
-        char *e = table + i * 0x1C;
-        int ef = port_g16(e);
+        const HostYoshiEntry *e = &table[i];
+        int ef = e->flags;
         if (!(ef & 1) || (ef & 0x800))
             continue;
-        float ex = wx + (int16_t)port_g16(e + 2), ey = wy + (int16_t)port_g16(e + 4);
-        float cw = port_g16(e + 6), chh = port_g16(e + 8), ew;
+        float ex = wx + e->x, ey = wy + e->y;
+        float cw = e->w, chh = e->h, ew;
         if (ef & 0x1000) {
             ey += scroll;
             if (fabsf(ey - (wy + wh / 2.0f)) >= wh / 3.0f)  /* faded out */
                 continue;
         }
         if (ef & 0x400) {                       /* an icon (YoshiIcon's offset; about 64x32) */
-            char *icon = V(D_802F49F4) + g8(e + 0x14) * 0x30;
-            ex += (int16_t)port_g16(icon);
-            ey += (int16_t)port_g16(icon + 2);
+            const HostYoshiIcon *icon = &D_802F49F4[e->icon];
+            ex += icon->x;
+            ey += icon->y;
             ew = 64;
             chh = 32;
         } else {
-            void *t = port_game_ptr_n(e + 0xC, 4);
-            int len = 0;
-            /* (a text in game memory: RDRAM and the data after it, which
-               the scattered layout's variables reach far into) */
-            if ((uintptr_t)t - 0x80000000u < 0x00800000u)
-                for (const char *s = port_hptr(t); len < 64 && s[len]; len++)
-                    ;
+            int len = 0;        /* (the text isn't measured: see the next commit) */
             ew = len ? (0.6f * (len - 1) + 1) * cw : 4 * cw;
         }
         if (!(wflags & 0x40)) {                 /* a list: the window's width */
@@ -434,7 +416,7 @@ static uint16_t menu_poll(uint16_t last_out) {
     }
     if (w < 0)
         return 0;
-    char *win = yoshi_window(w);
+    const HostYoshiWindow *win = yoshi_window(w);
     for (unsigned i = 0; i < evq_n; i++) {
         if (evq[i].kind == EV_BACK) {
             pulse(B_B);
@@ -447,7 +429,7 @@ static uint16_t menu_poll(uint16_t last_out) {
             menu.target = hit;
             menu.press = 1;
             menu.reads = 0;
-        } else if (!(port_g32(win + 8) & 0x10000000)) {
+        } else if (!(win->flags & 0x10000000)) {
             pulse(B_A);                         /* a message box: on to the next page */
         }
     }
@@ -461,7 +443,7 @@ static uint16_t menu_poll(uint16_t last_out) {
     }
     if (menu.target < 0)
         return 0;
-    int sel = port_g16(win + 0x18);
+    int sel = win->selected;
     if (host_verbose > 1)
         host_log("ui: window %#x: entry %d, to %d%s\n", w, sel, menu.target, menu.press ? ", then A" : "");
     if (++menu.reads > 90) {                    /* it doesn't get there */
@@ -479,7 +461,7 @@ static uint16_t menu_poll(uint16_t last_out) {
     /* the window's own previous and next (the D-pad, as yoshi.c set them up
        for a list or a row), a press every other read: its sound, its
        scrolling as for the pad */
-    uint16_t step = menu.target > sel ? port_g16(V(D_8036BB3E)) : port_g16(V(D_8036BB3C));
+    uint16_t step = menu.target > sel ? D_8036BB3E : D_8036BB3C;
     return last_out & step ? 0 : step;
 }
 
@@ -497,8 +479,8 @@ static uint16_t name_poll(void) {
         /* the wheel (1C40.c, func_801EAA7C): character i at the angle
            D_802154B4 + i * 1986 - 0x6002, 120 by 96 around (160, 120), a
            24x20 cell from 7 left and 10 up of there */
-        int16_t at = (int16_t)port_g16(V(D_802154B4));
-        uint32_t n0 = port_g32(V(D_80208350));
+        int16_t at = D_802154B4;
+        uint32_t n0 = D_80208350[0];
         int best = -1;
         float best_d = 16 * 16;
         for (int k = 0; k < 33; k++) {
@@ -511,11 +493,11 @@ static uint16_t name_poll(void) {
             }
         }
         if (best >= 0) {
-            int c = (uint32_t)best < n0 ? g8(V(D_80208314) + best) : g8(V(D_802082FC) + best - n0);
+            int c = (uint32_t)best < n0 ? D_80208314[best] : D_802082FC[best - n0];
             host_type_char(c == 0x7F ? '\b' : c);
         } else {
             float dx = (evq[i].x - 160) / 120, dy = (evq[i].y - 120) / 96;
-            if (dx * dx + dy * dy < 0.5f && g8(V(D_802154BC)))
+            if (dx * dx + dy * dy < 0.5f && D_802154BC)
                 b = B_START;                    /* inside the wheel, where the name is: that's it */
         }
     }
@@ -529,15 +511,16 @@ static uint16_t name_poll(void) {
    unk24..2C, radius 250) through the frame's matrices for Earth (11530.c
    passes them).  The frame the game drew last: D_8035805C has gone on to
    the next one by the time it reads the pad. */
-static void mtx_read(const char *m, float f[4][4]) {
+static void mtx_read(const HostMtx *m, float f[4][4]) {
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++) {
-            uint32_t v = (uint32_t)port_g16_of32(m, i * 4 + j) << 16 | port_g16_of32(m, 16 + i * 4 + j);
+            int k = i * 4 + j;
+            uint32_t v = (uint32_t)host_mtx_half(m, k) << 16 | host_mtx_half(m, 16 + k);
             f[i][j] = (int32_t)v / 65536.0f;
         }
 }
 
-static void mtx_xf(const char *m, float v[4]) {
+static void mtx_xf(const HostMtx *m, float v[4]) {
     float f[4][4], o[4];
     mtx_read(m, f);
     for (int j = 0; j < 4; j++)
@@ -546,17 +529,17 @@ static void mtx_xf(const char *m, float v[4]) {
 }
 
 static int globe_project(float x, float y, float z, float *sx, float *sy) {
-    int fb = g8(V(D_8035805C)) ^ 1;
-    char *frame = V(D_803156F8) + fb * host_layout(PORT_LAYOUT_FRAME_SIZE);
+    int fb = D_8035805C ^ 1;
+    const HostMtx *frame = (const HostMtx *)(D_803156F8 + fb * host_layout(PORT_LAYOUT_FRAME_SIZE));
     float v[4] = { x, y, z, 1 };
-    mtx_xf(frame + 0x1280, v);
-    mtx_xf(V(D_80217B70) + (3 * 4 + fb + 2) * 64, v);
-    mtx_xf(V(D_80217B70) + (3 * 4 + fb) * 64, v);
-    mtx_xf(frame + 0x140, v);
+    mtx_xf(frame + 0x1280 / sizeof(HostMtx), v);
+    mtx_xf(&D_80217B70[3 * 4 + fb + 2], v);
+    mtx_xf(&D_80217B70[3 * 4 + fb], v);
+    mtx_xf(frame + 0x140 / sizeof(HostMtx), v);
     if (v[2] >= 0)
         return 0;                               /* behind the camera */
-    mtx_xf(frame + 0x80, v);
-    float pn = port_g16(V(D_8035807C)) / 65535.0f;
+    mtx_xf(frame + 0x80 / sizeof(HostMtx), v);
+    float pn = D_8035807C / 65535.0f;
     if (v[3] * pn == 0)
         return 0;
     *sx = 160 + 160 * (v[0] / v[3]);
@@ -571,20 +554,17 @@ static void latlong(float lat, float lon, float *x, float *y, float *z) {
     *z = sinf(-lon * r) * cosf(lat * r) * 250;
 }
 
-/* the slot's PlayerInfo (D_80364AF0[D_80364AE8]): medal[] at 0x18, unk54[]
-   (the routes found) at 0x54, gameState at 0x91 */
-static const char *player(void) { return V(D_80364AF0) + (g8(V(D_80364AE8)) & 3) * 0x100; }
 
 static int level_done(int i) {
-    int m = g8(player() + 0x18 + i);
+    int m = player()->medal[i];
     return m >= 1 && m <= 5;
 }
 
 /* func_801FE760: a level the routes don't open yet (a later game state's,
    or one of five behind a particular other level) */
 static int level_held(int i) {
-    const char *li = V(D_802E8F94) + i * 0x44;  /* LevelInfo: unk0, gameState */
-    int held = g8(li + 1) > g8(player() + 0x91) && ((g8(li) & 0x81) || (i >= 0x2B && i < 0x2F));
+    const HostLevelInfo *li = &D_802E8F94[i];
+    int held = li->gameState > player()->gameState && ((li->flags & 0x81) || (i >= 0x2B && i < 0x2F));
     static const signed char behind[][2] = { { 10, 55 }, { 15, 28 }, { 58, 53 }, { 5, 7 }, { 16, 19 } };
     for (unsigned k = 0; k < sizeof behind / sizeof behind[0]; k++)
         if (i == behind[k][0] && !level_done(behind[k][1]))
@@ -602,8 +582,8 @@ static int level_held(int i) {
 static int map_level_open(int i) {
     if (i == 40 || (i >= 43 && i <= 47) || i == 49)
         return 0;
-    int medal = g8(player() + 0x18 + i);
-    if (i == g8(V(D_8021A905)) || (medal >= 1 && medal <= 5) || medal == 8)
+    int medal = player()->medal[i];
+    if (i == D_8021A905 || (medal >= 1 && medal <= 5) || medal == 8)
         return 1;
     if (medal != 0)
         return 0;
@@ -611,12 +591,12 @@ static int map_level_open(int i) {
     for (int j = 0; j < 60; j++) {
         if (!level_done(j))
             continue;
-        const signed char *l = (const signed char *)V(D_8020D810) + j * 0x30;
-        for (int k = 0; k < 8 && l[0x1C + k] != -1; k++)
-            if (l[0x1C + k] == i && !level_held(i))
+        const HostMapLevel *l = &D_8020D810[j];
+        for (int k = 0; k < 8 && l->next_a[k] != -1; k++)
+            if (l->next_a[k] == i && !level_held(i))
                 return 1;
-        for (int k = 0; k < 4 && l[0x18 + k] != -1; k++)
-            if (l[0x18 + k] == i && (g8(player() + 0x54 + j) & (1 << k)))
+        for (int k = 0; k < 4 && l->next_b[k] != -1; k++)
+            if (l->next_b[k] == i && (player()->routes[j] & (1 << k)))
                 return 1;
     }
     return 0;
@@ -624,14 +604,14 @@ static int map_level_open(int i) {
 
 /* the open level drawn at (x, y), on the globe's near side, or -1 */
 static int map_hit(float x, float y) {
-    float cx = gf(V(D_8021A90C)), cy = gf(V(D_8021A910)), cz = gf(V(D_8021A914));
+    float cx = D_8021A90C, cy = D_8021A910, cz = D_8021A914;
     int best = -1;
     float best_d = 14 * 14;
     for (int i = 0; i < 60; i++) {
         if (!map_level_open(i))
             continue;
-        char *l = V(D_8020D810) + i * 0x30;
-        float px = gf(l + 0x24), py = gf(l + 0x28), pz = gf(l + 0x2C), sx, sy;
+        const HostMapLevel *l = &D_8020D810[i];
+        float px = l->x, py = l->y, pz = l->z, sx, sy;
         if ((px * cx + py * cy + pz * cz) / (250.0f * 925) < 0.3f)
             continue;                           /* round the back, or at the edge */
         if (!globe_project(px, py, pz, &sx, &sy))
@@ -671,12 +651,12 @@ static float wrap180(float a) {
 }
 
 static void globe_drag_start(void) {
-    if (ui_context() != UI_MAP || port_g32(V(D_80217B6C)) != 3)
+    if (ui_context() != UI_MAP || D_80217B6C != 3)
         return;
     /* from where the camera is (on its way to the selected level, or the
        view turned to before), measuring how the ground under it moves on
        the screen for a degree of each */
-    float lat = gf(V(D_8021A920)), lon = gf(V(D_8021A91C)), x, y, z, sx0, sy0, sx, sy;
+    float lat = D_8021A920, lon = D_8021A91C, x, y, z, sx0, sy0, sx, sy;
     globe.lat0 = lat;
     globe.lon0 = lon;
     globe.kx = globe.ky = 0;
@@ -727,10 +707,9 @@ static void mapcheck(int earth, int idle, int sel) {
     }
     if (!mode || done || !earth)
         return;
-    int slot = g8(V(D_80364AE8)) & 3;
     if (mode == 2)
         for (int i = 0; i < 60; i++) {
-            uint8_t *m = (uint8_t *)V(D_80364AF0) + slot * 0x100 + 0x18 + i;
+            uint8_t *m = &player()->medal[i];
             if (!(i == 40 || (i >= 43 && i <= 47) || i == 49) && (*m == 0 || *m > 5))
                 *m = 3;
         }
@@ -738,13 +717,13 @@ static void mapcheck(int earth, int idle, int sel) {
         /* =fresh: the levels marked open (8) as only just found, as they
            are back from a level until another is gone into */
         for (int i = 0; i < 60; i++) {
-            uint8_t *m = (uint8_t *)V(D_80364AF0) + slot * 0x100 + 0x18 + i;
+            uint8_t *m = &player()->medal[i];
             if (*m == 8)
                 *m = 0;
         }
         mode = 1;
     }
-    float lat = gf(V(D_8021A920)), lon = gf(V(D_8021A91C));
+    float lat = D_8021A920, lon = D_8021A91C;
     int still = fabsf(lat - last_lat) < 0.01f && fabsf(lon - last_lon) < 0.01f;
     last_lat = lat;
     last_lon = lon;
@@ -764,12 +743,12 @@ static void mapcheck(int earth, int idle, int sel) {
         return;
     tried[sel] = 1;
     /* the stop: every open level on the screen and its zone */
-    float cx = gf(V(D_8021A90C)), cy = gf(V(D_8021A910)), cz = gf(V(D_8021A914));
+    float cx = D_8021A90C, cy = D_8021A910, cz = D_8021A914;
     float px[60], py[60];
     int vis[60] = { 0 };
     for (int i = 0; i < 60; i++) {
-        char *l = V(D_8020D810) + i * 0x30;
-        float x = gf(l + 0x24), y = gf(l + 0x28), z = gf(l + 0x2C);
+        const HostMapLevel *l = &D_8020D810[i];
+        float x = l->x, y = l->y, z = l->z;
         float dot = (x * cx + y * cy + z * cz) / (250.0f * 925);
         if (map_level_open(i) && globe_project(x, y, z, &px[i], &py[i]) && px[i] >= 0 && px[i] < 320 &&
             py[i] >= 0 && py[i] < 240 && dot > 0)
@@ -837,8 +816,8 @@ static void mapcheck(int earth, int idle, int sel) {
     if (mode == 3) {
         /* =turn: the globe turned first (as a drag leaves it) to a little
            off the level, by an amount that changes from click to click */
-        char *l = V(D_8020D810) + next * 0x30;
-        float x = gf(l + 0x24), y = gf(l + 0x28), z = gf(l + 0x2C);
+        const HostMapLevel *l = &D_8020D810[next];
+        float x = l->x, y = l->y, z = l->z;
         float r = 180 / (float)M_PI;
         globe.on = 1;
         globe.lat = asinf(y / 250) * r + (float)(steps % 5 - 2) * 4;
@@ -860,23 +839,22 @@ static void mapcheck(int earth, int idle, int sel) {
 /* this read's stick and buttons for the world map's pointer; 1 if it has
    the pad */
 static int map_poll(int *sx, int *sy, int last_stick) {
-    int earth = port_g32(V(D_80217B6C)) == 3;
+    int earth = D_80217B6C == 3;
     static unsigned n;
     if (host_verbose > 1 && earth && ++n % 30 == 0) {      /* -v -v: where the levels are */
-        float cx = gf(V(D_8021A90C)), cy = gf(V(D_8021A910)), cz = gf(V(D_8021A914));
-        host_log("ui: map: selected %d, camera %.1f %.1f, globe %d\n", g8(V(D_8021A905)), gf(V(D_8021A920)),
-                 gf(V(D_8021A91C)), globe.on);
+        float cx = D_8021A90C, cy = D_8021A910, cz = D_8021A914;
+        host_log("ui: map: selected %d, camera %.1f %.1f, globe %d\n", D_8021A905, D_8021A920,
+                 D_8021A91C, globe.on);
         for (int i = 0; i < 60; i++) {
-            char *l = V(D_8020D810) + i * 0x30;
-            float px = gf(l + 0x24), py = gf(l + 0x28), pz = gf(l + 0x2C), lx, ly;
+            const HostMapLevel *l = &D_8020D810[i];
+            float px = l->x, py = l->y, pz = l->z, lx, ly;
             if (map_level_open(i) && (px * cx + py * cy + pz * cz) / (250.0f * 925) >= 0.3f &&
                 globe_project(px, py, pz, &lx, &ly))
                 host_log("ui: map: level %d at %.0f, %.0f\n", i, lx, ly);
         }
     }
-    int idle = port_g16(V(D_8021A924)) == 1 && !port_g64(V(D_8036C778)) &&
-               port_g32(V(D_80358060)) >= 6;
-    int sel = g8(V(D_8021A905));
+    int idle = D_8021A924 == 1 && !D_8036C778 && D_80358060 >= 6;
+    int sel = D_8021A905;
     mapcheck(earth, idle, sel);
     for (unsigned i = 0; i < evq_n; i++) {
         if (evq[i].kind == EV_BACK) {
@@ -886,11 +864,11 @@ static int map_poll(int *sx, int *sy, int last_stick) {
             int hit = earth ? map_hit(evq[i].x, evq[i].y) : sel;
             if (host_verbose && earth) {
                 /* -v: where it landed, and the open level nearest it */
-                float cx = gf(V(D_8021A90C)), cy = gf(V(D_8021A910)), cz = gf(V(D_8021A914)), best_d = 1e9f;
+                float cx = D_8021A90C, cy = D_8021A910, cz = D_8021A914, best_d = 1e9f;
                 int near = -1;
                 for (int j = 0; j < 60; j++) {
-                    char *l = V(D_8020D810) + j * 0x30;
-                    float px = gf(l + 0x24), py = gf(l + 0x28), pz = gf(l + 0x2C), lx, ly;
+                    const HostMapLevel *l = &D_8020D810[j];
+                    float px = l->x, py = l->y, pz = l->z, lx, ly;
                     if (map_level_open(j) && (px * cx + py * cy + pz * cz) > 0 && globe_project(px, py, pz, &lx, &ly) &&
                         (lx - evq[i].x) * (lx - evq[i].x) + (ly - evq[i].y) * (ly - evq[i].y) < best_d) {
                         best_d = (lx - evq[i].x) * (lx - evq[i].x) + (ly - evq[i].y) * (ly - evq[i].y);
@@ -958,12 +936,12 @@ static int map_poll(int *sx, int *sy, int last_stick) {
        pushed (11530.c, func_801F8980: from neutral, with the name shown
        in full, no window, no fade), and the game moves there itself, the
        carrier and the sound with it; the read before is neutral */
-    if (map.pushed || !idle || (int16_t)port_g16(V(D_8021AB2C)) != 0xFF ||
-        (int16_t)port_g16(V(D_8036BB1C)) != 1 || last_stick) {
+    if (map.pushed || !idle || D_8021AB2C != 0xFF ||
+        D_8036BB1C != 1 || last_stick) {
         map.pushed = 0;
         return 1;                               /* the stick still meanwhile */
     }
-    *(int8_t *)V(D_8021A907) = (int8_t)map.target;
+    D_8021A907 = (int8_t)map.target;
     *sx = 40;                                   /* 1600: past 1500, the camera at its usual pace */
     *sy = 0;
     map.pushed = 1;
@@ -1102,7 +1080,7 @@ void host_ui_input(int live, const Uint8 *k, uint16_t *b, int *sx, int *sy) {
 
     if (ctx == UI_DRIVE && host_verbose) {
         static int last_type = -1, last_pedals = -1;
-        int type = g8(V(D_80364456)), pd = pedals();
+        int type = D_80364456, pd = pedals();
         if (type != last_type || pd != last_pedals)
             host_log("ui: read %u: vehicle %d, W/S %s\n", reads, type, pd ? "A/B" : "the stick");
         last_type = type;

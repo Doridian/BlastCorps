@@ -52,10 +52,7 @@
 
 /* the scheduler's retrace count, the game's frame count, the mode and the
    random number generator's state */
-#include "sched_vars.h"
-extern char D_80358064[], D_80364A90[], D_8036B968[];
-/* the player's position */
-extern char D_803643E0[], D_803643E4[], D_803643E8[];
+#include "host_game_vars.h"
 
 typedef struct {
     uint32_t retraces, frames, pad, rng;
@@ -354,7 +351,7 @@ void host_replay_load(const char *path) {
 }
 
 static uint64_t mode_now(void) {
-    return port_g64(D_80364A90);
+    return D_80364A90;
 }
 
 /* the log's retraces for its read k's frame */
@@ -389,7 +386,7 @@ static void dump(unsigned n) {
 void host_replay_read_started(void) {
     si_started = 1;
     uint64_t mode = mode_now();
-    uint32_t frames = port_g32(D_80358064);
+    uint32_t frames = (uint32_t)D_80358064;
     int found = -1;
 
     reads++;
@@ -410,7 +407,7 @@ void host_replay_read_started(void) {
         }
         if (reads >= from && reads <= to)
             host_log("replay: read %u: mode %016llX frame %u retraces %u, the log's read %d (pad %08X)\n", reads,
-                     (unsigned long long)mode, frames, port_g32(SCHED_FRAMECOUNT), found + 1,
+                     (unsigned long long)mode, frames, SCHED_FRAMECOUNT, found + 1,
                      found >= 0 ? log_reads[found].pad : 0);
     }
     if (mode != last_mode) {
@@ -453,13 +450,13 @@ void host_replay_read_started(void) {
        Likewise where the port spent a different number of frames in the
        last mode than the movie (a loading screen: the port loads faster),
        whose frames drew numbers too. */
-    if ((seeded || found > prev + 1 || gap) && has_rng && port_g32(D_8036B968) != cur_read->rng) {
-        port_wg32(D_8036B968, cur_read->rng);    /* a game variable: its own width */
+    if ((seeded || found > prev + 1 || gap) && has_rng && D_8036B968 != cur_read->rng) {
+        D_8036B968 = cur_read->rng;
         seeds++;
-    } else if (has_rng && mode == 4 && port_g32(D_8036B968) != cur_read->rng) {     /* (in a level) */
+    } else if (has_rng && mode == 4 && D_8036B968 != cur_read->rng) {     /* (in a level) */
         if (rng_diffs++ < 5 || host_verbose > 1)
             host_log("replay: read %u (the log's %d, mode %016llX frame %u): the random state %08X, the log "
-                     "has %08X\n", reads, found + 1, (unsigned long long)mode, frames, port_g32(D_8036B968),
+                     "has %08X\n", reads, found + 1, (unsigned long long)mode, frames, D_8036B968,
                      cur_read->rng);
     }
     seeded = 0;
@@ -470,7 +467,7 @@ void host_replay_read_started(void) {
     if (has_pos && (mode == 4 || mode == 0x4000)) {
         int32_t p[3];
         for (int i = 0; i < 3; i++)
-            p[i] = (int32_t)port_g32(i == 0 ? D_803643E0 : i == 1 ? D_803643E4 : D_803643E8);
+            p[i] = i == 0 ? D_803643E0 : i == 1 ? D_803643E4 : D_803643E8;
         if (p[0] != cur_read->pos[0] || p[1] != cur_read->pos[1] || p[2] != cur_read->pos[2]) {
             if (pos_diffs++ < 5 || host_verbose > 1)
                 host_log("replay: read %u (the log's %d, mode %016llX frame %u): the player at %d,%d,%d, "
@@ -518,7 +515,7 @@ unsigned int port_counter(int timer, const char *func) {
             host_log("replay: the log's read %d: %s reads the %s, which the log's frame doesn't\n", matched + 1,
                      func, timer ? "level timer" : "retrace count");
     }
-    return port_g32(timer ? SCHED_LEVEL_TIME : SCHED_FRAMECOUNT);
+    return timer ? SCHED_LEVEL_TIME : SCHED_FRAMECOUNT;
 }
 
 /* alCSPGetState and alCSeqGetLoc (replay_audio.c): in a matched frame, what
@@ -568,9 +565,6 @@ int32_t host_replay_audio_named(int kind, int32_t real, const char *name) {
    state), and the mode as the next one, which the game switches to after
    this frame (00000.c's loop, its init included); a fade still going is
    dropped (the loop asserts none is). */
-extern char D_80364AF0[], D_80364EF0[], D_80364F70[], D_802E8BDC[], D_80364AE8[];
-extern char D_80364A98[], D_80364AA0[], D_8036C778[], D_8036C784[];
-
 static void force_mode(unsigned k) {
     const Checkpoint *c = NULL;
     for (unsigned i = 0; i < ncheckpoints; i++)
@@ -580,16 +574,16 @@ static void force_mode(unsigned k) {
         return;
     /* the log has the N64's bytes: each datum goes in at its own width */
     const uint8_t *st = c->state;
-    memcpy(D_80364AF0, st, 0x400), st += 0x400;
+    memcpy(D_80364AF0, st, sizeof D_80364AF0), st += sizeof D_80364AF0;
     for (int i = 0; i < 4; i++)         /* PlayerInfo[4], as the save has them */
-        host_save_order((uint8_t *)D_80364AF0 + 0x100 * i, 0, 0x100, 0);
+        host_save_order((uint8_t *)&D_80364AF0[i], 0, sizeof D_80364AF0[i], 0);
     for (int i = 0; i < 0x40; i++, st += 2)     /* u16 [4][16] */
-        port_wg16(D_80364EF0 + 2 * i, port_be16(st));
+        D_80364EF0[i / 16][i % 16] = port_be16(st);
     for (int i = 0; i < 0x78; i++, st += 2)     /* u16 [0x78] */
-        port_wg16(D_80364F70 + 2 * i, port_be16(st));
-    port_wg32(D_802E8BDC, port_be32(st)), st += 4;
-    D_80364AE8[0] = st[0], st += 4;
-    port_wg32(D_8036B968, port_be32(st));
+        D_80364F70[i] = port_be16(st);
+    D_802E8BDC = (int32_t)port_be32(st), st += 4;
+    D_80364AE8 = st[0], st += 4;
+    D_8036B968 = port_be32(st);
     /* the first mode the movie's game switched to on its way there: the
        reads so far were k */
     uint64_t first = c->mode;
@@ -599,13 +593,13 @@ static void force_mode(unsigned k) {
             next_switch = i + 1;
             break;
         }
-    port_wg64(D_80364A98, first);
-    memset(D_80364AA0, 0, 8);
-    memset(D_8036C778, 0, 8);
-    D_8036C784[0] = 0;
+    D_80364A98 = first;
+    D_80364AA0 = 0;
+    D_8036C778 = 0;
+    D_8036C784 = 0;
     forced_modes++;
     host_log("replay: mode %016llX forced at the log's read %u (the port was in %016llX, level %u)\n",
-             (unsigned long long)c->mode, k + 1, (unsigned long long)mode_now(), port_g32(D_802E8BDC));
+             (unsigned long long)c->mode, k + 1, (unsigned long long)mode_now(), (uint32_t)D_802E8BDC);
     matched = (int)k - 1;       /* the next read: the log's read k+1 */
 }
 
@@ -614,7 +608,7 @@ static void force_mode(unsigned k) {
    isn't where it would go, it goes there instead, with the state the movie
    had (force_mode). */
 void port_replay_mode_switch(void) {
-    uint64_t want = port_g64(D_80364A98);
+    uint64_t want = D_80364A98;
     /* a level's end: the time in it, as the results screen counts it
        (1D990.c: the level timer since the level's intro, 0x2000, which
        sets D_80364A58, or its 0x800; in tenths), the frames it took, and
@@ -622,11 +616,11 @@ void port_replay_mode_switch(void) {
        of it are the movie's (port_counter). */
     static uint32_t level_start;
     if (log_reads && (want == 0x2000 || want == 0x800))
-        level_start = port_g32(SCHED_LEVEL_TIME);
+        level_start = SCHED_LEVEL_TIME;
     if (log_reads && mode_now() == 4 && want != 4) {
-        uint32_t t = port_g32(SCHED_LEVEL_TIME) - level_start;
+        uint32_t t = SCHED_LEVEL_TIME - level_start;
         host_log("replay: level %u ends at the log's read %d: %u frames, %u retraces, time %u.%u s\n",
-                 port_g32(D_802E8BDC), matched + 1, port_g32(D_80358064), t, t / PORT_RETRACE_HZ, t * 10 / PORT_RETRACE_HZ % 10);
+                 (uint32_t)D_802E8BDC, matched + 1, (uint32_t)D_80358064, t, t / PORT_RETRACE_HZ, t * 10 / PORT_RETRACE_HZ % 10);
     }
     if (!checkpoints || !switches || matched < 0)
         return;
@@ -648,7 +642,7 @@ void port_replay_mode_switch(void) {
             return;
         }
     next_switch++;
-    port_wg64(D_80364A98, w->mode);
+    D_80364A98 = w->mode;
     host_log("(no change at the reads)\n");
 }
 
@@ -670,7 +664,7 @@ int port_pad_read_due(int free) {
     if (si_started)
         return 1;
     uint64_t mode = mode_now();
-    uint32_t frames = port_g32(D_80358064);
+    uint32_t frames = (uint32_t)D_80358064;
     for (unsigned k = matched + 1; k < nreads && k <= (unsigned)(matched + 1) + WINDOW; k++)
         if (log_reads[k].mode == mode && log_reads[k].frames == frames) {
             unmatched_run = 0;
@@ -697,8 +691,6 @@ int port_pad_read_due(int free) {
    it after, so that what it changes shows from the same frame.  (The
    thread spins on the scheduler before it takes one, 00000.c's saves
    waiting a varying number of frames.) */
-extern char D_80370BF8[];       /* the SI's event queue (45BB0.c) */
-
 int host_replay_save_due(int sync) {
     if (!log_reads || nogate || !save_starts)
         return 1;
@@ -718,7 +710,7 @@ int host_replay_save_due(int sync) {
        receive; this one, waking every millisecond, can. */
     if (si_waiting)
         return 0;
-    if (host_receiving(PORT_VAR(D_80370BF8))) {
+    if (host_receiving(D_80370BF8)) {
         if (saves_held_si++ < 5 || host_verbose)
             host_log("replay: the save thread's command %u waits for the game's pad read (the log's read %d)\n",
                      saves, matched + 1);

@@ -1,6 +1,5 @@
 /*
- * Runtime support: the game's threads' stacks, the RDRAM dump, the SDK
- * trace.
+ * Runtime support: the game's threads' stacks, the SDK trace.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,8 +11,9 @@
    slot, the first time it is used, zeroed (nothing tests where they are);
    page-aligned, as a pthread stack must be (fiber_pthread.c: 16 KB pages
    on arm64 macOS). */
+static void *stacks[PORT_MAX_THREADS];
+
 void *host_thread_stack(int idx, uint32_t *size) {
-    static void *stacks[PORT_MAX_THREADS];
     *size = PORT_STACK_SIZE;
     if (!stacks[idx]) {
         stacks[idx] = aligned_alloc(0x4000, PORT_STACK_SIZE);

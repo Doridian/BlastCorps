@@ -9,10 +9,11 @@
  * "Host side": port/host/ (SDL, files, fibers, the renderer).  Built
  * normally.
  *
- * Scalars and pointers cross between the two.  Game memory is in host
- * order at each scalar's own width (port_g32 etc. below); what stays the
+ * The host reads the game's variables and structures as the game's C
+ * declares them (host/host_game_vars.h, host_game_types.h); what stays the
  * N64's bytes (the ROM file, texels, framebuffers, the audio microcode's
- * DMEM) is read big-endian (port_be32) or byte by byte.
+ * DMEM) is read big-endian: port_rd32 for the ROM's, port_be32 for the
+ * RDP's and the AI's.
  */
 #ifndef PORT_H
 #define PORT_H
@@ -46,17 +47,9 @@ extern "C" {
 /* thread idx's host stack (runtime.c) */
 void *host_thread_stack(int idx, uint32_t *size);
 
-/* a game variable the host names (extern char D_X[]): where it is */
-#define PORT_VAR(sym) ((char *)(sym))
-
-/* A pointer of the N64 side's, as the host reads through it: one handed to
-   a host_ function (an argument), or one the host read out of game memory
-   (the identity) */
-static inline void *port_hptr(const void *p) {
-    return (void *)(uintptr_t)p;
-}
-
-/* big-endian accessors, for what stays the N64's bytes */
+/* big-endian accessors, for what stays the N64's bytes: the RDP's (the
+   framebuffers, TMEM, the texels, the fill and blend colours) and the AI's
+   (the samples, the audio microcode's DMEM) */
 static inline uint32_t port_be32(const void *p) {
     const uint8_t *b = (const uint8_t *)p;
     return ((uint32_t)b[0] << 24) | ((uint32_t)b[1] << 16) | ((uint32_t)b[2] << 8) | b[3];
@@ -73,6 +66,9 @@ static inline void port_wbe16(void *p, uint16_t v) {
     uint8_t *b = (uint8_t *)p;
     b[0] = v >> 8; b[1] = v;
 }
+/* a ROM file's bytes (always big-endian, as the cartridge has them) */
+static inline uint32_t port_rd32(const void *p) { return port_be32(p); }
+static inline uint16_t port_rd16(const void *p) { return port_be16(p); }
 /* and little-endian, for the host's files (WAV, BMP) */
 static inline void port_wle32(void *p, uint32_t v) {
     uint8_t *b = (uint8_t *)p;
@@ -83,50 +79,14 @@ static inline void port_wle16(void *p, uint16_t v) {
     b[0] = v; b[1] = v >> 8;
 }
 
-/* A scalar of game memory at its own width, in host order (docs/PORT.md
-   "Native-endian memory"), a 64-bit one too (port_g64).  port_be* stay
-   big-endian: they are for what is bytes (the ROM file, texels,
-   framebuffers, the audio microcode's DMEM and what it saves). */
-static inline uint32_t port_g32(const void *p) {
-    uint32_t v;
-    __builtin_memcpy(&v, p, 4);
-    return v;
-}
-static inline uint16_t port_g16(const void *p) {
-    uint16_t v;
-    __builtin_memcpy(&v, p, 2);
-    return v;
-}
-static inline void port_wg32(void *p, uint32_t v) { __builtin_memcpy(p, &v, 4); }
-static inline void port_wg16(void *p, uint16_t v) { __builtin_memcpy(p, &v, 2); }
-/* element k of a halfword pair array held as words (an Mtx's s16 halves:
-   element 2n is word n's high half) */
-static inline uint16_t port_g16_of32(const void *p, int k) {
-    return (uint16_t)(port_g32((const uint8_t *)p + 4 * (k >> 1)) >> ((k & 1) ? 0 : 16));
-}
-/* a 64-bit scalar of game memory (a u64 or s64 variable, the command
-   words where pointers are 8 bytes), whole */
-static inline uint64_t port_g64(const void *p) {
-    uint64_t v;
-    __builtin_memcpy(&v, p, 8);
-    return v;
-}
-static inline void port_wg64(void *p, uint64_t v) { __builtin_memcpy(p, &v, 8); }
-
-/* (what is read through these is game memory, in host order) */
-#define port_var32 port_g32
-#define port_var16 port_g16
-
 /* ---- the game's layouts, as the host reads them ------------------------ */
 
-/* What the host reads inside the game's structures (port/host/digest.c,
-   sched_vars.h, gfx.c), as this build's N64 side lays them out:
-   port/src/layout.c's sizeof and offsetof, by the N64 side's own compiler,
-   so right whatever the host's pointer size (a struct with pointers has
-   its fields move with it).  The host doesn't include the game's headers:
-   it asks for a number by its name here (host_layout).  A PTR_ entry is
-   the size of one of the game's pointer variables (the host's), for
-   port_game_ptr_n. */
+/* What the host reads inside the game's bigger structures (port/host/
+   digest.c, host_game_vars.h, gfx.c) that host_game_types.h doesn't spell
+   out: port/src/layout.c's sizeof and offsetof, by the N64 side's own
+   compiler, so right whatever the host's pointer size (a struct with
+   pointers has its fields move with it).  The host doesn't include the
+   game's headers: it asks for a number by its name here (host_layout). */
 enum PortLayout {
     PORT_LAYOUT_VEHICLE_SIZE,           /* Vehicle (game/vehicle.h) */
     PORT_LAYOUT_VEHICLE_TYPE,
@@ -156,10 +116,6 @@ enum PortLayout {
     PORT_LAYOUT_AMMOBOX_COLLECTED,
     PORT_LAYOUT_RDU_SIZE,               /* Rdu (game/level.h) */
     PORT_LAYOUT_RDU_COLLECTED,
-    PORT_LAYOUT_PLAYER_SIZE,            /* PlayerInfo (game/player.h) */
-    PORT_LAYOUT_PLAYER_UNITS,
-    PORT_LAYOUT_PLAYER_MEDAL,
-    PORT_LAYOUT_PLAYER_GAMESTATE,
     PORT_LAYOUT_STATS_IP,               /* LevelStats (game/level.h) */
     PORT_LAYOUT_STATS_TC,
     PORT_LAYOUT_STATS_BD,
@@ -168,18 +124,7 @@ enum PortLayout {
     PORT_LAYOUT_STATS_RT,
     PORT_LAYOUT_SCHED_UNK280,           /* Sched (game/sched.h): the level's retraces */
     PORT_LAYOUT_SCHED_FRAMECOUNT,       /* the retraces */
-    PORT_LAYOUT_PTR_D_803649D0,         /* Vehicle *, past the level's last */
-    PORT_LAYOUT_PTR_D_803F7654,         /* Building *, past the last */
-    PORT_LAYOUT_PTR_D_8036BED8,         /* Rdu * */
-    PORT_LAYOUT_PTR_D_80365348,         /* Vtx *[2]'s element (hd_code 14B30.c) */
-    PORT_LAYOUT_GFX_SIZE,               /* Gfx: a display-list command, two words (gfx.h) */
-    PORT_LAYOUT_ACMD_SIZE,              /* Acmd: an audio command (aspmain.c) */
     PORT_LAYOUT_FRAME_SIZE,             /* Frame (game/frame.h): segment 2's buffer */
-    PORT_LAYOUT_SEG_TAG,                /* gbi.h's G_SEGTAG: the segmented addresses' tag (gfx.h) */
-    /* 1: a display list's and an audio command's address words are host
-       pointers (at either width; 0, N64 addresses, was the ILP32 builds'
-       before P10) */
-    PORT_LAYOUT_PTR_WORDS,
     PORT_LAYOUT_COUNT
 };
 /* the N64 side's number (port/src/layout.c); 0 for an id it doesn't know */
@@ -197,17 +142,6 @@ static inline uint32_t host_layout(enum PortLayout id) {
     }
     return v[id];
 }
-/* one of the game's pointers, `size` bytes wide (a PTR_ entry): the
-   pointer it holds, as the game has it (port_hptr makes it the host's) */
-static inline void *port_game_ptr_n(const void *p, uint32_t size) {
-    if (size == sizeof(void *) && size > 4) {
-        void *v;
-        __builtin_memcpy(&v, p, sizeof v);
-        return v;
-    }
-    return (void *)(uintptr_t)port_var32(p);
-}
-
 /* a word of a display list that is a pointer into one of the names that
    are segment addresses (D_02000000...: src/segments.c's proxies) as that
    segmented address, tagged; any other word as it is */

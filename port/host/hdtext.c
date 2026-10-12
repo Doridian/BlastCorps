@@ -24,6 +24,7 @@
 #include "port.h"
 #include "host.h"
 #include "hdtext.h"
+#include "host_game_vars.h"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_STATIC
@@ -46,7 +47,6 @@ extern const unsigned int hdtext_builtin_ttf_len;
 
 /* font.c's glyph cache: 0x50 slots of a 32x32 I4 texture, and the texture
    table index in each (0: free) */
-extern char D_8039CAF0[], D_803653B0[];
 #define SLOTS 0x50
 #define SLOT_BYTES 0x200
 
@@ -104,11 +104,11 @@ static int load_font(void) {
 }
 
 int hdtext_glyph_at(uintptr_t addr) {
-    uintptr_t base = (uintptr_t)PORT_VAR(D_8039CAF0);      /* (a host address, as gfx.c's) */
+    uintptr_t base = (uintptr_t)D_8039CAF0;      /* (a host address, as gfx.c's) */
     uintptr_t off = addr - base;
     if (off >= SLOTS * SLOT_BYTES || off % SLOT_BYTES)
         return -1;
-    int tex = port_g16(D_803653B0 + 2 * (off / SLOT_BYTES));
+    int tex = D_803653B0[off / SLOT_BYTES];
     return tex >= STENCIL_FIRST && tex < STENCIL_FIRST + (int)sizeof stencil_chars ? tex : -1;
 }
 

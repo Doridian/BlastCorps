@@ -478,7 +478,7 @@ void host_tex_decoded(uint32_t id, void *dst, uint32_t size) {
                      tex_override[id].len);
         return;
     }
-    uint8_t *d = port_hptr(dst);
+    uint8_t *d = dst;
     memcpy(d, tex_override[id].texels, size);
     if (tex_override[id].hires) {
         uintptr_t a = (uintptr_t)d;

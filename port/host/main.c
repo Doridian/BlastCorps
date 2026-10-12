@@ -152,7 +152,7 @@ const uint8_t *host_rom(void) { return rom; }
 uint32_t host_rom_size(void) { return rom_size; }
 
 void host_rom_read(void *dst, uint32_t addr, uint32_t len) {
-    uint8_t *d = port_hptr(dst);
+    uint8_t *d = dst;
     addr &= 0x0FFFFFFFu;
     if (host_verbose > 1)
         host_log("pi: rom %06X -> %p (%X)\n", addr, (void *)d, len);
@@ -528,8 +528,7 @@ static void queue_account(double late_ms, double work_ms, double pms) {
 }
 
 /* the scheduler's retrace count, the game's frame count and the mode */
-#include "sched_vars.h"
-extern char D_80358064[], D_80364A90[];
+#include "host_game_vars.h"
 
 /* PORT_DUMP=N,M,...: RDRAM to rdram_N.bin at the Nth controller read */
 void host_controller_poll(void) {
@@ -546,8 +545,8 @@ void host_controller_poll(void) {
     polls++;
     host_digest_poll(polls);    /* PORT_DIGEST=FILE: the gameplay digest (digest.c) */
     if (pace)
-        fprintf(pace, "%u,%u,%u,%016llX,%llu\n", polls, port_g32(SCHED_FRAMECOUNT),
-                port_g32(D_80358064), (unsigned long long)port_g64(D_80364A90),
+        fprintf(pace, "%u,%u,%u,%016llX,%llu\n", polls, SCHED_FRAMECOUNT,
+                (uint32_t)D_80358064, (unsigned long long)D_80364A90,
                 (unsigned long long)host_audio_samples());
     if (!spec)
         return;
@@ -894,7 +893,7 @@ int main(int argc, char **argv) {
             vi_wait_from = 0;
             double late_ms = host_paced ? real_ms() - (next_vi / 1e6 + real_off_ms) : (now - next_vi) / 1e6;
             if (host_perf_on)
-                host_perf_vi(late_ms, gfx_st_images, port_g32(D_80358064));
+                host_perf_vi(late_ms, gfx_st_images, (uint32_t)D_80358064);
             /* (with the queue, what is late is a present after its slot:
                the last retrace's, whose slot is now at the latest) */
             if (queue_on)

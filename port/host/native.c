@@ -653,8 +653,6 @@ static void gzip_name(const uint8_t *s, char *out, size_t n) {
 
 int host_loaded_gzip(const void *src, void *dst, uint32_t n) {
     char name[40];
-    src = port_hptr(src);
-    dst = port_hptr(dst);
     gzip_name(src, name, sizeof name);
     if (!name[0])
         snprintf(name, sizeof name, "gzip@%p", src);
@@ -677,7 +675,6 @@ int host_loaded_gzip(const void *src, void *dst, uint32_t n) {
 }
 
 int host_loaded_lzss(uint32_t rom, void *dst, uint32_t n) {
-    dst = port_hptr(dst);
     const struct rom_segment *s = rom_segment(rom & 0x0FFFFFFFu);
     char name[48];
     snprintf(name, sizeof name, "lzss:%s", s ? s->name : "?");
@@ -731,7 +728,7 @@ void host_loaded_dma(void *dst, uint32_t rom, uint32_t n) {
    that repeats (src/loads.c: the C's texels that its declarations type as
    u16 or Vtx, to_bytes; and bytes it reads as u16s) */
 void host_layout_to_be(void *p, uint32_t n, const char *layout, int to_bytes) {
-    begin("(the C's data)", port_hptr(p), n, 0);
+    begin("(the C's data)", p, n, 0);
     uint32_t size = 0;
     for (const char *p = layout; *p; p++)
         size += *p == 'h' ? 2 : *p == 'w' ? 4 : *p == 'd' ? 8 : 1;

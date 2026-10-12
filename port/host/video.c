@@ -345,16 +345,15 @@ void host_video_between(double phase) {
 int host_quit_requested(void) { return quit || host_replay_done(); }
 
 
-/* the scheduler's retrace count and the mode, where the version has them */
-#include "sched_vars.h"
-extern char D_80364A90[], D_802E8BDC[];
+/* the scheduler's retrace count and the mode */
+#include "host_game_vars.h"
 
 /* The scheduler (2C560.c's __scHandleRDP) swaps as soon as a frame is
    drawn in the modes of this mask; in every other mode it holds a frame
    until a retrace has gone by since the last swap showed, so that each
    frame is on screen for two retraces at least. */
 int host_frame_held(void) {
-    uint64_t mode = port_g64(D_80364A90);
+    uint64_t mode = D_80364A90;
     return !(mode & 0xC9FD0FE79BFF80B0ull);
 }
 
@@ -379,7 +378,7 @@ static uint16_t scripted_buttons(int *sy) {
         return 0;
     if (*s == '2' || *s == '3') {
         static int in_level;
-        if (port_g64(D_80364A90) == 4)
+        if (D_80364A90 == 4)
             in_level = 1;
         /* PORT_LEVEL=N: level N (D_802E8BDC, docs/blast_corps_levels.txt's
            IDs) instead of the world map's choice, on the map (mode 0x4000)
@@ -387,16 +386,16 @@ static uint16_t scripted_buttons(int *sy) {
            the logos and the attract mode have levels of their own, and
            another one there crashes their set-up (Carrick Point's, 15) */
         const char *lv = getenv("PORT_LEVEL");
-        if (!in_level && lv && port_g64(D_80364A90) >> 32 == 0 && (port_g64(D_80364A90) & 0x4800))
-            port_wg32(D_802E8BDC, (uint32_t)atoi(lv));
+        if (!in_level && lv && D_80364A90 >> 32 == 0 && (D_80364A90 & 0x4800))
+            D_802E8BDC = atoi(lv);
         if (in_level) {
             *sy = 80;
-            if (*s == '3' && (int)port_g32(SCHED_FRAMECOUNT) % 120 < 4)
+            if (*s == '3' && (int)SCHED_FRAMECOUNT % 120 < 4)
                 return B_A;
             return 0;
         }
     }
-    int f = *s >= '2' ? (int)port_g32(SCHED_FRAMECOUNT) : frame;
+    int f = *s >= '2' ? (int)SCHED_FRAMECOUNT : frame;
     /* nothing for the first half second: a button held at the game's first
        read asks to erase the save (00000.c's mode 0x40000000000000), and
        the first read is at once now that the controllers' power-on wait is
@@ -465,9 +464,6 @@ int host_window_to_n64(float wx, float wy, float *x, float *y) {
 
 /* (us.v11's names: the menu's screen and its state are hd_code's, the
    wheel the front end's, loaded whenever that screen is up) */
-extern char D_8036BB18[], D_8036BB1C[], D_802154B2[], D_802154B4[], D_802154BC[], D_802154BE[],
-    D_80215924[], D_802082FC[], D_80208314[], D_80208350[], D_80215944[], D_80215948[], D_8021594C[],
-    D_80215950[], D_80215440[], D_80215444[], D_80215448[], D_8021544C[];
 
 enum { WHEEL_N = 33, WHEEL_STEP = 1986 };
 
@@ -475,7 +471,7 @@ enum { WHEEL_N = 33, WHEEL_STEP = 1986 };
    state (D_8036BB1C) isn't 1, which is when 17990.c runs func_801EAA7C;
    it takes the pad in state 2 */
 static int name_screen(void) {
-    return (int16_t)port_g16(D_8036BB18) == 0xB && (int16_t)port_g16(D_8036BB1C) != 1;
+    return D_8036BB18 == 0xB && D_8036BB1C != 1;
 }
 
 /* the keyboard types (there, and not in a replay or a deterministic run) */
@@ -486,9 +482,9 @@ static int keys_type(void) {
 /* where c is on the wheel (the game's own tables, read as func_801EAA7C
    reads them), or -1; 0x7F is the delete entry */
 static int wheel_index(int c) {
-    uint32_t n0 = port_g32(D_80208350);
+    uint32_t n0 = D_80208350[0];
     for (int i = 0; i < WHEEL_N; i++) {
-        int w = (uint32_t)i < n0 ? (uint8_t)D_80208314[i] : (uint8_t)D_802082FC[i - n0];
+        int w = (uint32_t)i < n0 ? D_80208314[i] : D_802082FC[i - n0];
         if (w == c && w != 0x7F)
             return i;
     }
@@ -539,18 +535,13 @@ static void type_event(const SDL_Event *e) {
    Half the way more each read lands it in a quarter of a second; with
    more typed behind it, it lands this frame. */
 static void type_fly(void) {
-    char *const pos[][2] = {
-        { D_80215944, D_8021594C }, { D_80215948, D_80215950 },     /* where it is, where it goes */
-        { D_80215440, D_80215448 }, { D_80215444, D_8021544C },     /* its size */
+    float *const pos[][2] = {
+        { &D_80215944, &D_8021594C }, { &D_80215948, &D_80215950 },     /* where it is, where it goes */
+        { &D_80215440, &D_80215448 }, { &D_80215444, &D_8021544C },     /* its size */
     };
     for (unsigned i = 0; i < sizeof pos / sizeof pos[0]; i++) {
-        uint32_t a = port_g32(pos[i][0]), t = port_g32(pos[i][1]);
-        float fa, ft;
-        memcpy(&fa, &a, 4);
-        memcpy(&ft, &t, 4);
-        fa = type_n > 1 ? ft : fa + (ft - fa) * 0.5f;
-        memcpy(&a, &fa, 4);
-        port_wg32(pos[i][0], a);
+        float fa = *pos[i][0], ft = *pos[i][1];
+        *pos[i][0] = type_n > 1 ? ft : fa + (ft - fa) * 0.5f;
     }
 }
 
@@ -573,10 +564,10 @@ static int type_poll(uint16_t *b) {
     }
     if (type_state == TY_IDLE && !type_n)
         return 0;
-    if ((int16_t)port_g16(D_8036BB1C) != 2)         /* still coming in */
+    if (D_8036BB1C != 2)         /* still coming in */
         return 1;
-    int busy = port_g16(D_802154BE) != 0;           /* a character on its way into the name */
-    int len = (uint8_t)D_802154BC[0];
+    int busy = D_802154BE != 0;           /* a character on its way into the name */
+    int len = D_802154BC;
     int c = (uint8_t)type_q[type_head];
     switch (type_state) {
     case TY_IDLE:
@@ -594,7 +585,7 @@ static int type_poll(uint16_t *b) {
             break;
         }
         type_idx = wheel_index(c);
-        if (type_idx < 0 || len >= (uint8_t)D_80215924[0]) {    /* not on the wheel, or the name is full */
+        if (type_idx < 0 || len >= D_80215924) {    /* not on the wheel, or the name is full */
             type_pop();
             return 1;
         }
@@ -606,8 +597,8 @@ static int type_poll(uint16_t *b) {
            D_802154B2, the one it eases to) and press A in the same read:
            func_801EAA7C works out the character in front (D_802154B6) from
            the angle before it looks at the pad */
-        port_wg16(D_802154B2, (uint16_t)(0x7FFF - type_idx * WHEEL_STEP));
-        port_wg16(D_802154B4, (uint16_t)(0x7FFF - type_idx * WHEEL_STEP));
+        D_802154B2 = (int16_t)(0x7FFF - type_idx * WHEEL_STEP);
+        D_802154B4 = (int16_t)(0x7FFF - type_idx * WHEEL_STEP);
         type_state = TY_PRESS;
         break;
     case TY_PRESS:                                  /* released: the press was one read */
@@ -682,7 +673,7 @@ static void input_read(int n, uint16_t *buttons, int8_t *x, int8_t *y) {
     } else if (type_env == 2 && name_screen()) {
         b &= ~(B_A | B_B);          /* PORT_TYPE's name, as typed: PORT_AUTOSTART only confirms it */
     }
-    port_wg16(buttons, b);          /* N64-side memory, at its own width */
+    *buttons = b;
     *x = (int8_t)sx;
     *y = (int8_t)sy;
 }
@@ -720,7 +711,7 @@ static void eeprom_load(void) {
 void host_eeprom_read(int block, void *dst) {
     eeprom_load();
     if (block >= 0 && block < 64) {
-        uint8_t *d = port_hptr(dst);
+        uint8_t *d = dst;
         memcpy(d, eeprom + block * 8, 8);
         host_save_order(d, block * 8, 8, 0);    /* the file keeps the N64's bytes */
     }
@@ -730,7 +721,7 @@ void host_eeprom_write(int block, const void *src) {
     eeprom_load();
     if (block < 0 || block >= 64)
         return;
-    memcpy(eeprom + block * 8, port_hptr(src), 8);
+    memcpy(eeprom + block * 8, src, 8);
     host_save_order(eeprom + block * 8, block * 8, 8, 0);
     FILE *f = fopen(host_save_path, "wb");
     if (f) {

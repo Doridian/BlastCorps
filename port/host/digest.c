@@ -60,40 +60,16 @@
 
 #include "port.h"
 #include "host.h"
+#include "host_game_vars.h"
 
-/* (the native-endian build keeps scalars in host order; the ROM file and
-   what the LP64 build moved past RDRAM are read as main.c does) */
-static uint32_t g32(const void *p) { return port_var32(p); }
-static uint16_t g16(const void *p) { return port_var16(p); }
-static uint8_t g8(const void *p) { return *(const uint8_t *)p; }
-/* where the game's structures have what is read here, and how wide its
-   pointer variables are: the N64 side's numbers (port.h's host_layout,
-   port/src/layout.c), not the N64's offsets, which the LP64 build's
-   native structures don't keep */
+/* where the game's structures have what is read here: the N64 side's numbers
+   (port.h's host_layout, port/src/layout.c), the game's own layouts */
 #define L(x) host_layout(PORT_LAYOUT_##x)
-/* the pointer variable `sym`: where it points, for the host */
-#define GPTR(sym) ((const char *)port_hptr(port_game_ptr_n(VAR(sym), L(PTR_##sym))))
-
-#define VAR(sym) PORT_VAR(sym)
-extern char D_80364A90[], D_802E8BDC[], D_80358064[], D_80358060[], D_8036B968[];
-#include "sched_vars.h"
-extern char D_80364AF0[], D_80364AE8[];
-extern char D_80364456[], D_803643E0[], D_803643E4[], D_803643E8[], D_803643D9[], D_803643DA[];
-extern char D_8036EA70[], D_8036EB90[], D_8036EB92[], D_8036EB93[], D_803649F0[];
-extern char D_803F8B72[], D_803EDC00[];
-extern char D_80364460[], D_803649D0[];
-/* the buildings (objects.h): the array, and the pointer past its last */
-extern char D_803F4030[], D_803F7654[];
-extern char D_8036BED8[], D_8039B070[], D_8039B610[], D_8039C550[], D_8039C710[], D_8039AF00[], D_8039B068[];
-/* the vehicle modules' states and positions (vehicle.h's table) */
-extern char D_803ED760[], D_803ED808[], D_803EDB40[], D_803EDBE8[], D_803EDF10[], D_803EDFB8[];
-extern char D_803EE2E0[], D_803EE38C[], D_803EE6C0[], D_803EE768[], D_803EEA90[], D_803EEB38[];
-extern char D_803EEE70[], D_803EEF18[], D_803EF630[], D_803EF6DC[], D_803EFA20[], D_803EFAC8[];
-extern char D_803EFDF0[], D_803EFE98[], D_803F7B50[], D_803F7BF8[], D_803F8550[], D_803F8748[];
-extern char D_803F8AA0[], D_803F8B48[], D_803F8E80[], D_803F8F28[], D_803F9250[], D_803F92F8[];
-extern char D_803FC500[], D_803FC5A8[], D_803FC8D0[], D_803FC978[], D_803FCCA0[], D_803FCD48[];
-
-extern char D_803ED80C[], D_803ED810[], D_803EDBEC[], D_803EDBF0[], D_803EDFBC[], D_803EDFC0[], D_803EE390[], D_803EE394[], D_803EE76C[], D_803EE770[], D_803EEB3C[], D_803EEB40[], D_803EEF1C[], D_803EEF20[], D_803EF6E0[], D_803EF6E4[], D_803EFACC[], D_803EFAD0[], D_803EFE9C[], D_803EFEA0[], D_803F7BFC[], D_803F7C00[], D_803F8B4C[], D_803F8B50[], D_803F8F2C[], D_803F8F30[], D_803F92FC[], D_803F9300[], D_803FC5AC[], D_803FC5B0[], D_803FC97C[], D_803FC980[], D_803FCD4C[], D_803FCD50[];
+#define S32(base, field) ((int32_t)GAME_FIELD(uint32_t, base, field))
+#define U32(base, field) GAME_FIELD(uint32_t, base, field)
+#define U16(base, field) GAME_FIELD(uint16_t, base, field)
+#define S16(base, field) ((int16_t)GAME_FIELD(uint16_t, base, field))
+#define U8(base, field) GAME_FIELD(uint8_t, base, field)
 #define FRONT_END_MODES (0xC9FD8FE7DBFF8080ull | 0x4000 | 0x20000000 | 0x30)   /* hd.c's loop */
 
 /* ---- the line's fields, and what the last line had ------------------------ */
@@ -126,38 +102,38 @@ static void finish(void) {
 }
 
 /* one vehicle module's state: x,y,z,heading,heading2,speed */
-static void put_vehicle3(const char *key, const char *vs, const char *pos, const char *py, const char *pz) {
-    put(key, "%d,%d,%d,%u,%u,%d", (int32_t)g32(pos), (int32_t)g32(py), (int32_t)g32(pz),
-        g16(vs + L(VSTATE_HEADING)), g16(vs + L(VSTATE_HEADING2)), (int16_t)g16(vs + L(VSTATE_SPEED)));
+static void put_vehicle3(const char *key, const uint8_t *vs, const int32_t *pos, const int32_t *py, const int32_t *pz) {
+    put(key, "%d,%d,%d,%u,%u,%d", *pos, *py, *pz, U16(vs, L(VSTATE_HEADING)), U16(vs, L(VSTATE_HEADING2)),
+        S16(vs, L(VSTATE_SPEED)));
 }
-#define put_vehicle(k, vs, pos) put_vehicle3(k, vs, pos, (pos) + 4, (pos) + 8)
 
 static void vehicles(void) {
-    /* the types, and their modules' states and positions (vehicle.h's
-       table; the addresses are the run's: PORT_VAR in the movable builds) */
+    /* the types, and their modules' states and positions (vehicle.h's table) */
     static const uint8_t types[] = {0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
                                     0x09, 0x0A, 0x0D, 0x0E, 0x0F, 0x10, 0xFE, 0xFF};
-    const char *tab[][4] = {
-        {VAR(D_803ED760), VAR(D_803ED808), VAR(D_803ED80C), VAR(D_803ED810)}, {VAR(D_803EDB40), VAR(D_803EDBE8), VAR(D_803EDBEC), VAR(D_803EDBF0)},
-        {VAR(D_803EDF10), VAR(D_803EDFB8), VAR(D_803EDFBC), VAR(D_803EDFC0)}, {VAR(D_803EE2E0), VAR(D_803EE38C), VAR(D_803EE390), VAR(D_803EE394)},
-        {VAR(D_803EE6C0), VAR(D_803EE768), VAR(D_803EE76C), VAR(D_803EE770)}, {VAR(D_803EEA90), VAR(D_803EEB38), VAR(D_803EEB3C), VAR(D_803EEB40)},
-        {VAR(D_803EFA20), VAR(D_803EFAC8), VAR(D_803EFACC), VAR(D_803EFAD0)}, {VAR(D_803EFDF0), VAR(D_803EFE98), VAR(D_803EFE9C), VAR(D_803EFEA0)},
-        {VAR(D_803EEE70), VAR(D_803EEF18), VAR(D_803EEF1C), VAR(D_803EEF20)}, {VAR(D_803F7B50), VAR(D_803F7BF8), VAR(D_803F7BFC), VAR(D_803F7C00)},
-        {VAR(D_803F8AA0), VAR(D_803F8B48), VAR(D_803F8B4C), VAR(D_803F8B50)}, {VAR(D_803F8E80), VAR(D_803F8F28), VAR(D_803F8F2C), VAR(D_803F8F30)},
-        {VAR(D_803F9250), VAR(D_803F92F8), VAR(D_803F92FC), VAR(D_803F9300)}, {VAR(D_803FC500), VAR(D_803FC5A8), VAR(D_803FC5AC), VAR(D_803FC5B0)},
-        {VAR(D_803FC8D0), VAR(D_803FC978), VAR(D_803FC97C), VAR(D_803FC980)}, {VAR(D_803FCCA0), VAR(D_803FCD48), VAR(D_803FCD4C), VAR(D_803FCD50)},
-        {VAR(D_803EF630), VAR(D_803EF6DC), VAR(D_803EF6E0), VAR(D_803EF6E4)},
+    static const struct { const uint8_t *vs; const int32_t *x, *y, *z; } tab[] = {
+#define VEH(vs, x, y, z) { vs, (const int32_t *)&x, (const int32_t *)&y, (const int32_t *)&z }
+        VEH(D_803ED760, D_803ED808, D_803ED80C, D_803ED810), VEH(D_803EDB40, D_803EDBE8, D_803EDBEC, D_803EDBF0),
+        VEH(D_803EDF10, D_803EDFB8, D_803EDFBC, D_803EDFC0), VEH(D_803EE2E0, D_803EE38C, D_803EE390, D_803EE394),
+        VEH(D_803EE6C0, D_803EE768, D_803EE76C, D_803EE770), VEH(D_803EEA90, D_803EEB38, D_803EEB3C, D_803EEB40),
+        VEH(D_803EFA20, D_803EFAC8, D_803EFACC, D_803EFAD0), VEH(D_803EFDF0, D_803EFE98, D_803EFE9C, D_803EFEA0),
+        VEH(D_803EEE70, D_803EEF18, D_803EEF1C, D_803EEF20), VEH(D_803F7B50, D_803F7BF8, D_803F7BFC, D_803F7C00),
+        VEH(D_803F8AA0, D_803F8B48, D_803F8B4C, D_803F8B50), VEH(D_803F8E80, D_803F8F28, D_803F8F2C, D_803F8F30),
+        VEH(D_803F9250, D_803F92F8, D_803F92FC, D_803F9300), VEH(D_803FC500, D_803FC5A8, D_803FC5AC, D_803FC5B0),
+        VEH(D_803FC8D0, D_803FC978, D_803FC97C, D_803FC980), VEH(D_803FCCA0, D_803FCD48, D_803FCD4C, D_803FCD50),
+        VEH(D_803EF630, D_803EF6DC, D_803EF6E0, D_803EF6E4),
+#undef VEH
     };
     enum { N = sizeof types };
     int seen[N] = {0}, barge = 0;
     unsigned i;
 
     uint32_t size = L(VEHICLE_SIZE);
-    const char *first = VAR(D_80364460), *end = GPTR(D_803649D0);
+    const uint8_t *first = D_80364460, *end = D_803649D0;
     if (end < first || end > first + 12 * size)
         end = first;
-    for (const char *a = first; a < end; a += size) {
-        uint32_t type = g32(a + L(VEHICLE_TYPE));
+    for (const uint8_t *a = first; a < end; a += size) {
+        uint32_t type = U32(a, L(VEHICLE_TYPE));
         if (type == 0x0B || type == 0x11 || type == 0x12) {
             barge = 1;
             continue;
@@ -170,44 +146,45 @@ static void vehicles(void) {
         if (seen[i]) {
             char key[8];
             snprintf(key, sizeof key, "v%X", types[i]);
-            put_vehicle3(key, tab[i][0], tab[i][1], tab[i][2], tab[i][3]);
+            put_vehicle3(key, tab[i].vs, tab[i].x, tab[i].y, tab[i].z);
         }
     if (barge)
         for (i = 0; i < 3; i++) {
             char key[8];
             snprintf(key, sizeof key, "vB.%u", i);
-            put_vehicle(key, VAR(D_803F8550) + L(VSTATE_SIZE) * i, VAR(D_803F8748) + 12 * i);
+            put_vehicle3(key, D_803F8550 + L(VSTATE_SIZE) * i, &D_803F8748[3 * i], &D_803F8748[3 * i + 1],
+                         &D_803F8748[3 * i + 2]);
         }
 }
 
 static void buildings(void) {
     uint32_t size = L(BUILDING_SIZE);
-    const char *first = VAR(D_803F4030), *end = GPTR(D_803F7654);
+    const uint8_t *first = D_803F4030, *end = D_803F7654;
     if (end < first || end > first + 0x100 * size)
         end = first;
     uint32_t k = 0;
-    for (const char *b = first; b < end; b += size, k++) {
+    for (const uint8_t *b = first; b < end; b += size, k++) {
         char key[8], dmg[2 * 0x10 + 1];
-        unsigned groups = g8(b + L(BUILDING_GROUPS)), j;
+        unsigned groups = U8(b, L(BUILDING_GROUPS)), j;
         if (groups > 0x10)
             groups = 0x10;
         for (j = 0; j < groups; j++)
-            snprintf(dmg + 2 * j, 3, "%02X", g8(b + L(BUILDING_DAMAGE) + j));
+            snprintf(dmg + 2 * j, 3, "%02X", U8(b, L(BUILDING_DAMAGE) + j));
         dmg[2 * j] = 0;
         snprintf(key, sizeof key, "b%u", k);
-        put(key, "%u/%d,%d,%d/%s", g8(b + L(BUILDING_GONE)), (int32_t)g32(b + L(BUILDING_X)),
-            (int32_t)g32(b + L(BUILDING_Y)), (int32_t)g32(b + L(BUILDING_Z)), dmg);
+        put(key, "%u/%d,%d,%d/%s", U8(b, L(BUILDING_GONE)), S32(b, L(BUILDING_X)), S32(b, L(BUILDING_Y)),
+            S32(b, L(BUILDING_Z)), dmg);
     }
 }
 
 /* the bits of n records' byte at `off`, as hex */
-static void bits(const char *key, const char *base, uint32_t n, uint32_t stride, uint32_t off) {
+static void bits(const char *key, const uint8_t *base, uint32_t n, uint32_t stride, uint32_t off) {
     char s[VALLEN];
     unsigned len = 0, nib = 0, i;
     if (n > 4 * (VALLEN - 2))
         n = 4 * (VALLEN - 2);
     for (i = 0; i < n; i++) {
-        nib |= (g8(base + i * stride + off) != 0) << (i & 3);
+        nib |= (U8(base, i * stride + off) != 0) << (i & 3);
         if ((i & 3) == 3 || i == n - 1) {
             s[len++] = "0123456789ABCDEF"[nib];
             nib = 0;
@@ -218,56 +195,54 @@ static void bits(const char *key, const char *base, uint32_t n, uint32_t stride,
 }
 
 static void level(void) {
-    const char *st = VAR(D_8036EA70);
-    put("t", "%u", g32(SCHED_LEVEL_TIME));
-    put("fc", "%u", g32(VAR(D_80358060)));
-    put("pv", "%X", g8(VAR(D_80364456)));
-    put("p", "%d,%d,%d", (int32_t)g32(VAR(D_803643E0)), (int32_t)g32(VAR(D_803643E4)),
-        (int32_t)g32(VAR(D_803643E8)));
-    put("won", "%u", g8(VAR(D_803643DA)));
-    put("lost", "%u", g8(VAR(D_803643D9)));
-    put("st", "%u,%u,%u,%u,%u", g32(st + L(STATS_IP)), g8(st + L(STATS_BD)), g8(st + L(STATS_CR)),
-        g16(st + L(STATS_RT)), g8(st + L(STATS_COIN)));
-    put("tc", "%u", g32(st + L(STATS_TC)));
-    put("of", "%u,%u,%u", g8(VAR(D_8036EB92)), g8(VAR(D_8036EB93)), g16(VAR(D_8036EB90)));
-    put("dmg", "%u", g32(VAR(D_803649F0)));
-    put("ammo", "%d,%d", (int16_t)g16(VAR(D_803F8B72)), (int16_t)g16(VAR(D_803EDC00)));
+    const uint8_t *st = D_8036EA70;
+    put("t", "%u", SCHED_LEVEL_TIME);
+    put("fc", "%u", D_80358060);
+    put("pv", "%X", D_80364456);
+    put("p", "%d,%d,%d", D_803643E0, D_803643E4, D_803643E8);
+    put("won", "%u", D_803643DA);
+    put("lost", "%u", D_803643D9);
+    put("st", "%u,%u,%u,%u,%u", U32(st, L(STATS_IP)), U8(st, L(STATS_BD)), U8(st, L(STATS_CR)),
+        U16(st, L(STATS_RT)), U8(st, L(STATS_COIN)));
+    put("tc", "%u", U32(st, L(STATS_TC)));
+    put("of", "%u,%u,%u", D_8036EB92, D_8036EB93, D_8036EB90);
+    put("dmg", "%u", D_803649F0);
+    put("ammo", "%d,%d", D_803F8B72, D_803EDC00);
     vehicles();
     buildings();
-    uint32_t n = g16(VAR(D_8036EB90));
-    const char *rdus = GPTR(D_8036BED8);
+    uint32_t n = D_8036EB90;
+    const uint8_t *rdus = D_8036BED8;
     if (rdus && n)
         bits("rdu", rdus, n, L(RDU_SIZE), L(RDU_COLLECTED));
-    n = g32(VAR(D_8039B610));
+    n = (uint32_t)D_8039B610;
     if (n <= 20) {
         char s[VALLEN];
         unsigned len = 0;
         s[0] = 0;
         for (uint32_t i = 0; i < n; i++) {
-            const char *c = VAR(D_8039B070) + L(TNT_SIZE) * i;
-            len += snprintf(s + len, sizeof s - len, "%s%u,%d,%d,%d,%d", i ? "/" : "", g8(c + L(TNT_ACTIVE)),
-                            (int32_t)g32(c + L(TNT_X)), (int32_t)g32(c + L(TNT_Y)), (int32_t)g32(c + L(TNT_Z)),
-                            (int16_t)g16(c + L(TNT_TIMER)));
+            const uint8_t *c = D_8039B070 + L(TNT_SIZE) * i;
+            len += snprintf(s + len, sizeof s - len, "%s%u,%d,%d,%d,%d", i ? "/" : "", U8(c, L(TNT_ACTIVE)),
+                            S32(c, L(TNT_X)), S32(c, L(TNT_Y)), S32(c, L(TNT_Z)), S16(c, L(TNT_TIMER)));
         }
         if (n)
             put("tnt", "%s", s);
     }
-    n = g32(VAR(D_8039C710));
+    n = (uint32_t)D_8039C710;
     if (n <= 8) {
         char s[VALLEN];
         unsigned len = 0;
         s[0] = 0;
         for (uint32_t i = 0; i < n; i++) {
-            const char *k = VAR(D_8039C550) + L(BLOCK_SIZE) * i;
-            len += snprintf(s + len, sizeof s - len, "%s%d,%d,%d,%u", i ? "/" : "", (int32_t)g32(k + L(BLOCK_X)),
-                            (int32_t)g32(k + L(BLOCK_Y)), (int32_t)g32(k + L(BLOCK_Z)), g8(k + L(BLOCK_IN_HOLE)));
+            const uint8_t *k = D_8039C550 + L(BLOCK_SIZE) * i;
+            len += snprintf(s + len, sizeof s - len, "%s%d,%d,%d,%u", i ? "/" : "", S32(k, L(BLOCK_X)),
+                            S32(k, L(BLOCK_Y)), S32(k, L(BLOCK_Z)), U8(k, L(BLOCK_IN_HOLE)));
         }
         if (n)
             put("blk", "%s", s);
     }
-    n = g32(VAR(D_8039B068));
+    n = (uint32_t)D_8039B068;
     if (n && n <= 15)
-        bits("box", VAR(D_8039AF00), n, L(AMMOBOX_SIZE), L(AMMOBOX_COLLECTED));
+        bits("box", D_8039AF00, n, L(AMMOBOX_SIZE), L(AMMOBOX_COLLECTED));
 }
 
 void host_digest_poll(unsigned poll) {
@@ -286,22 +261,22 @@ void host_digest_poll(unsigned poll) {
     }
     if (!out)
         return;
-    uint64_t mode = port_g64(VAR(D_80364A90));
-    int32_t lvl = (int32_t)g32(VAR(D_802E8BDC));
-    uint32_t frame = g32(VAR(D_80358064));
+    uint64_t mode = D_80364A90;
+    int32_t lvl = D_802E8BDC;
+    uint32_t frame = (uint32_t)D_80358064;
 
     ncur = 0;
-    put("rng", "%08X", g32(VAR(D_8036B968)));
-    put("clk", "%u", g32(SCHED_FRAMECOUNT));
+    put("rng", "%08X", D_8036B968);
+    put("clk", "%u", SCHED_FRAMECOUNT);
     {
-        uint8_t who = g8(VAR(D_80364AE8));
-        const char *pl = VAR(D_80364AF0) + L(PLAYER_SIZE) * (who & 3);
+        uint8_t who = D_80364AE8;
+        const HostPlayerInfo *pl = &D_80364AF0[who & 3];
         char med[2 * 60 + 1];
         for (int i = 0; i < 60; i++)
-            snprintf(med + 2 * i, 3, "%02X", g8(pl + L(PLAYER_MEDAL) + i));
+            snprintf(med + 2 * i, 3, "%02X", pl->medal[i]);
         put("med", "%s", med);
-        put("units", "%u", g16(pl + L(PLAYER_UNITS)));
-        put("gs", "%u", g8(pl + L(PLAYER_GAMESTATE)));
+        put("units", "%u", pl->units);
+        put("gs", "%u", pl->gameState);
     }
     if (mode && !(mode & FRONT_END_MODES))
         level();

@@ -11,9 +11,8 @@
  * renderer (gfx.c) asks here about every draw from a texture: a picture
  * listed below isn't drawn, and once its last row is, the model it shows
  * is, in the rectangle the picture covered, from a display list this file
- * makes in the renderer's own memory (gfx.h, GFX_HOST_BASE; in the wide
- * form, with the N64 side's 16-byte commands, a host buffer its words
- * point into, and every command and list area twice the size): the model's
+ * makes in the renderer's own memory (gfx.h, a host buffer its words
+ * point into): the model's
  * vertices, its textures (decoded from the ROM, or a resource pack's
  * edited ones) and its display list, behind a viewport, a projection that fits
  * the model in the rectangle and a clear of the z-buffer there.  The
@@ -44,8 +43,9 @@ unsigned micons_serial;
 
 /* ---- the ROM ------------------------------------------------------------- */
 
-static uint32_t rd32(const uint8_t *p) { return (uint32_t)p[0] << 24 | p[1] << 16 | p[2] << 8 | p[3]; }
-static uint16_t rd16(const uint8_t *p) { return (uint16_t)(p[0] << 8 | p[1]); }
+/* (the ROM's bytes are big-endian) */
+#define rd32 port_rd32
+#define rd16 port_rd16
 
 static int seg_named(const char *name, uint32_t *start, uint32_t *end) {
     for (size_t i = 0; i < sizeof rom_segments / sizeof rom_segments[0]; i++)
@@ -82,7 +82,6 @@ static uint8_t *inflate_at(const uint8_t *src, size_t n, long *len, size_t *used
    run a frame's lists again, so a ring's worth of draws stays) */
 #define RING_SPAN 0x40000u
 #define STATIC_SPAN (GFX_HOST_SPAN - RING_SPAN)
-#define SEG_HOST 15                             /* the segment the narrow lists reach it by */
 static uint32_t mem_top = 0x10, ring_pos;
 
 static uint32_t mem_alloc(uint32_t n) {
@@ -95,10 +94,9 @@ static uint32_t mem_alloc(uint32_t n) {
 
 static uint8_t *mem(uint32_t off) { return gfx_host_mem + off; }
 
-/* the word for the address of off in that memory: narrow, through segment
-   SEG_HOST (with the N64 side's segment tag: gfx.h); wide, its pointer */
+/* the word for the address of off in that memory: its pointer */
 static uintptr_t haddr(uint32_t off) {
-    return gfx_ptr_words ? (uintptr_t)mem(off) : (uint32_t)SEG_HOST << 24 | off | gfx_seg_tag;
+    return (uintptr_t)mem(off);
 }
 /* a ROM display list's w1 as the N64 side's lists have it: a segmented
    address (G_MTX, G_MOVEMEM, G_VTX, G_DL to segments 1..15) with the
@@ -106,21 +104,19 @@ static uintptr_t haddr(uint32_t off) {
 static uint32_t rom_w1(uint32_t w0, uint32_t w1) {
     uint8_t op = w0 >> 24;
     if ((op == 0x01 || op == 0x03 || op == 0x04 || op == 0x06) && (w1 >> 24) & 15)
-        return w1 | gfx_seg_tag;
+        return w1 | GFX_SEG_TAG;
     return w1;
 }
-/* a segment's value for off: narrow, the N64 address's physical one (the
-   segment table's form); wide, its pointer */
+/* a segment's value for off: its pointer */
 static uintptr_t seg_word(uint32_t off) {
-    return gfx_ptr_words ? (uintptr_t)mem(off) : (GFX_HOST_BASE & 0x1FFFFFFFu) + off;
+    return (uintptr_t)mem(off);
 }
-/* the word for the color or z image at a (gfx.h's host address): narrow,
-   its physical address, through segment 0 (0); wide, the pointer */
+/* the word for the color or z image at a (gfx.h's host address) */
 static uintptr_t img_word(GfxAddr a) {
     return a;
 }
 /* the bytes of n bytes of the ROM's 8-byte commands, as this build's */
-static uint32_t cmd_bytes(uint32_t n) { return gfx_wide ? n / 8 * gfx_cmd : n; }
+static uint32_t cmd_bytes(uint32_t n) { return n / 8 * sizeof(GfxCmd); }
 
 /* a display list being written */
 typedef struct {
@@ -128,10 +124,10 @@ typedef struct {
 } Dl;
 
 static void dl_cmd(Dl *d, uint32_t w0, uintptr_t w1) {
-    if (d->at + gfx_cmd > d->end)
+    if (d->at + sizeof(GfxCmd) > d->end)
         return;
-    gfx_put(mem(d->at), w0, w1);
-    d->at += gfx_cmd;
+    gfx_put((GfxCmd *)mem(d->at), w0, w1);
+    d->at += sizeof(GfxCmd);
 }
 
 /* ---- textures ------------------------------------------------------------- */
@@ -264,10 +260,13 @@ static void put_vertices(Model *m, uint32_t off, const uint8_t *s, uint32_t n) {
     for (int k = 0; k < 16; k++)
         m->slot[k] = -1;
     for (uint32_t k = 0; k < n; k++, s += 16) {
-        uint8_t *d = mem(off + 16 * k);
-        for (int j = 0; j < 6; j++)
-            port_wg16(d + 2 * j, rd16(s + 2 * j));
-        memcpy(d + 12, s + 12, 4);
+        HostVtx *d = (HostVtx *)mem(off + 16 * k);
+        for (int j = 0; j < 3; j++)
+            d->ob[j] = (int16_t)rd16(s + 2 * j);
+        d->flag = rd16(s + 6);
+        d->tc[0] = (int16_t)rd16(s + 8);
+        d->tc[1] = (int16_t)rd16(s + 10);
+        memcpy(d->cn, s + 12, 4);
         for (int j = 0; j < 3; j++)
             if (m->npos)
                 m->pos[k][j] = (int16_t)rd16(s + 2 * j);
@@ -377,12 +376,12 @@ static void load_building(Model *m, int i) {
         cmds += (piece[p][1] - piece[p][0]) / 8;
     }
     for (int v = 0; v < NVARIANT; v++) {
-        uint32_t at = mem_alloc(cmds * gfx_cmd);
+        uint32_t at = mem_alloc(cmds * sizeof(GfxCmd));
         if (!at) {
             free(f);
             return;
         }
-        Dl d = { at, at, at + cmds * gfx_cmd };
+        Dl d = { at, at, at + cmds * sizeof(GfxCmd) };
         int shade = 0;
         fade_2cyc = 0;
         for (int p = 0; p < 4; p++)
@@ -444,22 +443,22 @@ static void load_vehicle(Model *m, const char *name) {
     put_vertices(m, m->vtx, md + vs, (ve - vs) / 16);
     /* the rest matrices as they are (no list reads them), then identities */
     for (uint32_t o = 0; o + 4 <= rest; o += 4)
-        port_wg32(mem(m->mtx + o), rd32(md + ve + 8 + o));
+        ((uint32_t *)mem(m->mtx))[o / 4] = rd32(md + ve + 8 + o);
     static const uint32_t ident[16] = { 0x00010000, 0, 1, 0, 0, 0x00010000, 0, 1 };  /* (an Mtx's words) */
     for (uint32_t o = rest; o + 64 <= total; o += 64)
         for (int k = 0; k < 16; k++)
-            port_wg32(mem(m->mtx + o + 4 * k), ident[k]);
+            ((HostMtx *)mem(m->mtx + o))->m[k / 4][k % 4] = (int32_t)ident[k];
     /* the display list, in each variant, whole (its passes end in their
        own G_ENDDL and reach nothing outside it) */
     uint32_t n = (dl1 - dl0) & ~7u;
     for (int v = 0; v < NVARIANT; v++) {
-        uint32_t at = mem_alloc(cmd_bytes(n) + gfx_cmd);
+        uint32_t at = mem_alloc(cmd_bytes(n) + sizeof(GfxCmd));
         if (!at) {
             free(md);
             free(dd);
             return;
         }
-        Dl d = { at, at, at + cmd_bytes(n) + gfx_cmd };
+        Dl d = { at, at, at + cmd_bytes(n) + sizeof(GfxCmd) };
         fade_2cyc = 0;
         for (uint32_t o = 0; o < n; o += 8)
             model_cmd(&d, v, rd32(dd + o), rd32(dd + o + 4));
@@ -545,7 +544,7 @@ static Model *spec_model(int s) {
     Spec *p = &specs[s];
     if (!p->tried) {
         p->tried = 1;
-        gfx_layout_init();
+        gfx_init();
         if (!gfx_host_mem && !(gfx_host_mem = calloc(1, GFX_HOST_SPAN)))
             return NULL;
         if (p->building >= 0)
@@ -583,7 +582,7 @@ static uint32_t texel_sum(GfxAddr addr, uint32_t len) {
 void host_icon_texture(const void *at, int tex, int row, int rows, int flags) {
     if (!micons_on)
         return;
-    GfxAddr addr = (GfxAddr)port_hptr(at);
+    GfxAddr addr = (GfxAddr)at;
     if (tex < 0) {
         npic = 0;
         micons_serial++;
@@ -630,11 +629,11 @@ int micons_lookup(GfxAddr addr) {
 
 /* m (row vectors, as the RSP's) into an Mtx at off */
 static void put_mtx(uint32_t off, float m[4][4]) {
-    uint8_t *p = mem(off);
+    int32_t *w = &((HostMtx *)mem(off))->m[0][0];
     for (int k = 0; k < 16; k += 2) {
         int32_t a = (int32_t)lroundf(m[k / 4][k % 4] * 65536.0f), b = (int32_t)lroundf(m[k / 4][k % 4 + 1] * 65536.0f);
-        port_wg32(p + 2 * k, (uint32_t)(a & 0xFFFF0000) | ((uint32_t)b >> 16));
-        port_wg32(p + 32 + 2 * k, (uint32_t)a << 16 | ((uint32_t)b & 0xFFFF));
+        w[k / 2] = (int32_t)((uint32_t)(a & 0xFFFF0000) | ((uint32_t)b >> 16));
+        w[8 + k / 2] = (int32_t)((uint32_t)a << 16 | ((uint32_t)b & 0xFFFF));
     }
 }
 
@@ -779,19 +778,18 @@ static GfxAddr draw_list(int s, const float r[4], const uint8_t prim[4], const u
     float pm[4][4] = { { 2 / w, 0, 0, 0 }, { 0, 2 / h, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 } };
     put_mtx(proj, pm);
     put_mtx(mv, mvm);
-    uint8_t *v = mem(vp);
-    port_wg16(v + 0, (uint16_t)(int16_t)lroundf(w * 2));
-    port_wg16(v + 2, (uint16_t)(int16_t)lroundf(h * 2));
-    port_wg16(v + 4, 0x1FF);
-    port_wg16(v + 6, 0);
-    port_wg16(v + 8, (uint16_t)(int16_t)lroundf((r[0] + r[2]) * 2));
-    port_wg16(v + 10, (uint16_t)(int16_t)lroundf((r[1] + r[3]) * 2));
-    port_wg16(v + 12, 0x1FF);
-    port_wg16(v + 14, 0);
+    HostViewport *vpt = (HostViewport *)mem(vp);
+    vpt->vscale[0] = (int16_t)lroundf(w * 2);
+    vpt->vscale[1] = (int16_t)lroundf(h * 2);
+    vpt->vscale[2] = 0x1FF;
+    vpt->vscale[3] = 0;
+    vpt->vtrans[0] = (int16_t)lroundf((r[0] + r[2]) * 2);
+    vpt->vtrans[1] = (int16_t)lroundf((r[1] + r[3]) * 2);
+    vpt->vtrans[2] = 0x1FF;
+    vpt->vtrans[3] = 0;
 
     dl_cmd(&d, 0xE7000000u, 0);
     dl_cmd(&d, 0xBC000006u, 0);                                         /* segment 0: physical */
-    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, seg_word(0));
     if (m->vehicle) {
         dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, seg_word(m->vtx));
         dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, seg_word(m->mtx));
@@ -842,13 +840,13 @@ static GfxAddr draw_list(int s, const float r[4], const uint8_t prim[4], const u
         /* blended over what is there, untextured, in the shadow's colour,
            without the z-buffer (the model then covers it) */
         for (int i = 0; i < nh; i++) {
-            uint8_t *q = mem(sv + 16 * i);
+            HostVtx *q = (HostVtx *)mem(sv + 16 * i);
             for (int j = 0; j < 3; j++)
-                port_wg16(q + 2 * j, (uint16_t)hull[i][j]);
-            for (int j = 6; j < 12; j += 2)
-                port_wg16(q + j, 0);
-            q[12] = q[13] = q[14] = 0;
-            q[15] = 0xFF;
+                q->ob[j] = (int16_t)hull[i][j];
+            q->flag = 0;
+            q->tc[0] = q->tc[1] = 0;
+            q->cn[0] = q->cn[1] = q->cn[2] = 0;
+            q->cn[3] = 0xFF;
         }
         dl_cmd(&d, 0xB7000000u, 0x4u | 0x200u);
         dl_cmd(&d, 0xB6000000u, 0x1u | 0x3000u);
@@ -947,7 +945,7 @@ GfxAddr micons_part(int h, float x0, float y0, float x1, float y1, int shadow, c
 #define GLOBE_RADIUS 250.0f             /* the globe's (its shadow a little above) */
 #define GLOBE_SHADOW 0x60               /* its shadow's alpha */
 
-#include "sched_vars.h"
+#include "host_game_vars.h"
 
 static Spec chopper = { { 0, 0 }, -1, "chopper", 0, 0, { 0 }, 0 };
 
@@ -1147,7 +1145,7 @@ GfxAddr micons_globe(const float c[3], const float mv[4][4], int first, uint8_t 
     globe.dl = 0;
     if (!chopper.tried) {
         chopper.tried = 1;
-        gfx_layout_init();
+        gfx_init();
         if (!gfx_host_mem && !(gfx_host_mem = calloc(1, GFX_HOST_SPAN)))
             return 0;
         load_vehicle(&chopper.model, chopper.vehicle);
@@ -1157,7 +1155,7 @@ GfxAddr micons_globe(const float c[3], const float mv[4][4], int first, uint8_t 
     Model *m = &chopper.model;
     if (!m->ok || dot3(c, c) < 1)
         return 0;
-    uint32_t now = port_var32(SCHED_FRAMECOUNT);
+    uint32_t now = SCHED_FRAMECOUNT;
     float dt = (float)(uint32_t)(now - globe.clock);
     if (globe.live && dt > 120)                     /* (back on the map after a while) */
         globe.live = 0;
@@ -1231,7 +1229,6 @@ GfxAddr micons_globe(const float c[3], const float mv[4][4], int first, uint8_t 
 
     dl_cmd(&d, 0xE7000000u, 0);
     dl_cmd(&d, 0xBC000006u, 0);                                         /* segment 0: physical */
-    dl_cmd(&d, 0xBC000006u | (SEG_HOST * 4) << 8, seg_word(0));
     dl_cmd(&d, 0xBC000006u | (6 * 4) << 8, seg_word(m->vtx));
     dl_cmd(&d, 0xBC000006u | (7 * 4) << 8, seg_word(mtx));
     /* the z-buffer, cleared (the world map draws nothing else with it) */
@@ -1260,13 +1257,13 @@ GfxAddr micons_globe(const float c[3], const float mv[4][4], int first, uint8_t 
         /* (as draw_list's: blended over the globe, untextured, no z) */
         put_mtx(smv, sfull);
         for (int i = 0; i < nhull; i++) {
-            uint8_t *q = mem(sv + 16 * i);
+            HostVtx *q = (HostVtx *)mem(sv + 16 * i);
             for (int j = 0; j < 3; j++)
-                port_wg16(q + 2 * j, (uint16_t)hull[i][j]);
-            for (int j = 6; j < 12; j += 2)
-                port_wg16(q + j, 0);
-            q[12] = q[13] = q[14] = 0;
-            q[15] = 0xFF;
+                q->ob[j] = (int16_t)hull[i][j];
+            q->flag = 0;
+            q->tc[0] = q->tc[1] = 0;
+            q->cn[0] = q->cn[1] = q->cn[2] = 0;
+            q->cn[3] = 0xFF;
         }
         dl_cmd(&d, 0xB6000000u, 0xFFFFFFFFu);
         dl_cmd(&d, 0xB7000000u, 0x4u | 0x200u);

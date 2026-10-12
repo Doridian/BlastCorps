@@ -15,71 +15,40 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "host_game_types.h"
 #include "port.h"
 
 /* ---- display-list commands and the addresses in them ---------------------------
  *
  * A command is the N64 side's Gfx: two words, w0 (the opcode and its
- * fields) and w1 (a field, or an address), each 4 bytes in game memory's
- * order, or, where the N64 side's Gfx has pointer-wide words (the LP64
- * builds), 8 bytes, a 64-bit scalar of game
- * memory's (port.h's port_g64): gfx_cmd is its
- * size, from port_layout (8 or 16), and gfx_w0/gfx_w1 read its words.
+ * fields) and w1 (a field, or an address), each as wide as a pointer
+ * (HostGfx, host_game_types.h; port/src/layout.c checks it is the Gfx).
+ * An address word is a host pointer, or a segmented address: a word with
+ * the segment tag (GFX_SEG_TAG, gbi.h's G_SEGTAG, bit 0: the N64 side sets
+ * it on every segmented address, which no pointer a list holds has) is a
+ * segment (bits 24..27) and an offset.
  *
  * Every address the renderer holds (a list, the images, a vertex load's,
- * the segment table's entries in the wide form) is a host pointer, as an
- * integer: GfxAddr.  gfx_addr() makes one of a command's word.  A word
- * with the segment tag (gbi.h's G_SEGTAG, bit 0: the N64 side sets it on
- * every segmented address, which no pointer a list holds has) is a
- * segment (bits 24..27) and an offset; any other is the pointer itself,
- * an N64 address until P10 (to where the host has it: port_ptr, or the
- * renderer's own memory, GFX_HOST_BASE, or in the wide form the
- * renderer's own host pointer).  The engine check build's lists have the
- * N64's words, without the tag: there the RSP's rule holds for every one
- * (seg_to_k0).  An N64 address the game hands the host some other way (a
- * texture it reports, a variable's) is made one with gfx_of_n64, a
- * pointer of the N64 side's with gfx_of_ptr, so that both are compared
- * in one domain. */
+ * the segment table's entries) is a host pointer, as an integer: GfxAddr.
+ * gfx_addr() makes one of a command's word. */
 typedef uintptr_t GfxAddr;
-extern unsigned gfx_cmd;        /* a command's bytes: 8, or 16 (gfx_wide) */
-extern int gfx_wide;            /* its words are 8 bytes (64-bit scalars: port_g64) */
+typedef HostGfx GfxCmd;
+#define GFX_SEG_TAG 1u
 extern int gfx_strict;          /* PORT_GFX_STRICT=1: a malformed list is fatal (gfx.c) */
-/* its address words are pointers (the LP64 builds', and the plain build's
-   at either width: host pointers), not N64 addresses (port_layout's
-   PORT_LAYOUT_PTR_WORDS) */
-extern int gfx_ptr_words;
-extern uint32_t gfx_seg_tag;    /* the N64 side's segment tag (gbi.h's G_SEGTAG): 1, or 0 in the check build */
-void gfx_layout_init(void);     /* gfx_cmd, gfx_wide and gfx_seg_tag from port_layout (idempotent) */
+void gfx_init(void);            /* reads PORT_GFX_STRICT (idempotent) */
 
-static inline uintptr_t gfx_word(const uint8_t *p) {
-#if UINTPTR_MAX > 0xFFFFFFFFu
-    if (gfx_wide)
-        return (uintptr_t)port_g64(p);
-#endif
-    return port_g32(p);
-}
-static inline uintptr_t gfx_w0(const uint8_t *c) { return gfx_word(c); }
-static inline uintptr_t gfx_w1(const uint8_t *c) { return gfx_word(c + gfx_cmd / 2); }
 /* a command of the renderer's own (micons.c) */
-static inline void gfx_put(uint8_t *c, uintptr_t w0, uintptr_t w1) {
-#if UINTPTR_MAX > 0xFFFFFFFFu
-    if (gfx_wide) {
-        port_wg64(c, w0);
-        port_wg64(c + 8, w1);
-        return;
-    }
-#endif
-    port_wg32(c, (uint32_t)w0);
-    port_wg32(c + 4, (uint32_t)w1);
+static inline void gfx_put(GfxCmd *c, uintptr_t w0, uintptr_t w1) {
+    c->w0 = w0;
+    c->w1 = w1;
 }
 /* A word of a list (or an audio command) that is a segmented address, not
    a pointer: the one place that decides it (gfx_addr, aspmain.c's ram).
    By the tag, whatever the host's addresses are, low ones (a 32-bit host's,
-   PS2's, wasm's) too; not in the check build, whose words have none and
-   are all resolved by the RSP's rule (gfx.c's seg_to_k0). */
-static inline int gfx_segmented(uintptr_t w) { return (w & gfx_seg_tag) != 0; }
+   PS2's, wasm's) too. */
+static inline int gfx_segmented(uintptr_t w) { return (w & GFX_SEG_TAG) != 0; }
 /* a segmented word's offset into its segment */
-static inline uint32_t gfx_seg_offset(uintptr_t w) { return (uint32_t)w & 0x00FFFFFFu & ~gfx_seg_tag; }
+static inline uint32_t gfx_seg_offset(uintptr_t w) { return (uint32_t)w & 0x00FFFFFFu & ~GFX_SEG_TAG; }
 static inline GfxAddr gfx_of_ptr(const void *p) { return (GfxAddr)p; }
 /* a host address as an integer for a hash (its two halves folded) */
 static inline uint32_t gfx_addr_hash(GfxAddr a) { return (uint32_t)a ^ (uint32_t)((uint64_t)a >> 32); }
@@ -91,7 +60,7 @@ typedef struct {
 } GfxTile;
 
 typedef struct {
-    uintptr_t seg[16];          /* narrow: the N64 values (masked), wide: pointers */
+    uintptr_t seg[16];          /* the segment table: pointers */
     float mv[10][4][4];
     int mv_top;
     float proj[4][4];
@@ -126,11 +95,8 @@ typedef struct {
 } GfxState;
 
 /* the renderer's own memory (micons.c, the models drawn for the game's
-   pictures of them).  In the narrow form: N64 addresses GFX_HOST_BASE..
-   that no game memory has (above the fibers' stacks), reached through a
-   segment the injected display lists set (gfx_addr knows it); in the
-   wide form the lists hold its pointers */
-#define GFX_HOST_BASE 0x9E000000u
+   pictures of them): a host buffer of GFX_HOST_SPAN bytes that its display
+   lists point into */
 #define GFX_HOST_SPAN 0x00800000u
 extern uint8_t *gfx_host_mem;
 extern GfxState gs;

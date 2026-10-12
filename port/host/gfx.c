@@ -37,6 +37,7 @@
 #include "port_f2i.h"
 #include "hdtext.h"
 #include "micons.h"
+#include "host_game_vars.h"
 
 /* ---- state ------------------------------------------------------------------- */
 
@@ -314,26 +315,13 @@ static inline float max_f(float x, float y) {
 
 uint8_t *gfx_host_mem;
 
-unsigned gfx_cmd;
-int gfx_wide, gfx_strict, gfx_ptr_words;
-uint32_t gfx_seg_tag;
+int gfx_strict;
 
-void gfx_layout_init(void) {
-    if (gfx_cmd)
+void gfx_init(void) {
+    static int done;
+    if (done)
         return;
-    unsigned n = host_layout(PORT_LAYOUT_GFX_SIZE);
-    if (n != 8 && !(n == 16 && sizeof(uintptr_t) == 8))
-        host_fatal("gfx: the N64 side's Gfx is %u bytes: this host reads 8%s\n", n,
-                   sizeof(uintptr_t) == 8 ? " or 16" : "");
-    gfx_cmd = n;
-    gfx_wide = n == 16;
-    gfx_seg_tag = host_layout(PORT_LAYOUT_SEG_TAG);
-    if (gfx_seg_tag > 1 || (gfx_wide && !gfx_seg_tag))
-        host_fatal("gfx: the N64 side's segment tag is %u: this host reads 1, or 0 with 8-byte commands\n",
-                   gfx_seg_tag);
-    gfx_ptr_words = (int)host_layout(PORT_LAYOUT_PTR_WORDS);
-    if (!gfx_ptr_words || !gfx_seg_tag)
-        host_fatal("gfx: the N64 side's lists hold pointers and tagged segmented addresses\n");
+    done = 1;
     const char *e = getenv("PORT_GFX_STRICT");
     gfx_strict = e && atoi(e) != 0;
 }
@@ -349,24 +337,17 @@ static inline GfxAddr seg_base(int s) {
     return gs.seg[s];
 }
 
-/* A pointer word of the N64 side's as a host address: a host pointer,
-   whatever its value */
-static inline GfxAddr gfx_of_word(uintptr_t w) {
-    return w;
-}
-
-/* G_MOVEWORD's segment: the narrow form's word masked, the wide one's a
-   host address (0: none) */
+/* G_MOVEWORD's segment: a host address (0: none) */
 static inline void seg_set(int s, uintptr_t w1) {
-    gs.seg[s & 15] = gfx_ptr_words ? (w1 ? gfx_of_word(w1) : 0) : (w1 & 0x1FFFFFFFu);
+    gs.seg[s & 15] = w1;
 }
 
-/* a command's word as an address (gfx.h) */
+/* a command's word as an address (gfx.h): a pointer, or a segmented address */
 static inline GfxAddr gfx_addr(uintptr_t w) {
     /* (a pointer into a name that is a segment address: that address) */
     w = port_seg_unproxy(w);
     if (!gfx_segmented(w))
-        return gfx_of_word(w);
+        return w;
     int s = (int)((w >> 24) & 15);
     if (gfx_strict && !gs.seg[s])
         strict_fail("segmented address %08lX through segment %d, which isn't set", (unsigned long)w, s);
@@ -411,12 +392,12 @@ NOINLINE static void mtx_mul(float r[4][4], float a[4][4], float b[4][4]) {
 }
 
 static void load_mtx(float m[4][4], GfxAddr addr) {
-    const uint8_t *p = (const uint8_t *)addr;
+    const HostMtx *mtx = (const HostMtx *)addr;
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 4; j++) {
             int k = i * 4 + j;
-            int16_t hi = (int16_t)port_g16_of32(p, k);             /* Mtx: words */
-            uint16_t lo = port_g16_of32(p + 32, k);
+            int16_t hi = (int16_t)host_mtx_half(mtx, k);
+            uint16_t lo = host_mtx_half(mtx, 16 + k);
             m[i][j] = (float)(int32_t)((uint32_t)(uint16_t)hi << 16 | lo) / 65536.0f;
         }
 }
@@ -876,7 +857,7 @@ static void vtx_tail(GfxAddr a, int v0, int m) {
    load, its position as the matrix's rows summed, the lights' dot products
    four lights at a time, its color as one vector; what do_vtx's scalar
    loop does, to the bit */
-NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3], float ladir[2][3]) {
+NOINLINE static void vtx_simd(const HostVtx *p, int v0, int n, float ldir[8][3], float ladir[2][3]) {
     f4 m0 = ld4(gs.mvp[0]), m1 = ld4(gs.mvp[1]), m2 = ld4(gs.mvp[2]), m3 = ld4(gs.mvp[3]);
     int lit = (gs.geom & 0x20000) != 0, tgen = lit && (gs.geom & 0x40000), fog = (gs.geom & 0x10000) != 0;
     int nl = gs.nlights, ng = 0;
@@ -904,7 +885,7 @@ NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3],
             lc[l] = (f4){ gs.lcol[l][0], gs.lcol[l][1], gs.lcol[l][2], 0 };
     }
     const f4 k255 = { 255, 255, 255, 255 };
-    for (int i = 0; i < n && v0 + i < 16; i++, p += 16) {
+    for (int i = 0; i < n && v0 + i < 16; i++, p++) {
         Vtx4 *v = &gs.v[v0 + i];
         u8x16 b;
         memcpy(&b, p, 16);
@@ -934,7 +915,7 @@ NOINLINE static void vtx_simd(const uint8_t *p, int v0, int n, float ldir[8][3],
                 c = c + (d[l] > 0 ? d[l] : 0.0f) * lc[l];
             i4 over = c > k255;
             col = (f4)(((i4)c & ~over) | ((i4)k255 & over));
-            col[3] = p[15];
+            col[3] = p->a;
             if (tgen) {
                 s = (d[nl] * 0.5f + 0.5f) * 32 * 32 * 32;
                 t = (d[nl + 1] * 0.5f + 0.5f) * 32 * 32 * 32;
@@ -963,7 +944,7 @@ static unsigned vtx_gen;
 NOINLINE static void do_vtx(uint32_t w0, uintptr_t w1) {
     int n = ((w0 >> 20) & 0xF) + 1, v0 = (w0 >> 16) & 0xF;
     GfxAddr a = gfx_addr(w1);
-    const uint8_t *p = (const uint8_t *)a;
+    const HostVtx *p = (const HostVtx *)a;
     vtx_addr = a;
     vtx_gen++;
     if (gs.mvp_dirty) {
@@ -991,16 +972,16 @@ NOINLINE static void do_vtx(uint32_t w0, uintptr_t w1) {
 #if GFX_SIMD
     vtx_simd(p, v0, n, ldir, ladir);
 #else
-    for (int i = 0; i < n && v0 + i < 16; i++, p += 16) {
+    for (int i = 0; i < n && v0 + i < 16; i++, p++) {
         Vtx4 *v = &gs.v[v0 + i];
-        float x = (int16_t)port_g16(p), y = (int16_t)port_g16(p + 2), z = (int16_t)port_g16(p + 4);
+        float x = p->ob[0], y = p->ob[1], z = p->ob[2];
         v->x = x * gs.mvp[0][0] + y * gs.mvp[1][0] + z * gs.mvp[2][0] + gs.mvp[3][0];
         v->y = x * gs.mvp[0][1] + y * gs.mvp[1][1] + z * gs.mvp[2][1] + gs.mvp[3][1];
         v->z = x * gs.mvp[0][2] + y * gs.mvp[1][2] + z * gs.mvp[2][2] + gs.mvp[3][2];
         v->w = x * gs.mvp[0][3] + y * gs.mvp[1][3] + z * gs.mvp[2][3] + gs.mvp[3][3];
-        float s = (int16_t)port_g16(p + 8), t = (int16_t)port_g16(p + 10);
+        float s = p->tc[0], t = p->tc[1];
         if (gs.geom & 0x20000) {
-            float nx = (int8_t)p[12], ny = (int8_t)p[13], nz = (int8_t)p[14];
+            float nx = p->n[0], ny = p->n[1], nz = p->n[2];
             float len = sqrtf(nx * nx + ny * ny + nz * nz);
             if (len > 0) { nx /= len; ny /= len; nz /= len; }
             float c[3] = { gs.lcol[gs.nlights][0], gs.lcol[gs.nlights][1], gs.lcol[gs.nlights][2] };
@@ -1026,11 +1007,11 @@ NOINLINE static void do_vtx(uint32_t w0, uintptr_t w1) {
                 t = (ey * 0.5f + 0.5f) * 32 * 32 * 32;
             }
         } else {
-            v->r = p[12];
-            v->g = p[13];
-            v->b = p[14];
+            v->r = p->cn[0];
+            v->g = p->cn[1];
+            v->b = p->cn[2];
         }
-        v->a = p[15];
+        v->a = p->a;
         if ((gs.geom & 0x10000) && v->w > 0) {  /* G_FOG: the fog factor into shade alpha */
             float f = v->z / v->w * gs.fog_mul + gs.fog_off;
             v->a = f < 0 ? 0 : f > 255 ? 255 : f;
@@ -1952,8 +1933,6 @@ static void wide_2d(GfxVtx *s, int n) {
 #define HUD_MODES 0x000000100400220Cull     /* the levels' modes with the HUD */
 #define HUD_RAMP 48.0f
 
-extern char D_80364A90[], D_80365348[], D_80365350[];
-
 enum { HUD_NO, HUD_FLAT, HUD_PERSP };
 static GfxAddr hud_txt[2];                      /* drawtext.c's vertex buffers, */
 static uint32_t hud_txt_n;                      /* ... characters each */
@@ -2007,11 +1986,11 @@ static void hud_load(int v0, int n) {
 
 /* drawtext.c's character k of buffer base: its quad's corner, width and height */
 static void hud_char(GfxAddr base, int k, int *x, int *y, int *w, int *h) {
-    const uint8_t *p = (const uint8_t *)(base + 64 * (uint32_t)k);
-    *x = (int16_t)port_g16(p);
-    *y = (int16_t)port_g16(p + 2);
-    *w = (int16_t)port_g16(p + 16) - *x;
-    *h = (int16_t)port_g16(p + 32 + 2) - *y;
+    const HostVtx *q = (const HostVtx *)base + 4 * k;         /* its quad's four vertices */
+    *x = q[0].ob[0];
+    *y = q[0].ob[1];
+    *w = q[1].ob[0] - *x;
+    *h = q[2].ob[1] - *y;
 }
 
 /* j and k are neighbours in one string: on one line, the same size, an
@@ -2094,10 +2073,10 @@ static int hud_find(int i) {
    2D projection, in order, as groups of touching ones (the segments and
    the projection followed as run() follows them) */
 static void hud_scan(GfxAddr dl, int depth, GfxAddr *proj) {
-    for (int n = 0; n < GFX_MAX_CMDS; n++, dl += gfx_cmd) {
-        const uint8_t *p = (const uint8_t *)dl;
-        uint32_t w0 = (uint32_t)gfx_w0(p);
-        uintptr_t w1a = gfx_w1(p);
+    for (int n = 0; n < GFX_MAX_CMDS; n++, dl += sizeof(GfxCmd)) {
+        const GfxCmd *c = (const GfxCmd *)dl;
+        uint32_t w0 = (uint32_t)c->w0;
+        uintptr_t w1a = c->w1;
         uint32_t w1 = (uint32_t)w1a;
         switch (w0 >> 24) {
         case 0x01:                                              /* G_MTX */
@@ -2126,7 +2105,7 @@ static void hud_scan(GfxAddr dl, int depth, GfxAddr *proj) {
                 hud_rect[k].y1 = (w0 & 0xFFF) / 4.0f + 1;
                 hud_rect[k].up = k;
             }
-            dl += 2 * gfx_cmd;
+            dl += 2 * sizeof(GfxCmd);
             break;
         default:
             break;
@@ -2135,16 +2114,14 @@ static void hud_scan(GfxAddr dl, int depth, GfxAddr *proj) {
 }
 
 static void hud_begin(GfxAddr dl, int rdp) {
-    uint64_t mode = port_g64(D_80364A90);
+    uint64_t mode = D_80364A90;
     hud_task = rdp && gfx_hud_edges && gfx_wide_off > 0 && (mode & HUD_MODES) && !(mode & (mode - 1));
     if (!hud_task)
         return;
     hud_stamp++;
-    /* (its two pointers: as wide as the N64 side has them, port.h's host_layout) */
-    uint32_t w = host_layout(PORT_LAYOUT_PTR_D_80365348);
-    hud_txt[0] = (GfxAddr)port_hptr(port_game_ptr_n(D_80365348, w));
-    hud_txt[1] = (GfxAddr)port_hptr(port_game_ptr_n(D_80365348 + w, w));
-    hud_txt_n = port_g32(D_80365350);
+    hud_txt[0] = (GfxAddr)D_80365348[0];
+    hud_txt[1] = (GfxAddr)D_80365348[1];
+    hud_txt_n = (uint32_t)D_80365350;
     if (hud_txt_n > 0x200)
         hud_txt_n = 0x200;
     hud_proj = 0;
@@ -2254,19 +2231,15 @@ static void micon_draw(int h, float x0, float y0, float x1, float y1) {
    its model, about the quad's middle (micons.c).  Its frames are read as
    each task starts, on the world map only (elsewhere the front end's
    memory is something else). */
-extern char D_80215A70[];
 #define MODE_WORLD_MAP 0x4000u
 static GfxAddr globe_tex[3];
 static unsigned globe_gen;
 
-/* (D_80215A70's pointers: the host's) */
-#define GAME_PTR_SIZE sizeof(void *)
-
 /* (the frames' textures, as the host has them) */
 static void globe_begin(void) {
-    int map = micons_on && port_g64(D_80364A90) == MODE_WORLD_MAP;
+    int map = micons_on && D_80364A90 == MODE_WORLD_MAP;
     for (int k = 0; k < 3; k++)
-        globe_tex[k] = map ? (GfxAddr)port_hptr(port_game_ptr_n(D_80215A70 + GAME_PTR_SIZE * k, GAME_PTR_SIZE)) : 0;
+        globe_tex[k] = map ? (GfxAddr)D_80215A70[k] : 0;
 }
 
 static int globe_at(void) {
@@ -2279,11 +2252,11 @@ static void globe_tri(void) {
     if (globe_gen == vtx_gen)
         return;
     globe_gen = vtx_gen;
-    const uint8_t *p = (const uint8_t *)vtx_addr;
+    const HostVtx *p = (const HostVtx *)vtx_addr;
     float c[3] = { 0, 0, 0 };
     for (int i = 0; i < 4; i++)
         for (int j = 0; j < 3; j++)
-            c[j] += (int16_t)port_g16(p + 16 * i + 2 * j) / 4.0f;
+            c[j] += p[i].ob[j] / 4.0f;
     int sc[4] = { gs.sc_x0, gs.sc_y0, gs.sc_x1, gs.sc_y1 };
     GfxAddr dl = micons_globe(c, gs.mv[gs.mv_top], !ipass, gs.prim[3], gs.cimg_addr, gs.cimg_siz, gs.cimg_w,
                               gs.zimg_addr, sc);
@@ -2867,11 +2840,9 @@ CALL_VIA(load_tile) CALL_VIA(fill_rect) CALL_VIA(tex_rect) CALL_VIA(tri)
 /* PORT_GFX_STRICT=1: what the renderer would pass over in a list is
    fatal, with the list's start and the command's offset: an opcode it
    doesn't know (or that F3D 2.0D hasn't), a w0 with bits above its 32
-   (the wide form: a pointer read as a command, a step of the narrow
-   form's 8 bytes into a wide list), a list that runs past GFX_MAX_CMDS
-   commands, a segment not set (gfx_addr), a pointer that isn't an N64
-   address (gfx_of_word: a segmented address without its tag), a list at
-   a host address with the tag's bit (host_gfx_task) */
+   (a pointer read as a command), a list that runs past GFX_MAX_CMDS
+   commands, a segment not set (gfx_addr), a list at a host address with
+   the tag's bit (host_gfx_task) */
 static void strict_fail(const char *fmt, ...) {
     char msg[256];
     va_list ap;
@@ -2880,7 +2851,7 @@ static void strict_fail(const char *fmt, ...) {
     va_end(ap);
     host_fatal("gfx (PORT_GFX_STRICT): %s, in the display list at %0*lX, offset %lX (command %lu, %u bytes "
                "each)\n", msg, (int)(2 * sizeof(GfxAddr)), (unsigned long)strict_list,
-               (unsigned long)(strict_at - strict_list), (unsigned long)((strict_at - strict_list) / gfx_cmd), gfx_cmd);
+               (unsigned long)(strict_at - strict_list), (unsigned long)((strict_at - strict_list) / sizeof(GfxCmd)), (unsigned)sizeof(GfxCmd));
 }
 
 static int strict_op_known(uint8_t op) {
@@ -2899,9 +2870,9 @@ static void strict_cmd(GfxAddr list, GfxAddr at, uintptr_t w0) {
 
 static void run(GfxAddr dl, int depth) {
     GfxAddr list = dl;
-    for (int n = 0; n < GFX_MAX_CMDS; n++, dl += gfx_cmd) {
-        const uint8_t *p = (const uint8_t *)dl;
-        uintptr_t w0a = gfx_w0(p), w1a = gfx_w1(p);
+    for (int n = 0; n < GFX_MAX_CMDS; n++, dl += sizeof(GfxCmd)) {
+        const GfxCmd *c = (const GfxCmd *)dl;
+        uintptr_t w0a = c->w0, w1a = c->w1;
         uint32_t w0 = (uint32_t)w0a, w1 = (uint32_t)w1a;
         uint8_t op = w0 >> 24;
         if (gfx_strict)
@@ -2914,27 +2885,29 @@ static void run(GfxAddr dl, int depth) {
             gfx_state_serial++;
         if (rsp_only && op >= 0xE4) {                           /* the RDP's: written, not run */
             if (op == 0xE4 || op == 0xE5)
-                dl += 2 * gfx_cmd;                              /* and its two halves */
+                dl += 2 * sizeof(GfxCmd);                       /* and its two halves */
             continue;
         }
         switch (op) {
         case 0x01: CALL(do_mtx)(w0, w1a); break;                      /* G_MTX */
         case 0x03: {                                            /* G_MOVEMEM */
             int idx = (w0 >> 16) & 0xFF;
-            const uint8_t *m = (const uint8_t *)gfx_addr(w1a);
+            const GfxAddr m = gfx_addr(w1a);
+            const HostViewport *vp = (const HostViewport *)m;
+            const HostLight *lt = (const HostLight *)m;
             if (idx == 0x80) {                                  /* viewport */
                 for (int i = 0; i < 3; i++) {
-                    gs.vp_scale[i] = (int16_t)port_g16(m + 2 * i) / 4.0f;
-                    gs.vp_trans[i] = (int16_t)port_g16(m + 8 + 2 * i) / 4.0f;
+                    gs.vp_scale[i] = vp->vscale[i] / 4.0f;
+                    gs.vp_trans[i] = vp->vtrans[i] / 4.0f;
                 }
             } else if (idx == 0x82 || idx == 0x84) {            /* look-at y, x */
                 for (int j = 0; j < 3; j++)
-                    gs.lookat[idx == 0x84 ? 0 : 1][j] = (int8_t)m[8 + j] / 127.0f;
+                    gs.lookat[idx == 0x84 ? 0 : 1][j] = lt->dir[j] / 127.0f;
             } else if (idx >= 0x86 && idx <= 0x94) {            /* light */
                 int l = (idx - 0x86) / 2;
-                memcpy(gs.lcol[l], m, 3);
+                memcpy(gs.lcol[l], lt->col, 3);
                 for (int j = 0; j < 3; j++)
-                    gs.ldir[l][j] = (int8_t)m[8 + j] / 127.0f;
+                    gs.ldir[l][j] = lt->dir[j] / 127.0f;
             }
             break;
         }
@@ -2970,7 +2943,7 @@ static void run(GfxAddr dl, int depth) {
         case 0xBC: {                                            /* G_MOVEWORD */
             int idx = w0 & 0xFF, off = (w0 >> 8) & 0xFFFF;
             if (idx == 0x06)
-                seg_set(off / 4, w1a);                          /* see seg_to_k0 */
+                seg_set(off / 4, w1a);                          /* (a host address) */
             else if (idx == 0x02)
                 gs.nlights = (int)((w1 - 0x80000000u) / 32) - 1;
             else if (idx == 0x08) {                             /* G_MW_FOG */
@@ -2995,10 +2968,9 @@ static void run(GfxAddr dl, int depth) {
             CALL(tri)(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10, w1 >> 24);
             break;
         case 0xE4: case 0xE5: {                                 /* texture rectangle */
-            const uint8_t *q = p + gfx_cmd;                     /* (its two halves' w1s) */
-            uint32_t h2 = (uint32_t)gfx_w1(q), hc = (uint32_t)gfx_w1(q + gfx_cmd);
+            uint32_t h2 = (uint32_t)c[1].w1, hc = (uint32_t)c[2].w1;     /* (its two halves' w1s) */
             CALL(tex_rect)(w0, w1, h2, hc, op == 0xE5);
-            dl += 2 * gfx_cmd;
+            dl += 2 * sizeof(GfxCmd);
             break;
         }
         case 0xE6: case 0xE7: case 0xE8: break;                 /* syncs */
@@ -3238,9 +3210,9 @@ static void gfx_task_call(void *p) {
 /* (the microcode only tells ultra.c whether the RDP draws: rdp) */
 int host_gfx_task(const void *dl, uint32_t size, const void *ucode, int rdp) {
     (void)ucode;
-    gfx_layout_init();
+    gfx_init();
     struct gfx_call c = { gfx_of_ptr(dl), size, rdp, 0 };
-    if (gfx_strict && gfx_seg_tag && gfx_segmented(c.dl)) {
+    if (gfx_strict && gfx_segmented(c.dl)) {
         strict_list = strict_at = c.dl;
         strict_fail("a task's list at a host address a word can't hold (it would read as segmented)");
     }

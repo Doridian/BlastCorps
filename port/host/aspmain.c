@@ -42,7 +42,7 @@ enum {
 
 static uint8_t dmem[0x1000];
 static int16_t table[256];              /* A_LOADADPCM: codebook or filter */
-static uintptr_t segments[16];          /* narrow: physical; wide: pointers */
+static uintptr_t segments[16];          /* the segment table: pointers */
 static uintptr_t loop_addr;
 static uint16_t in_, out_, count_;      /* A_SETBUFF */
 static uint16_t dry_right, wet_left, wet_right;
@@ -107,45 +107,27 @@ static void dmem_copy(uint32_t d, uint32_t s, uint32_t n) {
         dmem[(d + i) & 0xFFF] = dmem[(s + i) & 0xFFF];
 }
 
-/* A command is the N64 side's Acmd (port_layout): two words, 4 bytes each
-   in game memory's order, or 8 in the host's where its words are
-   pointer-wide (the LP64 builds), as gfx.h's display lists (a 64-bit
-   scalar of game memory's, port_g64).  An address in one is a
+/* A command is the N64 side's Acmd (abi.h): two words, each as wide as a
+   pointer (HostGfx, as gfx.h's display lists).  An address in one is a
    segment's plus an offset where it has the segment tag (gfx.h's
-   gfx_segmented; libaudio makes none: its one segment, 0, is 0), else the
-   pointer, an N64 address until P10 (port_ptr); in the check build's
-   untagged words, RDRAM through the segment table (bit 28, a host
-   stack's, kept as in gfx.c's seg_to_k0). */
-static unsigned acmd_size;
-static int acmd_wide, acmd_strict;
-/* its address words are pointers (gfx.h's gfx_ptr_words) */
-static int acmd_ptr_words;
-
-static inline uintptr_t acmd_word(const uint8_t *p) {
-#if UINTPTR_MAX > 0xFFFFFFFFu
-    if (acmd_wide)
-        return (uintptr_t)port_g64(p);          /* (a 64-bit scalar of game memory's) */
-#endif
-    return port_g32(p);
-}
+   gfx_segmented; libaudio makes none: its one segment, 0, is 0), else a
+   host pointer. */
+static int acmd_strict;
 
 static uint8_t *ram(uintptr_t so) {
     if (!gfx_segmented(so))
         return (uint8_t *)so;       /* (a host pointer) */
-    if (acmd_ptr_words) {
-        if (acmd_strict && !segments[(so >> 24) & 0xF])
-            host_fatal("audio (PORT_GFX_STRICT): address %08lX through segment %d, which isn't set\n",
-                       (unsigned long)so, (int)((so >> 24) & 0xF));
-        return (uint8_t *)(segments[(so >> 24) & 0xF] + gfx_seg_offset(so));
-    }
-    return NULL;        /* (none: the words are pointers) */
+    if (acmd_strict && !segments[(so >> 24) & 0xF])
+        host_fatal("audio (PORT_GFX_STRICT): address %08lX through segment %d, which isn't set\n",
+                   (unsigned long)so, (int)((so >> 24) & 0xF));
+    return (uint8_t *)(segments[(so >> 24) & 0xF] + gfx_seg_offset(so));
 }
 /* game memory at its own widths (the codebooks, the loop state, the state
    the microcode keeps between frames, which only it reads) */
-static int16_t ram16(const uint8_t *p, int i) { return (int16_t)port_g16(p + 2 * i); }
-static void wram16(uint8_t *p, int i, int16_t v) { port_wg16(p + 2 * i, (uint16_t)v); }
-static int32_t ram32(const uint8_t *p, int i) { return (int32_t)port_g32(p + 4 * i); }
-static void wram32(uint8_t *p, int i, int32_t v) { port_wg32(p + 4 * i, (uint32_t)v); }
+static int16_t ram16(const uint8_t *p, int i) { int16_t v; memcpy(&v, p + 2 * i, 2); return v; }
+static void wram16(uint8_t *p, int i, int16_t v) { memcpy(p + 2 * i, &v, 2); }
+static int32_t ram32(const uint8_t *p, int i) { int32_t v; memcpy(&v, p + 4 * i, 4); return v; }
+static void wram32(uint8_t *p, int i, int32_t v) { memcpy(p + 4 * i, &v, 4); }
 
 /* ---- the decoder: 9-byte frames of 16 samples, a 2nd-order predictor --- */
 
@@ -386,12 +368,12 @@ static void polef(int flags, int16_t gain, uintptr_t state) {
 
 /* ---- the task ----------------------------------------------------------------- */
 
-static void audio_task(const uint8_t *cmd, uint32_t data_size, const uint8_t *ucode_data) {
+static void audio_task(const HostGfx *cmd, uint32_t data_size, const uint8_t *ucode_data) {
     resample_lut = ucode_data + 0xD0;
     for (int k = 0; k < 64 * 4; k++)
         taps[k / 4][k % 4] = (int16_t)port_be16(resample_lut + 2 * k);
-    for (uint32_t off = 0; off + acmd_size <= data_size; off += acmd_size) {
-        uintptr_t w0a = acmd_word(cmd + off), w1a = acmd_word(cmd + off + acmd_size / 2);
+    for (uint32_t off = 0; off + sizeof(HostGfx) <= data_size; off += sizeof(HostGfx)) {
+        uintptr_t w0a = cmd[off / sizeof(HostGfx)].w0, w1a = cmd[off / sizeof(HostGfx)].w1;
         uint32_t w0 = (uint32_t)w0a, w1 = (uint32_t)w1a;
         int op = w0 >> 24, flags = (w0 >> 16) & 0xFF;
         if (acmd_strict && ((uint64_t)w0a >> 32 || op > A_SETLOOP))
@@ -520,14 +502,9 @@ static void audio_task(const uint8_t *cmd, uint32_t data_size, const uint8_t *uc
 
 /* (the pointers the N64 side's: a KSEG1 one is KSEG0's memory) */
 void host_audio_task(const void *data_ptr, uint32_t data_size, const void *ucode_data) {
-    if (!acmd_size) {
-        acmd_size = host_layout(PORT_LAYOUT_ACMD_SIZE);
-        if (acmd_size != 8 && !(acmd_size == 16 && sizeof(uintptr_t) == 8))
-            host_fatal("audio: the N64 side's Acmd is %u bytes: this host reads 8%s\n", acmd_size,
-                       sizeof(uintptr_t) == 8 ? " or 16" : "");
-        acmd_wide = acmd_size == 16;
-        gfx_layout_init();          /* (gfx_seg_tag, gfx_ptr_words) */
-        acmd_ptr_words = gfx_ptr_words;
+    static int init;
+    if (!init) {
+        init = 1;
         const char *e = getenv("PORT_GFX_STRICT");
         acmd_strict = e && atoi(e) != 0;
     }
