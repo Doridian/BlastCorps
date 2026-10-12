@@ -2,7 +2,7 @@
 """Compare two gameplay digests (PORT_DIGEST=FILE, port/host/digest.c;
 docs/PORT.md, "The gameplay digest").
 
-    port/tools/digest_cmp.py A B [--all] [--max N]
+    port/tools/digest_cmp.py A B [--all] [--max N] [--prefix]
     port/tools/digest_cmp.py --hash A
     port/tools/digest_cmp.py --levels A
 
@@ -31,6 +31,10 @@ What's compared, by the fields' kind:
             never a failure.
   internal  rng (the random state), fc (a frame count): reported where it
             first differs while the gameplay doesn't, never a failure.
+
+--prefix: B is a run of the first part only (--frames, test.py tas
+--frames: the TAS's prefix): A's modes after as many as B has aren't
+compared, and B's last one is where a run ends.
 
 --hash prints a hash of the gameplay alone, the same for two runs that play
 the same (whatever their timing): what port/tools/test.py compares with
@@ -238,6 +242,7 @@ def main():
     ap.add_argument("--all", action="store_true", help="every level's first difference, not only the first")
     ap.add_argument("--max", type=int, default=10, help="differences listed at most (default 10)")
     ap.add_argument("-q", "--quiet", action="store_true", help="only the verdict and the first difference")
+    ap.add_argument("--prefix", action="store_true", help="B is a run of the first part only: A as far as B goes")
     args = ap.parse_args()
     sa = parse(args.a)
     if args.hash:
@@ -253,6 +258,8 @@ def main():
     if not args.b:
         ap.error("two digests to compare (or --hash, --levels)")
     sb = parse(args.b)
+    if args.prefix:
+        sa = sa[:len(sb)]
     ka = [(s.mode, s.level) for s in sa]
     kb = [(s.mode, s.level) for s in sb]
     report, missing = [], []

@@ -1060,7 +1060,8 @@ def tas_prefix_check(b, out, rc, t, frames, timing):
         say("SKIP", label, f"no {os.path.relpath(ref, ROOT)} to compare with (tas --save-digests on a "
             "native build puts it there)")
         return 0
-    r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", "digest_cmp.py"), ref, got, "--quiet"],
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "port", "tools", "digest_cmp.py"), ref, got, "--quiet",
+                        "--prefix"],
                        capture_output=True, text=True)
     lines = [l for l in r.stdout.splitlines() if l.startswith("DIFFERS")]
     levels = len(LEVEL_END.findall(log))
