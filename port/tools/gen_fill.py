@@ -32,10 +32,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 BLAST = os.path.join(ROOT, "blastcorps")
 VERSION = os.environ.get("PORT_VERSION", "us.v11")
-UNIT = {"bytes": 1, "vtx": 16, "gfx": 8}
+UNIT = {"bytes": 1, "vtx": 16, "gfx": 8, "ucode": 1}
 KIND = {"bytes": "PORT_FILL_BYTES", "vtx": "PORT_FILL_VTX", "gfx": "PORT_FILL_GFX"}
 R_MIPS_32 = 2
 K0BASE = 0x80000000
+# ucode: the RSP microcode's data (not filled: zeros in the port, asm2c.py's RSP_DATA);
+# only the .tsv lists it, for rom_scan.py's gate
 
 
 def die(msg):
@@ -172,6 +174,10 @@ def main():
         if b0 < a1:
             die(f"{e0.lvalue} and {e1.lvalue} overlap")
 
+    # (the microcode's data is in the .tsv alone)
+    ucode = [e for e in entries if e.kind == "ucode"]
+    entries = [e for e in entries if e.kind != "ucode"]
+
     def target(module, to):
         """the C expression for the host's address of N64 address to"""
         for e in entries:
@@ -237,7 +243,9 @@ def main():
     out += decls + [""] + checks + [""]
     out.append("const PortFill port_fill[] = {")
     for e in entries:
-        out.append(f"    {{ {e.lvalue}, 0x{phys(e.addr):06X}, 0x{e.size:X}, {KIND[e.kind]} }},")
+        unit = f"sizeof({e.lvalue}[0])" if e.kind == "bytes" else "0"
+        out.append(f'    {{ {e.lvalue}, 0x{phys(e.addr):06X}, 0x{e.size:X}, {KIND[e.kind]} '
+                   f'PORT_FILL_CHECK_FIELDS("{e.lvalue}", {unit}) }},')
     out.append("};")
     out.append(f"const unsigned int port_fill_n = {len(entries)};")
     out.append("")
@@ -250,7 +258,7 @@ def main():
     out.append(f"const unsigned int port_fill_relocs_n = {len(relocs)};")
     text = "\n".join(out) + "\n"
     open(a.out_c, "w").write(text)
-    tsv = "".join(f"{e.lvalue}\t{e.module}\t0x{e.addr:08X}\t0x{e.end:08X}\t{e.kind}\n" for e in entries)
+    tsv = "".join(f"{e.lvalue}\t{e.module}\t0x{e.addr:08X}\t0x{e.end:08X}\t{e.kind}\n" for e in entries + ucode)
     open(a.out_tsv, "w").write(tsv)
 
 

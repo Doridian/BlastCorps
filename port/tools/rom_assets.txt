@@ -13,6 +13,10 @@
 # reads), vtx (count Vtx, each field to host order), gfx (count commands:
 # each word from the ROM, an address the N64 link relocates becomes the host
 # address of what it points at, a segment address gets gbi.h's G_SEGTAG).
+# ucode: the RSP microcode's data, which the port doesn't fill: asm2c.py
+# writes zeros for it (RSP_DATA; the audio microcode's resampling table,
+# 512 bytes at +0xD0 of D_8030EB90, stays).  Listed for rom_scan.py --assets
+# alone: no byte of its ROM range may be in the executable.
 # source: the file that defines it (asm: asm2c.py's, from the asm data).
 # The last column, where it isn't the symbol, is a field of a structure
 # (the structure's other fields are parameters and stay initialized).
@@ -111,3 +115,9 @@ hd_front_end  D_80209028  bytes  0xAB8  src/hd_front_end/9570.c
 hd_front_end  D_80209B60  bytes  0xAB8  src/hd_front_end/9570.c
 hd_front_end  D_8020A698  bytes  0xAB8  src/hd_front_end/9570.c
 hd_front_end  D_8020B1D0  bytes  0xAB8  src/hd_front_end/9570.c
+
+# the microcode's data (not filled: zeros; the audio microcode's table, +0xD0..0x2CF, stays)
+hd_code  D_8030E390  ucode  2048   asm
+hd_code  D_8030EB90  ucode  208    asm
+hd_code  D_8030EE60  ucode  2048   asm
+hd_front_end  hd_front_end_29690_bin  ucode  2048   asm

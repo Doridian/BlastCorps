@@ -359,6 +359,133 @@ static void module(uint8_t *src, uint32_t base, const char *name) {
         host_fatal("can't inflate %s from the ROM", name);
 }
 
+/* one entry's N64 bytes s into dst, as the game has it */
+static void fill_entry(const PortFill *e, void *dst, const uint8_t *s) {
+    switch (e->kind) {
+    case PORT_FILL_BYTES:
+        /* (texels, as the RDP reads them, whatever the C declares) */
+        memcpy(dst, s, e->size);
+        break;
+    case PORT_FILL_VTX:
+        /* gbi.h's Vtx: s16 ob[3], u16 flag, s16 tc[2] in host order, u8 cn[4] */
+        for (uint32_t v = 0; v < e->size; v += 16) {
+            uint8_t *d = (uint8_t *)dst + v;
+            for (int j = 0; j < 12; j += 2) {
+                uint16_t h = (uint16_t)(s[v + j] << 8 | s[v + j + 1]);
+                memcpy(d + j, &h, 2);
+            }
+            memcpy(d + 12, s + v + 12, 4);
+        }
+        break;
+    case PORT_FILL_GFX: {
+        /* commands, each word as wide as a pointer; a segmented address
+           (G_MTX, G_MOVEMEM, G_VTX, G_DL to segments 1..15) tagged as
+           gbi.h's G_SEGTAG; the words that are addresses below */
+        uintptr_t *w = dst;
+        for (uint32_t c = 0; c < e->size / 8; c++) {
+            uint32_t w0 = port_rd32(s + 8 * c), w1 = port_rd32(s + 8 * c + 4);
+            uint32_t op = w0 >> 24;
+            if ((op == 0x01 || op == 0x03 || op == 0x04 || op == 0x06) && (w1 >> 24) & 15)
+                w1 |= 1;
+            w[2 * c] = w0;
+            w[2 * c + 1] = w1;
+        }
+        break;
+    }
+    default:
+        host_fatal("port_fill: kind %u", e->kind);
+    }
+}
+
+#ifdef PORT_FILL_CHECK
+static int host_big_endian(void) {
+    const uint16_t one = 1;
+    return *(const uint8_t *)&one == 0;
+}
+
+/* the entry's bytes in the host */
+static size_t fill_host_size(const PortFill *e) {
+    return e->kind == PORT_FILL_GFX ? e->size / 8 * 2 * sizeof(uintptr_t) : e->size;
+}
+
+/* PORT_ASSET_CHECK (docs/PORT.md, "The asset check"): the executable has the
+   initializers (the game's C with PORT_ASSET_INIT), and the fill goes into
+   scratch, 0xA5 first, to be compared with them: images as the N64's bytes
+   (the initializer's elements turned to big-endian by their declared width),
+   vertices and display lists as the host has them.  Every difference is
+   named; any is fatal. */
+static void fill_check(const uint8_t *src) {
+    uint8_t **scratch = calloc(port_fill_n, sizeof *scratch);
+    if (!scratch)
+        host_fatal("out of memory for the fill check");
+    for (unsigned k = 0; k < port_fill_n; k++) {
+        const PortFill *e = &port_fill[k];
+        scratch[k] = malloc(fill_host_size(e));
+        if (!scratch[k])
+            host_fatal("out of memory for the fill check");
+        memset(scratch[k], 0xA5, fill_host_size(e));
+        fill_entry(e, scratch[k], src + e->n64);
+    }
+    for (unsigned k = 0; k < port_fill_relocs_n; k++) {
+        const PortFillReloc *r = &port_fill_relocs[k];
+        ((uintptr_t *)scratch[r->entry])[2 * r->cmd + 1] = (uintptr_t)r->to;
+    }
+    unsigned bad = 0, bad_entries = 0;
+    uint64_t total = 0;
+    for (unsigned k = 0; k < port_fill_n; k++) {
+        const PortFill *e = &port_fill[k];
+        size_t n = fill_host_size(e);
+        const uint8_t *init = e->dst, *got = scratch[k];
+        uint8_t *be = NULL;
+        total += n;
+        if (e->kind == PORT_FILL_BYTES && e->unit > 1) {
+            /* the initializer's elements as the N64 stores them: a number
+               by its width; a Vtx (an image declared as vertices) by its
+               fields, gbi.h's: six halves and four bytes */
+            if (e->unit != 2 && e->unit != 4 && e->unit != 8 && e->unit != 16)
+                host_fatal("%s: element width %u", e->name, e->unit);
+            be = malloc(n);
+            if (!be)
+                host_fatal("out of memory for the fill check");
+            for (size_t o = 0; o + e->unit <= n; o += e->unit) {
+                if (e->unit == 16) {
+                    for (unsigned j = 0; j < 16; j++) {
+                        unsigned w = j < 12 ? 2 : 1, i = j % w;
+                        be[o + j] = init[o + j - i + (host_big_endian() ? i : w - 1 - i)];
+                    }
+                } else {
+                    for (unsigned j = 0; j < e->unit; j++)
+                        be[o + j] = init[o + (host_big_endian() ? j : e->unit - 1 - j)];
+                }
+            }
+            init = be;
+        }
+        unsigned here = 0;
+        for (size_t o = 0; o < n; o++) {
+            if (init[o] == got[o])
+                continue;
+            if (here++ < 4)
+                fprintf(stderr, "fill check: %s+0x%zX: the initializer has %02X, the fill %02X\n", e->name, o,
+                        init[o], got[o]);
+        }
+        if (here) {
+            fprintf(stderr, "fill check: %s: %u of %zu bytes differ\n", e->name, here, n);
+            bad += here;
+            bad_entries++;
+        }
+        free(be);
+        free(scratch[k]);
+    }
+    free(scratch);
+    if (bad) {
+        fprintf(stderr, "fill check: FAILED: %u bytes differ in %u of %u assets\n", bad, bad_entries, port_fill_n);
+        exit(1);
+    }
+    fprintf(stderr, "fill check: ok: the fill equals the initializers, %u assets, %llu bytes\n", port_fill_n,
+            (unsigned long long)total);
+}
+#endif
+
 /* The ROM's assets the executable has as zeros (gen/rom_fill.c's table,
    port/tools/gen_fill.py), from the modules' data as the game loads them:
    inflated from the ROM, or a resource pack's (pack.c: a pack without the
@@ -378,49 +505,20 @@ void port_rom_fill(void) {
     uint32_t bytes = 0;
     for (unsigned k = 0; k < port_fill_n; k++) {
         const PortFill *e = &port_fill[k];
-        const uint8_t *s = src + e->n64;
         if (e->n64 >= RDRAM || e->size > RDRAM - e->n64)
             host_fatal("port_fill[%u]: outside the modules", k);
         bytes += e->size;
-        switch (e->kind) {
-        case PORT_FILL_BYTES:
-            /* (texels, as the RDP reads them, whatever the C declares) */
-            memcpy(e->dst, s, e->size);
-            break;
-        case PORT_FILL_VTX:
-            /* gbi.h's Vtx: s16 ob[3], u16 flag, s16 tc[2] in host order, u8 cn[4] */
-            for (uint32_t v = 0; v < e->size; v += 16) {
-                uint8_t *d = (uint8_t *)e->dst + v;
-                for (int j = 0; j < 12; j += 2) {
-                    uint16_t h = (uint16_t)(s[v + j] << 8 | s[v + j + 1]);
-                    memcpy(d + j, &h, 2);
-                }
-                memcpy(d + 12, s + v + 12, 4);
-            }
-            break;
-        case PORT_FILL_GFX: {
-            /* commands, each word as wide as a pointer; a segmented address
-               (G_MTX, G_MOVEMEM, G_VTX, G_DL to segments 1..15) tagged as
-               gbi.h's G_SEGTAG; the words that are addresses below */
-            uintptr_t *w = e->dst;
-            for (uint32_t c = 0; c < e->size / 8; c++) {
-                uint32_t w0 = port_rd32(s + 8 * c), w1 = port_rd32(s + 8 * c + 4);
-                uint32_t op = w0 >> 24;
-                if ((op == 0x01 || op == 0x03 || op == 0x04 || op == 0x06) && (w1 >> 24) & 15)
-                    w1 |= 1;
-                w[2 * c] = w0;
-                w[2 * c + 1] = w1;
-            }
-            break;
-        }
-        default:
-            host_fatal("port_fill[%u]: kind %u", k, e->kind);
-        }
     }
+#ifdef PORT_FILL_CHECK
+    fill_check(src);
+#else
+    for (unsigned k = 0; k < port_fill_n; k++)
+        fill_entry(&port_fill[k], port_fill[k].dst, src + port_fill[k].n64);
     for (unsigned k = 0; k < port_fill_relocs_n; k++) {
         const PortFillReloc *r = &port_fill_relocs[k];
         ((uintptr_t *)port_fill[r->entry].dst)[2 * r->cmd + 1] = (uintptr_t)r->to;
     }
+#endif
     if (host_verbose)
         host_log("the ROM's assets: %u in %u bytes, %s, %.1f ms\n", port_fill_n, bytes,
                  own ? "from the ROM" : "from the pack", host_perf_now() - t0);

@@ -220,6 +220,14 @@ set(N64_INCLUDES
     ${CMAKE_CURRENT_SOURCE_DIR}/include ${GEN}
     ${BLAST} ${BLAST}/include ${SDK_INCLUDES})
 set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZLONG=32 _MIPS_SZINT=32)
+# The check build (port/tools/test.py fill-check): the game's C keeps the ROM's
+# assets' initializers (PORT_ASSET_INIT, common.h's ASSET_INIT) and the fill
+# (host/romdata.c) goes into scratch and is compared with them, then the game
+# runs on the initializers.  Not a build to play: it carries the ROM's assets.
+option(PORT_ASSET_CHECK "the initializers of the ROM's assets back, and the fill checked against them" OFF)
+if(PORT_ASSET_CHECK)
+    list(APPEND N64_DEFINES PORT_ASSET_INIT PORT_FILL_CHECK)    # (PortFill has the names for the report: both sides)
+endif()
 # The decompiled C is IDO's dialect: pointers and ints used
 # interchangeably, narrow and wide types mixed.  These flags make the
 # compiler accept it and not optimise on the undefined behaviour it is full
@@ -375,6 +383,9 @@ set(DATA_BIN hd_code/68810 hd_code/690C0 hd_code/8E910 hd_code/91D50 hd_code/A0C
              hd_code/C9BD0 hd_code/CA3D0 hd_code/CA6A0 hd_front_end/20090 hd_front_end/29690)
 set(DATA_C ${GEN}/data_c/asm_data.h)
 set(DATA_IN)
+if(PORT_ASSET_CHECK)
+    list(APPEND DATA_IN --keep-assets)
+endif()
 set(DATA_DEPS)
 foreach(s ${DATA_S})
     file(RELATIVE_PATH rel ${BLAST}/asm ${s})
@@ -527,6 +538,9 @@ target_include_directories(host PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include
 target_compile_options(host PRIVATE ${HOST_FLAGS} ${SDL2_CFLAGS_OTHER})
 target_compile_definitions(host PRIVATE ${PORT_VERSION_DEFINE} PORT_ROM_SHA1="${PORT_ROM_SHA1}"
     PORT_VERSION_NAME="${PORT_VERSION}")
+if(PORT_ASSET_CHECK)
+    target_compile_definitions(host PRIVATE PORT_FILL_CHECK)
+endif()
 if(PORT_SDK_TRACE)
     target_compile_definitions(host PRIVATE PORT_SDK_TRACE)
 endif()
@@ -635,6 +649,7 @@ target_link_options(blastcorps PRIVATE ${PORT_SAN_FLAGS})
 #   ctest --test-dir build/port -L quick -V        deterministic runs against the references
 #   ctest --test-dir build/port -L tas -V          the TAS replay (us.v10, 17 minutes natively)
 #   ctest --test-dir build/port -L tas-prefix -V   the TAS's first 3000 frames (an emulated build's)
+#   ctest --test-dir build/port -L fill-check -V   the check build: the fill against the initializers
 #   ctest --test-dir build/port -L budget -V       the memory the build takes, against its ceiling
 # Each skips (77) without the ROM, the TAS log or the venv.  A cross build
 # (port/tools/cross-*.cmake) runs under its emulator (qemu-user), as test.py
@@ -645,6 +660,8 @@ add_test(NAME quick COMMAND ${PORT_TEST} quick ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME tas COMMAND ${PORT_TEST} tas ${CMAKE_CURRENT_BINARY_DIR})
 add_test(NAME tas-prefix COMMAND ${PORT_TEST} tas ${CMAKE_CURRENT_BINARY_DIR} --frames 3000)
 add_test(NAME budget COMMAND ${PORT_TEST} budget ${CMAKE_CURRENT_BINARY_DIR})
+# (configures, builds and runs the PORT_ASSET_CHECK build of this version, in build/fill-check-<version>)
+add_test(NAME fill-check COMMAND ${PORT_TEST} fill-check --version ${PORT_VERSION})
 if(CMAKE_CROSSCOMPILING_EMULATOR)
     set(PORT_TEST_SLOWER 60)
 else()
@@ -657,6 +674,7 @@ math(EXPR QUICK_TIMEOUT "1800 * ${PORT_TEST_SLOWER}")
 math(EXPR TAS_TIMEOUT "5400 * ${PORT_TEST_SLOWER}")
 math(EXPR PREFIX_TIMEOUT "600 * ${PORT_TEST_SLOWER}")
 set_tests_properties(quick PROPERTIES LABELS quick TIMEOUT ${QUICK_TIMEOUT} SKIP_RETURN_CODE 77)
+set_tests_properties(fill-check PROPERTIES LABELS fill-check TIMEOUT ${QUICK_TIMEOUT} SKIP_RETURN_CODE 77)
 set_tests_properties(tas PROPERTIES LABELS tas TIMEOUT ${TAS_TIMEOUT} SKIP_RETURN_CODE 77)
 set_tests_properties(tas-prefix PROPERTIES LABELS tas-prefix TIMEOUT ${PREFIX_TIMEOUT} SKIP_RETURN_CODE 77)
 set_tests_properties(budget PROPERTIES LABELS budget TIMEOUT ${QUICK_TIMEOUT} SKIP_RETURN_CODE 77)

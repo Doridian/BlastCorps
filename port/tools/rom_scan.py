@@ -2,7 +2,7 @@
 """What of the ROM a built port carries (docs/DISTRIBUTION.md).
 
     rom_scan.py FILE [FILE...] [--rom ROM] [--version V] [--min N] [--top N]
-                [--max-bytes N]
+                [--max-bytes N] [--assets gen/rom_fill.tsv]
 
 Searches each FILE (an executable, a .wasm, a .js, a build's arena image)
 for the ROM's bytes: the ROM as it is, and its code modules as the game
@@ -20,6 +20,15 @@ compiler's constant pool has as well).
 
 --max-bytes: exit 1 when a file carries more than N bytes of it (the test
 suite's check; default: report only).
+
+--assets TSV: exit 1 when a stretch found in a file overlaps the N64 range of
+one of the ROM's assets, whatever its byte order: the executable must not
+carry them (docs/DISTRIBUTION.md; port/tools/rom_assets.txt; TSV is the
+build's gen/rom_fill.tsv: the images, vertices and display lists the port
+fills at startup, and the RSP microcode's data, which it zeroes).  Every
+overlap is named, with the asset, the offsets and the byte order.  (A stretch
+needs --min bytes, and some that aren't zero or counting; an asset of
+zeros is nothing to find.)
 """
 import argparse
 import bisect
@@ -218,6 +227,37 @@ def scan(data, srcs, minlen):
     return out
 
 
+def read_assets(path):
+    """[(name, module, start address, end address, kind)] from gen_fill.py's .tsv"""
+    out = []
+    for line in open(path):
+        p = line.rstrip("\n").split("\t")
+        if len(p) == 5:
+            out.append((p[0], p[1], int(p[2], 16), int(p[3], 16), p[4]))
+    return out
+
+
+def asset_overlaps(data, srcs, assets, minlen):
+    """[(asset, file offset, overlapping bytes, unit)] of the ROM's assets in data: a stretch of a
+    module's code or data (a stretch of the module alone, so that none is hidden by a longer
+    one from another source) that overlaps an asset's range"""
+    out = []
+    for name, base, raw in srcs:
+        mine = [a for a in assets if a[1] == name]
+        if not mine or base is None:
+            continue
+        for start, ln, _, off, w in scan(data, [(name, base, raw)], minlen):
+            lo, hi = base + off, base + off + ln
+            for a in mine:
+                n = min(hi, a[3]) - max(lo, a[2])
+                # (a stretch that runs in from the data next to an asset, over its zero padding or
+                # a few bytes of its edge, isn't the asset: the overlap itself must be a stretch)
+                o = max(lo, a[2]) - base
+                if n >= minlen and not boring(raw[o:o + n]):
+                    out.append((a, start + max(a[2] - lo, 0), n, w, max(lo, a[2])))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="+")
@@ -226,6 +266,7 @@ def main():
     ap.add_argument("--min", type=int, default=24)
     ap.add_argument("--top", type=int, default=20)
     ap.add_argument("--max-bytes", type=int)
+    ap.add_argument("--assets", metavar="TSV", help="fail on any of the ROM's assets (gen/rom_fill.tsv) in a file")
     a = ap.parse_args()
     rom_path = a.rom or os.path.join(ROOT, f"baserom.{a.version}.z64")
     if not os.path.exists(rom_path):
@@ -235,6 +276,10 @@ def main():
     srcs = sources(rom, a.version)
     n64 = n64_symbols(a.version)
     bad = False
+    assets = read_assets(a.assets) if a.assets else []
+    if a.assets and not assets:
+        print(f"rom_scan.py: no assets in {a.assets}", file=sys.stderr)
+        sys.exit(2)
     for path in a.files:
         data = open(path, "rb").read()
         found = scan(data, srcs, a.min)
@@ -258,6 +303,17 @@ def main():
             w_s = f" ({w}-byte units reversed)" if w > 1 else ""
             fs = f" {name_at(fsyms, start)}" if fsyms[0] else ""
             print(f"    {ln:7d} at 0x{start:X}{fs}: {where}{w_s}")
+        if a.assets:
+            hits = asset_overlaps(data, srcs, assets, a.min)
+            fsyms2 = fsyms
+            for asset, at, n, w, addr in hits:
+                fs = f" ({name_at(fsyms2, at)})" if fsyms2[0] else ""
+                print(f"rom_scan.py: {path}: {n} bytes of {asset[0]} ({asset[4]}, {asset[1]} {asset[2]:08X}..{asset[3]:08X}) "
+                      f"at 0x{at:X}{fs}, ROM address {addr:08X}" + (f", {w}-byte units reversed" if w > 1 else ""))
+            if hits:
+                bad = True
+            else:
+                print(f"rom_scan.py: {path}: none of the {len(assets)} assets' {sum(x[3] - x[2] for x in assets)} bytes")
         if a.max_bytes is not None and total > a.max_bytes:
             print(f"rom_scan.py: {path} carries {total} bytes of the ROM, more than {a.max_bytes}")
             bad = True

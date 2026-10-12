@@ -710,14 +710,15 @@ The N64 side can be run under the sanitizers for what a diff can't see
 ## Testing the port
 
 `port/tools/test.py` runs the checks above as a suite, and each build
-directory has them as CTest tests (labels `quick`, `tas`, `tas-prefix` and
-`budget`):
+directory has them as CTest tests (labels `quick`, `tas`, `tas-prefix`,
+`budget` and `fill-check`):
 
 ```
 ctest --test-dir build/port -L quick -V         # about a minute
 ctest --test-dir build/port -L tas -V           # the TAS, 10-20 minutes natively
 ctest --test-dir build/port -L tas-prefix -V    # the TAS's first 3000 frames (what an emulated build runs)
 ctest --test-dir build/port -L budget -V        # the memory the build takes, against its ceiling
+ctest --test-dir build/port -L fill-check -V    # the check build: the ROM's assets filled == their initializers
 port/tools/test.py kinds [--tas]                # the standard kinds, built and checked
 ```
 
@@ -735,6 +736,26 @@ failures are by kind (none now).  A cross build runs under its emulator
 (qemu-user, as its toolchain file names it, or `--qemu ARCH`) with every
 timeout 60 times as long, and only the four scenarios compared with the
 references ("Big-endian and 32-bit hosts").
+
+**The asset check.**  The executable carries none of the ROM's remakable
+assets (images, vertices, geometry display lists; `port/tools/rom_assets.txt`):
+the game's C has their initializers under `ASSET_INIT`, which the port
+leaves out, and `port_rom_fill` (`host/romdata.c`) fills them at startup from
+the ROM or a pack.  Two checks keep that honest.  `quick` runs `rom_scan.py
+--assets gen/rom_fill.tsv` on the executable (and the `.wasm`): it fails
+when a stretch of 24 or more bytes of the ROM's code modules, in any byte
+order, overlaps an asset's range or the RSP microcode's data (the audio
+microcode's resampling table, 512 bytes at +0xD0 of `D_8030EB90`, stays and
+is not listed).  `test.py fill-check [--version V]` (CTest label `fill-check`)
+builds `build/fill-check-<version>/` with `-DPORT_ASSET_CHECK=ON` (the
+initializers back, `PORT_ASSET_INIT`; the host's `PORT_FILL_CHECK`), runs it
+from the ROM and from the pack without the code, and the fill, into scratch
+(0xA5 first), is compared with the initializers: images as the N64's bytes
+(the initializer's elements turned to big-endian by their declared width; an
+image declared as `Vtx` by the fields' widths), vertices and lists as the
+host has them.  Every symbol and offset that differs is named and the run
+exits 1; otherwise it says `fill check: ok` and plays on (the check build
+is not one to play or to scan: it carries the assets).
 
 **quick.**  Deterministic runs (`--deterministic`, `--headless`, the
 software renderer, no save to start from): the attract mode for 4,000

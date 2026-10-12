@@ -1409,8 +1409,13 @@ def main():
     g = Gen(nm)
     files = []          # (out file, rel, [blobs], source)
     k = 0
+    keep_assets = False
     while k < len(args):
         a = args[k]
+        if a == "--keep-assets":     # (PORT_ASSET_CHECK: the ROM's assets keep their initializers)
+            keep_assets = True
+            k += 1
+            continue
         if a == "--global-asm":
             src = args[k + 1]
             k += 2
@@ -1472,7 +1477,7 @@ def main():
                  '#include "asm_data.h"', ""]
         aliases = []
         for v in top:
-            if v.blob.bss or v.name in ROM_ASSETS or all(b == 0 for b in v.blob.val[v.off:v.end]):
+            if v.blob.bss or (v.name in ROM_ASSETS and not keep_assets) or all(b == 0 for b in v.blob.val[v.off:v.end]):
                 # (zeros, the N64's .data too: zeros all the same; the ROM's
                 # assets, filled at startup)
                 lines.append(f"{v.ctype.decl(v.name)};")

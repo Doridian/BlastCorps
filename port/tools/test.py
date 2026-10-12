@@ -5,10 +5,22 @@
                              [--qemu ARCH] [--all]
     port/tools/test.py tas BUILD [BUILD...] [--polls FILE] [--pack] [--update] [--gameplay]
                            [--timing free|movie|both] [--qemu ARCH] [--frames N]
+    port/tools/test.py fill-check [--version V] [--no-build]
     port/tools/test.py budget BUILD [BUILD...] [--ceiling MB] [--static | --long | --tas [--polls FILE]]
                               [--qemu ARCH]
     port/tools/test.py kinds [--version V] [--no-build] [--tas [--tas-pack] [--timing T]] [--only NAME,...]
                              [--emsdk DIR] [--gameplay]
+
+fill-check: P11's check build (docs/PORT.md, "The asset check"): configures,
+builds and runs build/fill-check-<version>/ once, with -DPORT_ASSET_CHECK=ON:
+the game's C has the ROM's assets' initializers (images, vertices, display
+lists) and port_rom_fill's fill goes into scratch to be compared with them
+(images as the N64's bytes: the initializer's elements turned to big-endian
+by their declared width; vertices and lists as the host has them).  It runs
+on the ROM and on the pack without the code, and must say the fill equals the
+initializers, every symbol and offset that differs named otherwise.  quick's
+asset scan (port/tools/rom_scan.py --assets) is its other half: none of
+those assets' bytes in the built executable.
 
 quick: deterministic headless runs (--deterministic, the software
 renderer), a few thousand frames each; the save, the --wav and
@@ -294,6 +306,7 @@ class Build:
         self.version = cache.get("PORT_VERSION", "us.v11")
         self.gl = cache.get("EPOXY_FOUND", "") == "1"
         self.threads = cache.get("PORT_THREADS", "ucontext")
+        self.asset_check = cache.get("PORT_ASSET_CHECK", "") == "ON"
         self.wasm = cache.get("EMSCRIPTEN", "") == "1"
         self.ptr_size = int(cache.get("PORT_PTR_SIZE") or 8)
         # the kind (the references are the same, whatever the compiler, the
@@ -812,6 +825,7 @@ def quick(build, refs, jobs, against=None, update=False, known=None, gameplay=Fa
                 else:
                     say("PASS", label, "identical")
     fails += no_translation(build)
+    fails += asset_scan(build)
     if build.emulator or build.wasm:
         say("SKIP", f"{build.name} pointer checks", "the sources' (the native plain builds run them)")
     else:
@@ -848,6 +862,91 @@ def no_translation(build):
     say("PASS", label, "no translated function" +
         (f" in {', '.join(looked)}'s symbols" if looked else " (no symbols to look in)"))
     return 0
+
+
+def asset_scan(build):
+    """the ROM's assets (the images, vertices and display lists the port fills at
+    startup, and the RSP microcode's data: gen/rom_fill.tsv) are nowhere in the
+    executable (nor the .wasm), in any byte order (port/tools/rom_scan.py --assets);
+    the failures"""
+    label = f"{build.name} assets"
+    if build.asset_check:
+        say("SKIP", label, "the check build has the assets' initializers (fill-check is its test)")
+        return 0
+    tsv = os.path.join(build.path, "gen", "rom_fill.tsv")
+    files = [build.exe] + ([os.path.splitext(build.exe)[0] + ".wasm"] if build.wasm else [])
+    files = [f for f in files if os.path.exists(f) and (not build.wasm or f.endswith(".wasm"))]
+    if not os.path.exists(tsv) or not files:
+        say("SKIP", label, "no gen/rom_fill.tsv or no executable")
+        return 0
+    t = time.time()
+    r = subprocess.run([sys.executable, os.path.join(TOOLS, "rom_scan.py"), "--assets", tsv, "--top", "0",
+                        "--version", build.version, "--rom", build.rom()] + files, capture_output=True, text=True)
+    label += f" ({time.time() - t:.0f}s)"
+    out = [l for l in (r.stdout + r.stderr).splitlines() if l.startswith("rom_scan.py")]
+    if r.returncode == 0:
+        say("PASS", label, "; ".join(os.path.basename(l.split(": ")[1]) + ": " + l.split(": ")[-1] for l in out))
+        return 0
+    say("FAIL", label, "the ROM's assets are in the executable:\n" + "\n".join(out[:20]) if out
+        else (r.stdout + r.stderr)[-1500:])
+    return 1
+
+
+FILL_CHECK_MARK = "fill check: ok"
+
+
+def fill_check(version, no_build=False):
+    """build/fill-check-<version>: the check build (-DPORT_ASSET_CHECK=ON), run from the ROM and from the
+    pack without the code; the failures (None: no ROM)"""
+    emit(f"== fill-check: {version}")
+    rom = os.path.join(ROOT, f"baserom.{version}.z64")
+    if not os.path.exists(rom):
+        say("SKIP", f"fill-check {version}", f"no {os.path.basename(rom)} in the repo's root")
+        return None
+    d = os.path.join(ROOT, "build", f"fill-check-{version}")
+    label = os.path.relpath(d, ROOT)
+    if not no_build:
+        try:
+            extracted = open(os.path.join(ROOT, "blastcorps", ".version")).read().strip()
+        except OSError:
+            extracted = None
+        if extracted != version:
+            say("FAIL", label, f"blastcorps/ holds {extracted}'s stage 2, not {version}'s")
+            return 1
+        t = time.time()
+        with open(d + ".build.log", "w") as f:
+            rc = subprocess.call(["cmake", "-S", os.path.join(ROOT, "port"), "-B", d] + CMAKE
+                                 + [f"-DPORT_VERSION={version}", "-DPORT_ASSET_CHECK=ON"],
+                                 stdout=f, stderr=subprocess.STDOUT)
+            rc = rc or subprocess.call(["cmake", "--build", d], stdout=f, stderr=subprocess.STDOUT)
+        if rc:
+            say("FAIL", label, f"build failed (log: {os.path.relpath(d + '.build.log', ROOT)})")
+            return 1
+        say("PASS", label, f"built in {time.time() - t:.0f}s")
+    b = Build(d)
+    if not b.asset_check:
+        say("FAIL", label, "not a PORT_ASSET_CHECK build")
+        return 1
+    if not b.runnable():
+        say("FAIL", label, "not built")
+        return 1
+    pack, why = pack_for(version, "nocode")
+    fails = 0
+    for what, src in (("the ROM", rom), ("the pack without the code", pack)):
+        if not src:
+            say("FAIL", f"{label} from {what}", why)
+            fails += 1
+            continue
+        out = os.path.join(d, "test", "run-" + ("rom" if src == rom else "pack"))
+        rc, t = run_port(b, out, 5, "0", env={}, shots=False, rom=src)
+        log = open(os.path.join(out, "log.txt"), errors="replace").read()
+        lines = [l for l in log.splitlines() if l.startswith("fill check:")]
+        if rc == 0 and any(l.startswith(FILL_CHECK_MARK) for l in lines):
+            say("PASS", f"{label} from {what}", lines[-1][len("fill check: "):])
+        else:
+            say("FAIL", f"{label} from {what}", f"exit {rc}\n" + "\n".join(lines[:30] or log.splitlines()[-5:]))
+            fails += 1
+    return fails
 
 
 POINTER_CHECKS = (
@@ -1406,6 +1505,9 @@ def main():
                    help="play only the movie's first N frames, and compare the gameplay digest as far as it goes")
     t.add_argument("--gameplay", action="store_true",
                    help="the gameplay digest decides: a save that differs (the times) is only reported")
+    fc = sub.add_parser("fill-check")
+    fc.add_argument("--version", default=os.environ.get("PORT_VERSION", "us.v10"))
+    fc.add_argument("--no-build", action="store_true", help="use build/fill-check-<version> as it is")
     bu = sub.add_parser("budget")
     bu.add_argument("builds", nargs="+")
     bu.add_argument("--ceiling", type=int, metavar="MB",
@@ -1454,6 +1556,8 @@ def main():
     elif args.cmd == "budget":
         rs = [budget(build_for(b, args.qemu), args) for b in args.builds]
         fails = None if all(x is None for x in rs) else sum(x or 0 for x in rs)
+    elif args.cmd == "fill-check":
+        fails = fill_check(args.version, args.no_build)
     elif args.cmd == "table":
         detail([Build(b) for b in args.builds])
         return

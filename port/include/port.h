@@ -181,7 +181,16 @@ typedef struct PortFill {
     uint32_t size;              /* its bytes there */
     uint32_t kind;              /* BYTES: as they are; VTX: each Vtx's fields in host order;
                                    GFX: commands, each word as wide as a pointer */
+#ifdef PORT_FILL_CHECK
+    const char *name;           /* the variable or field, for the check's report */
+    uint32_t unit;              /* BYTES: the declared element's width (the initializer is in host order) */
+#endif
 } PortFill;
+#ifdef PORT_FILL_CHECK
+#define PORT_FILL_CHECK_FIELDS(name, unit) , name, unit
+#else
+#define PORT_FILL_CHECK_FIELDS(name, unit)
+#endif
 /* a display list's word the N64 link relocates: the host's address of what
    it points at */
 typedef struct PortFillReloc {
