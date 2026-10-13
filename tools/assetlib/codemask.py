@@ -7,9 +7,10 @@ has it, hd_code and hd_front_end with their .data member right after their
 files' data are subsegments of their own) and the RSP microcode's text,
 which the port never runs (port/tools/asm2x86.py's RSP_TEXT: zeros in every
 build).  Everything else is data: .data, .rodata, the bins (the handwritten
-code's tables, the RSP's data).  The port's movable builds make their data
-from the data alone (port/tools/rom_data.py), and a resource pack carries it
-apart from the code (port/make_pack.py, docs/ASSETS.md "The pack").
+code's tables, the RSP's data).  The port makes the game's remakeable assets
+from the data alone (the assets in it are what port_rom_fill fills, port/host/
+romdata.c), and a resource pack carries it apart from the code
+(port/make_pack.py, docs/ASSETS.md "The pack").
 """
 import re
 from pathlib import Path

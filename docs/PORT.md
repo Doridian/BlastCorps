@@ -485,10 +485,33 @@ shift and mask, `buildings.h`'s `FX_B`/`FX_H`, `be16`/`be_put16`...), so
 it gives the same result in either byte order: the build runs unchanged
 on a big-endian host.  The C needed few changes of its own:
 `func_80200714` (hd_front_end 196F0.c) tints big-endian texels a byte at a
-time (`IMG_RD`/`IMG_WR`), the textures the C declares as `u16` or `Vtx`
-arrays are put back into the N64's order at boot, and `YoshiIcon.unk6`
-(declared bytes, read as `u16`s) into host order (`port_native_fixups`,
-`port/src/loads.c`).
+time (`IMG_RD`/`IMG_WR`), and `YoshiIcon.unk6` (declared bytes, read as
+`u16`s) is put into host order at boot (`port_native_fixups`,
+`port/src/loads.c`: its one remaining fixup).
+
+**The ROM's assets in the game's data are filled, not carried.**  The images
+and palettes the C declares (as `u16` arrays, mostly), the vertices and the
+display lists that draw geometry are what a modder remakes, so the port's
+executable has none of them (docs/DISTRIBUTION.md, "What a built port
+contains"): `blastcorps/src` defines them under `ASSET_INIT` and the port
+builds the zero variant, asm2c writes zeros for its three, and
+`port_rom_fill` (`port/host/romdata.c`) fills them at startup, first in
+`port_boot` (`src/boot.c`), before `port_native_fixups` and
+`port_overlay_init`, which would copy what they find.  The source is
+`pack_data_source()` (a pack's module data, which a pack without the code
+has) or else hd_code and hd_front_end inflated from the ROM by the port's own
+inflate.  The table is `gen/rom_fill.c` and `.tsv`, made by
+`port/tools/gen_fill.py` from `port/tools/rom_assets.txt` (72 entries and 4
+microcode lines) and the version's link: each entry names a variable, or a
+field of one, a kind and a count.  `bytes` is the ROM's bytes as they are, with
+no byte swapping, whatever type the C declares (what the RDP reads: this is
+what the removed texture fixups did, now for all 31 of 20460.c's running-people
+frames too); `vtx` converts each `Vtx` field to host order; `gfx` takes
+a display list's words from the ROM, turns an address the N64 link relocates
+into the host address of what it points at, and tags a segment address as
+`asm2c.py`'s `SEG_OPS` do ("Memory model").  The offsets and the relocation
+positions were found equal in all four versions.  "The asset check" below says
+how that is tested.
 
 **The type inventory** (`blastcorps/include/game/inventory.json`, one per
 version where the layouts differ, made by `tools/inventory.py`) is what
@@ -601,6 +624,14 @@ zeros is a plain zero-initialized one, in no section of its own.
   dome's texture, data read only as bytes, the chance records the code
   reads both ways (`ASM_DATA_BE`), the islands' byte runs, and the RSP
   microcode's text (zeros, `RSP_TEXT`: nothing reads it).
+- **Zeros.**  The remakeable assets in the asm data are zeros of their size:
+  the carrier's explosion's texture, vertices and display list
+  (`D_802FF738`, `D_802FFF38`, `D_80300A68`; `ROM_ASSETS`), which
+  `port_rom_fill` fills ("Byte order and the data's types"), and the RSP
+  microcode's data (`RSP_DATA`: the tasks hand it over and the HLE reads none
+  of it).  The exception is the audio microcode's resampling table, 512 bytes
+  at +0xD0 of `D_8030EB90`: a math table, kept.  Strings, text, math tables and
+  parameter records stay the ROM's bytes.
 - **Pointers.**  A symbolic `.word` is a pointer initializer: `(T *)&D_X`,
   `&D_8030xxxx` of a member, `(u8 *)&D_X + n` for a name inside a
   variable, a function's name for a function.  A pointer is native, as the
@@ -847,7 +878,7 @@ four versions' scenarios, with no known failures (the last one was the
 native-endian builds' carrier on the globe, from retrace 1,228 to 1,285 of
 every `PORT_AUTOSTART` run: five RGBA16 mipmaps of hd_front_end 9570.c,
 which the C declares as `u16` arrays and only hands the RDP, were left in
-host order; `port_native_fixups` puts them back into the N64's).  The
+host order; the `bytes` fill now has them as the N64's).  The
 quick tiers take about two minutes together with `attract.long`.  The
 TAS: every build exact, all 125,297 reads matched, none skipped, no mode
 forced, 57 platinum, the same save and gameplay digest (`2e9a3a7173fe4337`);
@@ -1043,9 +1074,8 @@ hand: Simian Acres' starting vehicle moved 300 units in `levels/chimp.yaml`
 **Without the code.**  The port's engine is its own now, so the code
 modules' bytes are needed for nothing but the data in them.  A pack keeps
 that data apart (`data/`, docs/ASSETS.md; `tools/assetlib/codemask.py` says
-what is code), so that a build which makes its game data from the ROM at
-startup (the follow-up package of "The build": today the executable carries
-it) can make it from the pack's `data/` alone.
+what is code), so that `port_rom_fill` ("Byte order and the data's types")
+can fill the game's assets from the pack's `data/` alone.
 `make_pack.py --no-code` leaves `rom/`'s code out, and the port stands in
 for the front end's members (its `.text` as zeros, its `.data`): the game
 still DMAs and inflates them when it loads the front end, for the time

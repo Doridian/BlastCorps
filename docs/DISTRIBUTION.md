@@ -4,8 +4,9 @@ For now the PC port is **built by its users** from their own ROM (README, "The P
 hosted page is published. This file records what a built port contains, so that publishing later can be
 planned. It is an inventory by origin, not legal advice. Sizes were measured on us.v10 builds (32-bit,
 LP64, movable 64-bit, wasm web) on 2026-09-30, before P10 made the port one build; us.v11's are
-near-identical, and the one build's differ only where this file says so.  `port/tools/rom_scan.py
-FILE...` checks a build for the ROM's data.
+near-identical, and the one build's differ only where this file says so; they are from before P11, which
+took the assets of rows 1a-1d out of the executable.  `port/tools/rom_scan.py FILE...` checks a build
+for the ROM's data.
 
 **Estimates** in this file are in agent-hours: the wall-clock time one agent takes, including
 running the checks (a full `test.py kinds --tas` is about half an hour of that).  They come from
@@ -13,7 +14,7 @@ this project's own pace (2026-09-29/30), not from human-calendar guesses:
 
 | Piece | Earlier estimate | Took |
 |---|---|---|
-| The data from the ROM at run time (`PORT_ROM_DATA`, `rom_scan.py`; the movable builds', gone in P10) | 1–2 weeks | 1.1 agent-hours, TAS on all variants included |
+| The data from the ROM at run time (the movable builds' first mechanism, gone in P10, with `rom_scan.py`) | 1–2 weeks | 1.1 agent-hours, TAS on all variants included |
 | The movable build, from the arena link to LP64 as a PIE (gone in P10: the plain build) | — | about 2 hours |
 | The WebAssembly build, from node to the page | — | about 1.5 hours |
 | The results screen's black boxes and the medal's seam | — | 2 agent-hours, with a 20,000-frame screenshot sweep |
@@ -38,17 +39,28 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 **Not embedded:**
 - The ROM file itself: 3,000 random 32-byte chunks of it and its IPL3 were searched for in the
   executables, the .wasm and the .js, with no hits.
-- **Not yet: the ROM's data** (1a–1d below).  Until P10 the movable builds (64-bit, LP64, wasm) made it
-  from the user's ROM at startup (`PORT_ROM_DATA`: operations `rom_data.py` wrote from port-arena's
-  image) and `test.py quick` ran `port/tools/rom_scan.py` on them.  The one build that replaced them has
-  no arena image: the game's variables are ordinary initialized C (`asm2c.py`'s data, the decompiled
-  C's), so the executable carries rows 1a–1d (about 260 K), and **no binary is published until that
-  changes**.  The follow-up package: `asm2c.py` emits its data (1a–1c, ~60 K) as fill operations made
-  from the ROM's inflated modules by type (it knows every variable's type and source), and the C's own
-  initialized data (1d, ~206 K) is moved the same way; `rom_scan.py` (generic: every stretch of 24 bytes
-  or more of the ROM and of its code modules as the game loads them, as they are and with 2- or 4-byte
-  units reversed) then gates it.  The code of the old mechanism (`port/tools/rom_data.py`,
-  `port/host/romdata.c`'s `PORT_ROM_DATA` block, not built) is the starting point and the format.
+- **The ROM's remakeable assets (P11, 2026-10-12; done).**  The owner's rule: anything a modder
+  would remake is not in the executable, and the port fills it from the user's ROM or pack at
+  startup.  That is **images and their palettes, vertices, and models, the display lists that draw
+  geometry included** (72 variables or fields: `port/tools/rom_assets.txt`).  The game's C has their
+  initializers under `ASSET_INIT` (`blastcorps/include/common.h`), which the port leaves out, and
+  `port_rom_fill` (`port/host/romdata.c`, from the pack's module data or the ROM's inflated
+  hd_code and hd_front_end) writes them into the zeroed variables first thing in `port_boot`
+  (docs/PORT.md, "Byte order and the data's types").  The RSP microcode isn't used by the port:
+  its text was zeros already and its data is zeros now.
+- **What stays in the C, on purpose:** string constants, constants, math tables and other
+  initializers (menu and parameter structures, text tables, the sine and per-level tables, the
+  audio microcode's 512-byte resampling table at +0xD0 of its data, libultra's VI modes), and the
+  display lists that load a texture, set a mode or draw a quad template (they hold no geometry).
+  The reason is the modder's: a texture, a model or a level is something people redo, and
+  remaking a string table or a math table isn't worth the effort, nor is moving it out of the C
+  worth the complexity.  A stretch of those that the ROM has verbatim is still ROM-derived;
+  rows 1a-1d say how much.  The owner decided they stay (2026-10-12).
+- **How it is kept:** `test.py quick` runs `port/tools/rom_scan.py --assets gen/rom_fill.tsv` on
+  the executable (and the `.wasm`), which fails if a stretch of 24 bytes or more of the ROM's
+  modules, in any byte order, overlaps an asset or the microcode's data; `test.py fill-check`
+  compares the fill with the initializers in a check build (docs/PORT.md, "The asset check").
+  `rom_scan.py` without `--assets` still reports every stretch (the strings and tables).
 - The TAS data (`polls.csv`, `checkpoints.csv`, `switches.csv`...), which `--replay` reads beside its file
   at run time.
 - `test_refs.json` and the mupen64plus tools.
@@ -60,10 +72,10 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 
 | # | Origin | What | Size (us.v10) | Where it enters |
 |---|---|---|---|---|
-| 1a | ROM bytes | hd_code and hd_front_end `.data`/`.rodata` from splat's extraction: menu structures, display lists, text tables, libultra's VI modes | ~38 K (+353 K bss) | `blastcorps/asm/data/**` → `port/tools/asm2c.py` → C generated in the build directory |
+| 1a | ROM bytes | hd_code and hd_front_end `.data`/`.rodata` from splat's extraction: menu structures, display lists, text tables, libultra's VI modes; the carrier's explosion's texture, vertices and list (`D_802FF738`, `D_802FFF38`, `D_80300A68`) are zeros there now, filled at startup | ~38 K (+353 K bss) | `blastcorps/asm/data/**` → `port/tools/asm2c.py` → C generated in the build directory |
 | 1b | ROM bytes | the two pointer-bearing data islands (7D9D0, 800DC) | 8.6 K | same |
-| 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K); the microcode's text (18.3 K) is zeros in every build now (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin` → `asm2c.py`, C arrays |
-| 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs ~62 K, struct tables ~46 K, strings, Vtx/Gfx | ~206 K of sections | `blastcorps/src/**/*.c` |
+| 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K: zeros now but the audio microcode's 512-byte resampling table); the microcode's text (18.3 K) is zeros in every build (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin` → `asm2c.py`, C arrays |
+| 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs, Vtx and geometry lists (under `ASSET_INIT`: not in the port, filled at startup), struct tables, strings (stay) | ~206 K of sections before P11 (textures/TLUTs ~62 K of it) | `blastcorps/src/**/*.c` |
 | 1e | all of 1a–1d as carried | (the movable builds' arena image, 106 runs, 192 K, until P10: `bepass/Arena.cpp`; gone) | — | — |
 | 2 | translated ROM code | **none** (2026-10-02; the check build that still compiled it went in P10): Rare's handwritten engine (688 functions, 220 K of MIPS) and jp's 17 IDO `GLOBAL_ASM` functions and `func_802BA3E8_jp` are hand-written C in `port/engine` (row 4g), and `test.py quick` fails a build that links any translation | — (was ~1.1–1.4 MB of host code) | (`tools/recomp`, not built) |
 | 3a | decompiled C | the game's own code | 370 K x86 | `blastcorps/src/**` |
@@ -75,16 +87,15 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 | 4b | third-party, native | SDL2 (zlib), libepoxy (MIT), glibc (LGPL), libgcc_s: dynamic | — | system |
 | 4c | third-party, wasm | emscripten's SDL2 (zlib), musl (MIT), emscripten runtime (MIT/UIUC), compiler-rt (Apache-2.0 with LLVM exception) | in .wasm/.js | emsdk |
 | 4d | third-party, all builds | Stardos Stencil Bold (SIL OFL 1.1, Vernon Adams; `--hd-text`'s built-in font, docs/FONTS.md), stb_truetype 1.26 (public domain or MIT) | 33 K font in the executable; hdtext.c with stb_truetype ~28 K x86 | `port/fonts/` via `port/tools/embed.cmake`, `port/third_party/stb/` |
-| 4e | the port's own | (`PORT_ROM_DATA`'s operations, until P10: copies from the ROM's modules by address and 4.6–6.1 K of literal bytes, all the port's; not built now: the follow-up package of "The ROM's data", above, replaces them); the inflate of its own stays (`host/romdata.c`, the pack's gzip members and sha1) | inflate ~3 K x86 | `port/host/romdata.c` |
+| 4e | the port's own | the asset fill (`port_rom_fill`, with its table `gen/rom_fill.c`, made by `port/tools/gen_fill.py` from `rom_assets.txt`), the inflate of its own (the ROM's modules, the pack's gzip members) and the sha1 | inflate ~3 K x86 | `port/host/romdata.c` |
 | 4f | the port's own | libaudio (`port/libaudio`, header `port/include/sdk/PR/libaudio.h`), exact; the eqpower table is computed at startup | 35 K x86-64 (the 64-bit build; the decompiled one was 44 K) | `port/libaudio` |
 | 4g | the port's own | the engine: Rare's handwritten code and jp's IDO asm as hand-written C (docs/PORT.md, "Replacing the engine") | ~42,000 lines of C | `port/engine` |
 | 4h | third-party, all builds | gzip 1.2.4's deflate (`deflate.c`, `trees.c`, `bits.c`, unchanged; GPLv2 or later, Jean-loup Gailly; its `COPYING`), the only deflate that gives back the ROM's gzip members; stb_image 2.30 (public domain or MIT; PNGs and the zip's inflate) | 16 K and 37 K x86-64 | `port/third_party/gzip-1.2.4`, `port/third_party/stb/stb_image.h` |
 | 4i | the port's own | resource packs: the zip reader, the YAML parser, building the ROM's image from the pack, the texture overrides (`host/pack*.c`), `port/make_pack.py`, `tools/assetlib/codemask.py` | 53 K x86-64 | `port/host` |
 
-The one build carries 1a–1d (about 260 K of the ROM's data; the C's data is in host order, and
-`rom_scan.py` finds it).  Sizes before P10, us.v10, `PORT_ROM_DATA` off and on (`.text`, which held
-the image): m64 2,231 K to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,002 K, the web build's
-.wasm 3,568 K to 3,450 K; `test.py budget BUILD` reports the one build's footprint.
+The one build carries 1a–1d minus the assets above; what is left of the ROM's data is strings,
+tables and parameter records (in host order; `rom_scan.py` finds them).  Before P11 it carried all of
+rows 1a–1d (about 260 K).  `test.py budget BUILD` reports the one build's footprint.
 
 **Also:**
 - The native builds carry about 7.5 MB of DWARF and symbols, with the decomp's names and build paths.
@@ -96,15 +107,14 @@ the image): m64 2,231 K to 2,072 K, mn32 2,369 K to 2,226 K, mlp64 2,149 K to 2,
 
 1. **One build.**  Since P10 the port is one build for every host (wasm and macOS included), so
    there is one executable to clean up, not a choice of builds.
-2. **The data from the user's ROM at run time: not done in the one build** (P10 carries rows 1a–1d; a
-   follow-up package makes them at startup, see "Not yet" above).  Until P10 the movable builds did it
-   (`PORT_ROM_DATA`, docs/PORT.md, "History"): at startup the port inflated hd_code and hd_front_end
-   from the ROM (an inflate of its own, not the game's, whose tables are themselves the ROM's data),
-   laid them and init out, and applied operations made at build time from the arena's image (copies
-   from the same address, as they are or with 2-, 4- or 8-byte units reversed; copies from elsewhere;
-   4.6–6.1 K of literal bytes, all the port's), checking a hash of what it made, in about 7 ms.
+2. **The assets from the user's ROM at run time: done** (P11, 2026-10-12; "What a built port
+   contains").  `port_rom_fill` writes them at startup from the ROM's inflated hd_code and hd_front_end
+   (an inflate of its own, not the game's, whose tables are themselves the ROM's data) or from a
+   pack's data, and `rom_scan.py --assets` gates the executable.  The strings and tables that stay
+   (above) stay by the owner's decision.
    - The ROM's sha1 is checked at startup, in every build (`PORT_ROM_ANY=1` downgrades it to a warning).
-   - The RSP microcode text is zeros, in every build.
+   - The RSP microcode's text and data are zeros, in every build (the audio microcode's
+     resampling table excepted).
 3. **The engine rewrite (category 2): done** (2026-10-02).  The translation is ROM-derived by
    construction, so a published binary needed Rare's engine as hand-written C; it is (`port/engine`, row
    4g), in every version, and the default build compiles none of the translation (see below).
@@ -224,9 +234,9 @@ against its translation.
   in P10).
 
 **What remains for publishing** (the list above): stripping and `PORT_N64_FUNCS` (item 5), the notices
-and the root LICENSE (6), and the owner's decision on the decompiled game and SDK C (7), and the ROM's
-data out of the executable (2, the follow-up package).  A published build still
-reads the ROM's data from the user's ROM at run time, or from a resource pack the user made from it
+and the root LICENSE (6), and the owner's decision on the decompiled game and SDK C (7).  The assets are out of
+the executable (2, done in P11); the strings and tables stay, by the owner's decision.  A published build
+reads the assets from the user's ROM at run time, or from a resource pack the user made from it
 (docs/PORT.md, "Resource packs"), which may leave out the game's code: the port needs none of it.
 What it still takes from the user is the assets and the code modules' data (`data/`, 207 K in us.v10:
 the game's tables, strings and display lists, the RSP's data); replacing those is what a fully free

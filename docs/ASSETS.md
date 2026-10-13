@@ -265,7 +265,7 @@ README.txt          a short note for whoever opens the zip
 | a level | its YAML: records, groups, hex, the header | rebuilt and deflated; the records can be added and removed (offsets are recomputed) |
 | a sound bank, a sequence | `audio/*.ctl`, `*.tbl`, `seq/NN.seq` | rebuilt (the `.ctl` LZSS'd again) |
 | a model, an image, a display list | `gzip/*.bin`, `images/*.png` | deflated or LZSS'd again |
-| `data/` | not editable | the movable builds check what they make of it against the image they were built with |
+| `data/` | not editable (its images, vertices and geometry lists are what a modder remakes: through the textures, models and levels above) | `port_rom_fill` fills the port's images, vertices and geometry display lists from it (docs/PORT.md, "The asset check" and "Byte order and the data's types") |
 | `rom/` | not editable | |
 
 A texture's size is its `textures.yaml` entry's (`png: [[w, h], ...]`); the
@@ -276,8 +276,8 @@ or multi-line plain scalars.  Numbers are YAML 1.1's, as PyYAML reads them
 (a leading 0 is octal).
 
 **Without the code** (`make_pack.py --no-code`): no `rom/` code modules and
-no init.  The port needs none of the code: the movable builds make the
-game's data from `data/`, and the front end's slot, which the game still
+no init.  The port needs none of the code: the ROM's assets in the game's
+data (`port/tools/rom_assets.txt`) are filled from `data/`, and the front end's slot, which the game still
 DMAs and inflates when it loads the front end (port/src/overlay.c, for the
 time it takes), gets a stand-in: its `.text` as zeros and its `.data`,
 gzipped.  The game is the same, but that load takes other CPU time than

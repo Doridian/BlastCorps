@@ -85,7 +85,12 @@ executable has both and `PORT_THREADS=ucontext|pthread` picks, and the two
 must give identical deterministic runs (docs/PORT.md, "Threads without
 ucontext").
 
-Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  A
+Port-only source changes in `src/` go under `#ifdef TARGET_PC`.  The ROM's
+remakeable assets (images, palettes, vertices, geometry display lists;
+`port/tools/rom_assets.txt`) are not in the port's executable: their
+initializers in `src/` sit under `#ifdef ASSET_INIT` (`common.h`: set for
+every N64 build, off for the port) with `#else { 0 }`, and the port fills them
+from the ROM at startup (docs/DISTRIBUTION.md, docs/PORT.md).  A
 busy-wait in the game's C (a loop spinning on what another thread or an
 interrupt changes) calls `port_spin_wait()` in its body there: the port
 runs one thread at a time with no polls in loops, so without it the loop
