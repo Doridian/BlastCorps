@@ -8,8 +8,9 @@ build/ of the decompilation (docs/PORT.md, "The snapshot").
     port/tools/snapshot.py [us.v11] [--gen DIR]
 
 Run it with the ROM, after the decompilation builds (README, "Build it"):
-it copies from build/web-<version>/gen (or build/port-<version>/gen; --gen
-names another) and reads blastcorps/build's ELFs.  Re-run it whenever the
+it copies from build/port-<version>/gen (or build/web-<version>/gen; --gen
+names another; the native build's, not the WebAssembly one's, since the
+latter's nm reads read-only data as writable) and reads blastcorps/build's ELFs.  Re-run it whenever the
 decompilation's output changes.  Nothing it copies holds a ROM asset: the
 assets are zeros in data_c (asm2c.py's ROM_ASSETS) and their initializers
 are in src/ under ASSET_INIT, and the fill table holds addresses and sizes.
@@ -66,9 +67,13 @@ def main():
     ap.add_argument("--gen", type=Path)
     args = ap.parse_args()
     v = args.version
-    gen = args.gen
+    gen = args.gen.resolve() if args.gen else None
     if gen is None:
-        for cand in (ROOT / f"build/web-{v}/gen", ROOT / f"build/port-{v}/gen"):
+        # the native build first: its objects put a const table in .rodata
+        # ('R', read-only), where the WebAssembly ones have no such section
+        # and nm reports it writable (gen_fevars.py would then restore into
+        # read-only memory on the native build: overlay.c)
+        for cand in (ROOT / f"build/port-{v}/gen", ROOT / f"build/web-{v}/gen"):
             if cand.is_dir():
                 gen = cand
                 break
