@@ -124,7 +124,7 @@ rows 1a–1d (about 260 K).  `test.py budget BUILD` reports the one build's foot
 4. **`gu_extra.c`** replaced by the port's own implementation: **done** (2026-10-01, `port/src/gu.c`, with gu, sinf/fcos, sins/coss and the pak CRC; `ll.c` dropped).  The gzip driver's GPLv2+ is fine: the project
    is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
 5. **Strip releases**, and drop `PORT_N64_FUNCS`.
-6. **Notices** for SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`), stb_truetype and stb_image,
+6. **Notices: done** (`NOTICES.md`).  It covers SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`), stb_truetype and stb_image,
    gzip 1.2.4's deflate (GPLv2 or later: its `port/third_party/gzip-1.2.4/COPYING` and README), and the root LICENSE for the project's code (**AGPL-3.0-or-later**,
    in place since `fa2e4e7`).  The third-party licenses above
    (zlib, MIT, public domain, Apache-2.0 with the LLVM exception, LGPL for dynamic glibc, GPLv2-or-later

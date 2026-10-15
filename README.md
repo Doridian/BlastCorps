@@ -565,4 +565,6 @@ That covers what this project wrote. It doesn't cover:
   License 1.1, `port/fonts/OFL.txt`) and `port/third_party/stb/stb_truetype.h`
   (public domain or MIT, in the file).
 
-docs/DISTRIBUTION.md has the details.
+docs/DISTRIBUTION.md has the details.  The third-party notices for a built
+port (SDL2, libepoxy, musl, Emscripten, stb, gzip, the font) are in
+[NOTICES.md](NOTICES.md).
