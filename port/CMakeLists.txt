@@ -508,7 +508,7 @@ add_custom_command(OUTPUT ${FE_WRAPPED}
 endif()
 add_library(fe_c OBJECT ${FE_WRAPPED})
 target_compile_options(fe_c PRIVATE -fdata-sections)
-target_include_directories(fe_c PRIVATE ${GEN}/data_c ${N64_INCLUDES})
+target_include_directories(fe_c PRIVATE ${GEN}/data_c ${BLAST}/src/hd_front_end ${N64_INCLUDES})
 target_compile_definitions(fe_c PRIVATE ${N64_DEFINES})
 target_compile_options(fe_c PRIVATE ${N64_FLAGS})
 
