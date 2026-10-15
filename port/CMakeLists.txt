@@ -13,6 +13,14 @@
 # the linker puts it.
 cmake_minimum_required(VERSION 3.20)
 project(blastcorps_pc C)
+
+# PORT_STRIP: the release build's name for itself (strip, below), without the
+# paths that __FILE__ (the stb headers' asserts) and the debug info would name
+option(PORT_STRIP "a release build: the executable stripped of symbols and debug information" OFF)
+if(PORT_STRIP)
+    add_compile_options(-ffile-prefix-map=${CMAKE_CURRENT_SOURCE_DIR}=port
+                        -ffile-prefix-map=${CMAKE_BINARY_DIR}=build)
+endif()
 set(PORT_VERSION us.v11 CACHE STRING "the version to build: us.v11, us.v10, jp or eu")
 set_property(CACHE PORT_VERSION PROPERTY STRINGS us.v11 us.v10 jp eu)
 if(NOT PORT_VERSION MATCHES "^(us\\.v1[01]|jp|eu)$")
@@ -605,8 +613,13 @@ add_custom_command(OUTPUT ${GEN}/n64_funcs.txt
 endif()
 add_custom_target(n64_funcs DEPENDS ${GEN}/n64_funcs.txt)
 add_dependencies(host n64_funcs)
-set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/replay.c PROPERTIES
-    COMPILE_DEFINITIONS "PORT_N64_FUNCS=\"${GEN}/n64_funcs.txt\"")
+# the table goes into the executable (host/replay.c reads it there), not by
+# its path in this build directory: a release binary would name that path
+add_custom_command(OUTPUT ${GEN}/n64_funcs_builtin.c
+    COMMAND ${CMAKE_COMMAND} -DIN=${GEN}/n64_funcs.txt -DOUT=${GEN}/n64_funcs_builtin.c
+            -DNAME=n64_funcs_builtin -P ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake
+    DEPENDS ${GEN}/n64_funcs.txt ${CMAKE_CURRENT_SOURCE_DIR}/tools/embed.cmake)
+target_sources(host PRIVATE ${GEN}/n64_funcs_builtin.c)
 if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})
@@ -697,6 +710,22 @@ if(EMSCRIPTEN)
 elseif(NOT APPLE)
     # (a PIE is all arm64 macOS runs, and ld64's default)
     target_link_options(blastcorps PRIVATE -pie)
+endif()
+
+# A release binary is stripped of its symbols and debug information, which
+# carry the decompilation's names and the build's paths (docs/DISTRIBUTION.md,
+# item 5).  Off by default, so the development builds keep theirs; PORT_STRIP=ON
+# (build.py --release) turns it on.  Nothing else changes: the same flags, the
+# same code, the same hashes.  Not for WebAssembly (its name section is
+# emscripten's to keep).
+if(PORT_STRIP AND NOT EMSCRIPTEN)
+    find_program(PORT_STRIP_TOOL NAMES llvm-strip strip)
+    if(NOT PORT_STRIP_TOOL)
+        message(FATAL_ERROR "PORT_STRIP: no llvm-strip or strip on the PATH")
+    endif()
+    add_custom_command(TARGET blastcorps POST_BUILD
+        COMMAND ${PORT_STRIP_TOOL} $<TARGET_FILE:blastcorps>
+        VERBATIM)
 endif()
 target_link_options(blastcorps PRIVATE ${PORT_SAN_FLAGS})
 

@@ -22,6 +22,10 @@ Options:
     --node           the WebAssembly build for node (headless) instead
     --serve [PORT]   after --wasm, serve the page (default port 8000)
     -j N             parallel jobs
+    --release        a release build: the native binary stripped of its
+                     symbols and debug information (PORT_STRIP), in
+                     build/port-<version>-release, so the development build
+                     keeps its own
     --cmake ARG      pass a -D... to CMake (repeatable)
 
 Needs: the mips-linux-gnu- binutils, Python 3, clang, CMake, Ninja, SDL2 and
@@ -188,6 +192,7 @@ def main():
     ap.add_argument("--emsdk")
     ap.add_argument("--install-emsdk", action="store_true")
     ap.add_argument("-j", "--jobs", type=int, default=os.cpu_count() or 4)
+    ap.add_argument("--release", action="store_true")
     ap.add_argument("--cmake", action="append", default=[])
     args = ap.parse_args()
     wasm = args.wasm or args.node
@@ -224,10 +229,11 @@ def main():
         env = setup_python()
         build_decomp(v, env, args.jobs)
     # (set either way: a build directory keeps the last configuration's value)
-    extra = ["-DPORT_SNAPSHOT=ON" if snapshot else "-DPORT_SNAPSHOT=OFF"]
+    extra = ["-DPORT_SNAPSHOT=ON" if snapshot else "-DPORT_SNAPSHOT=OFF",
+             "-DPORT_STRIP=ON" if args.release else "-DPORT_STRIP=OFF"]
 
     if not wasm:
-        out = ROOT / f"build/port-{v}"
+        out = ROOT / (f"build/port-{v}-release" if args.release else f"build/port-{v}")
         say(f"the port into {out.relative_to(ROOT)}")
         run(["cmake", "-S", "port", "-B", str(out), "-G", "Ninja", "-DCMAKE_C_COMPILER=clang",
              f"-DPORT_VERSION={v}"] + extra + args.cmake, env)

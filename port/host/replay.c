@@ -150,31 +150,61 @@ int host_replay_active(void) { return log_reads != NULL; }
 
 static int cmp_str(const void *a, const void *b) { return strcmp(*(char *const *)a, *(char *const *)b); }
 
-/* n64_funcs.txt: "address t name" per function, by address */
+/* n64_funcs.txt: "address t name" per function, by address.  The table is
+ * built into the executable (port/CMakeLists.txt, tools/embed.cmake);
+ * PORT_N64_FUNCS=FILE reads another one instead. */
+extern const unsigned char n64_funcs_builtin[];
+extern const unsigned int n64_funcs_builtin_len;
+
 static void load_funcs(void) {
     const char *p = getenv("PORT_N64_FUNCS");
-#ifdef PORT_N64_FUNCS
-    if (!p)
-        p = PORT_N64_FUNCS;
-#endif
-    FILE *f = p ? fopen(p, "r") : NULL;
-    if (!f)
-        host_fatal("replay: no function table (PORT_N64_FUNCS)");
+    const char *text = (const char *)n64_funcs_builtin;
+    size_t len = n64_funcs_builtin_len;
+    if (p) {
+        FILE *f = fopen(p, "rb");
+        if (!f)
+            host_fatal("replay: no function table (PORT_N64_FUNCS=%s)", p);
+        char *buf = NULL;
+        size_t got = 0, cap = 0;
+        for (;;) {
+            if (got == cap) {
+                cap = cap ? cap * 2 : 65536;
+                buf = realloc(buf, cap);
+            }
+            size_t n = fread(buf + got, 1, cap - got, f);
+            got += n;
+            if (n == 0)
+                break;
+        }
+        fclose(f);
+        text = buf;
+        len = got;
+    }
     char line[256], name[200];
     unsigned cap = 0, addr;
     char type;
-    while (fgets(line, sizeof line, f))
-        if (sscanf(line, "%x %c %199s", &addr, &type, name) == 3) {
-            if (nfuncs == cap) {
-                cap = cap ? cap * 2 : 8192;
-                funcs = realloc(funcs, cap * sizeof *funcs);
-                names = realloc(names, cap * sizeof *names);
+    const char *s = text, *end = text + len;
+    while (s < end) {
+        const char *nl = memchr(s, '\n', end - s);
+        size_t l = nl ? (size_t)(nl - s) : (size_t)(end - s);
+        if (l < sizeof line) {
+            memcpy(line, s, l);
+            line[l] = 0;
+            if (sscanf(line, "%x %c %199s", &addr, &type, name) == 3) {
+                if (nfuncs == cap) {
+                    cap = cap ? cap * 2 : 8192;
+                    funcs = realloc(funcs, cap * sizeof *funcs);
+                    names = realloc(names, cap * sizeof *names);
+                }
+                names[nfuncs] = strdup(name);
+                funcs[nfuncs] = (Func){ addr, (int)nfuncs };
+                nfuncs++;
             }
-            names[nfuncs] = strdup(name);
-            funcs[nfuncs] = (Func){ addr, (int)nfuncs };
-            nfuncs++;
         }
-    fclose(f);
+        s = nl ? nl + 1 : end;
+    }
+    if (p)
+        free((void *)text);
     /* names sorted, and each function's index into them */
     char **sorted = malloc(nfuncs * sizeof *sorted);
     memcpy(sorted, names, nfuncs * sizeof *sorted);

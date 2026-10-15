@@ -102,8 +102,8 @@ rows 1a–1d (about 260 K).  `test.py budget BUILD` reports the one build's foot
 
 **Also:**
 - The native builds carry about 7.5 MB of DWARF and symbols, with the decomp's names and build paths.
-  `llvm-strip` removes them (9.7 MB to 2.2 MB).
-- `PORT_N64_FUNCS` compiles one absolute build path into every binary.
+  `llvm-strip` removes them (9.7 MB to 2.2 MB).  Done for release builds (item 5).
+- `PORT_N64_FUNCS` compiled one absolute build path into every binary.  Done (item 5).
 - The repository's root LICENSE (AGPL-3.0-or-later, `fa2e4e7`) is in place for the project's own code (item 6).
 
 ## What publishing binaries would take
@@ -123,7 +123,13 @@ rows 1a–1d (about 260 K).  `test.py budget BUILD` reports the one build's foot
    4g), in every version, and the default build compiles none of the translation (see below).
 4. **`gu_extra.c`** replaced by the port's own implementation: **done** (2026-10-01, `port/src/gu.c`, with gu, sinf/fcos, sins/coss and the pak CRC; `ll.c` dropped).  The gzip driver's GPLv2+ is fine: the project
    is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
-5. **Strip releases**, and drop `PORT_N64_FUNCS`.
+5. **Strip releases, and drop `PORT_N64_FUNCS`: done.**  `build.py --release` (or `-DPORT_STRIP=ON`)
+   builds the native binary into `build/port-<version>-release`, stripped with `llvm-strip` (or `strip`),
+   and compiles with `-ffile-prefix-map` so that the stb headers' asserts name `port/` and `build/`, not
+   the builder's home directory.  The flags and the code are otherwise the same as the development build's.
+   The replay's function table (`n64_funcs.txt`) is now built into the executable (`port/CMakeLists.txt`,
+   `tools/embed.cmake`, as the built-in font is); `PORT_N64_FUNCS=FILE` still reads another table at run time.
+   WebAssembly isn't stripped (emscripten's name section).
 6. **Notices: done** (`NOTICES.md`).  It covers SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`), stb_truetype and stb_image,
    gzip 1.2.4's deflate (GPLv2 or later: its `port/third_party/gzip-1.2.4/COPYING` and README), and the root LICENSE for the project's code (**AGPL-3.0-or-later**,
    in place since `fa2e4e7`).  The third-party licenses above
@@ -236,8 +242,8 @@ against its translation.
   "engine" check fails any build that links translated code (the check build, which compiled it, went
   in P10).
 
-**What remains for publishing** (the list above): stripping and `PORT_N64_FUNCS` (item 5), the notices
-and the root LICENSE (6), and the decompiled game and SDK C (7), which the owner has decided to keep (2026-10-15).  The assets are out of
+**What remains for publishing** (the list above): nothing on it is open any more: item 5 is done, item 6 is
+done, and item 7 is kept by the owner's decision (2026-10-15).  The assets are out of
 the executable (2, done in P11); the strings and tables stay, by the owner's decision.  A published build
 reads the assets from the user's ROM at run time, or from a resource pack the user made from it
 (docs/PORT.md, "Resource packs"), which may leave out the game's code: the port needs none of it.
