@@ -15,7 +15,7 @@ are kept in the published port (docs/DISTRIBUTION.md, item 7).
 | SDL2 | the native build links it; the WebAssembly build uses Emscripten's SDL2 port | zlib |
 | libepoxy | the native build's OpenGL loader | MIT |
 | musl libc | the WebAssembly build's C library (Emscripten's copy) | MIT |
-| Emscripten runtime | the WebAssembly build's toolchain and runtime | MIT |
+| Emscripten runtime | the WebAssembly build's toolchain and runtime | MIT or UIUC/NCSA |
 | stb_image 2.30 | `port/third_party/stb/stb_image.h` | public domain or MIT, at your choice |
 | stb_truetype 1.26 | `port/third_party/stb/stb_truetype.h` | public domain |
 | gzip 1.2.4 deflate | `port/third_party/gzip-1.2.4/` (`deflate.c`, `trees.c`, `bits.c`) | GNU GPL, version 2 or later |
@@ -125,15 +125,21 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## Emscripten
 
-Copyright (c) the Emscripten authors.
+Emscripten (the compiler, the runtime and its ports' build glue) is
+available under two licenses: the MIT license and the University of
+Illinois/NCSA Open Source License.  The MIT text below is from
+`/usr/lib/emscripten/LICENSE` (the emsdk install); the NCSA text is in the
+same file, and a user may take either.
 
 ```
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-the rights to use, copy, modify, merge, publish, distribute, sublicense,
-and/or sell copies of the Software, and to permit persons to whom the
-Software is furnished to do so, subject to the following conditions:
+Copyright (c) 2010-2014 Emscripten authors, see AUTHORS file.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
@@ -147,9 +153,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-Emscripten's own `LICENSE` in its source tree (the `emsdk` install's
-`upstream/emscripten/LICENSE`) is the authoritative text; it was not present
-in the checkout this file was written from.
+The musl libc that Emscripten ships (`system/lib/libc/musl/COPYRIGHT`) is the
+same MIT text as the musl section above.
 
 ## stb_image and stb_truetype
 
