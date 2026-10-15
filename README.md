@@ -20,7 +20,7 @@ A prior copy of the game is required to extract the assets.
 Clone recursivley to initialize the splat submodule.
 
 ```
-git clone https://github.com/Doridian/blastcorps.git --recursive
+git clone https://github.com/Doridian/BlastCorps.git --recursive
 ```
 
 If you cloned it without `--recursive`, you can initialize the submodule later.
