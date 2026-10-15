@@ -33,6 +33,9 @@ def die(msg):
     sys.exit(f"asset_init.py: {msg}")
 
 
+PARTIAL = {}    # {(module, object): {NAME, ...}}: the variables only partly assets (sym+offset)
+
+
 def read_assets():
     """{(module, object): {NAME, ...}} from rom_assets.txt (the base names of its entries)"""
     names = {}
@@ -45,6 +48,8 @@ def read_assets():
             continue
         obj = Path(src).stem
         names.setdefault((module, obj), set()).add(sym.split("+")[0])
+        if "+" in sym:
+            PARTIAL.setdefault((module, obj), set()).add(sym.split("+")[0])
     return names
 
 
@@ -95,9 +100,42 @@ def zeroed(block):
     return out
 
 
-def apply_file(path, names, module, obj):
-    """the rewritten text of src file `path` (None if nothing to do)"""
-    lines = path.read_text().split("\n")
+def zero_elements(block):
+    """an unguarded partial definition (a structure array whose first two fields in each
+    element are the asset, dl and vtx): the same lines with those two fields zeroed"""
+    text = "\n".join(block)
+    i = text.index("=") + 1
+    out, groups = [], []
+    # the outer braces, then each element's first two groups
+    j = text.index("{", i)
+    stack = []
+    for k in range(j, len(text)):
+        c = text[k]
+        if c == "{":
+            stack.append(k)
+        elif c == "}":
+            o = stack.pop()
+            groups.append((len(stack), o, k))
+    # children of the outer group are the elements (depth 1); their first two children
+    # (depth 2) are the fields
+    by_elem = {}
+    for d, o, c in groups:
+        if d == 1:
+            by_elem[o] = [(oo, cc) for dd, oo, cc in groups if dd == 2 and o < oo < cc]
+    for elem, fields in sorted(by_elem.items()):
+        fields = sorted(fields)[:2]
+        for o, c in fields:
+            out.append((o, c))
+    for o, c in sorted(out, reverse=True):
+        text = text[:o] + "{ 0 }" + text[c + 1:]
+    return text.split("\n")
+
+
+def apply_text(text, names, module, obj):
+    """the rewritten text of a src file (None if nothing to do): its asset variables are
+    the names; their definitions (guarded, or not) become the include form"""
+    partial = PARTIAL.get((module, obj), set())
+    lines = text.split("\n")
     spans = top_defs(lines)
     inside = set()
     for s, e, _ in spans:
@@ -113,24 +151,30 @@ def apply_file(path, names, module, obj):
         return "extern " + re.sub(r"\s*=.*$", "", first_line).rstrip() + ";"
 
     # top-level guards: #ifdef ASSET_INIT <definition> #else ... #endif
+    guards = []     # (#ifdef, #endif) lines: a definition in one is the first pass's
     for k, ln in enumerate(lines):
         if ln.strip() != MARK or k in inside:
             continue
         e = next(x for x in range(k, len(lines)) if lines[x].strip() == "#else")
+        f = next(x for x in range(e, len(lines)) if lines[x].strip() == "#endif")
+        guards.append((k, f))
         branch = lines[k + 1:e]
         d = top_defs(branch)
-        if len(d) == 1 and d[0][2] in names[(module, obj)] and not any(
-                b.strip() == MARK for b in branch):
+        if len(d) == 1 and d[0][2] in names and not any(b.strip() == MARK for b in branch):
             edits.append((k, e - 1, [extern_for(branch[d[0][0]]), MARK, include_for(d[0][2])]))
 
-    # inner guards: a definition whose initializer has ASSET_INIT branches
+    # definitions: guarded inside (a partial structure's fields), or not guarded at all
     for s, e, name in spans:
-        if name not in names[(module, obj)]:
-            continue
+        if name not in names or any(k < s <= f for k, f in guards):
+            continue        # (in a guard: the first pass has it)
         block = lines[s:e + 1]
-        if not any(b.strip() == MARK for b in block):
-            continue
-        new = [extern_for(block[0]), MARK, include_for(name), "#else"] + zeroed(block) + ["#endif"]
+        if any(b.strip() == MARK for b in block):
+            new = [extern_for(block[0]), MARK, include_for(name), "#else"] + zeroed(block) + ["#endif"]
+        elif name in partial:
+            new = [extern_for(block[0]), MARK, include_for(name), "#else"] + zero_elements(block) + ["#endif"]
+        else:
+            new = [extern_for(block[0]), MARK, include_for(name), "#else",
+                   extern_for(block[0])[len("extern "):-1] + " = { 0 };", "#endif"]
         edits.append((s, e, new))
 
     if not edits:
@@ -138,6 +182,10 @@ def apply_file(path, names, module, obj):
     for first, last, new in sorted(edits, reverse=True):
         lines[first:last + 1] = new
     return "\n".join(lines)
+
+
+def apply_file(path, names, module, obj):
+    return apply_text(path.read_text(), names[(module, obj)], module, obj)
 
 
 def cmd_apply(args):
