@@ -1,0 +1,5 @@
+# the N64 link's addresses CMake reads from the ELFs (port/tools/snapshot.py)
+set(PORT_STATIC_START 0x803ff600)
+set(PORT_FE_DATA 0x80208040)
+set(PORT_FE_BSS 0x80210e90)
+set(PORT_FE_TEXT 0x801e7000)

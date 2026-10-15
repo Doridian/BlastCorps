@@ -43,7 +43,7 @@ slower.  Several agents can run at once (about four has worked here), so calenda
   would remake is not in the executable, and the port fills it from the user's ROM or pack at
   startup.  That is **images and their palettes, vertices, and models, the display lists that draw
   geometry included** (72 variables or fields: `port/tools/rom_assets.txt`).  The game's C has their
-  initializers under `ASSET_INIT` (`blastcorps/include/common.h`), which the port leaves out, and
+  initializers generated from the ROM into the gitignored `blastcorps/asset_init/` (`tools/asset_init.py`, DECOMPILING.md), guarded by `ASSET_INIT` (`blastcorps/include/common.h`), which the port leaves out, and
   `port_rom_fill` (`port/host/romdata.c`, from the pack's module data or the ROM's inflated
   hd_code and hd_front_end) writes them into the zeroed variables first thing in `port_boot`
   (docs/PORT.md, "Byte order and the data's types").  The RSP microcode isn't used by the port:
@@ -75,7 +75,7 @@ slower.  Several agents can run at once (about four has worked here), so calenda
 | 1a | ROM bytes | hd_code and hd_front_end `.data`/`.rodata` from splat's extraction: menu structures, display lists, text tables, libultra's VI modes; the carrier's explosion's texture, vertices and list (`D_802FF738`, `D_802FFF38`, `D_80300A68`) are zeros there now, filled at startup | ~38 K (+353 K bss) | `blastcorps/asm/data/**` → `port/tools/asm2c.py` → C generated in the build directory |
 | 1b | ROM bytes | the two pointer-bearing data islands (7D9D0, 800DC) | 8.6 K | same |
 | 1c | ROM bytes | bin islands: sine and u16 tables, per-level tables, RSP microcode data (6.8 K: zeros now but the audio microcode's 512-byte resampling table); the microcode's text (18.3 K) is zeros in every build (the HLE never runs it) | 15 K | `blastcorps/assets/<module>/*.bin` → `asm2c.py`, C arrays |
-| 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs, Vtx and geometry lists (under `ASSET_INIT`: not in the port, filled at startup), struct tables, strings (stay) | ~206 K of sections before P11 (textures/TLUTs ~62 K of it) | `blastcorps/src/**/*.c` |
+| 1d | ROM bytes | the decompiled C's data initializers (`tools/data_c.py`): textures/TLUTs, Vtx and geometry lists (under `ASSET_INIT`, generated from the ROM: not in the repo or the port, filled at startup), struct tables, strings (stay) | ~206 K of sections before P11 (textures/TLUTs ~62 K of it) | `blastcorps/src/**/*.c` |
 | 1e | all of 1a–1d as carried | (the movable builds' arena image, 106 runs, 192 K, until P10: `bepass/Arena.cpp`; gone) | — | — |
 | 2 | translated ROM code | **none** (2026-10-02; the check build that still compiled it went in P10): Rare's handwritten engine (688 functions, 220 K of MIPS) and jp's 17 IDO `GLOBAL_ASM` functions and `func_802BA3E8_jp` are hand-written C in `port/engine` (row 4g), and `test.py quick` fails a build that links any translation | — (was ~1.1–1.4 MB of host code) | (`tools/recomp`, not built) |
 | 3a | decompiled C | the game's own code | 370 K x86 | `blastcorps/src/**` |

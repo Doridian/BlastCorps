@@ -1,0 +1,19 @@
+D_8030D880 (asm/data/hd_code/5CB60.rodata.s): asm_D_8030D880 doesn't fit (asm_D_8030D880 (0x10 bytes) is bigger than its 0x8): typed by its directives
+D_8030D9E0 (asm/data/hd_code/8AEE0.rodata.s): asm_D_8030D9E0 doesn't fit (asm_D_8030D9E0 (0x20 bytes) is bigger than its 0x10): typed by its directives
+D_8020FF0C (asm/data/hd_front_end/28480.rodata.s): asm_D_8020FF0C doesn't fit (asm_D_8020FF0C (0x784 bytes) is bigger than its 0x14): typed by its directives
+D_803F7F50 (D_803F7C50 + 0x300): inside a variable past a native pointer: no alias
+D_803F8250 (D_803F7C50 + 0x600): inside a variable past a native pointer: no alias
+D_803F8770 (D_803F876C + 0x4): inside a variable past a native pointer: no alias
+D_803F8774 (D_803F876C + 0x8): inside a variable past a native pointer: no alias
+D_803F877C (D_803F8778 + 0x4): inside a variable past a native pointer: no alias
+D_803F8780 (D_803F8778 + 0x8): inside a variable past a native pointer: no alias
+D_803F8784 (D_803F8778 + 0xC): inside a variable past a native pointer: no alias
+D_803F8788 (D_803F8778 + 0x10): inside a variable past a native pointer: no alias
+D_803F878C (D_803F8778 + 0x14): inside a variable past a native pointer: no alias
+D_8020C0AA (D_8020C070 + 0x3A): inside a variable past a native pointer: no alias
+D_8020C0C0 (D_8020C070 + 0x50): inside a variable past a native pointer: no alias
+D_8020C0C1 (D_8020C070 + 0x51): inside a variable past a native pointer: no alias
+D_8020C488 (D_8020C070 + 0x418): inside a variable past a native pointer: no alias
+D_8020D4B8 (D_8020C070 + 0x1448): inside a variable past a native pointer: no alias
+D_8020D530 (D_8020C070 + 0x14C0): inside a variable past a native pointer: no alias
+D_8020D7E4 (D_8020C070 + 0x1774): inside a variable past a native pointer: no alias

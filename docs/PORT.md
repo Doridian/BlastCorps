@@ -722,6 +722,34 @@ build gives the same results now.
   and every variable the host names, each a line `name size` and its bytes
   (`port/host/dump.c`), the same for two runs of one build with ASLR off.
 
+## The snapshot
+
+The port builds without the ROM, for us.v11, from `port/snapshot/us.v11`
+(committed).  It holds the sources the build would otherwise make from the
+N64 link: the data the handwritten objects are (`data_c/`, the asm data as C,
+strings and tables among it), the front end's variables (`fe/`), the ROM
+addresses (`rom_addrs.h`, `romtab.h`), the fill table (`rom_fill.c`,
+`rom_fill.tsv`), the replay's function names, the object link order
+(`data_order.txt`), and four addresses the N64 link's ELFs give (`layout.cmake`).
+It holds no asset: the textures, vertices and geometry lists are zeros in
+the C (`ASSET_INIT`, docs/DISTRIBUTION.md), and `port_rom_fill` reads them from
+the player's ROM at startup.
+
+`port/tools/snapshot.py` makes it, with the ROM, from `build/web-us.v11/gen`
+(or `build/port-us.v11/gen`): run it after the decompilation builds, and again
+whenever that output changes.
+
+CMake uses the snapshot when there is no `blastcorps/build/hd_code.<version>.elf`,
+or when asked (`-DPORT_SNAPSHOT=ON|OFF`); `port/build.py` without a ROM uses it
+and with one sets the flag off.  The two configurations are checked against each
+other: the us.v11 WebAssembly build from the snapshot is byte-identical to the one
+from the ROM (sha256 `5dac8e…`, the same build directory and path).  The
+snapshot covers us.v11 only: the other versions still need their ROM at build time.
+
+The asset scan (`port/tools/rom_scan.py --assets`, `test.py quick`) needs the
+ROM's bytes, so it runs where the ROM is; the CI build (`.github/workflows/pages.yml`)
+does not run it.
+
 ## Comparing builds
 
 Two builds of the port (two compilers, two optimisation levels, a host and

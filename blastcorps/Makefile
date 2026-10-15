@@ -102,7 +102,7 @@ OBJCOPYFLAGS = -O binary
 OPT_FLAGS := -O1
 MIPSISET := -mips2 -o32
 
-INCLUDE_CFLAGS := -I . -I include -I include/2.0I -I include/2.0I/PR
+INCLUDE_CFLAGS := -I . -I include -I include/2.0I -I include/2.0I/PR -I asset_init/$(VERSION)
 
 # --no-pad-sections: handwritten code between the data islands in hd_code
 # starts and ends at odd offsets, and padding its .text out to 16 would shift
@@ -224,6 +224,7 @@ extract: stamp
 	$(PYTHON) $(TOOLS_DIR)/split.py init.$(VERSION).yaml
 	$(PYTHON) $(TOOLS_DIR)/split.py hd_code.$(VERSION).yaml
 	$(PYTHON) $(TOOLS_DIR)/split.py hd_front_end.$(VERSION).yaml
+	$(PYTHON) $(TOOLS_DIR)/asset_init.py generate $(VERSION)
 
 compress: $(GZ_FILES) $(INIT_TARGET).bin
 	@echo "Replacing extracted init..."

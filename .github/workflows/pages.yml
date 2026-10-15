@@ -1,0 +1,64 @@
+name: Pages
+
+# The WebAssembly page (port/build.py --wasm), published on GitHub Pages. It is
+# built from the repository alone (port/snapshot/us.v11, docs/PORT.md "The
+# snapshot"): no ROM is needed. The page asks the player for their own ROM,
+# which is never part of the build or the artifact.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  VERSION: us.v11
+  EMSDK_VERSION: 6.0.10
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binutils-mips-linux-gnu clang cmake ninja-build make
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build the WebAssembly page
+        run: python3 port/build.py --wasm
+
+      - name: Assemble the site
+        run: |
+          mkdir _site
+          cp build/web-$VERSION/blastcorps.{html,js,wasm} _site/
+          cp build/web-$VERSION/blastcorps.html _site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

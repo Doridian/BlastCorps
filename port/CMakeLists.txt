@@ -79,6 +79,29 @@ find_program(N64_READELF NAMES mips-linux-gnu-readelf llvm-readelf HINTS ${CLANG
 # the generators read the stage-2 build of PORT_VERSION
 set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_N64_NM=${N64_NM} ${Python3_EXECUTABLE})
 
+# The ROM-free build (docs/PORT.md, "The snapshot"): without the N64 link's
+# ELFs, the generated sources are the committed copies in port/snapshot/
+# <version> (port/tools/snapshot.py makes them, with the ROM).  PORT_SNAPSHOT
+# forces it either way.
+set(SNAP ${ROOT}/port/snapshot/${PORT_VERSION})
+if(NOT DEFINED PORT_SNAPSHOT)
+    if(EXISTS ${BLAST}/build/hd_code.${PORT_VERSION}.elf)
+        set(PORT_SNAPSHOT OFF)
+    else()
+        set(PORT_SNAPSHOT ON)
+    endif()
+endif()
+# the ROM this port is for, exactly (host/main.c checks it at startup)
+file(READ ${ROOT}/blastcorps.${PORT_VERSION}.sha1 PORT_ROM_SHA1)
+string(STRIP "${PORT_ROM_SHA1}" PORT_ROM_SHA1)
+if(PORT_SNAPSHOT)
+    if(NOT EXISTS ${SNAP}/layout.cmake)
+        message(FATAL_ERROR "no ${SNAP}: the snapshot is made with the ROM (port/tools/snapshot.py ${PORT_VERSION})")
+    endif()
+    message(STATUS "the generated sources: the snapshot in ${SNAP}")
+    file(COPY ${SNAP}/ DESTINATION ${GEN})
+    include(${SNAP}/layout.cmake)
+else()
 if(NOT EXISTS ${BLAST}/build/hd_code.${PORT_VERSION}.elf)
     message(FATAL_ERROR "${BLAST}/build/hd_code.${PORT_VERSION}.elf is missing: build blastcorps (${PORT_VERSION}) first")
 endif()
@@ -88,10 +111,6 @@ string(STRIP "${STAGE2_VERSION}" STAGE2_VERSION)
 if(NOT STAGE2_VERSION STREQUAL PORT_VERSION)
     message(FATAL_ERROR "blastcorps/ is extracted for ${STAGE2_VERSION}, not ${PORT_VERSION}")
 endif()
-
-# the ROM this port is for, exactly (host/main.c checks it at startup)
-file(READ ${ROOT}/blastcorps.${PORT_VERSION}.sha1 PORT_ROM_SHA1)
-string(STRIP "${PORT_ROM_SHA1}" PORT_ROM_SHA1)
 
 # Addresses that differ between versions, from the version's N64 link: the
 # end of hd_code's .bss, where segment 1's static data starts (D_803FF600,
@@ -122,6 +141,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_S
     ${BLAST}/build/rom.${PORT_VERSION}.ld ${BLAST}/build/rom_fixed.${PORT_VERSION}.ld
     ${BLAST}/build/hd_code.${PORT_VERSION}.syms.ld ${BLAST}/build/hd_front_end.${PORT_VERSION}.syms.ld
     ${BLAST}/build/init.${PORT_VERSION}.syms.ld)
+endif()
 # the type inventory: the version's own where its layouts differ (eu's)
 if(EXISTS ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
     set(PORT_INVENTORY ${BLAST}/include/game/inventory.${PORT_VERSION}.json)
@@ -227,6 +247,8 @@ set(N64_DEFINES _LANGUAGE_C _FINALROM TARGET_PC ${PORT_VERSION_DEFINE} _MIPS_SZL
 option(PORT_ASSET_CHECK "the initializers of the ROM's assets back, and the fill checked against them" OFF)
 if(PORT_ASSET_CHECK)
     list(APPEND N64_DEFINES PORT_ASSET_INIT PORT_FILL_CHECK)    # (PortFill has the names for the report: both sides)
+    # the initializers' .inc files (blastcorps/tools/asset_init.py generate, from the ROM)
+    list(APPEND N64_INCLUDES ${BLAST}/asset_init/${PORT_VERSION})
 endif()
 # The decompiled C is IDO's dialect: pointers and ints used
 # interchangeably, narrow and wide types mixed.  These flags make the
@@ -364,18 +386,28 @@ foreach(l ${FILL_LINES})
 endforeach()
 list(REMOVE_DUPLICATES FILL_SOURCES)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_assets.txt)
+if(NOT PORT_SNAPSHOT)
 add_custom_command(OUTPUT ${GEN}/rom_fill.c ${GEN}/rom_fill.tsv
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fill.py ${GEN}/rom_fill.c ${GEN}/rom_fill.tsv
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fill.py ${CMAKE_CURRENT_SOURCE_DIR}/tools/rom_assets.txt
             ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
             ${FILL_SOURCES}
     VERBATIM)
+endif()
 target_sources(port_n64 PRIVATE ${GEN}/rom_fill.c)
 
 # ---- the game's data: the handwritten objects', as C -------------------------
 # (what the N64 build links from asm/data, which holds their .bss too, and
 # the data islands; tools/asm2c.py types it, from the type inventory, and
 # the C is built like the game's: docs/PORT.md, "The asm data as C")
+if(PORT_SNAPSHOT)
+    # the snapshot's objects in the order the ROM build had them (the link order)
+    file(STRINGS ${SNAP}/data_order.txt DATA_ORDER)
+    set(DATA_C)
+    foreach(b ${DATA_ORDER})
+        list(APPEND DATA_C ${GEN}/data_c/${b})
+    endforeach()
+else()
 file(GLOB DATA_S ${BLAST}/asm/data/hd_code/*.s ${BLAST}/asm/data/hd_front_end/*.s)
 # libultra's exception handler's jump table (its code is replaced)
 list(REMOVE_ITEM DATA_S ${BLAST}/asm/data/hd_code/972A0.rodata.s)
@@ -417,8 +449,23 @@ add_custom_command(OUTPUT ${DATA_C}
     DEPENDS ${DATA_DEPS} ${CMAKE_CURRENT_SOURCE_DIR}/tools/asm2c.py ${PORT_INVENTORY}
             ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
     VERBATIM)
+# the order of these objects, for the snapshot's link (port/tools/snapshot.py)
+set(DATA_ORDER)
+foreach(f ${DATA_C})
+    get_filename_component(b ${f} NAME)
+    if(b MATCHES "\\.c$")
+        list(APPEND DATA_ORDER ${b})
+    endif()
+endforeach()
+string(REPLACE ";" "\n" DATA_ORDER_TEXT "${DATA_ORDER}")
+file(WRITE ${GEN}/data_order.txt "${DATA_ORDER_TEXT}\n")
+endif()
 file(MAKE_DIRECTORY ${GEN}/data_c)
-set_source_files_properties(${DATA_C} PROPERTIES GENERATED TRUE)
+# (a snapshot's copies are sources: a clean would remove generated ones, and
+# nothing here regenerates them)
+if(NOT PORT_SNAPSHOT)
+    set_source_files_properties(${DATA_C} PROPERTIES GENERATED TRUE)
+endif()
 foreach(f ${DATA_C})
     get_filename_component(b ${f} NAME)
     if(b MATCHES "hd_front_end.*\\.c$")
@@ -439,22 +486,26 @@ target_compile_options(game_data PRIVATE ${N64_FLAGS})
 # (tools/gen_fevars.py).  The sources are compiled as they are for their
 # symbol tables (fe_scan, which isn't linked), then again, each #included by
 # a file of gen/fe/ followed by its table (fe_c).
+if(NOT PORT_SNAPSHOT)
 add_library(fe_scan OBJECT ${FE_SRC})
 target_compile_options(fe_scan PRIVATE -fdata-sections)
 target_include_directories(fe_scan PRIVATE ${GEN}/data_c ${N64_INCLUDES})
 target_compile_definitions(fe_scan PRIVATE ${N64_DEFINES})
 target_compile_options(fe_scan PRIVATE ${N64_FLAGS})
+endif()
 set(FE_WRAPPED ${GEN}/fe/fe_vars.c)
 foreach(f ${FE_SRC})
     get_filename_component(b ${f} NAME)
     list(APPEND FE_WRAPPED ${GEN}/fe/${b})
 endforeach()
+if(NOT PORT_SNAPSHOT)
 add_custom_command(OUTPUT ${FE_WRAPPED}
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fevars.py ${GEN}/fe --nm ${CMAKE_NM}
             --sources "${FE_SRC}" --objects "$<TARGET_OBJECTS:fe_scan>"
     DEPENDS fe_scan $<TARGET_OBJECTS:fe_scan>
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_fevars.py ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
     COMMAND_EXPAND_LISTS)
+endif()
 add_library(fe_c OBJECT ${FE_WRAPPED})
 target_compile_options(fe_c PRIVATE -fdata-sections)
 target_include_directories(fe_c PRIVATE ${GEN}/data_c ${N64_INCLUDES})
@@ -546,10 +597,12 @@ if(PORT_SDK_TRACE)
 endif()
 # --replay names the function behind each of the movie's reads of the
 # counts by its address (port/host/replay.c): the version's functions
+if(NOT PORT_SNAPSHOT)
 add_custom_command(OUTPUT ${GEN}/n64_funcs.txt
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py funcs ${GEN}/n64_funcs.txt
     DEPENDS ${BLAST}/build/hd_code.${PORT_VERSION}.elf ${BLAST}/build/hd_front_end.${PORT_VERSION}.elf
             ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_syms.py)
+endif()
 add_custom_target(n64_funcs DEPENDS ${GEN}/n64_funcs.txt)
 add_dependencies(host n64_funcs)
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/host/replay.c PROPERTIES
@@ -578,10 +631,12 @@ endif()
 # ---- the loaders (host/native.c, src/loads.c) ---------------------------------
 # the decompressors' entry points are wrapped, so every load is seen; the
 # ROM's segments come from the top-level link map
+if(NOT PORT_SNAPSHOT)
 add_custom_command(OUTPUT ${GEN}/romtab.h
     COMMAND ${PY} ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_romtab.py ${GEN}/romtab.h
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tools/gen_romtab.py ${ROOT}/build/blastcorps.${PORT_VERSION}.map
             ${PORT_INVENTORY})
+endif()
 add_custom_target(romtab DEPENDS ${GEN}/romtab.h)
 add_dependencies(host romtab)
 target_include_directories(host PRIVATE ${GEN})

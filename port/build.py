@@ -180,7 +180,8 @@ def serve(d, port):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("rom")
+    ap.add_argument("rom", nargs="?",
+                    help="your ROM; without one, the us.v11 snapshot (no decompilation, no ROM at build time)")
     ap.add_argument("--wasm", action="store_true")
     ap.add_argument("--node", action="store_true")
     ap.add_argument("--serve", nargs="?", const=8000, type=int)
@@ -193,33 +194,46 @@ def main():
     if args.serve and not args.wasm:
         die("--serve goes with --wasm")
 
-    say("the ROM")
-    z64 = rom_z64(args.rom)
-    v = VERSIONS.get(hashlib.sha1(z64).hexdigest())
-    if not v:
-        die(f"{args.rom} isn't a ROM this project knows (README lists the four sha1s)")
-    if v not in PORTED:
-        die(f"{args.rom} is {v}, which the port doesn't support yet (us.v10, us.v11, jp and eu)")
-    dst = ROOT / f"baserom.{v}.z64"
-    if not dst.exists() or dst.read_bytes() != z64:
-        dst.write_bytes(z64)
-    print(f"{args.rom}: {v} -> {dst.name}")
+    snapshot = args.rom is None
+    if snapshot:
+        v, dst = "us.v11", None
+        if not (ROOT / "port/snapshot" / v / "layout.cmake").exists():
+            die("no ROM given, and no snapshot for us.v11 (port/tools/snapshot.py, with the ROM)")
+        say("no ROM: the port from the snapshot (port/snapshot/us.v11)")
+    else:
+        say("the ROM")
+        z64 = rom_z64(args.rom)
+        v = VERSIONS.get(hashlib.sha1(z64).hexdigest())
+        if not v:
+            die(f"{args.rom} isn't a ROM this project knows (README lists the four sha1s)")
+        if v not in PORTED:
+            die(f"{args.rom} is {v}, which the port doesn't support yet (us.v10, us.v11, jp and eu)")
+        dst = ROOT / f"baserom.{v}.z64"
+        if not dst.exists() or dst.read_bytes() != z64:
+            dst.write_bytes(z64)
+        print(f"{args.rom}: {v} -> {dst.name}")
+    romname = dst.name if dst else "your-rom.z64"
 
     darwin = platform.system() == "Darwin"
     if darwin and not wasm:
         die("on macOS, build the decompilation on Linux and use port/tools/macos_build.sh (README, \"macOS\")")
     check_tools(wasm)
-    env = setup_python()
-    build_decomp(v, env, args.jobs)
+    if snapshot:
+        env = dict(os.environ)
+    else:
+        env = setup_python()
+        build_decomp(v, env, args.jobs)
+    # (set either way: a build directory keeps the last configuration's value)
+    extra = ["-DPORT_SNAPSHOT=ON" if snapshot else "-DPORT_SNAPSHOT=OFF"]
 
     if not wasm:
         out = ROOT / f"build/port-{v}"
         say(f"the port into {out.relative_to(ROOT)}")
         run(["cmake", "-S", "port", "-B", str(out), "-G", "Ninja", "-DCMAKE_C_COMPILER=clang",
-             f"-DPORT_VERSION={v}"] + args.cmake, env)
+             f"-DPORT_VERSION={v}"] + extra + args.cmake, env)
         run(["cmake", "--build", str(out), "-j", str(args.jobs)], env)
         rel = out.relative_to(ROOT)
-        say(f"done: run it with\n   {rel}/blastcorps {dst.name}\n(from the repo's root; README, \"Run it\", has the keys and options)")
+        say(f"done: run it with\n   {rel}/blastcorps {romname}\n(from the repo's root; README, \"Run it\", has the keys and options)")
         return
 
     target = "node" if args.node else "web"
@@ -228,12 +242,12 @@ def main():
     source = f"source {emsdk / 'emsdk_env.sh'} > /dev/null && " if emsdk else ""
     say(f"the WebAssembly build ({target}) into {out.relative_to(ROOT)}")
     cmake = " ".join(["emcmake", "cmake", "-S", "port", "-B", str(out), "-G", "Ninja",
-                      f"-DPORT_VERSION={v}", f"-DPORT_WASM_TARGET={target}"] + args.cmake)
+                      f"-DPORT_VERSION={v}", f"-DPORT_WASM_TARGET={target}"] + extra + args.cmake)
     run(source + cmake, env, shell=True)
     run(source + f"cmake --build {out} -j {args.jobs}", env, shell=True)
     rel = out.relative_to(ROOT)
     if args.node:
-        say(f"done: run it with\n   node {rel}/blastcorps.js --headless --frames 600 --screenshot shot {dst.name}")
+        say(f"done: run it with\n   node {rel}/blastcorps.js --headless --frames 600 --screenshot shot {romname}")
         return
     if args.serve:
         serve(out, args.serve)

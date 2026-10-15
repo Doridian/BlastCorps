@@ -63,6 +63,10 @@ port/build.py --wasm path/to/rom.z64           # the browser page: build/web-<ve
 port/build.py --wasm --serve path/to/rom.z64   # ... and serve it on http://localhost:8000
 ```
 
+With no ROM argument, `port/build.py --wasm` builds the browser page for us.v11
+from the repository alone (`port/snapshot/us.v11`, docs/PORT.md "The snapshot"):
+no ROM is needed to build it, only to play it, and the page asks for it.
+
 It identifies the ROM by its sha1. It sets up the submodules and the venv
 if they aren't there yet, builds the decompilation for that version, then
 the port. That's about a minute on a fast machine.

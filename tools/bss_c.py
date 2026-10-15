@@ -134,9 +134,16 @@ def pieces(addr, size):
 
 
 def preprocess(c_path):
+    # the ASSET_INIT branches' .inc files (asset_init.py) are empty here: the types are
+    # the file's extern declarations, which are what the types come from
+    stubs = Path("build") / "asset_stub"
+    for inc in re.findall(r'#include "([^"]+\.inc)"', c_path.read_text()):
+        (stubs / inc).parent.mkdir(parents=True, exist_ok=True)
+        (stubs / inc).touch()
     r = subprocess.run(["cpp", "-P", "-undef", "-nostdinc", "-I", ".", "-I", "include", "-I", "include/2.0I",
-                        "-I", "include/2.0I/PR", "-D_LANGUAGE_C", "-D_FINALROM", "-D_MIPS_SZLONG=32",
-                        "-D_MIPS_SZINT=32", "-D__sgi", *VERSION_FLAGS, str(c_path)], capture_output=True, text=True)
+                        "-I", "include/2.0I/PR", "-I", str(stubs), "-D_LANGUAGE_C", "-D_FINALROM",
+                        "-D_MIPS_SZLONG=32", "-D_MIPS_SZINT=32", "-D__sgi", *VERSION_FLAGS, str(c_path)],
+                       capture_output=True, text=True)
     return r.stdout
 
 
