@@ -655,6 +655,9 @@ static void usage(const char *argv0) {
             "                       images, shown between retraces by the host clock (not\n"
             "                       with --deterministic)\n"
             "  --wav PATH           write the sound to a WAV file too\n"
+            "  --video PATH         record the window's pictures as H.264 (ffmpeg on PATH; 60\n"
+            "                       a second, one a retrace; gl only, the window's size)\n"
+            "  --window-size WxH    the window's size (1920x1080 for --video at full HD)\n"
             "  --no-audio           no sound (--headless and --deterministic imply it)\n"
             "  --load-waits off|n64 off (the default): no waits for hardware the port doesn't\n"
             "                       have (the controllers' power-on, the EEPROM's writes, the\n"
@@ -683,6 +686,12 @@ int main(int argc, char **argv) {
             host_save_path = argv[++i];
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc)
             host_wav_path = argv[++i];
+        else if (!strcmp(argv[i], "--video") && i + 1 < argc)
+            host_video_path = argv[++i];
+        else if (!strcmp(argv[i], "--window-size") && i + 1 < argc) {
+            if (sscanf(argv[++i], "%dx%d", &host_window_w, &host_window_h) != 2 || host_window_w < 1 || host_window_h < 1)
+                usage(argv[0]);
+        }
         else if (!strcmp(argv[i], "--no-audio"))
             host_audio_enabled = 0;
         else if (!strcmp(argv[i], "--deterministic"))

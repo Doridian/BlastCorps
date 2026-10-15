@@ -48,6 +48,8 @@ void host_perf_presented(unsigned long long images);
 /* audio.c */
 extern int host_audio_enabled;
 extern const char *host_wav_path;
+extern const char *host_video_path;     /* --video: the window's pictures to an H.264 file (gfx_gl.c) */
+extern int host_window_w, host_window_h; /* --window-size: the window's size (0: the default) */
 uint64_t host_audio_samples(void);
 void host_audio_shutdown(void);
 void host_audio_perf(int *queued_ms, unsigned *dropped);     /* queued -1: no device */
@@ -120,5 +122,6 @@ unsigned gfx_gl_window_flags(void);
 int gfx_gl_init(struct SDL_Window *win);
 /* twin: the in-between image to show (gfx_interp_image), or -1 */
 void gfx_gl_present(uintptr_t vi_fb, int vi_width, const char *screenshot, int twin);
+void gfx_gl_record_close(void);         /* --video: the file is finished (host_video_shutdown) */
 
 #endif

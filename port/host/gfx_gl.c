@@ -1706,6 +1706,52 @@ static int adapt_scale(int want) {
     return adapt_cap < want ? adapt_cap : want;
 }
 
+/* --video FILE: each picture the window shows, read back before the swap,
+   into ffmpeg's stdin (H.264; a present is a retrace, so 60 a second with
+   --interpolate: the in-between pictures are presents too).  The window's
+   size is the video's, and it must not change while recording. */
+static FILE *video_pipe;
+static uint8_t *video_buf;
+static int video_w, video_h;
+static unsigned long long video_frames;
+
+static void video_frame(int dw, int dh) {
+    if (!video_pipe) {
+        char cmd[1024];
+        snprintf(cmd, sizeof cmd,
+                 "ffmpeg -v error -y -f rawvideo -pixel_format rgba -video_size %dx%d -framerate 60 -i - "
+                 "-vf vflip -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -movflags +faststart '%s'",
+                 dw, dh, host_video_path);
+        video_pipe = popen(cmd, "w");
+        if (!video_pipe)
+            host_fatal("--video: can't run ffmpeg");
+        video_w = dw;
+        video_h = dh;
+        video_buf = malloc((size_t)dw * dh * 4);
+        if (!video_buf)
+            host_fatal("--video: out of memory");
+        host_log("video: %s, %dx%d at 60 a second\n", host_video_path, dw, dh);
+    }
+    if (dw != video_w || dh != video_h)
+        return;
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glReadBuffer(GL_BACK);
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+    glReadPixels(0, 0, dw, dh, GL_RGBA, GL_UNSIGNED_BYTE, video_buf);
+    fwrite(video_buf, 4, (size_t)dw * dh, video_pipe);
+    video_frames++;
+}
+
+void gfx_gl_record_close(void) {
+    if (!video_pipe)
+        return;
+    pclose(video_pipe);                             /* (ffmpeg finishes the file) */
+    video_pipe = NULL;
+    free(video_buf);
+    video_buf = NULL;
+    host_log("video: %llu frames\n", video_frames);
+}
+
 void gfx_gl_present(GfxAddr vi_fb, int vi_width, const char *shot, int twin) {
     frame_no++;
     GLC_DIRTY();
@@ -1758,6 +1804,8 @@ void gfx_gl_present(GfxAddr vi_fb, int vi_width, const char *shot, int twin) {
         save_bmp(shot, buf, w, h);
         free(buf);
     }
+    if (host_video_path)
+        video_frame(dw, dh);
     SDL_GL_SwapWindow(win);
     if (adapt > 0)
         fences[1] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);

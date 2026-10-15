@@ -93,6 +93,7 @@ int gfx_gl_init(struct SDL_Window *win) { (void)win; return 0; }
 void gfx_gl_present(uintptr_t vi_fb, int vi_width, const char *shot, int twin) {
     (void)vi_fb; (void)vi_width; (void)shot; (void)twin;
 }
+void gfx_gl_record_close(void) {}
 #endif
 
 /* --hud edges (below, "the HUD at the sides"): what the RSP side records for it */

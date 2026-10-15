@@ -21,6 +21,8 @@
 
 int host_max_frames;
 const char *host_screenshot_prefix;
+const char *host_video_path;
+int host_window_w, host_window_h;
 int host_headless;
 int host_renderer = -1;
 
@@ -111,12 +113,18 @@ void host_video_init(void) {
     }
     if (gfx_aspect > 0)                             /* widescreen: a window that wide */
         ww = (int)(wh * gfx_aspect_of(0, 0) + 0.5f);
+    if (host_window_w > 0) {                        /* --window-size */
+        ww = host_window_w;
+        wh = host_window_h;
+    }
     win = SDL_CreateWindow("Blast Corps", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ww, wh,
                            SDL_WINDOW_RESIZABLE | (host_renderer == 1 ? gfx_gl_window_flags() : 0));
     if (!win)
         host_fatal("SDL_CreateWindow: %s", SDL_GetError());
     if (host_renderer == 1 && !gfx_gl_init(win))
         host_renderer = 0;
+    if (host_video_path && host_renderer != 1)
+        host_fatal("--video needs the OpenGL renderer (a window with OpenGL)");
     if (host_renderer == 1)
         goto pads;
     ren = SDL_CreateRenderer(win, -1, 0);
@@ -133,6 +141,7 @@ pads:
 }
 
 void host_video_shutdown(void) {
+    gfx_gl_record_close();
     if (sdl_up)
         SDL_Quit();
 }
