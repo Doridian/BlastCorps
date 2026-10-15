@@ -1,7 +1,10 @@
 # Distributing the port
 
-For now the PC port is **built by its users** from their own ROM (README, "The PC port"): no binary or
-hosted page is published. This file records what a built port contains, so that publishing later can be
+The PC port is **built by its users** from their own ROM (README, "The PC port"), and no binary is published.
+One thing is hosted: the WebAssembly page, deployed to GitHub Pages (https://doridian.github.io/BlastCorps/)
+by `.github/workflows/pages.yml` on every push to `main`, from the committed snapshot
+(docs/PORT.md, "The snapshot"), with no ROM in it. The page is a built port, so it is a publication in the
+sense of the list below. This file records what a built port contains, so that publishing later can be
 planned. It is an inventory by origin, not legal advice. Sizes were measured on us.v10 builds (32-bit,
 LP64, movable 64-bit, wasm web) on 2026-09-30, before P10 made the port one build; us.v11's are
 near-identical, and the one build's differ only where this file says so; they are from before P11, which
@@ -101,7 +104,7 @@ rows 1a–1d (about 260 K).  `test.py budget BUILD` reports the one build's foot
 - The native builds carry about 7.5 MB of DWARF and symbols, with the decomp's names and build paths.
   `llvm-strip` removes them (9.7 MB to 2.2 MB).
 - `PORT_N64_FUNCS` compiles one absolute build path into every binary.
-- The repository has no root LICENSE yet.
+- The repository's root LICENSE (AGPL-3.0-or-later, `fa2e4e7`) is in place for the project's own code (item 6).
 
 ## What publishing binaries would take
 
@@ -122,14 +125,14 @@ rows 1a–1d (about 260 K).  `test.py budget BUILD` reports the one build's foot
    is to be licensed AGPL-3.0 (GPL otherwise, below), which GPLv2-or-later code can join.
 5. **Strip releases**, and drop `PORT_N64_FUNCS`.
 6. **Notices** for SDL2, libepoxy, musl and emscripten, the bundled font (its `port/fonts/OFL.txt`), stb_truetype and stb_image,
-   gzip 1.2.4's deflate (GPLv2 or later: its `port/third_party/gzip-1.2.4/COPYING` and README), and a root LICENSE for the project's code: the
-   owner's intent is **AGPL-3.0**, or plain GPL where that can't work.  The third-party licenses above
+   gzip 1.2.4's deflate (GPLv2 or later: its `port/third_party/gzip-1.2.4/COPYING` and README), and the root LICENSE for the project's code (**AGPL-3.0-or-later**,
+   in place since `fa2e4e7`).  The third-party licenses above
    (zlib, MIT, public domain, Apache-2.0 with the LLVM exception, LGPL for dynamic glibc, GPLv2-or-later
    for gzip, which joins AGPL-3.0-or-later through GPL-3.0) are all compatible with it.
    What can't be relicensed by the project is what isn't its own: the decompiled SDK parts (3b/3c/3d,
    ultralib has no license either) and anything ROM-derived.
-7. **The decompiled game and SDK C (3a/3b)** is the same material as the repository's source. It is the
-   owner's decision. If libaudio had to go, a clean-room synthesizer and sequencer is several agent-hours and
+7. **The decompiled game and SDK C (3a/3b)** is the same material as the repository's source. **Decided
+   (2026-10-15): it stays in the published port**, by the owner's decision. If libaudio had to go, a clean-room synthesizer and sequencer is several agent-hours and
    gives up exact output. gu is about 12 small functions.
 
 ## The engine rewrite
@@ -234,7 +237,7 @@ against its translation.
   in P10).
 
 **What remains for publishing** (the list above): stripping and `PORT_N64_FUNCS` (item 5), the notices
-and the root LICENSE (6), and the owner's decision on the decompiled game and SDK C (7).  The assets are out of
+and the root LICENSE (6), and the decompiled game and SDK C (7), which the owner has decided to keep (2026-10-15).  The assets are out of
 the executable (2, done in P11); the strings and tables stay, by the owner's decision.  A published build
 reads the assets from the user's ROM at run time, or from a resource pack the user made from it
 (docs/PORT.md, "Resource packs"), which may leave out the game's code: the port needs none of it.

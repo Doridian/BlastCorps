@@ -3,6 +3,31 @@
 - This repo contains a decompilation, and a PC port in progress, of Blast Corps `(Japan)`, `(USA)`, `(USA) (Rev 1)` and `(Europe) (En,De)`.
 - Naming and documentation of the source code and data structures are in progress.
 
+[![Blast Corps port: TAS run](https://img.youtube.com/vi/wQkqY01qK9I/hqdefault.jpg)](https://www.youtube.com/watch?v=wQkqY01qK9I)
+
+The port playing through the TAS (tool-assisted speedrun) of WarHippy's
+"all platinum medals" run, TASVideos submission
+[#8170](https://tasvideos.org/8170S) (1:16:02, from power-on).  The movie is
+WarHippy's; the port's replay of it is what [docs/PORT.md](docs/PORT.md)
+checks against ("The TAS").
+
+# Documentation
+
+The WebAssembly build of the port runs in the browser at
+https://doridian.github.io/BlastCorps/ (bring your own ROM; see
+[Build it](#build-it) below for building it yourself).
+
+| Page | What it covers |
+| --- | --- |
+| [docs/PORT.md](docs/PORT.md) | The PC port: building and running it, the platform layer, graphics, audio, timing, the TAS, testing |
+| [docs/ASSETS.md](docs/ASSETS.md) | The ROM's assets, their formats, and how they are extracted and rebuilt |
+| [docs/DECOMPILING.md](docs/DECOMPILING.md) | Notes on matching the decompiled code: IDO quirks, the permuter, versions |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | The plan from the decompilation to the port |
+| [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) | What a built port contains, by origin, and what publishing it would take |
+| [docs/FONTS.md](docs/FONTS.md) | How the game draws its text, its typefaces, and the port's high-resolution text |
+| [docs/LAYOUT.md](docs/LAYOUT.md) | What depends on the N64's memory layout |
+| [docs/TYPES.md](docs/TYPES.md) | The game's structures and the memory inventory |
+
 It uses the following ROMs:
 
 | no-intro                       | Location             | sha1                                       |
