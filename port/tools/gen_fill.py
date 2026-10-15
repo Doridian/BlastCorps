@@ -224,6 +224,8 @@ def main():
         text = open(path).read()
         t, dims = declaration(text, e.sym, path)
         for inc in re.findall(r'^#include\s+("[^"]+")', text, re.M):
+            if inc.endswith('.inc"'):     # (an asset's initializer: asset_init.py's, not a header)
+                continue
             if inc not in includes:
                 includes.append(inc)
         td = local_typedef(text, t)

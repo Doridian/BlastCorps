@@ -196,7 +196,9 @@ class Types:
         if isinstance(e, c_ast.BinaryOp):
             a, b = self.const(e.left), self.const(e.right)
             return {"+": a + b, "-": a - b, "*": a * b, "/": a // b, "<<": a << b, ">>": a >> b,
-                    "|": a | b, "&": a & b}[e.op]
+                    "|": a | b, "&": a & b, "%": a % b, "<": int(a < b), ">": int(a > b),
+                    "<=": int(a <= b), ">=": int(a >= b), "==": int(a == b), "!=": int(a != b),
+                    "&&": int(bool(a) and bool(b)), "||": int(bool(a) or bool(b))}[e.op]
         if isinstance(e, c_ast.UnaryOp):
             if e.op == "sizeof":
                 return self.size(e.expr.type if isinstance(e.expr, c_ast.Typename) else self.vars[e.expr.name])
