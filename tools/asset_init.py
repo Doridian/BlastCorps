@@ -249,8 +249,9 @@ def cmd_generate(args):
             tmp.unlink(missing_ok=True)
             for obj in objects:
                 (BLAST / "asm/data" / module / f"{obj}.data.s").unlink(missing_ok=True)
-        # the normal split again: the asm of these objects is C's again
-        subprocess.run([py, str(ROOT / "tools/split.py"), main.name], **run)
+            # the normal split again (also when generating failed): the asm of these
+            # objects is C's again
+            subprocess.run([py, str(ROOT / "tools/split.py"), main.name], **run)
 
 
 def main():
