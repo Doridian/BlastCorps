@@ -570,11 +570,16 @@ void host_controller_poll(void) {
 }
 
 /* on a crash, the game's memory goes to game_crash.bin (PORT_DUMP set) for comparing
-   (POSIX signals; emscripten has none to catch) */
+   (POSIX signals; emscripten has none to catch, Windows only signal()'s) */
 #ifndef __EMSCRIPTEN__
+#ifdef _WIN32
+static void on_crash(int sig) {
+    fprintf(stderr, "crash: signal %d\n", sig);
+#else
 static void on_crash(int sig, siginfo_t *si, void *uc) {
     (void)uc;
     fprintf(stderr, "crash: signal %d at address %p\n", sig, si->si_addr);
+#endif
     if (getenv("PORT_DUMP")) {
         FILE *f = fopen("game_crash.bin", "wb");
         if (f) {
@@ -821,7 +826,9 @@ int main(int argc, char **argv) {
 #endif
     clock_gettime(CLOCK_MONOTONIC, &t0);
     host_perf_init();
-#ifndef __EMSCRIPTEN__
+#ifdef _WIN32
+    signal(SIGSEGV, on_crash);
+#elif !defined(__EMSCRIPTEN__)
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_sigaction = on_crash;

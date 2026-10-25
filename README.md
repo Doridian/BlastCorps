@@ -66,7 +66,15 @@ built and tested on (clang or gcc, also for i386 and under the sanitizers);
 it also builds and passes its tests as WebAssembly (under node, and as a
 page), and cross-built with zig under qemu for PowerPC, MIPS, ARM and
 AArch64 Linux (PORT.md "Other hosts", "Big-endian and 32-bit hosts");
-macOS on Apple silicon is prepared but untested ([macOS](#macos) below).
+Windows on x86-64 builds with MinGW-w64's clang and passes the quick tier
+under wine ([Windows](#windows) below); macOS on Apple silicon is prepared
+but untested ([macOS](#macos) below).
+
+Prebuilt us.v11 ports (Linux x86-64 and arm64, Windows x86-64, macOS arm64,
+and the browser page) are built by `.github/workflows/build.yml` on every
+push, as the run's artifacts, and attached to the GitHub release of every
+`v*` tag.  They are built from the snapshot and hold no ROM: they still need
+yours (docs/DISTRIBUTION.md).
 
 ## Requirements
 
@@ -88,9 +96,10 @@ port/build.py --wasm path/to/rom.z64           # the browser page: build/web-<ve
 port/build.py --wasm --serve path/to/rom.z64   # ... and serve it on http://localhost:8000
 ```
 
-With no ROM argument, `port/build.py --wasm` builds the browser page for us.v11
-from the repository alone (`port/snapshot/us.v11`, docs/PORT.md "The snapshot"):
-no ROM is needed to build it, only to play it, and the page asks for it.
+With no ROM argument, `port/build.py` builds the us.v11 port (`--wasm`: the
+browser page) from the repository alone (`port/snapshot/us.v11`, docs/PORT.md
+"The snapshot"), with no decompilation and so no `mips-linux-gnu-` binutils:
+no ROM is needed to build it, only to play it (the page asks for it).
 
 It identifies the ROM by its sha1. It sets up the submodules and the venv
 if they aren't there yet, builds the decompilation for that version, then
@@ -285,7 +294,16 @@ compiles for arm64-apple-macos and links, leaving only libSystem, SDL2 and
 libepoxy names undefined), but no one has run it on a Mac yet.  Reports
 welcome.
 
-macOS takes the same build with the system's clang:
+The simplest is the us.v11 port from the snapshot, which needs no
+decompilation (and is what CI builds there):
+
+```
+brew install sdl2 libepoxy pkgconf cmake ninja python
+port/build.py --release
+build/port-us.v11-release/blastcorps baserom.us.v11.z64
+```
+
+Other versions take the same build with the system's clang:
 
 ```
 brew install sdl2 libepoxy pkgconf cmake ninja python
@@ -308,6 +326,29 @@ Linux (or in a Linux container) and copy `blastcorps/build`,
 `blastcorps/asm`, `blastcorps/assets`, `blastcorps/.version` and
 `build/blastcorps.<version>.map` over; the port's own build reads the N64
 ELFs with `llvm-nm` when there is no MIPS `nm`.
+
+## Windows
+
+Windows on x86-64 builds with MinGW-w64's clang, natively in MSYS2's CLANG64
+environment (what CI does) or cross-compiled from Linux with
+[llvm-mingw](https://github.com/mstorsjo/llvm-mingw).  The game's threads
+are Windows fibers there (`port/host/fiber_win32.c`); the rest is the same
+build.  In MSYS2's CLANG64 shell:
+
+```
+pacman -S mingw-w64-clang-x86_64-{clang,llvm-tools,cmake,ninja,pkgconf,python,SDL2,libepoxy}
+python3 port/build.py --release
+build/port-us.v11-release/blastcorps.exe baserom.us.v11.z64
+```
+
+(the executable needs `SDL2.dll` and `libepoxy-0.dll` from `/clang64/bin`
+beside it, or on the `PATH`, to run outside MSYS2).  From Linux, with
+llvm-mingw and the MinGW builds of SDL2 and libepoxy found by
+`PKG_CONFIG_LIBDIR`, it is the CMake build with a toolchain file naming
+`x86_64-w64-mingw32-clang` and `CMAKE_SYSTEM_NAME Windows`;
+`-DCMAKE_CROSSCOMPILING_EMULATOR=wine` runs `test.py quick` on it (the
+software renderer's scenarios: SDL's offscreen driver has no OpenGL on
+Windows).
 
 # Build
 

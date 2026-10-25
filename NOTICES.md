@@ -14,6 +14,8 @@ are kept in the published port (docs/DISTRIBUTION.md, item 7).
 | --- | --- | --- |
 | SDL2 | the native build links it; the WebAssembly build uses Emscripten's SDL2 port | zlib |
 | libepoxy | the native build's OpenGL loader | MIT |
+| MinGW-w64 runtime, winpthreads | the Windows build links them statically (the release archive has winpthreads' license under `licenses/`) | ZPL 2.1 and public domain (runtime), MIT (winpthreads) |
+| compiler-rt | the Windows and WebAssembly builds' compiler runtime | Apache-2.0 with LLVM exception |
 | musl libc | the WebAssembly build's C library (Emscripten's copy) | MIT |
 | Emscripten runtime | the WebAssembly build's toolchain and runtime | MIT or UIUC/NCSA |
 | stb_image 2.30 | `port/third_party/stb/stb_image.h` | public domain or MIT, at your choice |

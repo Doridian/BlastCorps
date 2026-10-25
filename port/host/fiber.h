@@ -14,6 +14,7 @@
  *             variables (macOS, and emscripten with pthreads)
  *   asyncify  emscripten's fibers, all on the page's one thread (the
  *             browser build: fiber_asyncify.c)
+ *   win32     Windows fibers, all on the one OS thread (fiber_win32.c)
  * CMake's PORT_THREADS picks the default; where both are built (Linux)
  * the environment's PORT_THREADS=ucontext|pthread picks one at startup, so
  * the same executable runs either.  Both run the same code in the same
@@ -29,11 +30,12 @@ typedef struct HostFiber HostFiber;
 
 /* on the loop's thread, before any other call */
 void fiber_init(void);
-/* the backend chosen: "ucontext", "pthread" or "asyncify" */
+/* the backend chosen: "ucontext", "pthread", "asyncify" or "win32" */
 const char *fiber_backend(void);
 /* a fiber that will run fn(arg) on `stack` (size bytes, owned by the
    caller) from its first fiber_run; stack may be NULL for the backend's
-   own (pthread only: the ucontext backend needs one) */
+   own (pthread only: the ucontext backend needs one; win32 always takes
+   its own) */
 HostFiber *fiber_create(void (*fn)(void *), void *arg, void *stack, size_t size);
 /* the loop: run f until it yields or exits */
 void fiber_run(HostFiber *f);
@@ -59,7 +61,7 @@ typedef struct {
     void (*free)(HostFiber *f);
     void (*call_on_loop)(void (*fn)(void *), void *arg);
 } FiberOps;
-extern const FiberOps fiber_ucontext_ops, fiber_pthread_ops, fiber_asyncify_ops;
+extern const FiberOps fiber_ucontext_ops, fiber_pthread_ops, fiber_asyncify_ops, fiber_win32_ops;
 /* a backend's start of a fiber: fn(arg), from the same stack address in
    every backend (fiber.c) */
 void fiber_enter(void (*fn)(void *), void *arg, void *stack, size_t size);

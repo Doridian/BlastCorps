@@ -76,8 +76,13 @@ pointer is a host pointer and nothing is at an N64 address (docs/PORT.md,
 `-DPORT_SANITIZE=address,undefined`, `-m32`, `-DPORT_SDL=OFF`,
 `port/tools/cross-{ppc,mipsel,armhf,aarch64}.cmake` (zig cc, run under qemu:
 "Big-endian and 32-bit hosts"), `emcmake cmake` (emsdk) for WebAssembly,
-headless under node or as a page (`-DPORT_WASM_TARGET=web`), and
-`port/tools/macos_build.sh` for macOS.  `port/tools/test.py` (`quick`, `tas`,
+headless under node or as a page (`-DPORT_WASM_TARGET=web`),
+`port/tools/macos_build.sh` for macOS, and MinGW-w64's clang for Windows
+(MSYS2 CLANG64, or llvm-mingw from Linux and run under wine; Windows
+fibers, `port/host/fiber_win32.c`; docs/PORT.md, "Windows").
+`.github/workflows/build.yml` builds the us.v11 port from the snapshot for
+Linux, Windows, macOS and the page on every push, deploys the page from
+`main`, and attaches the archives to the release of a `v*` tag.  `port/tools/test.py` (`quick`, `tas`,
 `budget`, `kinds`; ctest labels `quick`, `tas`, `tas-prefix`, `budget`) tests
 any of them against the committed references.  The game's threads switch by
 ucontext or by host threads one at a time (`port/host/fiber.h`); on Linux one

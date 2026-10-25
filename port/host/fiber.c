@@ -14,6 +14,9 @@ void fiber_init(void) {
 #if defined(PORT_HAVE_ASYNCIFY)
     /* (the only backend there: no threads, no ucontext) */
     ops = &fiber_asyncify_ops;
+#elif defined(PORT_HAVE_WIN32_FIBERS)
+    /* (the only backend there: no ucontext, no pthread_attr_setstack) */
+    ops = &fiber_win32_ops;
 #else
 #if defined(PORT_THREADS_DEFAULT_PTHREAD) || !defined(PORT_HAVE_UCONTEXT)
     ops = &fiber_pthread_ops;

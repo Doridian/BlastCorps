@@ -294,6 +294,8 @@ class Build:
     def __init__(self, path):
         self.path = os.path.abspath(path)
         self.exe = os.path.join(self.path, "blastcorps")
+        if not os.path.exists(self.exe) and os.path.exists(self.exe + ".exe"):    # (Windows)
+            self.exe += ".exe"
         cache = {}
         try:
             with open(os.path.join(self.path, "CMakeCache.txt")) as f:
@@ -359,11 +361,16 @@ class Build:
         return os.path.join(ROOT, f"baserom.{self.version}.z64")
 
     def copy_exe(self, d):
-        """a copy of the executable in d (wasm: the .js and its .wasm); its path"""
+        """a copy of the executable in d (wasm: the .js and its .wasm; Windows:
+        the DLLs beside it); its path"""
         os.makedirs(d, exist_ok=True)
         shutil.copy2(self.exe, d)
         if self.wasm:
             shutil.copy2(os.path.splitext(self.exe)[0] + ".wasm", d)
+        if self.exe.endswith(".exe"):
+            for f in os.listdir(self.path):
+                if f.lower().endswith(".dll"):
+                    shutil.copy2(os.path.join(self.path, f), d)
         return os.path.join(d, os.path.basename(self.exe))
 
     def qemu(self, arch):
@@ -852,7 +859,7 @@ def no_translation(build):
     for f in files:
         if not nm or not os.path.exists(f):
             continue
-        r = subprocess.run([nm, f], capture_output=True, text=True)
+        r = subprocess.run([nm, f], capture_output=True, text=True, errors="replace")
         if r.returncode == 0 and r.stdout.strip():
             looked.append(os.path.basename(f))
             syms |= set(TRANSLATED.findall(r.stdout))

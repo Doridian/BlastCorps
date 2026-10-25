@@ -82,9 +82,13 @@ def rom_z64(path):
     die(f"{path} doesn't look like an N64 ROM")
 
 
-def check_tools(wasm):
+def check_tools(wasm, snapshot):
     missing = []
-    need = ["mips-linux-gnu-ld", "mips-linux-gnu-as", "clang", "cmake", "ninja", "git", "make"]
+    need = ["cmake", "ninja"]
+    if not snapshot:                                    # (the decompilation's build)
+        need += ["mips-linux-gnu-ld", "mips-linux-gnu-as", "clang", "git", "make"]
+    elif not wasm:
+        need.append("clang")
     if not wasm:
         need.append("pkg-config")
     for t in need:
@@ -220,9 +224,10 @@ def main():
     romname = dst.name if dst else "your-rom.z64"
 
     darwin = platform.system() == "Darwin"
-    if darwin and not wasm:
-        die("on macOS, build the decompilation on Linux and use port/tools/macos_build.sh (README, \"macOS\")")
-    check_tools(wasm)
+    if darwin and not wasm and not snapshot:
+        die("on macOS, build the decompilation on Linux and use port/tools/macos_build.sh (README, \"macOS\"),\n"
+            "or build from the snapshot (no ROM argument)")
+    check_tools(wasm, snapshot)
     if snapshot:
         env = dict(os.environ)
     else:

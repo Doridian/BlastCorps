@@ -747,7 +747,7 @@ from the ROM (sha256 `5dac8e…`, the same build directory and path).  The
 snapshot covers us.v11 only: the other versions still need their ROM at build time.
 
 The asset scan (`port/tools/rom_scan.py --assets`, `test.py quick`) needs the
-ROM's bytes, so it runs where the ROM is; the CI build (`.github/workflows/pages.yml`)
+ROM's bytes, so it runs where the ROM is; the CI build (`.github/workflows/build.yml`)
 does not run it.
 
 ## Comparing builds
@@ -1190,7 +1190,7 @@ The context switch is behind a small interface, `port/host/fiber.h`, and
 `threads.c` does all the scheduling above it.  The switches form a star:
 the loop (`main.c`) runs a fiber (`fiber_run`) until it yields back
 (`fiber_yield`, `fiber_exit`); a fiber never switches to another fiber.
-There are three backends:
+There are four backends:
 
 - **ucontext** (`fiber_ucontext.c`): `makecontext`/`swapcontext` on the one
   OS thread, as before.  The default where it exists (Linux with glibc).
@@ -1207,6 +1207,10 @@ There are three backends:
 - **asyncify** (`fiber_asyncify.c`): emscripten's fibers
   (`emscripten_fiber_swap`, Asyncify), all on the one thread, in the
   ucontext backend's shape.  The WebAssembly build's default ("WebAssembly").
+- **win32** (`fiber_win32.c`): Windows fibers (`CreateFiberEx`,
+  `SwitchToFiber`), all on the one thread, in the ucontext backend's shape.
+  The only backend on Windows ("Windows"): a Windows fiber's stack is the
+  system's, so `runtime.c`'s goes unused and `fiber_enter` gets none.
 
 Where both are built, the environment's `PORT_THREADS=ucontext|pthread`
 picks one at startup (CMake's `PORT_THREADS` is the default), so one
@@ -1463,6 +1467,11 @@ P10's last packet it builds all 248 objects, links, and leaves only
 library names undefined (195: libc, pthreads, SDL, epoxy's GL, libSystem's
 `___sincosf_stret`, `_memset_pattern16`, `___stack_chk_*`...).
 
+CI (`.github/workflows/build.yml`) builds the us.v11 port from the
+snapshot on a `macos-15` runner (`port/build.py --release`), bundles
+Homebrew's SDL2 and libepoxy beside it with `dylibbundler`, and starts it
+once (its usage message); it runs no game there (no ROM).
+
 What only a Mac can tell: whether Apple's clang compiles the N64 side
 with the flags the Linux clang takes (the `-Werror` set, `-fPIE`,
 `-ftrivial-auto-var-init`), the SDK's headers against the host code (only
@@ -1470,6 +1479,35 @@ musl's were tried, and `__linux__` undefined), the link with ld64 against
 the real libraries, the pthread backend with 16 KB pages, SDL's window and
 GL context on the main thread (the loop is on it, the game's threads call
 over through `fiber_call_on_loop`), and then the TAS.
+
+### Windows
+
+Windows on x86-64, with MinGW-w64's clang (MSYS2's CLANG64, or llvm-mingw
+from Linux) and its UCRT; README, "Windows", has the commands.  LLP64's
+32-bit `long` changes nothing: the N64 side's types are `ultratypes.h`'s
+fixed widths, and pointers are `__UINTPTR_TYPE__`.  What differs:
+
+- **Threads**: the win32 backend ("Threads without ucontext"): no
+  ucontext, and winpthreads' `pthread_attr_setstack` doesn't take the
+  caller's memory.  CMake defines `PORT_HAVE_WIN32_FIBERS` and not
+  `PORT_HAVE_PTHREAD` there.
+- **The crash handler** is `signal(SIGSEGV)` (no `sigaction` or
+  `sigaltstack`), without the faulting address.
+- **The stacks** (`runtime.c`) come from `_aligned_malloc`: the UCRT has no
+  `aligned_alloc`.
+- **The link** takes winpthreads statically (`-l:libwinpthread.a`, for
+  `clock_gettime` and `nanosleep`), so the executable needs no DLL but
+  SDL2's and libepoxy's.  No `-pie` (MinGW's executables relocate anyway).
+- **Strict mode** has no image bounds there, as on macOS.
+
+Checked by cross-building with llvm-mingw on Linux and running under wine
+(`-DCMAKE_CROSSCOMPILING_EMULATOR=wine`; `test.py` finds `blastcorps.exe`
+and copies the DLLs beside it with it): `test.py quick` passes, the
+references' saves, sounds, screenshots and gameplay digests, with the
+software renderer; the OpenGL renderer runs in a window under wine (SDL's
+offscreen driver has no GL context on Windows, so `--all`'s GL scenarios
+fail headless).  CI builds it natively in MSYS2 on `windows-latest` and
+ships the DLLs that `ldd` names under `/clang64` beside it.
 
 ## WebAssembly
 

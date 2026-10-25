@@ -1,0 +1,223 @@
+name: Build
+
+# The port for Linux (x86-64, arm64), Windows (x86-64), macOS (arm64) and the
+# WebAssembly page, on every push and pull request.  Everything is built from
+# the repository alone (port/snapshot/us.v11, docs/PORT.md "The snapshot"):
+# no ROM is needed, and none is in any artifact; the player gives the port
+# their own at run time.  A push to main also deploys the page to GitHub
+# Pages; a tag v* publishes every build on the tag's release.
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VERSION: us.v11
+  EMSDK_VERSION: 6.0.10
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang llvm cmake ninja-build pkg-config libsdl2-dev libepoxy-dev
+
+      - name: Build
+        run: python3 port/build.py --release
+
+      - name: Package
+        run: |
+          d=blastcorps-linux-${{ matrix.arch }}
+          mkdir -p $d/licenses
+          cp build/port-$VERSION-release/blastcorps $d/
+          cp LICENSE NOTICES.md $d/
+          cp port/fonts/OFL.txt $d/licenses/StardosStencil-OFL.txt
+          cp port/third_party/gzip-1.2.4/COPYING $d/licenses/gzip-COPYING
+          tar czf $d.tar.gz $d
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blastcorps-linux-${{ matrix.arch }}
+          path: blastcorps-linux-${{ matrix.arch }}.tar.gz
+
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-llvm-tools
+            mingw-w64-clang-x86_64-cmake
+            mingw-w64-clang-x86_64-ninja
+            mingw-w64-clang-x86_64-pkgconf
+            mingw-w64-clang-x86_64-python
+            mingw-w64-clang-x86_64-SDL2
+            mingw-w64-clang-x86_64-libepoxy
+            zip
+
+      - name: Build
+        run: python3 port/build.py --release
+
+      - name: Package
+        run: |
+          d=blastcorps-windows-x86_64
+          mkdir -p $d/licenses
+          cp build/port-$VERSION-release/blastcorps.exe $d/
+          # the DLLs it needs that Windows doesn't have (SDL2's, libepoxy's),
+          # with their packages' licenses
+          for dll in $(ldd $d/blastcorps.exe | awk '$3 ~ "^/clang64/" { print $3 }'); do
+              cp "$dll" $d/
+              pkg=$(pacman -Qqo "$dll")
+              cp -r "/clang64/share/licenses/${pkg#mingw-w64-clang-x86_64-}" $d/licenses/ 2>/dev/null || true
+          done
+          cp -r /clang64/share/licenses/*winpthread* $d/licenses/ 2>/dev/null || true
+          cp LICENSE NOTICES.md $d/
+          cp port/fonts/OFL.txt $d/licenses/StardosStencil-OFL.txt
+          cp port/third_party/gzip-1.2.4/COPYING $d/licenses/gzip-COPYING
+          ls -R $d
+          # (it starts: the DLLs are all there)
+          (cd $d && ./blastcorps.exe --help 2>&1 | grep "usage:")
+          zip -r $d.zip $d
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blastcorps-windows-x86_64
+          path: blastcorps-windows-x86_64.zip
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: brew install sdl2 libepoxy pkgconf ninja dylibbundler
+
+      - name: Build
+        run: python3 port/build.py --release
+
+      - name: Package
+        run: |
+          d=blastcorps-macos-arm64
+          mkdir -p $d/licenses
+          cp build/port-$VERSION-release/blastcorps $d/
+          # SDL2 and libepoxy from Homebrew, beside it in libs/
+          dylibbundler -od -b -x $d/blastcorps -d $d/libs -p @executable_path/libs/
+          codesign --force -s - $d/libs/*.dylib $d/blastcorps
+          otool -L $d/blastcorps
+          cp LICENSE NOTICES.md $d/
+          cp port/fonts/OFL.txt $d/licenses/StardosStencil-OFL.txt
+          cp port/third_party/gzip-1.2.4/COPYING $d/licenses/gzip-COPYING
+          # (it starts: the libraries are all there)
+          (cd $d && ./blastcorps --help 2>&1 | grep "usage:")
+          tar czf $d.tar.gz $d
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blastcorps-macos-arm64
+          path: blastcorps-macos-arm64.tar.gz
+
+  web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSDK_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build the WebAssembly page
+        run: python3 port/build.py --wasm
+
+      - name: Assemble the site
+        run: |
+          mkdir _site
+          cp build/web-$VERSION/blastcorps.{html,js,wasm} _site/
+          cp build/web-$VERSION/blastcorps.html _site/index.html
+          d=blastcorps-web
+          mkdir -p $d/licenses
+          cp _site/* $d/
+          cp LICENSE NOTICES.md $d/
+          cp port/fonts/OFL.txt $d/licenses/StardosStencil-OFL.txt
+          cp port/third_party/gzip-1.2.4/COPYING $d/licenses/gzip-COPYING
+          zip -r $d.zip $d
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blastcorps-web
+          path: blastcorps-web.zip
+
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: web
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows, macos, web]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish on the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          ls -l dist
+          gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --verify-tag --generate-notes --title "$TAG"
+          gh release upload "$TAG" dist/* --clobber

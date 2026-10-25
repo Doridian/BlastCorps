@@ -16,7 +16,11 @@ static void *stacks[PORT_MAX_THREADS];
 void *host_thread_stack(int idx, uint32_t *size) {
     *size = PORT_STACK_SIZE;
     if (!stacks[idx]) {
+#ifdef _WIN32
+        stacks[idx] = _aligned_malloc(PORT_STACK_SIZE, 0x4000);     /* (no aligned_alloc there) */
+#else
         stacks[idx] = aligned_alloc(0x4000, PORT_STACK_SIZE);
+#endif
         if (!stacks[idx])
             host_fatal("no memory for thread %d's stack", idx);
         memset(stacks[idx], 0, PORT_STACK_SIZE);
