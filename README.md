@@ -1,7 +1,13 @@
 # Blast Corps
 
-- This repo contains a decompilation, and a PC port in progress, of Blast Corps `(Japan)`, `(USA)`, `(USA) (Rev 1)` and `(Europe) (En,De)`.
-- Naming and documentation of the source code and data structures are in progress.
+- This repo contains a matching decompilation of Blast Corps `(Japan)`, `(USA)`, `(USA) (Rev 1)` and `(Europe) (En,De)`, and a working PC port built from it that plays all four.
+- The port runs on:
+  - **Linux** (x86-64 and arm64; also builds for i386, PowerPC, MIPS and ARM)
+  - **Windows** (x86-64)
+  - **macOS** (Apple silicon; builds, not yet tested on a Mac)
+  - **the browser** (WebAssembly, at https://doridian.github.io/BlastCorps/)
+- It plays the whole game, including a full replay of a TAS (below), and adds widescreen, high frame rates, high-resolution text, model icons, a free camera, and mouse and touch controls.  More enhancements are still being added.
+- Naming and documentation of the source code and data structures are ongoing.
 
 [![Blast Corps port: TAS run](https://img.youtube.com/vi/wQkqY01qK9I/hqdefault.jpg)](https://www.youtube.com/watch?v=wQkqY01qK9I)
 
