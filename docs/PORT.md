@@ -1468,9 +1468,9 @@ library names undefined (195: libc, pthreads, SDL, epoxy's GL, libSystem's
 `___sincosf_stret`, `_memset_pattern16`, `___stack_chk_*`...).
 
 CI (`.github/workflows/build.yml`) builds the us.v11 port from the
-snapshot on a `macos-15` runner (`port/build.py --release`), bundles
-Homebrew's SDL2 and libepoxy beside it with `dylibbundler`, and starts it
-once (its usage message); it runs no game there (no ROM).
+snapshot on a `macos-15` runner (`port/build.py --release`) into an app
+("Packages") and starts it once (its usage message); it runs no game there
+(no ROM).
 
 What only a Mac can tell: whether Apple's clang compiles the N64 side
 with the flags the Linux clang takes (the `-Werror` set, `-fPIE`,
@@ -1495,9 +1495,12 @@ fixed widths, and pointers are `__UINTPTR_TYPE__`.  What differs:
   `sigaltstack`), without the faulting address.
 - **The stacks** (`runtime.c`) come from `_aligned_malloc`: the UCRT has no
   `aligned_alloc`.
-- **The link** takes winpthreads statically (`-l:libwinpthread.a`, for
-  `clock_gettime` and `nanosleep`), so the executable needs no DLL but
-  SDL2's and libepoxy's.  No `-pie` (MinGW's executables relocate anyway).
+- **The link** is static (`PORT_STATIC`, the default there: SDL2's and
+  libepoxy's static libraries by pkg-config's `--static` flags,
+  `EPOXY_PUBLIC=extern` so that libepoxy's names aren't `dllimport`ed, and
+  winpthreads for `clock_gettime` and `nanosleep`): the `.exe` needs no DLL
+  but Windows' own.  `port/res/blastcorps.rc` gives it its icon.  No `-pie`
+  (MinGW's executables relocate anyway).
 - **Strict mode** has no image bounds there, as on macOS.
 
 Checked by cross-building with llvm-mingw on Linux and running under wine
@@ -1506,8 +1509,35 @@ and copies the DLLs beside it with it): `test.py quick` passes, the
 references' saves, sounds, screenshots and gameplay digests, with the
 software renderer; the OpenGL renderer runs in a window under wine (SDL's
 offscreen driver has no GL context on Windows, so `--all`'s GL scenarios
-fail headless).  CI builds it natively in MSYS2 on `windows-latest` and
-ships the DLLs that `ldd` names under `/clang64` beside it.
+fail headless).  CI builds it natively in MSYS2 on `windows-latest`.
+
+### Packages
+
+What `.github/workflows/build.yml` makes of the us.v11 port from the
+snapshot, one file each: an AppImage for Linux (linuxdeploy: SDL2 and
+libepoxy inside, libGL and the base libraries the system's; built on Ubuntu
+24.04, so it needs its glibc or newer), the static `.exe` for Windows, and
+for macOS `Blast Corps.app` (`port/res/Info.plist`; SDL2 built from source
+and linked in, `PORT_STATIC`, since Homebrew's `sdl2` is sdl2-compat, which
+loads SDL3 at run time; Homebrew's libepoxy in `Contents/Frameworks` by
+dylibbundler; signed ad hoc, not notarized) in a `.dmg`.  The AppImage and the app carry `LICENSE`,
+`NOTICES.md` and the license texts; the release has them for the `.exe` as
+`blastcorps-licenses.zip`.  The icon (`port/res/icon.png`, `icon.ico`) is
+the project's own: "BC" in the bundled Stardos Stencil.
+
+A package is started from its icon, with no arguments and no telling what
+the working directory is, so `port/host/romfind.c`: with no ROM on the
+command line and none by `ROM_DEFAULT`'s name in the working directory,
+and a window to come, the port asks for it with the system's file dialog
+(Windows' open dialog, osascript's `choose file` on macOS, zenity or
+kdialog on Linux), checks its sha1 (another file is refused and it asks
+again), and keeps the path in the player's data directory
+(`SDL_GetPrefPath`: `~/.local/share/BlastCorps`, `%APPDATA%\BlastCorps`,
+`~/Library/Application Support/BlastCorps`), where the save goes too
+unless `--save` says otherwise.  It asks again only if that file is gone.
+Nothing else is looked at.  Headless runs, and any run given a ROM, are as
+before; an error while finding or loading the ROM is also shown in a
+message box.
 
 ## WebAssembly
 

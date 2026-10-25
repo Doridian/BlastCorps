@@ -70,11 +70,13 @@ Windows on x86-64 builds with MinGW-w64's clang and passes the quick tier
 under wine ([Windows](#windows) below); macOS on Apple silicon is prepared
 but untested ([macOS](#macos) below).
 
-Prebuilt us.v11 ports (Linux x86-64 and arm64, Windows x86-64, macOS arm64,
-and the browser page) are built by `.github/workflows/build.yml` on every
+Prebuilt us.v11 ports are built by `.github/workflows/build.yml` on every
 push, as the run's artifacts, and attached to the GitHub release of every
-`v*` tag.  They are built from the snapshot and hold no ROM: they still need
-yours (docs/DISTRIBUTION.md).
+`v*` tag, each one file: an AppImage for Linux (x86-64, arm64), an `.exe`
+for Windows (x86-64), an app in a `.dmg` for macOS (arm64), and a zip of
+the browser page.  They are built from the snapshot and hold no ROM: started
+without one, they ask for yours with the system's file dialog the first
+time and remember it (docs/PORT.md, "Packages").
 
 ## Requirements
 
@@ -341,8 +343,8 @@ python3 port/build.py --release
 build/port-us.v11-release/blastcorps.exe baserom.us.v11.z64
 ```
 
-(the executable needs `SDL2.dll` and `libepoxy-0.dll` from `/clang64/bin`
-beside it, or on the `PATH`, to run outside MSYS2).  From Linux, with
+(SDL2 and libepoxy are linked in, `PORT_STATIC`, the default on Windows:
+the `.exe` is the one file).  From Linux, with
 llvm-mingw and the MinGW builds of SDL2 and libepoxy found by
 `PKG_CONFIG_LIBDIR`, it is the CMake build with a toolchain file naming
 `x86_64-w64-mingw32-clang` and `CMAKE_SYSTEM_NAME Windows`;

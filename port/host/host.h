@@ -10,6 +10,14 @@
 /* main.c: the ROM as loaded (big-endian), romdata.c: its sha1 (and
    port.h's port_rom_fill: the ROM's assets in the game's data) */
 const uint8_t *host_rom(void);
+int host_rom_to_z64(uint8_t *rom, uint32_t size);
+/* romfind.c: the ROM to play when none is given: def if it is here; else,
+   with a window to come, the one the player picked the last time, or asked
+   for now with the system's file dialog (*save then the save's path in the
+   player's data directory, where that choice is kept); a message box for
+   an error */
+const char *host_find_rom(const char *def, int windowed, const char **save);
+void host_error_box(const char *msg);
 void host_sha1_hex(const uint8_t *p, size_t n, char out[41]);
 /* romdata.c: a gzip member's contents into out (at most outn bytes); their
    length, or -1 (and in *used, the member's own length).  pack.c: a texture's blast stream of type t (1..6) decoded

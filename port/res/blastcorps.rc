@@ -1,0 +1,2 @@
+/* the Windows executable's icon (port/res/icon.ico) */
+1 ICON "icon.ico"

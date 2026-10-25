@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Blast Corps
+Comment=The PC port of Blast Corps (needs your own ROM)
+Exec=blastcorps %f
+Icon=blastcorps
+Categories=Game;
+Terminal=false

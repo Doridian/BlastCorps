@@ -167,5 +167,11 @@ static inline void SDL_PauseAudioDevice(SDL_AudioDeviceID d, int p) { (void)d; (
 static inline int SDL_QueueAudio(SDL_AudioDeviceID d, const void *p, Uint32 n) { (void)d; (void)p; (void)n; return -1; }
 static inline Uint32 SDL_GetQueuedAudioSize(SDL_AudioDeviceID d) { (void)d; return 0; }
 static inline void SDL_ClearQueuedAudio(SDL_AudioDeviceID d) { (void)d; }
+#define SDL_MESSAGEBOX_ERROR 0x10u
+static inline int SDL_ShowSimpleMessageBox(Uint32 f, const char *t, const char *m, SDL_Window *w) {
+    (void)f; (void)t; (void)m; (void)w; return -1;
+}
+static inline char *SDL_GetPrefPath(const char *org, const char *app) { (void)org; (void)app; return NULL; }
+static inline void SDL_free(void *p) { (void)p; }
 
 #endif

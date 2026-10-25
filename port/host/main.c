@@ -78,18 +78,45 @@ void host_pool_report(const char *what, int level, const void *top, const void *
                 (unsigned)((const char *)end - (const char *)top));
 }
 
+/* set while the ROM is found and loaded with a window to come: a fatal error
+   is shown in a message box too (a packaged app has no terminal) */
+static int fatal_box;
+
 void host_fatal(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    fprintf(stderr, "fatal: ");
-    vfprintf(stderr, fmt, ap);
-    fprintf(stderr, "\n");
+    char msg[1024];
+    vsnprintf(msg, sizeof msg, fmt, ap);
     va_end(ap);
+    fprintf(stderr, "fatal: %s\n", msg);
+    if (fatal_box)
+        host_error_box(msg);
     host_threads_dump();
     exit(1);
 }
 
 /* ---- cartridge ------------------------------------------------------------ */
+
+/* an N64 ROM in any of the three byte orders into .z64's (big-endian), in
+   place; 0 if it isn't one */
+int host_rom_to_z64(uint8_t *rom, uint32_t rom_size) {
+    if (rom_size < 0x40)
+        return 0;
+    uint32_t magic = port_rd32(rom);
+    if (magic == 0x37804012u) {             /* .v64: byte-swapped halves */
+        for (uint32_t i = 0; i + 1 < rom_size; i += 2) {
+            uint8_t t = rom[i]; rom[i] = rom[i + 1]; rom[i + 1] = t;
+        }
+    } else if (magic == 0x40123780u) {      /* .n64: little-endian words */
+        for (uint32_t i = 0; i + 3 < rom_size; i += 4) {
+            uint8_t a = rom[i], b = rom[i + 1];
+            rom[i] = rom[i + 3]; rom[i + 1] = rom[i + 2]; rom[i + 2] = b; rom[i + 3] = a;
+        }
+    } else if (magic != 0x80371240u) {
+        return 0;
+    }
+    return 1;
+}
 
 static void load_rom(const char *path) {
     /* a resource pack (pack.c): the ROM's image made from its files */
@@ -115,19 +142,8 @@ static void load_rom(const char *path) {
     if (fread(rom, 1, rom_size, f) != rom_size)
         host_fatal("short read on %s", path);
     fclose(f);
-    uint32_t magic = port_rd32(rom);
-    if (magic == 0x37804012u) {             /* .v64: byte-swapped halves */
-        for (uint32_t i = 0; i + 1 < rom_size; i += 2) {
-            uint8_t t = rom[i]; rom[i] = rom[i + 1]; rom[i + 1] = t;
-        }
-    } else if (magic == 0x40123780u) {      /* .n64: little-endian words */
-        for (uint32_t i = 0; i + 3 < rom_size; i += 4) {
-            uint8_t a = rom[i], b = rom[i + 1];
-            rom[i] = rom[i + 3]; rom[i + 1] = rom[i + 2]; rom[i + 2] = b; rom[i + 3] = a;
-        }
-    } else if (magic != 0x80371240u) {
+    if (!host_rom_to_z64(rom, rom_size))
         host_fatal("%s is not an N64 ROM", path);
-    }
     /* the version this port was built for, exactly (CMake's PORT_ROM_SHA1,
        from blastcorps.<version>.sha1); PORT_ROM_ANY=1 lets another ROM through
        (an edited one) with a warning. */
@@ -677,8 +693,9 @@ static void usage(const char *argv0) {
 }
 
 int main(int argc, char **argv) {
-    const char *rom_path = ROM_DEFAULT;
+    const char *rom_path = NULL;
     const char *load_waits_arg = NULL;
+    int save_set = 0;
     int aspect_set = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "-v"))
@@ -688,7 +705,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc)
             host_screenshot_prefix = argv[++i];
         else if (!strcmp(argv[i], "--save") && i + 1 < argc)
-            host_save_path = argv[++i];
+            host_save_path = argv[++i], save_set = 1;
         else if (!strcmp(argv[i], "--wav") && i + 1 < argc)
             host_wav_path = argv[++i];
         else if (!strcmp(argv[i], "--video") && i + 1 < argc)
@@ -840,7 +857,17 @@ int main(int argc, char **argv) {
     sigaltstack(&ss, NULL);
 #endif
     fiber_init();
+    fatal_box = windowed;
+    if (!rom_path) {
+        /* none given: ROM_DEFAULT here, or the one the player picks
+           (romfind.c: a packaged app started from its icon) */
+        const char *save = NULL;
+        rom_path = host_find_rom(ROM_DEFAULT, windowed, &save);
+        if (save && !save_set)
+            host_save_path = save;
+    }
     load_rom(rom_path);
+    fatal_box = 0;
     host_video_init();
     hdtext_init();
     if (deterministic && gfx_interp_hz > PORT_RETRACE_HZ) {

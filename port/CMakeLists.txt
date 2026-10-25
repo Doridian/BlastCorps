@@ -546,6 +546,13 @@ pkg_check_modules(SDL2 REQUIRED sdl2)
 # the OpenGL renderer (gfx_gl.c) is optional: without libepoxy, only the
 # software one is built
 pkg_check_modules(EPOXY epoxy)
+# PORT_STATIC: SDL2 and libepoxy linked into the executable, which is then
+# the one file (the default on Windows, where there is no system SDL2)
+option(PORT_STATIC "SDL2 and libepoxy linked statically" ${WIN32})
+if(PORT_STATIC)
+    set(SDL2_LDFLAGS ${SDL2_STATIC_LDFLAGS})
+    set(EPOXY_LDFLAGS ${EPOXY_STATIC_LDFLAGS})
+endif()
 endif()
 endif()
 file(GLOB HOST_C ${CMAKE_CURRENT_SOURCE_DIR}/host/*.c)
@@ -632,6 +639,9 @@ add_custom_command(OUTPUT ${GEN}/n64_funcs_builtin.c
 target_sources(host PRIVATE ${GEN}/n64_funcs_builtin.c)
 if(EPOXY_FOUND)
     target_compile_definitions(host PRIVATE PORT_HAVE_GL)
+    if(PORT_STATIC)
+        target_compile_definitions(host PRIVATE EPOXY_PUBLIC=extern)   # (not dllimport)
+    endif()
     target_include_directories(host PRIVATE ${EPOXY_INCLUDE_DIRS})
 endif()
 # PORT_SIMD (docs/PORT.md, "The fourth round"): the renderer's vertex
@@ -719,8 +729,16 @@ if(EMSCRIPTEN)
     endif()
 elseif(WIN32)
     # clock_gettime and nanosleep are winpthreads', linked in so that the
-    # executable needs no DLL but SDL2's
-    target_link_libraries(blastcorps PRIVATE -l:libwinpthread.a)
+    # executable needs no DLL of MinGW's
+    target_link_libraries(blastcorps PRIVATE -l:libwinpthread.a comdlg32)
+    # the icon (port/res: the packages' icon, docs/PORT.md "Packages")
+    enable_language(RC)
+    target_sources(blastcorps PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/res/blastcorps.rc)
+    set_property(SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/res/blastcorps.rc APPEND PROPERTY
+        OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/res/icon.ico)
+    if(PORT_STATIC)
+        target_link_options(blastcorps PRIVATE -static)
+    endif()
 elseif(NOT APPLE)
     # (a PIE is all arm64 macOS runs, and ld64's default)
     target_link_options(blastcorps PRIVATE -pie)
