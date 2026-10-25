@@ -102,7 +102,7 @@ jobs:
           cp port/third_party/gzip-1.2.4/COPYING $d/licenses/gzip-COPYING
           ls -R $d
           # (it starts: the DLLs are all there)
-          (cd $d && ./blastcorps.exe --help 2>&1 | grep "usage:")
+          (cd $d && { ./blastcorps.exe --help 2>&1 || true; } | grep "usage:")
           zip -r $d.zip $d
 
       - uses: actions/upload-artifact@v4
@@ -134,7 +134,7 @@ jobs:
           cp port/fonts/OFL.txt $d/licenses/StardosStencil-OFL.txt
           cp port/third_party/gzip-1.2.4/COPYING $d/licenses/gzip-COPYING
           # (it starts: the libraries are all there)
-          (cd $d && ./blastcorps --help 2>&1 | grep "usage:")
+          (cd $d && { ./blastcorps --help 2>&1 || true; } | grep "usage:")
           tar czf $d.tar.gz $d
 
       - uses: actions/upload-artifact@v4

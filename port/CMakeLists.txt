@@ -82,8 +82,9 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 # LLVM's tools, next to the compiler first (Homebrew's LLVM isn't on PATH)
 get_filename_component(CLANG_BINDIR ${CMAKE_C_COMPILER} DIRECTORY)
 # the N64 link's ELFs are read with MIPS binutils, or LLVM's, which read any
-find_program(N64_NM NAMES mips-linux-gnu-nm llvm-nm HINTS ${CLANG_BINDIR} REQUIRED)
-find_program(N64_READELF NAMES mips-linux-gnu-readelf llvm-readelf HINTS ${CLANG_BINDIR} REQUIRED)
+# (not needed by the snapshot's build: checked below)
+find_program(N64_NM NAMES mips-linux-gnu-nm llvm-nm HINTS ${CLANG_BINDIR})
+find_program(N64_READELF NAMES mips-linux-gnu-readelf llvm-readelf HINTS ${CLANG_BINDIR})
 # the generators read the stage-2 build of PORT_VERSION
 set(PY ${CMAKE_COMMAND} -E env PORT_VERSION=${PORT_VERSION} PORT_N64_NM=${N64_NM} ${Python3_EXECUTABLE})
 
@@ -112,6 +113,9 @@ if(PORT_SNAPSHOT)
 else()
 if(NOT EXISTS ${BLAST}/build/hd_code.${PORT_VERSION}.elf)
     message(FATAL_ERROR "${BLAST}/build/hd_code.${PORT_VERSION}.elf is missing: build blastcorps (${PORT_VERSION}) first")
+endif()
+if(NOT N64_NM OR NOT N64_READELF)
+    message(FATAL_ERROR "no mips-linux-gnu-nm/readelf or llvm-nm/readelf to read the N64 link's ELFs with")
 endif()
 # blastcorps/asm holds one version at a time
 file(READ ${BLAST}/.version STAGE2_VERSION)
