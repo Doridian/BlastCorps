@@ -150,7 +150,7 @@ jobs:
           SDL2_VERSION: 2.32.10
 
       - name: Build
-        run: python3 port/build.py --release --cmake -DPORT_STATIC=ON
+        run: python3 port/build.py --release --cmake=-DPORT_STATIC=ON
 
       - name: Package (app in a dmg)
         timeout-minutes: 10
