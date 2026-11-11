@@ -26,23 +26,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The oldest Ubuntu LTS still in standard support, on purpose: the
+        # AppImage uses the host's glibc, which has to be at least as new as
+        # the one it was built against (the AppImage catalog tests on that
+        # release).  Not the newest runner, then; move on only when this one
+        # leaves standard support.
         include:
-          - runner: ubuntu-24.04
+          - runner: ubuntu-22.04
             arch: x86_64
-            appimage_arch: x86_64
-          - runner: ubuntu-24.04-arm
-            arch: arm64
-            appimage_arch: aarch64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
     runs-on: ${{ matrix.runner }}
     env:
       APPIMAGE_EXTRACT_AND_RUN: 1
+      LLVM_VERSION: 18
     steps:
       - uses: actions/checkout@v7
 
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm cmake ninja-build pkg-config libsdl2-dev libepoxy-dev file
+          sudo apt-get install -y cmake ninja-build pkg-config libsdl2-dev libepoxy-dev file
+          # 22.04's own clang (14) is too old (-ftrivial-auto-var-init=zero);
+          # apt.llvm.org's, the same major as 24.04's
+          curl -sSLfo llvm.sh https://apt.llvm.org/llvm.sh
+          sudo bash llvm.sh $LLVM_VERSION
+          echo /usr/lib/llvm-$LLVM_VERSION/bin >> $GITHUB_PATH
 
       - name: Build
         run: python3 port/build.py --release
@@ -50,8 +59,8 @@ jobs:
       - name: Package (AppImage)
         timeout-minutes: 10
         run: |
-          out=blastcorps-linux-${{ matrix.arch }}.AppImage
-          curl -sSLfo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.appimage_arch }}.AppImage
+          out=blastcorps-${{ matrix.arch }}.AppImage
+          curl -sSLfo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${{ matrix.arch }}.AppImage
           chmod +x linuxdeploy
           doc=AppDir/usr/share/doc/blastcorps
           mkdir -p $doc
@@ -68,8 +77,8 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: blastcorps-linux-${{ matrix.arch }}
-          path: blastcorps-linux-${{ matrix.arch }}.AppImage
+          name: blastcorps-${{ matrix.arch }}.AppImage
+          path: blastcorps-${{ matrix.arch }}.AppImage
 
   windows:
     runs-on: windows-latest

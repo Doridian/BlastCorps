@@ -1515,8 +1515,10 @@ fail headless).  CI builds it natively in MSYS2 on `windows-latest`.
 
 What `.github/workflows/build.yml` makes of the us.v11 port from the
 snapshot, one file each: an AppImage for Linux (linuxdeploy: SDL2 and
-libepoxy inside, libGL and the base libraries the system's; built on Ubuntu
-24.04, so it needs its glibc or newer), the static `.exe` for Windows, and
+libepoxy inside, libGL and the base libraries the system's; built on the
+oldest Ubuntu LTS still supported, 22.04, with apt.llvm.org's clang 18, so
+it needs that glibc or newer; named `blastcorps-<arch>.AppImage`, as the
+AppImage catalog wants), the static `.exe` for Windows, and
 for macOS `Blast Corps.app` (`port/res/Info.plist`; SDL2 built from source
 and linked in, `PORT_STATIC`, since Homebrew's `sdl2` is sdl2-compat, which
 loads SDL3 at run time; Homebrew's libepoxy in `Contents/Frameworks` by
