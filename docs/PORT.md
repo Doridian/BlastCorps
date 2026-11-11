@@ -1537,9 +1537,13 @@ again), and keeps the path in the player's data directory
 (`SDL_GetPrefPath`: `~/.local/share/BlastCorps`, `%APPDATA%\BlastCorps`,
 `~/Library/Application Support/BlastCorps`), where the save goes too
 unless `--save` says otherwise.  It asks again only if that file is gone.
-Nothing else is looked at.  Headless runs, and any run given a ROM, are as
-before; an error while finding or loading the ROM is also shown in a
-message box.
+Nothing else is looked at.  Where Linux has neither zenity nor kdialog
+(a minimal system, or a sandbox like the AppImage catalog's test), a
+window of its own asks for the ROM to be dropped on it instead, its text
+in the built-in font (`hdtext_line`): SDL 2.0's message box needs zenity
+or the X server's core fonts, so it can't be relied on to say anything
+there.  Headless runs, and any run given a ROM, are as before; an error
+while finding or loading the ROM is also shown in a message box.
 
 ## WebAssembly
 

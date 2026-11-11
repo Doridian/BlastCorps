@@ -407,3 +407,35 @@ unsigned hdtext_serial(int tex) {
     int i = tex - STENCIL_FIRST;
     return i >= 0 && i < (int)sizeof stencil_chars ? cache[i].serial : 0;
 }
+
+/* a line of text in the font, its coverage added into a w x h buffer with
+   its baseline's left end at (x, y), px pixels high; the width it took
+   (buf NULL: only that; romfind.c's window, where there is no file
+   dialog) */
+int hdtext_line(const char *s, float px, uint8_t *buf, int w, int h, int x, int y) {
+    if (!load_font())
+        return 0;
+    float scale = stbtt_ScaleForPixelHeight(&font, px);
+    float pen = (float)x;
+    for (; *s; s++) {
+        int g = stbtt_FindGlyphIndex(&font, (unsigned char)*s);
+        int adv, lsb, gw = 0, gh = 0, xo = 0, yo = 0;
+        stbtt_GetGlyphHMetrics(&font, g, &adv, &lsb);
+        uint8_t *bm = buf ? stbtt_GetGlyphBitmap(&font, scale, scale, g, &gw, &gh, &xo, &yo) : NULL;
+        int ox = (int)lrintf(pen) + xo, oy = y + yo;
+        for (int j = 0; bm && j < gh; j++)
+            for (int i = 0; i < gw; i++) {
+                int bx = ox + i, by = oy + j;
+                if (bx >= 0 && bx < w && by >= 0 && by < h) {
+                    int v = buf[by * w + bx] + bm[j * gw + i];
+                    buf[by * w + bx] = (uint8_t)(v > 255 ? 255 : v);
+                }
+            }
+        if (bm)
+            stbtt_FreeBitmap(bm, NULL);
+        pen += adv * scale;
+        if (s[1])
+            pen += scale * stbtt_GetGlyphKernAdvance(&font, g, stbtt_FindGlyphIndex(&font, (unsigned char)s[1]));
+    }
+    return (int)lrintf(pen) - x;
+}

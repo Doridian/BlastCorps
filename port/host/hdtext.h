@@ -25,5 +25,9 @@ const uint8_t *hdtext_image(int tex, const uint8_t *rgba);
 /* how many times glyph tex's image has been made: the renderer keeps one
    texture a glyph while this stays the same */
 unsigned hdtext_serial(int tex);
+/* a line of text in the font, px pixels high, its coverage added into a
+   w x h buffer (one byte a pixel) with the baseline's left end at (x, y);
+   the width it took (0: no font; buf NULL: only that) */
+int hdtext_line(const char *s, float px, uint8_t *buf, int w, int h, int x, int y);
 
 #endif
