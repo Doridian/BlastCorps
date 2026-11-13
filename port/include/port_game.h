@@ -70,6 +70,10 @@ int port_globe_view(int what);
    turn it by this frame, from the mouse and the right stick with
    --free-camera (port/host/ui.c); 0 otherwise */
 int port_camera_turn(void);
+/* 1 with --free-camera (port/host/ui.c): the terrain's first part, which
+   the game draws without the z-buffer, is then drawn with it
+   (port/engine/5CB60.c, terrain_depth) */
+int port_free_camera(void);
 /* the pitch: the follow camera's eye, h across and dy up from the point it
    looks at (00000.c, func_802507C8), turned up or down: what = 0, the new
    h, 1, the new dy (values, not pointers: the game's stack isn't the

@@ -2992,11 +2992,11 @@ void func_8024E4F4(Gfx **arg0, Frame *arg1, u8 arg2) {
     gDPSetTexturePersp(gfx++, G_TP_PERSP);
     gDPSetCycleType(gfx++, G_CYC_1CYCLE);
     gSPClearGeometryMode(gfx++, 0xFFFFFFFF);
-    gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_LOD);
+    gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_LOD | FREE_CAM_ZBUFFER);
     gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
     gDPSetCombineMode(gfx++, G_CC_MODULATEIA, G_CC_MODULATEIA);
     gDPSetTextureFilter(gfx++, G_TF_BILERP);
-    gDPSetRenderMode(gfx++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
+    gDPSetRenderMode(gfx++, G_RM_CLD_SURF | FREE_CAM_ZMODE, G_RM_CLD_SURF2);
     sp133 = D_803649E8 == 0 && (D_803649EC != 0 || (D_80364A90 & 0x1801) != 0);
     sp140 = 0;
     while (&D_803643C8[sp140] != D_803643CC) {
@@ -3111,11 +3111,11 @@ void func_8024F520(Gfx **arg0, Frame *arg1) {
     gDPSetTexturePersp(gfx++, G_TP_PERSP);
     gDPSetCycleType(gfx++, G_CYC_1CYCLE);
     gSPClearGeometryMode(gfx++, 0xFFFFFFFF);
-    gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_LOD);
+    gSPSetGeometryMode(gfx++, G_SHADE | G_SHADING_SMOOTH | G_CULL_BACK | G_LOD | FREE_CAM_ZBUFFER);
     gSPTexture(gfx++, 0xFFFF, 0xFFFF, 0, G_TX_RENDERTILE, G_ON);
     gDPSetCombineMode(gfx++, G_CC_MODULATEIA, G_CC_MODULATEIA);
     gDPSetTextureFilter(gfx++, G_TF_BILERP);
-    gDPSetRenderMode(gfx++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
+    gDPSetRenderMode(gfx++, G_RM_CLD_SURF | FREE_CAM_ZMODE, G_RM_CLD_SURF2);
     sp87 = 0;
     sp88 = 0;
     do {

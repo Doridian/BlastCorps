@@ -211,6 +211,28 @@ up:
     host's).  The game's own eye, which culling, sound and the building
     checks use, is left alone, so the tilt is only the picture.  It lasts
     for the level (paused too).
+  - The terrain's depth: the game draws the first of the terrain's four
+    parts (`D_80358030` and the level's list 6, `D_803BE6E0`) without the
+    z-buffer, its geometry mode cleared and no `Z_CMP`/`Z_UPD` in its
+    render modes; from the game's high cameras that ground never covers
+    itself or anything drawn after it.  Low down it showed in draw order:
+    hills behind over those in front, and vehicles and buildings behind a
+    hill through it.  With `--free-camera` the level loader
+    (`func_802A1C88`, `port/engine/5CB60.c`, `terrain_depth`) gives that
+    part the z-buffer as the other three have it, `G_ZBUFFER` and
+    `Z_CMP | Z_UPD`, in the per-frame lists' common start
+    (`displayLists[4..5]`), list 6, the lists it calls and the part's
+    groups and spans (no list is called from two parts).  The shadows
+    (`00000.c`'s `func_8024E4F4` and `func_8024F520`, `13A70.c`) and the
+    effects' sprites (`12D80.c`, `func_802575F4`), which the game draws
+    over the ground without the z-buffer (`G_RM_CLD_SURF`), are compared
+    with it as decals then, `Z_CMP | ZMODE_DEC` and nothing written
+    (`common.h`'s `FREE_CAM_ZBUFFER`/`FREE_CAM_ZMODE`, 0 on the N64):
+    a ramp or a hill in front hides them, and a sprite at the ground is
+    cut where it dips into it.  Only the sky is still drawn without the
+    z-buffer, first.  At the game's own angle the picture changes by a
+    few edge pixels, and where a shadow or smoke was drawn over what is
+    in front of it.
 - **one of the game's windows taking input** (yoshi.c, `26570.c`: the
   window `D_8036BB18` in state 2, `D_8036BB1C`, with input, flag 0x20),
   in the front end or paused: the arrows and WASD move, Enter and Space

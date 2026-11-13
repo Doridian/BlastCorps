@@ -1027,6 +1027,10 @@ float port_camera_pitch(int what, float h, float dy) {
     return what ? r * sinf(e * deg) : r * cosf(e * deg);
 }
 
+int port_free_camera(void) {
+    return host_free_camera;
+}
+
 int port_camera_turn(void) {
     int t = (int)lroundf(cam.turn * 1000);
     cam.turn -= t / 1000.0f;

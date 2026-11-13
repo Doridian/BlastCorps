@@ -226,8 +226,13 @@ void func_80258B78(Gfx **arg0, Frame *arg1) {
                 gSPSetGeometryMode(gfx++, G_ZBUFFER);
                 gDPSetRenderMode(gfx++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
             } else {
+#ifdef TARGET_PC
+                if (port_free_camera()) {
+                    gSPSetGeometryMode(gfx++, G_ZBUFFER);   /* (FREE_CAM_ZMODE: common.h) */
+                } else
+#endif
                 gSPClearGeometryMode(gfx++, G_ZBUFFER);
-                gDPSetRenderMode(gfx++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
+                gDPSetRenderMode(gfx++, G_RM_CLD_SURF | FREE_CAM_ZMODE, G_RM_CLD_SURF2);
             }
             gSPVertex(gfx++, &D_02000000.unk1900[0x200 + sp6C - 4], 4, 0);
             gSP1Triangle(gfx++, 0, 1, 3, 0);

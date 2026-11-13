@@ -83,6 +83,23 @@ typedef u32 uintptr_t;
 #endif
 
 /*
+ * The port's free camera (--free-camera, port/host/ui.c) sees the ground from
+ * low down, where what the game draws without the z-buffer on it, the
+ * shadows and the effects' sprites, would show through a hill in front.
+ * With it, those draws are compared with the z-buffer as decals (a small
+ * bias, nothing written): FREE_CAM_ZBUFFER is G_ZBUFFER for their geometry
+ * mode, FREE_CAM_ZMODE the render mode's Z_CMP | ZMODE_DEC.  Both are 0 on
+ * the N64 (and so in a run without the free camera).
+ */
+#ifdef TARGET_PC
+#define FREE_CAM_ZBUFFER (port_free_camera() ? G_ZBUFFER : 0)
+#define FREE_CAM_ZMODE (port_free_camera() ? Z_CMP | ZMODE_DEC : 0)
+#else
+#define FREE_CAM_ZBUFFER 0
+#define FREE_CAM_ZMODE 0
+#endif
+
+/*
  * The versions: the Makefile defines one of VERSION_US_V10, VERSION_US_V11,
  * VERSION_JP and VERSION_EU (the PC port builds us.v11).  Code that differs
  * is #if'd on them where it is.
