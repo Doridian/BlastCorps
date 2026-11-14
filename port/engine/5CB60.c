@@ -233,6 +233,67 @@ void func_802A2D68(LevelHeader *h) {
 #endif
 }
 
+/* The terrain is drawn in four parts, each the per-frame list of
+   5FD50.c's terrain_dl followed by one of the level's own lists
+   (displayLists[6..9], below): 00000.c draws the first part without the
+   z-buffer (its geometry mode cleared, and the render modes in it have no
+   Z_CMP or Z_UPD), the other three with it.  From the game's cameras, high
+   above, that ground never covers itself or anything drawn later; from
+   the free camera's low views it would show in its draw order, the hills
+   behind over the ones in front and what is behind a hill through it.  So
+   with --free-camera (port_free_camera) the first part is made to use the
+   z-buffer as the others do, once, as the level is loaded: G_ZBUFFER in
+   its geometry modes and Z_CMP | Z_UPD in its render modes, in the
+   per-frame lists' common start (displayLists[4..5]), the level's list 6
+   and the lists it calls, and the first part's groups and spans.  (No list
+   is called from two parts.)  Only the picture changes; the shadows and the
+   effects drawn on that ground are common.h's FREE_CAM_ZMODE. */
+static void terrain_depth(Gfx *p, Gfx *end, s32 calls) {
+    for (; p != end; p++) {
+        switch (DL_OP(p)) {
+            case (u8)G_SETGEOMETRYMODE:
+                p->words.w1 |= G_ZBUFFER;
+                break;
+            case (u8)G_SETOTHERMODE_L:
+                if (((p->words.w0 >> 8) & 0xFF) == G_MDSFT_RENDERMODE) {
+                    p->words.w1 |= Z_CMP | Z_UPD;
+                }
+                break;
+            case G_RDPSETOTHERMODE:
+                p->words.w1 |= Z_CMP | Z_UPD;
+                break;
+            case GBI_DL:
+                if (calls > 0) {
+                    terrain_depth((Gfx *)p->words.w1, NULL, calls - 1);
+                }
+                break;
+            case (u8)G_ENDDL:
+                if (end == NULL) {
+                    return;
+                }
+                break;
+        }
+    }
+}
+
+static void terrain_depth_level(LevelHeader *h) {
+    TerrainGroup *g = (TerrainGroup *)LEVEL_PTR(h, unkA0[0]);
+    TerrainGroup *gEnd = (TerrainGroup *)LEVEL_PTR(h, unkA0[1]);
+    TerrainSpan *s = (TerrainSpan *)LEVEL_PTR(h, unkA0[4]);
+    TerrainSpan *sEnd = (TerrainSpan *)LEVEL_PTR(h, unkA0[5]);
+
+    /* (what 5FD50.c starts each per-frame list with: the three that have
+       the z-buffer already set G_ZBUFFER before it) */
+    terrain_depth((Gfx *)LEVEL_PTR(h, displayLists[4]), (Gfx *)LEVEL_PTR(h, displayLists[5]), 0);
+    terrain_depth((Gfx *)LEVEL_PTR(h, displayLists[6]), NULL, 2);
+    for (; g != gEnd; g++) {
+        terrain_depth((Gfx *)((u8 *)h + g->dl), (Gfx *)((u8 *)h + g->dlEnd), 2);
+    }
+    for (; s != sEnd; s = SPAN_NEXT(s)) {
+        terrain_depth((Gfx *)((u8 *)h + s->dl), (Gfx *)((u8 *)h + s->dlEnd), 2);
+    }
+}
+
 /* func_802A1C88: the level's display lists: their G_DL words (offsets
    from the first list) made addresses, and the four the C draws */
 REGS(t0)
@@ -250,6 +311,9 @@ void func_802A1C88(LevelHeader *h) {
     D_803BE6E4 = (Gfx *)LEVEL_PTR(h, displayLists[7]);
     D_803BE6E8 = (Gfx *)LEVEL_PTR(h, displayLists[8]);
     D_803BE6EC = (Gfx *)LEVEL_PTR(h, displayLists[9]);
+    if (port_free_camera()) {
+        terrain_depth_level(h);
+    }
 }
 
 /* func_802A4464: a pointer to each terrain group's data (LevelHeader.

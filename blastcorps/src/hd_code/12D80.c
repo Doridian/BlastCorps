@@ -25,6 +25,11 @@ Gfx *func_802575F4(Gfx *arg0, void *arg1, void *arg2, s16 arg3, s32 arg4, s32 ar
     if (arg6 != 0) {
         gSPSetGeometryMode(arg0++, G_ZBUFFER);
     } else {
+#ifdef TARGET_PC
+        if (port_free_camera()) {
+            gSPSetGeometryMode(arg0++, G_ZBUFFER);  /* (FREE_CAM_ZMODE: common.h) */
+        } else
+#endif
         gSPClearGeometryMode(arg0++, G_ZBUFFER);
     }
     spBC = K0_TO_PHYS(arg2);
@@ -52,7 +57,7 @@ Gfx *func_802575F4(Gfx *arg0, void *arg1, void *arg2, s16 arg3, s32 arg4, s32 ar
             if (arg6 != 0) {
                 gDPSetRenderMode(arg0++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
             } else {
-                gDPSetRenderMode(arg0++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
+                gDPSetRenderMode(arg0++, G_RM_CLD_SURF | FREE_CAM_ZMODE, G_RM_CLD_SURF2);
             }
             gDPSetCombineMode(arg0++, G_CC_MODULATERGBA, G_CC_MODULATERGBA);
             break;
@@ -60,7 +65,7 @@ Gfx *func_802575F4(Gfx *arg0, void *arg1, void *arg2, s16 arg3, s32 arg4, s32 ar
             if (arg6 != 0) {
                 gDPSetRenderMode(arg0++, G_RM_ZB_CLD_SURF, G_RM_ZB_CLD_SURF2);
             } else {
-                gDPSetRenderMode(arg0++, G_RM_CLD_SURF, G_RM_CLD_SURF2);
+                gDPSetRenderMode(arg0++, G_RM_CLD_SURF | FREE_CAM_ZMODE, G_RM_CLD_SURF2);
             }
             gDPSetCombineMode(arg0++, G_CC_MODULATERGBA, G_CC_MODULATERGBA);
             break;
@@ -68,7 +73,7 @@ Gfx *func_802575F4(Gfx *arg0, void *arg1, void *arg2, s16 arg3, s32 arg4, s32 ar
             if (arg6 != 0) {
                 gDPSetRenderMode(arg0++, G_RM_ZB_OPA_SURF, G_RM_ZB_OPA_SURF2);
             } else {
-                gDPSetRenderMode(arg0++, G_RM_OPA_SURF, G_RM_OPA_SURF2);
+                gDPSetRenderMode(arg0++, G_RM_OPA_SURF | FREE_CAM_ZMODE, G_RM_OPA_SURF2);
             }
             gDPSetCombineMode(arg0++, G_CC_MODULATEI, G_CC_MODULATEI);
             break;
